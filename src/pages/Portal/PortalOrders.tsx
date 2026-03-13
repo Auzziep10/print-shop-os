@@ -222,7 +222,7 @@ export function PortalOrders() {
             </div>
 
             {/* Quick Action Side Buttons */}
-            <div className="w-[140px] shrink-0 flex flex-col gap-3 pt-6 lg:pt-8">
+            <div className="w-[140px] shrink-0 flex flex-col justify-center gap-3 h-[128px]">
                <button className="w-full bg-[#f0f0f0] hover:bg-[#e4e4e4] text-[13px] font-bold text-gray-800 rounded-full py-4 transition-all tracking-wide">
                  Tracking
                </button>
