@@ -1,9 +1,19 @@
-import { Outlet } from 'react-router-dom';
-import { Search } from 'lucide-react';
+import { Outlet, useParams } from 'react-router-dom';
+import { Search, Info } from 'lucide-react';
 
 export function PortalLayout() {
+  const { customerId } = useParams();
+
   return (
     <div className="min-h-screen bg-white text-black font-sans selection:bg-black selection:text-white">
+      {/* Admin Impersonation Banner */}
+      {customerId && (
+        <div className="bg-amber-300 text-amber-900 px-6 py-2 text-[13px] font-bold flex items-center justify-center gap-3 uppercase tracking-wider">
+          <Info size={16} />
+          Admin View: You are currently viewing the portal as Customer {customerId}
+        </div>
+      )}
+
       {/* Top Header */}
       <header className="flex items-center justify-between px-10 py-6 bg-white border-b border-black/5">
         <div className="flex items-center">

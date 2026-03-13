@@ -22,7 +22,7 @@ export function CustomerDetail() {
           <PillButton 
             variant="outline" 
             className="gap-2"
-            onClick={() => window.open('/portal', '_blank')}
+            onClick={() => window.open(`/portal/${id}`, '_blank')}
           >
             <ExternalLink size={16} />
             Login to Client Portal

@@ -32,6 +32,7 @@ function App() {
         {/* Public Client Portal Routes */}
         <Route path="/portal" element={<PortalLayout />}>
           <Route index element={<PortalOrders />} />
+          <Route path=":customerId" element={<PortalOrders />} />
         </Route>
 
         {/* Protected Application Routes */}
