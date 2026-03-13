@@ -11,6 +11,7 @@ import { Login } from './pages/Auth/Login';
 import { Navigate } from 'react-router-dom';
 import { PortalLayout } from './components/layout/PortalLayout';
 import { PortalOrders } from './pages/Portal/PortalOrders';
+import { SeedData } from './pages/Seed';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -28,6 +29,9 @@ function App() {
       <Routes>
         {/* Public Routes */}
         <Route path="/login" element={<Login />} />
+        
+        {/* Temp Seed Route */}
+        <Route path="/seed" element={<SeedData />} />
 
         {/* Public Client Portal Routes */}
         <Route path="/portal" element={<PortalLayout />}>
