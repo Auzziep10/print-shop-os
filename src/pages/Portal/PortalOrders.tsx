@@ -40,7 +40,7 @@ export function PortalOrders() {
 
   const customer = { ...mockCustomer, logo: liveLogo || mockCustomer?.logo };
 
-  const [expandedId, setExpandedId] = useState<string | null>('ORD-2212');
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   if (loading) {
     return (
