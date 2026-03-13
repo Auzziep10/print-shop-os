@@ -3,9 +3,20 @@ import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
 import { ArrowLeft, Mail, Phone, MapPin, Building2, ExternalLink, ShieldAlert, FileText, Plus } from 'lucide-react';
 
+const MOCK_CUSTOMERS_DB: Record<string, any> = {
+  'CUS-001': { company: 'Wayne Enterprises', ltv: '$45,200', location: 'Gotham City, NJ', email: 'billing@wayne.ent', phone: '(555) 019-8384', type: 'B2B' },
+  'CUS-002': { company: 'Stark Industries', ltv: '$128,500', location: 'Malibu, CA', email: 'billing@stark.com', phone: '(555) 987-6543', type: 'B2B' },
+  'CUS-003': { company: 'Daily Bugle', ltv: '$12,400', location: 'New York, NY', email: 'accounts@bugle.net', phone: '(555) 111-2222', type: 'B2B' },
+  'CUS-004': { company: 'Daily Planet', ltv: '$8,900', location: 'Metropolis, NY', email: 'billing@dailyplanet.com', phone: '(555) 333-4444', type: 'B2B' },
+  'CUS-005': { company: 'Acme Corp', ltv: '$3,200', location: 'Desert Valley, AZ', email: 'wile@acme.corp', phone: '(555) 999-8888', type: 'B2B' },
+  'CUS-006': { company: 'Peter Parker', ltv: '$450', location: 'Queens, NY', email: 'peter@webhead.net', phone: '(555) 000-0000', type: 'DTC' },
+};
+
 export function CustomerDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  
+  const customer = id ? MOCK_CUSTOMERS_DB[id] : MOCK_CUSTOMERS_DB['CUS-001'];
 
   return (
     <div className={tokens.layout.container}>
@@ -35,34 +46,36 @@ export function CustomerDetail() {
 
       {/* Header Profile */}
       <div className="bg-white p-8 rounded-card border border-brand-border shadow-sm mb-8 flex flex-col md:flex-row gap-8 items-start justify-between">
-         <div className="flex items-start gap-6">
+          <div className="flex items-start gap-6">
             <div className="w-24 h-24 rounded-xl border border-brand-border bg-brand-bg flex items-center justify-center text-brand-secondary flex-shrink-0">
                <Building2 size={40} strokeWidth={1} />
             </div>
             <div>
                <div className="flex items-center gap-3 mb-2">
-                 <h1 className="font-serif text-4xl text-brand-primary">Wayne Enterprises</h1>
+                 <h1 className="font-serif text-3xl text-brand-primary">{customer?.company || 'Unknown Company'}</h1>
                  <span className="text-[10px] bg-brand-bg border border-brand-border px-2 py-0.5 rounded text-brand-secondary font-semibold uppercase tracking-wider">{id}</span>
                </div>
                <div className="flex items-center gap-4 text-sm text-brand-secondary mb-4">
-                  <span className="flex items-center gap-1.5"><MapPin size={14} /> Gotham City, NJ</span>
-                  <span className="flex items-center gap-1.5"><Phone size={14} /> (555) 019-8384</span>
-                  <span className="flex items-center gap-1.5"><Mail size={14} /> billing@wayne.ent</span>
+                  <span className="flex items-center gap-1.5"><MapPin size={14} /> {customer?.location}</span>
+                  <span className="flex items-center gap-1.5"><Phone size={14} /> {customer?.phone}</span>
+                  <span className="flex items-center gap-1.5"><Mail size={14} /> {customer?.email}</span>
                </div>
                <div className="flex gap-2">
-                 <span className="text-[10px] bg-brand-bg border border-brand-border px-2.5 py-1 rounded-md text-brand-secondary font-semibold uppercase tracking-wider">B2B Corp</span>
-                 <span className="text-[10px] bg-blue-50 border border-blue-200 text-blue-700 px-2.5 py-1 rounded-md font-semibold uppercase tracking-wider">Net 30 Terms</span>
+                 <span className="text-[10px] bg-brand-bg border border-brand-border px-2.5 py-1 rounded-md text-brand-secondary font-semibold uppercase tracking-wider">{customer?.type}</span>
+                 {customer?.type === 'B2B' && (
+                   <span className="text-[10px] bg-blue-50 border border-blue-200 text-blue-700 px-2.5 py-1 rounded-md font-semibold uppercase tracking-wider">Net 30 Terms</span>
+                 )}
                </div>
             </div>
          </div>
          <div className="flex gap-8 text-right bg-brand-bg/50 p-6 rounded-2xl border border-brand-border border-dashed">
             <div>
                <p className="text-xs uppercase font-bold tracking-widest text-brand-secondary mb-1">Total Orders</p>
-               <p className="font-serif text-3xl">42</p>
+               <p className="font-serif text-3xl">{id === 'CUS-001' ? '42' : '1'}</p>
             </div>
             <div>
                <p className="text-xs uppercase font-bold tracking-widest text-brand-secondary mb-1">Lifetime Value</p>
-               <p className="font-serif text-3xl">$45,200</p>
+               <p className="font-serif text-3xl">{customer?.ltv}</p>
             </div>
          </div>
       </div>
