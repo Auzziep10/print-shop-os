@@ -2,22 +2,36 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
-import { Search, Filter, Plus, FileDown, MoreHorizontal } from 'lucide-react';
+import { Search, Filter, Plus, FileDown, MoreHorizontal, Loader2 } from 'lucide-react';
 import { StatusBadge, type StatusType } from '../../components/ui/StatusBadge';
-
-const MOCK_ORDERS = [
-  { id: 'ORD-101', customer: 'Acme Corp', title: '100x Black Tees', status: 'quote' as StatusType, items: 100, due: 'Oct 24, 2026', total: '$1,250' },
-  { id: 'ORD-102', customer: 'Stark Industries', title: '50x Embroidered Hats', status: 'artwork' as StatusType, items: 50, due: 'Oct 25, 2026', total: '$850' },
-  { id: 'ORD-103', customer: 'Wayne Ent', title: '250x Event Polos', status: 'production' as StatusType, subStatus: 'Printing', items: 250, due: 'Today', total: '$4,500' },
-  { id: 'ORD-105', customer: 'Daily Bugle', title: '1000x Tote Bags', status: 'production' as StatusType, subStatus: 'Curing', items: 1000, due: 'Tomorrow', total: '$3,200' },
-  { id: 'ORD-104', customer: 'Daily Planet', title: '20x Team Jackets', status: 'qc' as StatusType, items: 20, due: 'Oct 28, 2026', total: '$1,800' },
-  { id: 'ORD-106', customer: 'LexCorp', title: '500x Mugs', status: 'completed' as StatusType, items: 500, due: 'Oct 20, 2026', total: '$2,100' },
-  { id: 'ORD-107', customer: 'Oscorp', title: '150x Hoodies', status: 'approval' as StatusType, items: 150, due: 'Oct 29, 2026', total: '$3,400' },
-];
+import { useOrders } from '../../hooks/useOrders';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '../../lib/firebase';
 
 export function OrdersList() {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
+  const { orders, loading } = useOrders();
+
+  const handleNextStatus = async (e: React.MouseEvent, orderId: string, currentIndex: number) => {
+    e.stopPropagation();
+    // Advance logic (0->1->2->3->4->5 -> loops back to 0 just for demo purposes)
+    const nextIndex = currentIndex < 5 ? currentIndex + 1 : 0;
+    try {
+      await updateDoc(doc(db, 'orders', orderId), { statusIndex: nextIndex });
+    } catch (err) {
+      console.error("Error updating status: ", err);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center min-h-[50vh] text-brand-secondary gap-3">
+        <Loader2 className="animate-spin" size={32} />
+        <p className="font-semibold uppercase tracking-widest text-xs">Loading Live Orders...</p>
+      </div>
+    );
+  }
 
   return (
     <div className={tokens.layout.container}>
@@ -83,28 +97,58 @@ export function OrdersList() {
           
           {/* Table Body */}
           <div className="divide-y divide-brand-border/60">
-            {MOCK_ORDERS.map((order) => (
-              <div 
-                key={order.id} 
-                onClick={() => navigate(`/orders/${order.id}`)}
-                className="grid grid-cols-[100px_minmax(200px,1fr)_minmax(250px,2fr)_150px_100px_120px_100px_60px] p-4 items-center hover:bg-brand-bg transition-colors cursor-pointer group"
-              >
-                <div className="px-2 text-xs font-semibold text-brand-secondary">{order.id}</div>
-                <div className="font-serif text-lg text-brand-primary truncate pr-4">{order.customer}</div>
-                <div className="text-sm text-brand-secondary truncate pr-4">{order.title}</div>
-                <div>
-                  <StatusBadge status={order.status} subStatus={order.subStatus} />
+            {orders.map((order) => {
+              
+              // Calculate dynamic sums from the line items array
+              const totalItems = order.items?.reduce((acc: number, i: any) => acc + (i.qty || 0), 0) || 0;
+              const totalPriceRaw = order.items?.reduce((acc: number, i: any) => {
+                const priceMatch = (i.total || '$0').replace(/[^0-9.]/g, '');
+                return acc + (parseFloat(priceMatch) || 0);
+              }, 0) || 0;
+
+              // Format price beautifully
+              const totalFormatted = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalPriceRaw);
+
+              // Map strict 5-step Portal Index to our flexible Admin pipeline Badge component
+              let badgeStatus: StatusType = 'quote';
+              let subStatus = '';
+              switch(order.statusIndex) {
+                 case 0: badgeStatus = 'quote'; subStatus = 'Placed'; break;
+                 case 1: badgeStatus = 'approval'; subStatus = 'Shopping'; break;
+                 case 2: badgeStatus = 'production'; subStatus = 'Ordered'; break;
+                 case 3: badgeStatus = 'production'; subStatus = 'Processing'; break;
+                 case 4: badgeStatus = 'completed'; subStatus = 'Shipped'; break;
+                 case 5: badgeStatus = 'completed'; subStatus = 'Received'; break;
+              }
+
+              // CRM Mapping just for visual clarity
+              const customerName = order.customerId === 'CUS-001' ? 'Wayne Enterprises' : order.customerId;
+
+              return (
+                <div 
+                  key={order.id} 
+                  onClick={() => navigate(`/orders/${order.id}`)}
+                  className="grid grid-cols-[100px_minmax(200px,1fr)_minmax(250px,2fr)_150px_100px_120px_100px_60px] p-4 items-center hover:bg-brand-bg transition-colors cursor-pointer group"
+                >
+                  <div className="px-2 text-xs font-semibold text-brand-secondary">{order.portalId || order.id}</div>
+                  <div className="font-serif text-lg text-brand-primary truncate pr-4">{customerName}</div>
+                  <div className="text-sm text-brand-secondary truncate pr-4">{order.title}</div>
+                  <div onClick={(e) => handleNextStatus(e, order.id, order.statusIndex)} className="group/badge" title="Click to bump status!">
+                    <div className="group-hover/badge:scale-105 transition-transform origin-left">
+                       <StatusBadge status={badgeStatus} subStatus={subStatus} />
+                    </div>
+                  </div>
+                  <div className="text-right text-sm font-medium text-brand-primary">{totalItems} qt</div>
+                  <div className="text-right text-sm font-serif text-brand-primary">{totalFormatted}</div>
+                  <div className="text-right pr-4 text-sm font-medium text-brand-secondary group-hover:text-brand-primary transition-colors">{order.date}</div>
+                  <div className="flex justify-end">
+                     <button className="p-1.5 text-brand-secondary hover:text-brand-primary rounded-md hover:bg-white transition-colors">
+                       <MoreHorizontal size={18} />
+                     </button>
+                  </div>
                 </div>
-                <div className="text-right text-sm font-medium text-brand-primary">{order.items}</div>
-                <div className="text-right text-sm font-serif text-brand-primary">{order.total}</div>
-                <div className="text-right pr-4 text-sm font-medium text-brand-secondary group-hover:text-brand-primary transition-colors">{order.due}</div>
-                <div className="flex justify-end">
-                   <button className="p-1.5 text-brand-secondary hover:text-brand-primary rounded-md hover:bg-white transition-colors">
-                     <MoreHorizontal size={18} />
-                   </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>

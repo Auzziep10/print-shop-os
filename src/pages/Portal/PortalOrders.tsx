@@ -1,82 +1,9 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
+import { useParams } from 'react-router-dom';
+import { useOrders } from '../../hooks/useOrders';
 
 const STATUS_STEPS = ['Placed', 'Shopping', 'Ordered', 'Processing', 'Shipped', 'Received'];
-
-const MOCK_PORTAL_ORDERS = [
-  {
-    id: '#2212',
-    title: 'Polos, Jackets, Acess...',
-    date: '3/29/26',
-    statusIndex: 2, // Ordered
-    logo: 'https://images.unsplash.com/photo-1599305445671-ac291c95aaa9?w=200&h=200&fit=crop',
-    items: [
-      {
-        id: 1,
-        gender: 'Mens',
-        style: 'Pique Polo',
-        image: 'https://images.unsplash.com/photo-1576566588028-4147f3842f27?w=150&h=150&fit=crop',
-        itemNum: 'PB26-1015',
-        color: 'White/Navy',
-        logos: ['Left Chest', 'Nape', 'Right Collar'],
-        sizes: { OSFA: 0, XS: 0, S: 20, M: 50, L: 75, XL: 45, '2XL': 25, '3XL': 15 },
-        qty: 230,
-        price: '$74.99',
-        total: '$17,247.70'
-      },
-      {
-        id: 2,
-        gender: 'Womens',
-        style: 'Long Sleeve 1/4 Zip Polo',
-        image: 'https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?w=150&h=150&fit=crop',
-        itemNum: 'PB26-1015',
-        color: 'Baby Blue',
-        logos: ['Left Chest', 'Left Sleeve'],
-        sizes: { OSFA: 0, XS: 20, S: 40, M: 75, L: 50, XL: 35, '2XL': 15, '3XL': 0 },
-        qty: 235,
-        price: '$80.00',
-        total: '$18,800.00'
-      },
-      {
-        id: 3,
-        gender: 'Accessories',
-        style: 'Leather Bag',
-        image: 'https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=150&h=150&fit=crop',
-        itemNum: 'PB26-1027',
-        color: 'Navy Leather',
-        logos: ['Left Chest'],
-        sizes: { OSFA: 500, XS: 0, S: 0, M: 0, L: 0, XL: 0, '2XL': 0, '3XL': 0 },
-        qty: 500,
-        price: '$120.00',
-        total: '$60,000.00'
-      }
-    ]
-  },
-  {
-    id: '#2213',
-    title: 'Hats, Leggings',
-    date: '3/30/26',
-    statusIndex: 4, // Shipped
-    logo: 'https://images.unsplash.com/photo-1599305445671-ac291c95aaa9?w=200&h=200&fit=crop',
-    items: []
-  },
-  {
-    id: '#2214',
-    title: 'Graphic T-Shirts',
-    date: '4/01/26',
-    statusIndex: 1, // Shopping
-    logo: 'https://images.unsplash.com/photo-1599305445671-ac291c95aaa9?w=200&h=200&fit=crop',
-    items: []
-  },
-  {
-    id: '#2215',
-    title: 'Winter Gear',
-    date: '4/02/26',
-    statusIndex: 4, // Shipped
-    logo: 'https://images.unsplash.com/photo-1599305445671-ac291c95aaa9?w=200&h=200&fit=crop',
-    items: []
-  }
-];
 
 // Helper component for the little gray pills in the items breakdown
 const DataPill = ({ label, value }: { label: string, value: string }) => (
@@ -87,12 +14,24 @@ const DataPill = ({ label, value }: { label: string, value: string }) => (
 );
 
 export function PortalOrders() {
-  const [expandedId, setExpandedId] = useState<string | null>('#2212');
+  const { customerId } = useParams();
+  // If no customerId is in the URL, fallback to Wayne Enterprises 'CUS-001' to demo it!
+  const { orders, loading } = useOrders(customerId || 'CUS-001');
+
+  const [expandedId, setExpandedId] = useState<string | null>('ORD-2212');
+
+  if (loading) {
+    return (
+      <div className="min-h-[50vh] flex flex-col items-center justify-center text-gray-400 gap-3">
+        <Loader2 className="animate-spin" size={32} />
+        <p className="font-semibold uppercase tracking-widest text-xs">Loading Live Pipeline...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-[1600px] mx-auto flex flex-col gap-6">
-      
-      {MOCK_PORTAL_ORDERS.map((order) => {
+      {orders.map((order: any) => {
         const isExpanded = expandedId === order.id;
         // Calculate the percentage width for the progress bar fill
         const fillWidth = `${(order.statusIndex / (STATUS_STEPS.length - 1)) * 100}%`;
@@ -116,7 +55,7 @@ export function PortalOrders() {
                       className="flex items-center gap-3 cursor-pointer group"
                       onClick={() => setExpandedId(isExpanded ? null : order.id)}
                     >
-                      <h2 className="text-2xl font-serif text-gray-900">Order {order.id}</h2>
+                      <h2 className="text-2xl font-serif text-gray-900">Order {order.portalId}</h2>
                       <span className="text-gray-400 group-hover:text-black transition-colors">
                         {isExpanded ? <ChevronDown size={20} strokeWidth={2.5} /> : <ChevronRight size={20} strokeWidth={2.5} />}
                       </span>
@@ -164,7 +103,7 @@ export function PortalOrders() {
               {/* Expanded Items Section */}
               {isExpanded && order.items.length > 0 && (
                 <div className="mt-14 space-y-4">
-                  {order.items.map((item) => (
+                  {order.items?.map((item: any) => (
                     <div key={item.id} className="bg-white rounded-3xl p-4 px-6 flex flex-wrap items-center justify-between gap-6 shadow-[0_4px_12px_rgb(0,0,0,0.02)]">
                       
                       {/* Product Visual */}
@@ -182,14 +121,14 @@ export function PortalOrders() {
                       <div className="flex flex-wrap gap-2">
                          <DataPill label="Item #" value={item.itemNum} />
                          <DataPill label="Garment Color" value={item.color} />
-                         {item.logos.map((logo, i) => (
+                         {item.logos?.map((logo: string, i: number) => (
                            <DataPill key={i} label={`Logo ${i+1}`} value={logo} />
                          ))}
                       </div>
 
                       {/* Sizing Grid Area */}
                       <div className="flex items-stretch gap-[2px] bg-[#eaeaec] p-[3px] rounded-xl font-sans">
-                        {Object.entries(item.sizes).map(([size, qty]) => (
+                        {item.sizes && Object.entries(item.sizes).map(([size, qty]: [string, any]) => (
                           <div key={size} className="w-10 text-center flex flex-col">
                             <div className="bg-[#d5d5d8] text-gray-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">{size}</div>
                             <div className={`text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center bg-white ${qty > 0 ? 'text-gray-900' : 'text-gray-400'}`}>
