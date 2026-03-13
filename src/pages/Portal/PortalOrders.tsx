@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ChevronDown, ChevronRight, Loader2, PackageOpen, Building2 } from 'lucide-react';
 import { useParams } from 'react-router-dom';
 import { useOrders } from '../../hooks/useOrders';
 import { MOCK_CUSTOMERS_DB } from '../../lib/mockData';
+import { db } from '../../lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 
 const STATUS_STEPS = ['Placed', 'Shopping', 'Ordered', 'Processing', 'Shipped', 'Received'];
 
@@ -20,7 +22,23 @@ export function PortalOrders() {
   
   // If no customerId is in the URL, fallback to Wayne Enterprises 'CUS-001' to demo it!
   const { orders, loading } = useOrders(currentCustomerId);
-  const customer = MOCK_CUSTOMERS_DB[currentCustomerId];
+  const mockCustomer = MOCK_CUSTOMERS_DB[currentCustomerId];
+
+  const [liveLogo, setLiveLogo] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchCustomer = async () => {
+      try {
+        const d = await getDoc(doc(db, 'customers', currentCustomerId));
+        if (d.exists() && d.data().logo) {
+          setLiveLogo(d.data().logo);
+        }
+      } catch (err) {}
+    };
+    fetchCustomer();
+  }, [currentCustomerId]);
+
+  const customer = { ...mockCustomer, logo: liveLogo || mockCustomer?.logo };
 
   const [expandedId, setExpandedId] = useState<string | null>('ORD-2212');
 
