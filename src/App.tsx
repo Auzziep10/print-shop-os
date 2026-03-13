@@ -9,6 +9,8 @@ import { CustomerDetail } from './pages/Customers/CustomerDetail';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Login } from './pages/Auth/Login';
 import { Navigate } from 'react-router-dom';
+import { PortalLayout } from './components/layout/PortalLayout';
+import { PortalOrders } from './pages/Portal/PortalOrders';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -26,6 +28,11 @@ function App() {
       <Routes>
         {/* Public Routes */}
         <Route path="/login" element={<Login />} />
+
+        {/* Public Client Portal Routes */}
+        <Route path="/portal" element={<PortalLayout />}>
+          <Route index element={<PortalOrders />} />
+        </Route>
 
         {/* Protected Application Routes */}
         <Route path="/" element={

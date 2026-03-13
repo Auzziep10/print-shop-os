@@ -19,7 +19,11 @@ export function CustomerDetail() {
           Back to Customers
         </button>
         <div className="flex items-center gap-3">
-          <PillButton variant="outline" className="gap-2">
+          <PillButton 
+            variant="outline" 
+            className="gap-2"
+            onClick={() => window.open('/portal', '_blank')}
+          >
             <ExternalLink size={16} />
             Login to Client Portal
           </PillButton>
