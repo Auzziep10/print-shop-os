@@ -1,12 +1,57 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
-import { ArrowLeft, MessageSquare, Clock, Users, Link as LinkIcon, Download, Image as ImageIcon } from 'lucide-react';
-import { StatusBadge } from '../../components/ui/StatusBadge';
+import { ArrowLeft, MessageSquare, Clock, Users, Link as LinkIcon, Download, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { StatusBadge, type StatusType } from '../../components/ui/StatusBadge';
+import { useOrders } from '../../hooks/useOrders';
+import { MOCK_CUSTOMERS_DB } from '../../lib/mockData';
 
 export function OrderDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { orders, loading } = useOrders();
+
+  if (loading) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center min-h-[50vh] text-brand-secondary gap-3">
+        <Loader2 className="animate-spin" size={32} />
+        <p className="font-semibold uppercase tracking-widest text-xs">Loading Order Details...</p>
+      </div>
+    );
+  }
+
+  const order = orders.find(o => o.id === id);
+
+  if (!order) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center min-h-[50vh] text-brand-secondary gap-3">
+        <p className="font-semibold uppercase tracking-widest text-xs">Order not found.</p>
+        <PillButton variant="outline" onClick={() => navigate('/orders')}>Back to Orders</PillButton>
+      </div>
+    );
+  }
+
+  const customer = MOCK_CUSTOMERS_DB[order.customerId] || MOCK_CUSTOMERS_DB['CUS-001'];
+  
+  // Calculate dynamic sums from the line items array
+  const totalItems = order.items?.reduce((acc: number, i: any) => acc + (i.qty || 0), 0) || 0;
+  const totalPriceRaw = order.items?.reduce((acc: number, i: any) => {
+    const priceMatch = (i.total || '$0').replace(/[^0-9.]/g, '');
+    return acc + (parseFloat(priceMatch) || 0);
+  }, 0) || 0;
+  const totalFormatted = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalPriceRaw);
+
+  // Map strict 5-step Portal Index to our flexible Admin pipeline Badge component
+  let badgeStatus: StatusType = 'quote';
+  let subStatus = '';
+  switch(order.statusIndex) {
+     case 0: badgeStatus = 'quote'; subStatus = 'Placed'; break;
+     case 1: badgeStatus = 'approval'; subStatus = 'Shopping'; break;
+     case 2: badgeStatus = 'production'; subStatus = 'Ordered'; break;
+     case 3: badgeStatus = 'production'; subStatus = 'Processing'; break;
+     case 4: badgeStatus = 'completed'; subStatus = 'Shipped'; break;
+     case 5: badgeStatus = 'completed'; subStatus = 'Received'; break;
+  }
 
   return (
     <div className={tokens.layout.container}>
@@ -38,23 +83,23 @@ export function OrderDetail() {
           <div className="bg-white p-8 rounded-card border border-brand-border shadow-sm">
             <div className="flex justify-between items-start mb-6">
                <div>
-                  <h1 className="font-serif text-4xl text-brand-primary mb-2">Wayne Ent</h1>
-                  <p className="text-lg text-brand-secondary">250x Event Polos</p>
+                  <h1 className="font-serif text-4xl text-brand-primary mb-2">{customer.company}</h1>
+                  <p className="text-lg text-brand-secondary">{order.title}</p>
                </div>
                <div className="text-right">
-                  <p className="text-xs uppercase font-bold tracking-widest text-brand-secondary mb-3">Order {id}</p>
-                  <StatusBadge status="production" subStatus="Printing" />
+                  <p className="text-xs uppercase font-bold tracking-widest text-brand-secondary mb-3">Order {order.portalId || order.id}</p>
+                  <StatusBadge status={badgeStatus} subStatus={subStatus} />
                </div>
             </div>
             
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 pt-6 border-t border-brand-border">
                <div>
                   <span className="text-xs text-brand-secondary font-medium uppercase tracking-wider block mb-1">Due Date</span>
-                  <span className="font-serif text-lg">Oct 29, 2026</span>
+                  <span className="font-serif text-lg">{order.date}</span>
                </div>
                <div>
                   <span className="text-xs text-brand-secondary font-medium uppercase tracking-wider block mb-1">Total Items</span>
-                  <span className="font-serif text-lg">250</span>
+                  <span className="font-serif text-lg">{totalItems}</span>
                </div>
                <div>
                   <span className="text-xs text-brand-secondary font-medium uppercase tracking-wider block mb-1">Delivery</span>
@@ -62,7 +107,7 @@ export function OrderDetail() {
                </div>
                <div>
                   <span className="text-xs text-brand-secondary font-medium uppercase tracking-wider block mb-1">Est. Total</span>
-                  <span className="font-serif text-lg">$4,500.00</span>
+                  <span className="font-serif text-lg">{totalFormatted}</span>
                </div>
             </div>
           </div>
@@ -71,29 +116,37 @@ export function OrderDetail() {
           <div>
             <h2 className={tokens.typography.h2 + " mb-4"}>Order Items</h2>
             <div className="bg-white rounded-card border border-brand-border overflow-hidden">
-               {/* Item Row */}
-               <div className="p-6 border-b border-brand-border/50 flex gap-6 items-start hover:bg-brand-bg transition-colors">
-                  <div className="w-24 h-24 bg-brand-muted border border-brand-border rounded-lg flex-shrink-0 flex items-center justify-center text-xs text-brand-secondary italic">
-                     Image
-                  </div>
-                  <div className="flex-1">
-                     <h3 className="font-serif text-xl mb-1">Port Authority Silk Touch Polo</h3>
-                     <p className="text-sm text-brand-secondary mb-3">Color: Jet Black • K500</p>
-                     
-                     <div className="flex items-center gap-2 mb-4">
-                       {['S', 'M', 'L', 'XL', '2XL'].map((size, i) => (
-                         <div key={size} className="flex flex-col items-center">
-                           <span className="w-8 h-8 rounded border border-brand-border flex items-center justify-center text-xs font-semibold bg-brand-bg mb-1">{size}</span>
-                           <span className="text-xs text-brand-secondary font-medium">{[20, 50, 80, 70, 30][i]}</span>
-                         </div>
-                       ))}
-                     </div>
-                  </div>
-                  <div className="text-right">
-                     <span className="font-serif text-xl block">$18.00</span>
-                     <span className="text-xs text-brand-secondary">/ ea</span>
-                  </div>
-               </div>
+               {order.items?.length > 0 ? order.items.map((item: any) => (
+                 <div key={item.id} className="p-6 border-b border-brand-border/50 flex gap-6 items-start hover:bg-brand-bg transition-colors last:border-0">
+                    <div className="w-24 h-24 bg-brand-muted border border-brand-border rounded-lg flex-shrink-0 flex items-center justify-center overflow-hidden bg-white selection:bg-transparent">
+                       <img src={item.image} alt={item.style} className="w-full h-full object-cover mix-blend-multiply p-1" />
+                    </div>
+                    <div className="flex-1">
+                       <h3 className="font-serif text-xl mb-1">{item.style}</h3>
+                       <p className="text-sm text-brand-secondary mb-3">Color: {item.color} • {item.itemNum}</p>
+                       
+                       <div className="flex flex-wrap items-center gap-2 mb-4">
+                         {Object.entries(item.sizes || {}).map(([size, quantity]: [string, any]) => {
+                           if (quantity > 0) {
+                             return (
+                               <div key={size} className="flex flex-col items-center">
+                                 <span className="w-8 h-8 rounded border border-brand-border flex items-center justify-center text-xs font-semibold bg-brand-bg mb-1 uppercase">{size}</span>
+                                 <span className="text-xs text-brand-secondary font-medium">{quantity}</span>
+                               </div>
+                             );
+                           }
+                           return null;
+                         })}
+                       </div>
+                    </div>
+                    <div className="text-right">
+                       <span className="font-serif text-xl block">{item.price}</span>
+                       <span className="text-xs text-brand-secondary">/ ea</span>
+                    </div>
+                 </div>
+               )) : (
+                 <div className="p-6 text-center text-brand-secondary">No items found in this order.</div>
+               )}
             </div>
           </div>
           

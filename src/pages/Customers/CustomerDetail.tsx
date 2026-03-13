@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
-import { ArrowLeft, Mail, Phone, MapPin, Building2, ExternalLink, ShieldAlert, FileText, Plus, Loader2 } from 'lucide-react';
+import { ArrowLeft, Mail, Phone, MapPin, Building2, ExternalLink, ShieldAlert, FileText, Plus, Loader2, Upload } from 'lucide-react';
 import { MOCK_CUSTOMERS_DB } from '../../lib/mockData';
 import { useOrders } from '../../hooks/useOrders';
 
@@ -41,12 +41,19 @@ export function CustomerDetail() {
       {/* Header Profile */}
       <div className="bg-white p-8 rounded-card border border-brand-border shadow-sm mb-8 flex flex-col md:flex-row gap-8 items-start justify-between">
           <div className="flex items-start gap-6">
-            <div className={`w-24 h-24 rounded-xl border border-brand-border bg-brand-bg flex items-center justify-center text-brand-secondary flex-shrink-0 overflow-hidden ${customer?.logo ? 'bg-white' : ''}`}>
+            <div className={`relative w-24 h-24 rounded-xl border border-brand-border bg-brand-bg flex items-center justify-center text-brand-secondary flex-shrink-0 overflow-hidden group ${customer?.logo ? 'bg-white' : ''}`}>
                {customer?.logo ? (
                  <img src={customer.logo} className="w-full h-full object-cover filter grayscale contrast-125 mix-blend-multiply opacity-80" alt={customer.company} />
                ) : (
                  <Building2 size={40} strokeWidth={1} />
                )}
+               
+               {/* Hover Upload Overlay */}
+               <label className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center cursor-pointer text-white">
+                 <Upload size={20} className="mb-1" />
+                 <span className="text-[9px] font-bold uppercase tracking-widest text-white/90">Edit Logo</span>
+                 <input type="file" className="hidden" accept="image/*" />
+               </label>
             </div>
             <div>
                <div className="flex items-center gap-3 mb-2">
