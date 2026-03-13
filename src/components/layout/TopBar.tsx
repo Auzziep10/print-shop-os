@@ -1,7 +1,10 @@
-import { Search, Bell, Plus } from 'lucide-react';
+import { Search, Bell, Plus, LogOut } from 'lucide-react';
 import { PillButton } from '../ui/PillButton';
+import { useAuth } from '../../contexts/AuthContext';
 
 export function TopBar() {
+  const { user, signOut } = useAuth();
+
   return (
     <header className="h-16 border-b border-brand-border bg-white px-6 flex items-center justify-between sticky top-0 z-10 w-full">
       <div className="max-w-md w-full relative">
@@ -26,8 +29,13 @@ export function TopBar() {
           New Order
         </PillButton>
 
-        <button className="flex items-center justify-center w-8 h-8 rounded-full bg-brand-primary text-white text-xs font-medium ml-2 border-2 border-transparent hover:border-brand-border transition-all">
-          AG
+        <button 
+          onClick={() => signOut()}
+          className="flex items-center justify-center w-8 h-8 rounded-full bg-brand-primary text-white text-xs font-medium ml-2 border-2 border-transparent hover:border-brand-border transition-all group relative"
+          title="Sign Out"
+        >
+          <span className="group-hover:hidden uppercase">{user?.displayName ? user.displayName.substring(0, 2) : 'OS'}</span>
+          <LogOut size={14} className="hidden group-hover:block" />
         </button>
       </div>
     </header>

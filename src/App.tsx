@@ -6,13 +6,35 @@ import { OrdersList } from './pages/Orders/OrdersList';
 import { OrderDetail } from './pages/Orders/OrderDetail';
 import { CustomersList } from './pages/Customers/CustomersList';
 import { CustomerDetail } from './pages/Customers/CustomerDetail';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { Login } from './pages/Auth/Login';
+import { Navigate } from 'react-router-dom';
+
+function PrivateRoute({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth();
+  
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center bg-brand-bg text-brand-secondary font-serif">Loading...</div>;
+  }
+  
+  return user ? <>{children}</> : <Navigate to="/login" />;
+}
 
 function App() {
   return (
-    <Routes>
-      <Route path="/" element={<AppLayout />}>
-        {/* Main Dashboard Index */}
-        <Route index element={<Dashboard />} />
+    <AuthProvider>
+      <Routes>
+        {/* Public Routes */}
+        <Route path="/login" element={<Login />} />
+
+        {/* Protected Application Routes */}
+        <Route path="/" element={
+          <PrivateRoute>
+            <AppLayout />
+          </PrivateRoute>
+        }>
+          {/* Main Dashboard Index */}
+          <Route index element={<Dashboard />} />
         
         <Route path="orders">
           <Route index element={<OrdersList />} />
@@ -25,10 +47,11 @@ function App() {
         <Route path="production" element={<div className="p-6">Production coming soon...</div>} />
         <Route path="artwork" element={<div className="p-6">Artwork coming soon...</div>} />
         <Route path="team" element={<Team />} />
-        <Route path="reports" element={<div className="p-6">Reports coming soon...</div>} />
-        <Route path="settings" element={<div className="p-6">Settings coming soon...</div>} />
-      </Route>
-    </Routes>
+          <Route path="reports" element={<div className="p-6">Reports coming soon...</div>} />
+          <Route path="settings" element={<div className="p-6">Settings coming soon...</div>} />
+        </Route>
+      </Routes>
+    </AuthProvider>
   );
 }
 
