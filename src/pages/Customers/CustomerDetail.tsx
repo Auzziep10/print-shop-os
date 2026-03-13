@@ -1,20 +1,14 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
-import { ArrowLeft, Mail, Phone, MapPin, Building2, ExternalLink, ShieldAlert, FileText, Plus } from 'lucide-react';
-
-const MOCK_CUSTOMERS_DB: Record<string, any> = {
-  'CUS-001': { company: 'Wayne Enterprises', ltv: '$45,200', location: 'Gotham City, NJ', email: 'billing@wayne.ent', phone: '(555) 019-8384', type: 'B2B' },
-  'CUS-002': { company: 'Stark Industries', ltv: '$128,500', location: 'Malibu, CA', email: 'billing@stark.com', phone: '(555) 987-6543', type: 'B2B' },
-  'CUS-003': { company: 'Daily Bugle', ltv: '$12,400', location: 'New York, NY', email: 'accounts@bugle.net', phone: '(555) 111-2222', type: 'B2B' },
-  'CUS-004': { company: 'Daily Planet', ltv: '$8,900', location: 'Metropolis, NY', email: 'billing@dailyplanet.com', phone: '(555) 333-4444', type: 'B2B' },
-  'CUS-005': { company: 'Acme Corp', ltv: '$3,200', location: 'Desert Valley, AZ', email: 'wile@acme.corp', phone: '(555) 999-8888', type: 'B2B' },
-  'CUS-006': { company: 'Peter Parker', ltv: '$450', location: 'Queens, NY', email: 'peter@webhead.net', phone: '(555) 000-0000', type: 'DTC' },
-};
+import { ArrowLeft, Mail, Phone, MapPin, Building2, ExternalLink, ShieldAlert, FileText, Plus, Loader2 } from 'lucide-react';
+import { MOCK_CUSTOMERS_DB } from '../../lib/mockData';
+import { useOrders } from '../../hooks/useOrders';
 
 export function CustomerDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { orders, loading: ordersLoading } = useOrders(id);
   
   const customer = id ? MOCK_CUSTOMERS_DB[id] : MOCK_CUSTOMERS_DB['CUS-001'];
 
@@ -47,8 +41,12 @@ export function CustomerDetail() {
       {/* Header Profile */}
       <div className="bg-white p-8 rounded-card border border-brand-border shadow-sm mb-8 flex flex-col md:flex-row gap-8 items-start justify-between">
           <div className="flex items-start gap-6">
-            <div className="w-24 h-24 rounded-xl border border-brand-border bg-brand-bg flex items-center justify-center text-brand-secondary flex-shrink-0">
-               <Building2 size={40} strokeWidth={1} />
+            <div className={`w-24 h-24 rounded-xl border border-brand-border bg-brand-bg flex items-center justify-center text-brand-secondary flex-shrink-0 overflow-hidden ${customer?.logo ? 'bg-white' : ''}`}>
+               {customer?.logo ? (
+                 <img src={customer.logo} className="w-full h-full object-cover filter grayscale contrast-125 mix-blend-multiply opacity-80" alt={customer.company} />
+               ) : (
+                 <Building2 size={40} strokeWidth={1} />
+               )}
             </div>
             <div>
                <div className="flex items-center gap-3 mb-2">
@@ -151,30 +149,58 @@ export function CustomerDetail() {
              </div>
 
              <div className="border border-brand-border rounded-xl overflow-hidden divide-y divide-brand-border">
-                {[
-                   { id: 'ORD-103', title: '250x Event Polos', status: 'Production', date: 'Due Oct 29', amount: '$4,500.00' },
-                   { id: 'QT-892', title: 'Q4 Retreat Swag Boxes', status: 'Pending Approval', date: 'Sent Oct 22', amount: '$12,000.00' },
-                ].map((item, i) => (
-                   <div key={i} className="flex items-center justify-between p-4 hover:bg-brand-bg transition-colors cursor-pointer group">
-                      <div className="flex items-center gap-4">
-                         <div className="w-10 h-10 rounded border border-brand-border bg-white flex items-center justify-center text-xs font-bold text-brand-secondary group-hover:text-brand-primary transition-colors">
-                           {item.id.split('-')[1]}
-                         </div>
-                         <div>
-                            <div className="flex items-center gap-2 mb-1">
-                               <p className="font-serif text-lg leading-none">{item.title}</p>
-                               <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-widest ${item.status === 'Production' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>
-                                  {item.status}
-                               </span>
-                            </div>
-                            <p className="text-xs text-brand-secondary">{item.date}</p>
-                         </div>
-                      </div>
-                      <div className="text-right">
-                         <p className="font-serif text-lg">{item.amount}</p>
-                      </div>
-                   </div>
-                ))}
+                {ordersLoading ? (
+                  <div className="p-8 flex flex-col items-center justify-center text-brand-secondary gap-2">
+                    <Loader2 className="animate-spin" size={24} />
+                    <p className="text-xs uppercase tracking-widest font-semibold">Loading orders...</p>
+                  </div>
+                ) : orders.length === 0 ? (
+                  <div className="p-8 text-center text-brand-secondary">
+                    <p className="text-sm font-medium">No active orders found.</p>
+                  </div>
+                ) : orders.map((order) => {
+                  
+                  const totalItems = order.items?.reduce((acc: number, i: any) => acc + (i.qty || 0), 0) || 0;
+                  const totalPriceRaw = order.items?.reduce((acc: number, i: any) => {
+                    const priceMatch = (i.total || '$0').replace(/[^0-9.]/g, '');
+                    return acc + (parseFloat(priceMatch) || 0);
+                  }, 0) || 0;
+                  const totalFormatted = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalPriceRaw);
+
+                  let badgeStatus = 'Quote';
+                  let statusClass = 'bg-gray-100 text-gray-700';
+                  
+                  switch(order.statusIndex) {
+                     case 0: badgeStatus = 'Placed'; statusClass= 'bg-gray-100 text-gray-700'; break;
+                     case 1: badgeStatus = 'Approval'; statusClass = 'bg-blue-100 text-blue-700'; break;
+                     case 2: badgeStatus = 'Ordered'; statusClass = 'bg-amber-100 text-amber-700'; break;
+                     case 3: badgeStatus = 'Production'; statusClass = 'bg-amber-100 text-amber-700'; break;
+                     case 4: badgeStatus = 'Shipped'; statusClass = 'bg-green-100 text-green-700'; break;
+                     case 5: badgeStatus = 'Completed'; statusClass = 'bg-green-100 text-green-700'; break;
+                  }
+
+                  return (
+                    <div key={order.portalId || order.id} onClick={() => navigate(`/orders/${order.id}`)} className="flex items-center justify-between p-4 hover:bg-brand-bg transition-colors cursor-pointer group">
+                       <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 rounded border border-brand-border bg-white flex items-center justify-center text-[10px] font-bold text-brand-secondary group-hover:text-brand-primary transition-colors">
+                            {(order.portalId || order.id).replace('#', '').replace('ORD-', '')}
+                          </div>
+                          <div>
+                             <div className="flex items-center gap-2 mb-1">
+                                <p className="font-serif text-lg leading-none">{order.title}</p>
+                                <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-widest ${statusClass}`}>
+                                   {badgeStatus}
+                                </span>
+                             </div>
+                             <p className="text-xs text-brand-secondary font-medium">{totalItems} qt &bull; {order.date}</p>
+                          </div>
+                       </div>
+                       <div className="text-right">
+                          <p className="font-serif text-lg">{totalFormatted}</p>
+                       </div>
+                    </div>
+                  );
+                })}
              </div>
           </div>
           

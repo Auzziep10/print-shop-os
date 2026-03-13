@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, Loader2, PackageOpen, Building2 } from 'lucide-react';
 import { useParams } from 'react-router-dom';
 import { useOrders } from '../../hooks/useOrders';
+import { MOCK_CUSTOMERS_DB } from '../../lib/mockData';
 
 const STATUS_STEPS = ['Placed', 'Shopping', 'Ordered', 'Processing', 'Shipped', 'Received'];
 
@@ -15,8 +16,11 @@ const DataPill = ({ label, value }: { label: string, value: string }) => (
 
 export function PortalOrders() {
   const { customerId } = useParams();
+  const currentCustomerId = customerId || 'CUS-001';
+  
   // If no customerId is in the URL, fallback to Wayne Enterprises 'CUS-001' to demo it!
-  const { orders, loading } = useOrders(customerId || 'CUS-001');
+  const { orders, loading } = useOrders(currentCustomerId);
+  const customer = MOCK_CUSTOMERS_DB[currentCustomerId];
 
   const [expandedId, setExpandedId] = useState<string | null>('ORD-2212');
 
@@ -25,6 +29,22 @@ export function PortalOrders() {
       <div className="min-h-[50vh] flex flex-col items-center justify-center text-gray-400 gap-3">
         <Loader2 className="animate-spin" size={32} />
         <p className="font-semibold uppercase tracking-widest text-xs">Loading Live Pipeline...</p>
+      </div>
+    );
+  }
+
+  if (orders.length === 0) {
+    return (
+      <div className="max-w-[800px] mx-auto mt-24 flex flex-col items-center justify-center text-center gap-6">
+        <div className="w-24 h-24 bg-gray-50 rounded-full flex items-center justify-center text-gray-300 border border-gray-100">
+          <PackageOpen strokeWidth={1.5} size={40} />
+        </div>
+        <div>
+          <h2 className="text-3xl font-serif text-gray-900 mb-2">No active orders yet.</h2>
+          <p className="text-gray-500 font-medium max-w-sm mx-auto leading-relaxed">
+            You don't currently have any orders in the pipeline. Once a new order is placed or quoted, you'll be able to track its progress here.
+          </p>
+        </div>
       </div>
     );
   }
@@ -47,8 +67,12 @@ export function PortalOrders() {
                 
                 {/* Left: Logo & Title */}
                 <div className="flex items-center gap-6 min-w-[250px]">
-                  <div className="w-20 h-20 rounded-full border-2 border-gray-300 overflow-hidden shrink-0 bg-white">
-                    <img src={order.logo} alt="Customer Logo" className="w-full h-full object-cover shrink-0 filter grayscale contrast-125 mix-blend-multiply opacity-80" />
+                  <div className={`w-20 h-20 rounded-full border-2 border-gray-300 overflow-hidden shrink-0 flex items-center justify-center text-gray-300 ${customer?.logo ? 'bg-white' : 'bg-gray-50'}`}>
+                    {customer?.logo ? (
+                      <img src={customer.logo} alt="Customer Logo" className="w-full h-full object-cover shrink-0 filter grayscale contrast-125 mix-blend-multiply opacity-80" />
+                    ) : (
+                      <Building2 size={32} strokeWidth={1.5} />
+                    )}
                   </div>
                   <div>
                     <div 
