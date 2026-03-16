@@ -264,12 +264,15 @@ export function CustomerDetail() {
 
   const totalOrders = orders.length;
   const lifetimeValue = orders.reduce((acc, order) => {
-    if (!order.total) return acc;
-    if (typeof order.total === 'number') return acc + order.total;
-    const cleanTotal = parseFloat(order.total.toString().replace(/[$,]/g, ''));
-    return acc + (isNaN(cleanTotal) ? 0 : cleanTotal);
+    const orderTotal = order.items?.reduce((sum: number, i: any) => {
+      const priceMatch = (i.total || '$0').toString().replace(/[^0-9.]/g, '');
+      return sum + (parseFloat(priceMatch) || 0);
+    }, 0) || 0;
+    return acc + orderTotal;
   }, 0);
   const formattedLTV = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(lifetimeValue);
+
+  const hasNet30 = customer?.net30Terms ?? (customer?.type === 'B2B');
 
   return (
     <div className={tokens.layout.container}>
@@ -330,7 +333,7 @@ export function CustomerDetail() {
                </div>
                <div className="flex gap-2">
                  <span className="text-[10px] bg-brand-bg border border-brand-border px-2.5 py-1 rounded-md text-brand-secondary font-semibold uppercase tracking-wider">{customer?.type || 'B2C'}</span>
-                 {customer?.net30Terms && (
+                 {hasNet30 && (
                    <span className="text-[10px] bg-blue-50 border border-blue-200 text-blue-700 px-2.5 py-1 rounded-md font-semibold uppercase tracking-wider">Net 30 Terms</span>
                  )}
                </div>
