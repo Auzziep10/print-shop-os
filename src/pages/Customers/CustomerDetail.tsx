@@ -146,8 +146,12 @@ export function CustomerDetail() {
           setLiveCustomerData(data);
           
           if (data.logo) setLiveLogo(data.logo);
-          if (data.catalogLinkIds) setCatalogLinkIds(data.catalogLinkIds);
-          else if (data.catalogLinkId) setCatalogLinkIds([data.catalogLinkId]);
+          
+          let fetchedLinks: string[] = [];
+          if (data.catalogLinkIds) fetchedLinks = data.catalogLinkIds;
+          else if (data.catalogLinkId) fetchedLinks = [data.catalogLinkId];
+          
+          setCatalogLinkIds(fetchedLinks);
           
           setEditCompanyForm({
             name: data.company || mockCustomer?.company || '',
@@ -158,6 +162,30 @@ export function CustomerDetail() {
             net30Terms: data.net30Terms ?? mockCustomer?.net30Terms ?? true,
             fulfillmentType: data.fulfillmentType ?? mockCustomer?.fulfillmentType ?? 'Standard'
           });
+
+          // Fetch the names for the linked catalogs immediately so they don't say "Linked WOVN Deck"
+          if (fetchedLinks.length > 0) {
+             Promise.all(fetchedLinks.map(async (linkId) => {
+               try {
+                 const res = await fetch(`https://wovn-garment-catalog.vercel.app/api/decks?deckId=${linkId}`);
+                 if (res.ok) {
+                    const deckData = await res.json();
+                    if (Array.isArray(deckData) && deckData.length > 0 && deckData[0].name) {
+                       setAvailableCatalogs(prev => {
+                          const existing = [...prev];
+                          if (!existing.find(d => d.id === linkId)) {
+                             existing.push({ id: linkId, name: deckData[0].name });
+                          }
+                          return existing;
+                       });
+                    }
+                 }
+               } catch (err) {
+                 console.error("Error fetching native deck name", err);
+               }
+             }));
+          }
+
         }
       } catch (err) {
         console.error("Error fetching live profile:", err);
