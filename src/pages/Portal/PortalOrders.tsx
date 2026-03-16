@@ -18,7 +18,7 @@ const sortSizes = (a: string, b: string) => {
   return iA - iB;
 };
 
-const STATUS_STEPS = ['Quote', 'Artwork', 'Approval', 'Production', 'Quality Check', 'Completed'];
+
 
 // Helper component for the little gray pills in the items breakdown
 const DataPill = ({ label, value }: { label: string, value: string }) => (
@@ -57,6 +57,11 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
   }, [currentCustomerId]);
 
   const customer = { ...mockCustomer, logo: liveLogo || mockCustomer?.logo };
+  
+  const isKitting = customer.fulfillmentType === 'Kitting';
+  const timelineSteps = isKitting 
+    ? ['Quote', 'Approved', 'Shopping', 'Ordered', 'Processing', 'Inventory', 'Live'] 
+    : ['Quote', 'Approved', 'Shopping', 'Ordered', 'Processing', 'Shipped', 'Received'];
 
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -90,7 +95,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
       {orders.map((order: any) => {
         const isExpanded = expandedId === order.id;
         // Calculate the percentage width for the progress bar fill
-        const fillWidth = `${(order.statusIndex / (STATUS_STEPS.length - 1)) * 100}%`;
+        const fillWidth = `${(order.statusIndex / (timelineSteps.length - 1)) * 100}%`;
 
         return (
           <div key={order.id} className="flex gap-6 w-full items-start">
@@ -152,9 +157,9 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
                     
                     {/* Steps */}
                     <div className="relative flex justify-between items-center z-10 px-0">
-                      {STATUS_STEPS.map((step, idx) => {
+                      {timelineSteps.map((step, idx) => {
                         const isCompleted = idx <= order.statusIndex;
-                        const isLastStep = idx === STATUS_STEPS.length - 1;
+                        const isLastStep = idx === timelineSteps.length - 1;
                         return (
                           <div key={step} className="flex flex-col items-center relative">
                             {/* The Step Dot */}

@@ -39,7 +39,8 @@ export function CustomerDetail() {
     phone: mockCustomer?.phone || '',
     location: mockCustomer?.location || '',
     type: mockCustomer?.type || 'B2C',
-    net30Terms: mockCustomer?.net30Terms === undefined ? true : mockCustomer.net30Terms
+    net30Terms: mockCustomer?.net30Terms === undefined ? true : mockCustomer.net30Terms,
+    fulfillmentType: mockCustomer?.fulfillmentType || 'Standard'
   });
   
   const [contacts, setContacts] = useState([
@@ -154,7 +155,8 @@ export function CustomerDetail() {
             phone: data.phone || mockCustomer?.phone || '',
             location: data.location || mockCustomer?.location || '',
             type: data.type || mockCustomer?.type || 'B2C',
-            net30Terms: data.net30Terms ?? mockCustomer?.net30Terms ?? true
+            net30Terms: data.net30Terms ?? mockCustomer?.net30Terms ?? true,
+            fulfillmentType: data.fulfillmentType ?? mockCustomer?.fulfillmentType ?? 'Standard'
           });
         }
       } catch (err) {
@@ -188,7 +190,8 @@ export function CustomerDetail() {
         phone: editCompanyForm.phone,
         location: editCompanyForm.location,
         type: editCompanyForm.type,
-        net30Terms: editCompanyForm.net30Terms
+        net30Terms: editCompanyForm.net30Terms,
+        fulfillmentType: editCompanyForm.fulfillmentType
       }, { merge: true });
       
       setLiveCustomerData({
@@ -198,7 +201,8 @@ export function CustomerDetail() {
         phone: editCompanyForm.phone,
         location: editCompanyForm.location,
         type: editCompanyForm.type,
-        net30Terms: editCompanyForm.net30Terms
+        net30Terms: editCompanyForm.net30Terms,
+        fulfillmentType: editCompanyForm.fulfillmentType
       });
       setIsEditDialogOpen(false);
     } catch (e) {
@@ -507,7 +511,14 @@ export function CustomerDetail() {
                       <option value="B2C">B2C (Consumer)</option>
                     </select>
                  </div>
-                 <div className="flex items-center pt-5 pl-2 gap-3">
+                 <div className="flex flex-col gap-1">
+                    <label className="text-xs font-bold text-brand-secondary uppercase tracking-widest">Fulfillment Type</label>
+                    <select className="w-full bg-brand-bg border border-brand-border/60 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-brand-primary/30 transition-colors font-medium text-brand-primary" value={editCompanyForm.fulfillmentType} onChange={e => setEditCompanyForm({...editCompanyForm, fulfillmentType: e.target.value})}>
+                      <option value="Standard">Standard Drop-Ship</option>
+                      <option value="Kitting">Inventory & Kitting</option>
+                    </select>
+                 </div>
+                 <div className="col-span-2 flex items-center pt-2 pl-2 gap-3">
                     <input type="checkbox" id="net30" checked={editCompanyForm.net30Terms} onChange={e => setEditCompanyForm({...editCompanyForm, net30Terms: e.target.checked})} className="w-4 h-4 accent-brand-primary cursor-pointer" />
                     <label htmlFor="net30" className="text-xs font-bold text-brand-primary uppercase tracking-widest cursor-pointer mt-0.5">ALLOW NET 30 TERMS</label>
                  </div>

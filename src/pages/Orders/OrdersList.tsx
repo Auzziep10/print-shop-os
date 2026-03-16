@@ -4,6 +4,7 @@ import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
 import { Search, Filter, Plus, FileDown, MoreHorizontal, Loader2 } from 'lucide-react';
 import { StatusBadge, type StatusType } from '../../components/ui/StatusBadge';
+import { MOCK_CUSTOMERS_DB } from '../../lib/mockData';
 import { useOrders } from '../../hooks/useOrders';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
@@ -109,20 +110,30 @@ export function OrdersList() {
               // Format price beautifully
               const totalFormatted = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalPriceRaw);
 
-              // Map strict 5-step Portal Index to our flexible Admin pipeline Badge component
+              const mockCustomer = MOCK_CUSTOMERS_DB[order.customerId] || MOCK_CUSTOMERS_DB['CUS-001'];
+              const isKitting = mockCustomer?.fulfillmentType === 'Kitting';
+
+              // Map strict 7-step Index to our flexible Admin pipeline Badge component
               let badgeStatus: StatusType = 'quote';
               let subStatus = '';
               switch(order.statusIndex) {
-                 case 0: badgeStatus = 'quote'; subStatus = 'Placed'; break;
-                 case 1: badgeStatus = 'approval'; subStatus = 'Shopping'; break;
-                 case 2: badgeStatus = 'production'; subStatus = 'Ordered'; break;
-                 case 3: badgeStatus = 'production'; subStatus = 'Processing'; break;
-                 case 4: badgeStatus = 'completed'; subStatus = 'Shipped'; break;
-                 case 5: badgeStatus = 'completed'; subStatus = 'Received'; break;
+                 case 0: badgeStatus = 'quote'; subStatus = 'Quote'; break;
+                 case 1: badgeStatus = 'approved'; subStatus = 'Approved'; break;
+                 case 2: badgeStatus = 'shopping'; subStatus = 'Shopping'; break;
+                 case 3: badgeStatus = 'ordered'; subStatus = 'Ordered'; break;
+                 case 4: badgeStatus = 'processing'; subStatus = 'Processing'; break;
+                 case 5: 
+                    if (isKitting) { badgeStatus = 'inventory'; subStatus = 'Inventory'; }
+                    else { badgeStatus = 'shipped'; subStatus = 'Shipped'; }
+                    break;
+                 case 6: 
+                    if (isKitting) { badgeStatus = 'live'; subStatus = 'Live (Shopify)'; }
+                    else { badgeStatus = 'received'; subStatus = 'Received'; }
+                    break;
               }
 
               // CRM Mapping just for visual clarity
-              const customerName = order.customerId === 'CUS-001' ? 'Wayne Enterprises' : order.customerId;
+              const customerName = mockCustomer?.company || order.customerId;
 
               return (
                 <div 

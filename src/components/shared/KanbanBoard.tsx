@@ -5,11 +5,12 @@ import { useNavigate } from 'react-router-dom';
 
 const COLUMNS = [
   { id: 0, title: 'Quote' },
-  { id: 1, title: 'Artwork' },
-  { id: 2, title: 'Approval' },
-  { id: 3, title: 'Production' },
-  { id: 4, title: 'Quality Check' },
-  { id: 5, title: 'Completed' }
+  { id: 1, title: 'Approved' },
+  { id: 2, title: 'Shopping' },
+  { id: 3, title: 'Ordered' },
+  { id: 4, title: 'Processing' },
+  { id: 5, title: 'Shipped / Inventory' },
+  { id: 6, title: 'Received / Live' }
 ];
 
 export function KanbanBoard() {
@@ -25,7 +26,7 @@ export function KanbanBoard() {
   }
 
   return (
-    <div className="grid grid-cols-6 gap-4 w-full pt-2">
+    <div className="grid grid-cols-7 gap-4 w-full pt-2">
       {COLUMNS.map(col => {
         const columnOrders = orders.filter(o => (o.statusIndex || 0) === col.id);
         

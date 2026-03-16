@@ -202,16 +202,24 @@ export function OrderDetail() {
   }, 0) || 0;
   const totalFormatted = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalPriceRaw);
 
-  // Map strict 5-step Portal Index to our flexible Admin pipeline Badge component
+  // Map strict 7-step Index to Admin pipeline Badge component
+  const isKitting = customer.fulfillmentType === 'Kitting';
   let badgeStatus: StatusType = 'quote';
   let subStatus = '';
   switch(order.statusIndex) {
      case 0: badgeStatus = 'quote'; subStatus = 'Quote'; break;
-     case 1: badgeStatus = 'artwork'; subStatus = 'Artwork'; break;
-     case 2: badgeStatus = 'approval'; subStatus = 'Approval'; break;
-     case 3: badgeStatus = 'production'; subStatus = 'Production'; break;
-     case 4: badgeStatus = 'qc'; subStatus = 'Quality Check'; break;
-     case 5: badgeStatus = 'completed'; subStatus = 'Completed'; break;
+     case 1: badgeStatus = 'approved'; subStatus = 'Approved'; break;
+     case 2: badgeStatus = 'shopping'; subStatus = 'Shopping'; break;
+     case 3: badgeStatus = 'ordered'; subStatus = 'Ordered'; break;
+     case 4: badgeStatus = 'processing'; subStatus = 'Processing'; break;
+     case 5: 
+        if (isKitting) { badgeStatus = 'inventory'; subStatus = 'Inventory'; }
+        else { badgeStatus = 'shipped'; subStatus = 'Shipped'; }
+        break;
+     case 6: 
+        if (isKitting) { badgeStatus = 'live'; subStatus = 'Live (Shopify)'; }
+        else { badgeStatus = 'received'; subStatus = 'Received'; }
+        break;
   }
 
   return (
@@ -532,12 +540,13 @@ export function OrderDetail() {
                   onChange={(e) => setEditForm(prev => ({ ...prev, statusIndex: parseInt(e.target.value) }))}
                   className="w-full bg-white border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
                 >
-                  <option value="0">0 - Quote / Placed</option>
-                  <option value="1">1 - Artwork</option>
-                  <option value="2">2 - Approval</option>
-                  <option value="3">3 - Production</option>
-                  <option value="4">4 - Quality Check</option>
-                  <option value="5">5 - Completed</option>
+                  <option value="0">0 - Quote</option>
+                  <option value="1">1 - Approved</option>
+                  <option value="2">2 - Shopping</option>
+                  <option value="3">3 - Ordered</option>
+                  <option value="4">4 - Processing</option>
+                  <option value="5">5 - {isKitting ? 'Inventory' : 'Shipped'}</option>
+                  <option value="6">6 - {isKitting ? 'Live (Shopify)' : 'Received'}</option>
                 </select>
               </div>
 
