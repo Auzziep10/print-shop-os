@@ -165,7 +165,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
               {isExpanded && order.items.length > 0 && (
                 <div className="mt-14 space-y-4">
                   {order.items?.map((item: any) => (
-                    <div key={item.id} className="bg-white rounded-3xl p-4 px-6 flex flex-col lg:flex-row lg:items-start justify-between gap-6 shadow-[0_4px_12px_rgb(0,0,0,0.02)] w-full relative">
+                    <div key={item.id} className="bg-white rounded-3xl p-4 px-6 flex flex-col xl:flex-row xl:items-center justify-between gap-6 shadow-[0_4px_12px_rgb(0,0,0,0.02)] w-full relative">
                        
                        {/* Left Side: Visual & Title */}
                        <div className="flex items-center gap-6 min-w-[200px] shrink-0">
@@ -181,10 +181,10 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
                        </div>
 
                        {/* Right Side: Specs + Sizing/Pricing */}
-                       <div className="flex flex-col lg:flex-row justify-end items-center lg:items-start gap-4 flex-1">
+                       <div className="flex flex-col xl:flex-row justify-end items-center gap-6 flex-1">
                          
                          {/* Specs (Left of Size Spread) */}
-                         <div className="flex flex-col justify-center items-center gap-1 shrink-0 pt-0.5 min-w-[120px]">
+                         <div className="flex flex-col justify-center items-center gap-1 shrink-0 min-w-[120px]">
                             {item.itemNum && <DataPill label="Item #" value={item.itemNum} />}
                             {item.color && <DataPill label="Garment Color" value={item.color} />}
                             {item.logos?.map((logo: string, i: number) => (
@@ -193,7 +193,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
                          </div>
 
                          {/* Sizing & Pricing Stacked */}
-                         <div className="flex flex-col items-end gap-3 shrink-0">
+                         <div className="flex flex-col items-center xl:items-end gap-3 shrink-0">
                            {/* Sizing Grid Area */}
                            <div className="flex items-stretch gap-[2px] bg-neutral-200 p-[3px] rounded-xl font-sans shrink-0">
                              {item.sizes && Object.entries(item.sizes).sort(([a], [b]) => sortSizes(a, b)).map(([size, qty]: [string, any]) => (
