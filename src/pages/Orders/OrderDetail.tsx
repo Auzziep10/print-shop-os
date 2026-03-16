@@ -179,7 +179,7 @@ export function OrderDetail() {
     return (
       <div className="flex-1 flex flex-col items-center justify-center min-h-[50vh] text-brand-secondary gap-3">
         <p className="font-semibold uppercase tracking-widest text-xs">Order not found.</p>
-        <PillButton variant="outline" onClick={() => navigate('/orders')}>Back to Orders</PillButton>
+        <PillButton variant="outline" onClick={() => navigate(-1)}>Back</PillButton>
       </div>
     );
   }
@@ -211,11 +211,11 @@ export function OrderDetail() {
       {/* Top Breadcrumb & Actions */}
       <div className="flex items-center justify-between mb-8 pb-4 border-b border-brand-border">
         <button 
-          onClick={() => navigate('/orders')}
+          onClick={() => navigate(-1)}
           className="flex items-center gap-2 text-sm text-brand-secondary hover:text-brand-primary transition-colors"
         >
           <ArrowLeft size={16} />
-          Back to Orders
+          Back
         </button>
         <div className="flex items-center gap-3">
           <PillButton variant="outline" className="gap-2">
