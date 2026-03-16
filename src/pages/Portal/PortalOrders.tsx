@@ -95,8 +95,8 @@ export function PortalOrders() {
               <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-8 h-[80px]">
                 
                 {/* Left: Logo & Title */}
-                <div className="flex items-center gap-6 min-w-[250px]">
-                  <div className={`w-20 h-20 rounded-full border-2 border-gray-300 overflow-hidden shrink-0 flex items-center justify-center text-gray-300 ${customer?.logo ? 'bg-white' : 'bg-gray-50'}`}>
+                <div className="flex items-center gap-6 w-[320px] shrink-0">
+                  <div className={`w-20 h-20 rounded-full border-2 border-neutral-200 overflow-hidden shrink-0 flex items-center justify-center text-neutral-300 ${customer?.logo ? 'bg-white' : 'bg-neutral-50'}`}>
                     {customer?.logo ? (
                       <img src={customer.logo} alt="Customer Logo" className="w-full h-full object-cover shrink-0 filter grayscale contrast-125 mix-blend-multiply opacity-80" />
                     ) : (
@@ -118,7 +118,7 @@ export function PortalOrders() {
                 </div>
 
                 {/* Right: Progress Tracker */}
-                <div className="flex-1 max-w-[800px] mx-auto w-full pt-4 xl:pt-0">
+                <div className="flex-1 w-full pt-4 xl:pt-0">
                   <div className="relative w-full">
                     {/* The Track Base */}
                     <div className="absolute top-0 left-0 w-full h-[12px] bg-neutral-200 rounded-full"></div>
@@ -140,7 +140,7 @@ export function PortalOrders() {
                             
                             {/* Completion Date (Floating over the last item naturally if complete, or mock placing it over received for layout) */}
                             {isLastStep && (
-                               <span className="absolute -top-7 text-[12px] font-bold text-gray-900 w-24 text-center">{order.date}</span>
+                               <span className="absolute -top-7 text-[12px] font-bold text-neutral-900 w-24 text-center">{order.date}</span>
                             )}
                           </div>
                         );
@@ -148,9 +148,6 @@ export function PortalOrders() {
                     </div>
                   </div>
                 </div>
-                
-                {/* Visual Spacer to maintain alignment if needed on desktop */}
-                <div className="hidden xl:block w-[50px]"></div>
               </div>
 
               {/* Expanded Items Section */}
