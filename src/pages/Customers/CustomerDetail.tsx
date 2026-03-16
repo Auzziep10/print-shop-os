@@ -20,6 +20,8 @@ export function CustomerDetail() {
 
   const [liveLogo, setLiveLogo] = useState<string | null>(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [catalogLinkId, setCatalogLinkId] = useState<string>('');
+  const [savingLinkId, setSavingLinkId] = useState(false);
 
   // Cropper State
   const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
@@ -37,8 +39,10 @@ export function CustomerDetail() {
       if (!id) return;
       try {
         const d = await getDoc(doc(db, 'customers', id));
-        if (d.exists() && d.data().logo) {
-          setLiveLogo(d.data().logo);
+        if (d.exists()) {
+          const data = d.data();
+          if (data.logo) setLiveLogo(data.logo);
+          if (data.catalogLinkId) setCatalogLinkId(data.catalogLinkId);
         }
       } catch (err) {}
     };
@@ -82,6 +86,18 @@ export function CustomerDetail() {
       console.error("Error uploading logo", err);
     } finally {
       setUploadingLogo(false);
+    }
+  };
+
+  const handleSaveCatalogId = async () => {
+    if (!id) return;
+    setSavingLinkId(true);
+    try {
+      await setDoc(doc(db, 'customers', id), { catalogLinkId }, { merge: true });
+    } catch (e) {
+      console.error("Error saving catalog id", e);
+    } finally {
+      setSavingLinkId(false);
     }
   };
 
@@ -169,6 +185,33 @@ export function CustomerDetail() {
         {/* Left Column: Contacts & Access */}
         <div className="space-y-8">
           
+          {/* WOVN Catalog Link */}
+          <div className="bg-white p-6 rounded-card border border-brand-border shadow-[0_2px_10px_-4px_rgba(0,0,0,0.02)]">
+            <div className="flex justify-between items-center mb-6">
+               <h2 className={tokens.typography.h2}>WOVN Catalog Link</h2>
+            </div>
+            <p className="text-sm text-brand-secondary mb-4 leading-relaxed">
+              Connect this profile to their Garment Catalog decks to enable seamless ordering in the Client Portal.
+            </p>
+            <div className="flex gap-2 relative">
+               <input 
+                 type="text" 
+                 placeholder="e.g. DECK-PBGL-883" 
+                 value={catalogLinkId}
+                 onChange={(e) => setCatalogLinkId(e.target.value)}
+                 className="w-full bg-brand-bg border border-brand-border/60 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-brand-primary/30 transition-colors placeholder:text-brand-secondary/40 font-medium"
+               />
+               <PillButton 
+                 variant="filled" 
+                 className="px-6 whitespace-nowrap"
+                 onClick={handleSaveCatalogId}
+                 disabled={savingLinkId}
+               >
+                 {savingLinkId ? 'Saving...' : 'Save Link'}
+               </PillButton>
+            </div>
+          </div>
+
           {/* Company Logins */}
           <div className="bg-white p-6 rounded-card border border-brand-border shadow-[0_2px_10px_-4px_rgba(0,0,0,0.02)]">
             <div className="flex justify-between items-center mb-6">
