@@ -20,7 +20,7 @@ export function CustomerDetail() {
 
   const [liveLogo, setLiveLogo] = useState<string | null>(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
-  const [catalogLinkId, setCatalogLinkId] = useState<string>('');
+  const [catalogLinkIds, setCatalogLinkIds] = useState<string[]>([]);
   const [savingLinkId, setSavingLinkId] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isCatalogDialogOpen, setIsCatalogDialogOpen] = useState(false);
@@ -73,7 +73,8 @@ export function CustomerDetail() {
         if (d.exists()) {
           const data = d.data();
           if (data.logo) setLiveLogo(data.logo);
-          if (data.catalogLinkId) setCatalogLinkId(data.catalogLinkId);
+          if (data.catalogLinkIds) setCatalogLinkIds(data.catalogLinkIds);
+          else if (data.catalogLinkId) setCatalogLinkIds([data.catalogLinkId]);
         }
       } catch (err) {}
     };
@@ -124,11 +125,19 @@ export function CustomerDetail() {
     if (!id) return;
     setSavingLinkId(true);
     try {
-      await setDoc(doc(db, 'customers', id), { catalogLinkId }, { merge: true });
+      await setDoc(doc(db, 'customers', id), { catalogLinkIds }, { merge: true });
     } catch (e) {
-      console.error("Error saving catalog id", e);
+      console.error("Error saving catalog ids", e);
     } finally {
       setSavingLinkId(false);
+    }
+  };
+
+  const toggleCatalogLink = (catalogId: string) => {
+    if (catalogLinkIds.includes(catalogId)) {
+      setCatalogLinkIds(prev => prev.filter(c => c !== catalogId));
+    } else {
+      setCatalogLinkIds(prev => [...prev, catalogId]);
     }
   };
 
@@ -410,32 +419,51 @@ export function CustomerDetail() {
                <div className="bg-white p-6 rounded-card border border-brand-border shadow-[0_2px_10px_-4px_rgba(0,0,0,0.02)]">
                  <div className="flex justify-between items-center mb-6">
                     <h2 className={tokens.typography.h2}>WOVN Catalog Link</h2>
-                 </div>
-                 <p className="text-sm text-brand-secondary mb-4 leading-relaxed">
-                   Connect this profile to their Garment Catalog decks to enable seamless ordering in the Client Portal.
-                 </p>
-                 <div className="flex gap-2 relative">
-                    <input 
-                      type="text" 
-                      placeholder="e.g. DECK-PBGL-883" 
-                      value={catalogLinkId}
-                      onChange={(e) => setCatalogLinkId(e.target.value)}
-                      className="w-full bg-brand-bg border border-brand-border/60 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-brand-primary/30 transition-colors placeholder:text-brand-secondary/40 font-medium"
-                    />
                     <PillButton 
                       variant="outline" 
-                      className="px-6 whitespace-nowrap"
+                      className="px-4"
                       onClick={() => setIsCatalogDialogOpen(true)}
                     >
-                      Select from Catalog
+                      <Plus size={16} /> Select Decks
                     </PillButton>
+                 </div>
+                 <p className="text-sm text-brand-secondary mb-4 leading-relaxed">
+                   Connect this profile to multiple Garment Catalog decks to enable seamless ordering in the Client Portal.
+                 </p>
+                 
+                 <div className="flex flex-col gap-3">
+                    {catalogLinkIds.length === 0 ? (
+                       <div className="bg-brand-bg rounded-xl p-4 text-center text-sm font-medium text-brand-secondary border border-dashed border-brand-border">
+                         No catalog decks connected. Click above to add some.
+                       </div>
+                    ) : (
+                       <div className="flex flex-wrap gap-2">
+                         {catalogLinkIds.map(linkId => {
+                           const c = MOCK_AVAILABLE_CATALOGS.find(m => m.id === linkId);
+                           return (
+                             <div key={linkId} className="flex items-center gap-2 bg-white border border-brand-border/60 rounded-lg pl-3 pr-1 py-1 shadow-sm">
+                               <span className="text-xs font-bold text-brand-primary">{c ? c.name : linkId}</span>
+                               <button 
+                                 onClick={() => toggleCatalogLink(linkId)}
+                                 className="w-6 h-6 rounded flex items-center justify-center text-brand-secondary hover:bg-brand-bg hover:text-red-500 transition-colors"
+                               >
+                                 <X size={14} />
+                               </button>
+                             </div>
+                           )
+                         })}
+                       </div>
+                    )}
+                 </div>
+
+                 <div className="mt-6 flex justify-end border-t border-brand-border pt-6">
                     <PillButton 
                       variant="filled" 
                       className="px-6 whitespace-nowrap"
                       onClick={handleSaveCatalogId}
                       disabled={savingLinkId}
                     >
-                      {savingLinkId ? 'Saving...' : 'Save Link'}
+                      {savingLinkId ? 'Saving...' : 'Save Catalog Links'}
                     </PillButton>
                  </div>
                </div>
@@ -523,23 +551,35 @@ export function CustomerDetail() {
               </div>
               <p className="text-sm text-brand-secondary mb-6 leading-relaxed">Choose an active deck from the WOVN Catalog connected to this account.</p>
               
-              <div className="space-y-3 mb-6">
-                 {MOCK_AVAILABLE_CATALOGS.map(catalog => (
-                   <button 
-                     key={catalog.id} 
-                     onClick={() => {
-                       setCatalogLinkId(catalog.id);
-                       setIsCatalogDialogOpen(false);
-                     }}
-                     className="w-full flex items-center justify-between p-4 rounded-xl border border-brand-border/60 hover:border-brand-primary/40 hover:bg-brand-bg transition-colors group text-left"
-                   >
-                     <div>
-                       <p className="font-medium text-brand-primary mb-0.5">{catalog.name}</p>
-                       <p className="text-[10px] font-bold tracking-widest text-brand-secondary uppercase">{catalog.id}</p>
-                     </div>
-                     <span className="text-xs font-bold text-brand-secondary bg-brand-bg border border-brand-border px-2 py-1 rounded-md group-hover:bg-white transition-colors">{catalog.items} Items</span>
-                   </button>
-                 ))}
+              <div className="space-y-3 mb-6 max-h-[400px] overflow-y-auto">
+                 {MOCK_AVAILABLE_CATALOGS.map(catalog => {
+                   const isSelected = catalogLinkIds.includes(catalog.id);
+                   return (
+                     <button 
+                       key={catalog.id} 
+                       onClick={() => toggleCatalogLink(catalog.id)}
+                       className={`w-full flex items-center justify-between p-4 rounded-xl border transition-colors group text-left ${
+                         isSelected ? 'bg-brand-bg border-brand-primary/50' : 'bg-white border-brand-border/60 hover:border-brand-primary/40'
+                       }`}
+                     >
+                       <div className="flex items-center gap-3">
+                         <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${
+                           isSelected ? 'bg-brand-primary border-brand-primary text-white' : 'bg-white border-brand-border group-hover:border-brand-primary/40'
+                         }`}>
+                           {isSelected && <Check size={12} strokeWidth={3} />}
+                         </div>
+                         <div>
+                           <p className="font-medium text-brand-primary mb-0.5">{catalog.name}</p>
+                           <p className="text-[10px] font-bold tracking-widest text-brand-secondary uppercase">{catalog.id}</p>
+                         </div>
+                       </div>
+                       <span className="text-xs font-bold text-brand-secondary bg-white border border-brand-border px-2 py-1 rounded-md transition-colors">{catalog.items} Items</span>
+                     </button>
+                   );
+                 })}
+              </div>
+              <div className="flex justify-end pt-4 border-t border-brand-border">
+                 <PillButton variant="filled" onClick={() => setIsCatalogDialogOpen(false)}>Done</PillButton>
               </div>
            </div>
          </div>
