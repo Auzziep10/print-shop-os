@@ -116,13 +116,19 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
                       className="flex items-center gap-3 cursor-pointer group z-20 relative"
                       onClick={(e) => {
                         e.stopPropagation();
-                        setExpandedId(isExpanded ? null : order.id);
+                        if (overrideCustomerId) {
+                          navigate(`/orders/${order.id}`);
+                        } else {
+                          setExpandedId(isExpanded ? null : order.id);
+                        }
                       }}
                     >
-                      <h2 className="text-2xl font-serif text-gray-900">Order {order.portalId}</h2>
-                      <span className="text-gray-400 group-hover:text-black transition-colors">
-                        {isExpanded ? <ChevronDown size={20} strokeWidth={2.5} /> : <ChevronRight size={20} strokeWidth={2.5} />}
-                      </span>
+                      <h2 className="text-2xl font-serif text-gray-900 hover:text-brand-primary transition-colors">Order {order.portalId}</h2>
+                      {!overrideCustomerId && (
+                        <span className="text-gray-400 group-hover:text-black transition-colors">
+                          {isExpanded ? <ChevronDown size={20} strokeWidth={2.5} /> : <ChevronRight size={20} strokeWidth={2.5} />}
+                        </span>
+                      )}
                     </div>
                     <p className="text-xs font-medium text-gray-500 mt-1 uppercase tracking-wider">{order.title}</p>
                   </div>
