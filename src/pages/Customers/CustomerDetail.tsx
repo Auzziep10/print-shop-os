@@ -2,12 +2,14 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
-import { ArrowLeft, Mail, Phone, MapPin, Building2, ExternalLink, ShieldAlert, FileText, Plus, Loader2, Upload } from 'lucide-react';
+import { ArrowLeft, Mail, Phone, MapPin, Building2, ExternalLink, ShieldAlert, FileText, Plus, Loader2, Upload, X, Check } from 'lucide-react';
 import { MOCK_CUSTOMERS_DB } from '../../lib/mockData';
 import { useOrders } from '../../hooks/useOrders';
 import { storage, db } from '../../lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
+import Cropper from 'react-easy-crop';
+import { getCroppedImg } from '../../lib/cropUtils';
 
 export function CustomerDetail() {
   const { id } = useParams();
@@ -18,6 +20,16 @@ export function CustomerDetail() {
 
   const [liveLogo, setLiveLogo] = useState<string | null>(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
+
+  // Cropper State
+  const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
+
+  const onCropComplete = (croppedArea: any, croppedAreaPixels: any) => {
+    setCroppedAreaPixels(croppedAreaPixels);
+  };
 
   useEffect(() => {
     // Try to fetch custom live logo overrides
@@ -33,16 +45,33 @@ export function CustomerDetail() {
     fetchCustomer();
   }, [id]);
 
-  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLogoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !id) return;
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setCropImageSrc(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = ''; // Reset input so identical file can be picked again
+  };
+
+  const handleUploadCroppedLogo = async () => {
+    if (!id || !cropImageSrc || !croppedAreaPixels) return;
 
     try {
       setUploadingLogo(true);
+      const imageSrcToCrop = cropImageSrc;
+      setCropImageSrc(null); // Close the cropper dialog UI early for better UX
+      
+      const croppedFile = await getCroppedImg(imageSrcToCrop, croppedAreaPixels);
+      if (!croppedFile) throw new Error("Could not crop image");
+
       const storageRef = ref(storage, `customers/${id}/logo_${Date.now()}`);
       
-      // Upload raw file to Firebase Storage (No client side compression as requested)
-      await uploadBytes(storageRef, file);
+      // Upload cropped file to Firebase Storage
+      await uploadBytes(storageRef, croppedFile);
       const url = await getDownloadURL(storageRef);
 
       // Save the new URL to Firestore so it persists
@@ -101,7 +130,7 @@ export function CustomerDetail() {
                  <label className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center cursor-pointer text-white">
                    <Upload size={20} className="mb-1" />
                    <span className="text-[9px] font-bold uppercase tracking-widest text-white/90">Edit Logo</span>
-                   <input type="file" className="hidden" accept="image/*" onChange={handleLogoUpload} />
+                   <input type="file" className="hidden" accept="image/*" onChange={handleLogoSelect} />
                  </label>
                )}
             </div>
@@ -273,6 +302,61 @@ export function CustomerDetail() {
 
         </div>
       </div>
+
+      {/* Crop Modal */}
+      {cropImageSrc && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-6">
+          <div className="bg-white max-w-lg w-full rounded-2xl overflow-hidden shadow-2xl flex flex-col border border-brand-border">
+            <div className="p-4 border-b border-brand-border flex justify-between items-center bg-brand-bg/50">
+              <h3 className="font-serif text-2xl text-brand-primary">Adjust Logo Fit</h3>
+              <button onClick={() => setCropImageSrc(null)} className="text-brand-secondary hover:text-brand-primary transition-colors bg-white border border-brand-border rounded-md p-1">
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="relative w-full h-[400px] bg-gray-900 overflow-hidden">
+              <Cropper
+                image={cropImageSrc}
+                crop={crop}
+                zoom={zoom}
+                aspect={1}
+                onCropChange={setCrop}
+                onCropComplete={onCropComplete}
+                onZoomChange={setZoom}
+                showGrid={false}
+              />
+            </div>
+            
+            <div className="p-6 bg-white">
+              <p className="text-xs text-brand-secondary mb-5 text-center font-medium">Pan and zoom the image below so no part of the logo is cropped out of the square box.</p>
+              
+              <div className="flex items-center gap-4 mb-6 px-4">
+                 <span className="text-xs font-bold uppercase text-brand-secondary tracking-widest">Zoom</span>
+                 <input
+                   type="range"
+                   value={zoom}
+                   min={1}
+                   max={3}
+                   step={0.1}
+                   aria-labelledby="Zoom"
+                   onChange={(e) => setZoom(Number(e.target.value))}
+                   className="flex-1 accent-brand-primary cursor-pointer"
+                 />
+              </div>
+
+              <div className="flex gap-4">
+                <PillButton variant="outline" onClick={() => setCropImageSrc(null)} className="flex-1 justify-center py-3">
+                  Cancel
+                </PillButton>
+                <PillButton variant="filled" onClick={handleUploadCroppedLogo} className="flex-1 justify-center py-3">
+                  <span className="flex items-center gap-2"><Check size={18} /> Format & Save Upload</span>
+                </PillButton>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
