@@ -21,9 +21,9 @@ const STATUS_STEPS = ['Placed', 'Shopping', 'Ordered', 'Processing', 'Shipped', 
 
 // Helper component for the little gray pills in the items breakdown
 const DataPill = ({ label, value }: { label: string, value: string }) => (
-  <div className="flex flex-col items-center justify-center bg-[#f0ebe1] px-4 py-1.5 rounded-3xl min-w-[100px]">
-    <span className="text-[10px] text-[#6b665c] font-semibold mb-0.5">{label}:</span>
-    <span className="text-xs text-[#4a4845] font-medium leading-none">{value}</span>
+  <div className="flex flex-col items-center justify-center bg-neutral-100 px-4 py-1.5 rounded-3xl min-w-[100px]">
+    <span className="text-[10px] text-neutral-500 font-semibold mb-0.5">{label}:</span>
+    <span className="text-xs text-neutral-800 font-medium leading-none">{value}</span>
   </div>
 );
 
@@ -121,9 +121,9 @@ export function PortalOrders() {
                 <div className="flex-1 max-w-[800px] mx-auto w-full pt-4 xl:pt-0">
                   <div className="relative w-full">
                     {/* The Track Base */}
-                    <div className="absolute top-0 left-0 w-full h-[12px] bg-[#e4ded6] rounded-full"></div>
+                    <div className="absolute top-0 left-0 w-full h-[12px] bg-neutral-200 rounded-full"></div>
                     {/* The Fill */}
-                    <div className="absolute top-0 left-0 h-[12px] bg-[#4a4845] rounded-full transition-all duration-700 ease-in-out" style={{ width: fillWidth }}></div>
+                    <div className="absolute top-0 left-0 h-[12px] bg-neutral-800 rounded-full transition-all duration-700 ease-in-out" style={{ width: fillWidth }}></div>
                     
                     {/* Steps */}
                     <div className="relative flex justify-between items-center z-10 px-0">
@@ -133,10 +133,10 @@ export function PortalOrders() {
                         return (
                           <div key={step} className="flex flex-col items-center relative">
                             {/* The Step Dot */}
-                            <div className={`w-[12px] h-[12px] rounded-full flex items-center justify-center transition-colors duration-300 ${isCompleted ? 'bg-black' : 'bg-[#f0f0f0] border-[2px] border-[#e4ded6]'}`}>
+                            <div className={`w-[12px] h-[12px] rounded-full flex items-center justify-center transition-colors duration-300 ${isCompleted ? 'bg-black' : 'bg-[#f0f0f0] border-[2px] border-neutral-300'}`}>
                             </div>
                             {/* Step Label below */}
-                            <span className="absolute top-6 text-[11px] font-bold text-gray-500 w-24 text-center tracking-wide">{step}</span>
+                            <span className="absolute top-6 text-[11px] font-bold text-neutral-500 w-24 text-center tracking-wide">{step}</span>
                             
                             {/* Completion Date (Floating over the last item naturally if complete, or mock placing it over received for layout) */}
                             {isLastStep && (
@@ -185,11 +185,11 @@ export function PortalOrders() {
                       {/* Right Side: Sizing & Pricing */}
                       <div className="flex flex-wrap lg:flex-nowrap items-end lg:items-center gap-4 shrink-0">
                         {/* Sizing Grid Area */}
-                        <div className="flex items-stretch gap-[2px] bg-[#e6e2db] p-[3px] rounded-xl font-sans">
+                        <div className="flex items-stretch gap-[2px] bg-neutral-200 p-[3px] rounded-xl font-sans">
                           {item.sizes && Object.entries(item.sizes).sort(([a], [b]) => sortSizes(a, b)).map(([size, qty]: [string, any]) => (
                             <div key={size} className="w-10 text-center flex flex-col">
-                              <div className="bg-[#d8d3cb] text-[#6b665c] text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">{size}</div>
-                              <div className={`text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center bg-white ${qty > 0 ? 'text-[#4a4845]' : 'text-[#a8a39a]'}`}>
+                              <div className="bg-neutral-300 text-neutral-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">{size}</div>
+                              <div className={`text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center bg-white ${qty > 0 ? 'text-neutral-800' : 'text-neutral-400'}`}>
                                 {qty}
                               </div>
                             </div>
@@ -197,18 +197,18 @@ export function PortalOrders() {
                         </div>
 
                         {/* Pricing Summary */}
-                        <div className="flex items-stretch gap-[2px] bg-[#e6e2db] p-[3px] rounded-xl font-sans shrink-0">
+                        <div className="flex items-stretch gap-[2px] bg-neutral-200 p-[3px] rounded-xl font-sans shrink-0">
                           <div className="w-12 text-center flex flex-col">
-                            <div className="bg-[#d8d3cb] text-[#6b665c] text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">QTY</div>
-                            <div className="bg-[#f0ebe1] text-[#4a4845] text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center">{item.qty}</div>
+                            <div className="bg-neutral-300 text-neutral-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">QTY</div>
+                            <div className="bg-neutral-50 text-neutral-800 text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center">{item.qty}</div>
                           </div>
                           <div className="w-16 text-center flex flex-col">
-                            <div className="bg-[#d8d3cb] text-[#6b665c] text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">Price</div>
-                            <div className="bg-[#f0ebe1] text-[#4a4845] text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center">{item.price}</div>
+                            <div className="bg-neutral-300 text-neutral-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">Price</div>
+                            <div className="bg-neutral-50 text-neutral-800 text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center">{item.price}</div>
                           </div>
                           <div className="w-20 text-center flex flex-col">
-                            <div className="bg-[#d8d3cb] text-[#6b665c] text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">Total</div>
-                            <div className="bg-[#f0ebe1] text-[#4a4845] text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center">{item.total}</div>
+                            <div className="bg-neutral-300 text-neutral-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">Total</div>
+                            <div className="bg-neutral-50 text-neutral-800 text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center">{item.total}</div>
                           </div>
                         </div>
                       </div>
