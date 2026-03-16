@@ -11,6 +11,7 @@ import { Login } from './pages/Auth/Login';
 import { Navigate } from 'react-router-dom';
 import { PortalLayout } from './components/layout/PortalLayout';
 import { PortalOrders } from './pages/Portal/PortalOrders';
+import { PortalCreateOrder } from './pages/Portal/PortalCreateOrder';
 import { SeedData } from './pages/Seed';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -37,6 +38,7 @@ function App() {
         <Route path="/portal" element={<PortalLayout />}>
           <Route index element={<PortalOrders />} />
           <Route path=":customerId" element={<PortalOrders />} />
+          <Route path=":customerId/create" element={<PortalCreateOrder />} />
         </Route>
 
         {/* Protected Application Routes */}

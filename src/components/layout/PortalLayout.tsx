@@ -1,8 +1,14 @@
-import { Outlet, useParams } from 'react-router-dom';
+import { Outlet, useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Search, Info } from 'lucide-react';
 
 export function PortalLayout() {
   const { customerId } = useParams();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const handleCreateOrder = () => {
+    navigate(customerId ? `/portal/${customerId}/create` : '/portal');
+  };
 
   return (
     <div className="min-h-screen bg-white text-black font-sans selection:bg-black selection:text-white">
@@ -41,7 +47,14 @@ export function PortalLayout() {
             <div className="w-3 h-0.5 bg-black rounded-full group-hover:bg-gray-600 transition-colors"></div>
           </div>
           
-          <button className="text-[13px] font-semibold tracking-wide text-black pb-0.5 border-b-2 border-transparent hover:border-black transition-all">
+          <button 
+            onClick={() => navigate(customerId ? `/portal/${customerId}` : '/portal')}
+            className={`text-[13px] font-semibold tracking-wide pb-0.5 border-b-2 transition-all ${
+              location.pathname.endsWith('/create') 
+                ? 'text-gray-400 border-transparent hover:text-black hover:border-black' 
+                : 'text-black border-black'
+            }`}
+          >
             Orders
           </button>
           
@@ -49,7 +62,10 @@ export function PortalLayout() {
             Log Out
           </button>
           
-          <button className="bg-black text-white px-7 py-3 rounded-full text-xs font-bold tracking-wide hover:bg-black/80 hover:scale-105 active:scale-95 transition-all shadow-[0_4px_14px_0_rgb(0,0,0,0.2)]">
+          <button 
+            onClick={handleCreateOrder}
+            className="bg-black text-white px-7 py-3 rounded-full text-xs font-bold tracking-wide hover:bg-black/80 hover:scale-105 active:scale-95 transition-all shadow-[0_4px_14px_0_rgb(0,0,0,0.2)]"
+          >
             Create Order +
           </button>
         </div>
