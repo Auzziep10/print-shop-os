@@ -96,7 +96,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
                   navigate(`/orders/${order.id}`);
                 }
               }}
-              className={`flex-1 bg-[#f0f0f0] rounded-[2.5rem] p-6 lg:px-10 transition-all ${overrideCustomerId ? 'cursor-pointer hover:bg-[#e4e4e4]' : ''} ${isExpanded ? 'pb-8' : ''}`}
+              className={`flex-1 bg-[#f0f0f0] rounded-[2.5rem] p-6 lg:pr-10 transition-all ${overrideCustomerId ? 'cursor-pointer hover:bg-[#e4e4e4]' : ''} ${isExpanded ? 'pb-8' : ''}`}
             >
               
               {/* Capsule Header Row */}
@@ -104,9 +104,9 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
                 
                 {/* Left: Logo & Title */}
                 <div className="flex items-center gap-6 w-[320px] shrink-0">
-                  <div className={`w-20 h-20 rounded-full border-2 border-neutral-200 overflow-hidden shrink-0 flex items-center justify-center text-neutral-300 ${customer?.logo ? 'bg-white' : 'bg-neutral-50'}`}>
+                  <div className="w-20 h-20 shrink-0 flex items-center justify-center text-neutral-300">
                     {customer?.logo ? (
-                      <img src={customer.logo} alt="Customer Logo" className="w-full h-full object-cover shrink-0 filter grayscale contrast-125 mix-blend-multiply opacity-80" />
+                      <img src={customer.logo} alt="Customer Logo" className="max-w-full max-h-full object-contain shrink-0 filter mix-blend-multiply opacity-90" />
                     ) : (
                       <Building2 size={32} strokeWidth={1.5} />
                     )}
