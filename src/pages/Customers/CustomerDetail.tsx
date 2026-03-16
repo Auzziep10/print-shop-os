@@ -10,15 +10,21 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import Cropper from 'react-easy-crop';
 import { getCroppedImg } from '../../lib/cropUtils';
 import { PortalOrders } from '../Portal/PortalOrders';
+import { useOrders } from '../../hooks/useOrders';
 
 export function CustomerDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   
   const mockCustomer = id ? MOCK_CUSTOMERS_DB[id] : MOCK_CUSTOMERS_DB['CUS-001'];
+  
+  const { orders } = useOrders(id);
+
   const [liveLogo, setLiveLogo] = useState<string | null>(null);
+  const [liveCustomerData, setLiveCustomerData] = useState<any>({});
   const [fetchingLogo, setFetchingLogo] = useState(true);
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [savingCompany, setSavingCompany] = useState(false);
   const [catalogLinkIds, setCatalogLinkIds] = useState<string[]>([]);
   const [savingLinkId, setSavingLinkId] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -31,7 +37,9 @@ export function CustomerDetail() {
     name: mockCustomer?.company || '',
     email: mockCustomer?.email || '',
     phone: mockCustomer?.phone || '',
-    location: mockCustomer?.location || ''
+    location: mockCustomer?.location || '',
+    type: mockCustomer?.type || 'B2C',
+    net30Terms: mockCustomer?.net30Terms === undefined ? true : mockCustomer.net30Terms
   });
   
   const [contacts, setContacts] = useState([
@@ -134,9 +142,20 @@ export function CustomerDetail() {
         const d = await getDoc(doc(db, 'customers', id));
         if (d.exists()) {
           const data = d.data();
+          setLiveCustomerData(data);
+          
           if (data.logo) setLiveLogo(data.logo);
           if (data.catalogLinkIds) setCatalogLinkIds(data.catalogLinkIds);
           else if (data.catalogLinkId) setCatalogLinkIds([data.catalogLinkId]);
+          
+          setEditCompanyForm({
+            name: data.company || mockCustomer?.company || '',
+            email: data.email || mockCustomer?.email || '',
+            phone: data.phone || mockCustomer?.phone || '',
+            location: data.location || mockCustomer?.location || '',
+            type: data.type || mockCustomer?.type || 'B2C',
+            net30Terms: data.net30Terms ?? mockCustomer?.net30Terms ?? true
+          });
         }
       } catch (err) {
         console.error("Error fetching live profile:", err);
@@ -157,6 +176,36 @@ export function CustomerDetail() {
     };
     reader.readAsDataURL(file);
     e.target.value = ''; // Reset input so identical file can be picked again
+  };
+
+  const handleSaveCompany = async () => {
+    if (!id) return;
+    setSavingCompany(true);
+    try {
+      await setDoc(doc(db, 'customers', id), {
+        company: editCompanyForm.name,
+        email: editCompanyForm.email,
+        phone: editCompanyForm.phone,
+        location: editCompanyForm.location,
+        type: editCompanyForm.type,
+        net30Terms: editCompanyForm.net30Terms
+      }, { merge: true });
+      
+      setLiveCustomerData({
+        ...liveCustomerData,
+        company: editCompanyForm.name,
+        email: editCompanyForm.email,
+        phone: editCompanyForm.phone,
+        location: editCompanyForm.location,
+        type: editCompanyForm.type,
+        net30Terms: editCompanyForm.net30Terms
+      });
+      setIsEditDialogOpen(false);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSavingCompany(false);
+    }
   };
 
   const handleUploadCroppedLogo = async () => {
@@ -207,7 +256,20 @@ export function CustomerDetail() {
     }
   };
 
-  const customer = { ...mockCustomer, logo: liveLogo || mockCustomer?.logo };
+  const customer = { 
+    ...mockCustomer, 
+    ...liveCustomerData,
+    logo: liveLogo || mockCustomer?.logo
+  };
+
+  const totalOrders = orders.length;
+  const lifetimeValue = orders.reduce((acc, order) => {
+    if (!order.total) return acc;
+    if (typeof order.total === 'number') return acc + order.total;
+    const cleanTotal = parseFloat(order.total.toString().replace(/[$,]/g, ''));
+    return acc + (isNaN(cleanTotal) ? 0 : cleanTotal);
+  }, 0);
+  const formattedLTV = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(lifetimeValue);
 
   return (
     <div className={tokens.layout.container}>
@@ -267,8 +329,8 @@ export function CustomerDetail() {
                   <span className="flex items-center gap-1.5"><Mail size={14} /> {editCompanyForm.email}</span>
                </div>
                <div className="flex gap-2">
-                 <span className="text-[10px] bg-brand-bg border border-brand-border px-2.5 py-1 rounded-md text-brand-secondary font-semibold uppercase tracking-wider">{customer?.type}</span>
-                 {customer?.type === 'B2B' && (
+                 <span className="text-[10px] bg-brand-bg border border-brand-border px-2.5 py-1 rounded-md text-brand-secondary font-semibold uppercase tracking-wider">{customer?.type || 'B2C'}</span>
+                 {customer?.net30Terms && (
                    <span className="text-[10px] bg-blue-50 border border-blue-200 text-blue-700 px-2.5 py-1 rounded-md font-semibold uppercase tracking-wider">Net 30 Terms</span>
                  )}
                </div>
@@ -277,11 +339,11 @@ export function CustomerDetail() {
          <div className="flex gap-8 text-right bg-brand-bg/50 p-6 rounded-2xl border border-brand-border border-dashed">
             <div>
                <p className="text-xs uppercase font-bold tracking-widest text-brand-secondary mb-1">Total Orders</p>
-               <p className="font-serif text-3xl">{id === 'CUS-001' ? '42' : '1'}</p>
+               <p className="font-serif text-3xl">{totalOrders}</p>
             </div>
             <div>
                <p className="text-xs uppercase font-bold tracking-widest text-brand-secondary mb-1">Lifetime Value</p>
-               <p className="font-serif text-3xl">{customer?.ltv}</p>
+               <p className="font-serif text-3xl">{formattedLTV}</p>
             </div>
          </div>
       </div>
@@ -435,6 +497,17 @@ export function CustomerDetail() {
                     <label className="text-xs font-bold text-brand-secondary uppercase tracking-widest">Location</label>
                     <input className="w-full bg-brand-bg border border-brand-border/60 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-brand-primary/30 transition-colors placeholder:text-brand-secondary/40 font-medium" value={editCompanyForm.location} onChange={e => setEditCompanyForm({...editCompanyForm, location: e.target.value})} />
                  </div>
+                 <div className="flex flex-col gap-1">
+                    <label className="text-xs font-bold text-brand-secondary uppercase tracking-widest">Company Type</label>
+                    <select className="w-full bg-brand-bg border border-brand-border/60 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-brand-primary/30 transition-colors font-medium text-brand-primary" value={editCompanyForm.type} onChange={e => setEditCompanyForm({...editCompanyForm, type: e.target.value})}>
+                      <option value="B2B">B2B (Business)</option>
+                      <option value="B2C">B2C (Consumer)</option>
+                    </select>
+                 </div>
+                 <div className="flex items-center pt-5 pl-2 gap-3">
+                    <input type="checkbox" id="net30" checked={editCompanyForm.net30Terms} onChange={e => setEditCompanyForm({...editCompanyForm, net30Terms: e.target.checked})} className="w-4 h-4 accent-brand-primary cursor-pointer" />
+                    <label htmlFor="net30" className="text-xs font-bold text-brand-primary uppercase tracking-widest cursor-pointer mt-0.5">ALLOW NET 30 TERMS</label>
+                 </div>
                </div>
 
                {/* WOVN Catalog Link */}
@@ -555,8 +628,11 @@ export function CustomerDetail() {
                </div>
             </div>
             
-            <div className="p-6 border-t border-brand-border bg-white flex justify-end">
-                <PillButton variant="filled" onClick={() => setIsEditDialogOpen(false)}>Done</PillButton>
+            <div className="p-6 border-t border-brand-border bg-white flex justify-end gap-3">
+                <PillButton variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</PillButton>
+                <PillButton variant="filled" onClick={handleSaveCompany} disabled={savingCompany}>
+                  {savingCompany ? 'Saving...' : 'Save Changes'}
+                </PillButton>
             </div>
           </div>
         </div>
