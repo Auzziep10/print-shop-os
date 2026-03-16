@@ -243,6 +243,57 @@ export function OrderDetail() {
             </div>
           </div>
 
+          {/* Artwork & Mockups */}
+          <div>
+            <div className="flex items-center justify-between mb-4">
+               <h2 className={tokens.typography.h2}>Artwork Files</h2>
+               <button className="text-sm font-semibold uppercase tracking-widest text-brand-secondary hover:text-brand-primary transition-colors">Upload</button>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+               <div className="aspect-square bg-white border border-brand-border rounded-card p-4 flex flex-col justify-between hover:-translate-y-1 transition-transform cursor-pointer shadow-sm">
+                  <div className="h-full bg-brand-muted rounded flex items-center justify-center mb-3 border border-brand-border/50">
+                     <ImageIcon className="text-brand-secondary/50" size={32} />
+                  </div>
+                  <div className="flex justify-between items-center w-full">
+                     <span className="text-xs font-medium truncate">Left_Chest_Logo_v2.ai</span>
+                     <LinkIcon size={14} className="text-brand-secondary" />
+                  </div>
+               </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column: Activity & Assignees */}
+        <div className="lg:col-span-1 space-y-6">
+          
+          {/* Team Assignment */}
+          <div className="bg-white p-6 rounded-card border border-brand-border shadow-sm">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className={tokens.typography.h3}>Team</h3>
+              <button className="text-brand-secondary hover:text-brand-primary"><Users size={16} /></button>
+            </div>
+            <div className="space-y-3">
+              <div className="flex items-center gap-3 p-2 hover:bg-brand-bg rounded-lg transition-colors cursor-pointer">
+                 <div className="w-8 h-8 rounded-full bg-brand-primary text-white text-xs font-bold flex items-center justify-center">AG</div>
+                 <div>
+                    <p className="text-sm font-medium">Anna Garcia</p>
+                    <p className="text-xs text-brand-secondary">Production Manager</p>
+                 </div>
+              </div>
+              <div className="flex items-center gap-3 p-2 hover:bg-brand-bg rounded-lg transition-colors cursor-pointer">
+                 <div className="w-8 h-8 rounded-full bg-amber-500 text-brand-primary text-xs font-bold flex items-center justify-center">VM</div>
+                 <div>
+                    <p className="text-sm font-medium">Vanessa Miller</p>
+                    <p className="text-xs text-brand-secondary">Printer</p>
+                 </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <div className="space-y-8 mt-8">
           {/* Garments / Items */}
           <div>
             <div className="flex justify-between items-center mb-4">
@@ -344,55 +395,8 @@ export function OrderDetail() {
             </div>
           </div>
           
-          {/* Artwork & Mockups */}
-          <div>
-            <div className="flex items-center justify-between mb-4">
-               <h2 className={tokens.typography.h2}>Artwork Files</h2>
-               <button className="text-sm font-semibold uppercase tracking-widest text-brand-secondary hover:text-brand-primary transition-colors">Upload</button>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-               <div className="aspect-square bg-white border border-brand-border rounded-card p-4 flex flex-col justify-between hover:-translate-y-1 transition-transform cursor-pointer shadow-sm">
-                  <div className="h-full bg-brand-muted rounded flex items-center justify-center mb-3 border border-brand-border/50">
-                     <ImageIcon className="text-brand-secondary/50" size={32} />
-                  </div>
-                  <div className="flex justify-between items-center w-full">
-                     <span className="text-xs font-medium truncate">Left_Chest_Logo_v2.ai</span>
-                     <LinkIcon size={14} className="text-brand-secondary" />
-                  </div>
-               </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Right Column: Activity & Assignees */}
-        <div className="lg:col-span-1 space-y-6">
-          
-          {/* Team Assignment */}
-          <div className="bg-white p-6 rounded-card border border-brand-border shadow-sm">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className={tokens.typography.h3}>Team</h3>
-              <button className="text-brand-secondary hover:text-brand-primary"><Users size={16} /></button>
-            </div>
-            <div className="space-y-3">
-              <div className="flex items-center gap-3 p-2 hover:bg-brand-bg rounded-lg transition-colors cursor-pointer">
-                 <div className="w-8 h-8 rounded-full bg-brand-primary text-white text-xs font-bold flex items-center justify-center">AG</div>
-                 <div>
-                    <p className="text-sm font-medium">Anna Garcia</p>
-                    <p className="text-xs text-brand-secondary">Production Manager</p>
-                 </div>
-              </div>
-              <div className="flex items-center gap-3 p-2 hover:bg-brand-bg rounded-lg transition-colors cursor-pointer">
-                 <div className="w-8 h-8 rounded-full bg-amber-500 text-brand-primary text-xs font-bold flex items-center justify-center">VM</div>
-                 <div>
-                    <p className="text-sm font-medium">Vanessa Miller</p>
-                    <p className="text-xs text-brand-secondary">Printer</p>
-                 </div>
-              </div>
-            </div>
-          </div>
-
           {/* Activity Feed */}
-          <div className="bg-white p-6 rounded-card border border-brand-border shadow-sm flex flex-col h-[500px]">
+          <div className="bg-white p-6 rounded-card border border-brand-border shadow-sm flex flex-col ">
             <div className="flex items-center gap-2 mb-6">
               <Clock className="text-brand-primary" size={20} />
               <h3 className={tokens.typography.h3}>Activity</h3>
@@ -436,7 +440,6 @@ export function OrderDetail() {
                </button>
             </div>
           </div>
-        </div>
       </div>
 
       {/* Edit Order Dialog */}
