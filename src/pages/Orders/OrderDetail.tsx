@@ -2,8 +2,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
 import { useState, useEffect } from 'react';
 import { PillButton } from '../../components/ui/PillButton';
-import { ArrowLeft, MessageSquare, Clock, Users, Link as LinkIcon, Download, Image as ImageIcon, Loader2, X, Edit3, Upload, Trash2, Plus } from 'lucide-react';
+import { ArrowLeft, MessageSquare, Clock, Users, Link as LinkIcon, Download, Image as ImageIcon, Loader2, X, Edit3, Upload, Trash2, Plus, ChevronDown } from 'lucide-react';
 import { StatusBadge, type StatusType } from '../../components/ui/StatusBadge';
+import { useAuth } from '../../contexts/AuthContext';
 import { useOrders } from '../../hooks/useOrders';
 import { MOCK_CUSTOMERS_DB } from '../../lib/mockData';
 import { db, storage } from '../../lib/firebase';
@@ -39,13 +40,67 @@ export function OrderDetail() {
   const [isSaving, setIsSaving] = useState(false);
   const [editForm, setEditForm] = useState({ 
     title: '', date: '', statusIndex: 0,
-    trackingCarrier: '', trackingNumber: ''
+    trackingCarrier: '', trackingNumber: '',
+    fulfillmentType: ''
   });
 
   const [editItemObj, setEditItemObj] = useState<any>(null);
   const [isItemSaving, setIsItemSaving] = useState(false);
   const [isUploadingMain, setIsUploadingMain] = useState(false);
   const [isUploadingRef, setIsUploadingRef] = useState(false);
+
+  const { user } = useAuth();
+  const [noteText, setNoteText] = useState('');
+
+  const order = orders.find(o => o.id === id); // Need order reference earlier
+  const currentCustomer = order ? (MOCK_CUSTOMERS_DB[order.customerId] || MOCK_CUSTOMERS_DB['CUS-001']) : null;
+
+  const handleStatusChange = async (newIndex: number) => {
+    if (!id || !order || !currentCustomer) return;
+    try {
+      const formIsKitting = order.fulfillmentType === 'Kitting' || (!order.fulfillmentType && currentCustomer.fulfillmentType === 'Kitting');
+      const newStatusLabel = (() => {
+         const labels = ['Quote', 'Approved', 'Shopping', 'Ordered', 'Processing', formIsKitting ? 'Inventory' : 'Shipped', formIsKitting ? 'Live (Shopify)' : 'Received'];
+         return labels[newIndex] || 'Unknown';
+      })();
+
+      const activity = {
+        id: `act-${Date.now()}`,
+        type: 'status_change',
+        message: `Status updated to ${newStatusLabel}`,
+        user: user?.email || 'Team Member',
+        timestamp: new Date().toISOString()
+      };
+
+      await setDoc(doc(db, 'orders', id), {
+        statusIndex: newIndex,
+        activities: [activity, ...(order.activities || [])]
+      }, { merge: true });
+    } catch(err) {
+      console.error(err);
+    }
+  };
+
+  const handleAddNote = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!id || !order || !noteText.trim()) return;
+    try {
+      const activity = {
+        id: `act-${Date.now()}`,
+        type: 'note',
+        message: noteText.trim(),
+        user: user?.email || 'Team Member',
+        timestamp: new Date().toISOString()
+      };
+
+      await setDoc(doc(db, 'orders', id), {
+        activities: [activity, ...(order.activities || [])]
+      }, { merge: true });
+      setNoteText('');
+    } catch(err) {
+      console.error(err);
+    }
+  };
 
   const handleMainImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -147,7 +202,8 @@ export function OrderDetail() {
         date: order.date || '',
         statusIndex: order.statusIndex || 0,
         trackingCarrier: order.trackingCarrier || '',
-        trackingNumber: order.trackingNumber || ''
+        trackingNumber: order.trackingNumber || '',
+        fulfillmentType: order.fulfillmentType || ''
       });
     }
   }, [orders, id]);
@@ -161,7 +217,8 @@ export function OrderDetail() {
         date: editForm.date,
         statusIndex: editForm.statusIndex,
         trackingCarrier: editForm.trackingCarrier,
-        trackingNumber: editForm.trackingNumber
+        trackingNumber: editForm.trackingNumber,
+        fulfillmentType: editForm.fulfillmentType
       }, { merge: true });
       setIsEditDialogOpen(false);
     } catch (err) {
@@ -180,8 +237,6 @@ export function OrderDetail() {
       </div>
     );
   }
-
-  const order = orders.find(o => o.id === id);
 
   if (!order) {
     return (
@@ -203,7 +258,7 @@ export function OrderDetail() {
   const totalFormatted = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalPriceRaw);
 
   // Map strict 7-step Index to Admin pipeline Badge component
-  const isKitting = customer.fulfillmentType === 'Kitting';
+  const isKitting = order.fulfillmentType === 'Kitting' || (!order.fulfillmentType && customer.fulfillmentType === 'Kitting');
   let badgeStatus: StatusType = 'quote';
   let subStatus = '';
   switch(order.statusIndex) {
@@ -255,9 +310,31 @@ export function OrderDetail() {
                   <h1 className="font-serif text-4xl text-brand-primary mb-2">{customer.company}</h1>
                   <p className="text-lg text-brand-secondary">{order.title}</p>
                </div>
-               <div className="text-right">
+               <div className="text-right flex flex-col items-end">
                   <p className="text-xs uppercase font-bold tracking-widest text-brand-secondary mb-3">Order {order.portalId || order.id}</p>
-                  <StatusBadge status={badgeStatus} subStatus={subStatus} />
+                  
+                  <div className="relative group/status cursor-pointer inline-flex flex-col items-end">
+                      <div className="flex items-center gap-1 opacity-60 group-hover/status:opacity-100 transition-opacity mb-1 justify-end">
+                          <span className="text-[9px] uppercase font-bold text-brand-secondary tracking-widest">Update</span>
+                          <ChevronDown size={12} className="text-brand-secondary" />
+                      </div>
+                      <div className="relative">
+                          <StatusBadge status={badgeStatus} subStatus={subStatus} />
+                          <select 
+                              className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                              value={order.statusIndex.toString()}
+                              onChange={(e) => handleStatusChange(Number(e.target.value))}
+                          >
+                            <option value="0">0 - Quote</option>
+                            <option value="1">1 - Approved</option>
+                            <option value="2">2 - Shopping</option>
+                            <option value="3">3 - Ordered</option>
+                            <option value="4">4 - Processing</option>
+                            <option value="5">5 - {isKitting ? 'Inventory' : 'Shipped'}</option>
+                            <option value="6">6 - {isKitting ? 'Live (Shopify)' : 'Received'}</option>
+                          </select>
+                      </div>
+                  </div>
                </div>
             </div>
             
@@ -456,43 +533,44 @@ export function OrderDetail() {
               <h3 className={tokens.typography.h3}>Activity</h3>
             </div>
             
-            <div className="flex-1 overflow-y-auto pr-2 space-y-6 custom-scrollbar mb-4">
-               {/* Event */}
-               <div className="relative pl-6 border-l border-brand-border/60">
-                  <div className="absolute w-2 h-2 rounded-full bg-brand-primary left-[-4.5px] top-1.5 ring-4 ring-white"></div>
-                  <p className="text-sm font-medium text-brand-primary mb-0.5">Status changed to Printing</p>
-                  <p className="text-xs text-brand-secondary">Today, 9:42 AM by Anna G.</p>
-               </div>
-               
-               {/* Comment */}
-               <div className="relative pl-6 border-l border-brand-border/60">
-                  <div className="absolute w-2 h-2 rounded-full bg-brand-secondary left-[-4.5px] top-1.5 ring-4 ring-white"></div>
-                  <p className="text-sm font-medium text-brand-primary mb-1">Vanessa Miller</p>
-                  <div className="bg-brand-bg p-3 rounded-lg text-sm text-brand-secondary border border-brand-border/50">
-                     Screens are burned and set up on press 2. Waiting for shirts to complete receiving.
-                  </div>
-                  <p className="text-xs text-brand-secondary mt-1">Yesterday, 3:15 PM</p>
-               </div>
-
-                {/* Event */}
-               <div className="relative pl-6 border-l border-brand-border/60 pb-4">
-                  <div className="absolute w-2 h-2 rounded-full bg-blue-500 left-[-4.5px] top-1.5 ring-4 ring-white"></div>
-                  <p className="text-sm font-medium text-brand-primary mb-0.5">Artwork Approved</p>
-                  <p className="text-xs text-brand-secondary">Oct 12, 10:00 AM by Client Portal</p>
-               </div>
+            <div className="flex-1 overflow-y-auto pr-2 space-y-4 custom-scrollbar mb-4 max-h-[400px]">
+               {order.activities && order.activities.length > 0 ? order.activities.map((act: any) => (
+                 <div key={act.id} className="relative pl-6 border-l border-brand-border/60 pb-4 last:pb-0 last:border-0">
+                    <div className={`absolute w-2 h-2 rounded-full left-[-4.5px] top-1.5 ring-4 ring-white ${act.type === 'status_change' ? 'bg-brand-primary' : 'bg-brand-secondary'}`}></div>
+                    
+                    {act.type === 'status_change' ? (
+                       <p className="text-sm font-medium text-brand-primary mb-0.5">{act.message}</p>
+                    ) : (
+                       <>
+                         <p className="text-sm font-medium text-brand-primary mb-1">{act.user.split('@')[0]}</p>
+                         <div className="bg-brand-bg p-3 rounded-lg text-sm text-brand-secondary border border-brand-border/50">
+                            {act.message}
+                         </div>
+                       </>
+                    )}
+                    
+                    <p className="text-xs text-brand-secondary mt-1">
+                      {new Date(act.timestamp).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute:'2-digit' })} by {act.user.split('@')[0]}
+                    </p>
+                 </div>
+               )) : (
+                 <div className="text-xs text-brand-secondary text-center py-6">No activity recorded yet for this order.</div>
+               )}
             </div>
 
             {/* Comment Input */}
-            <div className="mt-auto relative">
+            <form onSubmit={handleAddNote} className="mt-auto relative">
                <input 
                  type="text" 
+                 value={noteText}
+                 onChange={(e) => setNoteText(e.target.value)}
                  placeholder="Leave a note..." 
                  className="w-full bg-brand-bg border border-brand-border rounded-lg pl-4 pr-10 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
                />
-               <button className="absolute right-3 top-1/2 -translate-y-1/2 text-brand-secondary hover:text-brand-primary transition-colors">
+               <button type="submit" className="absolute right-3 top-1/2 -translate-y-1/2 text-brand-secondary hover:text-brand-primary transition-colors">
                  <MessageSquare size={16} />
                </button>
-            </div>
+            </form>
           </div>
       </div>
 
@@ -533,21 +611,42 @@ export function OrderDetail() {
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Pipeline Status</label>
-                <select 
-                  value={editForm.statusIndex.toString()}
-                  onChange={(e) => setEditForm(prev => ({ ...prev, statusIndex: parseInt(e.target.value) }))}
-                  className="w-full bg-white border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
-                >
-                  <option value="0">0 - Quote</option>
-                  <option value="1">1 - Approved</option>
-                  <option value="2">2 - Shopping</option>
-                  <option value="3">3 - Ordered</option>
-                  <option value="4">4 - Processing</option>
-                  <option value="5">5 - {isKitting ? 'Inventory' : 'Shipped'}</option>
-                  <option value="6">6 - {isKitting ? 'Live (Shopify)' : 'Received'}</option>
-                </select>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Fulfillment Type</label>
+                  <select 
+                    value={editForm.fulfillmentType}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, fulfillmentType: e.target.value }))}
+                    className="w-full bg-white border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
+                  >
+                    <option value="">Default (From Customer)</option>
+                    <option value="Standard">Standard Drop-Ship</option>
+                    <option value="Kitting">Inventory & Kitting</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Pipeline Status</label>
+                  <select 
+                    value={editForm.statusIndex.toString()}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, statusIndex: parseInt(e.target.value) }))}
+                    className="w-full bg-white border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
+                  >
+                    {(() => {
+                      const formIsKitting = editForm.fulfillmentType === 'Kitting' || (!editForm.fulfillmentType && customer.fulfillmentType === 'Kitting');
+                      return (
+                        <>
+                          <option value="0">0 - Quote</option>
+                          <option value="1">1 - Approved</option>
+                          <option value="2">2 - Shopping</option>
+                          <option value="3">3 - Ordered</option>
+                          <option value="4">4 - Processing</option>
+                          <option value="5">5 - {formIsKitting ? 'Inventory' : 'Shipped'}</option>
+                          <option value="6">6 - {formIsKitting ? 'Live (Shopify)' : 'Received'}</option>
+                        </>
+                      );
+                    })()}
+                  </select>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">

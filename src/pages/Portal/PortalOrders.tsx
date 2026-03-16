@@ -58,11 +58,6 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
 
   const customer = { ...mockCustomer, logo: liveLogo || mockCustomer?.logo };
   
-  const isKitting = customer.fulfillmentType === 'Kitting';
-  const timelineSteps = isKitting 
-    ? ['Quote', 'Approved', 'Shopping', 'Ordered', 'Processing', 'Inventory', 'Live'] 
-    : ['Quote', 'Approved', 'Shopping', 'Ordered', 'Processing', 'Shipped', 'Received'];
-
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   if (loading) {
@@ -94,6 +89,11 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
     <div className={`max-w-[1600px] mx-auto flex flex-col gap-6 ${hideHeader ? 'mt-0' : 'mt-8'}`}>
       {orders.map((order: any) => {
         const isExpanded = expandedId === order.id;
+        const isKitting = order.fulfillmentType === 'Kitting' || (!order.fulfillmentType && customer.fulfillmentType === 'Kitting');
+        const timelineSteps = isKitting 
+          ? ['Quote', 'Approved', 'Shopping', 'Ordered', 'Processing', 'Inventory', 'Live'] 
+          : ['Quote', 'Approved', 'Shopping', 'Ordered', 'Processing', 'Shipped', 'Received'];
+
         // Calculate the percentage width for the progress bar fill
         const fillWidth = `${(order.statusIndex / (timelineSteps.length - 1)) * 100}%`;
 
