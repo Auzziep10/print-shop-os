@@ -20,22 +20,12 @@ const sortSizes = (a: string, b: string) => {
 const STATUS_STEPS = ['Placed', 'Shopping', 'Ordered', 'Processing', 'Shipped', 'Received'];
 
 // Helper component for the little gray pills in the items breakdown
-const DataPill = ({ label, value, isAdminFormat = false }: { label: string, value: string, isAdminFormat?: boolean }) => {
-  if (isAdminFormat) {
-    return (
-      <div className="flex flex-col items-center justify-center bg-neutral-100/80 px-3 py-1.5 rounded-2xl min-w-[90px] mb-1">
-        <span className="text-[9px] text-neutral-500 font-bold mb-0.5">{label}</span>
-        <span className="text-xs text-neutral-800 font-bold xl:max-w-[130px] truncate leading-none">{value}</span>
-      </div>
-    );
-  }
-  return (
-    <div className="flex flex-col items-center justify-center bg-neutral-100 px-4 py-1.5 rounded-3xl min-w-[100px]">
-      <span className="text-[10px] text-neutral-500 font-semibold mb-0.5">{label}:</span>
-      <span className="text-xs text-neutral-800 font-medium leading-none">{value}</span>
-    </div>
-  );
-};
+const DataPill = ({ label, value }: { label: string, value: string }) => (
+  <div className="flex flex-col items-center justify-center bg-neutral-100 px-4 py-1.5 rounded-3xl min-w-[100px]">
+    <span className="text-[10px] text-neutral-500 font-semibold mb-0.5">{label}:</span>
+    <span className="text-xs text-neutral-800 font-medium leading-none">{value}</span>
+  </div>
+);
 
 export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overrideCustomerId?: string, hideHeader?: boolean }) {
   const { customerId } = useParams();
@@ -192,10 +182,10 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
 
                         {/* Specs */}
                         <div className="flex flex-wrap gap-2 flex-1">
-                           {item.itemNum && <DataPill label="Item #" value={item.itemNum} isAdminFormat={hideHeader} />}
-                           {item.color && <DataPill label="Garment Color" value={item.color} isAdminFormat={hideHeader} />}
+                           {item.itemNum && <DataPill label="Item #" value={item.itemNum} />}
+                           {item.color && <DataPill label="Garment Color" value={item.color} />}
                            {item.logos?.map((logo: string, i: number) => (
-                             <DataPill key={i} label={`Logo ${i+1}`} value={logo} isAdminFormat={hideHeader} />
+                             <DataPill key={i} label={`Logo ${i+1}`} value={logo} />
                            ))}
                         </div>
                       </div>
