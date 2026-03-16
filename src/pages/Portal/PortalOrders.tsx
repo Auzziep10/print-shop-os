@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ChevronDown, ChevronRight, Loader2, PackageOpen, Building2 } from 'lucide-react';
+import { ChevronRight, Loader2, PackageOpen, Building2 } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useOrders } from '../../hooks/useOrders';
 import { MOCK_CUSTOMERS_DB } from '../../lib/mockData';
@@ -139,7 +139,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
                       <h2 className="text-2xl font-serif text-gray-900 hover:text-brand-primary transition-colors">Order {order.portalId}</h2>
                       {!overrideCustomerId && (
                         <span className="text-gray-400 group-hover:text-black transition-colors">
-                          {isExpanded ? <ChevronDown size={20} strokeWidth={2.5} /> : <ChevronRight size={20} strokeWidth={2.5} />}
+                          <ChevronRight size={20} strokeWidth={2.5} className={`transition-transform duration-500 ease-out ${isExpanded ? 'rotate-90' : ''}`} />
                         </span>
                       )}
                     </div>
@@ -181,9 +181,10 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
               </div>
 
               {/* Expanded Items Section */}
-              {isExpanded && order.items.length > 0 && (
-                <div className="mt-14 space-y-4">
-                  {order.items?.map((item: any) => (
+              {order.items && order.items.length > 0 && (
+                <div className={`grid transition-all duration-500 ease-in-out ${isExpanded ? 'grid-rows-[1fr] opacity-100 mt-14' : 'grid-rows-[0fr] opacity-0 mt-0 pointer-events-none'}`}>
+                  <div className="overflow-hidden space-y-4">
+                    {order.items.map((item: any) => (
                     <div key={item.id} className="bg-white rounded-3xl p-4 px-6 flex flex-col xl:flex-row xl:items-center justify-between gap-6 shadow-[0_4px_12px_rgb(0,0,0,0.02)]">
                       
                       {/* Left Side: Visual & Specs */}
@@ -239,9 +240,9 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
                           </div>
                         </div>
                       </div>
-
                     </div>
                   ))}
+                  </div>
                 </div>
               )}
             </div>
