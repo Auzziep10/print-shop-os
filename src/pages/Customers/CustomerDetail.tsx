@@ -552,7 +552,7 @@ export function CustomerDetail() {
                            const c = availableCatalogs.find(m => m.id === linkId);
                            return (
                              <div key={linkId} className="flex items-center gap-2 bg-white border border-brand-border/60 rounded-lg pl-3 pr-1 py-1 shadow-sm">
-                               <span className="text-xs font-bold text-brand-primary">{c && c.name ? c.name : linkId}</span>
+                               <span className="text-xs font-bold text-brand-primary">{c && c.name ? c.name : 'Linked WOVN Deck'}</span>
                                <button 
                                  onClick={() => toggleCatalogLink(linkId)}
                                  className="w-6 h-6 rounded flex items-center justify-center text-brand-secondary hover:bg-brand-bg hover:text-red-500 transition-colors"

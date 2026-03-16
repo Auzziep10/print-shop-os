@@ -290,7 +290,9 @@ export function PortalCreateOrder() {
                   <div key={deck.id || deck.name} className="flex flex-col gap-4">
                     <div className="bg-[#f0ebe1] rounded-2xl p-6 border border-[#e6e2db] flex flex-col justify-center items-center text-center">
                        <h3 className="font-bold text-neutral-900 tracking-tight text-lg">{deck.name || "Catalog Deck"}</h3>
-                       <p className="text-[#6b665c] font-bold mt-1 uppercase tracking-widest text-[10px]">{deck.id || "Active Deck"}</p>
+                       {deck.name && (
+                         <p className="text-[#6b665c] font-bold mt-1 uppercase tracking-widest text-[10px]">Active Collection</p>
+                       )}
                     </div>
 
                     <div className="flex flex-col gap-3 mt-1">
@@ -320,7 +322,9 @@ export function PortalCreateOrder() {
                                  <h4 className="font-bold text-neutral-900 text-[15px] truncate pr-2">{style}</h4>
                                  <span className="text-[10px] font-bold text-neutral-600 bg-neutral-100 px-2 py-0.5 rounded-full shrink-0">{gender}</span>
                               </div>
-                              <p className="text-xs font-semibold text-neutral-500">{itemNum}</p>
+                              {itemNum && itemNum.length < 15 && (
+                                <p className="text-xs font-semibold text-neutral-500">{itemNum}</p>
+                              )}
                               <p className="text-xs text-neutral-400 font-medium mt-1 truncate">{colors.join(' • ')}</p>
                             </div>
                             <button 
