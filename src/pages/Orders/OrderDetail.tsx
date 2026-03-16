@@ -2,7 +2,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
 import { useState, useEffect } from 'react';
 import { PillButton } from '../../components/ui/PillButton';
-import { ArrowLeft, MessageSquare, Clock, Users, Link as LinkIcon, Download, Image as ImageIcon, Loader2, X, Edit3, Upload, Trash2 } from 'lucide-react';
+import { ArrowLeft, MessageSquare, Clock, Users, Link as LinkIcon, Download, Image as ImageIcon, Loader2, X, Edit3, Upload, Trash2, Plus } from 'lucide-react';
 import { StatusBadge, type StatusType } from '../../components/ui/StatusBadge';
 import { useOrders } from '../../hooks/useOrders';
 import { MOCK_CUSTOMERS_DB } from '../../lib/mockData';
@@ -96,7 +96,13 @@ export function OrderDetail() {
         total: lineTotal
       };
 
-      const updatedItems = orderData.items.map((i:any) => i.id === finalItem.id ? finalItem : i);
+      const existingItems = orderData.items || [];
+      const itemExists = existingItems.some((i: any) => i.id === finalItem.id);
+      
+      const updatedItems = itemExists 
+        ? existingItems.map((i:any) => i.id === finalItem.id ? finalItem : i)
+        : [...existingItems, finalItem];
+
       await setDoc(doc(db, 'orders', id), { items: updatedItems }, { merge: true });
       setEditItemObj(null);
     } catch (err) {
@@ -239,7 +245,26 @@ export function OrderDetail() {
 
           {/* Garments / Items */}
           <div>
-            <h2 className={tokens.typography.h2 + " mb-4"}>Order Items</h2>
+            <div className="flex justify-between items-center mb-4">
+               <h2 className={tokens.typography.h2}>Order Items</h2>
+               <PillButton 
+                 variant="outline" 
+                 onClick={() => setEditItemObj({
+                   id: `item-${Date.now()}`,
+                   gender: '',
+                   style: '',
+                   itemNum: '',
+                   color: '',
+                   sizes: { 'XS': 0, 'S': 0, 'M': 0, 'L': 0, 'XL': 0, '2XL': 0, '3XL': 0 },
+                   price: '$0.00',
+                   qty: 0,
+                   total: '$0.00'
+                 })}
+                 className="gap-2 shrink-0 px-4 py-2 text-xs"
+               >
+                 <Plus size={14} /> Add Item
+               </PillButton>
+            </div>
             <div className="bg-white rounded-card border border-brand-border overflow-hidden">
                {order.items?.length > 0 ? order.items.map((item: any) => (
                  <div key={item.id} className="p-6 border-b border-brand-border/50 flex gap-6 items-start hover:bg-brand-bg transition-colors last:border-0">
