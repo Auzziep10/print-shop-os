@@ -10,11 +10,11 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import Cropper from 'react-easy-crop';
 import { getCroppedImg } from '../../lib/cropUtils';
+import { PortalOrders } from '../Portal/PortalOrders';
 
 export function CustomerDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { orders, loading: ordersLoading } = useOrders(id);
   
   const mockCustomer = id ? MOCK_CUSTOMERS_DB[id] : MOCK_CUSTOMERS_DB['CUS-001'];
 
@@ -278,107 +278,51 @@ export function CustomerDetail() {
          </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      {/* Main Content Area */}
+      <div className="flex flex-col gap-8">
         
-        {/* Left Column: Contacts & Access */}
-        <div className="space-y-8">
-
-          {/* CRM Notes */}
-          <div className="bg-white p-6 rounded-card border border-brand-border shadow-sm">
-             <div className="flex items-center gap-2 mb-4">
-                <FileText size={18} className="text-brand-secondary" />
-                <h3 className={tokens.typography.h3}>Internal Notes</h3>
-             </div>
-             <textarea 
-                className="w-full h-32 bg-brand-bg border border-brand-border rounded-xl p-3 text-sm resize-none focus:border-brand-primary focus:outline-none transition-colors"
-                placeholder="Add a note about this company..."
-                defaultValue="Always triple check the black ink opacity on their orders. They are very particular about the 'Vanta Black' look."
-             ></textarea>
-             <div className="mt-3 flex justify-end">
-                <button className="text-xs font-semibold px-4 py-2 bg-brand-primary text-white rounded-lg">Save Note</button>
-             </div>
-          </div>
-
+        {/* Notes (Moved to a full-width but subtle block below header) */}
+        <div className="bg-brand-bg/50 p-6 rounded-card border border-brand-border shadow-sm flex flex-col md:flex-row gap-6">
+           <div className="flex items-center gap-2 md:w-48 shrink-0">
+              <FileText size={18} className="text-brand-secondary" />
+              <h3 className={tokens.typography.h3}>Internal Notes</h3>
+           </div>
+           <textarea 
+              className="flex-1 bg-white border border-brand-border rounded-xl p-3 text-sm resize-none focus:border-brand-primary focus:outline-none transition-colors"
+              placeholder="Add a note about this company..."
+              defaultValue="Always triple check the black ink opacity on their orders. They are very particular about the 'Vanta Black' look."
+              rows={2}
+           ></textarea>
+           <div className="flex items-center">
+              <button className="text-xs font-semibold px-6 py-3 bg-brand-primary text-white rounded-xl whitespace-nowrap hover:bg-black transition-colors">Save Note</button>
+           </div>
         </div>
 
-        {/* Right Column: Order History */}
-        <div className="lg:col-span-2 space-y-8">
-          
-          <div className="bg-white p-6 rounded-card border border-brand-border shadow-sm">
-             <div className="flex items-center justify-between mb-6">
-                <div>
-                   <h2 className={tokens.typography.h2}>Active Quotes & Orders</h2>
-                   <p className="text-sm text-brand-secondary mt-1">Current pipeline for this company.</p>
-                </div>
-                <button className="text-sm font-semibold uppercase tracking-widest text-brand-secondary hover:text-brand-primary transition-colors">View All History</button>
-             </div>
-
-             <div className="border border-brand-border rounded-xl overflow-hidden divide-y divide-brand-border">
-                {ordersLoading ? (
-                  <div className="p-8 flex flex-col items-center justify-center text-brand-secondary gap-2">
-                    <Loader2 className="animate-spin" size={24} />
-                    <p className="text-xs uppercase tracking-widest font-semibold">Loading orders...</p>
-                  </div>
-                ) : orders.length === 0 ? (
-                  <div className="p-8 text-center text-brand-secondary">
-                    <p className="text-sm font-medium">No active orders found.</p>
-                  </div>
-                ) : orders.map((order) => {
-                  
-                  const totalItems = order.items?.reduce((acc: number, i: any) => acc + (i.qty || 0), 0) || 0;
-                  const totalPriceRaw = order.items?.reduce((acc: number, i: any) => {
-                    const priceMatch = (i.total || '$0').replace(/[^0-9.]/g, '');
-                    return acc + (parseFloat(priceMatch) || 0);
-                  }, 0) || 0;
-                  const totalFormatted = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalPriceRaw);
-
-                  let badgeStatus = 'Quote';
-                  let statusClass = 'bg-gray-100 text-gray-700';
-                  
-                  switch(order.statusIndex) {
-                     case 0: badgeStatus = 'Placed'; statusClass= 'bg-gray-100 text-gray-700'; break;
-                     case 1: badgeStatus = 'Approval'; statusClass = 'bg-blue-100 text-blue-700'; break;
-                     case 2: badgeStatus = 'Ordered'; statusClass = 'bg-amber-100 text-amber-700'; break;
-                     case 3: badgeStatus = 'Production'; statusClass = 'bg-amber-100 text-amber-700'; break;
-                     case 4: badgeStatus = 'Shipped'; statusClass = 'bg-green-100 text-green-700'; break;
-                     case 5: badgeStatus = 'Completed'; statusClass = 'bg-green-100 text-green-700'; break;
-                  }
-
-                  return (
-                    <div key={order.portalId || order.id} onClick={() => navigate(`/orders/${order.id}`)} className="flex items-center justify-between p-4 hover:bg-brand-bg transition-colors cursor-pointer group">
-                       <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 rounded border border-brand-border bg-white flex items-center justify-center text-[10px] font-bold text-brand-secondary group-hover:text-brand-primary transition-colors">
-                            {(order.portalId || order.id).replace('#', '').replace('ORD-', '')}
-                          </div>
-                          <div>
-                             <div className="flex items-center gap-2 mb-1">
-                                <p className="font-serif text-lg leading-none">{order.title}</p>
-                                <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-widest ${statusClass}`}>
-                                   {badgeStatus}
-                                </span>
-                             </div>
-                             <p className="text-xs text-brand-secondary font-medium">{totalItems} qt &bull; {order.date}</p>
-                          </div>
-                       </div>
-                       <div className="text-right">
-                          <p className="font-serif text-lg">{totalFormatted}</p>
-                       </div>
-                    </div>
-                  );
-                })}
-             </div>
-          </div>
-          
-          {/* Resale Certificate / Tax Exemption Warning */}
-          <div className="bg-amber-50 border border-amber-200/50 rounded-card p-6 flex gap-4">
+        {/* Resale Certificate / Tax Exemption Warning */}
+        <div className="bg-amber-50 border border-amber-200/50 rounded-card p-6 flex items-center justify-between gap-4">
+           <div className="flex items-center gap-4">
              <ShieldAlert className="text-amber-500 shrink-0" />
              <div>
                 <h3 className="font-semibold text-amber-800 mb-1">Tax Exemption Expiring Soon</h3>
-                <p className="text-sm text-amber-700/80 mb-3">Wayne Enterprises resale certificate is set to expire in 30 days. They will be charged tax on future invoices if not updated.</p>
-                <button className="text-xs font-bold text-amber-800 uppercase tracking-widest hover:underline">Request Update</button>
+                <p className="text-sm text-amber-700/80">Wayne Enterprises resale certificate is set to expire in 30 days. They will be charged tax on future invoices if not updated.</p>
              </div>
-          </div>
+           </div>
+           <button className="text-xs font-bold text-amber-800 uppercase tracking-widest hover:underline whitespace-nowrap bg-amber-100 px-4 py-2 rounded-lg">Request Update</button>
+        </div>
 
+        {/* Order History using Portal Component */}
+        <div className="mt-4">
+           <div className="flex items-center justify-between mb-8">
+              <div>
+                 <h2 className={tokens.typography.h2}>Active Quotes & Orders</h2>
+                 <p className="text-sm text-brand-secondary mt-1">Current pipeline and history for this company.</p>
+              </div>
+           </div>
+
+           {/* Injecting the exact visual component the customer sees! */}
+           <div className="w-full">
+             <PortalOrders overrideCustomerId={id} hideHeader={true} />
+           </div>
         </div>
       </div>
 

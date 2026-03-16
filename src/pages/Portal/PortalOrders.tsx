@@ -27,9 +27,9 @@ const DataPill = ({ label, value }: { label: string, value: string }) => (
   </div>
 );
 
-export function PortalOrders() {
+export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overrideCustomerId?: string, hideHeader?: boolean }) {
   const { customerId } = useParams();
-  const currentCustomerId = customerId || 'CUS-001';
+  const currentCustomerId = overrideCustomerId || customerId || 'CUS-001';
   
   // If no customerId is in the URL, fallback to Wayne Enterprises 'CUS-001' to demo it!
   const { orders, loading } = useOrders(currentCustomerId);
@@ -79,7 +79,7 @@ export function PortalOrders() {
   }
 
   return (
-    <div className="max-w-[1600px] mx-auto flex flex-col gap-6">
+    <div className={`max-w-[1600px] mx-auto flex flex-col gap-6 ${hideHeader ? 'mt-0' : 'mt-8'}`}>
       {orders.map((order: any) => {
         const isExpanded = expandedId === order.id;
         // Calculate the percentage width for the progress bar fill
