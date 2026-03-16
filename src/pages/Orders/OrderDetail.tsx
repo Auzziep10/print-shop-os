@@ -1,15 +1,52 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
+import { useState, useEffect } from 'react';
 import { PillButton } from '../../components/ui/PillButton';
-import { ArrowLeft, MessageSquare, Clock, Users, Link as LinkIcon, Download, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { ArrowLeft, MessageSquare, Clock, Users, Link as LinkIcon, Download, Image as ImageIcon, Loader2, X } from 'lucide-react';
 import { StatusBadge, type StatusType } from '../../components/ui/StatusBadge';
 import { useOrders } from '../../hooks/useOrders';
 import { MOCK_CUSTOMERS_DB } from '../../lib/mockData';
+import { db } from '../../lib/firebase';
+import { doc, setDoc } from 'firebase/firestore';
 
 export function OrderDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { orders, loading } = useOrders();
+
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [editForm, setEditForm] = useState({ title: '', date: '', statusIndex: 0 });
+
+  // Update edit form when order loads or changes
+  useEffect(() => {
+    const order = orders.find(o => o.id === id);
+    if (order) {
+      setEditForm({
+        title: order.title || '',
+        date: order.date || '',
+        statusIndex: order.statusIndex || 0,
+      });
+    }
+  }, [orders, id]);
+
+  const handleSaveEdit = async () => {
+    if (!id) return;
+    setIsSaving(true);
+    try {
+      await setDoc(doc(db, 'orders', id), {
+        title: editForm.title,
+        date: editForm.date,
+        statusIndex: editForm.statusIndex
+      }, { merge: true });
+      setIsEditDialogOpen(false);
+    } catch (err) {
+      console.error("Error updating order:", err);
+      // Fallback update could go here if using local state array, but we have onSnapshot so it's live!
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -69,7 +106,7 @@ export function OrderDetail() {
             <Download size={16} />
             Invoice
           </PillButton>
-          <PillButton variant="filled">
+          <PillButton variant="filled" onClick={() => setIsEditDialogOpen(true)}>
             Edit Order
           </PillButton>
         </div>
@@ -244,6 +281,73 @@ export function OrderDetail() {
           </div>
         </div>
       </div>
+
+      {/* Edit Order Dialog */}
+      {isEditDialogOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-6 overflow-y-auto">
+          <div className="bg-brand-bg max-w-lg w-full rounded-2xl overflow-hidden shadow-2xl flex flex-col border border-brand-border my-auto">
+            <div className="p-6 border-b border-brand-border flex justify-between items-center bg-white">
+              <h3 className="font-serif text-2xl text-brand-primary">Edit Order</h3>
+              <button 
+                onClick={() => setIsEditDialogOpen(false)} 
+                className="text-brand-secondary hover:text-brand-primary transition-colors bg-brand-bg border border-brand-border rounded-md p-1"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="p-6 flex flex-col gap-6">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Order Title</label>
+                <input 
+                  type="text" 
+                  value={editForm.title}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, title: e.target.value }))}
+                  className="w-full bg-white border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
+                  placeholder="e.g. Polos, Jackets, Accessories"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Due Date</label>
+                <input 
+                  type="text" 
+                  value={editForm.date}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, date: e.target.value }))}
+                  className="w-full bg-white border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
+                  placeholder="e.g. 3/29/26"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Pipeline Status</label>
+                <select 
+                  value={editForm.statusIndex.toString()}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, statusIndex: parseInt(e.target.value) }))}
+                  className="w-full bg-white border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
+                >
+                  <option value="0">0 - Placed / Quote</option>
+                  <option value="1">1 - Shopping / Approval</option>
+                  <option value="2">2 - Ordered</option>
+                  <option value="3">3 - Processing / Printing</option>
+                  <option value="4">4 - Shipped</option>
+                  <option value="5">5 - Received / Completed</option>
+                </select>
+              </div>
+
+              <div className="flex gap-4 pt-4 border-t border-brand-border">
+                <PillButton variant="outline" onClick={() => setIsEditDialogOpen(false)} className="flex-1 justify-center py-3">
+                  Cancel
+                </PillButton>
+                <PillButton variant="filled" onClick={handleSaveEdit} className="flex-1 justify-center py-3" disabled={isSaving}>
+                  {isSaving ? <Loader2 className="animate-spin" size={18} /> : <span>Save Changes</span>}
+                </PillButton>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
