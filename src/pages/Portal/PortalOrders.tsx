@@ -21,9 +21,9 @@ const STATUS_STEPS = ['Placed', 'Shopping', 'Ordered', 'Processing', 'Shipped', 
 
 // Helper component for the little gray pills in the items breakdown
 const DataPill = ({ label, value }: { label: string, value: string }) => (
-  <div className="flex flex-col items-center justify-center bg-gray-100 px-4 py-1.5 rounded-3xl min-w-[100px]">
-    <span className="text-[10px] text-gray-500 font-semibold mb-0.5">{label}:</span>
-    <span className="text-xs text-gray-800 font-medium leading-none">{value}</span>
+  <div className="flex flex-col items-center justify-center bg-[#f0ebe1] px-4 py-1.5 rounded-3xl min-w-[100px]">
+    <span className="text-[10px] text-[#6b665c] font-semibold mb-0.5">{label}:</span>
+    <span className="text-xs text-[#4a4845] font-medium leading-none">{value}</span>
   </div>
 );
 
@@ -185,11 +185,11 @@ export function PortalOrders() {
                       {/* Right Side: Sizing & Pricing */}
                       <div className="flex flex-wrap lg:flex-nowrap items-end lg:items-center gap-4 shrink-0">
                         {/* Sizing Grid Area */}
-                        <div className="flex items-stretch gap-[2px] bg-[#eaeaec] p-[3px] rounded-xl font-sans">
+                        <div className="flex items-stretch gap-[2px] bg-[#e6e2db] p-[3px] rounded-xl font-sans">
                           {item.sizes && Object.entries(item.sizes).sort(([a], [b]) => sortSizes(a, b)).map(([size, qty]: [string, any]) => (
                             <div key={size} className="w-10 text-center flex flex-col">
-                              <div className="bg-[#d5d5d8] text-gray-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">{size}</div>
-                              <div className={`text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center bg-white ${qty > 0 ? 'text-gray-900' : 'text-gray-400'}`}>
+                              <div className="bg-[#d8d3cb] text-[#6b665c] text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">{size}</div>
+                              <div className={`text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center bg-white ${qty > 0 ? 'text-[#4a4845]' : 'text-[#a8a39a]'}`}>
                                 {qty}
                               </div>
                             </div>
@@ -197,18 +197,18 @@ export function PortalOrders() {
                         </div>
 
                         {/* Pricing Summary */}
-                        <div className="flex items-stretch gap-[2px] bg-[#eaeaec] p-[3px] rounded-xl font-sans shrink-0">
+                        <div className="flex items-stretch gap-[2px] bg-[#e6e2db] p-[3px] rounded-xl font-sans shrink-0">
                           <div className="w-12 text-center flex flex-col">
-                            <div className="bg-[#d5d5d8] text-gray-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">QTY</div>
-                            <div className="bg-[#f4f4f5] text-gray-900 text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center">{item.qty}</div>
+                            <div className="bg-[#d8d3cb] text-[#6b665c] text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">QTY</div>
+                            <div className="bg-[#f0ebe1] text-[#4a4845] text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center">{item.qty}</div>
                           </div>
                           <div className="w-16 text-center flex flex-col">
-                            <div className="bg-[#d5d5d8] text-gray-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">Price</div>
-                            <div className="bg-[#f4f4f5] text-gray-900 text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center">{item.price}</div>
+                            <div className="bg-[#d8d3cb] text-[#6b665c] text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">Price</div>
+                            <div className="bg-[#f0ebe1] text-[#4a4845] text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center">{item.price}</div>
                           </div>
                           <div className="w-20 text-center flex flex-col">
-                            <div className="bg-[#d5d5d8] text-gray-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">Total</div>
-                            <div className="bg-[#f4f4f5] text-gray-900 text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center">{item.total}</div>
+                            <div className="bg-[#d8d3cb] text-[#6b665c] text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">Total</div>
+                            <div className="bg-[#f0ebe1] text-[#4a4845] text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center">{item.total}</div>
                           </div>
                         </div>
                       </div>
