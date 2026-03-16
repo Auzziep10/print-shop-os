@@ -24,6 +24,29 @@ export function CustomerDetail() {
   const [savingLinkId, setSavingLinkId] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
+  // Edit Company & Portal State
+  const [editCompanyForm, setEditCompanyForm] = useState({
+    name: mockCustomer?.company || '',
+    email: mockCustomer?.email || '',
+    phone: mockCustomer?.phone || '',
+    location: mockCustomer?.location || ''
+  });
+  
+  const [contacts, setContacts] = useState([
+    { id: 1, name: 'Bruce Wayne', role: 'Owner / Admin', email: 'bruce@wayne.ent', lastLogin: 'Today', viewAll: true },
+    { id: 2, name: 'Lucius Fox', role: 'Purchasing', email: 'lfox@wayne.ent', lastLogin: '3 days ago', viewAll: true },
+    { id: 3, name: 'Alfred P.', role: 'Accountant', email: 'billing@wayne.ent', lastLogin: 'Jan 12', viewAll: false }
+  ]);
+  const [isAddingContact, setIsAddingContact] = useState(false);
+  const [newContact, setNewContact] = useState({ name: '', role: '', email: '', viewAll: false });
+
+  const handleAddContact = () => {
+    if (!newContact.name || !newContact.email) return;
+    setContacts([...contacts, { ...newContact, id: Date.now(), lastLogin: 'Never' }]);
+    setIsAddingContact(false);
+    setNewContact({ name: '', role: '', email: '', viewAll: false });
+  };
+
   // Cropper State
   const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
@@ -153,13 +176,13 @@ export function CustomerDetail() {
             </div>
             <div>
                <div className="flex items-center gap-3 mb-2">
-                 <h1 className="font-serif text-3xl text-brand-primary">{customer?.company || 'Unknown Company'}</h1>
+                 <h1 className="font-serif text-3xl text-brand-primary">{editCompanyForm.name || 'Unknown Company'}</h1>
                  <span className="text-[10px] bg-brand-bg border border-brand-border px-2 py-0.5 rounded text-brand-secondary font-semibold uppercase tracking-wider">{id}</span>
                </div>
                <div className="flex items-center gap-4 text-sm text-brand-secondary mb-4">
-                  <span className="flex items-center gap-1.5"><MapPin size={14} /> {customer?.location}</span>
-                  <span className="flex items-center gap-1.5"><Phone size={14} /> {customer?.phone}</span>
-                  <span className="flex items-center gap-1.5"><Mail size={14} /> {customer?.email}</span>
+                  <span className="flex items-center gap-1.5"><MapPin size={14} /> {editCompanyForm.location}</span>
+                  <span className="flex items-center gap-1.5"><Phone size={14} /> {editCompanyForm.phone}</span>
+                  <span className="flex items-center gap-1.5"><Mail size={14} /> {editCompanyForm.email}</span>
                </div>
                <div className="flex gap-2">
                  <span className="text-[10px] bg-brand-bg border border-brand-border px-2.5 py-1 rounded-md text-brand-secondary font-semibold uppercase tracking-wider">{customer?.type}</span>
@@ -353,6 +376,29 @@ export function CustomerDetail() {
             </div>
             
             <div className="p-6 space-y-6 overflow-y-auto max-h-[70vh]">
+               {/* Contact Information Form */}
+               <div className="bg-white p-6 rounded-card border border-brand-border shadow-[0_2px_10px_-4px_rgba(0,0,0,0.02)] grid grid-cols-2 gap-4">
+                 <div className="col-span-2">
+                    <h2 className={tokens.typography.h2}>Company Details</h2>
+                 </div>
+                 <div className="flex flex-col gap-1">
+                    <label className="text-xs font-bold text-brand-secondary uppercase tracking-widest">Company Name</label>
+                    <input className="w-full bg-brand-bg border border-brand-border/60 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-brand-primary/30 transition-colors placeholder:text-brand-secondary/40 font-medium" value={editCompanyForm.name} onChange={e => setEditCompanyForm({...editCompanyForm, name: e.target.value})} />
+                 </div>
+                 <div className="flex flex-col gap-1">
+                    <label className="text-xs font-bold text-brand-secondary uppercase tracking-widest">Phone</label>
+                    <input className="w-full bg-brand-bg border border-brand-border/60 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-brand-primary/30 transition-colors placeholder:text-brand-secondary/40 font-medium" value={editCompanyForm.phone} onChange={e => setEditCompanyForm({...editCompanyForm, phone: e.target.value})} />
+                 </div>
+                 <div className="flex flex-col gap-1">
+                    <label className="text-xs font-bold text-brand-secondary uppercase tracking-widest">Email</label>
+                    <input className="w-full bg-brand-bg border border-brand-border/60 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-brand-primary/30 transition-colors placeholder:text-brand-secondary/40 font-medium" value={editCompanyForm.email} onChange={e => setEditCompanyForm({...editCompanyForm, email: e.target.value})} />
+                 </div>
+                 <div className="flex flex-col gap-1">
+                    <label className="text-xs font-bold text-brand-secondary uppercase tracking-widest">Location</label>
+                    <input className="w-full bg-brand-bg border border-brand-border/60 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-brand-primary/30 transition-colors placeholder:text-brand-secondary/40 font-medium" value={editCompanyForm.location} onChange={e => setEditCompanyForm({...editCompanyForm, location: e.target.value})} />
+                 </div>
+               </div>
+
                {/* WOVN Catalog Link */}
                <div className="bg-white p-6 rounded-card border border-brand-border shadow-[0_2px_10px_-4px_rgba(0,0,0,0.02)]">
                  <div className="flex justify-between items-center mb-6">
@@ -382,21 +428,37 @@ export function CustomerDetail() {
 
                {/* Portal Access */}
                <div className="bg-white p-6 rounded-card border border-brand-border shadow-[0_2px_10px_-4px_rgba(0,0,0,0.02)]">
-                 <div className="flex justify-between items-center mb-6">
+                 <div className="flex justify-between items-center mb-4">
                     <h2 className={tokens.typography.h2}>Portal Access</h2>
-                    <button className="text-brand-secondary hover:text-brand-primary transition-colors"><Plus size={18} /></button>
+                    {!isAddingContact && (
+                      <button onClick={() => setIsAddingContact(true)} className="text-brand-secondary hover:text-brand-primary transition-colors flex items-center gap-1 text-xs font-bold">
+                        <Plus size={16} /> Add Contact
+                      </button>
+                    )}
                  </div>
-                 <p className="text-sm text-brand-secondary mb-4 leading-relaxed">
-                   These contacts have active logins mapped to this company's client portal.
-                 </p>
+                 
+                 {isAddingContact && (
+                    <div className="mb-6 p-4 bg-brand-bg border border-brand-border/60 rounded-xl flex flex-col gap-3">
+                       <h4 className="text-xs font-bold uppercase tracking-widest text-brand-primary mb-1">New Portal User</h4>
+                       <div className="grid grid-cols-2 gap-3">
+                         <input placeholder="Full Name" value={newContact.name} onChange={e => setNewContact({...newContact, name: e.target.value})} className="w-full bg-white border border-brand-border/60 rounded-lg px-3 py-2 text-sm font-medium focus:outline-none focus:border-brand-primary/30" />
+                         <input placeholder="Email Address" value={newContact.email} onChange={e => setNewContact({...newContact, email: e.target.value})} className="w-full bg-white border border-brand-border/60 rounded-lg px-3 py-2 text-sm font-medium focus:outline-none focus:border-brand-primary/30" />
+                         <input placeholder="Role (e.g. Designer)" value={newContact.role} onChange={e => setNewContact({...newContact, role: e.target.value})} className="w-full bg-white border border-brand-border/60 rounded-lg px-3 py-2 text-sm font-medium focus:outline-none focus:border-brand-primary/30" />
+                         <select value={newContact.viewAll ? "all" : "own"} onChange={e => setNewContact({...newContact, viewAll: e.target.value === "all"})} className="w-full bg-white border border-brand-border/60 rounded-lg px-3 py-2 text-sm font-medium text-brand-secondary focus:outline-none focus:border-brand-primary/30">
+                           <option value="own">View Own Orders</option>
+                           <option value="all">View All Company Orders</option>
+                         </select>
+                       </div>
+                       <div className="flex gap-2 justify-end mt-2">
+                         <button onClick={() => setIsAddingContact(false)} className="text-xs px-3 py-1.5 font-bold text-brand-secondary hover:text-brand-primary">Cancel</button>
+                         <button onClick={handleAddContact} className="text-xs px-4 py-1.5 bg-brand-primary text-white rounded-md font-bold hover:bg-black transition-colors">Add User</button>
+                       </div>
+                    </div>
+                 )}
                  
                  <div className="space-y-3">
-                   {[
-                      { name: 'Bruce Wayne', role: 'Owner / Admin', email: 'bruce@wayne.ent', lastLogin: 'Today' },
-                      { name: 'Lucius Fox', role: 'Purchasing', email: 'lfox@wayne.ent', lastLogin: '3 days ago' },
-                      { name: 'Alfred P.', role: 'Accountant', email: 'billing@wayne.ent', lastLogin: 'Oct 12' }
-                   ].map((contact, i) => (
-                     <div key={i} className="p-3 border border-brand-border/60 rounded-xl bg-brand-bg flex items-center justify-between group cursor-pointer hover:border-brand-primary/30 transition-colors">
+                   {contacts.map((contact) => (
+                     <div key={contact.id} className="p-3 border border-brand-border/60 rounded-xl bg-brand-bg flex items-center justify-between group cursor-pointer hover:border-brand-primary/30 transition-colors">
                         <div className="flex items-center gap-3">
                            <div className="w-8 h-8 rounded-full bg-white border border-brand-border flex items-center justify-center text-xs font-bold text-brand-primary">
                              {contact.name.charAt(0)}
@@ -406,9 +468,21 @@ export function CustomerDetail() {
                               <p className="text-[10px] text-brand-secondary uppercase tracking-wide font-semibold mt-0.5">{contact.role}</p>
                            </div>
                         </div>
-                        <div className="text-right">
-                          <p className="text-xs text-brand-secondary">{contact.email}</p>
-                          <p className="text-[10px] text-brand-secondary/60 mt-1">Logged in {contact.lastLogin}</p>
+                        <div className="flex items-center gap-6">
+                          <select 
+                            value={contact.viewAll ? "all" : "own"} 
+                            onChange={(e) => {
+                               setContacts(contacts.map(c => c.id === contact.id ? { ...c, viewAll: e.target.value === "all" } : c))
+                            }} 
+                            className="bg-transparent text-xs font-semibold text-brand-secondary focus:outline-none cursor-pointer hover:text-brand-primary"
+                          >
+                            <option value="own">View Own Orders</option>
+                            <option value="all">View All Company Orders</option>
+                          </select>
+                          <div className="text-right w-24">
+                            <p className="text-xs text-brand-secondary truncate">{contact.email}</p>
+                            <p className="text-[10px] text-brand-secondary/60 mt-1">Logged in {contact.lastLogin}</p>
+                          </div>
                         </div>
                      </div>
                    ))}
