@@ -20,12 +20,22 @@ const sortSizes = (a: string, b: string) => {
 const STATUS_STEPS = ['Placed', 'Shopping', 'Ordered', 'Processing', 'Shipped', 'Received'];
 
 // Helper component for the little gray pills in the items breakdown
-const DataPill = ({ label, value }: { label: string, value: string }) => (
-  <div className="flex flex-col items-center justify-center bg-neutral-100 px-4 py-1.5 rounded-3xl min-w-[100px]">
-    <span className="text-[10px] text-neutral-500 font-semibold mb-0.5">{label}:</span>
-    <span className="text-xs text-neutral-800 font-medium leading-none">{value}</span>
-  </div>
-);
+const DataPill = ({ label, value, isAdminFormat = false }: { label: string, value: string, isAdminFormat?: boolean }) => {
+  if (isAdminFormat) {
+    return (
+      <div className="flex flex-col items-center justify-center bg-neutral-100/80 px-3 py-1.5 rounded-2xl min-w-[90px] mb-1">
+        <span className="text-[9px] text-neutral-500 font-bold mb-0.5">{label}</span>
+        <span className="text-xs text-neutral-800 font-bold xl:max-w-[130px] truncate leading-none">{value}</span>
+      </div>
+    );
+  }
+  return (
+    <div className="flex flex-col items-center justify-center bg-neutral-100 px-4 py-1.5 rounded-3xl min-w-[100px]">
+      <span className="text-[10px] text-neutral-500 font-semibold mb-0.5">{label}:</span>
+      <span className="text-xs text-neutral-800 font-medium leading-none">{value}</span>
+    </div>
+  );
+};
 
 export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overrideCustomerId?: string, hideHeader?: boolean }) {
   const { customerId } = useParams();
@@ -168,24 +178,24 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
                     <div key={item.id} className="bg-white rounded-3xl p-4 px-6 flex flex-col xl:flex-row xl:items-center justify-between gap-6 shadow-[0_4px_12px_rgb(0,0,0,0.02)]">
                       
                       {/* Left Side: Visual & Specs */}
-                      <div className="flex flex-col lg:flex-row lg:items-center gap-6 flex-1 min-w-0">
+                      <div className={`flex flex-col lg:flex-row lg:items-center gap-6 flex-1 min-w-0 ${hideHeader ? 'pr-12' : ''}`}>
                         {/* Product Visual */}
                         <div className="flex items-center gap-6 min-w-[200px] shrink-0">
-                          <div className="w-16 h-16 rounded-xl overflow-hidden shrink-0 border border-black/5 bg-gray-50">
+                          <div className={`w-16 h-16 rounded-xl overflow-hidden shrink-0 border border-black/5 bg-gray-50 ${hideHeader ? 'flex items-center justify-center' : ''}`}>
                             <img src={item.image} alt={item.style} className="w-full h-full object-cover mix-blend-multiply p-1" />
                           </div>
                           <div>
-                             <h4 className="font-bold text-gray-900 text-[15px]">{item.gender}</h4>
+                             <h4 className="font-bold text-gray-900 text-[15px]">{item.gender || 'Unisex'}</h4>
                              <p className="text-xs font-semibold text-gray-500 mt-1">{item.style}</p>
                           </div>
                         </div>
 
                         {/* Specs */}
                         <div className="flex flex-wrap gap-2 flex-1">
-                           <DataPill label="Item #" value={item.itemNum} />
-                           <DataPill label="Garment Color" value={item.color} />
+                           {item.itemNum && <DataPill label="Item #" value={item.itemNum} isAdminFormat={hideHeader} />}
+                           {item.color && <DataPill label="Garment Color" value={item.color} isAdminFormat={hideHeader} />}
                            {item.logos?.map((logo: string, i: number) => (
-                             <DataPill key={i} label={`Logo ${i+1}`} value={logo} />
+                             <DataPill key={i} label={`Logo ${i+1}`} value={logo} isAdminFormat={hideHeader} />
                            ))}
                         </div>
                       </div>
