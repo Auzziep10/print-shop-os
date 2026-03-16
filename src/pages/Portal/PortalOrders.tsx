@@ -78,7 +78,7 @@ export function PortalOrders() {
           <div key={order.id} className="flex gap-6 w-full items-start">
             
             {/* Main Gray Capsule */}
-            <div className={`flex-1 bg-[#efeff1] rounded-[2.5rem] p-6 lg:px-10 transition-all ${isExpanded ? 'pb-8' : ''}`}>
+            <div className={`flex-1 bg-[#f0f0f0] rounded-[2.5rem] p-6 lg:px-10 transition-all ${isExpanded ? 'pb-8' : ''}`}>
               
               {/* Capsule Header Row */}
               <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-8 h-[80px]">
