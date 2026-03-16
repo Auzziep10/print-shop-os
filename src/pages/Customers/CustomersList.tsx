@@ -58,6 +58,7 @@ export function CustomersList() {
         activeOrders,
         ltv: ltvFormatted,
         lastOrder: lastOrderStr,
+        logo: liveData.logo || mockData.logo || null,
       };
     }).filter(c => c.company.toLowerCase().includes(search.toLowerCase()) || 
                    c.contact.toLowerCase().includes(search.toLowerCase()) ||
@@ -136,20 +137,23 @@ export function CustomersList() {
               >
                 <div className="px-2 text-xs font-semibold text-brand-secondary">{customer.id}</div>
                 <div className="font-serif text-lg text-brand-primary truncate pr-4 flex items-center gap-3">
-                  {customer.company !== '-' ? (
-                    <>
-                      <div className="w-8 h-8 rounded bg-brand-muted border border-brand-border flex items-center justify-center text-brand-secondary shrink-0">
-                        <Building2 size={14} />
-                      </div>
-                      {customer.company}
-                    </>
+                  {customer.logo ? (
+                    <div className="w-8 h-8 rounded-lg border border-brand-border bg-gray-50 flex items-center justify-center shrink-0 overflow-hidden">
+                      <img src={customer.logo} alt={customer.company} className="w-full h-full object-contain p-1 mix-blend-multiply" />
+                    </div>
+                  ) : customer.company !== '-' ? (
+                    <div className="w-8 h-8 rounded bg-brand-muted border border-brand-border flex items-center justify-center text-brand-secondary shrink-0">
+                      <Building2 size={14} />
+                    </div>
                   ) : (
-                    <>
-                      <div className="w-8 h-8 rounded-full bg-brand-muted border border-brand-border flex items-center justify-center text-brand-secondary shrink-0">
-                        <User size={14} />
-                      </div>
-                      <span className="text-brand-secondary italic text-sm">Individual</span>
-                    </>
+                    <div className="w-8 h-8 rounded-full bg-brand-muted border border-brand-border flex items-center justify-center text-brand-secondary shrink-0">
+                      <User size={14} />
+                    </div>
+                  )}
+                  {customer.company !== '-' ? (
+                    <span>{customer.company}</span>
+                  ) : (
+                    <span className="text-brand-secondary italic text-sm">Individual</span>
                   )}
                 </div>
                 <div className="text-sm font-medium text-brand-primary truncate pr-4">{customer.contact}</div>
