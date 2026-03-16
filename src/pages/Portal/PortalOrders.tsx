@@ -6,6 +6,17 @@ import { MOCK_CUSTOMERS_DB } from '../../lib/mockData';
 import { db } from '../../lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 
+const SIZE_ORDER = ['XXS', 'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL', 'OSFA'];
+
+const sortSizes = (a: string, b: string) => {
+  const iA = SIZE_ORDER.indexOf(a.toUpperCase());
+  const iB = SIZE_ORDER.indexOf(b.toUpperCase());
+  if (iA === -1 && iB === -1) return a.localeCompare(b);
+  if (iA === -1) return 1;
+  if (iB === -1) return -1;
+  return iA - iB;
+};
+
 const STATUS_STEPS = ['Placed', 'Shopping', 'Ordered', 'Processing', 'Shipped', 'Received'];
 
 // Helper component for the little gray pills in the items breakdown
@@ -146,53 +157,59 @@ export function PortalOrders() {
               {isExpanded && order.items.length > 0 && (
                 <div className="mt-14 space-y-4">
                   {order.items?.map((item: any) => (
-                    <div key={item.id} className="bg-white rounded-3xl p-4 px-6 flex flex-wrap items-center justify-between gap-6 shadow-[0_4px_12px_rgb(0,0,0,0.02)]">
+                    <div key={item.id} className="bg-white rounded-3xl p-4 px-6 flex flex-col xl:flex-row xl:items-center justify-between gap-6 shadow-[0_4px_12px_rgb(0,0,0,0.02)]">
                       
-                      {/* Product Visual */}
-                      <div className="flex items-center gap-6 min-w-[200px]">
-                        <div className="w-16 h-16 rounded-xl overflow-hidden shrink-0 border border-black/5 bg-gray-50">
-                          <img src={item.image} alt={item.style} className="w-full h-full object-cover mix-blend-multiply p-1" />
-                        </div>
-                        <div>
-                           <h4 className="font-bold text-gray-900 text-[15px]">{item.gender}</h4>
-                           <p className="text-xs font-semibold text-gray-500 mt-1">{item.style}</p>
-                        </div>
-                      </div>
-
-                      {/* Specs */}
-                      <div className="flex flex-wrap gap-2">
-                         <DataPill label="Item #" value={item.itemNum} />
-                         <DataPill label="Garment Color" value={item.color} />
-                         {item.logos?.map((logo: string, i: number) => (
-                           <DataPill key={i} label={`Logo ${i+1}`} value={logo} />
-                         ))}
-                      </div>
-
-                      {/* Sizing Grid Area */}
-                      <div className="flex items-stretch gap-[2px] bg-[#eaeaec] p-[3px] rounded-xl font-sans">
-                        {item.sizes && Object.entries(item.sizes).map(([size, qty]: [string, any]) => (
-                          <div key={size} className="w-10 text-center flex flex-col">
-                            <div className="bg-[#d5d5d8] text-gray-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">{size}</div>
-                            <div className={`text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center bg-white ${qty > 0 ? 'text-gray-900' : 'text-gray-400'}`}>
-                              {qty}
-                            </div>
+                      {/* Left Side: Visual & Specs */}
+                      <div className="flex flex-col lg:flex-row lg:items-center gap-6 flex-1 min-w-0">
+                        {/* Product Visual */}
+                        <div className="flex items-center gap-6 min-w-[200px] shrink-0">
+                          <div className="w-16 h-16 rounded-xl overflow-hidden shrink-0 border border-black/5 bg-gray-50">
+                            <img src={item.image} alt={item.style} className="w-full h-full object-cover mix-blend-multiply p-1" />
                           </div>
-                        ))}
+                          <div>
+                             <h4 className="font-bold text-gray-900 text-[15px]">{item.gender}</h4>
+                             <p className="text-xs font-semibold text-gray-500 mt-1">{item.style}</p>
+                          </div>
+                        </div>
+
+                        {/* Specs */}
+                        <div className="flex flex-wrap gap-2 flex-1">
+                           <DataPill label="Item #" value={item.itemNum} />
+                           <DataPill label="Garment Color" value={item.color} />
+                           {item.logos?.map((logo: string, i: number) => (
+                             <DataPill key={i} label={`Logo ${i+1}`} value={logo} />
+                           ))}
+                        </div>
                       </div>
 
-                      {/* Pricing Summary */}
-                      <div className="flex items-stretch gap-[2px] bg-[#eaeaec] p-[3px] rounded-xl font-sans ml-auto shrink-0">
-                        <div className="w-12 text-center flex flex-col">
-                          <div className="bg-[#d5d5d8] text-gray-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">QTY</div>
-                          <div className="bg-[#f4f4f5] text-gray-900 text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center">{item.qty}</div>
+                      {/* Right Side: Sizing & Pricing */}
+                      <div className="flex flex-wrap lg:flex-nowrap items-end lg:items-center gap-4 shrink-0">
+                        {/* Sizing Grid Area */}
+                        <div className="flex items-stretch gap-[2px] bg-[#eaeaec] p-[3px] rounded-xl font-sans">
+                          {item.sizes && Object.entries(item.sizes).sort(([a], [b]) => sortSizes(a, b)).map(([size, qty]: [string, any]) => (
+                            <div key={size} className="w-10 text-center flex flex-col">
+                              <div className="bg-[#d5d5d8] text-gray-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">{size}</div>
+                              <div className={`text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center bg-white ${qty > 0 ? 'text-gray-900' : 'text-gray-400'}`}>
+                                {qty}
+                              </div>
+                            </div>
+                          ))}
                         </div>
-                        <div className="w-16 text-center flex flex-col">
-                          <div className="bg-[#d5d5d8] text-gray-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">Price</div>
-                          <div className="bg-[#f4f4f5] text-gray-900 text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center">{item.price}</div>
-                        </div>
-                        <div className="w-20 text-center flex flex-col">
-                          <div className="bg-[#d5d5d8] text-gray-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">Total</div>
-                          <div className="bg-[#f4f4f5] text-gray-900 text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center">{item.total}</div>
+
+                        {/* Pricing Summary */}
+                        <div className="flex items-stretch gap-[2px] bg-[#eaeaec] p-[3px] rounded-xl font-sans shrink-0">
+                          <div className="w-12 text-center flex flex-col">
+                            <div className="bg-[#d5d5d8] text-gray-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">QTY</div>
+                            <div className="bg-[#f4f4f5] text-gray-900 text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center">{item.qty}</div>
+                          </div>
+                          <div className="w-16 text-center flex flex-col">
+                            <div className="bg-[#d5d5d8] text-gray-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">Price</div>
+                            <div className="bg-[#f4f4f5] text-gray-900 text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center">{item.price}</div>
+                          </div>
+                          <div className="w-20 text-center flex flex-col">
+                            <div className="bg-[#d5d5d8] text-gray-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">Total</div>
+                            <div className="bg-[#f4f4f5] text-gray-900 text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center">{item.total}</div>
+                          </div>
                         </div>
                       </div>
 
