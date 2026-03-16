@@ -4,7 +4,6 @@ import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
 import { ArrowLeft, Mail, Phone, MapPin, Building2, ExternalLink, ShieldAlert, FileText, Plus, Loader2, Upload, X, Check } from 'lucide-react';
 import { MOCK_CUSTOMERS_DB } from '../../lib/mockData';
-import { useOrders } from '../../hooks/useOrders';
 import { storage, db } from '../../lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
