@@ -2,12 +2,32 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
 import { useState, useEffect } from 'react';
 import { PillButton } from '../../components/ui/PillButton';
-import { ArrowLeft, MessageSquare, Clock, Users, Link as LinkIcon, Download, Image as ImageIcon, Loader2, X } from 'lucide-react';
+import { ArrowLeft, MessageSquare, Clock, Users, Link as LinkIcon, Download, Image as ImageIcon, Loader2, X, Edit3, Upload, Trash2 } from 'lucide-react';
 import { StatusBadge, type StatusType } from '../../components/ui/StatusBadge';
 import { useOrders } from '../../hooks/useOrders';
 import { MOCK_CUSTOMERS_DB } from '../../lib/mockData';
-import { db } from '../../lib/firebase';
+import { db, storage } from '../../lib/firebase';
 import { doc, setDoc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+
+const SIZE_ORDER = ['XXS', 'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL', 'OSFA'];
+
+const sortSizes = (a: string, b: string) => {
+  const iA = SIZE_ORDER.indexOf(a.toUpperCase());
+  const iB = SIZE_ORDER.indexOf(b.toUpperCase());
+  if (iA === -1 && iB === -1) return a.localeCompare(b);
+  if (iA === -1) return 1;
+  if (iB === -1) return -1;
+  return iA - iB;
+};
+
+// Helper component for the little gray pills in the items breakdown
+const DataPill = ({ label, value }: { label: string, value: string }) => (
+  <div className="flex flex-col items-center justify-center bg-neutral-100 px-4 py-1.5 rounded-3xl min-w-[100px]">
+    <span className="text-[10px] text-neutral-500 font-semibold mb-0.5">{label}:</span>
+    <span className="text-xs text-neutral-800 font-medium leading-none">{value}</span>
+  </div>
+);
 
 export function OrderDetail() {
   const { id } = useParams();
@@ -17,6 +37,74 @@ export function OrderDetail() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [editForm, setEditForm] = useState({ title: '', date: '', statusIndex: 0 });
+
+  const [editItemObj, setEditItemObj] = useState<any>(null);
+  const [isItemSaving, setIsItemSaving] = useState(false);
+  const [isUploadingMain, setIsUploadingMain] = useState(false);
+  const [isUploadingRef, setIsUploadingRef] = useState(false);
+
+  const handleMainImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !editItemObj) return;
+    setIsUploadingMain(true);
+    try {
+      const storageRef = ref(storage, `orders/${id}/items/${editItemObj.id}/main-${Date.now()}`);
+      await uploadBytes(storageRef, file);
+      const url = await getDownloadURL(storageRef);
+      setEditItemObj((prev: any) => ({ ...prev, image: url }));
+    } catch (err) {
+      console.error('Failed to upload main image', err);
+    } finally {
+      setIsUploadingMain(false);
+    }
+  };
+
+  const handleRefImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !editItemObj) return;
+    setIsUploadingRef(true);
+    try {
+      const storageRef = ref(storage, `orders/${id}/items/${editItemObj.id}/ref-${Date.now()}`);
+      await uploadBytes(storageRef, file);
+      const url = await getDownloadURL(storageRef);
+      setEditItemObj((prev: any) => ({ 
+        ...prev, 
+        referenceImages: [...(prev.referenceImages || []), url] 
+      }));
+    } catch (err) {
+      console.error('Failed to upload ref image', err);
+    } finally {
+      setIsUploadingRef(false);
+    }
+  };
+
+  const handleSaveItemEdit = async () => {
+    if (!id || !editItemObj) return;
+    setIsItemSaving(true);
+    try {
+      const orderData = orders.find(o => o.id === id);
+      if (!orderData) throw new Error("Order not found");
+
+      // Calculate new qty 
+      const totalGarments = editItemObj.sizes ? Object.values(editItemObj.sizes).reduce((acc: number, val: any) => acc + (parseInt(val) || 0), 0) : 0;
+      const numericPrice = parseFloat((editItemObj.price || '0').toString().replace(/[^0-9.]/g, ''));
+      const lineTotal = `$${(totalGarments * numericPrice).toFixed(2)}`;
+
+      const finalItem = {
+        ...editItemObj,
+        qty: totalGarments,
+        total: lineTotal
+      };
+
+      const updatedItems = orderData.items.map((i:any) => i.id === finalItem.id ? finalItem : i);
+      await setDoc(doc(db, 'orders', id), { items: updatedItems }, { merge: true });
+      setEditItemObj(null);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsItemSaving(false);
+    }
+  };
 
   // Update edit form when order loads or changes
   useEffect(() => {
@@ -155,31 +243,71 @@ export function OrderDetail() {
             <div className="bg-white rounded-card border border-brand-border overflow-hidden">
                {order.items?.length > 0 ? order.items.map((item: any) => (
                  <div key={item.id} className="p-6 border-b border-brand-border/50 flex gap-6 items-start hover:bg-brand-bg transition-colors last:border-0">
-                    <div className="w-24 h-24 bg-brand-muted border border-brand-border rounded-lg flex-shrink-0 flex items-center justify-center overflow-hidden bg-white selection:bg-transparent">
-                       <img src={item.image} alt={item.style} className="w-full h-full object-cover mix-blend-multiply p-1" />
-                    </div>
-                    <div className="flex-1">
-                       <h3 className="font-serif text-xl mb-1">{item.style}</h3>
-                       <p className="text-sm text-brand-secondary mb-3">Color: {item.color} • {item.itemNum}</p>
+                    <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 w-full">
                        
-                       <div className="flex flex-wrap items-center gap-2 mb-4">
-                         {Object.entries(item.sizes || {}).map(([size, quantity]: [string, any]) => {
-                           if (quantity > 0) {
-                             return (
-                               <div key={size} className="flex flex-col items-center">
-                                 <span className="w-8 h-8 rounded border border-brand-border flex items-center justify-center text-xs font-semibold bg-brand-bg mb-1 uppercase">{size}</span>
-                                 <span className="text-xs text-brand-secondary font-medium">{quantity}</span>
-                               </div>
-                             );
-                           }
-                           return null;
-                         })}
+                       {/* Left Side: Visual & Specs */}
+                       <div className="flex flex-col lg:flex-row lg:items-center gap-6 flex-1 min-w-0">
+                         {/* Product Visual */}
+                         <div className="flex items-center gap-6 min-w-[200px] shrink-0">
+                           <div className="w-16 h-16 rounded-xl overflow-hidden shrink-0 border border-black/5 bg-gray-50">
+                             <img src={item.image} alt={item.style} className="w-full h-full object-cover mix-blend-multiply p-1" />
+                           </div>
+                           <div>
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-bold text-gray-900 text-[15px]">{item.gender || 'Unisex'}</h4>
+                                <button 
+                                  onClick={() => setEditItemObj(item)} 
+                                  className="text-brand-secondary hover:text-brand-primary transition-colors p-1"
+                                >
+                                  <Edit3 size={14} />
+                                </button>
+                              </div>
+                              <p className="text-xs font-semibold text-gray-500 mt-1">{item.style}</p>
+                           </div>
+                         </div>
+
+                         {/* Specs */}
+                         <div className="flex flex-wrap gap-2 flex-1">
+                            <DataPill label="Item #" value={item.itemNum} />
+                            <DataPill label="Garment Color" value={item.color} />
+                            {item.logos?.map((logo: string, i: number) => (
+                              <DataPill key={i} label={`Logo ${i+1}`} value={logo} />
+                            ))}
+                         </div>
                        </div>
-                    </div>
-                    <div className="text-right">
-                       <span className="font-serif text-xl block">{item.price}</span>
-                       <span className="text-xs text-brand-secondary">/ ea</span>
-                    </div>
+
+                       {/* Right Side: Sizing & Pricing */}
+                       <div className="flex flex-wrap lg:flex-nowrap items-end lg:items-center gap-4 shrink-0">
+                         {/* Sizing Grid Area */}
+                         <div className="flex items-stretch gap-[2px] bg-neutral-200 p-[3px] rounded-xl font-sans">
+                           {item.sizes && Object.entries(item.sizes).sort(([a], [b]) => sortSizes(a, b)).map(([size, qty]: [string, any]) => (
+                             <div key={size} className="w-10 text-center flex flex-col">
+                               <div className="bg-neutral-300 text-neutral-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">{size}</div>
+                               <div className={`text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center bg-white ${qty > 0 ? 'text-neutral-800' : 'text-neutral-400'}`}>
+                                 {qty}
+                               </div>
+                             </div>
+                           ))}
+                         </div>
+
+                         {/* Pricing Summary */}
+                         <div className="flex items-stretch gap-[2px] bg-neutral-200 p-[3px] rounded-xl font-sans shrink-0">
+                           <div className="w-12 text-center flex flex-col">
+                             <div className="bg-neutral-300 text-neutral-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">QTY</div>
+                             <div className="bg-neutral-50 text-neutral-800 text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center">{item.qty}</div>
+                           </div>
+                           <div className="w-16 text-center flex flex-col">
+                             <div className="bg-neutral-300 text-neutral-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">Price</div>
+                             <div className="bg-neutral-50 text-neutral-800 text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center">{item.price}</div>
+                           </div>
+                           <div className="w-20 text-center flex flex-col">
+                             <div className="bg-neutral-300 text-neutral-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">Total</div>
+                             <div className="bg-neutral-50 text-neutral-800 text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center">{item.total}</div>
+                           </div>
+                         </div>
+                       </div>
+
+                     </div>
                  </div>
                )) : (
                  <div className="p-6 text-center text-brand-secondary">No items found in this order.</div>
@@ -341,6 +469,168 @@ export function OrderDetail() {
                 </PillButton>
                 <PillButton variant="filled" onClick={handleSaveEdit} className="flex-1 justify-center py-3" disabled={isSaving}>
                   {isSaving ? <Loader2 className="animate-spin" size={18} /> : <span>Save Changes</span>}
+                </PillButton>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Item Dialog */}
+      {editItemObj && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 backdrop-blur-sm p-6 overflow-y-auto">
+          <div className="bg-brand-bg max-w-2xl w-full rounded-2xl overflow-hidden shadow-2xl flex flex-col border border-brand-border my-auto">
+            <div className="p-6 border-b border-brand-border flex justify-between items-center bg-white">
+              <h3 className="font-serif text-2xl text-brand-primary">Edit Item Specs</h3>
+              <button 
+                onClick={() => setEditItemObj(null)} 
+                className="text-brand-secondary hover:text-brand-primary transition-colors bg-brand-bg border border-brand-border rounded-md p-1"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="p-6 flex flex-col gap-6 max-h-[70vh] overflow-y-auto">
+              {/* Basic Fields */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Item #</label>
+                  <input 
+                    type="text" 
+                    value={editItemObj.itemNum || ''}
+                    onChange={(e) => setEditItemObj({...editItemObj, itemNum: e.target.value})}
+                    className="w-full bg-white border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Garment Color</label>
+                  <input 
+                    type="text" 
+                    value={editItemObj.color || ''}
+                    onChange={(e) => setEditItemObj({...editItemObj, color: e.target.value})}
+                    className="w-full bg-white border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
+                  />
+                </div>
+              </div>
+
+              {/* Images Section */}
+              <div className="pt-4 border-t border-brand-border">
+                <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-4">Item Imagery</label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Main Mockup */}
+                  <div className="bg-brand-bg rounded-xl border border-brand-border p-4 flex flex-col gap-3">
+                    <span className="text-xs font-semibold text-brand-primary">Main Mockup Image</span>
+                    <div className="w-full aspect-square bg-white border border-brand-border rounded-lg flex items-center justify-center overflow-hidden">
+                      {editItemObj.image ? (
+                        <img src={editItemObj.image} alt="Main mockup" className="w-full h-full object-contain p-2" />
+                      ) : (
+                        <ImageIcon size={32} className="text-brand-muted/50" />
+                      )}
+                    </div>
+                    <label className="cursor-pointer bg-white border border-brand-border rounded-lg py-2 flex items-center justify-center gap-2 hover:bg-brand-muted transition-colors text-sm font-semibold text-brand-secondary">
+                      {isUploadingMain ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+                      {isUploadingMain ? 'Uploading...' : 'Replace Mockup'}
+                      <input type="file" className="hidden" accept="image/*" onChange={handleMainImageUpload} disabled={isUploadingMain} />
+                    </label>
+                  </div>
+
+                  {/* Reference Images */}
+                  <div className="bg-brand-bg rounded-xl border border-brand-border p-4 flex flex-col gap-3">
+                    <span className="text-xs font-semibold text-brand-primary">Reference Images</span>
+                    <div className="flex-1 border border-brand-border bg-white rounded-lg p-2 overflow-y-auto max-h-[220px]">
+                      {editItemObj.referenceImages?.length > 0 ? (
+                        <div className="grid grid-cols-3 gap-2">
+                          {editItemObj.referenceImages.map((refImg: string, i: number) => (
+                            <div key={i} className="relative aspect-square rounded group overflow-hidden border border-brand-border">
+                              <img src={refImg} alt={`Reference ${i}`} className="w-full h-full object-cover" />
+                              <button 
+                                onClick={() => setEditItemObj({
+                                  ...editItemObj,
+                                  referenceImages: editItemObj.referenceImages.filter((_: any, idx: number) => idx !== i)
+                                })}
+                                className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="h-full flex items-center justify-center text-xs text-brand-secondary p-4 text-center">
+                          No extra reference images added yet.
+                        </div>
+                      )}
+                    </div>
+                    <label className="cursor-pointer bg-white border border-brand-border rounded-lg py-2 flex items-center justify-center gap-2 hover:bg-brand-muted transition-colors text-sm font-semibold text-brand-secondary">
+                      {isUploadingRef ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+                      {isUploadingRef ? 'Uploading...' : 'Add Reference Image'}
+                      <input type="file" className="hidden" accept="image/*" onChange={handleRefImageUpload} disabled={isUploadingRef} />
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Price */}
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Price Per Garment ($)</label>
+                <input 
+                  type="text" 
+                  value={editItemObj.price || ''}
+                  onChange={(e) => setEditItemObj({...editItemObj, price: e.target.value})}
+                  className="w-full bg-white border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
+                  placeholder="$0.00"
+                />
+              </div>
+
+              {/* Logos */}
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Decoration Options (Logos)</label>
+                <div className="space-y-3">
+                  {[0, 1, 2].map(idx => (
+                    <input 
+                      key={idx}
+                      type="text" 
+                      placeholder={`e.g. Left Chest`}
+                      value={editItemObj.logos?.[idx] || ''}
+                      onChange={(e) => {
+                        const newLogos = [...(editItemObj.logos || [])];
+                        newLogos[idx] = e.target.value;
+                        setEditItemObj({...editItemObj, logos: newLogos.filter(Boolean)});
+                      }}
+                      className="w-full bg-white border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Sizing Grid */}
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Size Spread</label>
+                <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-3">
+                  {SIZE_ORDER.map((size) => (
+                    <div key={size}>
+                      <label className="block text-[10px] font-bold text-center text-brand-secondary mb-1">{size}</label>
+                      <input 
+                        type="number" 
+                        min="0"
+                        value={editItemObj.sizes?.[size] || 0}
+                        onChange={(e) => setEditItemObj({
+                          ...editItemObj, 
+                          sizes: { ...editItemObj.sizes, [size]: parseInt(e.target.value) || 0 }
+                        })}
+                        className="w-full bg-white border border-brand-border rounded-lg px-2 py-2 text-sm text-center focus:border-brand-primary focus:outline-none transition-colors"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex gap-4 pt-4 border-t border-brand-border mt-2">
+                <PillButton variant="outline" onClick={() => setEditItemObj(null)} className="flex-1 justify-center py-3">
+                  Cancel
+                </PillButton>
+                <PillButton variant="filled" onClick={handleSaveItemEdit} className="flex-1 justify-center py-3" disabled={isItemSaving}>
+                  {isItemSaving ? <Loader2 className="animate-spin" size={18} /> : <span>Save Item Update</span>}
                 </PillButton>
               </div>
             </div>
