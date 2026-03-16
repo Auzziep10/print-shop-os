@@ -314,12 +314,13 @@ export function CustomerDetail() {
               </button>
             </div>
             
-            <div className="relative w-full h-[400px] bg-gray-900 overflow-hidden">
+            <div className="relative w-full h-[400px] bg-checkerboard overflow-hidden rounded-t-lg">
               <Cropper
                 image={cropImageSrc}
                 crop={crop}
                 zoom={zoom}
                 aspect={1}
+                objectFit="contain"
                 onCropChange={setCrop}
                 onCropComplete={onCropComplete}
                 onZoomChange={setZoom}
@@ -335,9 +336,9 @@ export function CustomerDetail() {
                  <input
                    type="range"
                    value={zoom}
-                   min={1}
+                   min={0.1}
                    max={3}
-                   step={0.1}
+                   step={0.05}
                    aria-labelledby="Zoom"
                    onChange={(e) => setZoom(Number(e.target.value))}
                    className="flex-1 accent-brand-primary cursor-pointer"
