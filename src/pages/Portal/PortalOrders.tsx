@@ -18,7 +18,7 @@ const sortSizes = (a: string, b: string) => {
   return iA - iB;
 };
 
-const STATUS_STEPS = ['Placed', 'Shopping', 'Ordered', 'Processing', 'Shipped', 'Received'];
+const STATUS_STEPS = ['Quote', 'Artwork', 'Approval', 'Production', 'Quality Check', 'Completed'];
 
 // Helper component for the little gray pills in the items breakdown
 const DataPill = ({ label, value }: { label: string, value: string }) => (

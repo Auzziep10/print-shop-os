@@ -206,12 +206,12 @@ export function OrderDetail() {
   let badgeStatus: StatusType = 'quote';
   let subStatus = '';
   switch(order.statusIndex) {
-     case 0: badgeStatus = 'quote'; subStatus = 'Placed'; break;
-     case 1: badgeStatus = 'approval'; subStatus = 'Shopping'; break;
-     case 2: badgeStatus = 'production'; subStatus = 'Ordered'; break;
-     case 3: badgeStatus = 'production'; subStatus = 'Processing'; break;
-     case 4: badgeStatus = 'completed'; subStatus = 'Shipped'; break;
-     case 5: badgeStatus = 'completed'; subStatus = 'Received'; break;
+     case 0: badgeStatus = 'quote'; subStatus = 'Quote'; break;
+     case 1: badgeStatus = 'artwork'; subStatus = 'Artwork'; break;
+     case 2: badgeStatus = 'approval'; subStatus = 'Approval'; break;
+     case 3: badgeStatus = 'production'; subStatus = 'Production'; break;
+     case 4: badgeStatus = 'qc'; subStatus = 'Quality Check'; break;
+     case 5: badgeStatus = 'completed'; subStatus = 'Completed'; break;
   }
 
   return (
@@ -532,12 +532,12 @@ export function OrderDetail() {
                   onChange={(e) => setEditForm(prev => ({ ...prev, statusIndex: parseInt(e.target.value) }))}
                   className="w-full bg-white border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
                 >
-                  <option value="0">0 - Placed / Quote</option>
-                  <option value="1">1 - Shopping / Approval</option>
-                  <option value="2">2 - Ordered</option>
-                  <option value="3">3 - Processing / Printing</option>
-                  <option value="4">4 - Shipped</option>
-                  <option value="5">5 - Received / Completed</option>
+                  <option value="0">0 - Quote / Placed</option>
+                  <option value="1">1 - Artwork</option>
+                  <option value="2">2 - Approval</option>
+                  <option value="3">3 - Production</option>
+                  <option value="4">4 - Quality Check</option>
+                  <option value="5">5 - Completed</option>
                 </select>
               </div>
 
