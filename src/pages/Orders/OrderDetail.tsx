@@ -23,9 +23,9 @@ const sortSizes = (a: string, b: string) => {
 
 // Helper component for the little gray pills in the items breakdown
 const DataPill = ({ label, value }: { label: string, value: string }) => (
-  <div className="flex flex-col items-center justify-center bg-neutral-100 px-4 py-1.5 rounded-3xl min-w-[100px]">
-    <span className="text-[10px] text-neutral-500 font-semibold mb-0.5">{label}:</span>
-    <span className="text-xs text-neutral-800 font-medium leading-none">{value}</span>
+  <div className="flex flex-col items-center justify-center bg-neutral-100/80 px-3 py-1.5 rounded-2xl min-w-[90px] mb-1">
+    <span className="text-[9px] text-neutral-500 font-bold mb-0.5">{label}</span>
+    <span className="text-xs text-neutral-800 font-bold xl:max-w-[130px] truncate leading-none">{value}</span>
   </div>
 );
 
@@ -243,66 +243,70 @@ export function OrderDetail() {
             <div className="bg-white rounded-card border border-brand-border overflow-hidden">
                {order.items?.length > 0 ? order.items.map((item: any) => (
                  <div key={item.id} className="p-6 border-b border-brand-border/50 flex gap-6 items-start hover:bg-brand-bg transition-colors last:border-0">
-                    <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 w-full">
+                    <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-6 w-full relative group">
                        
-                       {/* Left Side: Visual & Specs */}
-                       <div className="flex flex-col lg:flex-row lg:items-center gap-6 flex-1 min-w-0">
-                         {/* Product Visual */}
-                         <div className="flex items-center gap-6 min-w-[200px] shrink-0">
-                           <div className="w-16 h-16 rounded-xl overflow-hidden shrink-0 border border-black/5 bg-gray-50">
-                             <img src={item.image} alt={item.style} className="w-full h-full object-cover mix-blend-multiply p-1" />
-                           </div>
-                           <div>
-                              <div className="flex items-center gap-2">
-                                <h4 className="font-bold text-gray-900 text-[15px]">{item.gender || 'Unisex'}</h4>
-                                <button 
-                                  onClick={() => setEditItemObj(item)} 
-                                  className="text-brand-secondary hover:text-brand-primary transition-colors p-1"
-                                >
-                                  <Edit3 size={14} />
-                                </button>
-                              </div>
-                              <p className="text-xs font-semibold text-gray-500 mt-1">{item.style}</p>
-                           </div>
+                       {/* Left Side: Visual & Title */}
+                       <div className="flex items-center gap-6 min-w-[200px] shrink-0">
+                         <div className="w-16 h-16 rounded-xl overflow-hidden shrink-0 border border-black/5 bg-gray-50 flex items-center justify-center">
+                           <img src={item.image} alt={item.style} className="w-full h-full object-cover mix-blend-multiply p-1" />
                          </div>
+                         <div>
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-bold text-gray-900 text-[15px]">{item.gender || 'Unisex'}</h4>
+                            </div>
+                            <p className="text-xs font-semibold text-gray-500 mt-1">{item.style}</p>
+                         </div>
+                       </div>
 
-                         {/* Specs */}
-                         <div className="flex flex-wrap gap-2 flex-1">
-                            <DataPill label="Item #" value={item.itemNum} />
-                            <DataPill label="Garment Color" value={item.color} />
+                       {/* Right Side: Specs + Sizing/Pricing */}
+                       <div className="flex flex-col lg:flex-row justify-end items-center lg:items-start gap-4 flex-1 pr-12 relative">
+                         
+                         {/* Edit Button */}
+                         <button 
+                           onClick={() => setEditItemObj(item)} 
+                           className="absolute top-0 right-0 p-1.5 text-brand-secondary hover:text-brand-primary transition-colors opacity-0 group-hover:opacity-100 bg-white rounded-md shadow-sm border border-brand-border z-10"
+                           title="Edit Item"
+                         >
+                           <Edit3 size={14} />
+                         </button>
+
+                         {/* Specs (Left of Size Spread) */}
+                         <div className="flex flex-col justify-center items-center gap-1 shrink-0 pt-0.5 min-w-[120px]">
+                            {item.itemNum && <DataPill label="Item #" value={item.itemNum} />}
+                            {item.color && <DataPill label="Garment Color" value={item.color} />}
                             {item.logos?.map((logo: string, i: number) => (
                               <DataPill key={i} label={`Logo ${i+1}`} value={logo} />
                             ))}
                          </div>
-                       </div>
 
-                       {/* Right Side: Sizing & Pricing */}
-                       <div className="flex flex-wrap lg:flex-nowrap items-end lg:items-center gap-4 shrink-0">
-                         {/* Sizing Grid Area */}
-                         <div className="flex items-stretch gap-[2px] bg-neutral-200 p-[3px] rounded-xl font-sans">
-                           {item.sizes && Object.entries(item.sizes).sort(([a], [b]) => sortSizes(a, b)).map(([size, qty]: [string, any]) => (
-                             <div key={size} className="w-10 text-center flex flex-col">
-                               <div className="bg-neutral-300 text-neutral-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">{size}</div>
-                               <div className={`text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center bg-white ${qty > 0 ? 'text-neutral-800' : 'text-neutral-400'}`}>
-                                 {qty}
+                         {/* Sizing & Pricing Stacked */}
+                         <div className="flex flex-col items-end gap-3 shrink-0">
+                           {/* Sizing Grid Area */}
+                           <div className="flex items-stretch gap-[2px] bg-neutral-200 p-[3px] rounded-xl font-sans shrink-0">
+                             {item.sizes && Object.entries(item.sizes).sort(([a], [b]) => sortSizes(a, b)).map(([size, qty]: [string, any]) => (
+                               <div key={size} className="w-10 text-center flex flex-col">
+                                 <div className="bg-neutral-300 text-neutral-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">{size}</div>
+                                 <div className={`text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center bg-white ${qty > 0 ? 'text-neutral-800' : 'text-neutral-400'}`}>
+                                   {qty}
+                                 </div>
                                </div>
-                             </div>
-                           ))}
-                         </div>
+                             ))}
+                           </div>
 
-                         {/* Pricing Summary */}
-                         <div className="flex items-stretch gap-[2px] bg-neutral-200 p-[3px] rounded-xl font-sans shrink-0">
-                           <div className="w-12 text-center flex flex-col">
-                             <div className="bg-neutral-300 text-neutral-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">QTY</div>
-                             <div className="bg-neutral-50 text-neutral-800 text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center">{item.qty}</div>
-                           </div>
-                           <div className="w-16 text-center flex flex-col">
-                             <div className="bg-neutral-300 text-neutral-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">Price</div>
-                             <div className="bg-neutral-50 text-neutral-800 text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center">{item.price}</div>
-                           </div>
-                           <div className="w-20 text-center flex flex-col">
-                             <div className="bg-neutral-300 text-neutral-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">Total</div>
-                             <div className="bg-neutral-50 text-neutral-800 text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center">{item.total}</div>
+                           {/* Pricing Summary */}
+                           <div className="flex items-stretch gap-[2px] bg-neutral-200 p-[3px] rounded-xl font-sans shrink-0">
+                             <div className="min-w-[4rem] px-2 text-center flex flex-col">
+                               <div className="bg-neutral-300 text-neutral-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">QTY</div>
+                               <div className="bg-neutral-50 text-neutral-800 text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center">{item.qty}</div>
+                             </div>
+                             <div className="min-w-[5rem] px-2 text-center flex flex-col">
+                               <div className="bg-neutral-300 text-neutral-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">Price</div>
+                               <div className="bg-neutral-50 text-neutral-800 text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center">{item.price}</div>
+                             </div>
+                             <div className="min-w-[6rem] px-2 text-center flex flex-col">
+                               <div className="bg-neutral-300 text-neutral-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">Total</div>
+                               <div className="bg-neutral-50 text-neutral-800 text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center">{item.total}</div>
+                             </div>
                            </div>
                          </div>
                        </div>
