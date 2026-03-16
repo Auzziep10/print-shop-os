@@ -321,6 +321,7 @@ export function CustomerDetail() {
                 zoom={zoom}
                 aspect={1}
                 objectFit="contain"
+                restrictPosition={false}
                 onCropChange={setCrop}
                 onCropComplete={onCropComplete}
                 onZoomChange={setZoom}
