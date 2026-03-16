@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
-import { ArrowLeft, Mail, Phone, MapPin, Building2, ExternalLink, ShieldAlert, FileText, Plus, Loader2, Upload, X, Check } from 'lucide-react';
+import { ArrowLeft, Mail, Phone, MapPin, Building2, ExternalLink, ShieldAlert, Plus, Loader2, Upload, X, Check, Edit3 } from 'lucide-react';
 import { MOCK_CUSTOMERS_DB } from '../../lib/mockData';
 import { storage, db } from '../../lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -23,6 +23,8 @@ export function CustomerDetail() {
   const [savingLinkId, setSavingLinkId] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isCatalogDialogOpen, setIsCatalogDialogOpen] = useState(false);
+  const [isEditingNote, setIsEditingNote] = useState(false);
+  const [noteText, setNoteText] = useState("Always triple check the black ink opacity on their orders. They are very particular about the 'Vanta Black' look.");
 
   // Edit Company & Portal State
   const [editCompanyForm, setEditCompanyForm] = useState({
@@ -227,7 +229,7 @@ export function CustomerDetail() {
       </div>
 
       {/* Header Profile */}
-      <div className="bg-white p-8 rounded-card border border-brand-border shadow-sm mb-8 flex flex-col md:flex-row gap-8 items-start justify-between">
+      <div className="bg-white p-8 rounded-card border border-brand-border shadow-sm flex flex-col md:flex-row gap-8 items-start justify-between">
           <div className="flex items-start gap-6">
             <div className={`relative w-24 h-24 rounded-xl border border-brand-border bg-brand-bg flex items-center justify-center text-brand-secondary flex-shrink-0 overflow-hidden group ${customer?.logo ? 'bg-white' : ''}`}>
                {uploadingLogo ? (
@@ -277,25 +279,37 @@ export function CustomerDetail() {
          </div>
       </div>
 
+      {/* Subtle Internal Notes */}
+      <div className="mt-3 mb-8 px-2 flex items-start gap-2 text-sm text-brand-secondary">
+         <p className="flex-1 leading-relaxed">
+            <strong className="font-semibold text-brand-primary mr-1">Internal Note:</strong>
+            {isEditingNote ? (
+              <span className="flex items-center gap-2 mt-2 max-w-3xl">
+                 <input 
+                   type="text" 
+                   value={noteText}
+                   onChange={e => setNoteText(e.target.value)}
+                   className="flex-1 bg-white border border-brand-border rounded-lg px-3 py-2 focus:border-brand-primary focus:outline-none text-brand-primary shadow-sm"
+                   autoFocus
+                   onKeyDown={(e) => {
+                     if (e.key === 'Enter') setIsEditingNote(false);
+                   }}
+                 />
+                 <button onClick={() => setIsEditingNote(false)} className="text-xs bg-brand-primary text-white px-4 py-2 rounded-lg font-semibold hover:bg-black transition-colors">Save</button>
+              </span>
+            ) : (
+              <>
+                 <span>{noteText}</span>
+                 <button onClick={() => setIsEditingNote(true)} className="ml-2 text-brand-muted hover:text-brand-secondary transition-colors inline-flex items-center align-middle relative -top-[1px]">
+                    <Edit3 size={14} />
+                 </button>
+              </>
+            )}
+         </p>
+      </div>
+
       {/* Main Content Area */}
       <div className="flex flex-col gap-8">
-        
-        {/* Notes (Moved to a full-width but subtle block below header) */}
-        <div className="bg-brand-bg/50 p-6 rounded-card border border-brand-border shadow-sm flex flex-col md:flex-row gap-6">
-           <div className="flex items-center gap-2 md:w-48 shrink-0">
-              <FileText size={18} className="text-brand-secondary" />
-              <h3 className={tokens.typography.h3}>Internal Notes</h3>
-           </div>
-           <textarea 
-              className="flex-1 bg-white border border-brand-border rounded-xl p-3 text-sm resize-none focus:border-brand-primary focus:outline-none transition-colors"
-              placeholder="Add a note about this company..."
-              defaultValue="Always triple check the black ink opacity on their orders. They are very particular about the 'Vanta Black' look."
-              rows={2}
-           ></textarea>
-           <div className="flex items-center">
-              <button className="text-xs font-semibold px-6 py-3 bg-brand-primary text-white rounded-xl whitespace-nowrap hover:bg-black transition-colors">Save Note</button>
-           </div>
-        </div>
 
         {/* Resale Certificate / Tax Exemption Warning */}
         <div className="bg-amber-50 border border-amber-200/50 rounded-card p-6 flex items-center justify-between gap-4">
@@ -338,7 +352,7 @@ export function CustomerDetail() {
             
             <div className="relative w-full h-[400px] bg-checkerboard overflow-hidden rounded-t-lg">
               <Cropper
-                image={cropImageSrc}
+                image={cropImageSrc || ''}
                 crop={crop}
                 zoom={zoom}
                 aspect={1}
