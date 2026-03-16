@@ -27,10 +27,23 @@ export function PortalCreateOrder() {
       ...item,
       instanceId: Math.random().toString(36).substring(7),
       selectedColor: item.colors[0],
-      quantities: { S: 0, M: 0, L: 0, XL: 0 }
+      quantities: { XS: 0, S: 0, M: 0, L: 0, XL: 0, '2XL': 0, '3XL': 0 }
     };
     setOrderItems(prev => [...prev, newItem]);
     setIsDrawerOpen(false); // smoothly close drawer
+  };
+
+  const handleUpdateQuantity = (instanceId: string, size: string, qty: string) => {
+    const parsedQty = parseInt(qty) || 0;
+    setOrderItems(prev => prev.map(item => {
+      if (item.instanceId === instanceId) {
+        return {
+          ...item,
+          quantities: { ...item.quantities, [size]: parsedQty }
+        };
+      }
+      return item;
+    }));
   };
 
   const handleRemoveItem = (instanceId: string) => {
@@ -110,28 +123,38 @@ export function PortalCreateOrder() {
                   </div>
 
                   {/* Settings Grid for this item */}
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4">
                      <div className="flex flex-col gap-2">
                        <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Garment Color</label>
-                       <div className="relative">
+                       <div className="relative max-w-[300px]">
                          <select className="w-full appearance-none bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-3 text-sm font-medium text-neutral-900 focus:outline-none focus:border-neutral-400 cursor-pointer">
                            {item.colors.map((c: string) => <option key={c} value={c}>{c}</option>)}
                          </select>
                          <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" size={16} />
                        </div>
                      </div>
-                     <div className="flex flex-col gap-2">
-                       <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Decoration Placements</label>
-                       <div className="bg-neutral-50 border border-neutral-200 border-dashed rounded-xl px-4 py-3 text-sm font-medium text-neutral-400 flex items-center justify-center cursor-pointer hover:bg-neutral-100 hover:text-neutral-600 transition-colors">
-                         + Add Placement
-                       </div>
-                     </div>
                   </div>
 
-                  {/* Sizing Matrix Placeholder */}
-                  <div className="bg-neutral-50 rounded-xl p-4 flex flex-col items-center justify-center border border-neutral-100 text-neutral-400 py-8">
-                     <span className="text-sm font-bold">Sizing Matrix</span>
-                     <span className="text-xs">Add placements to generate pricing.</span>
+                  {/* Sizing Matrix */}
+                  <div className="bg-neutral-50 rounded-xl p-4 flex flex-col items-start border border-neutral-200 gap-3">
+                     <span className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Size Run</span>
+                     <div className="flex flex-wrap gap-2 w-full">
+                       {Object.keys(item.quantities).map((size) => (
+                         <div key={size} className="flex-1 min-w-[50px] flex flex-col bg-white border border-neutral-200 rounded-lg overflow-hidden focus-within:border-black focus-within:ring-1 focus-within:ring-black transition-all">
+                           <div className="bg-neutral-100 text-neutral-600 text-[10px] font-bold py-1.5 uppercase tracking-wide flex items-center justify-center border-b border-neutral-200">
+                             {size}
+                           </div>
+                           <input 
+                             type="number"
+                             min="0"
+                             value={item.quantities[size] || ''}
+                             placeholder="0"
+                             onChange={(e) => handleUpdateQuantity(item.instanceId, size, e.target.value)}
+                             className="w-full h-10 text-center text-sm font-bold text-neutral-900 focus:outline-none placeholder:text-neutral-300"
+                           />
+                         </div>
+                       ))}
+                     </div>
                   </div>
                 </div>
               ))}
@@ -162,12 +185,15 @@ export function PortalCreateOrder() {
                 <p className="text-sm font-medium text-center">Your order is currently empty.</p>
               ) : (
                 <div className="w-full flex-1 flex flex-col gap-3">
-                  {orderItems.map((item, idx) => (
-                    <div key={item.instanceId} className="flex items-center justify-between text-sm py-2 border-b border-neutral-100 last:border-0 pointer-events-none">
-                      <span className="font-semibold text-neutral-900 truncate pr-2"><span className="text-neutral-400 mr-2">{idx+1}.</span>{item.style}</span>
-                      <span className="font-bold text-neutral-400">0 QTY</span>
-                    </div>
-                  ))}
+                  {orderItems.map((item, idx) => {
+                    const totalQty = Object.values(item.quantities as Record<string, number>).reduce((sum, qty) => sum + qty, 0);
+                    return (
+                      <div key={item.instanceId} className="flex items-center justify-between text-sm py-2 border-b border-neutral-100 last:border-0 pointer-events-none">
+                        <span className="font-semibold text-neutral-900 truncate pr-2"><span className="text-neutral-400 mr-2">{idx+1}.</span>{item.style}</span>
+                        <span className={`font-bold ${totalQty > 0 ? 'text-neutral-900' : 'text-neutral-400'}`}>{totalQty} QTY</span>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -217,6 +243,10 @@ export function PortalCreateOrder() {
               </div>
 
               <div className="flex flex-col gap-4 mt-2">
+                <button className="w-full bg-neutral-50 hover:bg-neutral-100 border-2 border-dashed border-neutral-200 rounded-xl py-4 flex items-center justify-center text-sm font-bold text-neutral-500 hover:text-black transition-all group mb-2">
+                  <PackagePlus size={18} className="mr-2 group-hover:scale-110 transition-transform" />
+                  + Search Global Blank Catalog
+                </button>
                 {MOCK_DECK.items.map(item => (
                   <div key={item.id} className="group flex items-center gap-5 bg-white border border-neutral-200 hover:border-black transition-colors rounded-2xl p-4 cursor-pointer shadow-[0_2px_10px_rgb(0,0,0,0.02)] hover:shadow-md">
                     <div className="w-16 h-16 rounded-xl overflow-hidden bg-neutral-50 border border-neutral-100 shrink-0">
