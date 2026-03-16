@@ -243,24 +243,6 @@ export function OrderDetail() {
             </div>
           </div>
 
-          {/* Artwork & Mockups */}
-          <div>
-            <div className="flex items-center justify-between mb-4">
-               <h2 className={tokens.typography.h2}>Artwork Files</h2>
-               <button className="text-sm font-semibold uppercase tracking-widest text-brand-secondary hover:text-brand-primary transition-colors">Upload</button>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-               <div className="aspect-square bg-white border border-brand-border rounded-card p-4 flex flex-col justify-between hover:-translate-y-1 transition-transform cursor-pointer shadow-sm">
-                  <div className="h-full bg-brand-muted rounded flex items-center justify-center mb-3 border border-brand-border/50">
-                     <ImageIcon className="text-brand-secondary/50" size={32} />
-                  </div>
-                  <div className="flex justify-between items-center w-full">
-                     <span className="text-xs font-medium truncate">Left_Chest_Logo_v2.ai</span>
-                     <LinkIcon size={14} className="text-brand-secondary" />
-                  </div>
-               </div>
-            </div>
-          </div>
         </div>
 
         {/* Right Column: Activity & Assignees */}
@@ -394,6 +376,25 @@ export function OrderDetail() {
             </div>
           </div>
           
+          {/* Artwork & Mockups */}
+          <div>
+            <div className="flex items-center justify-between mb-4">
+               <h2 className={tokens.typography.h2}>Artwork Files</h2>
+               <button className="text-sm font-semibold uppercase tracking-widest text-brand-secondary hover:text-brand-primary transition-colors">Upload</button>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+               <div className="aspect-square bg-white border border-brand-border rounded-card p-4 flex flex-col justify-between hover:-translate-y-1 transition-transform cursor-pointer shadow-sm">
+                  <div className="h-full bg-brand-muted rounded flex items-center justify-center mb-3 border border-brand-border/50">
+                     <ImageIcon className="text-brand-secondary/50" size={32} />
+                  </div>
+                  <div className="flex justify-between items-center w-full">
+                     <span className="text-xs font-medium truncate">Left_Chest_Logo_v2.ai</span>
+                     <LinkIcon size={14} className="text-brand-secondary" />
+                  </div>
+               </div>
+            </div>
+          </div>
+
           {/* Activity Feed */}
           <div className="bg-white p-6 rounded-card border border-brand-border shadow-sm flex flex-col ">
             <div className="flex items-center gap-2 mb-6">
