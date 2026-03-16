@@ -5,6 +5,7 @@ import { useOrders } from '../../hooks/useOrders';
 import { MOCK_CUSTOMERS_DB } from '../../lib/mockData';
 import { db } from '../../lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
+import { getTrackingLink } from '../../lib/utils';
 
 const SIZE_ORDER = ['XXS', 'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL', 'OSFA'];
 
@@ -242,9 +243,24 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
 
             {/* Quick Action Side Buttons */}
             <div className="w-[140px] shrink-0 flex flex-col justify-center gap-3 h-[128px]">
-               <button className="w-full bg-[#f0f0f0] hover:bg-[#e4e4e4] text-[13px] font-bold text-gray-800 rounded-full py-4 transition-all tracking-wide">
-                 Tracking
-               </button>
+               {order.trackingCarrier && order.trackingNumber ? (
+                 <button 
+                   onClick={(e) => {
+                     e.stopPropagation();
+                     window.open(getTrackingLink(order.trackingCarrier, order.trackingNumber) || '#', '_blank');
+                   }}
+                   className="w-full bg-[#f0f0f0] hover:bg-black hover:text-white text-[13px] font-bold text-gray-800 rounded-full py-4 transition-all tracking-wide z-20"
+                 >
+                   Track {order.trackingCarrier}
+                 </button>
+               ) : (
+                 <button 
+                   className="w-full bg-[#f8f8f8] text-[13px] font-bold text-gray-400 rounded-full py-4 transition-all tracking-wide cursor-default z-20"
+                   onClick={(e) => e.stopPropagation()}
+                 >
+                   {order.trackingCarrier === 'Pickup' || (!order.trackingCarrier && order.statusIndex >= 2) ? 'No Tracking' : 'Processing'}
+                 </button>
+               )}
                <button 
                  className="w-full bg-[#f0f0f0] hover:bg-[#e4e4e4] text-[13px] font-bold text-gray-800 rounded-full py-4 transition-all tracking-wide z-20"
                  onClick={() => {

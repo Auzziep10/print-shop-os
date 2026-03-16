@@ -9,6 +9,7 @@ import { MOCK_CUSTOMERS_DB } from '../../lib/mockData';
 import { db, storage } from '../../lib/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { getTrackingLink } from '../../lib/utils';
 
 const SIZE_ORDER = ['XXS', 'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL', 'OSFA'];
 
@@ -36,7 +37,10 @@ export function OrderDetail() {
 
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [editForm, setEditForm] = useState({ title: '', date: '', statusIndex: 0 });
+  const [editForm, setEditForm] = useState({ 
+    title: '', date: '', statusIndex: 0,
+    trackingCarrier: '', trackingNumber: ''
+  });
 
   const [editItemObj, setEditItemObj] = useState<any>(null);
   const [isItemSaving, setIsItemSaving] = useState(false);
@@ -142,6 +146,8 @@ export function OrderDetail() {
         title: order.title || '',
         date: order.date || '',
         statusIndex: order.statusIndex || 0,
+        trackingCarrier: order.trackingCarrier || '',
+        trackingNumber: order.trackingNumber || ''
       });
     }
   }, [orders, id]);
@@ -153,7 +159,9 @@ export function OrderDetail() {
       await setDoc(doc(db, 'orders', id), {
         title: editForm.title,
         date: editForm.date,
-        statusIndex: editForm.statusIndex
+        statusIndex: editForm.statusIndex,
+        trackingCarrier: editForm.trackingCarrier,
+        trackingNumber: editForm.trackingNumber
       }, { merge: true });
       setIsEditDialogOpen(false);
     } catch (err) {
@@ -256,7 +264,23 @@ export function OrderDetail() {
                </div>
                <div>
                   <span className="text-xs text-brand-secondary font-medium uppercase tracking-wider block mb-1">Delivery</span>
-                  <span className="font-serif text-lg">Pickup</span>
+                  {!order.trackingCarrier ? (
+                    <span className="font-serif text-lg">Pickup</span>
+                  ) : (
+                    <div>
+                      <span className="font-serif text-lg block">{order.trackingCarrier}</span>
+                      {order.trackingNumber && (
+                        <a 
+                          href={getTrackingLink(order.trackingCarrier, order.trackingNumber) || '#'}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-xs font-bold text-brand-primary hover:underline hover:text-black transition-colors"
+                        >
+                          {order.trackingNumber}
+                        </a>
+                      )}
+                    </div>
+                  )}
                </div>
                <div>
                   <span className="text-xs text-brand-secondary font-medium uppercase tracking-wider block mb-1">Est. Total</span>
@@ -515,6 +539,33 @@ export function OrderDetail() {
                   <option value="4">4 - Shipped</option>
                   <option value="5">5 - Received / Completed</option>
                 </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Carrier</label>
+                  <select 
+                    value={editForm.trackingCarrier}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, trackingCarrier: e.target.value }))}
+                    className="w-full bg-white border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
+                  >
+                    <option value="">Pickup / Local</option>
+                    <option value="UPS">UPS</option>
+                    <option value="FedEx">FedEx</option>
+                    <option value="USPS">USPS</option>
+                    <option value="DHL">DHL</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Tracking Number</label>
+                  <input 
+                    type="text" 
+                    value={editForm.trackingNumber}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, trackingNumber: e.target.value }))}
+                    className="w-full bg-white border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
+                    placeholder="e.g. 1Z9999..."
+                  />
+                </div>
               </div>
 
               <div className="flex gap-4 pt-4 border-t border-brand-border">
