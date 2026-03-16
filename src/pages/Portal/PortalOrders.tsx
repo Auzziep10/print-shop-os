@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ChevronDown, ChevronRight, Loader2, PackageOpen, Building2 } from 'lucide-react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useOrders } from '../../hooks/useOrders';
 import { MOCK_CUSTOMERS_DB } from '../../lib/mockData';
 import { db } from '../../lib/firebase';
@@ -29,6 +29,7 @@ const DataPill = ({ label, value }: { label: string, value: string }) => (
 
 export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overrideCustomerId?: string, hideHeader?: boolean }) {
   const { customerId } = useParams();
+  const navigate = useNavigate();
   const currentCustomerId = overrideCustomerId || customerId || 'CUS-001';
   
   // If no customerId is in the URL, fallback to Wayne Enterprises 'CUS-001' to demo it!
@@ -89,7 +90,14 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
           <div key={order.id} className="flex gap-6 w-full items-start">
             
             {/* Main Gray Capsule */}
-            <div className={`flex-1 bg-[#f0f0f0] rounded-[2.5rem] p-6 lg:px-10 transition-all ${isExpanded ? 'pb-8' : ''}`}>
+            <div 
+              onClick={() => {
+                if (overrideCustomerId) {
+                  navigate(`/orders/${order.id}`);
+                }
+              }}
+              className={`flex-1 bg-[#f0f0f0] rounded-[2.5rem] p-6 lg:px-10 transition-all ${overrideCustomerId ? 'cursor-pointer hover:bg-[#e4e4e4]' : ''} ${isExpanded ? 'pb-8' : ''}`}
+            >
               
               {/* Capsule Header Row */}
               <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-8 h-[80px]">
@@ -105,8 +113,11 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
                   </div>
                   <div>
                     <div 
-                      className="flex items-center gap-3 cursor-pointer group"
-                      onClick={() => setExpandedId(isExpanded ? null : order.id)}
+                      className="flex items-center gap-3 cursor-pointer group z-20 relative"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setExpandedId(isExpanded ? null : order.id);
+                      }}
                     >
                       <h2 className="text-2xl font-serif text-gray-900">Order {order.portalId}</h2>
                       <span className="text-gray-400 group-hover:text-black transition-colors">
@@ -221,7 +232,12 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
                <button className="w-full bg-[#f0f0f0] hover:bg-[#e4e4e4] text-[13px] font-bold text-gray-800 rounded-full py-4 transition-all tracking-wide">
                  Tracking
                </button>
-               <button className="w-full bg-[#f0f0f0] hover:bg-[#e4e4e4] text-[13px] font-bold text-gray-800 rounded-full py-4 transition-all tracking-wide">
+               <button 
+                 className="w-full bg-[#f0f0f0] hover:bg-[#e4e4e4] text-[13px] font-bold text-gray-800 rounded-full py-4 transition-all tracking-wide z-20"
+                 onClick={() => {
+                   if (overrideCustomerId) navigate(`/orders/${order.id}`);
+                 }}
+               >
                  Order Info
                </button>
             </div>
