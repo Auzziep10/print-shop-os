@@ -28,7 +28,7 @@ export function PortalCreateOrder() {
             const fetchedDecks = await Promise.all(
               deckIds.map(async (deckId: string) => {
                 try {
-                  const response = await fetch(`https://wovn-garment-catalog.vercel.app/api/decks?id=${deckId}`);
+                  const response = await fetch(`https://wovn-garment-catalog.vercel.app/api/decks?deckId=${deckId}`);
                   if (response.ok) {
                     return await response.json();
                   }
