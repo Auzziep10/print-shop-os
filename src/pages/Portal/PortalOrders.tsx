@@ -37,6 +37,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
   const mockCustomer = MOCK_CUSTOMERS_DB[currentCustomerId];
 
   const [liveLogo, setLiveLogo] = useState<string | null>(null);
+  const [fetchingLogo, setFetchingLogo] = useState<boolean>(true);
 
   useEffect(() => {
     const fetchCustomer = async () => {
@@ -45,7 +46,11 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
         if (d.exists() && d.data().logo) {
           setLiveLogo(d.data().logo);
         }
-      } catch (err) {}
+      } catch (err) {
+        console.error("Error fetching live logo:", err)
+      } finally {
+        setFetchingLogo(false);
+      }
     };
     fetchCustomer();
   }, [currentCustomerId]);
@@ -105,7 +110,9 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
                 {/* Left: Logo & Title */}
                 <div className="flex items-center gap-6 w-[320px] shrink-0">
                   <div className="w-20 h-20 shrink-0 flex items-center justify-center text-neutral-300">
-                    {customer?.logo ? (
+                    {fetchingLogo ? (
+                      <Loader2 className="animate-spin text-neutral-300" size={24} />
+                    ) : customer?.logo ? (
                       <img src={customer.logo} alt="Customer Logo" className="max-w-full max-h-full object-contain shrink-0 filter mix-blend-multiply opacity-90" />
                     ) : (
                       <Building2 size={32} strokeWidth={1.5} />
