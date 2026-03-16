@@ -25,7 +25,7 @@ export function PortalCreateOrder() {
           const deckIds = customerData.catalogLinkIds || (customerData.catalogLinkId ? [customerData.catalogLinkId] : []);
           
           if (deckIds.length > 0) {
-            const fetchedDecks = await Promise.all(
+            const fetchedArrays = await Promise.all(
               deckIds.map(async (deckId: string) => {
                 try {
                   const response = await fetch(`https://wovn-garment-catalog.vercel.app/api/decks?deckId=${deckId}`);
@@ -38,7 +38,11 @@ export function PortalCreateOrder() {
                 return null;
               })
             );
-            setCustomerDecks(fetchedDecks.filter(d => d !== null));
+            
+            // The API returns an array for each deck request. Flatten them all together.
+            const validArrays = fetchedArrays.filter(d => d !== null && Array.isArray(d));
+            const flatDecks = validArrays.flat();
+            setCustomerDecks(flatDecks);
           }
         }
       } catch (err) {
@@ -291,18 +295,20 @@ export function PortalCreateOrder() {
 
                     <div className="flex flex-col gap-3 mt-1">
                       {(deck.items || deck.garments || []).map((item: any, idx: number) => {
-                        const style = item.style || item.title || item.name || 'Unknown Style';
+                        const style = item.garment_name || item.name || item.style || item.title || 'Unknown Style';
                         const gender = item.gender || 'Unisex';
-                        const itemNum = item.itemNum || item.sku || item.id || `GARMENT-${idx+1}`;
+                        const itemNum = item.itemNum || item.garment_id || item.sku || item.id || `GARMENT-${idx+1}`;
                         // The other app might return colors as an array of strings, or array of objects, etc.
-                        let colors = ['White/Navy', 'Pine Green']; 
+                        let colors = ['Custom Color']; 
                         if (Array.isArray(item.colors) && item.colors.length > 0) {
                           colors = item.colors;
                         } else if (Array.isArray(item.availableColors)) {
                           colors = item.availableColors;
+                        } else if (Array.isArray(item.variations) && item.variations.length > 0) {
+                          colors = item.variations.map((v:any) => v.color).filter(Boolean);
                         }
                         
-                        const image = item.image || item.imageUrl || item.frontDesignUrl || item.backDesignUrl || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
+                        const image = item.mockup_image || item.mock_image || item.original_image || item.image || item.imageUrl || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
                         
                         return (
                           <div key={item.id || idx} className="group flex items-center gap-5 bg-white border border-neutral-200 hover:border-black transition-colors rounded-2xl p-4 cursor-pointer shadow-[0_2px_10px_rgb(0,0,0,0.02)] hover:shadow-md">
