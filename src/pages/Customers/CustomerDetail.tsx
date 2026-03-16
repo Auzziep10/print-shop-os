@@ -50,6 +50,7 @@ export function CustomerDetail() {
 
   const [wovnCustomers, setWovnCustomers] = useState<any[]>([]);
   const [isLoadingWovnCustomers, setIsLoadingWovnCustomers] = useState(false);
+  const [wovnCustomersError, setWovnCustomersError] = useState<string | null>(null);
   const [selectedWovnCustomer, setSelectedWovnCustomer] = useState<any | null>(null);
 
   const [availableCatalogs, setAvailableCatalogs] = useState<any[]>([]);
@@ -59,14 +60,25 @@ export function CustomerDetail() {
     if (isCatalogDialogOpen && wovnCustomers.length === 0) {
       const fetchWovnCustomers = async () => {
         setIsLoadingWovnCustomers(true);
+        setWovnCustomersError(null);
         try {
           const response = await fetch('https://wovn-garment-catalog.vercel.app/api/customers');
           if (response.ok) {
             const data = await response.json();
-            setWovnCustomers(data);
+            if (Array.isArray(data)) {
+              setWovnCustomers(data);
+            } else if (data && typeof data === 'object') {
+              // Try to find an array inside
+              const possibleArray = Object.values(data).find(v => Array.isArray(v));
+              setWovnCustomers(possibleArray as any[] || [data]);
+            }
+          } else {
+            const errText = await response.text();
+            setWovnCustomersError(`HTTP Error ${response.status}: ${errText}`);
           }
-        } catch(e) {
+        } catch(e: any) {
           console.error("Error fetching wovn customers", e);
+          setWovnCustomersError(e.message || "Network Error or CORS issue");
         } finally {
           setIsLoadingWovnCustomers(false);
         }
@@ -605,6 +617,11 @@ export function CustomerDetail() {
                     {isLoadingWovnCustomers ? (
                       <div className="flex justify-center p-6 bg-brand-bg rounded-xl border border-brand-border/60 text-brand-secondary text-sm font-medium">
                         <span className="animate-pulse">Loading profiles from WOVN Catalog...</span>
+                      </div>
+                    ) : wovnCustomersError ? (
+                      <div className="flex flex-col justify-center p-6 bg-red-50 rounded-xl border border-red-200 text-red-600 text-sm font-medium text-center">
+                        <p className="font-bold mb-1">Failed to load profiles</p>
+                        <p className="text-xs opacity-80">{wovnCustomersError}</p>
                       </div>
                     ) : wovnCustomers.length === 0 ? (
                       <div className="flex justify-center p-6 bg-brand-bg rounded-xl border border-brand-border/60 text-brand-secondary text-sm font-medium text-center">
