@@ -48,31 +48,57 @@ export function CustomerDetail() {
     setNewContact({ name: '', role: '', email: '', viewAll: false });
   };
 
+  const [wovnCustomers, setWovnCustomers] = useState<any[]>([]);
+  const [isLoadingWovnCustomers, setIsLoadingWovnCustomers] = useState(false);
+  const [selectedWovnCustomer, setSelectedWovnCustomer] = useState<any | null>(null);
+
   const [availableCatalogs, setAvailableCatalogs] = useState<any[]>([]);
   const [isLoadingCatalogs, setIsLoadingCatalogs] = useState(false);
 
   useEffect(() => {
-    if (isCatalogDialogOpen && availableCatalogs.length === 0) {
-      const fetchAllCatalogs = async () => {
-        setIsLoadingCatalogs(true);
+    if (isCatalogDialogOpen && wovnCustomers.length === 0) {
+      const fetchWovnCustomers = async () => {
+        setIsLoadingWovnCustomers(true);
         try {
-          // Attempting to fetch all decks from the WOVN Catalog API
-          const response = await fetch('https://wovn-garment-catalog.vercel.app/api/decks?all=true');
+          const response = await fetch('https://wovn-garment-catalog.vercel.app/api/customers');
           if (response.ok) {
             const data = await response.json();
-            setAvailableCatalogs(data);
-          } else {
-             console.error("Failed to fetch catalogs. Make sure the WOVN app supports fetching all decks.");
+            setWovnCustomers(data);
           }
         } catch(e) {
-          console.error("Error fetching available catalogs", e);
+          console.error("Error fetching wovn customers", e);
         } finally {
-          setIsLoadingCatalogs(false);
+          setIsLoadingWovnCustomers(false);
         }
       };
-      fetchAllCatalogs();
+      fetchWovnCustomers();
     }
-  }, [isCatalogDialogOpen, availableCatalogs.length]);
+  }, [isCatalogDialogOpen, wovnCustomers.length]);
+
+  const handleSelectWovnCustomer = async (customer: any) => {
+    setSelectedWovnCustomer(customer);
+    setIsLoadingCatalogs(true);
+    try {
+      const response = await fetch(`https://wovn-garment-catalog.vercel.app/api/decks?customerId=${customer.id}`);
+      if (response.ok) {
+        const decks = await response.json();
+        setAvailableCatalogs(prev => {
+          const newDecks = [...prev];
+          decks.forEach((newDeck: any) => {
+            const deckId = newDeck.id || newDeck.deckId;
+            if (!newDecks.find(d => (d.id || d.deckId) === deckId)) {
+              newDecks.push(newDeck);
+            }
+          });
+          return newDecks;
+        });
+      }
+    } catch(e) {
+      console.error(e);
+    } finally {
+      setIsLoadingCatalogs(false);
+    }
+  };
 
   // Cropper State
   const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
@@ -566,53 +592,104 @@ export function CustomerDetail() {
            <div className="bg-white max-w-md w-full rounded-2xl shadow-2xl p-6 border border-brand-border flex flex-col">
               <div className="flex justify-between items-center mb-4">
                  <h3 className="font-serif text-xl text-brand-primary">Select Catalog Deck</h3>
-                 <button onClick={() => setIsCatalogDialogOpen(false)} className="text-brand-secondary hover:text-brand-primary transition-colors bg-brand-bg border border-brand-border rounded-md p-1">
+                 <button onClick={() => { setIsCatalogDialogOpen(false); setSelectedWovnCustomer(null); }} className="text-brand-secondary hover:text-brand-primary transition-colors bg-brand-bg border border-brand-border rounded-md p-1">
                    <X size={16} />
                  </button>
               </div>
-              <p className="text-sm text-brand-secondary mb-6 leading-relaxed">Choose an active deck from the WOVN Catalog connected to this account.</p>
+
+              {!selectedWovnCustomer ? (
+                <>
+                  <p className="text-sm text-brand-secondary mb-6 leading-relaxed">Select a WOVN Catalog profile to view their connected active decks.</p>
+                  
+                  <div className="space-y-3 mb-6 max-h-[400px] overflow-y-auto">
+                    {isLoadingWovnCustomers ? (
+                      <div className="flex justify-center p-6 bg-brand-bg rounded-xl border border-brand-border/60 text-brand-secondary text-sm font-medium">
+                        <span className="animate-pulse">Loading profiles from WOVN Catalog...</span>
+                      </div>
+                    ) : wovnCustomers.length === 0 ? (
+                      <div className="flex justify-center p-6 bg-brand-bg rounded-xl border border-brand-border/60 text-brand-secondary text-sm font-medium text-center">
+                        No profiles found.
+                      </div>
+                    ) : (
+                      wovnCustomers.map(c => (
+                        <button 
+                          key={c.id} 
+                          onClick={() => handleSelectWovnCustomer(c)}
+                          className="w-full flex items-center justify-between p-4 rounded-xl border bg-white border-brand-border/60 hover:border-brand-primary/40 transition-colors group text-left"
+                        >
+                          <div>
+                            <p className="font-medium text-brand-primary mb-0.5">{c.company || c.name}</p>
+                            <p className="text-[10px] font-bold tracking-widest text-brand-secondary uppercase">{c.id}</p>
+                          </div>
+                          <span className="text-xs font-bold text-brand-primary opacity-0 group-hover:opacity-100 transition-opacity pr-2">→</span >
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2 mb-6 bg-brand-bg p-2 rounded-xl border border-brand-border/60">
+                    <button onClick={() => setSelectedWovnCustomer(null)} className="text-brand-primary transition-colors bg-white border border-brand-border shadow-sm rounded px-2 flex items-center h-7 text-xs font-bold">
+                       &larr; Back
+                    </button>
+                    <p className="text-sm text-brand-secondary font-medium leading-relaxed truncate ml-1">Decks for <span className="text-brand-primary font-bold">{selectedWovnCustomer.company || selectedWovnCustomer.name}</span></p>
+                  </div>
+
+                  <div className="space-y-3 mb-6 max-h-[400px] overflow-y-auto">
+                    {(() => {
+                      const customerDecks = availableCatalogs.filter(d => (d.customer_id || d.customerId) === selectedWovnCustomer.id);
+                      
+                      if (isLoadingCatalogs) {
+                        return (
+                          <div className="flex justify-center p-6 bg-brand-bg rounded-xl border border-brand-border/60 text-brand-secondary text-sm font-medium">
+                            <span className="animate-pulse">Loading active decks...</span>
+                          </div>
+                        );
+                      }
+                      
+                      if (customerDecks.length === 0) {
+                        return (
+                          <div className="flex justify-center p-6 bg-brand-bg rounded-xl border border-brand-border/60 text-brand-secondary text-sm font-medium text-center">
+                            No decks discovered for this profile.
+                          </div>
+                        );
+                      }
+
+                      return customerDecks.map(catalog => {
+                        const catalogId = catalog.id || catalog.deckId;
+                        const isSelected = catalogLinkIds.includes(catalogId);
+                        const itemCount = Array.isArray(catalog.garments) ? catalog.garments.length : Array.isArray(catalog.items) ? catalog.items.length : 0;
+                        return (
+                          <button 
+                            key={catalogId} 
+                            onClick={() => toggleCatalogLink(catalogId)}
+                            className={`w-full flex items-center justify-between p-4 rounded-xl border transition-colors group text-left ${
+                              isSelected ? 'bg-brand-bg border-brand-primary/50' : 'bg-white border-brand-border/60 hover:border-brand-primary/40'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${
+                                isSelected ? 'bg-brand-primary border-brand-primary text-white' : 'bg-white border-brand-border group-hover:border-brand-primary/40'
+                              }`}>
+                                {isSelected && <Check size={12} strokeWidth={3} />}
+                              </div>
+                              <div>
+                                <p className="font-medium text-brand-primary mb-0.5">{catalog.name || "Unnamed Deck"}</p>
+                                <p className="text-[10px] font-bold tracking-widest text-brand-secondary uppercase">{catalogId}</p>
+                              </div>
+                            </div>
+                            <span className="text-xs font-bold text-brand-secondary bg-white border border-brand-border px-2 py-1 rounded-md transition-colors">{itemCount} Items</span>
+                          </button>
+                        );
+                      });
+                    })()}
+                  </div>
+                </>
+              )}
               
-              <div className="space-y-3 mb-6 max-h-[400px] overflow-y-auto">
-                 {isLoadingCatalogs ? (
-                   <div className="flex justify-center p-6 bg-brand-bg rounded-xl border border-brand-border/60 text-brand-secondary text-sm font-medium">
-                     <span className="animate-pulse">Loading active decks from WOVN Catalog...</span>
-                   </div>
-                 ) : availableCatalogs.length === 0 ? (
-                   <div className="flex justify-center p-6 bg-brand-bg rounded-xl border border-brand-border/60 text-brand-secondary text-sm font-medium text-center">
-                     No decks discovered. Please ask the WOVN Catalog Admin to update the API endpoint to list all available decks.
-                   </div>
-                 ) : (
-                   availableCatalogs.map(catalog => {
-                     const catalogId = catalog.id || catalog.deckId;
-                     const isSelected = catalogLinkIds.includes(catalogId);
-                     const itemCount = Array.isArray(catalog.garments) ? catalog.garments.length : Array.isArray(catalog.items) ? catalog.items.length : 0;
-                     return (
-                       <button 
-                         key={catalogId} 
-                         onClick={() => toggleCatalogLink(catalogId)}
-                         className={`w-full flex items-center justify-between p-4 rounded-xl border transition-colors group text-left ${
-                           isSelected ? 'bg-brand-bg border-brand-primary/50' : 'bg-white border-brand-border/60 hover:border-brand-primary/40'
-                         }`}
-                       >
-                         <div className="flex items-center gap-3">
-                           <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${
-                             isSelected ? 'bg-brand-primary border-brand-primary text-white' : 'bg-white border-brand-border group-hover:border-brand-primary/40'
-                           }`}>
-                             {isSelected && <Check size={12} strokeWidth={3} />}
-                           </div>
-                           <div>
-                             <p className="font-medium text-brand-primary mb-0.5">{catalog.name || "Unnamed Deck"}</p>
-                             <p className="text-[10px] font-bold tracking-widest text-brand-secondary uppercase">{catalogId}</p>
-                           </div>
-                         </div>
-                         <span className="text-xs font-bold text-brand-secondary bg-white border border-brand-border px-2 py-1 rounded-md transition-colors">{itemCount} Items</span>
-                       </button>
-                     );
-                   })
-                 )}
-              </div>
               <div className="flex justify-end pt-4 border-t border-brand-border">
-                 <PillButton variant="filled" onClick={() => setIsCatalogDialogOpen(false)}>Done</PillButton>
+                 <PillButton variant="filled" onClick={() => { setIsCatalogDialogOpen(false); setSelectedWovnCustomer(null); }}>Done</PillButton>
               </div>
            </div>
          </div>
