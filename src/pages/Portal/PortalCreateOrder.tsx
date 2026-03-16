@@ -1,21 +1,55 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ArrowLeft, PackagePlus, X, Trash2, ChevronDown } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
-
-const MOCK_DECK = {
-  name: "Summer 2026 Collection",
-  items: [
-    { id: "g1", style: "Pique Polo", gender: "Mens", itemNum: "PB26-1015", colors: ["White/Navy", "Pine Green"], image: "https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200" },
-    { id: "g2", style: "Long Sleeve 1/4 Zip", gender: "Womens", itemNum: "PB26-1016", colors: ["Baby Blue", "Navy"], image: "https://images.unsplash.com/photo-1572889816658-54cdd93a0bcf?auto=format&fit=crop&q=80&w=200&h=200" },
-    { id: "g3", style: "Leather Duffle Bag", gender: "Accessories", itemNum: "PB26-1027", colors: ["Navy Leather", "Black Leather"], image: "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?auto=format&fit=crop&q=80&w=200&h=200" }
-  ]
-};
+import { db } from '../../lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 
 export function PortalCreateOrder() {
   const navigate = useNavigate();
   const { customerId } = useParams();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [orderItems, setOrderItems] = useState<any[]>([]);
+  const [customerDecks, setCustomerDecks] = useState<any[]>([]);
+  const [isLoadingDecks, setIsLoadingDecks] = useState(true);
+
+  useEffect(() => {
+    const fetchDecks = async () => {
+      if (!customerId) return;
+      setIsLoadingDecks(true);
+      
+      try {
+        const customerDoc = await getDoc(doc(db, 'customers', customerId));
+        if (customerDoc.exists()) {
+          const customerData = customerDoc.data();
+          // Support both array and single string for backwards compatibility
+          const deckIds = customerData.catalogLinkIds || (customerData.catalogLinkId ? [customerData.catalogLinkId] : []);
+          
+          if (deckIds.length > 0) {
+            const fetchedDecks = await Promise.all(
+              deckIds.map(async (deckId: string) => {
+                try {
+                  const response = await fetch(`https://wovn-garment-catalog.vercel.app/api/decks?id=${deckId}`);
+                  if (response.ok) {
+                    return await response.json();
+                  }
+                } catch (e) {
+                  console.error("Failed to fetch deck:", deckId, e);
+                }
+                return null;
+              })
+            );
+            setCustomerDecks(fetchedDecks.filter(d => d !== null));
+          }
+        }
+      } catch (err) {
+         console.error("Error fetching customer or decks", err);
+      } finally {
+        setIsLoadingDecks(false);
+      }
+    };
+    
+    fetchDecks();
+  }, [customerId]);
 
   const handleBack = () => {
     navigate(customerId ? `/portal/${customerId}` : '/portal');
@@ -236,39 +270,71 @@ export function PortalCreateOrder() {
             </div>
             
             {/* Drawer Content */}
-            <div className="flex-1 overflow-y-auto p-8 flex flex-col gap-6">
-              <div className="bg-[#f0ebe1] rounded-2xl p-6 border border-[#e6e2db] flex flex-col justify-center items-center text-center">
-                 <h3 className="font-bold text-neutral-900 tracking-tight text-lg">{MOCK_DECK.name}</h3>
-                 <p className="text-xs text-[#6b665c] font-bold mt-1 uppercase tracking-widest">Active Deck</p>
-              </div>
+            <div className="flex-1 overflow-y-auto p-8 flex flex-col gap-8">
+              {isLoadingDecks ? (
+                <div className="flex items-center justify-center p-8">
+                  <div className="animate-spin w-8 h-8 border-4 border-black border-t-transparent rounded-full"></div>
+                </div>
+              ) : customerDecks.length === 0 ? (
+                <div className="flex flex-col items-center justify-center p-8 text-center text-neutral-500">
+                  <PackagePlus size={32} className="mb-4 text-neutral-300" />
+                  <p>No catalog decks connected for this client.</p>
+                  <p className="text-xs mt-2">Connect decks via the Edit Company panel.</p>
+                </div>
+              ) : (
+                customerDecks.map((deck) => (
+                  <div key={deck.id || deck.name} className="flex flex-col gap-4">
+                    <div className="bg-[#f0ebe1] rounded-2xl p-6 border border-[#e6e2db] flex flex-col justify-center items-center text-center">
+                       <h3 className="font-bold text-neutral-900 tracking-tight text-lg">{deck.name || "Catalog Deck"}</h3>
+                       <p className="text-[#6b665c] font-bold mt-1 uppercase tracking-widest text-[10px]">{deck.id || "Active Deck"}</p>
+                    </div>
 
-              <div className="flex flex-col gap-4 mt-2">
-                <button className="w-full bg-neutral-50 hover:bg-neutral-100 border-2 border-dashed border-neutral-200 rounded-xl py-4 flex items-center justify-center text-sm font-bold text-neutral-500 hover:text-black transition-all group mb-2">
-                  <PackagePlus size={18} className="mr-2 group-hover:scale-110 transition-transform" />
-                  + Search Global Blank Catalog
-                </button>
-                {MOCK_DECK.items.map(item => (
-                  <div key={item.id} className="group flex items-center gap-5 bg-white border border-neutral-200 hover:border-black transition-colors rounded-2xl p-4 cursor-pointer shadow-[0_2px_10px_rgb(0,0,0,0.02)] hover:shadow-md">
-                    <div className="w-16 h-16 rounded-xl overflow-hidden bg-neutral-50 border border-neutral-100 shrink-0">
-                      <img src={item.image} alt={item.style} className="w-full h-full object-cover mix-blend-multiply" />
+                    <div className="flex flex-col gap-3 mt-1">
+                      {(deck.items || deck.garments || []).map((item: any, idx: number) => {
+                        const style = item.style || item.title || item.name || 'Unknown Style';
+                        const gender = item.gender || 'Unisex';
+                        const itemNum = item.itemNum || item.sku || item.id || `GARMENT-${idx+1}`;
+                        // The other app might return colors as an array of strings, or array of objects, etc.
+                        let colors = ['White/Navy', 'Pine Green']; 
+                        if (Array.isArray(item.colors) && item.colors.length > 0) {
+                          colors = item.colors;
+                        } else if (Array.isArray(item.availableColors)) {
+                          colors = item.availableColors;
+                        }
+                        
+                        const image = item.image || item.imageUrl || item.frontDesignUrl || item.backDesignUrl || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
+                        
+                        return (
+                          <div key={item.id || idx} className="group flex items-center gap-5 bg-white border border-neutral-200 hover:border-black transition-colors rounded-2xl p-4 cursor-pointer shadow-[0_2px_10px_rgb(0,0,0,0.02)] hover:shadow-md">
+                            <div className="w-16 h-16 rounded-xl overflow-hidden bg-neutral-50 border border-neutral-100 shrink-0">
+                              <img src={image} alt={style} className="w-full h-full object-cover mix-blend-multiply" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between mb-1">
+                                 <h4 className="font-bold text-neutral-900 text-[15px] truncate pr-2">{style}</h4>
+                                 <span className="text-[10px] font-bold text-neutral-600 bg-neutral-100 px-2 py-0.5 rounded-full shrink-0">{gender}</span>
+                              </div>
+                              <p className="text-xs font-semibold text-neutral-500">{itemNum}</p>
+                              <p className="text-xs text-neutral-400 font-medium mt-1 truncate">{colors.join(' • ')}</p>
+                            </div>
+                            <button 
+                              onClick={() => handleAddItem({ ...item, style, gender, itemNum, colors, image })}
+                              className="w-8 h-8 rounded-full bg-neutral-100 text-neutral-500 group-hover:bg-black group-hover:text-white flex items-center justify-center transition-colors shrink-0"
+                            >
+                               <PackagePlus size={16} strokeWidth={2.5} />
+                            </button>
+                          </div>
+                        );
+                      })}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-1">
-                         <h4 className="font-bold text-neutral-900 text-[15px] truncate pr-2">{item.style}</h4>
-                         <span className="text-[10px] font-bold text-neutral-600 bg-neutral-100 px-2 py-0.5 rounded-full shrink-0">{item.gender}</span>
-                      </div>
-                      <p className="text-xs font-semibold text-neutral-500">{item.itemNum}</p>
-                      <p className="text-xs text-neutral-400 font-medium mt-1 truncate">{item.colors.join(' • ')}</p>
-                    </div>
-                    <button 
-                      onClick={() => handleAddItem(item)}
-                      className="w-8 h-8 rounded-full bg-neutral-100 text-neutral-500 group-hover:bg-black group-hover:text-white flex items-center justify-center transition-colors shrink-0"
-                    >
-                       <PackagePlus size={16} strokeWidth={2.5} />
-                    </button>
                   </div>
-                ))}
-              </div>
+                ))
+              )}
+              
+              <button className="w-full bg-neutral-50 hover:bg-neutral-100 border-2 border-dashed border-neutral-200 rounded-xl py-4 flex items-center justify-center text-sm font-bold text-neutral-500 hover:text-black transition-all group mt-2 shrink-0">
+                <PackagePlus size={18} className="mr-2 group-hover:scale-110 transition-transform" />
+                + Search Global Blank Catalog
+              </button>
             </div>
 
           </div>
