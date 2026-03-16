@@ -498,14 +498,18 @@ export function OrderDetail() {
               {/* Basic Fields */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Garment Gender</label>
-                  <input 
-                    type="text" 
+                  <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Gender</label>
+                  <select 
                     value={editItemObj.gender || ''}
                     onChange={(e) => setEditItemObj({...editItemObj, gender: e.target.value})}
-                    className="w-full bg-white border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
-                    placeholder="e.g. Mens, Womens, Unisex"
-                  />
+                    className="w-full bg-white border border-brand-border rounded-lg px-4 py-3 font-serif text-brand-secondary focus:border-brand-primary focus:outline-none transition-colors outline-none cursor-pointer"
+                  >
+                    <option value="" disabled>Select Gender</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Accessories">Accessories</option>
+                    <option value="Unisex">Unisex</option>
+                  </select>
                 </div>
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Garment Style Name</label>
