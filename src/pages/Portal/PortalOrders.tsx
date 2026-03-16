@@ -21,9 +21,9 @@ const STATUS_STEPS = ['Placed', 'Shopping', 'Ordered', 'Processing', 'Shipped', 
 
 // Helper component for the little gray pills in the items breakdown
 const DataPill = ({ label, value }: { label: string, value: string }) => (
-  <div className="flex flex-col items-center justify-center bg-neutral-100 px-4 py-1.5 rounded-3xl min-w-[100px]">
-    <span className="text-[10px] text-neutral-500 font-semibold mb-0.5">{label}:</span>
-    <span className="text-xs text-neutral-800 font-medium leading-none">{value}</span>
+  <div className="flex flex-col items-center justify-center bg-neutral-100 px-3 py-1.5 rounded-2xl min-w-[84px] max-w-[140px]">
+    <span className="text-[10px] text-neutral-500 font-semibold mb-0.5 truncate w-full text-center">{label}:</span>
+    <span className="text-xs text-neutral-800 font-semibold leading-none truncate w-full text-center">{value}</span>
   </div>
 );
 
@@ -168,10 +168,10 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
                     <div key={item.id} className="bg-white rounded-3xl p-4 px-6 flex flex-col xl:flex-row xl:items-center justify-between gap-6 shadow-[0_4px_12px_rgb(0,0,0,0.02)]">
                       
                       {/* Left Side: Visual & Specs */}
-                      <div className={`flex flex-col lg:flex-row lg:items-center gap-6 flex-1 min-w-0 ${hideHeader ? 'pr-12' : ''}`}>
+                      <div className={`flex flex-col lg:flex-row lg:items-center gap-4 flex-1 min-w-0 ${hideHeader ? 'pr-2' : ''}`}>
                         {/* Product Visual */}
-                        <div className="flex items-center gap-6 min-w-[200px] shrink-0">
-                          <div className={`w-16 h-16 rounded-xl overflow-hidden shrink-0 border border-black/5 bg-gray-50 ${hideHeader ? 'flex items-center justify-center' : ''}`}>
+                        <div className="flex items-center gap-4 w-[160px] shrink-0">
+                          <div className={`w-14 h-14 rounded-xl overflow-hidden shrink-0 border border-black/5 bg-gray-50 ${hideHeader ? 'flex items-center justify-center' : ''}`}>
                             <img src={item.image} alt={item.style} className="w-full h-full object-cover mix-blend-multiply p-1" />
                           </div>
                           <div>
