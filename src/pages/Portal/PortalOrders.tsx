@@ -110,22 +110,22 @@ export function PortalOrders() {
                 <div className="flex-1 max-w-[800px] mx-auto w-full pt-4 xl:pt-0">
                   <div className="relative w-full">
                     {/* The Track Base */}
-                    <div className="absolute top-[8px] left-0 w-full h-[12px] bg-gray-300 rounded-full"></div>
+                    <div className="absolute top-0 left-0 w-full h-[12px] bg-[#e4ded6] rounded-full"></div>
                     {/* The Fill */}
-                    <div className="absolute top-[8px] left-0 h-[12px] bg-gray-500 rounded-full transition-all duration-700 ease-in-out" style={{ width: fillWidth }}></div>
+                    <div className="absolute top-0 left-0 h-[12px] bg-[#4a4845] rounded-full transition-all duration-700 ease-in-out" style={{ width: fillWidth }}></div>
                     
                     {/* Steps */}
-                    <div className="relative flex justify-between items-center z-10 px-1">
+                    <div className="relative flex justify-between items-center z-10 px-0">
                       {STATUS_STEPS.map((step, idx) => {
                         const isCompleted = idx <= order.statusIndex;
                         const isLastStep = idx === STATUS_STEPS.length - 1;
                         return (
                           <div key={step} className="flex flex-col items-center relative">
                             {/* The Step Dot */}
-                            <div className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors duration-300 ${isCompleted ? 'bg-black' : 'bg-[#efeff1] border-[4px] border-gray-300'}`}>
+                            <div className={`w-[12px] h-[12px] rounded-full flex items-center justify-center transition-colors duration-300 ${isCompleted ? 'bg-black' : 'bg-[#f0f0f0] border-[2px] border-[#e4ded6]'}`}>
                             </div>
                             {/* Step Label below */}
-                            <span className="absolute top-10 text-[11px] font-bold text-gray-600 w-24 text-center tracking-wide">{step}</span>
+                            <span className="absolute top-6 text-[11px] font-bold text-gray-500 w-24 text-center tracking-wide">{step}</span>
                             
                             {/* Completion Date (Floating over the last item naturally if complete, or mock placing it over received for layout) */}
                             {isLastStep && (
