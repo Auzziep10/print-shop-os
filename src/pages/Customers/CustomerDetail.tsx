@@ -48,11 +48,31 @@ export function CustomerDetail() {
     setNewContact({ name: '', role: '', email: '', viewAll: false });
   };
 
-  const MOCK_AVAILABLE_CATALOGS = [
-    { id: 'DECK-PBGL-883', name: 'Summer 2026 Collection', items: 12 },
-    { id: 'DECK-WAYN-102', name: 'Corporate Merch 2025', items: 45 },
-    { id: 'DECK-ACME-445', name: 'Fall Retreat Gear', items: 8 }
-  ];
+  const [availableCatalogs, setAvailableCatalogs] = useState<any[]>([]);
+  const [isLoadingCatalogs, setIsLoadingCatalogs] = useState(false);
+
+  useEffect(() => {
+    if (isCatalogDialogOpen && availableCatalogs.length === 0) {
+      const fetchAllCatalogs = async () => {
+        setIsLoadingCatalogs(true);
+        try {
+          // Attempting to fetch all decks from the WOVN Catalog API
+          const response = await fetch('https://wovn-garment-catalog.vercel.app/api/decks?all=true');
+          if (response.ok) {
+            const data = await response.json();
+            setAvailableCatalogs(data);
+          } else {
+             console.error("Failed to fetch catalogs. Make sure the WOVN app supports fetching all decks.");
+          }
+        } catch(e) {
+          console.error("Error fetching available catalogs", e);
+        } finally {
+          setIsLoadingCatalogs(false);
+        }
+      };
+      fetchAllCatalogs();
+    }
+  }, [isCatalogDialogOpen, availableCatalogs.length]);
 
   // Cropper State
   const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
@@ -439,10 +459,11 @@ export function CustomerDetail() {
                     ) : (
                        <div className="flex flex-wrap gap-2">
                          {catalogLinkIds.map(linkId => {
-                           const c = MOCK_AVAILABLE_CATALOGS.find(m => m.id === linkId);
+                           // If the catalog is fetched, map its name. Otherwise just show the ID.
+                           const c = availableCatalogs.find(m => m.id === linkId);
                            return (
                              <div key={linkId} className="flex items-center gap-2 bg-white border border-brand-border/60 rounded-lg pl-3 pr-1 py-1 shadow-sm">
-                               <span className="text-xs font-bold text-brand-primary">{c ? c.name : linkId}</span>
+                               <span className="text-xs font-bold text-brand-primary">{c && c.name ? c.name : linkId}</span>
                                <button 
                                  onClick={() => toggleCatalogLink(linkId)}
                                  className="w-6 h-6 rounded flex items-center justify-center text-brand-secondary hover:bg-brand-bg hover:text-red-500 transition-colors"
@@ -552,31 +573,43 @@ export function CustomerDetail() {
               <p className="text-sm text-brand-secondary mb-6 leading-relaxed">Choose an active deck from the WOVN Catalog connected to this account.</p>
               
               <div className="space-y-3 mb-6 max-h-[400px] overflow-y-auto">
-                 {MOCK_AVAILABLE_CATALOGS.map(catalog => {
-                   const isSelected = catalogLinkIds.includes(catalog.id);
-                   return (
-                     <button 
-                       key={catalog.id} 
-                       onClick={() => toggleCatalogLink(catalog.id)}
-                       className={`w-full flex items-center justify-between p-4 rounded-xl border transition-colors group text-left ${
-                         isSelected ? 'bg-brand-bg border-brand-primary/50' : 'bg-white border-brand-border/60 hover:border-brand-primary/40'
-                       }`}
-                     >
-                       <div className="flex items-center gap-3">
-                         <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${
-                           isSelected ? 'bg-brand-primary border-brand-primary text-white' : 'bg-white border-brand-border group-hover:border-brand-primary/40'
-                         }`}>
-                           {isSelected && <Check size={12} strokeWidth={3} />}
+                 {isLoadingCatalogs ? (
+                   <div className="flex justify-center p-6 bg-brand-bg rounded-xl border border-brand-border/60 text-brand-secondary text-sm font-medium">
+                     <span className="animate-pulse">Loading active decks from WOVN Catalog...</span>
+                   </div>
+                 ) : availableCatalogs.length === 0 ? (
+                   <div className="flex justify-center p-6 bg-brand-bg rounded-xl border border-brand-border/60 text-brand-secondary text-sm font-medium text-center">
+                     No decks discovered. Please ask the WOVN Catalog Admin to update the API endpoint to list all available decks.
+                   </div>
+                 ) : (
+                   availableCatalogs.map(catalog => {
+                     const catalogId = catalog.id || catalog.deckId;
+                     const isSelected = catalogLinkIds.includes(catalogId);
+                     const itemCount = Array.isArray(catalog.garments) ? catalog.garments.length : Array.isArray(catalog.items) ? catalog.items.length : 0;
+                     return (
+                       <button 
+                         key={catalogId} 
+                         onClick={() => toggleCatalogLink(catalogId)}
+                         className={`w-full flex items-center justify-between p-4 rounded-xl border transition-colors group text-left ${
+                           isSelected ? 'bg-brand-bg border-brand-primary/50' : 'bg-white border-brand-border/60 hover:border-brand-primary/40'
+                         }`}
+                       >
+                         <div className="flex items-center gap-3">
+                           <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${
+                             isSelected ? 'bg-brand-primary border-brand-primary text-white' : 'bg-white border-brand-border group-hover:border-brand-primary/40'
+                           }`}>
+                             {isSelected && <Check size={12} strokeWidth={3} />}
+                           </div>
+                           <div>
+                             <p className="font-medium text-brand-primary mb-0.5">{catalog.name || "Unnamed Deck"}</p>
+                             <p className="text-[10px] font-bold tracking-widest text-brand-secondary uppercase">{catalogId}</p>
+                           </div>
                          </div>
-                         <div>
-                           <p className="font-medium text-brand-primary mb-0.5">{catalog.name}</p>
-                           <p className="text-[10px] font-bold tracking-widest text-brand-secondary uppercase">{catalog.id}</p>
-                         </div>
-                       </div>
-                       <span className="text-xs font-bold text-brand-secondary bg-white border border-brand-border px-2 py-1 rounded-md transition-colors">{catalog.items} Items</span>
-                     </button>
-                   );
-                 })}
+                         <span className="text-xs font-bold text-brand-secondary bg-white border border-brand-border px-2 py-1 rounded-md transition-colors">{itemCount} Items</span>
+                       </button>
+                     );
+                   })
+                 )}
               </div>
               <div className="flex justify-end pt-4 border-t border-brand-border">
                  <PillButton variant="filled" onClick={() => setIsCatalogDialogOpen(false)}>Done</PillButton>
