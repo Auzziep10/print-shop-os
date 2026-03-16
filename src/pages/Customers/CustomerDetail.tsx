@@ -23,6 +23,7 @@ export function CustomerDetail() {
   const [catalogLinkId, setCatalogLinkId] = useState<string>('');
   const [savingLinkId, setSavingLinkId] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isCatalogDialogOpen, setIsCatalogDialogOpen] = useState(false);
 
   // Edit Company & Portal State
   const [editCompanyForm, setEditCompanyForm] = useState({
@@ -46,6 +47,12 @@ export function CustomerDetail() {
     setIsAddingContact(false);
     setNewContact({ name: '', role: '', email: '', viewAll: false });
   };
+
+  const MOCK_AVAILABLE_CATALOGS = [
+    { id: 'DECK-PBGL-883', name: 'Summer 2026 Collection', items: 12 },
+    { id: 'DECK-WAYN-102', name: 'Corporate Merch 2025', items: 45 },
+    { id: 'DECK-ACME-445', name: 'Fall Retreat Gear', items: 8 }
+  ];
 
   // Cropper State
   const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
@@ -416,6 +423,13 @@ export function CustomerDetail() {
                       className="w-full bg-brand-bg border border-brand-border/60 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-brand-primary/30 transition-colors placeholder:text-brand-secondary/40 font-medium"
                     />
                     <PillButton 
+                      variant="outline" 
+                      className="px-6 whitespace-nowrap"
+                      onClick={() => setIsCatalogDialogOpen(true)}
+                    >
+                      Select from Catalog
+                    </PillButton>
+                    <PillButton 
                       variant="filled" 
                       className="px-6 whitespace-nowrap"
                       onClick={handleSaveCatalogId}
@@ -495,6 +509,40 @@ export function CustomerDetail() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Catalog Selection Overlay */}
+      {isCatalogDialogOpen && (
+         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/40 backdrop-blur-sm p-6 animate-in fade-in zoom-in-95 duration-200">
+           <div className="bg-white max-w-md w-full rounded-2xl shadow-2xl p-6 border border-brand-border flex flex-col">
+              <div className="flex justify-between items-center mb-4">
+                 <h3 className="font-serif text-xl text-brand-primary">Select Catalog Deck</h3>
+                 <button onClick={() => setIsCatalogDialogOpen(false)} className="text-brand-secondary hover:text-brand-primary transition-colors bg-brand-bg border border-brand-border rounded-md p-1">
+                   <X size={16} />
+                 </button>
+              </div>
+              <p className="text-sm text-brand-secondary mb-6 leading-relaxed">Choose an active deck from the WOVN Catalog connected to this account.</p>
+              
+              <div className="space-y-3 mb-6">
+                 {MOCK_AVAILABLE_CATALOGS.map(catalog => (
+                   <button 
+                     key={catalog.id} 
+                     onClick={() => {
+                       setCatalogLinkId(catalog.id);
+                       setIsCatalogDialogOpen(false);
+                     }}
+                     className="w-full flex items-center justify-between p-4 rounded-xl border border-brand-border/60 hover:border-brand-primary/40 hover:bg-brand-bg transition-colors group text-left"
+                   >
+                     <div>
+                       <p className="font-medium text-brand-primary mb-0.5">{catalog.name}</p>
+                       <p className="text-[10px] font-bold tracking-widest text-brand-secondary uppercase">{catalog.id}</p>
+                     </div>
+                     <span className="text-xs font-bold text-brand-secondary bg-brand-bg border border-brand-border px-2 py-1 rounded-md group-hover:bg-white transition-colors">{catalog.items} Items</span>
+                   </button>
+                 ))}
+              </div>
+           </div>
+         </div>
       )}
 
     </div>
