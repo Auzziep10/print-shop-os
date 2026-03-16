@@ -111,6 +111,28 @@ export function OrderDetail() {
       setIsItemSaving(false);
     }
   };
+  const handleDeleteItem = async () => {
+    if (!id || !editItemObj) return;
+    
+    // Only process deletion if user clicks OK
+    if (!window.confirm("Are you sure you want to delete this item?")) return;
+    
+    setIsItemSaving(true);
+    try {
+      const orderData = orders.find(o => o.id === id);
+      if (!orderData) throw new Error("Order not found");
+
+      const existingItems = orderData.items || [];
+      const updatedItems = existingItems.filter((i: any) => i.id !== editItemObj.id);
+
+      await setDoc(doc(db, 'orders', id), { items: updatedItems }, { merge: true });
+      setEditItemObj(null);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsItemSaving(false);
+    }
+  };
 
   // Update edit form when order loads or changes
   useEffect(() => {
@@ -682,6 +704,14 @@ export function OrderDetail() {
               </div>
 
               <div className="flex gap-4 pt-4 border-t border-brand-border mt-2">
+                <button 
+                  onClick={handleDeleteItem} 
+                  className="px-4 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors flex items-center justify-center border border-transparent hover:border-red-100"
+                  title="Delete Item"
+                  disabled={isItemSaving}
+                >
+                  <Trash2 size={20} />
+                </button>
                 <PillButton variant="outline" onClick={() => setEditItemObj(null)} className="flex-1 justify-center py-3">
                   Cancel
                 </PillButton>
