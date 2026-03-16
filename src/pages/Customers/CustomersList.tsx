@@ -4,18 +4,65 @@ import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
 import { Search, Filter, Plus, FileDown, MoreHorizontal, Building2, User } from 'lucide-react';
 
-const MOCK_CUSTOMERS = [
-  { id: 'CUS-001', company: 'Wayne Enterprises', contact: 'Bruce Wayne', type: 'B2B', activeOrders: 3, ltv: '$45,200', lastOrder: 'Oct 24, 2026' },
-  { id: 'CUS-002', company: 'Stark Industries', contact: 'Tony Stark', type: 'B2B', activeOrders: 1, ltv: '$128,500', lastOrder: 'Oct 25, 2026' },
-  { id: 'CUS-003', company: 'Daily Bugle', contact: 'J. Jonah Jameson', type: 'B2B', activeOrders: 2, ltv: '$12,400', lastOrder: 'Yesterday' },
-  { id: 'CUS-004', company: 'Daily Planet', contact: 'Clark Kent', type: 'B2B', activeOrders: 1, ltv: '$8,900', lastOrder: 'Oct 28, 2026' },
-  { id: 'CUS-005', company: 'Acme Corp', contact: 'Wile E. Coyote', type: 'B2B', activeOrders: 1, ltv: '$3,200', lastOrder: 'Oct 20, 2026' },
-  { id: 'CUS-006', company: '-', contact: 'Peter Parker', type: 'DTC', activeOrders: 0, ltv: '$450', lastOrder: 'Sep 15, 2026' },
-];
+import { useEffect, useMemo } from 'react';
+import { MOCK_CUSTOMERS_DB } from '../../lib/mockData';
+import { db } from '../../lib/firebase';
+import { collection, onSnapshot } from 'firebase/firestore';
+import { useOrders } from '../../hooks/useOrders';
 
 export function CustomersList() {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
+  
+  const { orders } = useOrders();
+  const [liveCustomers, setLiveCustomers] = useState<Record<string, any>>({});
+
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, 'customers'), (snapshot) => {
+      const dbCusts: Record<string, any> = {};
+      snapshot.docs.forEach(doc => {
+        dbCusts[doc.id] = doc.data();
+      });
+      setLiveCustomers(dbCusts);
+    });
+    return () => unsub();
+  }, []);
+
+  const customersList = useMemo(() => {
+    return Object.entries(MOCK_CUSTOMERS_DB).map(([id, mockData]) => {
+      const liveData = liveCustomers[id] || {};
+      const companyString = liveData.company || mockData.company || '-';
+      
+      const customerOrders = orders.filter(o => o.customerId === id);
+      const activeOrders = customerOrders.filter(o => o.statusIndex < 6).length;
+      
+      const ltvValue = customerOrders.reduce((acc, order) => {
+        const orderTotal = order.items?.reduce((sum: number, item: any) => {
+          const priceStr = (item.total || '$0').replace(/[^0-9.]/g, '');
+          return sum + (parseFloat(priceStr) || 0);
+        }, 0) || 0;
+        return acc + orderTotal;
+      }, 0);
+      const ltvFormatted = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(ltvValue);
+
+      let lastOrderStr = '-';
+      if (customerOrders.length > 0) {
+        lastOrderStr = customerOrders[customerOrders.length - 1].date || '-';
+      }
+
+      return {
+        id,
+        company: companyString,
+        contact: liveData.email || mockData.email || 'N/A', // Using email as contact name fallback
+        type: liveData.type || mockData.type || 'B2C',
+        activeOrders,
+        ltv: ltvFormatted,
+        lastOrder: lastOrderStr,
+      };
+    }).filter(c => c.company.toLowerCase().includes(search.toLowerCase()) || 
+                   c.contact.toLowerCase().includes(search.toLowerCase()) ||
+                   c.id.toLowerCase().includes(search.toLowerCase()));
+  }, [liveCustomers, orders, search]);
 
   return (
     <div className={tokens.layout.container}>
@@ -60,7 +107,7 @@ export function CustomersList() {
         </div>
         
         <div className="text-sm text-brand-secondary">
-          Showing <span className="font-semibold text-brand-primary">6</span> customers
+          Showing <span className="font-semibold text-brand-primary">{customersList.length}</span> customers
         </div>
       </div>
 
@@ -81,7 +128,7 @@ export function CustomersList() {
           
           {/* Table Body */}
           <div className="divide-y divide-brand-border/60">
-            {MOCK_CUSTOMERS.map((customer) => (
+            {customersList.map((customer) => (
               <div 
                 key={customer.id} 
                 onClick={() => navigate(`/customers/${customer.id}`)}
