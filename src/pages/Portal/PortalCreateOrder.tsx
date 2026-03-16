@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, PackagePlus, X } from 'lucide-react';
+import { ArrowLeft, PackagePlus, X, Trash2, ChevronDown } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 const MOCK_DECK = {
@@ -15,9 +15,26 @@ export function PortalCreateOrder() {
   const navigate = useNavigate();
   const { customerId } = useParams();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [orderItems, setOrderItems] = useState<any[]>([]);
 
   const handleBack = () => {
     navigate(customerId ? `/portal/${customerId}` : '/portal');
+  };
+
+  const handleAddItem = (item: any) => {
+    // Generate a unique ID for this instance of the item in the order
+    const newItem = {
+      ...item,
+      instanceId: Math.random().toString(36).substring(7),
+      selectedColor: item.colors[0],
+      quantities: { S: 0, M: 0, L: 0, XL: 0 }
+    };
+    setOrderItems(prev => [...prev, newItem]);
+    setIsDrawerOpen(false); // smoothly close drawer
+  };
+
+  const handleRemoveItem = (instanceId: string) => {
+    setOrderItems(prev => prev.filter(item => item.instanceId !== instanceId));
   };
 
   return (
@@ -47,24 +64,90 @@ export function PortalCreateOrder() {
         
         {/* Left Column: Form / Steps */}
         <div className="lg:col-span-2 flex flex-col gap-6">
-          <div className="bg-white rounded-3xl p-8 shadow-[0_4px_24px_rgb(0,0,0,0.02)] border border-neutral-100 flex flex-col items-center justify-center min-h-[400px] text-center gap-4">
-            <div className="w-16 h-16 bg-neutral-100 rounded-full flex items-center justify-center text-neutral-400">
-              <PackagePlus size={28} strokeWidth={1.5} />
+          {orderItems.length === 0 ? (
+            <div className="bg-white rounded-3xl p-8 shadow-[0_4px_24px_rgb(0,0,0,0.02)] border border-neutral-100 flex flex-col items-center justify-center min-h-[400px] text-center gap-4">
+              <div className="w-16 h-16 bg-neutral-100 rounded-full flex items-center justify-center text-neutral-400">
+                <PackagePlus size={28} strokeWidth={1.5} />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-neutral-900 mb-1">Let's start building</h3>
+                <p className="text-neutral-500 text-sm max-w-xs mx-auto">
+                  Select your first garment style to begin assembling your custom order.
+                </p>
+              </div>
+              
+              <button 
+                onClick={() => setIsDrawerOpen(true)}
+                className="mt-4 bg-black text-white px-8 py-3.5 rounded-full text-[13px] font-bold tracking-wide hover:bg-neutral-800 hover:scale-[1.02] transition-all shadow-md"
+              >
+                + Add Garment
+              </button>
             </div>
-            <div>
-              <h3 className="text-lg font-bold text-neutral-900 mb-1">Let's start building</h3>
-              <p className="text-neutral-500 text-sm max-w-xs mx-auto">
-                Select your first garment style to begin assembling your custom order.
-              </p>
-            </div>
-            
-            <button 
-              onClick={() => setIsDrawerOpen(true)}
-              className="mt-4 bg-black text-white px-8 py-3.5 rounded-full text-[13px] font-bold tracking-wide hover:bg-neutral-800 hover:scale-[1.02] transition-all shadow-md"
-            >
-              + Add Garment
-            </button>
-          </div>
+          ) : (
+            <>
+              {/* Loop through actual order items */}
+              {orderItems.map((item, index) => (
+                <div key={item.instanceId} className="bg-white rounded-3xl p-6 shadow-[0_4px_24px_rgb(0,0,0,0.02)] border border-neutral-100 flex flex-col gap-6 animate-in slide-in-from-bottom-4 fade-in duration-300">
+                  <div className="flex items-start justify-between border-b border-neutral-100 pb-6">
+                    <div className="flex gap-5 items-center">
+                      <div className="w-20 h-20 rounded-xl overflow-hidden bg-neutral-50 border border-neutral-100 shrink-0">
+                         <img src={item.image} alt={item.style} className="w-full h-full object-cover mix-blend-multiply" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="w-6 h-6 rounded-full bg-neutral-100 flex items-center justify-center text-[10px] font-bold text-neutral-400 shrink-0">{index + 1}</span>
+                          <h3 className="text-lg font-bold text-neutral-900">{item.style}</h3>
+                        </div>
+                        <p className="text-sm font-semibold text-neutral-500">{item.itemNum}</p>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => handleRemoveItem(item.instanceId)}
+                      className="text-neutral-400 hover:text-red-500 transition-colors p-2"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+
+                  {/* Settings Grid for this item */}
+                  <div className="grid grid-cols-2 gap-4">
+                     <div className="flex flex-col gap-2">
+                       <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Garment Color</label>
+                       <div className="relative">
+                         <select className="w-full appearance-none bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-3 text-sm font-medium text-neutral-900 focus:outline-none focus:border-neutral-400 cursor-pointer">
+                           {item.colors.map((c: string) => <option key={c} value={c}>{c}</option>)}
+                         </select>
+                         <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" size={16} />
+                       </div>
+                     </div>
+                     <div className="flex flex-col gap-2">
+                       <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Decoration Placements</label>
+                       <div className="bg-neutral-50 border border-neutral-200 border-dashed rounded-xl px-4 py-3 text-sm font-medium text-neutral-400 flex items-center justify-center cursor-pointer hover:bg-neutral-100 hover:text-neutral-600 transition-colors">
+                         + Add Placement
+                       </div>
+                     </div>
+                  </div>
+
+                  {/* Sizing Matrix Placeholder */}
+                  <div className="bg-neutral-50 rounded-xl p-4 flex flex-col items-center justify-center border border-neutral-100 text-neutral-400 py-8">
+                     <span className="text-sm font-bold">Sizing Matrix</span>
+                     <span className="text-xs">Add placements to generate pricing.</span>
+                  </div>
+                </div>
+              ))}
+
+              {/* Add Another Garment Button */}
+              <button 
+                onClick={() => setIsDrawerOpen(true)}
+                className="w-full bg-neutral-50 hover:bg-neutral-100 border-2 border-dashed border-neutral-200 rounded-3xl p-6 flex flex-col items-center justify-center text-neutral-500 hover:text-black transition-all group"
+              >
+                <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform mb-3">
+                  <PackagePlus size={20} strokeWidth={2} />
+                </div>
+                <span className="font-bold text-sm tracking-wide">Add Another Garment</span>
+              </button>
+            </>
+          )}
         </div>
 
         {/* Right Column: Order Summary (Sticky) */}
@@ -75,20 +158,31 @@ export function PortalCreateOrder() {
             </h3>
             
             <div className="flex-1 flex flex-col items-center justify-center text-neutral-400 gap-3">
-              <p className="text-sm font-medium text-center">Your order is currently empty.</p>
+              {orderItems.length === 0 ? (
+                <p className="text-sm font-medium text-center">Your order is currently empty.</p>
+              ) : (
+                <div className="w-full flex-1 flex flex-col gap-3">
+                  {orderItems.map((item, idx) => (
+                    <div key={item.instanceId} className="flex items-center justify-between text-sm py-2 border-b border-neutral-100 last:border-0 pointer-events-none">
+                      <span className="font-semibold text-neutral-900 truncate pr-2"><span className="text-neutral-400 mr-2">{idx+1}.</span>{item.style}</span>
+                      <span className="font-bold text-neutral-400">0 QTY</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="mt-auto border-t border-neutral-200 pt-4 space-y-3">
               <div className="flex justify-between items-center text-sm font-bold text-neutral-500">
                 <span>Total Items</span>
-                <span>0</span>
+                <span>{orderItems.length} styles</span>
               </div>
               <div className="flex justify-between items-center text-lg font-black text-neutral-900">
                 <span>Estimated Total</span>
                 <span>$0.00</span>
               </div>
               
-              <button disabled className="w-full mt-4 bg-neutral-200 text-neutral-400 py-3.5 rounded-xl text-sm font-bold transition-all">
+              <button disabled={orderItems.length === 0} className={`w-full mt-4 py-3.5 rounded-xl text-sm font-bold transition-all ${orderItems.length > 0 ? 'bg-black text-white hover:bg-neutral-800 shadow-md transform active:scale-[0.98]' : 'bg-neutral-200 text-neutral-400'}`}>
                 Submit Order
               </button>
             </div>
@@ -136,7 +230,10 @@ export function PortalCreateOrder() {
                       <p className="text-xs font-semibold text-neutral-500">{item.itemNum}</p>
                       <p className="text-xs text-neutral-400 font-medium mt-1 truncate">{item.colors.join(' • ')}</p>
                     </div>
-                    <button className="w-8 h-8 rounded-full bg-neutral-100 text-neutral-500 group-hover:bg-black group-hover:text-white flex items-center justify-center transition-colors shrink-0">
+                    <button 
+                      onClick={() => handleAddItem(item)}
+                      className="w-8 h-8 rounded-full bg-neutral-100 text-neutral-500 group-hover:bg-black group-hover:text-white flex items-center justify-center transition-colors shrink-0"
+                    >
                        <PackagePlus size={16} strokeWidth={2.5} />
                     </button>
                   </div>
