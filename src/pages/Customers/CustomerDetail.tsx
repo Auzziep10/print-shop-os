@@ -22,6 +22,7 @@ export function CustomerDetail() {
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [catalogLinkId, setCatalogLinkId] = useState<string>('');
   const [savingLinkId, setSavingLinkId] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
   // Cropper State
   const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
@@ -123,7 +124,7 @@ export function CustomerDetail() {
             <ExternalLink size={16} />
             Login to Client Portal
           </PillButton>
-          <PillButton variant="filled">
+          <PillButton variant="filled" onClick={() => setIsEditDialogOpen(true)}>
             Edit Company
           </PillButton>
         </div>
@@ -184,68 +185,6 @@ export function CustomerDetail() {
         
         {/* Left Column: Contacts & Access */}
         <div className="space-y-8">
-          
-          {/* WOVN Catalog Link */}
-          <div className="bg-white p-6 rounded-card border border-brand-border shadow-[0_2px_10px_-4px_rgba(0,0,0,0.02)]">
-            <div className="flex justify-between items-center mb-6">
-               <h2 className={tokens.typography.h2}>WOVN Catalog Link</h2>
-            </div>
-            <p className="text-sm text-brand-secondary mb-4 leading-relaxed">
-              Connect this profile to their Garment Catalog decks to enable seamless ordering in the Client Portal.
-            </p>
-            <div className="flex gap-2 relative">
-               <input 
-                 type="text" 
-                 placeholder="e.g. DECK-PBGL-883" 
-                 value={catalogLinkId}
-                 onChange={(e) => setCatalogLinkId(e.target.value)}
-                 className="w-full bg-brand-bg border border-brand-border/60 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-brand-primary/30 transition-colors placeholder:text-brand-secondary/40 font-medium"
-               />
-               <PillButton 
-                 variant="filled" 
-                 className="px-6 whitespace-nowrap"
-                 onClick={handleSaveCatalogId}
-                 disabled={savingLinkId}
-               >
-                 {savingLinkId ? 'Saving...' : 'Save Link'}
-               </PillButton>
-            </div>
-          </div>
-
-          {/* Company Logins */}
-          <div className="bg-white p-6 rounded-card border border-brand-border shadow-[0_2px_10px_-4px_rgba(0,0,0,0.02)]">
-            <div className="flex justify-between items-center mb-6">
-               <h2 className={tokens.typography.h2}>Portal Access</h2>
-               <button className="text-brand-secondary hover:text-brand-primary transition-colors"><Plus size={18} /></button>
-            </div>
-            <p className="text-sm text-brand-secondary mb-4 leading-relaxed">
-              These contacts have active logins mapped to this company's client portal.
-            </p>
-            
-            <div className="space-y-3">
-              {[
-                 { name: 'Bruce Wayne', role: 'Owner / Admin', email: 'bruce@wayne.ent', lastLogin: 'Today' },
-                 { name: 'Lucius Fox', role: 'Purchasing', email: 'lfox@wayne.ent', lastLogin: '3 days ago' },
-                 { name: 'Alfred P.', role: 'Accountant', email: 'billing@wayne.ent', lastLogin: 'Oct 12' }
-              ].map((contact, i) => (
-                <div key={i} className="p-3 border border-brand-border/60 rounded-xl bg-brand-bg flex items-center justify-between group cursor-pointer hover:border-brand-primary/30 transition-colors">
-                   <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-white border border-brand-border flex items-center justify-center text-xs font-bold text-brand-primary">
-                        {contact.name.charAt(0)}
-                      </div>
-                      <div>
-                         <p className="text-sm font-medium text-brand-primary">{contact.name}</p>
-                         <p className="text-[10px] text-brand-secondary uppercase tracking-wide font-semibold mt-0.5">{contact.role}</p>
-                      </div>
-                   </div>
-                   <div className="text-right">
-                     <p className="text-xs text-brand-secondary">{contact.email}</p>
-                     <p className="text-[10px] text-brand-secondary/60 mt-1">Logged in {contact.lastLogin}</p>
-                   </div>
-                </div>
-              ))}
-            </div>
-          </div>
 
           {/* CRM Notes */}
           <div className="bg-white p-6 rounded-card border border-brand-border shadow-sm">
@@ -397,6 +336,88 @@ export function CustomerDetail() {
                   <span className="flex items-center gap-2"><Check size={18} /> Format & Save Upload</span>
                 </PillButton>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Company Dialog */}
+      {isEditDialogOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-6 overflow-y-auto">
+          <div className="bg-brand-bg max-w-2xl w-full rounded-2xl overflow-hidden shadow-2xl flex flex-col border border-brand-border my-auto">
+            <div className="p-6 border-b border-brand-border flex justify-between items-center bg-white">
+              <h3 className="font-serif text-2xl text-brand-primary">Edit Company</h3>
+              <button onClick={() => setIsEditDialogOpen(false)} className="text-brand-secondary hover:text-brand-primary transition-colors bg-brand-bg border border-brand-border rounded-md p-1">
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-6 overflow-y-auto max-h-[70vh]">
+               {/* WOVN Catalog Link */}
+               <div className="bg-white p-6 rounded-card border border-brand-border shadow-[0_2px_10px_-4px_rgba(0,0,0,0.02)]">
+                 <div className="flex justify-between items-center mb-6">
+                    <h2 className={tokens.typography.h2}>WOVN Catalog Link</h2>
+                 </div>
+                 <p className="text-sm text-brand-secondary mb-4 leading-relaxed">
+                   Connect this profile to their Garment Catalog decks to enable seamless ordering in the Client Portal.
+                 </p>
+                 <div className="flex gap-2 relative">
+                    <input 
+                      type="text" 
+                      placeholder="e.g. DECK-PBGL-883" 
+                      value={catalogLinkId}
+                      onChange={(e) => setCatalogLinkId(e.target.value)}
+                      className="w-full bg-brand-bg border border-brand-border/60 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-brand-primary/30 transition-colors placeholder:text-brand-secondary/40 font-medium"
+                    />
+                    <PillButton 
+                      variant="filled" 
+                      className="px-6 whitespace-nowrap"
+                      onClick={handleSaveCatalogId}
+                      disabled={savingLinkId}
+                    >
+                      {savingLinkId ? 'Saving...' : 'Save Link'}
+                    </PillButton>
+                 </div>
+               </div>
+
+               {/* Portal Access */}
+               <div className="bg-white p-6 rounded-card border border-brand-border shadow-[0_2px_10px_-4px_rgba(0,0,0,0.02)]">
+                 <div className="flex justify-between items-center mb-6">
+                    <h2 className={tokens.typography.h2}>Portal Access</h2>
+                    <button className="text-brand-secondary hover:text-brand-primary transition-colors"><Plus size={18} /></button>
+                 </div>
+                 <p className="text-sm text-brand-secondary mb-4 leading-relaxed">
+                   These contacts have active logins mapped to this company's client portal.
+                 </p>
+                 
+                 <div className="space-y-3">
+                   {[
+                      { name: 'Bruce Wayne', role: 'Owner / Admin', email: 'bruce@wayne.ent', lastLogin: 'Today' },
+                      { name: 'Lucius Fox', role: 'Purchasing', email: 'lfox@wayne.ent', lastLogin: '3 days ago' },
+                      { name: 'Alfred P.', role: 'Accountant', email: 'billing@wayne.ent', lastLogin: 'Oct 12' }
+                   ].map((contact, i) => (
+                     <div key={i} className="p-3 border border-brand-border/60 rounded-xl bg-brand-bg flex items-center justify-between group cursor-pointer hover:border-brand-primary/30 transition-colors">
+                        <div className="flex items-center gap-3">
+                           <div className="w-8 h-8 rounded-full bg-white border border-brand-border flex items-center justify-center text-xs font-bold text-brand-primary">
+                             {contact.name.charAt(0)}
+                           </div>
+                           <div>
+                              <p className="text-sm font-medium text-brand-primary">{contact.name}</p>
+                              <p className="text-[10px] text-brand-secondary uppercase tracking-wide font-semibold mt-0.5">{contact.role}</p>
+                           </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs text-brand-secondary">{contact.email}</p>
+                          <p className="text-[10px] text-brand-secondary/60 mt-1">Logged in {contact.lastLogin}</p>
+                        </div>
+                     </div>
+                   ))}
+                 </div>
+               </div>
+            </div>
+            
+            <div className="p-6 border-t border-brand-border bg-white flex justify-end">
+                <PillButton variant="filled" onClick={() => setIsEditDialogOpen(false)}>Done</PillButton>
             </div>
           </div>
         </div>
