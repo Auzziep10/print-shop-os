@@ -16,8 +16,8 @@ export function CustomerDetail() {
   const navigate = useNavigate();
   
   const mockCustomer = id ? MOCK_CUSTOMERS_DB[id] : MOCK_CUSTOMERS_DB['CUS-001'];
-
   const [liveLogo, setLiveLogo] = useState<string | null>(null);
+  const [fetchingLogo, setFetchingLogo] = useState(true);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [catalogLinkIds, setCatalogLinkIds] = useState<string[]>([]);
   const [savingLinkId, setSavingLinkId] = useState(false);
@@ -126,7 +126,10 @@ export function CustomerDetail() {
   useEffect(() => {
     // Try to fetch custom live logo overrides
     const fetchCustomer = async () => {
-      if (!id) return;
+      if (!id) {
+        setFetchingLogo(false);
+        return;
+      }
       try {
         const d = await getDoc(doc(db, 'customers', id));
         if (d.exists()) {
@@ -135,7 +138,11 @@ export function CustomerDetail() {
           if (data.catalogLinkIds) setCatalogLinkIds(data.catalogLinkIds);
           else if (data.catalogLinkId) setCatalogLinkIds([data.catalogLinkId]);
         }
-      } catch (err) {}
+      } catch (err) {
+        console.error("Error fetching live profile:", err);
+      } finally {
+        setFetchingLogo(false);
+      }
     };
     fetchCustomer();
   }, [id]);
@@ -232,7 +239,7 @@ export function CustomerDetail() {
       <div className="bg-white p-8 rounded-card border border-brand-border shadow-sm flex flex-col md:flex-row gap-8 items-start justify-between">
           <div className="flex items-start gap-6">
             <div className={`relative w-24 h-24 rounded-xl border border-brand-border bg-brand-bg flex items-center justify-center text-brand-secondary flex-shrink-0 overflow-hidden group ${customer?.logo ? 'bg-white' : ''}`}>
-               {uploadingLogo ? (
+               {uploadingLogo || fetchingLogo ? (
                  <Loader2 className="animate-spin text-brand-secondary" size={24} />
                ) : customer?.logo ? (
                  <img src={customer.logo} className="w-full h-full object-cover filter grayscale contrast-125 mix-blend-multiply opacity-80" alt={customer.company} />
