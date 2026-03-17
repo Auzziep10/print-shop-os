@@ -299,9 +299,9 @@ export function OrderDetail() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Left Column: Order Information */}
-        <div className="lg:col-span-2 space-y-8">
+      <div>
+        {/* Top Section: Order Information */}
+        <div className="space-y-8">
           
           {/* Header */}
           <div className="bg-white p-8 rounded-card border border-brand-border shadow-sm">
@@ -373,36 +373,6 @@ export function OrderDetail() {
                </div>
             </div>
           </div>
-
-        </div>
-
-        {/* Right Column: Activity & Assignees */}
-        <div className="lg:col-span-1 space-y-6">
-          
-          {/* Team Assignment */}
-          <div className="bg-white p-6 rounded-card border border-brand-border shadow-sm">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className={tokens.typography.h3}>Team</h3>
-              <button className="text-brand-secondary hover:text-brand-primary"><Users size={16} /></button>
-            </div>
-            <div className="space-y-3">
-              <div className="flex items-center gap-3 p-2 hover:bg-brand-bg rounded-lg transition-colors cursor-pointer">
-                 <div className="w-8 h-8 rounded-full bg-brand-primary text-white text-xs font-bold flex items-center justify-center">AG</div>
-                 <div>
-                    <p className="text-sm font-medium">Anna Garcia</p>
-                    <p className="text-xs text-brand-secondary">Production Manager</p>
-                 </div>
-              </div>
-              <div className="flex items-center gap-3 p-2 hover:bg-brand-bg rounded-lg transition-colors cursor-pointer">
-                 <div className="w-8 h-8 rounded-full bg-amber-500 text-brand-primary text-xs font-bold flex items-center justify-center">VM</div>
-                 <div>
-                    <p className="text-sm font-medium">Vanessa Miller</p>
-                    <p className="text-xs text-brand-secondary">Printer</p>
-                 </div>
-              </div>
-            </div>
-          </div>
-
         </div>
       </div>
 
@@ -526,12 +496,41 @@ export function OrderDetail() {
             </div>
           </div>
 
-          {/* Activity Feed */}
-          <div className="bg-white p-6 rounded-card border border-brand-border shadow-sm flex flex-col ">
-            <div className="flex items-center gap-2 mb-6">
-              <Clock className="text-brand-primary" size={20} />
-              <h3 className={tokens.typography.h3}>Activity</h3>
+          {/* Bottom Grid: Team and Activity Feed */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-1">
+              {/* Team Assignment */}
+              <div className="bg-white p-6 rounded-card border border-brand-border shadow-sm h-full flex flex-col">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className={tokens.typography.h3}>Team</h3>
+                  <button className="text-brand-secondary hover:text-brand-primary"><Users size={16} /></button>
+                </div>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3 p-2 hover:bg-brand-bg rounded-lg transition-colors cursor-pointer">
+                     <div className="w-8 h-8 rounded-full bg-brand-primary text-white text-xs font-bold flex items-center justify-center">AG</div>
+                     <div>
+                        <p className="text-sm font-medium">Anna Garcia</p>
+                        <p className="text-xs text-brand-secondary">Production Manager</p>
+                     </div>
+                  </div>
+                  <div className="flex items-center gap-3 p-2 hover:bg-brand-bg rounded-lg transition-colors cursor-pointer">
+                     <div className="w-8 h-8 rounded-full bg-amber-500 text-brand-primary text-xs font-bold flex items-center justify-center">VM</div>
+                     <div>
+                        <p className="text-sm font-medium">Vanessa Miller</p>
+                        <p className="text-xs text-brand-secondary">Printer</p>
+                     </div>
+                  </div>
+                </div>
+              </div>
             </div>
+
+            <div className="lg:col-span-2">
+              {/* Activity Feed */}
+              <div className="bg-white p-6 rounded-card border border-brand-border shadow-sm flex flex-col h-full">
+                <div className="flex items-center gap-2 mb-6">
+                  <Clock className="text-brand-primary" size={20} />
+                  <h3 className={tokens.typography.h3}>Activity</h3>
+                </div>
             
             <div className="flex-1 overflow-y-auto pr-2 space-y-4 custom-scrollbar mb-4 max-h-[400px]">
                {order.activities && order.activities.length > 0 ? order.activities.map((act: any) => (
@@ -571,6 +570,8 @@ export function OrderDetail() {
                  <MessageSquare size={16} />
                </button>
             </form>
+              </div>
+            </div>
           </div>
       </div>
 
