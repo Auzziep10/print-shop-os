@@ -142,18 +142,18 @@ export function CustomersList() {
                 onClick={() => navigate(`/customers/${customer.id}`)}
                 className="grid grid-cols-[minmax(250px,2fr)_minmax(200px,1.5fr)_100px_120px_120px_150px_60px] p-4 items-center hover:bg-brand-bg transition-colors cursor-pointer group"
               >
-                <div className="font-serif text-lg text-brand-primary truncate pr-4 flex items-center gap-3">
+                <div className="font-serif text-lg text-brand-primary truncate pr-4 flex items-center gap-4">
                   {customer.logo ? (
-                    <div className="w-8 h-8 rounded-lg border border-brand-border bg-gray-50 flex items-center justify-center shrink-0 overflow-hidden">
-                      <img src={customer.logo} alt={customer.company} className="w-full h-full object-contain p-1 mix-blend-multiply" />
+                    <div className="w-10 h-10 flex items-center justify-center shrink-0">
+                      <img src={customer.logo} alt={customer.company} className="w-full h-full object-contain mix-blend-multiply" />
                     </div>
                   ) : customer.company !== '-' ? (
-                    <div className="w-8 h-8 rounded bg-brand-muted border border-brand-border flex items-center justify-center text-brand-secondary shrink-0">
-                      <Building2 size={14} />
+                    <div className="w-10 h-10 rounded-lg bg-brand-muted border border-brand-border flex items-center justify-center text-brand-secondary shrink-0">
+                      <Building2 size={18} />
                     </div>
                   ) : (
-                    <div className="w-8 h-8 rounded-full bg-brand-muted border border-brand-border flex items-center justify-center text-brand-secondary shrink-0">
-                      <User size={14} />
+                    <div className="w-10 h-10 rounded-full bg-brand-muted border border-brand-border flex items-center justify-center text-brand-secondary shrink-0">
+                      <User size={18} />
                     </div>
                   )}
                   {customer.company !== '-' ? (
