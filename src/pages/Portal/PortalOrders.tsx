@@ -153,7 +153,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
                     {/* The Track Base */}
                     <div className="absolute top-0 left-0 w-full h-[12px] bg-neutral-200 rounded-full"></div>
                     {/* The Fill */}
-                    <div className="absolute top-0 left-0 h-[12px] bg-neutral-800 rounded-full transition-all duration-700 ease-in-out" style={{ width: fillWidth }}></div>
+                    <div className="absolute top-0 left-0 h-[12px] bg-neutral-400 rounded-full transition-all duration-700 ease-in-out" style={{ width: fillWidth }}></div>
                     
                     {/* Steps */}
                     <div className="relative flex justify-between items-center z-10 px-0">
