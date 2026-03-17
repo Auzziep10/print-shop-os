@@ -64,7 +64,8 @@ export function CustomersList() {
       };
     }).filter(c => c.company.toLowerCase().includes(search.toLowerCase()) || 
                    c.contact.toLowerCase().includes(search.toLowerCase()) ||
-                   c.id.toLowerCase().includes(search.toLowerCase()));
+                   c.id.toLowerCase().includes(search.toLowerCase()))
+      .sort((a, b) => a.company.localeCompare(b.company));
   }, [liveCustomers, orders, search]);
 
   return (
@@ -118,8 +119,7 @@ export function CustomersList() {
       <div className="bg-white rounded-card border border-brand-border overflow-hidden custom-scrollbar overflow-x-auto shadow-sm">
         <div className="min-w-[1000px]">
           {/* Table Header */}
-          <div className="grid grid-cols-[80px_minmax(250px,2fr)_minmax(200px,1.5fr)_100px_120px_120px_150px_60px] p-4 text-xs font-semibold uppercase tracking-wider text-brand-secondary border-b border-brand-border bg-brand-bg/60">
-            <div className="px-2">ID</div>
+          <div className="grid grid-cols-[minmax(250px,2fr)_minmax(200px,1.5fr)_100px_120px_120px_150px_60px] p-4 text-xs font-semibold uppercase tracking-wider text-brand-secondary border-b border-brand-border bg-brand-bg/60">
             <div>Company</div>
             <div>Primary Contact</div>
             <div>Type</div>
@@ -140,9 +140,8 @@ export function CustomersList() {
               <div 
                 key={customer.id} 
                 onClick={() => navigate(`/customers/${customer.id}`)}
-                className="grid grid-cols-[80px_minmax(250px,2fr)_minmax(200px,1.5fr)_100px_120px_120px_150px_60px] p-4 items-center hover:bg-brand-bg transition-colors cursor-pointer group"
+                className="grid grid-cols-[minmax(250px,2fr)_minmax(200px,1.5fr)_100px_120px_120px_150px_60px] p-4 items-center hover:bg-brand-bg transition-colors cursor-pointer group"
               >
-                <div className="px-2 text-xs font-semibold text-brand-secondary">{customer.id}</div>
                 <div className="font-serif text-lg text-brand-primary truncate pr-4 flex items-center gap-3">
                   {customer.logo ? (
                     <div className="w-8 h-8 rounded-lg border border-brand-border bg-gray-50 flex items-center justify-center shrink-0 overflow-hidden">
