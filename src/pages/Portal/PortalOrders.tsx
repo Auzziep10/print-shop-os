@@ -109,8 +109,28 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
                   navigate(`/orders/${order.id}`);
                 }
               }}
-              className={`flex-1 bg-white border border-brand-border rounded-[2.5rem] p-6 lg:pr-10 transition-all ${overrideCustomerId ? 'cursor-pointer hover:border-black/50' : 'hover:border-black/20'} ${isExpanded ? 'pb-8 shadow-sm' : ''}`}
+              className={`flex-1 relative group bg-white border border-brand-border rounded-[2.5rem] p-6 lg:pr-10 transition-all ${overrideCustomerId ? 'cursor-pointer hover:border-black/50 hover:shadow-md' : 'hover:border-black/20'} ${isExpanded ? 'pb-8 shadow-sm' : ''}`}
             >
+              
+              {/* Delete Icon on Hover (Admin Only) */}
+              {overrideCustomerId && (
+                <button 
+                  className="absolute top-4 right-4 p-2 text-red-500/50 opacity-0 group-hover:opacity-100 hover:text-red-600 hover:bg-red-50 rounded-full transition-all z-30"
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    if (window.confirm('Are you sure you want to permanently delete this order?')) {
+                      try {
+                        await deleteDoc(doc(db, 'orders', order.id));
+                      } catch (err) {
+                        console.error("Error deleting order:", err);
+                      }
+                    }
+                  }}
+                  title="Delete Order"
+                >
+                  <Trash2 size={18} />
+                </button>
+              )}
               
               {/* Capsule Header Row */}
               <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-8 h-[80px]">
@@ -281,23 +301,6 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
                >
                  Order Info
                </button>
-               {overrideCustomerId && (
-                 <button 
-                   className="w-full bg-white border border-red-200 hover:border-red-500 hover:bg-red-500 hover:text-white text-[13px] font-bold text-red-500 rounded-full py-3 transition-all tracking-wide z-20 flex justify-center items-center gap-2"
-                   onClick={async (e) => {
-                     e.stopPropagation();
-                     if (window.confirm('Are you sure you want to permanently delete this order?')) {
-                       try {
-                         await deleteDoc(doc(db, 'orders', order.id));
-                       } catch (err) {
-                         console.error("Error deleting order:", err);
-                       }
-                     }
-                   }}
-                 >
-                   <Trash2 size={16} /> Delete
-                 </button>
-               )}
             </div>
             
           </div>
