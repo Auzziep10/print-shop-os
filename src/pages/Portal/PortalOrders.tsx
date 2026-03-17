@@ -184,9 +184,9 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
 
                 {/* Delete Icon on Hover (Admin Only) */}
                 {overrideCustomerId && (
-                  <div className="shrink-0 xl:pl-2 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                  <div className="absolute top-1/2 -translate-y-1/2 right-[-8px] lg:right-[-24px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                     <button 
-                      className="p-2 text-red-500/40 hover:text-red-500 hover:bg-red-50 rounded-full transition-all z-30"
+                      className="p-2 text-red-500/40 hover:text-red-500 hover:bg-red-50 rounded-full transition-all z-30 flex-shrink-0 bg-white"
                       onClick={async (e) => {
                         e.stopPropagation();
                         if (window.confirm('Are you sure you want to permanently delete this order?')) {
