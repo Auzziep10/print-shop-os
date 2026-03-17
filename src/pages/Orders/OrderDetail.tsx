@@ -410,7 +410,7 @@ export function OrderDetail() {
           {/* Garments / Items */}
           <div>
             <div className="flex justify-between items-center mb-4">
-               <h2 className={tokens.typography.h2}>Order Items</h2>
+               <h2 className={tokens.typography.h2}>Details</h2>
                <PillButton 
                  variant="outline" 
                  onClick={() => setEditItemObj({
