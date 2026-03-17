@@ -292,7 +292,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
       {/* Image Overlay */}
       {expandedImage && (
         <div 
-          className="fixed inset-0 z-[120] flex items-center justify-center bg-black/10 backdrop-blur-sm p-6" 
+          className="fixed inset-0 z-[120] flex items-center justify-center bg-black/20 backdrop-blur-sm p-6" 
           onClick={() => setExpandedImage(null)}
         >
            <button 
