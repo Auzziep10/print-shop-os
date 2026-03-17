@@ -888,7 +888,7 @@ export function OrderDetail() {
       {/* Image Overlay */}
       {expandedImage && (
         <div 
-          className="fixed inset-0 z-[120] flex items-center justify-center bg-black/90 backdrop-blur-md p-6" 
+          className="fixed inset-0 z-[120] flex items-center justify-center bg-white/10 backdrop-blur-xl p-6" 
           onClick={() => setExpandedImage(null)}
         >
            <button 
