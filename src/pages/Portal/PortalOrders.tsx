@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { ChevronRight, Loader2, PackageOpen, Building2, X } from 'lucide-react';
+import { ChevronRight, Loader2, PackageOpen, Building2, X, Trash2 } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useOrders } from '../../hooks/useOrders';
 import { MOCK_CUSTOMERS_DB } from '../../lib/mockData';
 import { db } from '../../lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, deleteDoc } from 'firebase/firestore';
 import { getTrackingLink } from '../../lib/utils';
 
 const SIZE_ORDER = ['XXS', 'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL', 'OSFA'];
@@ -254,7 +254,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
             </div>
 
              {/* Quick Action Side Buttons */}
-             <div className="w-[140px] shrink-0 flex flex-col justify-center gap-3 h-[128px]">
+             <div className="w-[140px] shrink-0 flex flex-col justify-center gap-3">
                 {order.trackingCarrier && order.trackingNumber ? (
                   <button 
                     onClick={(e) => {
@@ -281,6 +281,23 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
                >
                  Order Info
                </button>
+               {overrideCustomerId && (
+                 <button 
+                   className="w-full bg-white border border-red-200 hover:border-red-500 hover:bg-red-500 hover:text-white text-[13px] font-bold text-red-500 rounded-full py-3 transition-all tracking-wide z-20 flex justify-center items-center gap-2"
+                   onClick={async (e) => {
+                     e.stopPropagation();
+                     if (window.confirm('Are you sure you want to permanently delete this order?')) {
+                       try {
+                         await deleteDoc(doc(db, 'orders', order.id));
+                       } catch (err) {
+                         console.error("Error deleting order:", err);
+                       }
+                     }
+                   }}
+                 >
+                   <Trash2 size={16} /> Delete
+                 </button>
+               )}
             </div>
             
           </div>
