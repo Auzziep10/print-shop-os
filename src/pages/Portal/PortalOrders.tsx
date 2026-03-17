@@ -148,25 +148,6 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
                     <p className="text-xs font-medium text-gray-500 mt-1 uppercase tracking-wider">{order.title}</p>
                   </div>
 
-                  {/* Delete Icon on Hover (Admin Only) */}
-                  {overrideCustomerId && (
-                    <button 
-                      className="absolute left-[330px] top-1/2 -translate-y-1/2 p-2 text-red-500/30 opacity-0 group-hover:opacity-100 hover:text-red-600 hover:bg-red-50 rounded-full transition-all z-30"
-                      onClick={async (e) => {
-                        e.stopPropagation();
-                        if (window.confirm('Are you sure you want to permanently delete this order?')) {
-                          try {
-                            await deleteDoc(doc(db, 'orders', order.id));
-                          } catch (err) {
-                            console.error("Error deleting order:", err);
-                          }
-                        }
-                      }}
-                      title="Delete Order"
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                  )}
                 </div>
 
                 {/* Right: Progress Tracker */}
@@ -200,6 +181,28 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
                     </div>
                   </div>
                 </div>
+
+                {/* Delete Icon on Hover (Admin Only) */}
+                {overrideCustomerId && (
+                  <div className="shrink-0 xl:pl-2 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                    <button 
+                      className="p-2 text-red-500/40 hover:text-red-500 hover:bg-red-50 rounded-full transition-all z-30"
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        if (window.confirm('Are you sure you want to permanently delete this order?')) {
+                          try {
+                            await deleteDoc(doc(db, 'orders', order.id));
+                          } catch (err) {
+                            console.error("Error deleting order:", err);
+                          }
+                        }
+                      }}
+                      title="Delete Order"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Expanded Items Section */}
