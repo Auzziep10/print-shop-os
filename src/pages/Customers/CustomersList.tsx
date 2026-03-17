@@ -14,8 +14,9 @@ export function CustomersList() {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   
-  const { orders } = useOrders();
+  const { orders, loading: ordersLoading } = useOrders();
   const [liveCustomers, setLiveCustomers] = useState<Record<string, any>>({});
+  const [isLiveCustomersLoading, setIsLiveCustomersLoading] = useState(true);
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'customers'), (snapshot) => {
@@ -24,6 +25,7 @@ export function CustomersList() {
         dbCusts[doc.id] = doc.data();
       });
       setLiveCustomers(dbCusts);
+      setIsLiveCustomersLoading(false);
     });
     return () => unsub();
   }, []);
@@ -58,7 +60,7 @@ export function CustomersList() {
         activeOrders,
         ltv: ltvFormatted,
         lastOrder: lastOrderStr,
-        logo: liveData.logo || mockData.logo || null,
+        logo: liveData.logo !== undefined ? liveData.logo : (mockData.logo || null),
       };
     }).filter(c => c.company.toLowerCase().includes(search.toLowerCase()) || 
                    c.contact.toLowerCase().includes(search.toLowerCase()) ||
@@ -129,7 +131,12 @@ export function CustomersList() {
           
           {/* Table Body */}
           <div className="divide-y divide-brand-border/60">
-            {customersList.map((customer) => (
+            {isLiveCustomersLoading || ordersLoading ? (
+              <div className="flex flex-col items-center justify-center p-12 text-brand-secondary">
+                 <div className="w-8 h-8 rounded-full border-4 border-brand-primary/20 border-t-brand-primary animate-spin mb-4"></div>
+                 <p className="font-medium text-sm">Loading Customers...</p>
+              </div>
+            ) : customersList.map((customer) => (
               <div 
                 key={customer.id} 
                 onClick={() => navigate(`/customers/${customer.id}`)}
