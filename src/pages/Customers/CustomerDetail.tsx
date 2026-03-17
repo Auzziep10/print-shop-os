@@ -6,7 +6,7 @@ import { ArrowLeft, Mail, Phone, MapPin, Building2, ExternalLink, ShieldAlert, P
 import { MOCK_CUSTOMERS_DB } from '../../lib/mockData';
 import { storage, db } from '../../lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, addDoc, collection } from 'firebase/firestore';
 import Cropper from 'react-easy-crop';
 import { getCroppedImg } from '../../lib/cropUtils';
 import { PortalOrders } from '../Portal/PortalOrders';
@@ -31,6 +31,18 @@ export function CustomerDetail() {
   const [isCatalogDialogOpen, setIsCatalogDialogOpen] = useState(false);
   const [isEditingNote, setIsEditingNote] = useState(false);
   const [noteText, setNoteText] = useState("Always triple check the black ink opacity on their orders. They are very particular about the 'Vanta Black' look.");
+
+  // New Order State
+  const [isNewOrderDialogOpen, setIsNewOrderDialogOpen] = useState(false);
+  const [isCreatingOrder, setIsCreatingOrder] = useState(false);
+  const [newOrderForm, setNewOrderForm] = useState({
+    title: '',
+    date: new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' }),
+    fulfillmentType: '',
+    statusIndex: 0,
+    trackingCarrier: '',
+    trackingNumber: ''
+  });
 
   // Edit Company & Portal State
   const [editCompanyForm, setEditCompanyForm] = useState({
@@ -288,6 +300,49 @@ export function CustomerDetail() {
     }
   };
 
+  const handleCreateOrder = async () => {
+    if (!id || !newOrderForm.title) return;
+    setIsCreatingOrder(true);
+    try {
+      const portalId = "ORD-" + Math.floor(1000 + Math.random() * 9000);
+      
+      const fulfillmentTypeToUse = newOrderForm.fulfillmentType || (liveCustomerData?.fulfillmentType ?? mockCustomer?.fulfillmentType ?? 'Standard');
+      
+      const newOrder = {
+        customerId: id,
+        portalId: portalId,
+        title: newOrderForm.title,
+        date: newOrderForm.date,
+        fulfillmentType: fulfillmentTypeToUse,
+        statusIndex: newOrderForm.statusIndex,
+        tracking: {
+          carrier: newOrderForm.trackingCarrier,
+          number: newOrderForm.trackingNumber,
+          url: ''
+        },
+        items: [],
+        activities: [],
+        createdAt: new Date().toISOString()
+      };
+      
+      await addDoc(collection(db, 'orders'), newOrder);
+      
+      setIsNewOrderDialogOpen(false);
+      setNewOrderForm({
+        title: '',
+        date: new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' }),
+        fulfillmentType: '',
+        statusIndex: 0,
+        trackingCarrier: '',
+        trackingNumber: ''
+      });
+    } catch (e) {
+      console.error("Error creating order:", e);
+    } finally {
+      setIsCreatingOrder(false);
+    }
+  };
+
   const customer = { 
     ...mockCustomer, 
     ...liveCustomerData,
@@ -434,6 +489,10 @@ export function CustomerDetail() {
                  <h2 className={tokens.typography.h2}>Active Quotes & Orders</h2>
                  <p className="text-sm text-brand-secondary mt-1">Current pipeline and history for this company.</p>
               </div>
+              <PillButton variant="filled" className="gap-2" onClick={() => setIsNewOrderDialogOpen(true)}>
+                <Plus size={16} />
+                New Order
+              </PillButton>
            </div>
 
            {/* Injecting the exact visual component the customer sees! */}
@@ -794,6 +853,121 @@ export function CustomerDetail() {
          </div>
       )}
 
+      {/* New Order Dialog */}
+      {isNewOrderDialogOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-6 overflow-y-auto">
+          <div className="bg-brand-bg max-w-lg w-full rounded-2xl overflow-hidden shadow-2xl flex flex-col border border-brand-border my-auto">
+            <div className="p-6 border-b border-brand-border flex justify-between items-center bg-white">
+              <h3 className="font-serif text-2xl text-brand-primary">Create New Order</h3>
+              <button 
+                onClick={() => setIsNewOrderDialogOpen(false)} 
+                className="text-brand-secondary hover:text-brand-primary transition-colors bg-brand-bg border border-brand-border rounded-md p-1"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="p-6 flex flex-col gap-6">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Order Title</label>
+                <input 
+                  type="text" 
+                  value={newOrderForm.title}
+                  onChange={(e) => setNewOrderForm(prev => ({ ...prev, title: e.target.value }))}
+                  className="w-full bg-white border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
+                  placeholder="e.g. Polos, Jackets, Accessories"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Due Date</label>
+                <input 
+                  type="text" 
+                  value={newOrderForm.date}
+                  onChange={(e) => setNewOrderForm(prev => ({ ...prev, date: e.target.value }))}
+                  className="w-full bg-white border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
+                  placeholder="e.g. 3/29/26"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Fulfillment Type</label>
+                  <select 
+                    value={newOrderForm.fulfillmentType}
+                    onChange={(e) => setNewOrderForm(prev => ({ ...prev, fulfillmentType: e.target.value }))}
+                    className="w-full bg-white border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
+                  >
+                    <option value="">Default (From Customer)</option>
+                    <option value="Standard">Standard Drop-Ship</option>
+                    <option value="Kitting">Inventory & Kitting</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Pipeline Status</label>
+                  <select 
+                    value={newOrderForm.statusIndex.toString()}
+                    onChange={(e) => setNewOrderForm(prev => ({ ...prev, statusIndex: parseInt(e.target.value) }))}
+                    className="w-full bg-white border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
+                  >
+                    {(() => {
+                      const custFulfillment = liveCustomerData?.fulfillmentType ?? mockCustomer?.fulfillmentType ?? 'Standard';
+                      const formIsKitting = newOrderForm.fulfillmentType === 'Kitting' || (!newOrderForm.fulfillmentType && custFulfillment === 'Kitting');
+                      return (
+                        <>
+                          <option value="0">0 - Quote</option>
+                          <option value="1">1 - Approved</option>
+                          <option value="2">2 - Shopping</option>
+                          <option value="3">3 - Ordered</option>
+                          <option value="4">4 - Processing</option>
+                          <option value="5">5 - {formIsKitting ? 'Inventory' : 'Shipped'}</option>
+                          <option value="6">6 - {formIsKitting ? 'Live (Shopify)' : 'Received'}</option>
+                        </>
+                      );
+                    })()}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Carrier</label>
+                  <select 
+                    value={newOrderForm.trackingCarrier}
+                    onChange={(e) => setNewOrderForm(prev => ({ ...prev, trackingCarrier: e.target.value }))}
+                    className="w-full bg-white border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
+                  >
+                    <option value="">Pickup / Local</option>
+                    <option value="UPS">UPS</option>
+                    <option value="FedEx">FedEx</option>
+                    <option value="USPS">USPS</option>
+                    <option value="DHL">DHL</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Tracking Number</label>
+                  <input 
+                    type="text" 
+                    value={newOrderForm.trackingNumber}
+                    onChange={(e) => setNewOrderForm(prev => ({ ...prev, trackingNumber: e.target.value }))}
+                    className="w-full bg-white border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
+                    placeholder="e.g. 1Z9999..."
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-4 pt-4 border-t border-brand-border">
+                <PillButton variant="outline" onClick={() => setIsNewOrderDialogOpen(false)} className="flex-1 justify-center py-3">
+                  Cancel
+                </PillButton>
+                <PillButton variant="filled" onClick={handleCreateOrder} className="flex-1 justify-center py-3" disabled={isCreatingOrder || !newOrderForm.title}>
+                  {isCreatingOrder ? <Loader2 className="animate-spin" size={18} /> : <span>Create Order</span>}
+                </PillButton>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
