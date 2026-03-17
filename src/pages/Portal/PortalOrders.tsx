@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ChevronRight, Loader2, PackageOpen, Building2 } from 'lucide-react';
+import { ChevronRight, Loader2, PackageOpen, Building2, X } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useOrders } from '../../hooks/useOrders';
 import { MOCK_CUSTOMERS_DB } from '../../lib/mockData';
@@ -59,6 +59,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
   const customer = { ...mockCustomer, logo: liveLogo || mockCustomer?.logo };
   
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [expandedImage, setExpandedImage] = useState<{src: string, alt: string} | null>(null);
 
   if (loading) {
     return (
@@ -86,7 +87,8 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
   }
 
   return (
-    <div className={`max-w-[1600px] mx-auto flex flex-col gap-6 ${hideHeader ? 'mt-0' : 'mt-8'}`}>
+    <>
+      <div className={`max-w-[1600px] mx-auto flex flex-col gap-6 ${hideHeader ? 'mt-0' : 'mt-8'}`}>
       {orders.map((order: any) => {
         const isExpanded = expandedId === order.id;
         const isKitting = order.fulfillmentType === 'Kitting' || (!order.fulfillmentType && customer.fulfillmentType === 'Kitting');
@@ -191,8 +193,12 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
                       <div className={`flex flex-col lg:flex-row lg:items-center gap-4 flex-1 min-w-0 ${hideHeader ? 'pr-2' : ''}`}>
                         {/* Product Visual */}
                         <div className="flex items-center gap-4 w-[160px] shrink-0">
-                          <div className={`w-14 h-14 rounded-xl overflow-hidden shrink-0 border border-black/5 bg-gray-50 ${hideHeader ? 'flex items-center justify-center' : ''}`}>
-                            <img src={item.image} alt={item.style} className="w-full h-full object-cover mix-blend-multiply p-1" />
+                          <div 
+                            className={`w-14 h-14 rounded-xl overflow-hidden shrink-0 border border-black/5 bg-gray-50 cursor-pointer hover:border-brand-primary transition-colors hover:shadow-md ${hideHeader ? 'flex items-center justify-center' : ''}`}
+                            onClick={() => setExpandedImage({ src: item.image, alt: item.style })}
+                            title="Click to view full screen"
+                          >
+                            <img src={item.image} alt={item.style} className="w-full h-full object-cover mix-blend-multiply p-1 pointer-events-none" />
                           </div>
                           <div>
                              <h4 className="font-bold text-gray-900 text-[15px]">{item.gender || 'Unisex'}</h4>
@@ -282,5 +288,39 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
       })}
 
     </div>
+
+      {/* Image Overlay */}
+      {expandedImage && (
+        <div 
+          className="fixed inset-0 z-[120] flex items-center justify-center bg-white/40 backdrop-blur-sm p-6" 
+          onClick={() => setExpandedImage(null)}
+        >
+           <button 
+             className="absolute top-6 right-6 text-white/50 hover:text-white transition-colors p-2 bg-black/50 rounded-full" 
+             onClick={() => setExpandedImage(null)}
+           >
+             <X size={24} />
+           </button>
+           <div 
+             className="relative w-full max-w-4xl aspect-video rounded-3xl overflow-hidden cursor-crosshair bg-white"
+             onClick={(e) => e.stopPropagation()}
+             onMouseMove={(e) => {
+               const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
+               const x = (e.clientX - left) / width;
+               const y = (e.clientY - top) / height;
+               const img = e.currentTarget.querySelector('img');
+               if (img) img.style.transformOrigin = `${x * 100}% ${y * 100}%`;
+             }}
+             title="Hover to zoom"
+           >
+             <img 
+               src={expandedImage.src} 
+               alt={expandedImage.alt} 
+               className="w-full h-full object-contain mix-blend-multiply transition-transform duration-200 ease-out hover:scale-[2]" 
+             />
+           </div>
+        </div>
+      )}
+    </>
   );
 }
