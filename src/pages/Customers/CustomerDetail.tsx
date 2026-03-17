@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
-import { ArrowLeft, Mail, Phone, MapPin, Building2, ExternalLink, ShieldAlert, Plus, Loader2, Upload, X, Check, Edit3 } from 'lucide-react';
+import { ArrowLeft, Mail, Phone, MapPin, Building2, ExternalLink, Plus, Loader2, Upload, X, Check, Edit3 } from 'lucide-react';
 import { MOCK_CUSTOMERS_DB } from '../../lib/mockData';
 import { storage, db } from '../../lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -469,18 +469,6 @@ export function CustomerDetail() {
 
       {/* Main Content Area */}
       <div className="flex flex-col gap-8">
-
-        {/* Resale Certificate / Tax Exemption Warning */}
-        <div className="bg-amber-50 border border-amber-200/50 rounded-card p-6 flex items-center justify-between gap-4">
-           <div className="flex items-center gap-4">
-             <ShieldAlert className="text-amber-500 shrink-0" />
-             <div>
-                <h3 className="font-semibold text-amber-800 mb-1">Tax Exemption Expiring Soon</h3>
-                <p className="text-sm text-amber-700/80">Wayne Enterprises resale certificate is set to expire in 30 days. They will be charged tax on future invoices if not updated.</p>
-             </div>
-           </div>
-           <button className="text-xs font-bold text-amber-800 uppercase tracking-widest hover:underline whitespace-nowrap bg-amber-100 px-4 py-2 rounded-lg">Request Update</button>
-        </div>
 
         {/* Order History using Portal Component */}
         <div className="mt-4">
