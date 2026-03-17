@@ -112,31 +112,11 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
               className={`flex-1 relative group bg-white border border-brand-border rounded-[2.5rem] p-6 lg:pr-10 transition-all ${overrideCustomerId ? 'cursor-pointer hover:border-black/50 hover:shadow-md' : 'hover:border-black/20'} ${isExpanded ? 'pb-8 shadow-sm' : ''}`}
             >
               
-              {/* Delete Icon on Hover (Admin Only) */}
-              {overrideCustomerId && (
-                <button 
-                  className="absolute top-4 right-4 p-2 text-red-500/50 opacity-0 group-hover:opacity-100 hover:text-red-600 hover:bg-red-50 rounded-full transition-all z-30"
-                  onClick={async (e) => {
-                    e.stopPropagation();
-                    if (window.confirm('Are you sure you want to permanently delete this order?')) {
-                      try {
-                        await deleteDoc(doc(db, 'orders', order.id));
-                      } catch (err) {
-                        console.error("Error deleting order:", err);
-                      }
-                    }
-                  }}
-                  title="Delete Order"
-                >
-                  <Trash2 size={18} />
-                </button>
-              )}
-              
               {/* Capsule Header Row */}
-              <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-8 h-[80px]">
+              <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-8 h-[80px] relative">
                 
                 {/* Left: Logo & Title */}
-                <div className="flex items-center gap-6 w-[320px] shrink-0">
+                <div className="flex items-center gap-6 w-[320px] shrink-0 relative">
                   <div className="w-20 h-20 shrink-0 flex items-center justify-center text-neutral-300">
                     {fetchingLogo ? (
                       <Loader2 className="animate-spin text-neutral-300" size={24} />
@@ -167,6 +147,26 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
                     </div>
                     <p className="text-xs font-medium text-gray-500 mt-1 uppercase tracking-wider">{order.title}</p>
                   </div>
+
+                  {/* Delete Icon on Hover (Admin Only) */}
+                  {overrideCustomerId && (
+                    <button 
+                      className="absolute left-[330px] top-1/2 -translate-y-1/2 p-2 text-red-500/30 opacity-0 group-hover:opacity-100 hover:text-red-600 hover:bg-red-50 rounded-full transition-all z-30"
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        if (window.confirm('Are you sure you want to permanently delete this order?')) {
+                          try {
+                            await deleteDoc(doc(db, 'orders', order.id));
+                          } catch (err) {
+                            console.error("Error deleting order:", err);
+                          }
+                        }
+                      }}
+                      title="Delete Order"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  )}
                 </div>
 
                 {/* Right: Progress Tracker */}
