@@ -107,7 +107,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
                   navigate(`/orders/${order.id}`);
                 }
               }}
-              className={`flex-1 bg-[#f0f0f0] rounded-[2.5rem] p-6 lg:pr-10 transition-all ${overrideCustomerId ? 'cursor-pointer hover:bg-[#e4e4e4]' : ''} ${isExpanded ? 'pb-8' : ''}`}
+              className={`flex-1 bg-white border border-brand-border rounded-[2.5rem] p-6 lg:pr-10 transition-all ${overrideCustomerId ? 'cursor-pointer hover:border-black/50' : 'hover:border-black/20'} ${isExpanded ? 'pb-8 shadow-sm' : ''}`}
             >
               
               {/* Capsule Header Row */}
@@ -247,28 +247,28 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
               )}
             </div>
 
-            {/* Quick Action Side Buttons */}
-            <div className="w-[140px] shrink-0 flex flex-col justify-center gap-3 h-[128px]">
-               {order.trackingCarrier && order.trackingNumber ? (
-                 <button 
-                   onClick={(e) => {
-                     e.stopPropagation();
-                     window.open(getTrackingLink(order.trackingCarrier, order.trackingNumber) || '#', '_blank');
-                   }}
-                   className="w-full bg-[#f0f0f0] hover:bg-black hover:text-white text-[13px] font-bold text-gray-800 rounded-full py-4 transition-all tracking-wide z-20"
-                 >
-                   Track {order.trackingCarrier}
-                 </button>
-               ) : (
-                 <button 
-                   className="w-full bg-[#f8f8f8] text-[13px] font-bold text-gray-400 rounded-full py-4 transition-all tracking-wide cursor-default z-20"
-                   onClick={(e) => e.stopPropagation()}
+             {/* Quick Action Side Buttons */}
+             <div className="w-[140px] shrink-0 flex flex-col justify-center gap-3 h-[128px]">
+                {order.trackingCarrier && order.trackingNumber ? (
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      window.open(getTrackingLink(order.trackingCarrier, order.trackingNumber) || '#', '_blank');
+                    }}
+                    className="w-full bg-white border border-brand-border hover:border-black hover:bg-black hover:text-white text-[13px] font-bold text-gray-800 rounded-full py-4 transition-all tracking-wide z-20"
+                  >
+                    Track {order.trackingCarrier}
+                  </button>
+                ) : (
+                  <button 
+                    className="w-full bg-white border border-brand-border/50 text-[13px] font-bold text-gray-400 rounded-full py-4 transition-all tracking-wide cursor-default z-20"
+                    onClick={(e) => e.stopPropagation()}
                  >
                    {order.trackingCarrier === 'Pickup' || (!order.trackingCarrier && order.statusIndex >= 2) ? 'No Tracking' : 'Processing'}
                  </button>
                )}
                <button 
-                 className="w-full bg-[#f0f0f0] hover:bg-[#e4e4e4] text-[13px] font-bold text-gray-800 rounded-full py-4 transition-all tracking-wide z-20"
+                 className="w-full bg-white border border-brand-border hover:border-black hover:bg-black hover:text-white text-[13px] font-bold text-gray-800 rounded-full py-4 transition-all tracking-wide z-20"
                  onClick={() => {
                    if (overrideCustomerId) navigate(`/orders/${order.id}`);
                  }}
