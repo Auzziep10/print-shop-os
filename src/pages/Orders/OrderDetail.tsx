@@ -45,6 +45,7 @@ export function OrderDetail() {
   });
 
   const [editItemObj, setEditItemObj] = useState<any>(null);
+  const [expandedImage, setExpandedImage] = useState<{src: string, alt: string} | null>(null);
   const [isItemSaving, setIsItemSaving] = useState(false);
   const [isUploadingMain, setIsUploadingMain] = useState(false);
   const [isUploadingRef, setIsUploadingRef] = useState(false);
@@ -413,28 +414,46 @@ export function OrderDetail() {
                          <Edit3 size={14} />
                        </button>
 
-                       {/* Left Side: Visual & Specs */}
-                       <div className="flex flex-col lg:flex-row lg:items-center gap-4 flex-1 min-w-0 pr-2">
-                         {/* Product Visual */}
-                         <div className="flex items-center gap-4 w-[160px] shrink-0">
-                           <div className="w-14 h-14 rounded-xl overflow-hidden shrink-0 border border-black/5 bg-gray-50 flex items-center justify-center">
-                             <img src={item.image} alt={item.style} className="w-full h-full object-cover mix-blend-multiply p-1" />
+                       {/* Left Side: Visual & Specs & Artwork */}
+                       <div className="flex flex-col gap-3 flex-1 min-w-0 pr-2 pb-2 lg:pb-0">
+                         <div className="flex flex-col lg:flex-row lg:items-center gap-4">
+                           {/* Product Visual */}
+                           <div className="flex items-center gap-4 w-[160px] shrink-0">
+                             <div 
+                               className="w-14 h-14 rounded-xl overflow-hidden shrink-0 border border-black/5 bg-gray-50 flex items-center justify-center cursor-pointer hover:border-brand-primary transition-colors hover:shadow-md"
+                               onClick={() => setExpandedImage({ src: item.image, alt: item.style })}
+                               title="Click to view full screen"
+                             >
+                               <img src={item.image} alt={item.style} className="w-full h-full object-cover mix-blend-multiply p-1 pointer-events-none" />
+                             </div>
+                             <div>
+                                <div className="flex items-center gap-2">
+                                  <h4 className="font-bold text-gray-900 text-[15px]">{item.gender || 'Unisex'}</h4>
+                                </div>
+                                <p className="text-xs font-semibold text-gray-500 mt-1">{item.style}</p>
+                             </div>
                            </div>
-                           <div>
-                              <div className="flex items-center gap-2">
-                                <h4 className="font-bold text-gray-900 text-[15px]">{item.gender || 'Unisex'}</h4>
-                              </div>
-                              <p className="text-xs font-semibold text-gray-500 mt-1">{item.style}</p>
+
+                           {/* Specs */}
+                           <div className="flex flex-wrap gap-2 flex-1">
+                              {item.itemNum && <DataPill label="Item #" value={item.itemNum} />}
+                              {item.color && <DataPill label="Garment Color" value={item.color} />}
+                              {item.logos?.map((logo: string, i: number) => (
+                                <DataPill key={i} label={`Logo ${i+1}`} value={logo} />
+                              ))}
                            </div>
                          </div>
-
-                         {/* Specs */}
-                         <div className="flex flex-wrap gap-2 flex-1">
-                            {item.itemNum && <DataPill label="Item #" value={item.itemNum} />}
-                            {item.color && <DataPill label="Garment Color" value={item.color} />}
+                         
+                         {/* Artwork Links */}
+                         <div className="flex flex-wrap gap-2 lg:pl-[176px]">
                             {item.logos?.map((logo: string, i: number) => (
-                              <DataPill key={i} label={`Logo ${i+1}`} value={logo} />
+                              <a key={`art-${i}`} href="#" className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-brand-secondary hover:text-brand-primary transition-colors bg-brand-bg/50 px-2 py-1 rounded border border-brand-border" onClick={(e) => e.preventDefault()}>
+                                 <Download size={10} /> {logo.replace(/\s+/g, '_')}_Art.ai
+                              </a>
                             ))}
+                            {(!item.logos || item.logos.length === 0) && (
+                              <div className="text-[10px] font-semibold uppercase tracking-widest text-brand-secondary/50">No Artwork Attached</div>
+                            )}
                          </div>
                        </div>
 
@@ -476,25 +495,7 @@ export function OrderDetail() {
                )}
             </div>
           </div>
-          
-          {/* Artwork & Mockups */}
-          <div>
-            <div className="flex items-center justify-between mb-4">
-               <h2 className={tokens.typography.h2}>Artwork Files</h2>
-               <button className="text-sm font-semibold uppercase tracking-widest text-brand-secondary hover:text-brand-primary transition-colors">Upload</button>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-               <div className="aspect-square bg-white border border-brand-border rounded-card p-4 flex flex-col justify-between hover:-translate-y-1 transition-transform cursor-pointer shadow-sm">
-                  <div className="h-full bg-brand-muted rounded flex items-center justify-center mb-3 border border-brand-border/50">
-                     <ImageIcon className="text-brand-secondary/50" size={32} />
-                  </div>
-                  <div className="flex justify-between items-center w-full">
-                     <span className="text-xs font-medium truncate">Left_Chest_Logo_v2.ai</span>
-                     <LinkIcon size={14} className="text-brand-secondary" />
-                  </div>
-               </div>
-            </div>
-          </div>
+          {/* Artwork & Mockups section removed globally, integrated into line items */}
 
           {/* Bottom Grid: Team and Activity Feed */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -884,6 +885,38 @@ export function OrderDetail() {
         </div>
       )}
 
+      {/* Image Overlay */}
+      {expandedImage && (
+        <div 
+          className="fixed inset-0 z-[120] flex items-center justify-center bg-black/90 backdrop-blur-md p-6" 
+          onClick={() => setExpandedImage(null)}
+        >
+           <button 
+             className="absolute top-6 right-6 text-white/50 hover:text-white transition-colors p-2 bg-black/50 rounded-full" 
+             onClick={() => setExpandedImage(null)}
+           >
+             <X size={24} />
+           </button>
+           <div 
+             className="relative w-full max-w-4xl aspect-video rounded-3xl overflow-hidden cursor-crosshair bg-white"
+             onClick={(e) => e.stopPropagation()}
+             onMouseMove={(e) => {
+               const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
+               const x = (e.clientX - left) / width;
+               const y = (e.clientY - top) / height;
+               const img = e.currentTarget.querySelector('img');
+               if (img) img.style.transformOrigin = `${x * 100}% ${y * 100}%`;
+             }}
+             title="Hover to zoom"
+           >
+             <img 
+               src={expandedImage.src} 
+               alt={expandedImage.alt} 
+               className="w-full h-full object-contain mix-blend-multiply transition-transform duration-200 ease-out hover:scale-[2]" 
+             />
+           </div>
+        </div>
+      )}
     </div>
   );
 }
