@@ -36,7 +36,7 @@ export function CustomersList() {
       const companyString = liveData.company || mockData.company || '-';
       
       const customerOrders = orders.filter(o => o.customerId === id);
-      const activeOrders = customerOrders.filter(o => o.statusIndex < 6).length;
+      const ordersToDate = customerOrders.length;
       
       const ltvValue = customerOrders.reduce((acc, order) => {
         const orderTotal = order.items?.reduce((sum: number, item: any) => {
@@ -57,7 +57,7 @@ export function CustomersList() {
         company: companyString,
         contact: liveData.email || mockData.email || 'N/A', // Using email as contact name fallback
         type: liveData.type || mockData.type || 'B2C',
-        activeOrders,
+        ordersToDate,
         ltv: ltvFormatted,
         lastOrder: lastOrderStr,
         logo: liveData.logo !== undefined ? liveData.logo : (mockData.logo || null),
@@ -123,7 +123,7 @@ export function CustomersList() {
             <div>Company</div>
             <div>Primary Contact</div>
             <div>Type</div>
-            <div className="text-right">Active Orders</div>
+            <div className="text-right">Orders to Date</div>
             <div className="text-right">Lifetime Value</div>
             <div className="text-right pr-4">Last Order</div>
             <div></div>
@@ -169,8 +169,8 @@ export function CustomersList() {
                   </span>
                 </div>
                 <div className="text-right text-sm font-medium text-brand-primary">
-                  {customer.activeOrders > 0 ? (
-                    <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-brand-primary text-white text-xs">{customer.activeOrders}</span>
+                  {customer.ordersToDate > 0 ? (
+                    <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-brand-primary text-white text-xs">{customer.ordersToDate}</span>
                   ) : (
                     <span className="text-brand-secondary">-</span>
                   )}
