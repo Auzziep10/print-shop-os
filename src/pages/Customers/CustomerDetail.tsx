@@ -56,6 +56,10 @@ export function CustomerDetail() {
     email: mockCustomer?.email || '',
     phone: mockCustomer?.phone || '',
     location: mockCustomer?.location || '',
+    shippingStreet: mockCustomer?.shippingStreet || '',
+    shippingCity: mockCustomer?.shippingCity || '',
+    shippingState: mockCustomer?.shippingState || '',
+    shippingZip: mockCustomer?.shippingZip || '',
     type: mockCustomer?.type || 'B2C',
     net30Terms: mockCustomer?.net30Terms === undefined ? true : mockCustomer.net30Terms,
     fulfillmentType: mockCustomer?.fulfillmentType || 'Standard'
@@ -176,6 +180,10 @@ export function CustomerDetail() {
             email: data.email || mockCustomer?.email || '',
             phone: data.phone || mockCustomer?.phone || '',
             location: data.location || mockCustomer?.location || '',
+            shippingStreet: data.shippingStreet || mockCustomer?.shippingStreet || '',
+            shippingCity: data.shippingCity || mockCustomer?.shippingCity || '',
+            shippingState: data.shippingState || mockCustomer?.shippingState || '',
+            shippingZip: data.shippingZip || mockCustomer?.shippingZip || '',
             type: data.type || mockCustomer?.type || 'B2C',
             net30Terms: data.net30Terms ?? mockCustomer?.net30Terms ?? true,
             fulfillmentType: data.fulfillmentType ?? mockCustomer?.fulfillmentType ?? 'Standard'
@@ -235,6 +243,10 @@ export function CustomerDetail() {
         email: editCompanyForm.email,
         phone: editCompanyForm.phone,
         location: editCompanyForm.location,
+        shippingStreet: editCompanyForm.shippingStreet,
+        shippingCity: editCompanyForm.shippingCity,
+        shippingState: editCompanyForm.shippingState,
+        shippingZip: editCompanyForm.shippingZip,
         type: editCompanyForm.type,
         net30Terms: editCompanyForm.net30Terms,
         fulfillmentType: editCompanyForm.fulfillmentType
@@ -455,7 +467,14 @@ export function CustomerDetail() {
                     <h4 className="flex items-center gap-2 text-[11px] uppercase font-bold tracking-widest text-brand-secondary mb-3">
                       <Phone size={14} className="opacity-70" /> Shipping Info
                     </h4>
-                    <p className="text-brand-primary text-[15px] font-medium pl-6">{editCompanyForm.location || 'No preferred location set'}</p>
+                    {editCompanyForm.shippingStreet || editCompanyForm.shippingCity ? (
+                      <div className="text-brand-primary text-[15px] font-medium pl-6 leading-relaxed">
+                        <p>{editCompanyForm.shippingStreet}</p>
+                        <p>{editCompanyForm.shippingCity}{editCompanyForm.shippingState ? `, ${editCompanyForm.shippingState}` : ''} {editCompanyForm.shippingZip}</p>
+                      </div>
+                    ) : (
+                      <p className="text-brand-primary text-[15px] font-medium pl-6 text-brand-secondary/60 italic">{editCompanyForm.location || 'No preferred location set'}</p>
+                    )}
                  </div>
                  
                  <div className="hidden lg:block w-px bg-brand-border/60" />
@@ -604,8 +623,34 @@ export function CustomerDetail() {
                     <input className="w-full bg-brand-bg border border-brand-border/60 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-brand-primary/30 transition-colors placeholder:text-brand-secondary/40 font-medium" value={editCompanyForm.email} onChange={e => setEditCompanyForm({...editCompanyForm, email: e.target.value})} />
                  </div>
                  <div className="flex flex-col gap-1">
-                    <label className="text-xs font-bold text-brand-secondary uppercase tracking-widest">Location</label>
-                    <input className="w-full bg-brand-bg border border-brand-border/60 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-brand-primary/30 transition-colors placeholder:text-brand-secondary/40 font-medium" value={editCompanyForm.location} onChange={e => setEditCompanyForm({...editCompanyForm, location: e.target.value})} />
+                    <label className="text-xs font-bold text-brand-secondary uppercase tracking-widest">Location Badge (City, State)</label>
+                    <input className="w-full bg-brand-bg border border-brand-border/60 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-brand-primary/30 transition-colors placeholder:text-brand-secondary/40 font-medium" value={editCompanyForm.location} onChange={e => setEditCompanyForm({...editCompanyForm, location: e.target.value})} placeholder="e.g. Petaluma, CA" />
+                 </div>
+
+                 <div className="col-span-2 mt-2 pt-4 border-t border-brand-border/60">
+                    <h3 className="font-serif text-xl text-brand-primary mb-4">Shipping Information</h3>
+                 </div>
+                 <div className="col-span-2 flex flex-col gap-1">
+                    <label className="text-xs font-bold text-brand-secondary uppercase tracking-widest">Street Address</label>
+                    <input className="w-full bg-brand-bg border border-brand-border/60 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-brand-primary/30 transition-colors placeholder:text-brand-secondary/40 font-medium" value={editCompanyForm.shippingStreet} onChange={e => setEditCompanyForm({...editCompanyForm, shippingStreet: e.target.value})} placeholder="123 Main St" />
+                 </div>
+                 <div className="flex flex-col gap-1">
+                    <label className="text-xs font-bold text-brand-secondary uppercase tracking-widest">City</label>
+                    <input className="w-full bg-brand-bg border border-brand-border/60 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-brand-primary/30 transition-colors placeholder:text-brand-secondary/40 font-medium" value={editCompanyForm.shippingCity} onChange={e => setEditCompanyForm({...editCompanyForm, shippingCity: e.target.value})} placeholder="City" />
+                 </div>
+                 <div className="grid grid-cols-2 gap-4">
+                    <div className="flex flex-col gap-1">
+                       <label className="text-xs font-bold text-brand-secondary uppercase tracking-widest">State</label>
+                       <input className="w-full bg-brand-bg border border-brand-border/60 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-brand-primary/30 transition-colors placeholder:text-brand-secondary/40 font-medium" value={editCompanyForm.shippingState} onChange={e => setEditCompanyForm({...editCompanyForm, shippingState: e.target.value})} placeholder="CA" />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                       <label className="text-xs font-bold text-brand-secondary uppercase tracking-widest">Zip</label>
+                       <input className="w-full bg-brand-bg border border-brand-border/60 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-brand-primary/30 transition-colors placeholder:text-brand-secondary/40 font-medium" value={editCompanyForm.shippingZip} onChange={e => setEditCompanyForm({...editCompanyForm, shippingZip: e.target.value})} placeholder="90210" />
+                    </div>
+                 </div>
+
+                 <div className="col-span-2 mt-2 pt-4 border-t border-brand-border/60">
+                    <h3 className="font-serif text-xl text-brand-primary mb-4">Account Config</h3>
                  </div>
                  <div className="flex flex-col gap-1">
                     <label className="text-xs font-bold text-brand-secondary uppercase tracking-widest">Company Type</label>
@@ -621,7 +666,7 @@ export function CustomerDetail() {
                       <option value="Kitting">Inventory & Kitting</option>
                     </select>
                  </div>
-                 <div className="col-span-2 flex items-center pt-2 pl-2 gap-3">
+                 <div className="col-span-2 flex items-center pt-2 pl-2 gap-3 mb-2">
                     <input type="checkbox" id="net30" checked={editCompanyForm.net30Terms} onChange={e => setEditCompanyForm({...editCompanyForm, net30Terms: e.target.checked})} className="w-4 h-4 accent-brand-primary cursor-pointer" />
                     <label htmlFor="net30" className="text-xs font-bold text-brand-primary uppercase tracking-widest cursor-pointer mt-0.5">ALLOW NET 30 TERMS</label>
                  </div>
