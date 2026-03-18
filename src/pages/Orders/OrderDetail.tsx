@@ -261,22 +261,21 @@ export function OrderDetail() {
   // Map strict 7-step Index to Admin pipeline Badge component
   const isKitting = order.fulfillmentType === 'Kitting' || (!order.fulfillmentType && customer.fulfillmentType === 'Kitting');
   let badgeStatus: StatusType = 'quote';
-  let subStatus = '';
   switch(order.statusIndex) {
-     case 0: badgeStatus = 'quote'; subStatus = 'Quote'; break;
-     case 1: badgeStatus = 'notified'; subStatus = 'Mgmt Notified'; break;
-     case 2: badgeStatus = 'quote_sent'; subStatus = 'Quote Sent'; break;
-     case 3: badgeStatus = 'approved'; subStatus = 'Approved'; break;
-     case 4: badgeStatus = 'shopping'; subStatus = 'Shopping'; break;
-     case 5: badgeStatus = 'ordered'; subStatus = 'Ordered'; break;
-     case 6: badgeStatus = 'processing'; subStatus = 'Processing'; break;
+     case 0: badgeStatus = 'quote'; break;
+     case 1: badgeStatus = 'notified'; break;
+     case 2: badgeStatus = 'quote_sent'; break;
+     case 3: badgeStatus = 'approved'; break;
+     case 4: badgeStatus = 'shopping'; break;
+     case 5: badgeStatus = 'ordered'; break;
+     case 6: badgeStatus = 'processing'; break;
      case 7: 
-        if (isKitting) { badgeStatus = 'inventory'; subStatus = 'Inventory'; }
-        else { badgeStatus = 'shipped'; subStatus = 'Shipped'; }
+        if (isKitting) { badgeStatus = 'inventory'; }
+        else { badgeStatus = 'shipped'; }
         break;
      case 8: 
-        if (isKitting) { badgeStatus = 'live'; subStatus = 'Live (Shopify)'; }
-        else { badgeStatus = 'received'; subStatus = 'Received'; }
+        if (isKitting) { badgeStatus = 'live'; }
+        else { badgeStatus = 'received'; }
         break;
   }
 
@@ -313,18 +312,17 @@ export function OrderDetail() {
                   <h1 className="font-serif text-4xl text-brand-primary mb-2">{customer.company}</h1>
                   <p className="text-lg text-brand-secondary">{order.title}</p>
                </div>
-               <div className="text-right flex flex-col items-end">
-                  <p className="text-xs uppercase font-bold tracking-widest text-brand-secondary mb-3">Order {order.portalId || order.id}</p>
+               <div className="flex flex-col items-end gap-3 text-right">
+                  <p className="text-xs uppercase font-bold tracking-widest text-brand-secondary">Order {order.portalId || order.id}</p>
                   
-                  <div className="relative group/status cursor-pointer inline-flex flex-col items-end">
-                      <div className="flex items-center gap-1 opacity-60 group-hover/status:opacity-100 transition-opacity mb-1 justify-end">
-                          <span className="text-[9px] uppercase font-bold text-brand-secondary tracking-widest">Update</span>
-                          <ChevronDown size={12} className="text-brand-secondary" />
-                      </div>
+                  <div className="flex items-center gap-3">
+                      <StatusBadge status={badgeStatus} />
+                      
+                      <div className="h-6 w-px bg-brand-border hidden sm:block"></div>
+                      
                       <div className="relative">
-                          <StatusBadge status={badgeStatus} subStatus={subStatus} />
                           <select 
-                              className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                              className="appearance-none bg-brand-bg hover:bg-neutral-100 border border-brand-border rounded-lg pl-3 pr-8 py-1.5 text-[11px] font-bold uppercase tracking-wider text-brand-secondary focus:border-brand-primary focus:outline-none transition-colors cursor-pointer"
                               value={order.statusIndex.toString()}
                               onChange={(e) => handleStatusChange(Number(e.target.value))}
                           >
@@ -338,6 +336,7 @@ export function OrderDetail() {
                             <option value="7">7 - {isKitting ? 'Inventory' : 'Shipped'}</option>
                             <option value="8">8 - {isKitting ? 'Live (Shopify)' : 'Received'}</option>
                           </select>
+                          <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-brand-secondary pointer-events-none" />
                       </div>
                   </div>
                </div>

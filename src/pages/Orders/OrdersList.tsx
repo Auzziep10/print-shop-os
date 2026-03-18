@@ -115,22 +115,21 @@ export function OrdersList() {
 
               // Map flexible 9-step Admin pipeline Badge component
               let badgeStatus: StatusType = 'quote';
-              let subStatus = '';
               switch(order.statusIndex) {
-                 case 0: badgeStatus = 'quote'; subStatus = 'Quote'; break;
-                 case 1: badgeStatus = 'notified'; subStatus = 'Mgmt Notified'; break;
-                 case 2: badgeStatus = 'quote_sent'; subStatus = 'Quote Sent'; break;
-                 case 3: badgeStatus = 'approved'; subStatus = 'Approved'; break;
-                 case 4: badgeStatus = 'shopping'; subStatus = 'Shopping'; break;
-                 case 5: badgeStatus = 'ordered'; subStatus = 'Ordered'; break;
-                 case 6: badgeStatus = 'processing'; subStatus = 'Processing'; break;
+                 case 0: badgeStatus = 'quote'; break;
+                 case 1: badgeStatus = 'notified'; break;
+                 case 2: badgeStatus = 'quote_sent'; break;
+                 case 3: badgeStatus = 'approved'; break;
+                 case 4: badgeStatus = 'shopping'; break;
+                 case 5: badgeStatus = 'ordered'; break;
+                 case 6: badgeStatus = 'processing'; break;
                  case 7: 
-                    if (isKitting) { badgeStatus = 'inventory'; subStatus = 'Inventory'; }
-                    else { badgeStatus = 'shipped'; subStatus = 'Shipped'; }
+                    if (isKitting) { badgeStatus = 'inventory'; }
+                    else { badgeStatus = 'shipped'; }
                     break;
                  case 8: 
-                    if (isKitting) { badgeStatus = 'live'; subStatus = 'Live (Shopify)'; }
-                    else { badgeStatus = 'received'; subStatus = 'Received'; }
+                    if (isKitting) { badgeStatus = 'live'; }
+                    else { badgeStatus = 'received'; }
                     break;
               }
 
@@ -148,7 +147,7 @@ export function OrdersList() {
                   <div className="text-sm text-brand-secondary truncate pr-4">{order.title}</div>
                   <div onClick={(e) => handleNextStatus(e, order.id, order.statusIndex)} className="group/badge" title="Click to bump status!">
                     <div className="group-hover/badge:scale-105 transition-transform origin-left">
-                       <StatusBadge status={badgeStatus} subStatus={subStatus} />
+                       <StatusBadge status={badgeStatus} />
                     </div>
                   </div>
                   <div className="text-right text-sm font-medium text-brand-primary">{totalItems} qt</div>
