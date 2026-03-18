@@ -76,11 +76,11 @@ export function WaitingRoom() {
         <div className="backdrop-blur-md bg-black/40 border border-white/5 p-10 sm:p-12 rounded-3xl shadow-2xl transition-all duration-500 w-full relative overflow-hidden group">
           
           <h1 className="font-serif text-3xl sm:text-4xl text-white tracking-tight mb-4 drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)]">
-            Pending Approval
+            Preparing Your Workspace
           </h1>
 
-          <p className="text-[14px] sm:text-[15px] text-neutral-300/90 mb-10 leading-relaxed max-w-md mx-auto font-medium">
-            Your secure profile has been created successfully. Please wait while our team assigns your permissions and readies your portal.
+          <p className="text-[14px] sm:text-[15px] text-neutral-300/90 mb-10 leading-relaxed max-w-sm mx-auto font-medium">
+            Your secure profile has been verified. Our team is currently configuring your dedicated portal and will notify you as soon as it's ready to access.
           </p>
 
           <button 
