@@ -14,6 +14,7 @@ import { PortalOrders } from './pages/Portal/PortalOrders';
 import { PortalCreateOrder } from './pages/Portal/PortalCreateOrder';
 import { SeedData } from './pages/Seed';
 import { Settings } from './pages/Settings/Settings';
+import { WaitingRoom } from './pages/Auth/WaitingRoom';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, userData, loading } = useAuth();
@@ -22,6 +23,10 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
     return <div className="min-h-screen flex items-center justify-center bg-brand-bg text-brand-secondary font-serif">Loading...</div>;
   }
   
+  if (user && userData?.role === 'Pending') {
+    return <Navigate to="/waiting" />;
+  }
+
   if (user && userData?.role === 'Client') {
     return <Navigate to={`/portal/${userData.customerId || ''}`} />;
   }
@@ -35,6 +40,7 @@ function App() {
       <Routes>
         {/* Public Routes */}
         <Route path="/login" element={<Login />} />
+        <Route path="/waiting" element={<WaitingRoom />} />
         
         {/* Temp Seed Route */}
         <Route path="/seed" element={<SeedData />} />

@@ -3,7 +3,7 @@ import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut as fir
 import { collection, query, where, getDocs, doc, setDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 
-export type UserRole = 'Staff' | 'Manager' | 'Leadership' | 'Admin' | 'Client';
+export type UserRole = 'Staff' | 'Manager' | 'Leadership' | 'Admin' | 'Client' | 'Pending';
 
 export interface UserData {
   id: string; // Firestore document ID
@@ -63,11 +63,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               setUser(currentUser);
               setUserData(newUserData);
             } else {
-              // Deny access because they are not invited
-              await firebaseSignOut(auth);
-              setUser(null);
-              setUserData(null);
-              console.error('User not authorized. No role assigned.');
+              // Put them in the waiting room
+              const newUserDocRef = doc(collection(db, 'users'));
+              const newUserData: UserData = {
+                id: newUserDocRef.id,
+                email: currentUser.email.toLowerCase(),
+                name: currentUser.displayName || '',
+                role: 'Pending',
+                createdAt: new Date().toISOString(),
+                uid: currentUser.uid
+              };
+              await setDoc(newUserDocRef, newUserData);
+
+              setUser(currentUser);
+              setUserData(newUserData);
             }
           } else {
             // User exists, grab the data

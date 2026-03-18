@@ -420,7 +420,6 @@ export function CustomerDetail() {
             <div>
                <div className="flex items-center gap-3 mb-2 cursor-pointer group w-fit" onClick={() => setIsNotesExpanded(!isNotesExpanded)}>
                  <h1 className="font-serif text-3xl text-brand-primary group-hover:text-black transition-colors">{editCompanyForm.name || 'Unknown Company'}</h1>
-                 <span className="text-[10px] bg-brand-bg border border-brand-border px-2 py-0.5 rounded text-brand-secondary font-semibold uppercase tracking-wider">{id}</span>
                  <ChevronRight size={22} strokeWidth={3} className={`text-brand-secondary group-hover:text-brand-primary transition-all duration-300 ease-out ${isNotesExpanded ? 'rotate-90' : ''}`} />
                </div>
                <div className="flex items-center gap-4 text-sm text-brand-secondary mb-4">
