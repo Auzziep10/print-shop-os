@@ -33,7 +33,10 @@ export function CustomersList() {
   }, []);
 
   const customersList = useMemo(() => {
-    return Object.entries(MOCK_CUSTOMERS_DB).map(([id, mockData]) => {
+    const allIds = Array.from(new Set([...Object.keys(MOCK_CUSTOMERS_DB), ...Object.keys(liveCustomers)]));
+    
+    return allIds.map(id => {
+      const mockData = MOCK_CUSTOMERS_DB[id] || {};
       const liveData = liveCustomers[id] || {};
       const companyString = liveData.company || mockData.company || '-';
       
@@ -57,7 +60,7 @@ export function CustomersList() {
       return {
         id,
         company: companyString,
-        contact: liveData.email || mockData.email || 'N/A', // Using email as contact name fallback
+        contact: liveData.contactName || liveData.email || mockData.email || 'N/A', // Using contact name or email as fallback
         type: liveData.type || mockData.type || 'B2C',
         ordersToDate,
         ltv: ltvFormatted,
