@@ -41,7 +41,7 @@ export function WaitingRoom() {
       {/* Dynamic Cursor Glow (The Blob) */}
       <div 
         ref={blobRef}
-        className="absolute w-[800px] h-[800px] bg-brand-primary/20 rounded-full blur-[120px] pointer-events-none z-0 transform -translate-x-1/2 -translate-y-1/2 mix-blend-screen"
+        className="absolute w-[800px] h-[800px] bg-gradient-to-tr from-purple-500/40 via-blue-500/40 to-cyan-500/40 rounded-full blur-[120px] pointer-events-none z-0 transform -translate-x-1/2 -translate-y-1/2 mix-blend-screen"
         style={{ left: '50%', top: '50%' }}
       />
       
