@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
@@ -6,13 +6,24 @@ import { Search, Filter, Plus, FileDown, MoreHorizontal, Loader2 } from 'lucide-
 import { StatusBadge, type StatusType } from '../../components/ui/StatusBadge';
 import { MOCK_CUSTOMERS_DB } from '../../lib/mockData';
 import { useOrders } from '../../hooks/useOrders';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, collection, getDocs } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 
 export function OrdersList() {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const { orders, loading } = useOrders();
+  const [liveCustomers, setLiveCustomers] = useState<Record<string, any>>({});
+
+  useEffect(() => {
+    getDocs(collection(db, 'customers')).then(snapshot => {
+      const dbCusts: Record<string, any> = {};
+      snapshot.docs.forEach(doc => {
+        dbCusts[doc.id] = doc.data();
+      });
+      setLiveCustomers(dbCusts);
+    });
+  }, []);
 
   const handleNextStatus = async (e: React.MouseEvent, orderId: string, currentIndex: number) => {
     e.stopPropagation();
@@ -111,7 +122,9 @@ export function OrdersList() {
               const totalFormatted = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalPriceRaw);
 
               const mockCustomer = order.customerId ? MOCK_CUSTOMERS_DB[order.customerId] : null;
-              const isKitting = mockCustomer?.fulfillmentType === 'Kitting';
+              const liveCustomer = order.customerId ? liveCustomers[order.customerId] : null;
+              
+              const isKitting = mockCustomer?.fulfillmentType === 'Kitting' || liveCustomer?.fulfillmentType === 'Kitting';
 
               // Map flexible 9-step Admin pipeline Badge component
               let badgeStatus: StatusType = 'quote';
@@ -134,7 +147,7 @@ export function OrdersList() {
               }
 
               // CRM Mapping just for visual clarity
-              const customerName = mockCustomer?.company || order.customerId;
+              const customerName = liveCustomer?.company || liveCustomer?.name || mockCustomer?.company || order.customerId || 'Unknown Customer';
 
               return (
                 <div 
