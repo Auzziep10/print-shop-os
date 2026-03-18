@@ -397,7 +397,7 @@ export function CustomerDetail() {
       {/* Header Profile */}
       <div className="bg-white p-8 rounded-card border border-brand-border shadow-sm flex flex-col md:flex-row gap-8 items-start justify-between">
           <div className="flex items-start gap-6">
-            <div className={`relative w-24 h-24 rounded-xl border border-brand-border bg-brand-bg flex items-center justify-center text-brand-secondary flex-shrink-0 overflow-hidden group ${customer?.logo ? 'bg-white' : ''}`}>
+            <div className={`relative w-24 h-24 rounded-xl flex items-center justify-center text-brand-secondary flex-shrink-0 overflow-hidden group ${customer?.logo ? '' : 'border border-brand-border bg-brand-bg'}`}>
                {uploadingLogo || fetchingLogo ? (
                  <Loader2 className="animate-spin text-brand-secondary" size={24} />
                ) : customer?.logo ? (

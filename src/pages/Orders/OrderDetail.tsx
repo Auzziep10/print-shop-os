@@ -8,7 +8,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useOrders } from '../../hooks/useOrders';
 import { MOCK_CUSTOMERS_DB } from '../../lib/mockData';
 import { db, storage } from '../../lib/firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { getTrackingLink } from '../../lib/utils';
 
@@ -54,7 +54,32 @@ export function OrderDetail() {
   const [noteText, setNoteText] = useState('');
 
   const order = orders.find(o => o.id === id); // Need order reference earlier
-  const currentCustomer = order ? (MOCK_CUSTOMERS_DB[order.customerId] || MOCK_CUSTOMERS_DB['CUS-001']) : null;
+  
+  const [liveCustomer, setLiveCustomer] = useState<any>(null);
+  const [fetchingCustomer, setFetchingCustomer] = useState(true);
+
+  useEffect(() => {
+    const fetchLiveCustomer = async () => {
+      if (!order || !order.customerId) {
+        setFetchingCustomer(false);
+        return;
+      }
+      try {
+        const d = await getDoc(doc(db, 'customers', order.customerId));
+        if (d.exists()) {
+           setLiveCustomer(d.data());
+        }
+      } catch (err) {
+        console.error("Failed to fetch live customer data", err);
+      } finally {
+        setFetchingCustomer(false);
+      }
+    };
+    fetchLiveCustomer();
+  }, [order?.customerId]);
+
+  const mockCust = order ? MOCK_CUSTOMERS_DB[order.customerId] : null;
+  const currentCustomer = mockCust || liveCustomer || MOCK_CUSTOMERS_DB['CUS-001'];
 
   const handleStatusChange = async (newIndex: number) => {
     if (!id || !order || !currentCustomer) return;
@@ -230,7 +255,7 @@ export function OrderDetail() {
     }
   };
 
-  if (loading) {
+  if (loading || fetchingCustomer) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center min-h-[50vh] text-brand-secondary gap-3">
         <Loader2 className="animate-spin" size={32} />
@@ -248,7 +273,11 @@ export function OrderDetail() {
     );
   }
 
-  const customer = MOCK_CUSTOMERS_DB[order.customerId] || MOCK_CUSTOMERS_DB['CUS-001'];
+  const customer = {
+    ...(MOCK_CUSTOMERS_DB['CUS-001']),
+    ...mockCust,
+    ...liveCustomer
+  };
   
   // Calculate dynamic sums from the line items array
   const totalItems = order.items?.reduce((acc: number, i: any) => acc + (i.qty || 0), 0) || 0;
