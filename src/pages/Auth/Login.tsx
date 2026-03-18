@@ -1,14 +1,27 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { PillButton } from '../../components/ui/PillButton';
-import { Mail, ArrowRight, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 
 export function Login() {
   const { signInWithGoogle, user, userData, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const blobRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!blobRef.current) return;
+      blobRef.current.animate({
+        left: `${e.clientX}px`,
+        top: `${e.clientY}px`
+      }, { duration: 4000, fill: 'forwards', easing: 'cubic-bezier(0.1, 0, 0.1, 1)' });
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, []);
 
   useEffect(() => {
     if (user && userData) {
@@ -41,59 +54,64 @@ export function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-brand-bg flex flex-col justify-center items-center p-6 relative overflow-hidden">
+    <div className="min-h-screen bg-[#070605] flex flex-col justify-center items-center p-6 relative overflow-hidden selection:bg-amber-500 selection:text-black font-sans">
       
-      {/* Decorative Background Elements */}
-      <div className="absolute -top-[20%] -right-[10%] w-[50%] h-[50%] rounded-full bg-brand-primary/5 blur-3xl mix-blend-multiply" />
-      <div className="absolute -bottom-[20%] -left-[10%] w-[50%] h-[50%] rounded-full bg-brand-primary/5 blur-3xl mix-blend-multiply" />
+      {/* Cinematic Film Grain Overlay */}
+      <svg className="pointer-events-none fixed inset-0 z-50 h-full w-full opacity-[0.25] mix-blend-screen isolate">
+        <filter id="noiseFilterLogin">
+            <feTurbulence 
+              type="fractalNoise" 
+              baseFrequency="0.75" 
+              numOctaves="3" 
+              stitchTiles="stitch" />
+        </filter>
+        <rect width="100%" height="100%" filter="url(#noiseFilterLogin)" />
+      </svg>
 
-      <div className="w-full max-w-md bg-white p-10 rounded-2xl border border-brand-border shadow-[0_8px_30px_rgb(0,0,0,0.04)] relative z-10">
+      {/* Dynamic Cursor Glow (Warm Amber/Rust Artlist Vibe) */}
+      <div 
+        ref={blobRef}
+        className="absolute w-[900px] h-[700px] rounded-[100%] blur-[120px] pointer-events-none z-0 transform -translate-x-1/2 -translate-y-1/2 mix-blend-screen opacity-70"
+        style={{ 
+          left: '50%', top: '50%',
+          background: 'radial-gradient(ellipse at center, rgba(228, 107, 64, 0.45) 0%, rgba(164, 59, 34, 0.25) 40%, transparent 70%)'
+        }}
+      />
+      
+      {/* Background static depth glows */}
+      <div className="absolute top-[-10%] left-[-10%] w-[800px] h-[800px] bg-red-900/20 rounded-full blur-[150px] pointer-events-none z-0" />
+      <div className="absolute bottom-[-20%] right-[-10%] w-[1000px] h-[800px] bg-amber-800/10 rounded-full blur-[150px] pointer-events-none z-0" />
+
+      <div className="relative z-10 flex flex-col items-center w-full max-w-md text-center animate-in fade-in slide-in-from-bottom-12 duration-1000">
         
-        {/* Branding */}
-        <div className="flex flex-col items-center mb-10">
-          <img src="/logo.png" alt="WOVN" className="h-8 mb-4" />
-          <h1 className="font-serif text-3xl text-brand-primary tracking-tight">Welcome Back</h1>
-          <p className="text-sm text-brand-secondary mt-2 text-center">
-            Sign in to manage your workshop, orders, and clients.
-          </p>
+        {/* Glowing Logo */}
+        <div className="mb-14 scale-150 transform transition-transform duration-700 hover:scale-[1.55]">
+          <img 
+            src="/logo.png" 
+            alt="WOVN" 
+            className="h-10 w-auto object-contain brightness-0 invert opacity-100 mx-auto drop-shadow-[0_0_35px_rgba(255,255,255,0.85)]" 
+          />
         </div>
 
-        {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-100 rounded-xl text-red-600 text-sm text-center font-medium">
-            {error}
-          </div>
-        )}
-
-        <div className="space-y-4">
+        <div className="backdrop-blur-md bg-black/40 border border-white/5 p-10 sm:p-12 rounded-3xl shadow-2xl transition-all duration-500 w-full relative overflow-hidden group">
           
-          {/* Email / Magic Link Field (Visual Only for now) */}
-          <div className="space-y-2">
-            <label className="text-xs uppercase font-bold tracking-widest text-brand-secondary">Email Address</label>
-            <div className="relative">
-              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-secondary" size={16} />
-              <input 
-                type="email" 
-                placeholder="name@company.com" 
-                className="w-full pl-11 pr-4 py-3 bg-brand-bg/50 border border-brand-border rounded-xl text-sm focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary transition-all"
-              />
+          <h1 className="font-serif text-3xl sm:text-4xl text-white tracking-tight mb-3 drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)]">
+            Welcome
+          </h1>
+          <p className="text-[14px] sm:text-[15px] text-neutral-300/90 mb-10 leading-relaxed max-w-sm mx-auto font-medium">
+            Authenticate to securely access your bespoke production workspace.
+          </p>
+
+          {error && (
+            <div className="mb-8 p-4 bg-red-950/30 border border-red-900/50 rounded-xl text-red-500 text-sm text-center font-medium backdrop-blur-sm">
+              {error}
             </div>
-          </div>
-
-          <PillButton variant="filled" className="w-full py-3.5 flex justify-center mt-2 group">
-            Send Magic Link
-            <ArrowRight size={16} className="ml-2 group-hover:translate-x-1 transition-transform" />
-          </PillButton>
-          
-          <div className="relative flex py-4 items-center">
-            <div className="flex-grow border-t border-brand-border"></div>
-            <span className="flex-shrink-0 mx-4 text-xs font-medium text-brand-secondary uppercase tracking-widest">Or</span>
-            <div className="flex-grow border-t border-brand-border"></div>
-          </div>
+          )}
 
           <button 
             onClick={handleGoogleSignIn}
             disabled={isLoading}
-            className="w-full py-3.5 bg-white border border-brand-border rounded-lg text-sm font-semibold text-brand-primary hover:bg-brand-bg transition-colors flex items-center justify-center gap-3 disabled:opacity-50"
+            className="flex items-center justify-center gap-3 w-full py-4 rounded-xl bg-white/10 border border-white/10 text-white font-semibold hover:bg-white hover:text-black transition-all duration-300 disabled:opacity-50 group-hover:border-white/20 active:scale-95"
           >
             {isLoading ? (
               <Loader2 className="animate-spin" size={18} />
@@ -106,14 +124,13 @@ export function Login() {
                 <path d="M1 1h22v22H1z" fill="none" />
               </svg>
             )}
-            Continue with Google
+            Continue Using Google
           </button>
-
         </div>
       </div>
       
-      <p className="text-xs text-brand-secondary mt-10 z-10 font-medium">
-        &copy; {new Date().getFullYear()} Print Shop OS. All rights reserved.
+      <p className="absolute bottom-6 text-[9px] uppercase tracking-[0.2em] text-neutral-500/40 z-10 font-bold">
+        &copy; {new Date().getFullYear()} Print Shop OS &bull; Studio
       </p>
     </div>
   );
