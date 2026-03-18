@@ -93,8 +93,8 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
         const isExpanded = expandedId === order.id;
         const isKitting = order.fulfillmentType === 'Kitting' || (!order.fulfillmentType && customer.fulfillmentType === 'Kitting');
         const timelineSteps = isKitting 
-          ? ['Quote', 'Approved', 'Shopping', 'Ordered', 'Processing', 'Inventory', 'Live'] 
-          : ['Quote', 'Approved', 'Shopping', 'Ordered', 'Processing', 'Shipped', 'Received'];
+          ? ['Request', 'Approved', 'Sourcing', 'Ordered', 'Production', 'Inventory', 'Live'] 
+          : ['Request', 'Approved', 'Sourcing', 'Ordered', 'Production', 'Shipped', 'Received'];
 
         let visualIndex = order.statusIndex;
         if (order.statusIndex === 1) visualIndex = 0.33;

@@ -86,7 +86,7 @@ export function OrderDetail() {
     try {
       const formIsKitting = order.fulfillmentType === 'Kitting' || (!order.fulfillmentType && currentCustomer.fulfillmentType === 'Kitting');
       const newStatusLabel = (() => {
-         const labels = ['Quote', 'Mgmt Notified', 'Quote Sent', 'Approved', 'Shopping', 'Ordered', 'Processing', formIsKitting ? 'Inventory' : 'Shipped', formIsKitting ? 'Live (Shopify)' : 'Received'];
+         const labels = ['Request Created', 'Under Review', 'Quote Prepared', 'Approved', 'Sourcing', 'Ordered', 'In Production', formIsKitting ? 'Inventory' : 'Shipped', formIsKitting ? 'Live' : 'Received'];
          return labels[newIndex] || 'Unknown';
       })();
 
@@ -355,15 +355,15 @@ export function OrderDetail() {
                               value={order.statusIndex.toString()}
                               onChange={(e) => handleStatusChange(Number(e.target.value))}
                           >
-                            <option value="0">0 - Quote</option>
-                            <option value="1">1 - Mgmt Notified</option>
-                            <option value="2">2 - Quote Sent</option>
+                            <option value="0">0 - Request Created</option>
+                            <option value="1">1 - Under Review</option>
+                            <option value="2">2 - Quote Prepared</option>
                             <option value="3">3 - Approved</option>
-                            <option value="4">4 - Shopping</option>
+                            <option value="4">4 - Sourcing</option>
                             <option value="5">5 - Ordered</option>
-                            <option value="6">6 - Processing</option>
+                            <option value="6">6 - In Production</option>
                             <option value="7">7 - {isKitting ? 'Inventory' : 'Shipped'}</option>
-                            <option value="8">8 - {isKitting ? 'Live (Shopify)' : 'Received'}</option>
+                            <option value="8">8 - {isKitting ? 'Live' : 'Received'}</option>
                           </select>
                           <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-brand-secondary pointer-events-none" />
                       </div>
