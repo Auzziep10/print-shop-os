@@ -96,8 +96,13 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
           ? ['Quote', 'Approved', 'Shopping', 'Ordered', 'Processing', 'Inventory', 'Live'] 
           : ['Quote', 'Approved', 'Shopping', 'Ordered', 'Processing', 'Shipped', 'Received'];
 
+        let visualIndex = order.statusIndex;
+        if (order.statusIndex === 1) visualIndex = 0.33;
+        else if (order.statusIndex === 2) visualIndex = 0.66;
+        else if (order.statusIndex >= 3) visualIndex = order.statusIndex - 2;
+
         // Calculate the percentage width for the progress bar fill
-        const fillWidth = `${(order.statusIndex / (timelineSteps.length - 1)) * 100}%`;
+        const fillWidth = `${(visualIndex / (timelineSteps.length - 1)) * 100}%`;
 
         return (
           <div key={order.id} className="flex gap-6 w-full items-start">
@@ -161,7 +166,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
                     {/* Steps */}
                     <div className="relative flex justify-between items-center z-10 px-0">
                       {timelineSteps.map((step, idx) => {
-                        const isCompleted = idx <= order.statusIndex;
+                        const isCompleted = idx <= Math.floor(visualIndex);
                         const isLastStep = idx === timelineSteps.length - 1;
                         return (
                           <div key={step} className="flex flex-col items-center relative">
@@ -293,7 +298,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
                     className="w-full bg-white border border-brand-border/50 text-[13px] font-bold text-gray-400 rounded-full py-4 transition-all tracking-wide cursor-default z-20"
                     onClick={(e) => e.stopPropagation()}
                  >
-                   {order.trackingCarrier === 'Pickup' || (!order.trackingCarrier && order.statusIndex >= 2) ? 'No Tracking' : 'Processing'}
+                   {order.trackingCarrier === 'Pickup' || (!order.trackingCarrier && order.statusIndex >= 4) ? 'No Tracking' : 'Processing'}
                  </button>
                )}
                <button 

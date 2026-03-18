@@ -61,7 +61,7 @@ export function OrderDetail() {
     try {
       const formIsKitting = order.fulfillmentType === 'Kitting' || (!order.fulfillmentType && currentCustomer.fulfillmentType === 'Kitting');
       const newStatusLabel = (() => {
-         const labels = ['Quote', 'Approved', 'Shopping', 'Ordered', 'Processing', formIsKitting ? 'Inventory' : 'Shipped', formIsKitting ? 'Live (Shopify)' : 'Received'];
+         const labels = ['Quote', 'Mgmt Notified', 'Quote Sent', 'Approved', 'Shopping', 'Ordered', 'Processing', formIsKitting ? 'Inventory' : 'Shipped', formIsKitting ? 'Live (Shopify)' : 'Received'];
          return labels[newIndex] || 'Unknown';
       })();
 
@@ -264,15 +264,17 @@ export function OrderDetail() {
   let subStatus = '';
   switch(order.statusIndex) {
      case 0: badgeStatus = 'quote'; subStatus = 'Quote'; break;
-     case 1: badgeStatus = 'approved'; subStatus = 'Approved'; break;
-     case 2: badgeStatus = 'shopping'; subStatus = 'Shopping'; break;
-     case 3: badgeStatus = 'ordered'; subStatus = 'Ordered'; break;
-     case 4: badgeStatus = 'processing'; subStatus = 'Processing'; break;
-     case 5: 
+     case 1: badgeStatus = 'notified'; subStatus = 'Mgmt Notified'; break;
+     case 2: badgeStatus = 'quote_sent'; subStatus = 'Quote Sent'; break;
+     case 3: badgeStatus = 'approved'; subStatus = 'Approved'; break;
+     case 4: badgeStatus = 'shopping'; subStatus = 'Shopping'; break;
+     case 5: badgeStatus = 'ordered'; subStatus = 'Ordered'; break;
+     case 6: badgeStatus = 'processing'; subStatus = 'Processing'; break;
+     case 7: 
         if (isKitting) { badgeStatus = 'inventory'; subStatus = 'Inventory'; }
         else { badgeStatus = 'shipped'; subStatus = 'Shipped'; }
         break;
-     case 6: 
+     case 8: 
         if (isKitting) { badgeStatus = 'live'; subStatus = 'Live (Shopify)'; }
         else { badgeStatus = 'received'; subStatus = 'Received'; }
         break;
@@ -327,12 +329,14 @@ export function OrderDetail() {
                               onChange={(e) => handleStatusChange(Number(e.target.value))}
                           >
                             <option value="0">0 - Quote</option>
-                            <option value="1">1 - Approved</option>
-                            <option value="2">2 - Shopping</option>
-                            <option value="3">3 - Ordered</option>
-                            <option value="4">4 - Processing</option>
-                            <option value="5">5 - {isKitting ? 'Inventory' : 'Shipped'}</option>
-                            <option value="6">6 - {isKitting ? 'Live (Shopify)' : 'Received'}</option>
+                            <option value="1">1 - Mgmt Notified</option>
+                            <option value="2">2 - Quote Sent</option>
+                            <option value="3">3 - Approved</option>
+                            <option value="4">4 - Shopping</option>
+                            <option value="5">5 - Ordered</option>
+                            <option value="6">6 - Processing</option>
+                            <option value="7">7 - {isKitting ? 'Inventory' : 'Shipped'}</option>
+                            <option value="8">8 - {isKitting ? 'Live (Shopify)' : 'Received'}</option>
                           </select>
                       </div>
                   </div>
@@ -638,12 +642,14 @@ export function OrderDetail() {
                       return (
                         <>
                           <option value="0">0 - Quote</option>
-                          <option value="1">1 - Approved</option>
-                          <option value="2">2 - Shopping</option>
-                          <option value="3">3 - Ordered</option>
-                          <option value="4">4 - Processing</option>
-                          <option value="5">5 - {formIsKitting ? 'Inventory' : 'Shipped'}</option>
-                          <option value="6">6 - {formIsKitting ? 'Live (Shopify)' : 'Received'}</option>
+                          <option value="1">1 - Mgmt Notified</option>
+                          <option value="2">2 - Quote Sent</option>
+                          <option value="3">3 - Approved</option>
+                          <option value="4">4 - Shopping</option>
+                          <option value="5">5 - Ordered</option>
+                          <option value="6">6 - Processing</option>
+                          <option value="7">7 - {formIsKitting ? 'Inventory' : 'Shipped'}</option>
+                          <option value="8">8 - {formIsKitting ? 'Live (Shopify)' : 'Received'}</option>
                         </>
                       );
                     })()}

@@ -16,8 +16,8 @@ export function OrdersList() {
 
   const handleNextStatus = async (e: React.MouseEvent, orderId: string, currentIndex: number) => {
     e.stopPropagation();
-    // Advance logic (0->1->2->3->4->5 -> loops back to 0 just for demo purposes)
-    const nextIndex = currentIndex < 5 ? currentIndex + 1 : 0;
+    // Advance logic 
+    const nextIndex = currentIndex < 8 ? currentIndex + 1 : 0;
     try {
       await updateDoc(doc(db, 'orders', orderId), { statusIndex: nextIndex });
     } catch (err) {
@@ -113,20 +113,22 @@ export function OrdersList() {
               const mockCustomer = order.customerId ? MOCK_CUSTOMERS_DB[order.customerId] : null;
               const isKitting = mockCustomer?.fulfillmentType === 'Kitting';
 
-              // Map strict 7-step Index to our flexible Admin pipeline Badge component
+              // Map flexible 9-step Admin pipeline Badge component
               let badgeStatus: StatusType = 'quote';
               let subStatus = '';
               switch(order.statusIndex) {
                  case 0: badgeStatus = 'quote'; subStatus = 'Quote'; break;
-                 case 1: badgeStatus = 'approved'; subStatus = 'Approved'; break;
-                 case 2: badgeStatus = 'shopping'; subStatus = 'Shopping'; break;
-                 case 3: badgeStatus = 'ordered'; subStatus = 'Ordered'; break;
-                 case 4: badgeStatus = 'processing'; subStatus = 'Processing'; break;
-                 case 5: 
+                 case 1: badgeStatus = 'notified'; subStatus = 'Mgmt Notified'; break;
+                 case 2: badgeStatus = 'quote_sent'; subStatus = 'Quote Sent'; break;
+                 case 3: badgeStatus = 'approved'; subStatus = 'Approved'; break;
+                 case 4: badgeStatus = 'shopping'; subStatus = 'Shopping'; break;
+                 case 5: badgeStatus = 'ordered'; subStatus = 'Ordered'; break;
+                 case 6: badgeStatus = 'processing'; subStatus = 'Processing'; break;
+                 case 7: 
                     if (isKitting) { badgeStatus = 'inventory'; subStatus = 'Inventory'; }
                     else { badgeStatus = 'shipped'; subStatus = 'Shipped'; }
                     break;
-                 case 6: 
+                 case 8: 
                     if (isKitting) { badgeStatus = 'live'; subStatus = 'Live (Shopify)'; }
                     else { badgeStatus = 'received'; subStatus = 'Received'; }
                     break;

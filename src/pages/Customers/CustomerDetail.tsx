@@ -919,12 +919,14 @@ export function CustomerDetail() {
                       return (
                         <>
                           <option value="0">0 - Quote</option>
-                          <option value="1">1 - Approved</option>
-                          <option value="2">2 - Shopping</option>
-                          <option value="3">3 - Ordered</option>
-                          <option value="4">4 - Processing</option>
-                          <option value="5">5 - {formIsKitting ? 'Inventory' : 'Shipped'}</option>
-                          <option value="6">6 - {formIsKitting ? 'Live (Shopify)' : 'Received'}</option>
+                          <option value="1">1 - Mgmt Notified</option>
+                          <option value="2">2 - Quote Sent</option>
+                          <option value="3">3 - Approved</option>
+                          <option value="4">4 - Shopping</option>
+                          <option value="5">5 - Ordered</option>
+                          <option value="6">6 - Processing</option>
+                          <option value="7">7 - {formIsKitting ? 'Inventory' : 'Shipped'}</option>
+                          <option value="8">8 - {formIsKitting ? 'Live (Shopify)' : 'Received'}</option>
                         </>
                       );
                     })()}
