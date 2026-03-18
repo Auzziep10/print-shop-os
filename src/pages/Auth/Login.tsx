@@ -1,24 +1,41 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { PillButton } from '../../components/ui/PillButton';
 import { Mail, ArrowRight, Loader2 } from 'lucide-react';
 
 export function Login() {
-  const { signInWithGoogle } = useAuth();
+  const { signInWithGoogle, user, userData, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (user && userData) {
+      if (userData.role === 'Client') {
+        navigate(`/portal/${userData.customerId || ''}`);
+      } else if (userData.role === 'Pending') {
+        navigate('/waiting');
+      } else {
+        navigate('/');
+      }
+    }
+  }, [user, userData, navigate]);
+
+  useEffect(() => {
+    if (!authLoading && !user && isLoading) {
+      setIsLoading(false);
+    }
+  }, [user, authLoading, isLoading]);
 
   const handleGoogleSignIn = async () => {
     try {
       setIsLoading(true);
       setError(null);
       await signInWithGoogle();
-      navigate('/');
+      // Do not navigate here, the useEffect will handle it when userData populates
     } catch (err) {
       setError('Failed to sign in. Please try again.');
-    } finally {
       setIsLoading(false);
     }
   };
