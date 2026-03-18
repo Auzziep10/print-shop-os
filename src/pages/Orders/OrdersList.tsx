@@ -110,7 +110,7 @@ export function OrdersList() {
               // Format price beautifully
               const totalFormatted = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalPriceRaw);
 
-              const mockCustomer = MOCK_CUSTOMERS_DB[order.customerId] || MOCK_CUSTOMERS_DB['CUS-001'];
+              const mockCustomer = order.customerId ? MOCK_CUSTOMERS_DB[order.customerId] : null;
               const isKitting = mockCustomer?.fulfillmentType === 'Kitting';
 
               // Map strict 7-step Index to our flexible Admin pipeline Badge component

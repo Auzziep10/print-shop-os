@@ -9,10 +9,12 @@ import { MOCK_CUSTOMERS_DB } from '../../lib/mockData';
 import { db } from '../../lib/firebase';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { useOrders } from '../../hooks/useOrders';
+import { NewCustomerModal } from './NewCustomerModal';
 
 export function CustomersList() {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
+  const [isModalOpen, setIsModalOpen] = useState(false);
   
   const { orders, loading: ordersLoading } = useOrders();
   const [liveCustomers, setLiveCustomers] = useState<Record<string, any>>({});
@@ -70,6 +72,13 @@ export function CustomersList() {
 
   return (
     <div className={tokens.layout.container}>
+      <NewCustomerModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSuccess={(id) => {
+          navigate(`/customers/${id}`);
+        }}
+      />
       {/* Page Header */}
       <div className={tokens.layout.pageHeader}>
         <div>
@@ -84,7 +93,7 @@ export function CustomersList() {
             <FileDown size={16} />
             Export Context
           </PillButton>
-          <PillButton variant="filled" className="gap-2">
+          <PillButton variant="filled" className="gap-2" onClick={() => setIsModalOpen(true)}>
             <Plus size={16} />
             New Customer
           </PillButton>

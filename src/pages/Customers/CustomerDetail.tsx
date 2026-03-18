@@ -16,7 +16,7 @@ export function CustomerDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   
-  const mockCustomer = id ? MOCK_CUSTOMERS_DB[id] : MOCK_CUSTOMERS_DB['CUS-001'];
+  const mockCustomer = id && MOCK_CUSTOMERS_DB[id] ? MOCK_CUSTOMERS_DB[id] : null;
   
   const { orders } = useOrders(id);
 
@@ -166,7 +166,7 @@ export function CustomerDetail() {
           setCatalogLinkIds(fetchedLinks);
           
           setEditCompanyForm({
-            name: data.company || mockCustomer?.company || '',
+            name: data.company || data.contactName || mockCustomer?.company || '',
             email: data.email || mockCustomer?.email || '',
             phone: data.phone || mockCustomer?.phone || '',
             location: data.location || mockCustomer?.location || '',
