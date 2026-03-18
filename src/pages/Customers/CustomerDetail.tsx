@@ -35,9 +35,14 @@ export function CustomerDetail() {
   // New Order State
   const [isNewOrderDialogOpen, setIsNewOrderDialogOpen] = useState(false);
   const [isCreatingOrder, setIsCreatingOrder] = useState(false);
+  
+  const initialToday = new Date();
+  const initRawDate = initialToday.toLocaleDateString('en-CA'); // Gets YYYY-MM-DD format elegantly
+
   const [newOrderForm, setNewOrderForm] = useState({
     title: '',
-    date: new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' }),
+    rawDate: initRawDate,
+    date: initialToday.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' }),
     fulfillmentType: '',
     statusIndex: 0,
     trackingCarrier: '',
@@ -328,9 +333,11 @@ export function CustomerDetail() {
       await addDoc(collection(db, 'orders'), newOrder);
       
       setIsNewOrderDialogOpen(false);
+      const resetToday = new Date();
       setNewOrderForm({
         title: '',
-        date: new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' }),
+        rawDate: resetToday.toLocaleDateString('en-CA'),
+        date: resetToday.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' }),
         fulfillmentType: '',
         statusIndex: 0,
         trackingCarrier: '',
@@ -870,11 +877,19 @@ export function CustomerDetail() {
               <div>
                 <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Due Date</label>
                 <input 
-                  type="text" 
-                  value={newOrderForm.date}
-                  onChange={(e) => setNewOrderForm(prev => ({ ...prev, date: e.target.value }))}
-                  className="w-full bg-white border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
-                  placeholder="e.g. 3/29/26"
+                  type="date" 
+                  value={newOrderForm.rawDate || ''}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (!val) {
+                      setNewOrderForm(prev => ({ ...prev, rawDate: '', date: '' }));
+                      return;
+                    }
+                    const [y, m, d] = val.split('-');
+                    const formatted = `${m}/${d}/${y.substring(2)}`;
+                    setNewOrderForm(prev => ({ ...prev, rawDate: val, date: formatted }));
+                  }}
+                  className="w-full bg-white border border-brand-border rounded-lg px-4 py-3 text-sm flex items-center justify-between text-brand-primary focus:border-brand-primary focus:outline-none transition-colors accent-brand-primary min-h-[46px]"
                 />
               </div>
 
