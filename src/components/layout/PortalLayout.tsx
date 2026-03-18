@@ -58,7 +58,10 @@ export function PortalLayout() {
             Orders
           </button>
           
-          <button className="text-[13px] font-semibold tracking-wide text-gray-400 hover:text-black transition-colors">
+          <button 
+            onClick={() => signOut()}
+            className="text-[13px] font-semibold tracking-wide text-gray-400 hover:text-black transition-colors"
+          >
             Log Out
           </button>
           

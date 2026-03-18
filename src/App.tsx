@@ -13,12 +13,17 @@ import { PortalLayout } from './components/layout/PortalLayout';
 import { PortalOrders } from './pages/Portal/PortalOrders';
 import { PortalCreateOrder } from './pages/Portal/PortalCreateOrder';
 import { SeedData } from './pages/Seed';
+import { Settings } from './pages/Settings/Settings';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
+  const { user, userData, loading } = useAuth();
   
-  if (loading) {
+  if (loading || (user && !userData)) {
     return <div className="min-h-screen flex items-center justify-center bg-brand-bg text-brand-secondary font-serif">Loading...</div>;
+  }
+  
+  if (user && userData?.role === 'Client') {
+    return <Navigate to={`/portal/${userData.customerId || ''}`} />;
   }
   
   return user ? <>{children}</> : <Navigate to="/login" />;
@@ -62,7 +67,7 @@ function App() {
         <Route path="artwork" element={<div className="p-6">Artwork coming soon...</div>} />
         <Route path="team" element={<Team />} />
           <Route path="reports" element={<div className="p-6">Reports coming soon...</div>} />
-          <Route path="settings" element={<div className="p-6">Settings coming soon...</div>} />
+          <Route path="settings" element={<Settings />} />
         </Route>
       </Routes>
     </AuthProvider>
