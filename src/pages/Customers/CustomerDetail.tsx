@@ -396,7 +396,8 @@ export function CustomerDetail() {
       </div>
 
       {/* Header Profile */}
-      <div className="bg-white p-8 rounded-card border border-brand-border shadow-sm flex flex-col md:flex-row gap-8 items-start justify-between">
+      <div className={`bg-white p-8 rounded-card border ${isNotesExpanded ? 'border-brand-primary/20 shadow-md pb-6' : 'border-brand-border shadow-sm'} transition-all duration-300 flex flex-col gap-6`}>
+        <div className="flex flex-col md:flex-row gap-8 items-start justify-between">
           <div className="flex items-start gap-6">
             <div className={`relative w-24 h-24 rounded-xl flex items-center justify-center text-brand-secondary flex-shrink-0 overflow-hidden group ${customer?.logo ? '' : 'border border-brand-border bg-brand-bg'}`}>
                {uploadingLogo || fetchingLogo ? (
@@ -417,9 +418,10 @@ export function CustomerDetail() {
                )}
             </div>
             <div>
-               <div className="flex items-center gap-3 mb-2">
-                 <h1 className="font-serif text-3xl text-brand-primary">{editCompanyForm.name || 'Unknown Company'}</h1>
+               <div className="flex items-center gap-3 mb-2 cursor-pointer group w-fit" onClick={() => setIsNotesExpanded(!isNotesExpanded)}>
+                 <h1 className="font-serif text-3xl text-brand-primary group-hover:text-black transition-colors">{editCompanyForm.name || 'Unknown Company'}</h1>
                  <span className="text-[10px] bg-brand-bg border border-brand-border px-2 py-0.5 rounded text-brand-secondary font-semibold uppercase tracking-wider">{id}</span>
+                 <ChevronRight size={22} strokeWidth={3} className={`text-brand-secondary group-hover:text-brand-primary transition-all duration-300 ease-out ${isNotesExpanded ? 'rotate-90' : ''}`} />
                </div>
                <div className="flex items-center gap-4 text-sm text-brand-secondary mb-4">
                   <span className="flex items-center gap-1.5"><MapPin size={14} /> {editCompanyForm.location}</span>
@@ -433,7 +435,7 @@ export function CustomerDetail() {
                  )}
                </div>
             </div>
-         </div>
+          </div>
          <div className="flex gap-8 text-right bg-brand-bg/50 p-6 rounded-2xl border border-brand-border border-dashed">
             <div>
                <p className="text-xs uppercase font-bold tracking-widest text-brand-secondary mb-1">Total Orders</p>
@@ -444,42 +446,23 @@ export function CustomerDetail() {
                <p className="font-serif text-3xl">{formattedLTV}</p>
             </div>
          </div>
-      </div>
-
-      {/* Branding & Logistics Capsule */}
-      <div 
-        onClick={() => setIsNotesExpanded(!isNotesExpanded)}
-        className={`mt-6 mb-10 relative group bg-white border border-brand-border rounded-[2.5rem] p-6 lg:px-8 transition-all cursor-pointer hover:border-black/30 hover:shadow-md ${isNotesExpanded ? 'pb-8 shadow-sm' : ''}`}
-      >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-5">
-            <div className="w-14 h-14 rounded-[1.25rem] bg-brand-bg flex items-center justify-center text-brand-secondary border border-brand-border/50">
-               <MapPin size={24} strokeWidth={1.5} />
-            </div>
-            <div>
-               <h2 className="text-[22px] font-serif text-brand-primary group-hover:text-brand-primary transition-colors">Logistics & Branding Notes</h2>
-               <p className="text-[11px] font-bold text-brand-secondary mt-1 uppercase tracking-widest">Shipping & Internal Details</p>
-            </div>
-          </div>
-          <div className="text-brand-secondary group-hover:text-brand-primary transition-colors pr-2">
-            <ChevronRight size={24} strokeWidth={2.5} className={`transition-transform duration-500 ease-out ${isNotesExpanded ? 'rotate-90' : ''}`} />
-          </div>
         </div>
-        
-        <div className={`grid transition-all duration-500 ease-in-out ${isNotesExpanded ? 'grid-rows-[1fr] opacity-100 mt-8' : 'grid-rows-[0fr] opacity-0 mt-0 pointer-events-none'}`}>
+
+        {/* Expanded Logistics & Branding Notes (Nested in Header Card) */}
+        <div className={`grid transition-all duration-500 ease-in-out ${isNotesExpanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0 pointer-events-none'}`}>
           <div className="overflow-hidden">
-             <div className="bg-brand-bg rounded-[2rem] p-8 flex flex-col gap-8 shadow-[0_4px_12px_rgb(0,0,0,0.02)] border border-brand-border">
-                 
-                 <div>
+             <div className="bg-brand-bg/50 rounded-[1.5rem] p-6 lg:p-8 flex flex-col lg:flex-row gap-8 shadow-inner border border-brand-border/40 mt-6 lg:mt-8">
+                 <div className="flex-1">
                     <h4 className="flex items-center gap-2 text-[11px] uppercase font-bold tracking-widest text-brand-secondary mb-3">
                       <Phone size={14} className="opacity-70" /> Shipping Info
                     </h4>
                     <p className="text-brand-primary text-[15px] font-medium pl-6">{editCompanyForm.location || 'No preferred location set'}</p>
                  </div>
                  
-                 <div className="h-px bg-brand-border" />
+                 <div className="hidden lg:block w-px bg-brand-border/60" />
+                 <div className="block lg:hidden h-px bg-brand-border/60" />
                  
-                 <div>
+                 <div className="flex-[2]">
                     <div className="flex items-center gap-2 mb-3">
                        <h4 className="text-[11px] uppercase font-bold tracking-widest text-brand-secondary">Branding Notes</h4>
                        {!isEditingNote && (
@@ -510,6 +493,8 @@ export function CustomerDetail() {
           </div>
         </div>
       </div>
+
+
 
       {/* Main Content Area */}
       <div className="flex flex-col gap-8">
