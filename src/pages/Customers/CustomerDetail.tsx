@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
-import { ArrowLeft, Mail, Phone, MapPin, Building2, ExternalLink, Plus, Loader2, Upload, X, Check, Edit3 } from 'lucide-react';
+import { ArrowLeft, Mail, Phone, MapPin, Building2, ExternalLink, Plus, Loader2, Upload, X, Check, Edit3, ChevronRight } from 'lucide-react';
 import { MOCK_CUSTOMERS_DB } from '../../lib/mockData';
 import { storage, db } from '../../lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -30,6 +30,7 @@ export function CustomerDetail() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isCatalogDialogOpen, setIsCatalogDialogOpen] = useState(false);
   const [isEditingNote, setIsEditingNote] = useState(false);
+  const [isNotesExpanded, setIsNotesExpanded] = useState(false);
   const [noteText, setNoteText] = useState("Always triple check the black ink opacity on their orders. They are very particular about the 'Vanta Black' look.");
 
   // New Order State
@@ -445,33 +446,69 @@ export function CustomerDetail() {
          </div>
       </div>
 
-      {/* Subtle Internal Notes */}
-      <div className="mt-3 mb-8 px-2 flex items-start gap-2 text-sm text-brand-secondary">
-         <p className="flex-1 leading-relaxed">
-            <strong className="font-semibold text-brand-primary mr-1">Internal Note:</strong>
-            {isEditingNote ? (
-              <span className="flex items-center gap-2 mt-2 max-w-3xl">
-                 <input 
-                   type="text" 
-                   value={noteText}
-                   onChange={e => setNoteText(e.target.value)}
-                   className="flex-1 bg-white border border-brand-border rounded-lg px-3 py-2 focus:border-brand-primary focus:outline-none text-brand-primary shadow-sm"
-                   autoFocus
-                   onKeyDown={(e) => {
-                     if (e.key === 'Enter') setIsEditingNote(false);
-                   }}
-                 />
-                 <button onClick={() => setIsEditingNote(false)} className="text-xs bg-brand-primary text-white px-4 py-2 rounded-lg font-semibold hover:bg-black transition-colors">Save</button>
-              </span>
-            ) : (
-              <>
-                 <span>{noteText}</span>
-                 <button onClick={() => setIsEditingNote(true)} className="ml-2 text-brand-muted hover:text-brand-secondary transition-colors inline-flex items-center align-middle relative -top-[1px]">
-                    <Edit3 size={14} />
-                 </button>
-              </>
-            )}
-         </p>
+      {/* Branding & Logistics Capsule */}
+      <div 
+        onClick={() => setIsNotesExpanded(!isNotesExpanded)}
+        className={`mt-6 mb-10 relative group bg-white border border-brand-border rounded-[2.5rem] p-6 lg:px-8 transition-all cursor-pointer hover:border-black/30 hover:shadow-md ${isNotesExpanded ? 'pb-8 shadow-sm' : ''}`}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-5">
+            <div className="w-14 h-14 rounded-[1.25rem] bg-brand-bg flex items-center justify-center text-brand-secondary border border-brand-border/50">
+               <MapPin size={24} strokeWidth={1.5} />
+            </div>
+            <div>
+               <h2 className="text-[22px] font-serif text-brand-primary group-hover:text-brand-primary transition-colors">Logistics & Branding Notes</h2>
+               <p className="text-[11px] font-bold text-brand-secondary mt-1 uppercase tracking-widest">Shipping & Internal Details</p>
+            </div>
+          </div>
+          <div className="text-brand-secondary group-hover:text-brand-primary transition-colors pr-2">
+            <ChevronRight size={24} strokeWidth={2.5} className={`transition-transform duration-500 ease-out ${isNotesExpanded ? 'rotate-90' : ''}`} />
+          </div>
+        </div>
+        
+        <div className={`grid transition-all duration-500 ease-in-out ${isNotesExpanded ? 'grid-rows-[1fr] opacity-100 mt-8' : 'grid-rows-[0fr] opacity-0 mt-0 pointer-events-none'}`}>
+          <div className="overflow-hidden">
+             <div className="bg-brand-bg rounded-[2rem] p-8 flex flex-col gap-8 shadow-[0_4px_12px_rgb(0,0,0,0.02)] border border-brand-border">
+                 
+                 <div>
+                    <h4 className="flex items-center gap-2 text-[11px] uppercase font-bold tracking-widest text-brand-secondary mb-3">
+                      <Phone size={14} className="opacity-70" /> Shipping Info
+                    </h4>
+                    <p className="text-brand-primary text-[15px] font-medium pl-6">{editCompanyForm.location || 'No preferred location set'}</p>
+                 </div>
+                 
+                 <div className="h-px bg-brand-border" />
+                 
+                 <div>
+                    <div className="flex items-center gap-2 mb-3">
+                       <h4 className="text-[11px] uppercase font-bold tracking-widest text-brand-secondary">Branding Notes</h4>
+                       {!isEditingNote && (
+                         <button onClick={(e) => { e.stopPropagation(); setIsEditingNote(true); }} className="text-sm bg-brand-border/40 hover:bg-brand-border p-1.5 rounded-md text-brand-secondary hover:text-brand-primary transition-colors inline-flex items-center">
+                            <Edit3 size={14} />
+                         </button>
+                       )}
+                    </div>
+                    {isEditingNote ? (
+                      <div className="flex items-center gap-3 max-w-3xl pl-1" onClick={e => e.stopPropagation()}>
+                         <input 
+                           type="text" 
+                           value={noteText}
+                           onChange={e => setNoteText(e.target.value)}
+                           className="flex-1 bg-white border border-brand-border rounded-xl px-4 py-3 text-[15px] focus:border-brand-primary focus:outline-none text-brand-primary shadow-sm"
+                           autoFocus
+                           onKeyDown={(e) => {
+                             if (e.key === 'Enter') setIsEditingNote(false);
+                           }}
+                         />
+                         <button onClick={() => setIsEditingNote(false)} className="text-[13px] bg-brand-primary text-white px-5 py-3 rounded-xl font-bold tracking-wide hover:bg-black transition-colors shadow-sm cursor-pointer z-10">Save</button>
+                      </div>
+                    ) : (
+                      <p className="text-brand-primary text-[15px] leading-relaxed pl-1 max-w-4xl">{noteText || 'No internal branding notes added.'}</p>
+                    )}
+                 </div>
+             </div>
+          </div>
+        </div>
       </div>
 
       {/* Main Content Area */}
