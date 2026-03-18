@@ -1,10 +1,12 @@
 import { Outlet, useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Search, Info } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
 
 export function PortalLayout() {
   const { customerId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const { signOut } = useAuth();
 
   const handleCreateOrder = () => {
     navigate(customerId ? `/portal/${customerId}/create` : '/portal');
