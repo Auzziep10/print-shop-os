@@ -3,7 +3,7 @@ import { tokens } from '../../lib/tokens';
 import { useState, useEffect } from 'react';
 import { PillButton } from '../../components/ui/PillButton';
 import { PackingSlipsManager } from '../../components/Orders/PackingSlipsManager';
-import { ArrowLeft, MessageSquare, Clock, Users, Download, Loader2, X, Edit3, Upload, Trash2, Plus, ChevronDown, Image as ImageIcon, Box, Printer, ExternalLink } from 'lucide-react';
+import { ArrowLeft, MessageSquare, Clock, Users, Download, Loader2, X, Edit3, Upload, Trash2, Plus, ChevronDown, Image as ImageIcon, Box, Printer, ExternalLink, ShoppingBag, Search } from 'lucide-react';
 import QRCode from 'react-qr-code';
 import { StatusBadge, type StatusType } from '../../components/ui/StatusBadge';
 import { useAuth } from '../../contexts/AuthContext';
@@ -55,6 +55,12 @@ export function OrderDetail() {
 
   const { user } = useAuth();
   const [noteText, setNoteText] = useState('');
+  
+  // Shopify Product Search
+  const [shopifySearchQuery, setShopifySearchQuery] = useState('');
+  const [shopifyProducts, setShopifyProducts] = useState<any[]>([]);
+  const [isSearchingShopify, setIsSearchingShopify] = useState(false);
+  const [isShopifySearchOpen, setIsShopifySearchOpen] = useState(false);
 
   const order = orders.find(o => o.id === id); // Need order reference earlier
   
@@ -80,6 +86,54 @@ export function OrderDetail() {
     };
     fetchLiveCustomer();
   }, [order?.customerId]);
+
+  const handleSearchShopify = async (e: React.FormEvent) => {
+     e.preventDefault();
+     if (!shopifySearchQuery.trim()) return;
+     setIsSearchingShopify(true);
+     setShopifyProducts([]);
+     try {
+        const res = await fetch(`/api/shopify/search-products?q=${encodeURIComponent(shopifySearchQuery.trim())}`);
+        const data = await res.json();
+        setShopifyProducts(data.products || []);
+     } catch (err) {
+        console.error('Failed to search products', err);
+     } finally {
+        setIsSearchingShopify(false);
+     }
+  };
+
+  const handleSelectShopifyProduct = (product: any, variant: any) => {
+     let newSizes = { ...editItemObj?.sizes };
+     
+     // Initialize variant sizing array if product options define it
+     const sizeOption = product.options?.find((o: any) => o.name.toLowerCase().includes('size'));
+     if (sizeOption) {
+        sizeOption.values.forEach((v: string) => {
+           if (newSizes[v] === undefined) newSizes[v] = 0;
+           // Also make sure SIZE_ORDER doesn't restrict it anymore, since we dynamic mapped it elsewhere.
+        });
+     }
+
+     const isMale = variant.title.toLowerCase().includes('men') || product.title.toLowerCase().includes('men');
+     const isFemale = variant.title.toLowerCase().includes('women') || product.title.toLowerCase().includes('women');
+     const gender = isFemale ? 'Female' : isMale ? 'Male' : 'Unisex';
+     const color = variant.selectedOptions?.find((o:any) => o.name.toLowerCase().includes('color'))?.value || variant.title;
+
+     setEditItemObj({
+        ...editItemObj,
+        style: product.title,
+        gender: gender,
+        color: color !== 'Default Title' ? color : '',
+        price: variant.price || '0.00',
+        image: variant.image?.url || product.featuredImage?.url || editItemObj.image,
+        sizes: Object.keys(newSizes).length > 0 ? newSizes : editItemObj.sizes
+     });
+     
+     setIsShopifySearchOpen(false);
+     setShopifyProducts([]);
+     setShopifySearchQuery('');
+  };
 
   const mockCust = order ? MOCK_CUSTOMERS_DB[order.customerId] : null;
   const currentCustomer = mockCust || liveCustomer || MOCK_CUSTOMERS_DB['CUS-001'];
@@ -825,13 +879,71 @@ export function OrderDetail() {
           <div className="bg-brand-bg max-w-2xl w-full rounded-2xl overflow-hidden shadow-2xl flex flex-col border border-brand-border my-auto">
             <div className="p-6 border-b border-brand-border flex justify-between items-center bg-white">
               <h3 className="font-serif text-2xl text-brand-primary">Edit Item Specs</h3>
-              <button 
-                onClick={() => setEditItemObj(null)} 
-                className="text-brand-secondary hover:text-brand-primary transition-colors bg-brand-bg border border-brand-border rounded-md p-1"
-              >
-                <X size={20} />
-              </button>
+              <div className="flex items-center gap-3">
+                 <button 
+                   onClick={() => setIsShopifySearchOpen(!isShopifySearchOpen)}
+                   className="text-xs font-bold uppercase tracking-widest bg-brand-bg border border-brand-border px-3 py-1.5 rounded-lg flex items-center gap-2 hover:border-brand-primary transition-colors text-brand-primary"
+                 >
+                   <ShoppingBag size={14} /> Link Shopify Product
+                 </button>
+                 <button 
+                   onClick={() => { setEditItemObj(null); setIsShopifySearchOpen(false); setShopifyProducts([]); }} 
+                   className="text-brand-secondary hover:text-brand-primary transition-colors bg-brand-bg border border-brand-border rounded-md p-1"
+                 >
+                   <X size={20} />
+                 </button>
+              </div>
             </div>
+            
+            {isShopifySearchOpen && (
+               <div className="bg-brand-bg/50 border-b border-brand-border p-6 shadow-inner">
+                  <form onSubmit={handleSearchShopify} className="flex flex-col gap-3">
+                     <label className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary">Search Active Catalog</label>
+                     <div className="flex gap-3">
+                       <div className="relative flex-1">
+                          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-secondary" />
+                          <input 
+                             type="text" 
+                             value={shopifySearchQuery} 
+                             onChange={e => setShopifySearchQuery(e.target.value)} 
+                             placeholder="Search product names..." 
+                             className="w-full bg-white border border-brand-border rounded-lg pl-9 pr-4 py-2 text-sm focus:border-brand-primary focus:outline-none"
+                             autoFocus
+                          />
+                       </div>
+                       <PillButton type="submit" variant="filled" className="px-5 py-2 shrink-0" disabled={isSearchingShopify || !shopifySearchQuery.trim()}>
+                           {isSearchingShopify ? <Loader2 size={16} className="animate-spin" /> : 'Search'}
+                       </PillButton>
+                     </div>
+                  </form>
+
+                  {shopifyProducts.length > 0 && !isSearchingShopify && (
+                     <div className="mt-4 max-h-[250px] overflow-y-auto custom-scrollbar border border-brand-border rounded-xl bg-white divide-y divide-brand-border/40">
+                        {shopifyProducts.map((product) => (
+                           <div key={product.id} className="p-3">
+                              <div className="flex items-center gap-3 mb-2">
+                                 {product.featuredImage?.url && (
+                                   <img src={product.featuredImage.url} alt="" className="w-8 h-8 object-cover rounded shadow-sm border border-black/5" />
+                                 )}
+                                 <h4 className="font-bold text-sm text-brand-primary">{product.title}</h4>
+                              </div>
+                              <div className="flex flex-wrap gap-2 pl-11">
+                                 {product.variants.map((v: any) => (
+                                    <button 
+                                      key={v.title}
+                                      onClick={() => handleSelectShopifyProduct(product, v)}
+                                      className="text-[10px] uppercase font-bold tracking-wide border border-brand-border px-3 py-1.5 rounded bg-brand-bg/30 hover:bg-black hover:text-white hover:border-black transition-colors"
+                                    >
+                                       {v.title} (${v.price})
+                                    </button>
+                                 ))}
+                              </div>
+                           </div>
+                        ))}
+                     </div>
+                  )}
+               </div>
+            )}
             
             <div className="p-6 flex flex-col gap-6 max-h-[70vh] overflow-y-auto">
               {/* Basic Fields */}
