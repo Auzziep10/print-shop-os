@@ -28,7 +28,7 @@ export function PackingSlipsManager({ order }: { order: any }) {
     });
   };
 
-  const handleAddBox = async () => {
+  const handleAddBox = async (keepOpen = false) => {
     if (!newBoxName.trim()) return;
     
     // Map selected items to an array
@@ -58,9 +58,45 @@ export function PackingSlipsManager({ order }: { order: any }) {
     const updatedBoxes = [...(order.boxes || []), newBox];
     await setDoc(doc(db, 'orders', order.id), { boxes: updatedBoxes }, { merge: true });
     
-    setIsAddingBox(false);
-    setNewBoxName('');
-    setSelectedItems({});
+    if (keepOpen) {
+      // Auto-increment box number
+      const match = newBoxName.match(/^(.*?)(\d+)$/);
+      if (match) {
+        setNewBoxName(`${match[1]}${parseInt(match[2]) + 1}`);
+      } else {
+        setNewBoxName(`${newBoxName} 2`);
+      }
+      setSelectedItems({});
+    } else {
+      setIsAddingBox(false);
+      setNewBoxName('');
+      setSelectedItems({});
+    }
+  };
+
+  const handleFillRemaining = () => {
+    const newSelections = { ...selectedItems };
+    order.items?.forEach((item: any) => {
+      if (!newSelections[item.id]) {
+        newSelections[item.id] = { sizes: {}, totalQty: 0 };
+      }
+      item.sizes && Object.entries(item.sizes).forEach(([size, qty]) => {
+        const oQty = qty as number;
+        if (oQty > 0) {
+          const packedQty = order.boxes?.reduce((acc: number, box: any) => {
+            const boxItem = box.items?.find((bi: any) => bi.id === item.id);
+            return acc + (boxItem?.sizes?.[size] || 0);
+          }, 0) || 0;
+          
+          const remaining = Math.max(0, oQty - packedQty);
+          if (remaining > 0) {
+            newSelections[item.id].sizes[size] = remaining;
+          }
+        }
+      });
+      newSelections[item.id].totalQty = Object.values(newSelections[item.id].sizes).reduce((a:number, b:any) => a + (parseInt(b)||0), 0);
+    });
+    setSelectedItems(newSelections);
   };
 
   const handleDeleteBox = async (boxId: string) => {
@@ -107,7 +143,12 @@ export function PackingSlipsManager({ order }: { order: any }) {
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-4">Select Items for this Box</label>
+                <div className="flex justify-between items-center mb-4">
+                  <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary">Select Items for this Box</label>
+                  <button onClick={handleFillRemaining} className="text-[10px] uppercase font-bold tracking-widest bg-brand-primary text-white py-1 px-3 rounded-full hover:bg-black transition-colors">
+                    Auto-Fill Remaining
+                  </button>
+                </div>
                 {order.items?.length > 0 ? (
                   <div className="flex flex-col gap-6">
                     {order.items.map((item: any) => {
@@ -165,8 +206,11 @@ export function PackingSlipsManager({ order }: { order: any }) {
             </div>
 
             <div className="p-4 bg-brand-bg border-t border-brand-border flex gap-4">
-              <PillButton variant="outline" onClick={() => setIsAddingBox(false)} className="flex-1 justify-center py-3">Cancel</PillButton>
-              <PillButton variant="filled" onClick={handleAddBox} className="flex-1 justify-center py-3" disabled={!newBoxName.trim()}>Save This Box</PillButton>
+              <PillButton variant="outline" onClick={() => setIsAddingBox(false)} className="px-6 py-3">Cancel</PillButton>
+              <div className="flex gap-2 ml-auto">
+                <PillButton variant="outline" onClick={() => handleAddBox(true)} className="px-6 py-3 bg-white" disabled={!newBoxName.trim()}>Save & Add Another</PillButton>
+                <PillButton variant="filled" onClick={() => handleAddBox(false)} className="px-6 py-3 w-40 justify-center" disabled={!newBoxName.trim()}>Save & Close</PillButton>
+              </div>
             </div>
           </div>
         </div>

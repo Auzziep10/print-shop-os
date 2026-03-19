@@ -60,67 +60,43 @@ export function PrintLabel() {
 
   const cust = customer || MOCK_CUSTOMERS_DB['CUS-001'];
   const publicUrl = `${window.location.origin}/packing-slip/${order.id}/${box.id}`;
-  const totalItems = box.items?.reduce((acc: number, item: any) => acc + (item.qty || 0), 0) || 0;
 
   // Render a 4x6 thermal label. Usually thermal layers represent 4" width x 6" height.
   // We'll style a container to approximately 4in x 6in for browser rendering.
   return (
-    <div className="w-[4in] h-[6in] bg-white text-black p-4 font-sans flex flex-col mx-auto box-border overflow-hidden">
-        {/* Header Ribbon */}
-        <div className="border-b-[3px] border-black pb-3 mb-4 flex justify-between items-end">
-           <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest">{cust.company}</p>
-              <h1 className="text-2xl font-black leading-none mt-1">{box.name}</h1>
-           </div>
-           <div className="text-right">
-              <p className="text-[10px] font-bold uppercase">Order</p>
-              <p className="font-bold text-lg leading-none">{order.portalId || order.id.slice(0, 6)}</p>
-           </div>
+    <div className="w-[4in] h-[6in] bg-white text-black p-6 flex flex-col justify-between items-center mx-auto box-border border-[6px] border-gray-500 font-serif text-center relative">
+      <div className="w-full flex-1 flex flex-col justify-between items-center h-full">
+        {/* Logo */}
+        <div className="w-full flex justify-center items-center h-24 mt-2">
+          <img 
+            src="/logo.png" 
+            alt={cust.company || 'WOVN'} 
+            className="w-[90%] h-full object-contain"
+            onError={(e) => {
+              // Fallback if logo.png is missing or broken
+              e.currentTarget.style.display = 'none';
+              e.currentTarget.parentElement!.innerHTML = '<span class="text-6xl font-black italic tracking-tighter">WOVN</span>';
+            }}
+          />
         </div>
 
-        {/* Info Grid */}
-        <div className="grid grid-cols-2 gap-x-2 gap-y-4 mb-4">
-           <div>
-              <p className="text-[8px] font-bold uppercase border-b border-black mb-1">Title</p>
-              <p className="text-xs font-bold leading-tight">{order.title}</p>
-           </div>
-           <div>
-              <p className="text-[8px] font-bold uppercase border-b border-black mb-1">Fulfillment</p>
-              <p className="text-xs font-bold leading-tight">{order.fulfillmentType || cust.fulfillmentType || 'Standard'}</p>
-           </div>
-           <div>
-              <p className="text-[8px] font-bold uppercase border-b border-black mb-1">Total Garments</p>
-              <p className="text-xl font-black">{totalItems}</p>
-           </div>
-           <div>
-              <p className="text-[8px] font-bold uppercase border-b border-black mb-1">Date</p>
-              <p className="text-xs font-bold">{new Date().toLocaleDateString()}</p>
-           </div>
+        <div className="text-5xl uppercase tracking-[0.2em] mt-8 text-black">
+          ITEMS
         </div>
 
-        {/* QR Code Prominent */}
-        <div className="flex flex-col items-center justify-center my-auto">
-            <QRCode value={publicUrl} size={160} />
-            <p className="mt-4 text-xs font-black uppercase tracking-widest text-center border-t-2 border-b-2 border-black py-1 px-4">
-              SCAN FOR PACKING SLIP
-            </p>
+        <div className="flex-1 flex flex-col justify-center items-center my-6 w-full">
+           <QRCode 
+             value={publicUrl} 
+             size={280} 
+             level="H" 
+             style={{ width: "100%", maxWidth: "260px", height: "auto" }} 
+           />
         </div>
 
-        {/* Short Item Preview (only fits a few lines) */}
-        <div className="mt-auto border-t-[3px] border-black pt-2">
-           <p className="text-[8px] font-bold uppercase mb-1">Contents Preview:</p>
-           <ul className="text-[9px] font-bold leading-tight line-clamp-3">
-             {box.items?.slice(0, 4).map((item: any, i: number) => (
-               <li key={i} className="flex justify-between items-center whitespace-nowrap overflow-hidden">
-                 <span className="truncate pr-2">{item.style}</span>
-                 <span>x{item.qty}</span>
-               </li>
-             ))}
-             {(box.items?.length || 0) > 4 && (
-               <li className="italic">+ {box.items.length - 4} more styles</li>
-             )}
-           </ul>
+        <div className="text-[4rem] leading-none mb-4 text-black">
+          {box.name}
         </div>
+      </div>
     </div>
   );
 }
