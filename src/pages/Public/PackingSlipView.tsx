@@ -2,8 +2,19 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { db } from '../../lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
-import { Loader2, PackageSearch, PackageOpen, CheckCircle2 } from 'lucide-react';
+import { getTrackingLink } from '../../lib/utils';
+import { Loader2, PackageSearch, PackageOpen, CheckCircle2, ExternalLink, Printer } from 'lucide-react';
 import { MOCK_CUSTOMERS_DB } from '../../lib/mockData';
+
+const sortSizes = (a: string, b: string) => {
+    const orderMap: Record<string, number> = { 'xxs':1, 'xs':2, 's':3, 'm':4, 'l':5, 'xl':6, 'xxl':7, '2xl':7, '3xl':8, '4xl':9, '5xl':10, 'osfa':11, 'os':12 };
+    const aKey = a.split(' ')[0].toLowerCase();
+    const bKey = b.split(' ')[0].toLowerCase();
+    const aVal = orderMap[aKey] || 99;
+    const bVal = orderMap[bKey] || 99;
+    if (aVal !== bVal) return aVal - bVal;
+    return a.localeCompare(b);
+};
 
 export function PackingSlipView() {
   const { orderId, boxId } = useParams();
@@ -123,11 +134,31 @@ export function PackingSlipView() {
                     )}
                     <div className="flex-1 min-w-0">
                       <p className="font-bold text-neutral-900 text-base sm:pr-4 leading-tight mb-2 sm:mb-0">{fullItem.style || packedItem.style || 'Custom Garment'}</p>
-                      <div className="text-[10px] sm:text-xs font-semibold text-neutral-500 mt-1 sm:mt-1.5 flex flex-wrap gap-x-2 gap-y-1">
-                        <span className="bg-neutral-100 px-2 py-1 rounded-md">{fullItem.gender || 'Unisex'}</span>
+                      <div className="text-[10px] sm:text-xs font-semibold text-neutral-500 mt-1 sm:mt-1.5 flex flex-wrap gap-x-2 gap-y-1 mb-3">
+                        {fullItem.gender && fullItem.gender !== 'Unisex' && <span className="bg-neutral-100 px-2 py-1 rounded-md">{fullItem.gender}</span>}
                         {fullItem.color && <span className="bg-neutral-100 px-2 py-1 rounded-md">{fullItem.color}</span>}
                         {fullItem.itemNum && <span className="bg-neutral-100 px-2 py-1 rounded-md">ID: {fullItem.itemNum}</span>}
                       </div>
+
+                      {/* Packed Sizes Spread */}
+                      {packedItem.sizes && Object.keys(packedItem.sizes).length > 0 && (
+                        <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-neutral-100">
+                           {Object.keys(packedItem.sizes).sort(sortSizes).map((sKey) => {
+                              const sQty = packedItem.sizes[sKey];
+                              if (!sQty) return null;
+                              return (
+                                <div key={sKey} className="bg-white border border-neutral-200 rounded-lg overflow-hidden flex flex-col w-12 shrink-0 shadow-[0_2px_4px_rgb(0,0,0,0.02)]">
+                                  <span className="bg-neutral-50 text-[9px] text-center font-bold text-neutral-400 py-1.5 uppercase tracking-wider block border-b border-neutral-200 leading-none">
+                                     {sKey}
+                                  </span>
+                                  <span className="text-[13px] text-center font-black text-neutral-900 py-2 block leading-none">
+                                     {sQty}
+                                  </span>
+                                </div>
+                              );
+                           })}
+                        </div>
+                      )}
                     </div>
                     <div className="text-right shrink-0 pl-3 sm:pl-4 border-l border-neutral-100">
                        <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-1.5">Qty</p>
