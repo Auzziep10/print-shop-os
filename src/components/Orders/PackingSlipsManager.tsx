@@ -244,9 +244,23 @@ export function PackingSlipsManager({ order }: { order: any }) {
                                        
                                        const selectedQty = wBox.selectedItems[item.id]?.sizes?.[size] || 0;
                                        
+                                       let packedQty = order.boxes?.reduce((acc: number, box: any) => {
+                                         const boxItem = box.items?.find((bi: any) => bi.id === item.id);
+                                         return acc + (boxItem?.sizes?.[size] || 0);
+                                       }, 0) || 0;
+                                       
+                                       packedQty += workingBoxes.reduce((acc, wb) => {
+                                          return acc + (wb.selectedItems[item.id]?.sizes?.[size] || 0);
+                                       }, 0);
+                                       
+                                       const remaining = orderQty - packedQty;
+                                       
                                        return (
-                                         <div key={size} className="flex flex-col w-[60px]">
-                                           <label className="text-[9px] font-bold text-brand-secondary text-center mb-1 bg-brand-border/30 rounded-t-sm py-0.5">{size}</label>
+                                         <div key={size} className="flex flex-col w-[55px]">
+                                           <div className="flex flex-col items-center justify-center bg-brand-border/30 rounded-t-sm py-0.5 mb-0.5 leading-tight">
+                                              <label className="text-[9px] font-bold text-brand-secondary">{size}</label>
+                                              <span className={`text-[8px] ${remaining < 0 ? 'text-red-500 font-bold' : remaining === 0 ? 'text-neutral-400 font-medium' : 'text-brand-primary font-bold'}`}>{remaining} Left</span>
+                                           </div>
                                            <input 
                                              type="number" 
                                              min="0" 
