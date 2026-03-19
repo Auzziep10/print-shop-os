@@ -477,6 +477,25 @@ export function OrderDetail() {
                                   <h4 className="font-bold text-gray-900 text-[15px]">{item.gender || 'Unisex'}</h4>
                                 </div>
                                 <p className="text-xs font-semibold text-gray-500 mt-1">{item.style}</p>
+                                
+                                {/* Dropdown Chevron for Item Boxes under Garment Name */}
+                                {(() => {
+                                  const itemBoxes = order.boxes?.filter((b: any) => b.items?.some((bi: any) => bi.id === item.id)) || [];
+                                  if (itemBoxes.length === 0) return null;
+                                  
+                                  return (
+                                    <button 
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setExpandedItems(prev => ({ ...prev, [item.id]: !prev[item.id] }));
+                                      }}
+                                      className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-brand-secondary hover:text-brand-primary transition-colors w-max mt-3"
+                                    >
+                                      <ChevronDown size={12} className={`transition-transform duration-300 ${expandedItems[item.id] ? 'rotate-180' : ''}`} />
+                                      {itemBoxes.length} Shipments
+                                    </button>
+                                  );
+                                })()}
                              </div>
                            </div>
 
@@ -533,86 +552,69 @@ export function OrderDetail() {
                            </div>
                          </div>
                        </div>
-                       
-                       {/* Dropdown Chevron for Item Boxes */}
-                       {(() => {
-                         const itemBoxes = order.boxes?.filter((b: any) => b.items?.some((bi: any) => bi.id === item.id)) || [];
-                         if (itemBoxes.length === 0) return null;
-                         
-                         return (
-                           <div className="w-full mt-4 pt-4 border-t border-brand-border/40">
-                             <button 
-                               onClick={(e) => {
-                                 e.stopPropagation();
-                                 setExpandedItems(prev => ({ ...prev, [item.id]: !prev[item.id] }));
-                               }}
-                               className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-brand-secondary hover:text-brand-primary transition-colors w-max"
-                             >
-                               <ChevronDown size={14} className={`transition-transform duration-300 ${expandedItems[item.id] ? 'rotate-180' : ''}`} />
-                               {expandedItems[item.id] ? 'Hide' : 'View'} Saved Shipments ({itemBoxes.length})
-                             </button>
-                             
-                             {expandedItems[item.id] && (
-                               <div className="mt-4 flex flex-col gap-3">
-                                 {itemBoxes.map((box: any) => {
-                                   const publicUrl = `${window.location.origin}/packing-slip/${order.id}/${box.id}`;
-                                   return (
-                                     <div key={box.id} className="bg-white rounded-xl border border-brand-border shadow-sm flex flex-col md:flex-row p-4 gap-4 md:items-center hover:border-brand-primary/20 transition-colors w-full relative z-20">
-                                       
-                                       <div className="flex items-center gap-4 min-w-[180px]">
-                                         <div className="w-10 h-10 bg-neutral-100 rounded-lg flex items-center justify-center text-brand-primary shrink-0">
-                                           <Box size={20} />
-                                         </div>
-                                         <div>
-                                           <h3 className="font-bold text-sm text-brand-primary">{box.name}</h3>
-                                           <p className="text-[10px] text-brand-secondary font-medium tracking-wide flex gap-1 items-center">
-                                             <Printer size={10} /> {box.items?.reduce((acc: number, bi: any) => acc + (bi.qty || 0), 0) || 0} ITEMS TOTAL
-                                           </p>
-                                         </div>
-                                       </div>
-                                       
-                                       <div className="flex-1 md:border-l border-brand-border md:pl-4 overflow-y-auto custom-scrollbar flex flex-col gap-1 md:pr-4">
-                                          {box.items?.filter((bi: any) => bi.id === item.id).map((bi: any, i: number) => (
-                                            <div key={i} className="flex items-center justify-between text-xs py-1">
-                                               <span className="font-medium text-brand-primary truncate max-w-[180px]">{bi.style}</span>
-                                               <span className="font-bold text-brand-secondary ml-auto mr-2">x{bi.qty}</span>
-                                            </div>
-                                          ))}
-                                          <p className="text-[10px] italic text-brand-secondary mt-1 max-w-[200px] leading-tight">
-                                            {box.items?.length > 1 ? `(+ ${box.items.length - 1} other items inside)` : ''}
-                                          </p>
-                                       </div>
-                                       
-                                       <div className="flex flex-col sm:flex-row items-center gap-3 shrink-0">
-                                         <div 
-                                           className="bg-white p-1.5 border border-brand-border rounded shadow-sm cursor-pointer hover:border-black transition-colors" 
-                                           title="Scan to test" 
-                                           onClick={(e) => { e.stopPropagation(); window.open(publicUrl, '_blank'); }}
-                                         >
-                                           <QRCode value={publicUrl} size={36} />
-                                         </div>
-                                         <div className="flex flex-col gap-1.5 min-w-[100px]">
-                                           <a href={publicUrl} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-brand-primary hover:text-black transition-colors tooltip whitespace-nowrap bg-neutral-50 hover:bg-neutral-100 px-3 py-1.5 rounded-full border border-neutral-200 w-full text-center" onClick={(e) => e.stopPropagation()}>
-                                             <ExternalLink size={12} /> View Slip
-                                           </a>
-                                         </div>
-                                       </div>
-                      
-                                       <button onClick={(e) => { e.stopPropagation(); handleDeleteBox(box.id); }} className="text-red-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors p-2 shrink-0 self-start sm:self-center ml-auto md:ml-0" title="Delete Box">
-                                         <Trash2 size={16} />
-                                       </button>
-                      
-                                     </div>
-                                   );
-                                 })}
-                               </div>
-                             )}
-                           </div>
-                         );
-                       })()}
-
                      </div>
-                 </div>
+                     
+                     {/* Expanded Boxes List - Spans Full Width */}
+                     {expandedItems[item.id] && (() => {
+                       const itemBoxes = order.boxes?.filter((b: any) => b.items?.some((bi: any) => bi.id === item.id)) || [];
+                       if (itemBoxes.length === 0) return null;
+                       return (
+                         <div className="w-full mt-6 pt-6 border-t border-brand-border/40 flex flex-col gap-3">
+                           {itemBoxes.map((box: any) => {
+                             const publicUrl = `${window.location.origin}/packing-slip/${order.id}/${box.id}`;
+                             return (
+                               <div key={box.id} className="bg-white rounded-xl border border-brand-border shadow-sm flex flex-col md:flex-row p-4 gap-4 md:items-center hover:border-brand-primary/20 transition-colors w-full relative z-20">
+                                 
+                                 <div className="flex items-center gap-4 min-w-[180px]">
+                                   <div className="w-10 h-10 bg-neutral-100 rounded-lg flex items-center justify-center text-brand-primary shrink-0">
+                                     <Box size={20} />
+                                   </div>
+                                   <div>
+                                     <h3 className="font-bold text-sm text-brand-primary">{box.name}</h3>
+                                     <p className="text-[10px] text-brand-secondary font-medium tracking-wide flex gap-1 items-center">
+                                       <Printer size={10} /> {box.items?.reduce((acc: number, bi: any) => acc + (bi.qty || 0), 0) || 0} ITEMS TOTAL
+                                     </p>
+                                   </div>
+                                 </div>
+                                 
+                                 <div className="flex-1 md:border-l border-brand-border md:pl-4 overflow-y-auto custom-scrollbar flex flex-col gap-1 md:pr-4">
+                                    {box.items?.filter((bi: any) => bi.id === item.id).map((bi: any, i: number) => (
+                                      <div key={i} className="flex items-center justify-between text-xs py-1">
+                                         <span className="font-medium text-brand-primary truncate max-w-[180px]">{bi.style}</span>
+                                         <span className="font-bold text-brand-secondary ml-auto mr-2">x{bi.qty}</span>
+                                      </div>
+                                    ))}
+                                    <p className="text-[10px] italic text-brand-secondary mt-1 max-w-[200px] leading-tight">
+                                      {box.items?.length > 1 ? `(+ ${box.items.length - 1} other items inside)` : ''}
+                                    </p>
+                                 </div>
+                                 
+                                 <div className="flex flex-col sm:flex-row items-center gap-3 shrink-0">
+                                   <div 
+                                     className="bg-white p-1.5 border border-brand-border rounded shadow-sm cursor-pointer hover:border-black transition-colors" 
+                                     title="Scan to test" 
+                                     onClick={(e) => { e.stopPropagation(); window.open(publicUrl, '_blank'); }}
+                                   >
+                                     <QRCode value={publicUrl} size={36} />
+                                   </div>
+                                   <div className="flex flex-col gap-1.5 min-w-[100px]">
+                                     <a href={publicUrl} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-brand-primary hover:text-black transition-colors tooltip whitespace-nowrap bg-neutral-50 hover:bg-neutral-100 px-3 py-1.5 rounded-full border border-neutral-200 w-full text-center" onClick={(e) => e.stopPropagation()}>
+                                       <ExternalLink size={12} /> View Slip
+                                     </a>
+                                   </div>
+                                 </div>
+                
+                                 <button onClick={(e) => { e.stopPropagation(); handleDeleteBox(box.id); }} className="text-red-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors p-2 shrink-0 self-start sm:self-center ml-auto md:ml-0" title="Delete Box">
+                                   <Trash2 size={16} />
+                                 </button>
+                
+                               </div>
+                             );
+                           })}
+                         </div>
+                       );
+                     })()}
+                  </div>
                )) : (
                  <div className="p-6 text-center text-brand-secondary">No items found in this order.</div>
                )}
