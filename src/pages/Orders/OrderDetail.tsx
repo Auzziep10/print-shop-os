@@ -198,6 +198,53 @@ export function OrderDetail() {
     }
   };
 
+  const handleQuickShipItem = async (item: any) => {
+     if (!id || !order) return;
+     
+     const remainingSizes = { ...item.sizes };
+     
+     order.boxes?.forEach((box: any) => {
+        const boxItem = box.items?.find((bi: any) => String(bi.id) === String(item.id));
+        if (boxItem && boxItem.sizes) {
+           Object.entries(boxItem.sizes).forEach(([s, q]) => {
+              remainingSizes[s] = Math.max(0, (remainingSizes[s] || 0) - (q as number));
+           });
+        }
+     });
+
+     const hasRemaining = Object.values(remainingSizes).some((q: any) => q > 0);
+     if (!hasRemaining) {
+         alert('All quantities for this item have already been packed into shipments.');
+         return;
+     }
+
+     const totalQty = Object.values(remainingSizes).reduce((acc: number, val: any) => acc + (parseInt(val) || 0), 0);
+
+     let nextName = `Box ${(order.boxes?.length || 0) + 1}`;
+     const boxIds = order.boxes?.map((b:any) => parseInt(b.name.replace('Box ', ''))).filter((n:number)=>!isNaN(n)) || [];
+     if(boxIds.length > 0) nextName = `Box ${Math.max(...boxIds) + 1}`;
+
+     const newBox = {
+        id: `box-${Date.now()}`,
+        name: nextName,
+        createdAt: new Date().toISOString(),
+        items: [{
+           id: item.id,
+           style: item.style || 'Custom Garment',
+           color: item.color || '',
+           gender: item.gender || '',
+           image: item.image || '',
+           itemNum: item.itemNum || '',
+           sizes: remainingSizes,
+           qty: totalQty
+        }]
+     };
+     
+     const updatedBoxes = [...(order.boxes || []), newBox];
+     await setDoc(doc(db, 'orders', id), { boxes: updatedBoxes }, { merge: true });
+     setExpandedItems(prev => ({ ...prev, [item.id]: true }));
+  };
+
   const handleMainImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !editItemObj) return;
@@ -540,27 +587,41 @@ export function OrderDetail() {
                                <img src={item.image} alt={item.style} className="w-full h-full object-cover mix-blend-multiply p-1 pointer-events-none" />
                              </div>
                              <div>
-                                <div className="flex items-center gap-2">
-                                  <h4 className="font-bold text-gray-900 text-[15px]">{item.gender || 'Unisex'}</h4>
-                                </div>
-                                <p className="text-xs font-semibold text-gray-500 mt-1">{item.style}</p>
+                                <h4 className="font-bold text-gray-900 text-[15px]">{item.style}</h4>
+                                <p className="text-xs font-semibold text-gray-500 mt-0.5">
+                                   {item.gender && item.gender !== 'Unisex' ? `${item.gender} ` : ''} 
+                                   {item.color ? (item.gender && item.gender !== 'Unisex' ? `- ${item.color}` : item.color) : ''}
+                                </p>
                                 
                                 {/* Dropdown Chevron for Item Boxes under Garment Name */}
                                 {(() => {
                                   const itemBoxes = order.boxes?.filter((b: any) => b.items?.some((bi: any) => String(bi.id) === String(item.id))) || [];
-                                  if (itemBoxes.length === 0) return null;
                                   
                                   return (
-                                    <button 
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setExpandedItems(prev => ({ ...prev, [item.id]: !prev[item.id] }));
-                                      }}
-                                      className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-brand-secondary hover:text-brand-primary transition-colors w-max mt-3"
-                                    >
-                                      <ChevronDown size={12} className={`transition-transform duration-300 ${expandedItems[item.id] ? 'rotate-180' : ''}`} />
-                                      {itemBoxes.length} Shipments
-                                    </button>
+                                    <div className="flex flex-wrap items-center gap-3 mt-3">
+                                      {itemBoxes.length > 0 && (
+                                        <button 
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setExpandedItems(prev => ({ ...prev, [item.id]: !prev[item.id] }));
+                                          }}
+                                          className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-brand-secondary hover:text-brand-primary transition-colors w-max"
+                                        >
+                                          <ChevronDown size={12} className={`transition-transform duration-300 ${expandedItems[item.id] ? 'rotate-180' : ''}`} />
+                                          {itemBoxes.length} Shipments
+                                        </button>
+                                      )}
+                                      <button 
+                                        onClick={(e) => {
+                                           e.stopPropagation();
+                                           handleQuickShipItem(item);
+                                        }}
+                                        className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-brand-primary hover:text-black transition-colors w-max"
+                                        title="Quick pack remaining quantities into a shipment"
+                                      >
+                                        <Plus size={12} /> Add Shipment
+                                      </button>
+                                    </div>
                                   );
                                 })()}
                              </div>
