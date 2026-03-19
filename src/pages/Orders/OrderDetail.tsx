@@ -781,21 +781,21 @@ export function OrderDetail() {
                                  </div>
                                  
                                  <div className="flex-1 md:border-l border-brand-border md:pl-4 overflow-y-auto custom-scrollbar flex flex-col gap-1 md:pr-4">
-                                    {box.items?.filter((bi: any) => String(bi.id) === String(item.id)).map((bi: any, i: number) => (
-                                      <div key={i} className="flex flex-col text-xs py-1">
-                                         <div className="flex items-center justify-between">
-                                            <span className="font-medium text-brand-primary truncate max-w-[180px]">{bi.style}</span>
-                                            <span className="font-bold text-brand-secondary ml-auto mr-2">x{bi.qty}</span>
-                                         </div>
-                                         {bi.sizes && Object.keys(bi.sizes).length > 0 && (
-                                            <div className="flex gap-1.5 flex-wrap mt-1">
-                                               {Object.entries(bi.sizes).sort(([a],[b])=>sortSizes(a,b)).map(([s, q]: [string, any]) => (
-                                                  <span key={s} className="text-[10px] font-semibold text-brand-secondary bg-brand-bg px-1.5 py-0.5 rounded leading-none">{s}: {q}</span>
-                                               ))}
-                                            </div>
-                                         )}
-                                      </div>
-                                    ))}
+                                     {box.items?.filter((bi: any) => String(bi.id) === String(item.id)).map((bi: any, i: number) => (
+                                       <div key={i} className="flex flex-col xl:flex-row items-start xl:items-center py-2 gap-2 xl:gap-8 min-w-0 flex-1">
+                                          <div className="flex items-center justify-between w-full xl:w-auto xl:min-w-[180px]">
+                                             <span className="font-bold text-brand-primary text-sm truncate">{bi.style}</span>
+                                             <span className="font-bold text-brand-secondary text-xs bg-neutral-100 px-2 py-1 rounded-md">x{bi.qty}</span>
+                                          </div>
+                                          {bi.sizes && Object.keys(bi.sizes).length > 0 && (
+                                             <div className="flex gap-1.5 flex-wrap w-full xl:flex-1">
+                                                {Object.entries(bi.sizes).sort(([a],[b])=>sortSizes(a,b)).map(([s, q]: [string, any]) => (
+                                                   <span key={s} className="text-xs font-bold text-brand-secondary bg-neutral-100 px-2.5 py-1.5 rounded-md border border-brand-border shadow-sm flex items-center justify-center min-w-[36px]">{s}: <span className="text-black ml-1">{q}</span></span>
+                                                ))}
+                                             </div>
+                                          )}
+                                       </div>
+                                     ))}
                                     <p className="text-[10px] italic text-brand-secondary mt-1 max-w-[200px] leading-tight">
                                       {box.items?.length > 1 ? `(+ ${box.items.length - 1} other items inside)` : ''}
                                     </p>

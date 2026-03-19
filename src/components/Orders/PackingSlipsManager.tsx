@@ -397,11 +397,20 @@ export function PackingSlipsManager({ order }: { order: any }) {
                      </div>
                      
                      {/* Middle: Items List */}
-                     <div className="flex-1 md:border-l border-brand-border md:pl-6 max-h-[80px] overflow-y-auto custom-scrollbar flex flex-col gap-1.5 md:pr-4">
+                     <div className="flex-1 md:border-l border-brand-border md:pl-6 max-h-[160px] overflow-y-auto custom-scrollbar flex flex-col gap-2 md:pr-4 py-2">
                         {box.items?.map((item: any, i: number) => (
-                          <div key={i} className="flex items-center justify-between text-sm py-1 border-b border-brand-border/30 last:border-0">
-                             <span className="font-medium text-brand-primary truncate max-w-[200px]" title={item.style}>{item.style}</span>
-                             <span className="font-bold text-brand-secondary text-xs mr-2 ml-auto">x{item.qty}</span>
+                          <div key={i} className="flex flex-col xl:flex-row items-start xl:items-center py-2 gap-2 xl:gap-8 flex-1 border-b border-brand-border/30 last:border-0 min-w-0">
+                             <div className="flex items-center justify-between w-full xl:w-auto xl:min-w-[180px]">
+                                <span className="font-bold text-brand-primary text-sm truncate" title={item.style}>{item.style}</span>
+                                <span className="font-bold text-brand-secondary text-xs bg-neutral-100 px-2 py-1 rounded-md">x{item.qty}</span>
+                             </div>
+                             {item.sizes && Object.keys(item.sizes).length > 0 && (
+                                <div className="flex gap-1.5 flex-wrap w-full xl:flex-1">
+                                   {Object.entries(item.sizes).sort(([a],[b])=>sortSizes(a,b)).map(([s, q]: [string, any]) => (
+                                      <span key={s} className="text-xs font-bold text-brand-secondary bg-neutral-100 px-2.5 py-1.5 rounded-md border border-brand-border shadow-sm flex items-center justify-center min-w-[36px]">{s}: <span className="text-black ml-1">{q}</span></span>
+                                   ))}
+                                </div>
+                             )}
                           </div>
                         ))}
                         {(!box.items || box.items.length === 0) && (
