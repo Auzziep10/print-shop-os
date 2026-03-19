@@ -68,7 +68,7 @@ export function PackingSlipsManager({ order }: { order: any }) {
         if (oQty > 0) {
           // Calculate packed in already saved order.boxes
           let packedQty = order.boxes?.reduce((acc: number, box: any) => {
-            const boxItem = box.items?.find((bi: any) => bi.id === item.id);
+            const boxItem = box.items?.find((bi: any) => String(bi.id) === String(item.id));
             return acc + (boxItem?.sizes?.[size] || 0);
           }, 0) || 0;
           
@@ -146,7 +146,7 @@ export function PackingSlipsManager({ order }: { order: any }) {
   const baseUrl = window.location.origin;
 
   return (
-    <div className="mt-8 relative z-0">
+    <div className="mt-8">
       <div className="flex justify-between items-center mb-6 pb-2 border-b border-brand-border">
         <h2 className={tokens.typography.h2}>Packing Slips & Labels</h2>
         <PillButton variant="outline" onClick={handleStartAddBox} className="gap-2 shrink-0 px-4 py-2 text-xs">
@@ -246,7 +246,7 @@ export function PackingSlipsManager({ order }: { order: any }) {
                                        const selectedQty = wBox.selectedItems[item.id]?.sizes?.[size] || 0;
                                        
                                        let packedQty = order.boxes?.reduce((acc: number, box: any) => {
-                                         const boxItem = box.items?.find((bi: any) => bi.id === item.id);
+                                         const boxItem = box.items?.find((bi: any) => String(bi.id) === String(item.id));
                                          return acc + (boxItem?.sizes?.[size] || 0);
                                        }, 0) || 0;
                                        

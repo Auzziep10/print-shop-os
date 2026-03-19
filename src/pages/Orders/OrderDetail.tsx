@@ -480,7 +480,7 @@ export function OrderDetail() {
                                 
                                 {/* Dropdown Chevron for Item Boxes under Garment Name */}
                                 {(() => {
-                                  const itemBoxes = order.boxes?.filter((b: any) => b.items?.some((bi: any) => bi.id === item.id)) || [];
+                                  const itemBoxes = order.boxes?.filter((b: any) => b.items?.some((bi: any) => String(bi.id) === String(item.id))) || [];
                                   if (itemBoxes.length === 0) return null;
                                   
                                   return (
