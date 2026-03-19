@@ -3,7 +3,7 @@ import QRCode from 'react-qr-code';
 import { db } from '../../lib/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { PillButton } from '../ui/PillButton';
-import { Plus, Trash2, Box, ExternalLink, Printer, X } from 'lucide-react';
+import { Plus, Trash2, Box, ExternalLink, Printer, X, ChevronDown } from 'lucide-react';
 import { tokens } from '../../lib/tokens';
 
 type DraftBox = {
@@ -15,6 +15,7 @@ type DraftBox = {
 export function PackingSlipsManager({ order }: { order: any }) {
   const [isAddingBox, setIsAddingBox] = useState(false);
   const [workingBoxes, setWorkingBoxes] = useState<DraftBox[]>([]);
+  const [isExpanded, setIsExpanded] = useState(false);
   
   const SIZE_ORDER = ['XXS', 'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL', 'OSFA'];
 
@@ -313,65 +314,92 @@ export function PackingSlipsManager({ order }: { order: any }) {
           <p className="text-sm max-w-sm mx-auto">Create a box, choose the garments that go inside, and generate a printable thermal QR label.</p>
         </div>
       ) : (
-        <div className="flex flex-col gap-4 mt-4">
-          {order.boxes.map((box: any) => {
-             const publicUrl = `${baseUrl}/packing-slip/${order.id}/${box.id}`;
-             return (
-               <div key={box.id} className="bg-white rounded-card border border-brand-border shadow-sm flex flex-col md:flex-row p-5 gap-6 md:items-center hover:border-brand-primary/20 transition-colors">
-                 
-                 {/* Left: Box Info */}
-                 <div className="flex items-center gap-4 md:min-w-[220px]">
-                   <div className="w-12 h-12 bg-neutral-100 rounded-xl flex items-center justify-center text-brand-primary shrink-0">
-                     <Box size={24} />
+        <div className="bg-white rounded-card border border-brand-border overflow-hidden shadow-sm mt-4">
+          {/* Main Dropdown Header */}
+          <div 
+            className="p-6 flex items-center justify-between cursor-pointer hover:bg-brand-bg transition-colors"
+            onClick={() => setIsExpanded(!isExpanded)}
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-brand-primary/5 rounded-xl flex items-center justify-center text-brand-primary shrink-0 border border-brand-primary/10">
+                <Box size={24} />
+              </div>
+              <div>
+                <h3 className="font-bold text-lg text-brand-primary mb-1">Shipments Overview</h3>
+                <p className="text-sm text-brand-secondary font-medium tracking-wide">
+                  <strong className="text-brand-primary">{order.boxes.length}</strong> {order.boxes.length === 1 ? 'Package' : 'Packages'} Built • <strong className="text-brand-primary">{order.boxes.reduce((acc: number, box: any) => acc + (box.items?.reduce((iAcc: number, item: any) => iAcc + (item.qty || 0), 0) || 0), 0)}</strong> Items Packed
+                </p>
+              </div>
+            </div>
+            <button className="text-brand-secondary hover:text-brand-primary transition-colors flex items-center justify-center w-8 h-8 rounded-full bg-brand-bg">
+              <ChevronDown size={20} className={`transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} />
+            </button>
+          </div>
+          
+          {/* Expanded List of Packages */}
+          {isExpanded && (
+            <div className="border-t border-brand-border/50 bg-gray-50/50 p-6 flex flex-col gap-4">
+              {order.boxes.map((box: any) => {
+                 const publicUrl = `${baseUrl}/packing-slip/${order.id}/${box.id}`;
+                 return (
+                   <div key={box.id} className="bg-white rounded-card border border-brand-border shadow-sm flex flex-col md:flex-row p-5 gap-6 md:items-center hover:border-brand-primary/20 transition-colors">
+                     
+                     {/* Left: Box Info */}
+                     <div className="flex items-center gap-4 md:min-w-[220px]">
+                       <div className="w-12 h-12 bg-neutral-100 rounded-xl flex items-center justify-center text-brand-primary shrink-0">
+                         <Box size={24} />
+                       </div>
+                       <div>
+                         <h3 className="font-bold text-lg text-brand-primary">{box.name}</h3>
+                         <p className="text-xs text-brand-secondary font-medium tracking-wide">
+                           {box.items?.reduce((acc: number, item: any) => acc + (item.qty || 0), 0) || 0} ITEMS TOTAL
+                         </p>
+                       </div>
+                     </div>
+                     
+                     {/* Middle: Items List */}
+                     <div className="flex-1 md:border-l border-brand-border md:pl-6 max-h-[80px] overflow-y-auto custom-scrollbar flex flex-col gap-1.5 md:pr-4">
+                        {box.items?.map((item: any, i: number) => (
+                          <div key={i} className="flex items-center justify-between text-sm py-1 border-b border-brand-border/30 last:border-0">
+                             <span className="font-medium text-brand-primary truncate max-w-[200px]" title={item.style}>{item.style}</span>
+                             <span className="font-bold text-brand-secondary text-xs mr-2 ml-auto">x{item.qty}</span>
+                          </div>
+                        ))}
+                        {(!box.items || box.items.length === 0) && (
+                          <p className="text-xs italic text-brand-secondary">No items selected.</p>
+                        )}
+                     </div>
+                     
+                     {/* Right: Actions & Public URLs */}
+                     <div className="flex items-center justify-end gap-5">
+                       <div className="flex flex-col md:flex-row items-center gap-4 md:border-l border-brand-border md:pl-6 shrink-0 mt-4 md:mt-0 pt-4 md:pt-0 border-t md:border-t-0 border-brand-border h-full">
+                         <div 
+                           className="bg-white p-2 border border-brand-border rounded-lg shadow-sm cursor-pointer hover:border-black transition-colors" 
+                           title="Scan to test" 
+                           onClick={() => window.open(publicUrl, '_blank')}
+                         >
+                           <QRCode value={publicUrl} size={48} />
+                         </div>
+                         <div className="flex flex-col gap-2 min-w-[140px]">
+                           <PillButton variant="outline" className="justify-center text-xs py-1.5 px-3 bg-white border-brand-border shadow-sm border w-full h-[32px]" onClick={() => handlePrintLabel(box.id)}>
+                             <Printer size={14} className="mr-1.5" /> Print Label
+                           </PillButton>
+                           <a href={publicUrl} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-brand-primary hover:text-black transition-colors tooltip w-full h-[32px] bg-brand-bg rounded-full border border-brand-border">
+                             <ExternalLink size={12} /> Public URL
+                           </a>
+                         </div>
+                       </div>
+    
+                       {/* Delete Button */}
+                       <button onClick={() => handleDeleteBox(box.id)} className="text-red-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors p-2 shrink-0 self-center" title="Delete Box">
+                         <Trash2 size={18} />
+                       </button>
+                     </div>
                    </div>
-                   <div>
-                     <h3 className="font-bold text-lg text-brand-primary">{box.name}</h3>
-                     <p className="text-xs text-brand-secondary font-medium tracking-wide">
-                       {box.items?.reduce((acc: number, item: any) => acc + (item.qty || 0), 0) || 0} ITEMS TOTAL
-                     </p>
-                   </div>
-                 </div>
-                 
-                 {/* Middle: Items List */}
-                 <div className="flex-1 md:border-l border-brand-border md:pl-6 max-h-[80px] overflow-y-auto custom-scrollbar flex flex-col gap-1.5 md:pr-4">
-                    {box.items?.map((item: any, i: number) => (
-                      <div key={i} className="flex items-center justify-between text-sm py-1 border-b border-brand-border/30 last:border-0">
-                         <span className="font-medium text-brand-primary truncate max-w-[200px]" title={item.style}>{item.style}</span>
-                         <span className="font-bold text-brand-secondary text-xs mr-2 ml-auto">x{item.qty}</span>
-                      </div>
-                    ))}
-                    {(!box.items || box.items.length === 0) && (
-                      <p className="text-xs italic text-brand-secondary">No items selected.</p>
-                    )}
-                 </div>
-                 
-                 {/* Right: Actions */}
-                 <div className="flex items-center gap-4 md:border-l border-brand-border md:pl-6 shrink-0 mt-4 md:mt-0 pt-4 md:pt-0 border-t md:border-t-0 border-brand-border">
-                   <div 
-                     className="bg-white p-2 border border-brand-border rounded-lg shadow-sm cursor-pointer hover:border-black transition-colors" 
-                     title="Scan to test" 
-                     onClick={() => window.open(publicUrl, '_blank')}
-                   >
-                     <QRCode value={publicUrl} size={48} />
-                   </div>
-                   <div className="flex flex-col gap-2 min-w-[140px]">
-                     <PillButton variant="outline" className="justify-center text-xs py-1.5 px-3 bg-white border-brand-border shadow-sm border w-full" onClick={() => handlePrintLabel(box.id)}>
-                       <Printer size={14} className="mr-1.5" /> Print Label
-                     </PillButton>
-                     <a href={publicUrl} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-brand-primary hover:text-black transition-colors tooltip w-full text-center">
-                       <ExternalLink size={12} /> Public URL
-                     </a>
-                   </div>
-                 </div>
-
-                 {/* Delete Button */}
-                 <button onClick={() => handleDeleteBox(box.id)} className="text-red-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors p-2 shrink-0 md:self-start absolute md:relative top-4 right-4 md:top-auto md:right-auto" title="Delete Box">
-                   <Trash2 size={18} />
-                 </button>
-
-               </div>
-             );
-          })}
+                 );
+              })}
+            </div>
+          )}
         </div>
       )}
     </div>
