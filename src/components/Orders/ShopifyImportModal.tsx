@@ -54,24 +54,54 @@ export function ShopifyImportModal({ isOpen, onClose, customerId }: Props) {
       const selectedOrders = orders.filter(o => selectedOrderIds.has(o.id));
       
       // 2. Map all line items from all selected orders into our unified format
-      const combinedItems = [];
+      const groupedItems = new Map();
       let globalIdx = 0;
       
       for (const order of selectedOrders) {
          for (const item of order.lineItems || []) {
-            combinedItems.push({
-               id: Date.now() + globalIdx++,
-               style: item.title,
-               gender: item.variantTitle || 'Unisex',
-               color: '',
-               qty: item.quantity,
-               price: item.originalUnitPriceSet?.presentmentMoney?.amount || '0',
-               total: `$${(parseInt(item.quantity) * parseFloat(item.originalUnitPriceSet?.presentmentMoney?.amount || '0')).toFixed(2)}`,
-               image: item.image?.url || '',
-               logos: []
-            });
+            const title = item.title;
+            const fullVariant = item.variantTitle || '';
+            
+            // Parse Size and Color from variant (e.g., "S (4-6) / Black / Glow V")
+            let size = 'OS';
+            let color = '';
+            
+            if (fullVariant && fullVariant !== 'Default Title') {
+               const parts = fullVariant.split(' / ');
+               size = parts[0]; 
+               if (parts.length > 1) {
+                  color = parts.slice(1).join(' / ');
+               }
+            }
+
+            const key = title + '|' + color;
+
+            if (!groupedItems.has(key)) {
+               groupedItems.set(key, {
+                  id: Date.now() + globalIdx++,
+                  style: title,
+                  gender: color || 'Unisex', // Option details appear bold on top
+                  color: '',
+                  qty: 0,
+                  price: item.originalUnitPriceSet?.presentmentMoney?.amount || '0',
+                  total: '0',
+                  image: item.image?.url || '',
+                  logos: [],
+                  sizes: {}
+               });
+            }
+
+            const existing = groupedItems.get(key);
+            const qty = parseInt(item.quantity) || 0;
+            
+            existing.qty += qty;
+            existing.sizes[size] = (existing.sizes[size] || 0) + qty;
+            
+            existing.total = `$${(existing.qty * parseFloat(existing.price || '0')).toFixed(2)}`;
          }
       }
+      
+      const combinedItems = Array.from(groupedItems.values());
 
       // 3. Create the unified order in Firestore
       const newOrderBody = {
