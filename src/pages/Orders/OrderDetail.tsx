@@ -1268,40 +1268,52 @@ export function OrderDetail() {
       {/* Quick Ship Modal */}
       {quickShipItem && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setQuickShipItem(null)}>
-          <div className="bg-white rounded-2xl p-6 max-w-lg w-full flex flex-col shadow-xl border border-brand-border" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-xl font-black text-gray-900 leading-tight">Quick Ship</h3>
-            <p className="font-semibold text-brand-primary mb-6"><span className="text-brand-secondary">Item:</span> {quickShipItem.style}</p>
+          <div className="bg-white rounded-3xl p-6 md:p-8 max-w-lg w-full flex flex-col shadow-2xl border border-brand-border" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-start mb-2">
+               <h3 className="text-2xl font-black text-gray-900 leading-tight">Quick Ship</h3>
+               <button className="p-2 bg-neutral-100 hover:bg-neutral-200 rounded-full transition-colors" onClick={() => setQuickShipItem(null)}><X size={16} /></button>
+            </div>
             
-            <p className="text-sm text-gray-500 mb-4 font-medium">Select quantities to pack. A new discrete tracking box will automatically generate containing these items.</p>
+            <p className="font-semibold text-brand-primary mb-6 flex items-center gap-2 flex-wrap">
+              <span className="bg-black text-white text-[10px] px-2 py-0.5 rounded uppercase tracking-widest shrink-0">Target Garment</span> 
+              <span>{quickShipItem.style}</span>
+            </p>
+            
+            <p className="text-[13px] text-gray-500 mb-6 font-medium bg-neutral-50 p-3 rounded-xl border border-neutral-100">Select sizes and quantities to pack. A new discrete tracking box will automatically generate containing precisely these items.</p>
             
             <div className="grid grid-cols-4 sm:grid-cols-5 gap-3 mb-8">
                {Object.entries(quickShipItem.remainingSizes).sort(([a], [b]) => sortSizes(a, b)).map(([size, maxQty]: [string, any]) => {
                   if (maxQty === 0) return null;
                   return (
-                    <div key={size}>
-                       <label className="block text-[10px] font-bold text-center text-brand-secondary mb-1 uppercase tracking-wider">{size} (Max {maxQty})</label>
-                       <input 
-                         type="number"
-                         min="0"
-                         max={maxQty}
-                         value={quickShipSizes[size] === 0 ? '' : quickShipSizes[size]}
-                         onChange={(e) => {
-                            let val = parseInt(e.target.value) || 0;
-                            if (val > maxQty) val = maxQty;
-                            if (val < 0) val = 0;
-                            setQuickShipSizes(prev => ({ ...prev, [size]: val }));
-                         }}
-                         className="w-full bg-white border border-brand-border rounded-lg px-2 py-3 text-sm font-bold text-center focus:border-brand-primary placeholder:text-gray-300 shadow-sm"
-                         placeholder="0"
-                       />
+                    <div key={size} className="flex flex-col border border-brand-border shadow-sm rounded-xl overflow-hidden focus-within:border-black focus-within:ring-1 focus-within:ring-black transition-all bg-white h-full group">
+                       <div className="bg-neutral-100/60 p-1.5 flex flex-col items-center justify-center flex-1 min-h-[44px] border-b border-brand-border group-focus-within:bg-neutral-100 transition-colors">
+                         <span className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary leading-tight text-center line-clamp-2">{size}</span>
+                       </div>
+                       <div className="relative bg-white pb-6 pt-3 shrink-0">
+                         <input 
+                           type="number"
+                           min="0"
+                           max={maxQty}
+                           value={quickShipSizes[size] === 0 ? '' : quickShipSizes[size]}
+                           onChange={(e) => {
+                              let val = parseInt(e.target.value) || 0;
+                              if (val > maxQty) val = maxQty;
+                              if (val < 0) val = 0;
+                              setQuickShipSizes(prev => ({ ...prev, [size]: val }));
+                           }}
+                           className="w-full bg-transparent px-2 text-xl font-black text-center focus:outline-none placeholder:text-gray-200"
+                           placeholder="0"
+                         />
+                         <span className="absolute bottom-1.5 left-0 w-full text-center text-[8px] font-bold text-brand-primary/40 uppercase tracking-widest">Max {maxQty}</span>
+                       </div>
                     </div>
                   )
                })}
             </div>
             
-            <div className="flex gap-4 border-t border-brand-border/50 pt-6">
-              <PillButton variant="outline" onClick={() => setQuickShipItem(null)} className="flex-1 justify-center">Cancel</PillButton>
-              <PillButton variant="filled" className="flex-1 justify-center bg-brand-primary text-white" onClick={handleSaveQuickShip}>Submit Shipment</PillButton>
+            <div className="flex gap-4">
+              <PillButton variant="outline" onClick={() => setQuickShipItem(null)} className="flex-1 justify-center py-4">Cancel</PillButton>
+              <PillButton variant="filled" className="flex-1 justify-center bg-black text-white hover:bg-neutral-800 py-4 shadow-lg shadow-black/10" onClick={handleSaveQuickShip}>Submit Shipment</PillButton>
             </div>
           </div>
         </div>
