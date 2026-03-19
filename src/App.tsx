@@ -15,6 +15,8 @@ import { PortalCreateOrder } from './pages/Portal/PortalCreateOrder';
 import { SeedData } from './pages/Seed';
 import { Settings } from './pages/Settings/Settings';
 import { WaitingRoom } from './pages/Auth/WaitingRoom';
+import { PackingSlipView } from './pages/Public/PackingSlipView';
+import { PrintLabel } from './pages/Print/PrintLabel';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, userData, loading } = useAuth();
@@ -44,6 +46,15 @@ function App() {
         
         {/* Temp Seed Route */}
         <Route path="/seed" element={<SeedData />} />
+
+        {/* Public Packing Slip Views */}
+        <Route path="/packing-slip/:orderId/:boxId" element={<PackingSlipView />} />
+        
+        <Route path="/print/label/:orderId/:boxId" element={
+          <PrivateRoute>
+            <PrintLabel />
+          </PrivateRoute>
+        } />
 
         {/* Public Client Portal Routes */}
         <Route path="/portal" element={<PortalLayout />}>

@@ -2,6 +2,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
 import { useState, useEffect } from 'react';
 import { PillButton } from '../../components/ui/PillButton';
+import { PackingSlipsManager } from '../../components/Orders/PackingSlipsManager';
 import { ArrowLeft, MessageSquare, Clock, Users, Download, Loader2, X, Edit3, Upload, Trash2, Plus, ChevronDown, Image as ImageIcon } from 'lucide-react';
 import { StatusBadge, type StatusType } from '../../components/ui/StatusBadge';
 import { useAuth } from '../../contexts/AuthContext';
@@ -527,8 +528,9 @@ export function OrderDetail() {
                )}
             </div>
           </div>
-          {/* Artwork & Mockups section removed globally, integrated into line items */}
-
+          
+          <PackingSlipsManager order={order} />
+          
           {/* Bottom Grid: Team and Activity Feed */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-1">
