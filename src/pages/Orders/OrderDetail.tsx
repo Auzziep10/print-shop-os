@@ -48,6 +48,8 @@ export function OrderDetail() {
   });
 
   const [editItemObj, setEditItemObj] = useState<any>(null);
+  const [quickShipItem, setQuickShipItem] = useState<any>(null);
+  const [quickShipSizes, setQuickShipSizes] = useState<Record<string, number>>({});
   const [expandedImage, setExpandedImage] = useState<{src: string, alt: string} | null>(null);
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
   const [isItemSaving, setIsItemSaving] = useState(false);
@@ -198,9 +200,8 @@ export function OrderDetail() {
     }
   };
 
-  const handleQuickShipItem = async (item: any) => {
+  const handleStartQuickShip = (item: any) => {
      if (!id || !order) return;
-     
      const remainingSizes = { ...item.sizes };
      
      order.boxes?.forEach((box: any) => {
@@ -218,9 +219,22 @@ export function OrderDetail() {
          return;
      }
 
-     const totalQty = Object.values(remainingSizes).reduce((acc: number, val: any) => acc + (parseInt(val) || 0), 0);
+     const initialSizes: Record<string, number> = {};
+     Object.keys(remainingSizes).forEach(k => { initialSizes[k] = 0; });
+     
+     setQuickShipItem({ ...item, remainingSizes });
+     setQuickShipSizes(initialSizes);
+  };
 
-     // Fetch live boxes directly to prevent rapid-click overlaps before state can update
+  const handleSaveQuickShip = async () => {
+     if (!quickShipItem || !id || !order) return;
+     
+     const totalQty = Object.values(quickShipSizes).reduce((a, b) => a + b, 0);
+     if (totalQty === 0) {
+        alert("Please select at least one item to ship.");
+        return;
+     }
+
      const orderDoc = await getDoc(doc(db, 'orders', id));
      const liveBoxes = orderDoc.data()?.boxes || [];
 
@@ -228,25 +242,33 @@ export function OrderDetail() {
      const boxIds = liveBoxes.map((b:any) => parseInt(b.name.replace('Box ', ''))).filter((n:number)=>!isNaN(n)) || [];
      if(boxIds.length > 0) nextName = `Box ${Math.max(...boxIds) + 1}`;
 
+     const packedSizes: Record<string, number> = {};
+     Object.entries(quickShipSizes).forEach(([s, q]) => {
+        if (q > 0) packedSizes[s] = q;
+     });
+
      const newBox = {
         id: `box-${Date.now()}`,
         name: nextName,
         createdAt: new Date().toISOString(),
         items: [{
-           id: item.id,
-           style: item.style || 'Custom Garment',
-           color: item.color || '',
-           gender: item.gender || '',
-           image: item.image || '',
-           itemNum: item.itemNum || '',
-           sizes: remainingSizes,
+           id: quickShipItem.id,
+           style: quickShipItem.style || 'Custom Garment',
+           color: quickShipItem.color || '',
+           gender: quickShipItem.gender || '',
+           image: quickShipItem.image || '',
+           itemNum: quickShipItem.itemNum || '',
+           sizes: packedSizes,
            qty: totalQty
         }]
      };
      
      const updatedBoxes = [...liveBoxes, newBox];
      await setDoc(doc(db, 'orders', id), { boxes: updatedBoxes }, { merge: true });
-     setExpandedItems(prev => ({ ...prev, [item.id]: true }));
+     setExpandedItems(prev => ({ ...prev, [quickShipItem.id]: true }));
+     
+     setQuickShipItem(null);
+     setQuickShipSizes({});
   };
 
   const handleMainImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -618,7 +640,7 @@ export function OrderDetail() {
                                       <button 
                                         onClick={(e) => {
                                            e.stopPropagation();
-                                           handleQuickShipItem(item);
+                                           handleStartQuickShip(item);
                                         }}
                                         className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-brand-primary hover:text-black transition-colors w-max"
                                         title="Quick pack remaining quantities into a shipment"
@@ -638,19 +660,12 @@ export function OrderDetail() {
                               {item.logos?.map((logo: string, i: number) => (
                                 <DataPill key={i} label={`Logo ${i+1}`} value={logo} />
                               ))}
+                              {item.logos?.map((logo: string, i: number) => (
+                                <a key={`art-${i}`} href="#" className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-brand-secondary hover:text-brand-primary transition-colors bg-brand-bg/50 px-2 py-1.5 rounded-2xl border border-brand-border h-max my-auto" onClick={(e) => e.preventDefault()}>
+                                   <Download size={10} /> {logo.replace(/\s+/g, '_')}_Art.ai
+                                </a>
+                              ))}
                            </div>
-                         </div>
-                         
-                         {/* Artwork Links */}
-                         <div className="flex flex-wrap gap-2 lg:pl-[176px]">
-                            {item.logos?.map((logo: string, i: number) => (
-                              <a key={`art-${i}`} href="#" className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-brand-secondary hover:text-brand-primary transition-colors bg-brand-bg/50 px-2 py-1 rounded border border-brand-border" onClick={(e) => e.preventDefault()}>
-                                 <Download size={10} /> {logo.replace(/\s+/g, '_')}_Art.ai
-                              </a>
-                            ))}
-                            {(!item.logos || item.logos.length === 0) && (
-                              <div className="text-[10px] font-semibold uppercase tracking-widest text-brand-secondary/50">No Artwork Attached</div>
-                            )}
                          </div>
                        </div>
 
@@ -711,9 +726,18 @@ export function OrderDetail() {
                                  
                                  <div className="flex-1 md:border-l border-brand-border md:pl-4 overflow-y-auto custom-scrollbar flex flex-col gap-1 md:pr-4">
                                     {box.items?.filter((bi: any) => String(bi.id) === String(item.id)).map((bi: any, i: number) => (
-                                      <div key={i} className="flex items-center justify-between text-xs py-1">
-                                         <span className="font-medium text-brand-primary truncate max-w-[180px]">{bi.style}</span>
-                                         <span className="font-bold text-brand-secondary ml-auto mr-2">x{bi.qty}</span>
+                                      <div key={i} className="flex flex-col text-xs py-1">
+                                         <div className="flex items-center justify-between">
+                                            <span className="font-medium text-brand-primary truncate max-w-[180px]">{bi.style}</span>
+                                            <span className="font-bold text-brand-secondary ml-auto mr-2">x{bi.qty}</span>
+                                         </div>
+                                         {bi.sizes && Object.keys(bi.sizes).length > 0 && (
+                                            <div className="flex gap-1.5 flex-wrap mt-1">
+                                               {Object.entries(bi.sizes).sort(([a],[b])=>sortSizes(a,b)).map(([s, q]: [string, any]) => (
+                                                  <span key={s} className="text-[10px] font-semibold text-brand-secondary bg-brand-bg px-1.5 py-0.5 rounded leading-none">{s}: {q}</span>
+                                               ))}
+                                            </div>
+                                         )}
                                       </div>
                                     ))}
                                     <p className="text-[10px] italic text-brand-secondary mt-1 max-w-[200px] leading-tight">
@@ -1238,6 +1262,48 @@ export function OrderDetail() {
                className="w-full h-full object-contain mix-blend-multiply transition-transform duration-200 ease-out hover:scale-[2]" 
              />
            </div>
+        </div>
+      )}
+
+      {/* Quick Ship Modal */}
+      {quickShipItem && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setQuickShipItem(null)}>
+          <div className="bg-white rounded-2xl p-6 max-w-lg w-full flex flex-col shadow-xl border border-brand-border" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-xl font-black text-gray-900 leading-tight">Quick Ship</h3>
+            <p className="font-semibold text-brand-primary mb-6"><span className="text-brand-secondary">Item:</span> {quickShipItem.style}</p>
+            
+            <p className="text-sm text-gray-500 mb-4 font-medium">Select quantities to pack. A new discrete tracking box will automatically generate containing these items.</p>
+            
+            <div className="grid grid-cols-4 sm:grid-cols-5 gap-3 mb-8">
+               {Object.entries(quickShipItem.remainingSizes).sort(([a], [b]) => sortSizes(a, b)).map(([size, maxQty]: [string, any]) => {
+                  if (maxQty === 0) return null;
+                  return (
+                    <div key={size}>
+                       <label className="block text-[10px] font-bold text-center text-brand-secondary mb-1 uppercase tracking-wider">{size} (Max {maxQty})</label>
+                       <input 
+                         type="number"
+                         min="0"
+                         max={maxQty}
+                         value={quickShipSizes[size] === 0 ? '' : quickShipSizes[size]}
+                         onChange={(e) => {
+                            let val = parseInt(e.target.value) || 0;
+                            if (val > maxQty) val = maxQty;
+                            if (val < 0) val = 0;
+                            setQuickShipSizes(prev => ({ ...prev, [size]: val }));
+                         }}
+                         className="w-full bg-white border border-brand-border rounded-lg px-2 py-3 text-sm font-bold text-center focus:border-brand-primary placeholder:text-gray-300 shadow-sm"
+                         placeholder="0"
+                       />
+                    </div>
+                  )
+               })}
+            </div>
+            
+            <div className="flex gap-4 border-t border-brand-border/50 pt-6">
+              <PillButton variant="outline" onClick={() => setQuickShipItem(null)} className="flex-1 justify-center">Cancel</PillButton>
+              <PillButton variant="filled" className="flex-1 justify-center bg-brand-primary text-white" onClick={handleSaveQuickShip}>Submit Shipment</PillButton>
+            </div>
+          </div>
         </div>
       )}
     </div>
