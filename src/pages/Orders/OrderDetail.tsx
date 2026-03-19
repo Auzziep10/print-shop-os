@@ -267,7 +267,7 @@ export function OrderDetail() {
        id: `act-${Date.now()}`,
        type: 'system',
        message: `Created ${nextName} containing ${totalQty} items`,
-       user: 'Team Member',
+       user: user?.displayName || user?.email?.split('@')[0] || 'Team Member',
        timestamp: new Date().toISOString()
      };
 
@@ -301,7 +301,7 @@ export function OrderDetail() {
        id: `act-${Date.now()}`,
        type: 'system',
        message: `${actionWord} size ${size} for ${item.style}`,
-       user: 'Team Member',
+       user: user?.displayName || user?.email?.split('@')[0] || 'Team Member',
        timestamp: new Date().toISOString()
      };
 

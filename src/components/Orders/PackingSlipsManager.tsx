@@ -4,6 +4,7 @@ import { db } from '../../lib/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { PillButton } from '../ui/PillButton';
 import { Plus, Trash2, Box, ExternalLink, Printer, X, ChevronDown } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
 import { tokens } from '../../lib/tokens';
 
 type DraftBox = {
@@ -13,6 +14,7 @@ type DraftBox = {
 };
 
 export function PackingSlipsManager({ order }: { order: any }) {
+  const { user } = useAuth();
   const [isAddingBox, setIsAddingBox] = useState(false);
   const [workingBoxes, setWorkingBoxes] = useState<DraftBox[]>([]);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -142,7 +144,7 @@ export function PackingSlipsManager({ order }: { order: any }) {
          id: `act-${Date.now()}-${b.id}`,
          type: 'system',
          message: `Created ${b.name} containing ${b.items.reduce((sum: number, it: any) => sum + (it.qty||0), 0)} items`,
-         user: 'Team Member',
+         user: user?.displayName || user?.email?.split('@')[0] || 'Team Member',
          timestamp: new Date().toISOString()
       }));
 
@@ -168,7 +170,7 @@ export function PackingSlipsManager({ order }: { order: any }) {
           id: `act-${Date.now()}`,
           type: 'system',
           message: `Deleted shipment box: ${boxToDelete.name}`,
-          user: 'Team Member',
+          user: user?.displayName || user?.email?.split('@')[0] || 'Team Member',
           timestamp: new Date().toISOString()
        }, ...(order.activities || [])];
     }
