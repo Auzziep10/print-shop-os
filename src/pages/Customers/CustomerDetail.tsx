@@ -415,7 +415,7 @@ export function CustomerDetail() {
                {uploadingLogo || fetchingLogo ? (
                  <Loader2 className="animate-spin text-brand-secondary" size={24} />
                ) : customer?.logo ? (
-                 <img src={customer.logo} className="w-full h-full object-cover filter grayscale contrast-125 mix-blend-multiply opacity-80" alt={customer.company} />
+                 <img src={customer.logo} className="w-full h-full object-contain" alt={customer.company} />
                ) : (
                  <Building2 size={40} strokeWidth={1} />
                )}
