@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { X, Search, ShoppingBag, Loader2, Check } from 'lucide-react';
 import { PillButton } from '../ui/PillButton';
 import { db } from '../../lib/firebase';
-import { collection, addDoc, doc, setDoc } from 'firebase/firestore';
+import { collection, addDoc } from 'firebase/firestore';
 
 interface Props {
   isOpen: boolean;
