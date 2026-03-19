@@ -17,7 +17,15 @@ export function PackingSlipsManager({ order }: { order: any }) {
   const [workingBoxes, setWorkingBoxes] = useState<DraftBox[]>([]);
   const [isExpanded, setIsExpanded] = useState(false);
   
-  const SIZE_ORDER = ['XXS', 'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL', 'OSFA'];
+  const sortSizes = (a: string, b: string) => {
+      const orderMap: Record<string, number> = { 'xxs':1, 'xs':2, 's':3, 'm':4, 'l':5, 'xl':6, 'xxl':7, '2xl':7, '3xl':8, '4xl':9, '5xl':10, 'osfa':11, 'os':12 };
+      const aKey = a.split(' ')[0].toLowerCase();
+      const bKey = b.split(' ')[0].toLowerCase();
+      const aVal = orderMap[aKey] || 99;
+      const bVal = orderMap[bKey] || 99;
+      if (aVal !== bVal) return aVal - bVal;
+      return a.localeCompare(b);
+  };
 
   const handleStartAddBox = () => {
     setWorkingBoxes([{ 
@@ -239,7 +247,7 @@ export function PackingSlipsManager({ order }: { order: any }) {
                                    </div>
 
                                    <div className="flex flex-wrap gap-2 flex-1 w-full relative">
-                                     {SIZE_ORDER.map(size => {
+                                     {Object.keys(item.sizes || {}).sort(sortSizes).map(size => {
                                        const orderQty = item.sizes?.[size];
                                        if (!orderQty) return null;
                                        
