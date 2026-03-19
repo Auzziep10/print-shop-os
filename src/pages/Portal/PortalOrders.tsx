@@ -309,8 +309,6 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
                       </div>
                     </div>
                   ))}
-                  </div>
-                  
                   {/* Packing Slips Display inside Portal */}
                   {order.boxes && order.boxes.length > 0 && (
                     <div className="mt-8 border-t border-brand-border pt-6 pb-2">
@@ -339,6 +337,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
                       </div>
                     </div>
                   )}
+                  </div>
                 </div>
               )}
             </div>

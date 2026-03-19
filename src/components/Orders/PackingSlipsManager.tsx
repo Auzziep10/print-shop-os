@@ -103,7 +103,7 @@ export function PackingSlipsManager({ order }: { order: any }) {
        const boxItems = Object.entries(wb.selectedItems)
          .filter(([_, data]: any) => data.totalQty > 0)
          .map(([itemId, data]: any) => {
-            const orderItem = order.items?.find((i: any) => i.id === itemId);
+            const orderItem = order.items?.find((i: any) => String(i.id) === String(itemId));
             return {
                id: itemId,
                style: orderItem?.style || 'Unknown Style',

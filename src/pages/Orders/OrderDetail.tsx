@@ -556,7 +556,7 @@ export function OrderDetail() {
                      
                      {/* Expanded Boxes List - Spans Full Width */}
                      {expandedItems[item.id] && (() => {
-                       const itemBoxes = order.boxes?.filter((b: any) => b.items?.some((bi: any) => bi.id === item.id)) || [];
+                       const itemBoxes = order.boxes?.filter((b: any) => b.items?.some((bi: any) => String(bi.id) === String(item.id))) || [];
                        if (itemBoxes.length === 0) return null;
                        return (
                          <div className="w-full mt-6 pt-6 border-t border-brand-border/40 flex flex-col gap-3">
@@ -578,7 +578,7 @@ export function OrderDetail() {
                                  </div>
                                  
                                  <div className="flex-1 md:border-l border-brand-border md:pl-4 overflow-y-auto custom-scrollbar flex flex-col gap-1 md:pr-4">
-                                    {box.items?.filter((bi: any) => bi.id === item.id).map((bi: any, i: number) => (
+                                    {box.items?.filter((bi: any) => String(bi.id) === String(item.id)).map((bi: any, i: number) => (
                                       <div key={i} className="flex items-center justify-between text-xs py-1">
                                          <span className="font-medium text-brand-primary truncate max-w-[180px]">{bi.style}</span>
                                          <span className="font-bold text-brand-secondary ml-auto mr-2">x{bi.qty}</span>
