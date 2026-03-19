@@ -113,11 +113,11 @@ export function PackingSlipView() {
                   return (
                   <div key={idx} className="bg-white shadow-[0_2px_10px_rgb(0,0,0,0.02)] border border-neutral-100 hover:border-black/10 transition-colors rounded-2xl p-4 sm:p-5 flex gap-3 sm:gap-5 items-center">
                     {fullItem.image ? (
-                       <div className="w-16 h-16 sm:w-20 sm:h-20 shrink-0 rounded-xl bg-neutral-50 border border-neutral-100 flex items-center justify-center p-2">
+                       <div className="w-16 h-16 sm:w-20 sm:h-20 shrink-0 flex items-center justify-center">
                            <img src={fullItem.image} alt={fullItem.style} className="w-full h-full object-contain mix-blend-multiply" />
                        </div>
                     ) : (
-                       <div className="w-16 h-16 sm:w-20 sm:h-20 shrink-0 rounded-xl bg-neutral-50 border border-neutral-100 flex items-center justify-center text-neutral-300">
+                       <div className="w-16 h-16 sm:w-20 sm:h-20 shrink-0 flex items-center justify-center text-neutral-300">
                           <PackageOpen size={28} />
                        </div>
                     )}
