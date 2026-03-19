@@ -118,11 +118,13 @@ export function PackingSlipView() {
 
              {/* Items List */}
              <div className="flex flex-col gap-4">
-                {order.items?.length > 0 ? order.items.map((item: any, idx: number) => (
+                {box.items?.length > 0 ? box.items.map((packedItem: any, idx: number) => {
+                  const fullItem = order.items?.find((i: any) => i.id === packedItem.id) || packedItem;
+                  return (
                   <div key={idx} className="bg-white shadow-[0_2px_10px_rgb(0,0,0,0.02)] border border-neutral-100 hover:border-black/10 transition-colors rounded-2xl p-4 sm:p-5 flex gap-5 items-center">
-                    {item.image ? (
+                    {fullItem.image ? (
                        <div className="w-20 h-20 shrink-0 rounded-xl bg-neutral-50 border border-neutral-100 flex items-center justify-center p-2">
-                           <img src={item.image} alt={item.style} className="w-full h-full object-contain mix-blend-multiply" />
+                           <img src={fullItem.image} alt={fullItem.style} className="w-full h-full object-contain mix-blend-multiply" />
                        </div>
                     ) : (
                        <div className="w-20 h-20 shrink-0 rounded-xl bg-neutral-50 border border-neutral-100 flex items-center justify-center text-neutral-300">
@@ -130,19 +132,19 @@ export function PackingSlipView() {
                        </div>
                     )}
                     <div className="flex-1 min-w-0">
-                      <p className="font-bold text-neutral-900 text-lg sm:text-base pr-4 line-clamp-1">{item.style || 'Custom Garment'}</p>
+                      <p className="font-bold text-neutral-900 text-lg sm:text-base pr-4 line-clamp-1">{fullItem.style || packedItem.style || 'Custom Garment'}</p>
                       <div className="text-xs font-semibold text-neutral-500 mt-1.5 flex flex-wrap gap-x-2 gap-y-1">
-                        <span className="bg-neutral-100 px-2 py-1 rounded-md">{item.gender || 'Unisex'}</span>
-                        {item.color && <span className="bg-neutral-100 px-2 py-1 rounded-md">{item.color}</span>}
-                        {item.itemNum && <span className="bg-neutral-100 px-2 py-1 rounded-md">ID: {item.itemNum}</span>}
+                        <span className="bg-neutral-100 px-2 py-1 rounded-md">{fullItem.gender || 'Unisex'}</span>
+                        {fullItem.color && <span className="bg-neutral-100 px-2 py-1 rounded-md">{fullItem.color}</span>}
+                        {fullItem.itemNum && <span className="bg-neutral-100 px-2 py-1 rounded-md">ID: {fullItem.itemNum}</span>}
                       </div>
                     </div>
                     <div className="text-right shrink-0 pl-4 border-l border-neutral-100">
                        <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-1.5">Qty</p>
-                       <p className="font-black text-2xl text-neutral-900 bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-2 min-w-[3rem] text-center inline-block">{item.qty}</p>
+                       <p className="font-black text-2xl text-neutral-900 bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-2 min-w-[3rem] text-center inline-block">{packedItem.qty}</p>
                     </div>
                   </div>
-                )) : (
+                )}) : (
                   <div className="text-center py-8 bg-neutral-50 rounded-2xl border border-neutral-100">
                       <p className="text-sm font-semibold text-neutral-500">No specific items listed.</p>
                   </div>
