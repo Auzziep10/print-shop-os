@@ -71,7 +71,7 @@ export function PackingSlipView() {
         {/* Header */}
         <div className="flex flex-col items-center text-center mb-6 md:mb-10 gap-2 md:gap-4">
           {cust?.logo && (
-             <img src={cust.logo} alt="Customer Logo" className="h-14 md:h-20 object-contain mix-blend-multiply mb-1 md:mb-2 opacity-90" />
+             <img src={cust.logo} alt="Customer Logo" className="h-20 md:h-24 object-contain mix-blend-multiply mb-1 md:mb-2 opacity-90" />
           )}
           <h1 className="text-3xl md:text-[2.5rem] font-serif text-neutral-900 leading-tight">Packing Slip</h1>
           <p className="text-xs md:text-sm font-semibold text-neutral-500 uppercase tracking-widest bg-white px-4 py-2 md:px-5 md:py-2.5 rounded-full border border-neutral-200 shadow-sm flex items-center gap-2">
