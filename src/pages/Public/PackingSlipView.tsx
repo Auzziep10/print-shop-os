@@ -150,10 +150,13 @@ export function PackingSlipView() {
              </div>
           </div>
           
-          <div className="mt-6 pt-8 text-center border-t border-neutral-100 relative z-10">
-             <div className="inline-flex items-center justify-center bg-black text-white text-xs font-bold uppercase tracking-widest px-6 py-3 rounded-full shadow-lg">
-                 Thank you from {cust?.company || 'us'}!
-             </div>
+          <div className="mt-8 pt-8 text-center border-t border-neutral-100 relative z-10 flex flex-col items-center gap-4">
+             <a href="/" className="inline-flex items-center justify-center bg-black hover:bg-neutral-800 transition-colors text-white text-xs font-bold uppercase tracking-widest px-10 py-4 rounded-full shadow-lg cursor-pointer w-full sm:w-auto">
+                 Login to Portal
+             </a>
+             <p className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">
+               Thank you from {cust?.company || 'us'}!
+             </p>
           </div>
         </div>
       </div>
