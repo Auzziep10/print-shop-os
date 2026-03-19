@@ -9,6 +9,8 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { doc, getDoc, setDoc, addDoc, collection } from 'firebase/firestore';
 import Cropper from 'react-easy-crop';
 import { getCroppedImg } from '../../lib/cropUtils';
+import { ShoppingBag } from 'lucide-react';
+import { ShopifyImportModal } from '../../components/Orders/ShopifyImportModal';
 import { PortalOrders } from '../Portal/PortalOrders';
 import { useOrders } from '../../hooks/useOrders';
 
@@ -36,6 +38,8 @@ export function CustomerDetail() {
   // New Order State
   const [isNewOrderDialogOpen, setIsNewOrderDialogOpen] = useState(false);
   const [isCreatingOrder, setIsCreatingOrder] = useState(false);
+  const [isShopifyMenuOpen, setIsShopifyMenuOpen] = useState(false);
+  const [isShopifyImportOpen, setIsShopifyImportOpen] = useState(false);
   
   const initialToday = new Date();
   const initRawDate = initialToday.toLocaleDateString('en-CA'); // Gets YYYY-MM-DD format elegantly
@@ -524,10 +528,40 @@ export function CustomerDetail() {
                  <h2 className={tokens.typography.h2}>Active Quotes & Orders</h2>
                  <p className="text-sm text-brand-secondary mt-1">Current pipeline and history for this company.</p>
               </div>
-              <PillButton variant="filled" className="gap-2" onClick={() => setIsNewOrderDialogOpen(true)}>
-                <Plus size={16} />
-                New Order
-              </PillButton>
+              <div className="relative">
+                <PillButton variant="filled" className="gap-2" onClick={() => setIsShopifyMenuOpen(!isShopifyMenuOpen)}>
+                  <Plus size={16} />
+                  New Order
+                </PillButton>
+                {isShopifyMenuOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setIsShopifyMenuOpen(false)} />
+                    <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-xl border border-brand-border py-2 z-50 flex flex-col overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                      <button 
+                        className="flex items-center gap-3 px-4 py-3 text-sm font-semibold text-brand-primary hover:bg-neutral-50 transition-colors text-left"
+                        onClick={() => { setIsShopifyMenuOpen(false); setIsNewOrderDialogOpen(true); }}
+                      >
+                        <div className="bg-brand-bg p-1.5 rounded-md text-brand-secondary">
+                          <Plus size={16} />
+                        </div>
+                        Create Blank Order
+                      </button>
+                      <button 
+                        className="flex items-center gap-3 px-4 py-3 text-sm font-semibold text-brand-primary hover:bg-neutral-50 transition-colors border-t border-brand-border/40 text-left"
+                        onClick={() => { setIsShopifyMenuOpen(false); setIsShopifyImportOpen(true); }}
+                      >
+                        <div className="bg-blue-50 text-blue-500 p-1.5 rounded-md border border-blue-100">
+                          <ShoppingBag size={16} />
+                        </div>
+                        <div>
+                          Import from Shopify
+                          <p className="text-[10px] text-brand-secondary">Pull tags into Print Shop OS</p>
+                        </div>
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
            </div>
 
            {/* Injecting the exact visual component the customer sees! */}
@@ -1039,6 +1073,12 @@ export function CustomerDetail() {
           </div>
         </div>
       )}
+      
+      <ShopifyImportModal 
+         isOpen={isShopifyImportOpen}
+         onClose={() => setIsShopifyImportOpen(false)}
+         customerId={id || ''}
+      />
     </div>
   );
 }
