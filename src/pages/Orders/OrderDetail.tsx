@@ -3,7 +3,7 @@ import { tokens } from '../../lib/tokens';
 import { useState, useEffect } from 'react';
 import { PillButton } from '../../components/ui/PillButton';
 import { PackingSlipsManager } from '../../components/Orders/PackingSlipsManager';
-import { ArrowLeft, MessageSquare, Clock, Users, Download, Loader2, X, Edit3, Upload, Trash2, Plus, ChevronDown, Image as ImageIcon, Box, Printer, ExternalLink, ShoppingBag, Search } from 'lucide-react';
+import { ArrowLeft, MessageSquare, Clock, Users, Download, Loader2, X, Edit3, Upload, Trash2, Plus, ChevronDown, Image as ImageIcon, Box, Printer, ExternalLink, ShoppingBag, Search, Check } from 'lucide-react';
 import QRCode from 'react-qr-code';
 import { StatusBadge, type StatusType } from '../../components/ui/StatusBadge';
 import { useAuth } from '../../contexts/AuthContext';
@@ -263,12 +263,52 @@ export function OrderDetail() {
         }]
      };
      
+     const activity = {
+       id: `act-${Date.now()}`,
+       type: 'system',
+       message: `Created ${nextName} containing ${totalQty} items`,
+       user: 'Team Member',
+       timestamp: new Date().toISOString()
+     };
+
      const updatedBoxes = [...liveBoxes, newBox];
-     await setDoc(doc(db, 'orders', id), { boxes: updatedBoxes }, { merge: true });
+     await setDoc(doc(db, 'orders', id), { 
+       boxes: updatedBoxes,
+       activities: [activity, ...(orderDoc.data()?.activities || [])]
+     }, { merge: true });
+     
      setExpandedItems(prev => ({ ...prev, [quickShipItem.id]: true }));
      
      setQuickShipItem(null);
      setQuickShipSizes({});
+  };
+
+  const handleToggleSizeComplete = async (item: any, size: string) => {
+     if (!id || !order) return;
+     const currentCompleted = item.completedSizes || [];
+     const isCurrentlyCompleted = currentCompleted.includes(size);
+     
+     const newCompleted = isCurrentlyCompleted 
+       ? currentCompleted.filter((s: string) => s !== size)
+       : [...currentCompleted, size];
+
+     const updatedItems = order.items.map((i: any) => 
+       i.id === item.id ? { ...i, completedSizes: newCompleted } : i
+     );
+     
+     const actionWord = isCurrentlyCompleted ? 'Unmarked' : 'Completed';
+     const activity = {
+       id: `act-${Date.now()}`,
+       type: 'system',
+       message: `${actionWord} size ${size} for ${item.style}`,
+       user: 'Team Member',
+       timestamp: new Date().toISOString()
+     };
+
+     await setDoc(doc(db, 'orders', id), { 
+       items: updatedItems,
+       activities: [activity, ...(order.activities || [])]
+     }, { merge: true });
   };
 
   const handleMainImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -673,14 +713,30 @@ export function OrderDetail() {
                        <div className="flex flex-wrap lg:flex-nowrap items-end lg:items-center gap-4 shrink-0">
                          {/* Sizing Grid Area */}
                          <div className="flex items-stretch gap-[2px] bg-neutral-200 p-[3px] rounded-xl font-sans shrink-0">
-                           {item.sizes && Object.entries(item.sizes).sort(([a], [b]) => sortSizes(a, b)).map(([size, qty]: [string, any]) => (
-                             <div key={size} className="w-10 text-center flex flex-col">
-                               <div className="bg-neutral-300 text-neutral-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">{size}</div>
-                               <div className={`text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center bg-white ${qty > 0 ? 'text-neutral-800' : 'text-neutral-400'}`}>
+                           {item.sizes && Object.entries(item.sizes).sort(([a], [b]) => sortSizes(a, b)).map(([size, qty]: [string, any]) => {
+                             const isCompleted = item.completedSizes?.includes(size);
+                             return (
+                             <div 
+                               key={size} 
+                               className={`min-w-[44px] px-0.5 group text-center flex flex-col cursor-pointer transition-all relative ${isCompleted ? 'opacity-60 hover:opacity-100' : 'hover:-translate-y-0.5 hover:shadow-sm'}`}
+                               onClick={(e) => { e.stopPropagation(); handleToggleSizeComplete(item, size); }}
+                               title={isCompleted ? "Mark incomplete" : "Click to mark as completed!"}
+                             >
+                               {/* Hover check hint overlay */}
+                               {!isCompleted && (
+                                 <div className="absolute inset-0 bg-brand-primary/5 backdrop-blur-[1px] opacity-0 group-hover:opacity-100 transition-opacity z-10 flex flex-col items-center justify-center rounded-[8px] pointer-events-none">
+                                    <Check size={20} className="text-brand-primary drop-shadow-md" strokeWidth={3} />
+                                 </div>
+                               )}
+
+                               <div className={`text-[10px] font-bold py-1.5 px-2 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center transition-colors relative z-0 ${isCompleted ? 'bg-green-500 text-white' : 'bg-neutral-300 text-neutral-600 group-hover:bg-neutral-400'}`}>
+                                  {isCompleted ? <Check size={12} strokeWidth={4} /> : size}
+                               </div>
+                               <div className={`text-[12px] font-bold py-2 px-2 rounded-b-[8px] h-8 flex items-center justify-center transition-colors relative z-0 ${isCompleted ? 'bg-green-50 text-green-700' : (qty > 0 ? 'bg-white text-neutral-800 group-hover:bg-neutral-50' : 'bg-white text-neutral-400')}`}>
                                  {qty}
                                </div>
                              </div>
-                           ))}
+                           )})}
                          </div>
 
                          {/* Pricing Summary */}

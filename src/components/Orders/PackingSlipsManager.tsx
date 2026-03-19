@@ -138,8 +138,19 @@ export function PackingSlipsManager({ order }: { order: any }) {
     }).filter(b => b.items.length > 0); // only save if they actually added items to it
 
     if (compiledNewBoxes.length > 0) {
+      const newActivities = compiledNewBoxes.map(b => ({
+         id: `act-${Date.now()}-${b.id}`,
+         type: 'system',
+         message: `Created ${b.name} containing ${b.items.reduce((sum: number, it: any) => sum + (it.qty||0), 0)} items`,
+         user: 'Team Member',
+         timestamp: new Date().toISOString()
+      }));
+
       const updatedBoxes = [...(order.boxes || []), ...compiledNewBoxes];
-      await setDoc(doc(db, 'orders', order.id), { boxes: updatedBoxes }, { merge: true });
+      await setDoc(doc(db, 'orders', order.id), { 
+         boxes: updatedBoxes,
+         activities: [...newActivities, ...(order.activities || [])]
+      }, { merge: true });
     }
     
     setIsAddingBox(false);
@@ -148,8 +159,21 @@ export function PackingSlipsManager({ order }: { order: any }) {
 
   const handleDeleteBox = async (boxId: string) => {
     if (!window.confirm("Delete this packing slip/box?")) return;
+    const boxToDelete = (order.boxes || []).find((b: any) => b.id === boxId);
     const updatedBoxes = (order.boxes || []).filter((b: any) => b.id !== boxId);
-    await setDoc(doc(db, 'orders', order.id), { boxes: updatedBoxes }, { merge: true });
+    
+    let dbUpdate: any = { boxes: updatedBoxes };
+    if (boxToDelete) {
+       dbUpdate.activities = [{
+          id: `act-${Date.now()}`,
+          type: 'system',
+          message: `Deleted shipment box: ${boxToDelete.name}`,
+          user: 'Team Member',
+          timestamp: new Date().toISOString()
+       }, ...(order.activities || [])];
+    }
+    
+    await setDoc(doc(db, 'orders', order.id), dbUpdate, { merge: true });
   };
 
   const handlePrintLabel = (boxId: string) => {
