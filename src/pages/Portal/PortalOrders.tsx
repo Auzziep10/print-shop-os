@@ -133,9 +133,11 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
               onClick={() => {
                 if (overrideCustomerId) {
                   navigate(`/orders/${order.id}`);
+                } else {
+                  setExpandedId(isExpanded ? null : order.id);
                 }
               }}
-              className={`flex-1 relative group bg-white border border-brand-border rounded-[2.5rem] p-6 lg:pr-10 transition-all ${overrideCustomerId ? 'cursor-pointer hover:border-black/50 hover:shadow-md' : 'hover:border-black/20'} ${isExpanded ? 'pb-8 shadow-sm' : ''}`}
+              className={`flex-1 relative group bg-white border border-brand-border rounded-[2.5rem] p-6 lg:pr-10 transition-all cursor-pointer ${overrideCustomerId ? 'hover:border-black/50 hover:shadow-md' : 'hover:border-black/20'} ${isExpanded ? 'pb-8 shadow-sm' : ''}`}
             >
               
               {/* Capsule Header Row */}
@@ -255,7 +257,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
                    onClick={(e) => {
                      e.stopPropagation();
                      if (overrideCustomerId) navigate(`/orders/${order.id}`);
-                     else setExpandedId(isExpanded ? null : order.id);
+                     else window.open(`/order-summary/${order.id}`, '_blank');
                    }}
                  >
                    Order Info

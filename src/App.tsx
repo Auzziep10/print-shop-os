@@ -16,6 +16,7 @@ import { SeedData } from './pages/Seed';
 import { Settings } from './pages/Settings/Settings';
 import { WaitingRoom } from './pages/Auth/WaitingRoom';
 import { PackingSlipView } from './pages/Public/PackingSlipView';
+import { OrderSummaryView } from './pages/Public/OrderSummaryView';
 import { PrintLabel } from './pages/Print/PrintLabel';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -48,6 +49,7 @@ function App() {
         <Route path="/seed" element={<SeedData />} />
 
         {/* Public Packing Slip Views */}
+        <Route path="/order-summary/:orderId" element={<OrderSummaryView />} />
         <Route path="/packing-slip/:orderId/:boxId" element={<PackingSlipView />} />
         
         <Route path="/print/label/:orderId/:boxId" element={
