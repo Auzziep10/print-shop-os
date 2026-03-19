@@ -6,76 +6,58 @@ import { PillButton } from '../ui/PillButton';
 import { Plus, Trash2, Box, ExternalLink, Printer, X } from 'lucide-react';
 import { tokens } from '../../lib/tokens';
 
+type DraftBox = {
+  id: string;
+  name: string;
+  selectedItems: any;
+};
+
 export function PackingSlipsManager({ order }: { order: any }) {
   const [isAddingBox, setIsAddingBox] = useState(false);
-  const [newBoxName, setNewBoxName] = useState('');
-  const [selectedItems, setSelectedItems] = useState<any>({});
+  const [workingBoxes, setWorkingBoxes] = useState<DraftBox[]>([]);
   
   const SIZE_ORDER = ['XXS', 'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL', 'OSFA'];
 
   const handleStartAddBox = () => {
-    setNewBoxName('');
-    setSelectedItems({});
+    setWorkingBoxes([{ 
+      id: Date.now().toString(), 
+      name: `Box ${(order.boxes?.length || 0) + 1}`, 
+      selectedItems: {} 
+    }]);
     setIsAddingBox(true);
   };
 
-  const handleSizeQtyChange = (itemId: string, size: string, qty: number) => {
-    setSelectedItems((prev: any) => {
-      const itemData = prev[itemId] || { sizes: {}, totalQty: 0 };
-      const newSizes = { ...itemData.sizes, [size]: qty };
-      const totalQty = Object.values(newSizes).reduce((acc: number, val: any) => acc + (parseInt(val) || 0), 0);
-      return { ...prev, [itemId]: { sizes: newSizes, totalQty } };
-    });
+  const handleAddShipment = () => {
+     let nextName = `Box ${(order.boxes?.length || 0) + workingBoxes.length + 1}`;
+     if (workingBoxes.length > 0) {
+        const last = workingBoxes[workingBoxes.length - 1].name;
+        const match = last.match(/^(.*?)(\d+)$/);
+        if (match) {
+           nextName = `${match[1]}${parseInt(match[2]) + 1}`;
+        }
+     }
+     setWorkingBoxes([...workingBoxes, { 
+       id: Date.now().toString(), 
+       name: nextName, 
+       selectedItems: {} 
+     }]);
   };
 
-  const handleAddBox = async (keepOpen = false) => {
-    if (!newBoxName.trim()) return;
+  const handleSizeQtyChange = (boxIndex: number, itemId: string, size: string, qty: number) => {
+    const newW = [...workingBoxes];
+    const prevItems = newW[boxIndex].selectedItems;
+    const itemData = prevItems[itemId] || { sizes: {}, totalQty: 0 };
+    const newSizes = { ...itemData.sizes, [size]: qty };
+    const totalQty = Object.values(newSizes).reduce((acc: number, val: any) => acc + (parseInt(val) || 0), 0);
     
-    // Map selected items to an array
-    const boxItems = Object.entries(selectedItems)
-      .filter(([_, data]: any) => data.totalQty > 0)
-      .map(([itemId, data]: any) => {
-         const orderItem = order.items?.find((i: any) => i.id === itemId);
-         return {
-            id: itemId,
-            style: orderItem?.style || 'Unknown Style',
-            color: orderItem?.color || '',
-            gender: orderItem?.gender || '',
-            image: orderItem?.image || '',
-            itemNum: orderItem?.itemNum || '',
-            sizes: data.sizes,
-            qty: data.totalQty
-         };
-      });
-
-    const newBox = {
-      id: `box-${Date.now()}`,
-      name: newBoxName,
-      createdAt: new Date().toISOString(),
-      items: boxItems
-    };
-    
-    const updatedBoxes = [...(order.boxes || []), newBox];
-    await setDoc(doc(db, 'orders', order.id), { boxes: updatedBoxes }, { merge: true });
-    
-    if (keepOpen) {
-      // Auto-increment box number
-      const match = newBoxName.match(/^(.*?)(\d+)$/);
-      if (match) {
-        setNewBoxName(`${match[1]}${parseInt(match[2]) + 1}`);
-      } else {
-        setNewBoxName(`${newBoxName} 2`);
-      }
-      setSelectedItems({});
-    } else {
-      setIsAddingBox(false);
-      setNewBoxName('');
-      setSelectedItems({});
-    }
+    newW[boxIndex].selectedItems = { ...prevItems, [itemId]: { sizes: newSizes, totalQty } };
+    setWorkingBoxes(newW);
   };
 
-  const handleFillRemaining = () => {
-    const newSelections = { ...selectedItems };
+  const handleFillRemaining = (boxIndex: number) => {
+    const newW = [...workingBoxes];
+    const newSelections = { ...newW[boxIndex].selectedItems };
+    
     order.items?.forEach((item: any) => {
       if (!newSelections[item.id]) {
         newSelections[item.id] = { sizes: {}, totalQty: 0 };
@@ -83,10 +65,17 @@ export function PackingSlipsManager({ order }: { order: any }) {
       item.sizes && Object.entries(item.sizes).forEach(([size, qty]) => {
         const oQty = qty as number;
         if (oQty > 0) {
-          const packedQty = order.boxes?.reduce((acc: number, box: any) => {
+          // Calculate packed in already saved order.boxes
+          let packedQty = order.boxes?.reduce((acc: number, box: any) => {
             const boxItem = box.items?.find((bi: any) => bi.id === item.id);
             return acc + (boxItem?.sizes?.[size] || 0);
           }, 0) || 0;
+          
+          // Calculate packed in OTHER working boxes currently in the form
+          packedQty += workingBoxes.reduce((acc, wb, wIndex) => {
+             if (wIndex === boxIndex) return acc;
+             return acc + (wb.selectedItems[item.id]?.sizes?.[size] || 0);
+          }, 0);
           
           const remaining = Math.max(0, oQty - packedQty);
           if (remaining > 0) {
@@ -96,7 +85,51 @@ export function PackingSlipsManager({ order }: { order: any }) {
       });
       newSelections[item.id].totalQty = Object.values(newSelections[item.id].sizes).reduce((a:number, b:any) => a + (parseInt(b)||0), 0);
     });
-    setSelectedItems(newSelections);
+    
+    newW[boxIndex].selectedItems = newSelections;
+    setWorkingBoxes(newW);
+  };
+
+  const handleSaveAllBoxes = async () => {
+    // Only save boxes that have a name and at least some items
+    const validNewBoxes = workingBoxes.filter(wb => wb.name.trim() !== "");
+    if (validNewBoxes.length === 0) {
+      setIsAddingBox(false);
+      return;
+    }
+
+    const compiledNewBoxes = validNewBoxes.map(wb => {
+       const boxItems = Object.entries(wb.selectedItems)
+         .filter(([_, data]: any) => data.totalQty > 0)
+         .map(([itemId, data]: any) => {
+            const orderItem = order.items?.find((i: any) => i.id === itemId);
+            return {
+               id: itemId,
+               style: orderItem?.style || 'Unknown Style',
+               color: orderItem?.color || '',
+               gender: orderItem?.gender || '',
+               image: orderItem?.image || '',
+               itemNum: orderItem?.itemNum || '',
+               sizes: data.sizes,
+               qty: data.totalQty
+            };
+         });
+
+       return {
+         id: `box-${wb.id}`, // using our temp ID combined with prefix
+         name: wb.name,
+         createdAt: new Date().toISOString(),
+         items: boxItems
+       };
+    }).filter(b => b.items.length > 0); // only save if they actually added items to it
+
+    if (compiledNewBoxes.length > 0) {
+      const updatedBoxes = [...(order.boxes || []), ...compiledNewBoxes];
+      await setDoc(doc(db, 'orders', order.id), { boxes: updatedBoxes }, { merge: true });
+    }
+    
+    setIsAddingBox(false);
+    setWorkingBoxes([]);
   };
 
   const handleDeleteBox = async (boxId: string) => {
@@ -116,100 +149,143 @@ export function PackingSlipsManager({ order }: { order: any }) {
       <div className="flex justify-between items-center mb-6 pb-2 border-b border-brand-border">
         <h2 className={tokens.typography.h2}>Packing Slips & Labels</h2>
         <PillButton variant="outline" onClick={handleStartAddBox} className="gap-2 shrink-0 px-4 py-2 text-xs">
-          <Plus size={14} /> Create Box / Slip
+          <Plus size={14} /> Create Shipment
         </PillButton>
       </div>
 
       {isAddingBox && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-6 overflow-y-auto">
-          <div className="bg-white max-w-3xl w-full rounded-2xl overflow-hidden shadow-2xl flex flex-col border border-brand-border my-auto max-h-[90vh]">
+          <div className="bg-white max-w-4xl w-full rounded-2xl overflow-hidden shadow-2xl flex flex-col border border-brand-border my-auto max-h-[90vh]">
             <div className="p-6 border-b border-brand-border flex justify-between items-center bg-brand-bg">
-              <h3 className="font-serif text-2xl text-brand-primary">Build New Packing Slip</h3>
+              <h3 className="font-serif text-2xl text-brand-primary">Build Packing Slips</h3>
               <button onClick={() => setIsAddingBox(false)} className="text-brand-secondary hover:text-brand-primary p-1">
                 <X size={20} />
               </button>
             </div>
             
-            <div className="p-6 overflow-y-auto flex-1 flex flex-col gap-8">
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Box / Slip Reference Name</label>
-                <input 
-                  type="text" 
-                  placeholder="e.g. Box 1" 
-                  value={newBoxName}
-                  onChange={(e) => setNewBoxName(e.target.value)}
-                  className="w-full bg-white border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary outline-none transition-colors"
-                />
-              </div>
-
-              <div>
-                <div className="flex justify-between items-center mb-4">
-                  <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary">Select Items for this Box</label>
-                  <button onClick={handleFillRemaining} className="text-[10px] uppercase font-bold tracking-widest bg-brand-primary text-white py-1 px-3 rounded-full hover:bg-black transition-colors">
-                    Auto-Fill Remaining
-                  </button>
+            <div className="p-6 overflow-y-auto flex-1 flex flex-col gap-6 custom-scrollbar">
+              
+              {/* Existing Boxes Context */}
+              {(order.boxes?.length > 0) && (
+                <div className="bg-neutral-50 border border-brand-border rounded-xl p-5 mb-2">
+                   <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-4">Already Built Shipments</label>
+                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                     {order.boxes.map((b: any) => (
+                       <div key={b.id} className="bg-white border border-brand-border/60 rounded-lg p-3 flex justify-between items-center shadow-sm">
+                          <span className="font-bold text-sm text-brand-primary truncate mr-4">{b.name}</span>
+                          <span className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary shrink-0 bg-neutral-100 px-2 py-1 rounded-md">
+                             {b.items?.reduce((acc: number, item: any) => acc + (item.qty || 0), 0) || 0} ITEMS
+                          </span>
+                       </div>
+                     ))}
+                   </div>
                 </div>
-                {order.items?.length > 0 ? (
-                  <div className="flex flex-col gap-6">
-                    {order.items.map((item: any) => {
-                       const itemSizes = item.sizes ? Object.entries(item.sizes).filter(([_, qty]) => (qty as number) > 0) : [];
-                       if (itemSizes.length === 0) return null; // Skip items with no quantities
+              )}
 
-                       // Calculate total available vs packed (if we tracked packed outside context, but for now we just show order total)
-                       return (
-                         <div key={item.id} className="border border-brand-border rounded-xl p-5 bg-brand-bg/30">
-                           <div className="flex items-center gap-4 mb-4 pb-4 border-b border-brand-border">
-                             {item.image ? (
-                               <img src={item.image} alt={item.style} className="w-12 h-12 rounded-lg bg-white border border-brand-border object-contain p-1" />
-                             ) : <div className="w-12 h-12 rounded-lg bg-neutral-100 flex items-center justify-center"><Box size={20} className="text-neutral-400" /></div>}
-                             <div>
-                               <p className="font-bold text-sm text-brand-primary">{item.style}</p>
-                               <p className="text-xs text-brand-secondary">{item.color} • {item.gender}</p>
-                             </div>
-                             <div className="ml-auto text-right">
-                               <p className="text-[10px] uppercase font-bold text-brand-secondary">Box Total</p>
-                               <p className="text-lg font-bold">{(selectedItems[item.id]?.totalQty) || 0}</p>
-                             </div>
-                           </div>
+              {/* Working Boxes Loop */}
+              <div>
+                 {workingBoxes.map((wBox, bIndex) => (
+                   <div key={wBox.id} className="border-2 border-brand-border bg-white rounded-2xl p-6 mb-8 relative">
+                     {/* Box Header */}
+                     <div className="flex justify-between items-start mb-6 border-b border-brand-border pb-6">
+                        <div className="flex-1 max-w-sm">
+                           <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-2">Box / Slip Reference Name</label>
+                           <input 
+                             type="text" 
+                             placeholder="e.g. Box 1" 
+                             value={wBox.name}
+                             onChange={(e) => {
+                                const newW = [...workingBoxes];
+                                newW[bIndex].name = e.target.value;
+                                setWorkingBoxes(newW);
+                             }}
+                             className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:bg-white outline-none transition-colors font-bold"
+                           />
+                        </div>
+                        {workingBoxes.length > 1 && (
+                           <button onClick={() => {
+                              setWorkingBoxes(workingBoxes.filter(x => x.id !== wBox.id));
+                           }} className="text-red-400 p-2 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors ml-4" title="Remove Shipment">
+                              <Trash2 size={20} />
+                           </button>
+                        )}
+                     </div>
 
-                           <div className="flex flex-wrap gap-4">
-                             {SIZE_ORDER.map(size => {
-                               const orderQty = item.sizes?.[size];
-                               if (!orderQty) return null;
-                               
-                               const selectedQty = selectedItems[item.id]?.sizes?.[size] || 0;
-                               
+                     {/* Item Selector */}
+                     <div>
+                        <div className="flex justify-between items-center mb-4">
+                          <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary">Select Items for {wBox.name || 'this Box'}</label>
+                          <button onClick={() => handleFillRemaining(bIndex)} className="text-[10px] uppercase font-bold tracking-widest bg-brand-primary text-white py-1.5 px-4 rounded-full hover:bg-black transition-colors shadow-sm">
+                            Auto-Fill Remaining
+                          </button>
+                        </div>
+                        {order.items?.length > 0 ? (
+                          <div className="flex flex-col gap-4">
+                            {order.items.map((item: any) => {
+                               const itemSizes = item.sizes ? Object.entries(item.sizes).filter(([_, qty]) => (qty as number) > 0) : [];
+                               if (itemSizes.length === 0) return null;
+
                                return (
-                                 <div key={size} className="flex flex-col w-20">
-                                   <label className="text-[10px] font-bold text-brand-secondary text-center mb-1 bg-brand-border/30 rounded-t-md py-1">{size} (Max {orderQty})</label>
-                                   <input 
-                                     type="number" 
-                                     min="0" 
-                                     max={orderQty}
-                                     value={selectedQty || ''}
-                                     placeholder="0"
-                                     onChange={(e) => handleSizeQtyChange(item.id, size, parseInt(e.target.value) || 0)}
-                                     className="w-full bg-white border border-brand-border rounded-b-md px-2 py-2 text-center focus:border-brand-primary outline-none"
-                                   />
+                                 <div key={item.id} className="border border-brand-border rounded-xl p-4 bg-brand-bg/30 flex flex-col md:flex-row gap-4 items-start md:items-center">
+                                   <div className="flex items-center gap-4 min-w-[200px]">
+                                     {item.image ? (
+                                       <img src={item.image} alt={item.style} className="w-10 h-10 rounded-lg bg-white border border-brand-border object-contain p-0.5 shrink-0" />
+                                     ) : <div className="w-10 h-10 rounded-lg bg-neutral-100 flex items-center justify-center shrink-0"><Box size={16} className="text-neutral-400" /></div>}
+                                     <div>
+                                       <p className="font-bold text-sm text-brand-primary leading-tight">{item.style}</p>
+                                       <p className="text-[10px] text-brand-secondary mt-0.5">{item.color}</p>
+                                     </div>
+                                   </div>
+
+                                   <div className="flex flex-wrap gap-2 flex-1 w-full relative">
+                                     {SIZE_ORDER.map(size => {
+                                       const orderQty = item.sizes?.[size];
+                                       if (!orderQty) return null;
+                                       
+                                       const selectedQty = wBox.selectedItems[item.id]?.sizes?.[size] || 0;
+                                       
+                                       return (
+                                         <div key={size} className="flex flex-col w-[60px]">
+                                           <label className="text-[9px] font-bold text-brand-secondary text-center mb-1 bg-brand-border/30 rounded-t-sm py-0.5">{size}</label>
+                                           <input 
+                                             type="number" 
+                                             min="0" 
+                                             max={orderQty}
+                                             value={selectedQty || ''}
+                                             placeholder="0"
+                                             onChange={(e) => handleSizeQtyChange(bIndex, item.id, size, parseInt(e.target.value) || 0)}
+                                             className="w-full bg-white border border-brand-border rounded-b-sm px-1 py-1.5 text-center text-xs focus:border-brand-primary outline-none"
+                                           />
+                                         </div>
+                                       );
+                                     })}
+                                   </div>
+
+                                   <div className="md:ml-auto text-right md:border-l border-brand-border md:pl-4 min-w-[60px]">
+                                     <p className="text-[9px] uppercase font-bold text-brand-secondary">Total</p>
+                                     <p className="text-lg font-black text-brand-primary leading-none mt-1">{(wBox.selectedItems[item.id]?.totalQty) || 0}</p>
+                                   </div>
                                  </div>
                                );
-                             })}
-                           </div>
-                         </div>
-                       );
-                    })}
-                  </div>
-                ) : (
-                  <p className="text-sm text-brand-secondary">No items in this order to pack.</p>
-                )}
+                            })}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-brand-secondary">No items in this order to pack.</p>
+                        )}
+                     </div>
+                   </div>
+                 ))}
+                 
+                 <PillButton variant="outline" onClick={handleAddShipment} className="w-full py-5 border-dashed border-2 bg-transparent text-brand-secondary hover:text-brand-primary hover:border-brand-primary justify-center font-bold">
+                    <Plus size={18} className="mr-2" /> Add Another Shipment
+                 </PillButton>
               </div>
             </div>
 
-            <div className="p-4 bg-brand-bg border-t border-brand-border flex gap-4">
-              <PillButton variant="outline" onClick={() => setIsAddingBox(false)} className="px-6 py-3">Cancel</PillButton>
+            <div className="p-5 bg-brand-bg border-t border-brand-border flex gap-4 mt-auto">
+              <PillButton variant="outline" onClick={() => setIsAddingBox(false)} className="px-8 py-3 bg-white">Cancel</PillButton>
               <div className="flex gap-2 ml-auto">
-                <PillButton variant="outline" onClick={() => handleAddBox(true)} className="px-6 py-3 bg-white" disabled={!newBoxName.trim()}>Save & Add Another</PillButton>
-                <PillButton variant="filled" onClick={() => handleAddBox(false)} className="px-6 py-3 w-40 justify-center" disabled={!newBoxName.trim()}>Save & Close</PillButton>
+                <PillButton variant="filled" onClick={handleSaveAllBoxes} className="px-8 py-3 justify-center min-w-[200px]">Save & Close All</PillButton>
               </div>
             </div>
           </div>
@@ -228,7 +304,6 @@ export function PackingSlipsManager({ order }: { order: any }) {
              const publicUrl = `${baseUrl}/packing-slip/${order.id}/${box.id}`;
              return (
                <div key={box.id} className="bg-white rounded-card border border-brand-border shadow-sm flex flex-col hover:border-brand-primary/20 transition-colors">
-                 {/* Internal items display logic below */}
                  <div className="p-5 border-b border-brand-border flex justify-between items-start">
                    <div className="flex items-center gap-4">
                      <div className="w-12 h-12 bg-neutral-100 rounded-xl flex items-center justify-center text-brand-primary">
@@ -247,7 +322,6 @@ export function PackingSlipsManager({ order }: { order: any }) {
                  </div>
                  
                  <div className="p-5 flex-1 flex flex-col gap-5">
-                   {/* Preview Items */}
                    <div className="flex flex-col gap-2 max-h-32 overflow-y-auto pr-2 custom-scrollbar border border-transparent">
                       {box.items?.map((item: any, i: number) => (
                         <div key={i} className="flex items-center justify-between text-sm py-1 border-b border-brand-border/30 last:border-0">
@@ -260,7 +334,6 @@ export function PackingSlipsManager({ order }: { order: any }) {
                       )}
                    </div>
                    
-                   {/* QR Code Segment */}
                    <div className="flex gap-4 p-4 bg-brand-bg/50 rounded-xl border border-brand-border items-center mt-auto">
                      <div className="bg-white p-2 border border-brand-border rounded-lg shrink-0 shadow-sm cursor-pointer hover:border-black transition-colors" title="Scan to test" onClick={() => window.open(publicUrl, '_blank')}>
                        <QRCode value={publicUrl} size={50} />
