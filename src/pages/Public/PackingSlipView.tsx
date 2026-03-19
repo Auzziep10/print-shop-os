@@ -154,9 +154,7 @@ export function PackingSlipView() {
              <a href="/" className="inline-flex items-center justify-center bg-black hover:bg-neutral-800 transition-colors text-white text-xs font-bold uppercase tracking-widest px-10 py-4 rounded-full shadow-lg cursor-pointer w-full sm:w-auto">
                  Login to Portal
              </a>
-             <p className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">
-               Thank you from {cust?.company || 'us'}!
-             </p>
+             <img src="/logo.png" alt="WOVN" className="h-6 object-contain opacity-40 mt-2" />
           </div>
         </div>
       </div>
