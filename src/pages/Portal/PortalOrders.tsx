@@ -281,21 +281,25 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
                   
                   {/* Packing Slips Display inside Portal */}
                   {order.boxes && order.boxes.length > 0 && (
-                    <div className="mt-8 border-t border-brand-border pt-6">
+                    <div className="mt-8 border-t border-brand-border pt-6 pb-2">
                       <h3 className="font-serif text-xl text-gray-900 mb-6 flex items-center gap-2"><PackageOpen size={20} /> Customer Shipments / Packing Slips</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      <div className="flex flex-col gap-3">
                         {order.boxes.map((box: any) => {
                            const publicUrl = `${window.location.origin}/packing-slip/${order.id}/${box.id}`;
                            const totalItems = box.items?.reduce((acc: number, item: any) => acc + (item.qty || 0), 0) || 0;
                            return (
-                             <div key={box.id} className="bg-white rounded-3xl p-5 border border-brand-border flex gap-5 items-center hover:border-black/20 transition-colors hover:shadow-sm cursor-pointer" onClick={(e) => { e.stopPropagation(); window.open(publicUrl, '_blank'); }}>
-                               <div className="w-16 h-16 bg-brand-bg rounded-xl border border-brand-border p-2 shrink-0">
+                             <div key={box.id} className="bg-white rounded-2xl p-4 border border-brand-border flex flex-col sm:flex-row gap-5 items-center hover:border-black/20 hover:bg-neutral-50/30 transition-colors hover:shadow-sm cursor-pointer" onClick={(e) => { e.stopPropagation(); window.open(publicUrl, '_blank'); }}>
+                               <div className="w-14 h-14 bg-white rounded-xl border border-brand-border p-1.5 shrink-0 shadow-sm flex items-center justify-center">
                                  <QRCode value={publicUrl} size={100} style={{ height: "auto", maxWidth: "100%", width: "100%" }} />
                                </div>
-                               <div>
-                                 <h4 className="font-bold text-gray-900">{box.name}</h4>
-                                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mt-1">{totalItems} Garments</p>
-                                 <div className="text-[10px] text-brand-primary font-bold uppercase mt-2 tracking-widest bg-brand-bg px-2 py-0.5 rounded inline-block">View Slip</div>
+                               <div className="flex-1 flex flex-col sm:flex-row sm:items-center justify-between gap-4 w-full">
+                                 <div>
+                                   <h4 className="font-bold text-gray-900 text-[15px]">{box.name}</h4>
+                                   <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mt-1">{totalItems} Garments inside</p>
+                                 </div>
+                                 <div className="text-[10px] text-brand-primary font-bold uppercase tracking-widest bg-white shadow-sm border border-brand-border px-4 py-2.5 rounded-full inline-block shrink-0 mt-2 sm:mt-0 hover:bg-neutral-50 transition-colors">
+                                    View Slip →
+                                 </div>
                                </div>
                              </div>
                            );
