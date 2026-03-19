@@ -671,10 +671,10 @@ export function OrderDetail() {
                                             e.stopPropagation();
                                             setExpandedItems(prev => ({ ...prev, [item.id]: !prev[item.id] }));
                                           }}
-                                          className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-brand-secondary hover:text-brand-primary transition-colors w-max"
+                                          className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest transition-all px-2.5 py-1.5 rounded-full border border-brand-border ${expandedItems[item.id] ? 'bg-neutral-100 text-brand-primary shadow-inner border-brand-border/80' : 'bg-white text-brand-secondary hover:border-brand-primary hover:text-brand-primary shadow-sm hover:shadow-md hover:-translate-y-[1px]'}`}
                                         >
-                                          <ChevronDown size={12} className={`transition-transform duration-300 ${expandedItems[item.id] ? 'rotate-180' : ''}`} />
-                                          {itemBoxes.length} Shipments
+                                          <ChevronDown size={12} strokeWidth={3} className={`transition-transform duration-300 ${expandedItems[item.id] ? 'rotate-180 text-brand-primary' : ''}`} />
+                                          {itemBoxes.length} {itemBoxes.length === 1 ? 'Shipment' : 'Shipments'}
                                         </button>
                                       )}
                                       <button 
@@ -682,10 +682,10 @@ export function OrderDetail() {
                                            e.stopPropagation();
                                            handleStartQuickShip(item);
                                         }}
-                                        className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-brand-primary hover:text-black transition-colors w-max"
+                                        className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-brand-primary hover:text-white transition-all bg-brand-primary/5 hover:bg-brand-primary px-2.5 py-1.5 rounded-full border border-brand-primary/30 hover:border-brand-primary hover:shadow-md hover:-translate-y-[1px] shrink-0"
                                         title="Quick pack remaining quantities into a shipment"
                                       >
-                                        <Plus size={12} /> Add Shipment
+                                        <Plus size={12} strokeWidth={3} /> Add Shipment
                                       </button>
                                     </div>
                                   );
