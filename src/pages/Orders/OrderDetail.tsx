@@ -448,7 +448,7 @@ export function OrderDetail() {
             </div>
             <div className="bg-white rounded-card border border-brand-border overflow-hidden">
                {order.items?.length > 0 ? order.items.map((item: any) => (
-                 <div key={item.id} className="p-6 border-b border-brand-border/50 flex gap-6 items-start hover:bg-brand-bg transition-colors last:border-0">
+                 <div key={item.id} className="p-6 border-b border-brand-border/50 flex flex-col gap-6 items-start hover:bg-brand-bg transition-colors last:border-0">
                     <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 w-full relative group">
                        
                        {/* Edit Button */}
