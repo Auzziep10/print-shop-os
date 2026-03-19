@@ -313,55 +313,62 @@ export function PackingSlipsManager({ order }: { order: any }) {
           <p className="text-sm max-w-sm mx-auto">Create a box, choose the garments that go inside, and generate a printable thermal QR label.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 mt-4">
+        <div className="flex flex-col gap-4 mt-4">
           {order.boxes.map((box: any) => {
              const publicUrl = `${baseUrl}/packing-slip/${order.id}/${box.id}`;
              return (
-               <div key={box.id} className="bg-white rounded-card border border-brand-border shadow-sm flex flex-col hover:border-brand-primary/20 transition-colors">
-                 <div className="p-5 border-b border-brand-border flex justify-between items-start">
-                   <div className="flex items-center gap-4">
-                     <div className="w-12 h-12 bg-neutral-100 rounded-xl flex items-center justify-center text-brand-primary">
-                       <Box size={24} />
-                     </div>
-                     <div>
-                       <h3 className="font-bold text-lg text-brand-primary">{box.name}</h3>
-                       <p className="text-xs text-brand-secondary font-medium tracking-wide">
-                         {box.items?.reduce((acc: number, item: any) => acc + (item.qty || 0), 0) || 0} ITEMS TOTAL
-                       </p>
-                     </div>
+               <div key={box.id} className="bg-white rounded-card border border-brand-border shadow-sm flex flex-col md:flex-row p-5 gap-6 md:items-center hover:border-brand-primary/20 transition-colors">
+                 
+                 {/* Left: Box Info */}
+                 <div className="flex items-center gap-4 md:min-w-[220px]">
+                   <div className="w-12 h-12 bg-neutral-100 rounded-xl flex items-center justify-center text-brand-primary shrink-0">
+                     <Box size={24} />
                    </div>
-                   <button onClick={() => handleDeleteBox(box.id)} className="text-red-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors p-2" title="Delete Box">
-                     <Trash2 size={18} />
-                   </button>
+                   <div>
+                     <h3 className="font-bold text-lg text-brand-primary">{box.name}</h3>
+                     <p className="text-xs text-brand-secondary font-medium tracking-wide">
+                       {box.items?.reduce((acc: number, item: any) => acc + (item.qty || 0), 0) || 0} ITEMS TOTAL
+                     </p>
+                   </div>
                  </div>
                  
-                 <div className="p-5 flex-1 flex flex-col gap-5">
-                   <div className="flex flex-col gap-2 max-h-32 overflow-y-auto pr-2 custom-scrollbar border border-transparent">
-                      {box.items?.map((item: any, i: number) => (
-                        <div key={i} className="flex items-center justify-between text-sm py-1 border-b border-brand-border/30 last:border-0">
-                           <span className="font-medium text-brand-primary truncate max-w-[150px]" title={item.style}>{item.style}</span>
-                           <span className="font-bold text-brand-secondary text-xs mr-2 ml-auto">x{item.qty}</span>
-                        </div>
-                      ))}
-                      {(!box.items || box.items.length === 0) && (
-                        <p className="text-xs italic text-brand-secondary">No items selected.</p>
-                      )}
+                 {/* Middle: Items List */}
+                 <div className="flex-1 md:border-l border-brand-border md:pl-6 max-h-[80px] overflow-y-auto custom-scrollbar flex flex-col gap-1.5 md:pr-4">
+                    {box.items?.map((item: any, i: number) => (
+                      <div key={i} className="flex items-center justify-between text-sm py-1 border-b border-brand-border/30 last:border-0">
+                         <span className="font-medium text-brand-primary truncate max-w-[200px]" title={item.style}>{item.style}</span>
+                         <span className="font-bold text-brand-secondary text-xs mr-2 ml-auto">x{item.qty}</span>
+                      </div>
+                    ))}
+                    {(!box.items || box.items.length === 0) && (
+                      <p className="text-xs italic text-brand-secondary">No items selected.</p>
+                    )}
+                 </div>
+                 
+                 {/* Right: Actions */}
+                 <div className="flex items-center gap-4 md:border-l border-brand-border md:pl-6 shrink-0 mt-4 md:mt-0 pt-4 md:pt-0 border-t md:border-t-0 border-brand-border">
+                   <div 
+                     className="bg-white p-2 border border-brand-border rounded-lg shadow-sm cursor-pointer hover:border-black transition-colors" 
+                     title="Scan to test" 
+                     onClick={() => window.open(publicUrl, '_blank')}
+                   >
+                     <QRCode value={publicUrl} size={48} />
                    </div>
-                   
-                   <div className="flex gap-4 p-4 bg-brand-bg/50 rounded-xl border border-brand-border items-center mt-auto">
-                     <div className="bg-white p-2 border border-brand-border rounded-lg shrink-0 shadow-sm cursor-pointer hover:border-black transition-colors" title="Scan to test" onClick={() => window.open(publicUrl, '_blank')}>
-                       <QRCode value={publicUrl} size={50} />
-                     </div>
-                     <div className="flex flex-col gap-1.5 flex-1">
-                       <a href={publicUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-brand-primary hover:text-black transition-colors tooltip">
-                         <ExternalLink size={12} /> Public URL
-                       </a>
-                       <PillButton variant="outline" className="w-full justify-center text-xs py-1.5 mt-1 gap-1.5 bg-white border-brand-border shadow-sm border" onClick={() => handlePrintLabel(box.id)}>
-                         <Printer size={14} /> Print Thermal Label
-                       </PillButton>
-                     </div>
+                   <div className="flex flex-col gap-2 min-w-[140px]">
+                     <PillButton variant="outline" className="justify-center text-xs py-1.5 px-3 bg-white border-brand-border shadow-sm border w-full" onClick={() => handlePrintLabel(box.id)}>
+                       <Printer size={14} className="mr-1.5" /> Print Label
+                     </PillButton>
+                     <a href={publicUrl} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-brand-primary hover:text-black transition-colors tooltip w-full text-center">
+                       <ExternalLink size={12} /> Public URL
+                     </a>
                    </div>
                  </div>
+
+                 {/* Delete Button */}
+                 <button onClick={() => handleDeleteBox(box.id)} className="text-red-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors p-2 shrink-0 md:self-start absolute md:relative top-4 right-4 md:top-auto md:right-auto" title="Delete Box">
+                   <Trash2 size={18} />
+                 </button>
+
                </div>
              );
           })}
