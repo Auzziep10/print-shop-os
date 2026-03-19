@@ -27,27 +27,32 @@ export function PackingSlipsManager({ order }: { order: any }) {
       return a.localeCompare(b);
   };
 
+  const getNextAvailableBoxName = () => {
+     let maxBase = 0;
+     const allBoxes = [...(order.boxes || []), ...workingBoxes];
+     allBoxes.forEach((b: any) => {
+        const match = b.name.match(/Box (\d+)/i);
+        if (match) {
+           const num = parseInt(match[1]);
+           if (num > maxBase) maxBase = num;
+        }
+     });
+     return `Box ${maxBase + 1}`;
+  };
+
   const handleStartAddBox = () => {
     setWorkingBoxes([{ 
       id: Date.now().toString(), 
-      name: `Box ${(order.boxes?.length || 0) + 1}`, 
+      name: getNextAvailableBoxName(), 
       selectedItems: {} 
     }]);
     setIsAddingBox(true);
   };
 
   const handleAddShipment = () => {
-     let nextName = `Box ${(order.boxes?.length || 0) + workingBoxes.length + 1}`;
-     if (workingBoxes.length > 0) {
-        const last = workingBoxes[workingBoxes.length - 1].name;
-        const match = last.match(/^(.*?)(\d+)$/);
-        if (match) {
-           nextName = `${match[1]}${parseInt(match[2]) + 1}`;
-        }
-     }
      setWorkingBoxes([...workingBoxes, { 
        id: Date.now().toString(), 
-       name: nextName, 
+       name: getNextAvailableBoxName(), 
        selectedItems: {} 
      }]);
   };

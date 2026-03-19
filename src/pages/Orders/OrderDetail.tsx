@@ -220,8 +220,12 @@ export function OrderDetail() {
 
      const totalQty = Object.values(remainingSizes).reduce((acc: number, val: any) => acc + (parseInt(val) || 0), 0);
 
-     let nextName = `Box ${(order.boxes?.length || 0) + 1}`;
-     const boxIds = order.boxes?.map((b:any) => parseInt(b.name.replace('Box ', ''))).filter((n:number)=>!isNaN(n)) || [];
+     // Fetch live boxes directly to prevent rapid-click overlaps before state can update
+     const orderDoc = await getDoc(doc(db, 'orders', id));
+     const liveBoxes = orderDoc.data()?.boxes || [];
+
+     let nextName = `Box ${(liveBoxes.length || 0) + 1}`;
+     const boxIds = liveBoxes.map((b:any) => parseInt(b.name.replace('Box ', ''))).filter((n:number)=>!isNaN(n)) || [];
      if(boxIds.length > 0) nextName = `Box ${Math.max(...boxIds) + 1}`;
 
      const newBox = {
@@ -240,7 +244,7 @@ export function OrderDetail() {
         }]
      };
      
-     const updatedBoxes = [...(order.boxes || []), newBox];
+     const updatedBoxes = [...liveBoxes, newBox];
      await setDoc(doc(db, 'orders', id), { boxes: updatedBoxes }, { merge: true });
      setExpandedItems(prev => ({ ...prev, [item.id]: true }));
   };

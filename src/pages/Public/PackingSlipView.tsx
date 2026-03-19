@@ -2,8 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { db } from '../../lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
-import { getTrackingLink } from '../../lib/utils';
-import { Loader2, PackageSearch, PackageOpen, CheckCircle2, ExternalLink, Printer } from 'lucide-react';
+import { Loader2, PackageSearch, PackageOpen, CheckCircle2 } from 'lucide-react';
 import { MOCK_CUSTOMERS_DB } from '../../lib/mockData';
 
 const sortSizes = (a: string, b: string) => {
