@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ChevronRight, Loader2, PackageOpen, Building2, X, Trash2 } from 'lucide-react';
+import { ChevronRight, Loader2, PackageOpen, Building2, X, Trash2, ChevronDown, Box, Printer, ExternalLink } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useOrders } from '../../hooks/useOrders';
 import { MOCK_CUSTOMERS_DB } from '../../lib/mockData';
@@ -40,6 +40,8 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
 
   const [liveLogo, setLiveLogo] = useState<string | null>(null);
   const [fetchingLogo, setFetchingLogo] = useState<boolean>(true);
+  const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
+  const [expandedOrderShipments, setExpandedOrderShipments] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     const fetchCustomer = async () => {
@@ -266,10 +268,10 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
                 <div className={`grid transition-all duration-500 ease-in-out ${isExpanded ? 'grid-rows-[1fr] opacity-100 mt-14' : 'grid-rows-[0fr] opacity-0 mt-0 pointer-events-none'}`}>
                   <div className="overflow-hidden space-y-4">
                     {order.items.map((item: any) => (
-                    <div key={item.id} className="bg-white rounded-3xl p-4 px-6 flex flex-col xl:flex-row xl:items-center justify-between gap-6 shadow-[0_4px_12px_rgb(0,0,0,0.02)]">
-                      
-                      {/* Left Side: Visual & Specs */}
-                      <div className={`flex flex-col lg:flex-row lg:items-center gap-4 flex-1 min-w-0 ${hideHeader ? 'pr-2' : ''}`}>
+                    <div key={item.id} className="flex flex-col gap-0 border-b border-brand-border/40 last:border-b-0 pb-6 mb-4">
+                      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                       {/* Left Side: Visual & Specs */}
+                       <div className={`flex flex-col lg:flex-row lg:items-center gap-4 flex-1 min-w-0 ${hideHeader ? 'pr-2' : ''}`}>
                         {/* Product Visual */}
                         <div className="flex items-center gap-4 w-[160px] shrink-0">
                           <div 
@@ -285,6 +287,25 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
                                 {item.gender !== 'Unisex' ? `${item.gender} ` : ''} 
                                 {item.color ? `- ${item.color}` : ''}
                              </p>
+                             
+                             {(() => {
+                               const itemBoxes = order.boxes?.filter((b: any) => b.items?.some((bi: any) => String(bi.id) === String(item.id))) || [];
+                               if (itemBoxes.length === 0) return null;
+                               return (
+                                 <div className="flex items-center gap-2.5 mt-3">
+                                   <button 
+                                     onClick={(e) => {
+                                       e.stopPropagation();
+                                       setExpandedItems(prev => ({ ...prev, [item.id]: !prev[item.id] }));
+                                     }}
+                                     className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest transition-all px-3 py-1.5 rounded-full border shrink-0 whitespace-nowrap ${expandedItems[item.id] ? 'bg-neutral-100 text-gray-900 shadow-inner border-neutral-300' : 'bg-white text-gray-500 hover:border-gray-400 hover:text-gray-900 shadow-sm hover:shadow-md hover:-translate-y-[1px] border-neutral-200'}`}
+                                   >
+                                     <ChevronDown size={12} strokeWidth={3} className={`transition-transform duration-300 ${expandedItems[item.id] ? 'rotate-180 text-gray-900' : ''}`} />
+                                     <span>{itemBoxes.length} {itemBoxes.length === 1 ? 'Shipment' : 'Shipments'}</span>
+                                   </button>
+                                 </div>
+                               );
+                             })()}
                           </div>
                         </div>
 
@@ -328,45 +349,128 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
                           </div>
                         </div>
                       </div>
+                      </div>
+                      
+                      {/* Expanded Boxes List - Spans Full Width */}
+                      {expandedItems[item.id] && (() => {
+                        const itemBoxes = order.boxes?.filter((b: any) => b.items?.some((bi: any) => String(bi.id) === String(item.id))) || [];
+                        if (itemBoxes.length === 0) return null;
+                        return (
+                          <div className="w-full mt-6 pt-6 border-t border-brand-border/40 flex flex-col gap-3">
+                            {itemBoxes.map((box: any) => {
+                              const publicUrl = `${window.location.origin}/packing-slip/${order.id}/${box.id}`;
+                              return (
+                                <div key={box.id} className="bg-white rounded-xl border border-brand-border shadow-sm flex flex-col md:flex-row p-4 gap-4 md:items-center hover:border-brand-primary/20 transition-colors w-full relative z-20">
+                                  
+                                  <div className="flex items-center gap-4 min-w-[180px]">
+                                    <div className="w-10 h-10 bg-neutral-100 rounded-lg flex items-center justify-center text-brand-primary shrink-0">
+                                      <Box size={20} />
+                                    </div>
+                                    <div>
+                                      <h3 className="font-bold text-sm text-brand-primary">{box.name}</h3>
+                                      <p className="text-[10px] text-brand-secondary font-medium tracking-wide flex gap-1 items-center">
+                                        <Printer size={10} /> {box.items?.reduce((acc: number, bi: any) => acc + (bi.qty || 0), 0) || 0} ITEMS TOTAL
+                                      </p>
+                                    </div>
+                                  </div>
+                                  
+                                  <div className="flex-1 md:border-l border-brand-border md:pl-4 overflow-y-auto custom-scrollbar flex flex-col gap-1 md:pr-4">
+                                      {box.items?.filter((bi: any) => String(bi.id) === String(item.id)).map((bi: any, i: number) => (
+                                        <div key={i} className="flex flex-col xl:flex-row items-start xl:items-center py-2 gap-2 xl:gap-8 min-w-0 flex-1">
+                                           <div className="flex items-center justify-between w-full xl:w-auto xl:min-w-[180px]">
+                                              <span className="font-bold text-brand-primary text-sm truncate">{bi.style}</span>
+                                              <span className="font-bold text-brand-secondary text-xs bg-neutral-100 px-2 py-1 rounded-md">x{bi.qty}</span>
+                                           </div>
+                                           {bi.sizes && Object.keys(bi.sizes).length > 0 && (
+                                              <div className="flex gap-1.5 flex-wrap w-full xl:flex-1">
+                                                 {Object.entries(bi.sizes).sort(([a],[b])=>sortSizes(a,b)).map(([s, q]: [string, any]) => (
+                                                    <span key={s} className="text-xs font-bold text-brand-secondary bg-neutral-100 px-2.5 py-1.5 rounded-md border border-brand-border shadow-sm flex items-center justify-center min-w-[36px]">{s}: <span className="text-black ml-1">{q}</span></span>
+                                                 ))}
+                                              </div>
+                                           )}
+                                        </div>
+                                      ))}
+                                     <p className="text-[10px] italic text-brand-secondary mt-1 max-w-[200px] leading-tight">
+                                       {box.items?.length > 1 ? `(+ ${box.items.length - 1} other items inside)` : ''}
+                                     </p>
+                                  </div>
+                                  
+                                  <div className="flex flex-col sm:flex-row items-center gap-3 shrink-0">
+                                    <div className="flex flex-col gap-1.5 min-w-[100px]">
+                                      <a href={publicUrl} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-brand-primary hover:text-black transition-colors tooltip whitespace-nowrap bg-neutral-50 hover:bg-neutral-100 px-3 py-1.5 rounded-full border border-neutral-200 w-full text-center" onClick={(e) => e.stopPropagation()}>
+                                        <ExternalLink size={12} /> View Slip
+                                      </a>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
                     </div>
                   ))}
-                  {/* Packing Slips Display inside Portal */}
+                  
+                  {/* Shipments Overview Accordion - Replaces Open Packing Slips */}
                   {order.boxes && order.boxes.length > 0 && (
                     <div className="mt-8 border-t border-brand-border pt-6 pb-2">
-                      <h3 className="font-serif text-xl text-gray-900 mb-6 flex items-center gap-2"><PackageOpen size={20} /> Customer Shipments / Packing Slips</h3>
-                      <div className="flex flex-col gap-3">
-                        {order.boxes.map((box: any) => {
-                           const publicUrl = `${window.location.origin}/packing-slip/${order.id}/${box.id}`;
-                           const totalItems = box.items?.reduce((acc: number, item: any) => acc + (item.qty || 0), 0) || 0;
-                           return (
-                             <div key={box.id} className="bg-white rounded-2xl p-4 border border-brand-border flex flex-col sm:flex-row gap-5 items-center hover:border-black/20 hover:bg-neutral-50/30 transition-colors hover:shadow-sm cursor-pointer" onClick={(e) => { e.stopPropagation(); window.open(publicUrl, '_blank'); }}>
-                               <div className="w-14 h-14 bg-white rounded-xl border border-brand-border p-1.5 shrink-0 shadow-sm flex items-center justify-center">
-                                 <QRCode value={publicUrl} size={100} style={{ height: "auto", maxWidth: "100%", width: "100%" }} />
-                               </div>
-                               <div className="flex-1 flex flex-col sm:flex-row sm:items-center justify-between gap-4 w-full">
-                                 <div>
-                                   <h4 className="font-bold text-gray-900 text-[15px]">{box.name}</h4>
-                                   <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mt-1">{totalItems} Garments inside</p>
-                                 </div>
-                                 <div className="text-[10px] text-brand-primary font-bold uppercase tracking-widest bg-white shadow-sm border border-brand-border px-4 py-2.5 rounded-full inline-block shrink-0 mt-2 sm:mt-0 hover:bg-neutral-50 transition-colors">
-                                    View Slip →
-                                 </div>
-                               </div>
+                       <div className="bg-white rounded-2xl border border-brand-border overflow-hidden shadow-sm transition-all hover:border-black/10 hover:shadow-md">
+                         <div 
+                           className="p-4 sm:p-5 flex items-center justify-between cursor-pointer hover:bg-neutral-50 transition-colors"
+                           onClick={() => setExpandedOrderShipments(p => ({...p, [order.id]: !p[order.id]}))}
+                         >
+                           <div className="flex items-center gap-4">
+                             <div className="w-12 h-12 bg-neutral-100 rounded-xl flex items-center justify-center text-brand-primary shrink-0 border border-brand-border/40">
+                               <PackageOpen size={24} />
                              </div>
-                           );
-                        })}
-                      </div>
+                             <div>
+                               <h3 className="font-bold text-lg text-gray-900 mb-1 leading-none">Shipments Overview</h3>
+                               <p className="text-[12px] text-gray-500 font-semibold tracking-wide">
+                                 <strong className="text-gray-900">{order.boxes.length}</strong> {order.boxes.length === 1 ? 'Package Built' : 'Packages Built'} • <strong className="text-gray-900">{order.boxes.reduce((acc: number, box: any) => acc + (box.items?.reduce((iAcc: number, bi: any) => iAcc + (bi.qty || 0), 0) || 0), 0)}</strong> Garments Packed
+                               </p>
+                             </div>
+                           </div>
+                           <button className="text-gray-500 hover:text-black transition-colors flex items-center justify-center w-8 h-8 rounded-full bg-neutral-100/50 hover:bg-neutral-200">
+                             <ChevronDown size={20} className={`transition-transform duration-300 ${expandedOrderShipments[order.id] ? 'rotate-180 text-black' : ''}`} />
+                           </button>
+                         </div>
+                         
+                         <div className={`transition-all duration-300 ease-in-out ${expandedOrderShipments[order.id] ? 'grid grid-rows-[1fr] opacity-100' : 'grid grid-rows-[0fr] opacity-0 pointer-events-none'}`}>
+                           <div className="overflow-hidden">
+                             <div className="border-t border-brand-border/50 bg-[#F9FAFB] p-4 sm:p-6 flex flex-col gap-3">
+                               {order.boxes.map((box: any) => {
+                                  const publicUrl = `${window.location.origin}/packing-slip/${order.id}/${box.id}`;
+                                  const totalItems = box.items?.reduce((acc: number, item: any) => acc + (item.qty || 0), 0) || 0;
+                                  return (
+                                    <div key={box.id} className="bg-white rounded-2xl p-4 border border-brand-border flex flex-col sm:flex-row gap-5 items-center hover:border-black/20 hover:bg-white transition-colors hover:shadow-sm cursor-pointer" onClick={(e) => { e.stopPropagation(); window.open(publicUrl, '_blank'); }}>
+                                      <div className="w-14 h-14 bg-white rounded-xl border border-brand-border p-1.5 shrink-0 shadow-sm flex items-center justify-center">
+                                        <QRCode value={publicUrl} size={100} style={{ height: "auto", maxWidth: "100%", width: "100%" }} />
+                                      </div>
+                                      <div className="flex-1 flex flex-col sm:flex-row sm:items-center justify-between gap-4 w-full">
+                                        <div>
+                                          <h4 className="font-bold text-gray-900 text-[15px]">{box.name}</h4>
+                                          <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mt-1">{totalItems} Garments inside</p>
+                                        </div>
+                                        <div className="text-[10px] text-brand-primary font-bold uppercase tracking-widest bg-white shadow-sm border border-brand-border px-4 py-2.5 rounded-full inline-block shrink-0 mt-2 sm:mt-0 hover:bg-neutral-50 hover:text-black hover:border-black transition-colors flex flex-row items-center gap-2">
+                                           View Slip <ExternalLink size={12} strokeWidth={2.5} />
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                               })}
+                             </div>
+                           </div>
+                         </div>
+                       </div>
                     </div>
                   )}
                   </div>
                 </div>
               )}
             </div>
-
-            </div>
+          </div>
         );
       })}
-
     </div>
 
       {/* Image Overlay */}
