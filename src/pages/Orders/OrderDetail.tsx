@@ -592,8 +592,8 @@ export function OrderDetail() {
                                  <div className="flex flex-col sm:flex-row items-center gap-3 shrink-0">
                                    <div 
                                      className="bg-white p-1.5 border border-brand-border rounded shadow-sm cursor-pointer hover:border-black transition-colors" 
-                                     title="Scan to test" 
-                                     onClick={(e) => { e.stopPropagation(); window.open(publicUrl, '_blank'); }}
+                                     title="Click to Print Thermal Label" 
+                                     onClick={(e) => { e.stopPropagation(); window.open(`/print/label/${order.id}/${box.id}`, '_blank', 'width=600,height=800'); }}
                                    >
                                      <QRCode value={publicUrl} size={36} />
                                    </div>

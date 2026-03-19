@@ -375,8 +375,8 @@ export function PackingSlipsManager({ order }: { order: any }) {
                        <div className="flex flex-col md:flex-row items-center gap-4 md:border-l border-brand-border md:pl-6 shrink-0 mt-4 md:mt-0 pt-4 md:pt-0 border-t md:border-t-0 border-brand-border h-full">
                          <div 
                            className="bg-white p-2 border border-brand-border rounded-lg shadow-sm cursor-pointer hover:border-black transition-colors" 
-                           title="Scan to test" 
-                           onClick={() => window.open(publicUrl, '_blank')}
+                           title="Click to Print Thermal Label" 
+                           onClick={() => handlePrintLabel(box.id)}
                          >
                            <QRCode value={publicUrl} size={48} />
                          </div>
