@@ -17,13 +17,14 @@ import { getTrackingLink } from '../../lib/utils';
 const SIZE_ORDER = ['XXS', 'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL', 'OSFA'];
 
 const sortSizes = (a: string, b: string) => {
-  const iA = SIZE_ORDER.indexOf(a.toUpperCase());
-  const iB = SIZE_ORDER.indexOf(b.toUpperCase());
-  if (iA === -1 && iB === -1) return a.localeCompare(b);
-  if (iA === -1) return 1;
-  if (iB === -1) return -1;
-  return iA - iB;
-};
+      const orderMap: Record<string, number> = { 'xxs':1, 'xs':2, 's':3, 'm':4, 'l':5, 'xl':6, 'xxl':7, '2xl':7, '3xl':8, '4xl':9, '5xl':10, 'osfa':11, 'os':12 };
+      const aKey = a.split(' ')[0].toLowerCase();
+      const bKey = b.split(' ')[0].toLowerCase();
+      const aVal = orderMap[aKey] || 99;
+      const bVal = orderMap[bKey] || 99;
+      if (aVal !== bVal) return aVal - bVal;
+      return a.localeCompare(b);
+  };
 
 // Helper component for the little gray pills in the items breakdown
 const DataPill = ({ label, value }: { label: string, value: string }) => (
@@ -106,12 +107,10 @@ export function OrderDetail() {
   const handleSelectShopifyProduct = (product: any, variant: any) => {
      let newSizes = { ...editItemObj?.sizes };
      
-     // Initialize variant sizing array if product options define it
      const sizeOption = product.options?.find((o: any) => o.name.toLowerCase().includes('size'));
      if (sizeOption) {
         sizeOption.values.forEach((v: string) => {
            if (newSizes[v] === undefined) newSizes[v] = 0;
-           // Also make sure SIZE_ORDER doesn't restrict it anymore, since we dynamic mapped it elsewhere.
         });
      }
 
@@ -120,14 +119,28 @@ export function OrderDetail() {
      const gender = isFemale ? 'Female' : isMale ? 'Male' : 'Unisex';
      const color = variant.selectedOptions?.find((o:any) => o.name.toLowerCase().includes('color'))?.value || variant.title;
 
+     // Build Inventory Map
+     let inventoryMap: Record<string, number> = {};
+     product.variants?.forEach((v: any) => {
+        const vColor = v.selectedOptions?.find((o:any) => o.name.toLowerCase().includes('color'))?.value || v.title;
+        if (vColor === color || (!product.options.find((o:any) => o.name.toLowerCase().includes('color')))) {
+            const vSize = v.selectedOptions?.find((o:any) => o.name.toLowerCase().includes('size'))?.value || v.title;
+            if (vSize) {
+               inventoryMap[vSize] = v.inventoryQuantity || 0;
+            }
+        }
+     });
+
      setEditItemObj({
         ...editItemObj,
         style: product.title,
         gender: gender,
+        itemNum: variant.sku || '',
         color: color !== 'Default Title' ? color : '',
         price: variant.price || '0.00',
         image: variant.image?.url || product.featuredImage?.url || editItemObj.image,
-        sizes: Object.keys(newSizes).length > 0 ? newSizes : editItemObj.sizes
+        sizes: Object.keys(newSizes).length > 0 ? newSizes : editItemObj.sizes,
+        shopifyInventoryMap: inventoryMap
      });
      
      setIsShopifySearchOpen(false);
@@ -1086,19 +1099,24 @@ export function OrderDetail() {
               <div>
                 <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Size Spread</label>
                 <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-3">
-                  {SIZE_ORDER.map((size) => (
+                  {Array.from(new Set([...SIZE_ORDER, ...Object.keys(editItemObj.sizes || {})])).sort(sortSizes).map((size) => (
                     <div key={size}>
                       <label className="block text-[10px] font-bold text-center text-brand-secondary mb-1">{size}</label>
                       <input 
                         type="number" 
                         min="0"
-                        value={editItemObj.sizes?.[size] || 0}
+                        value={editItemObj.sizes?.[size] || ''}
                         onChange={(e) => setEditItemObj({
                           ...editItemObj, 
                           sizes: { ...editItemObj.sizes, [size]: parseInt(e.target.value) || 0 }
                         })}
                         className="w-full bg-white border border-brand-border rounded-lg px-2 py-2 text-sm text-center focus:border-brand-primary focus:outline-none transition-colors"
                       />
+                      {editItemObj.shopifyInventoryMap && editItemObj.shopifyInventoryMap[size] !== undefined && (
+                         <p className={`text-[9px] text-center font-bold tracking-wide mt-1 leading-tight ${editItemObj.shopifyInventoryMap[size] > 0 ? 'text-green-600' : 'text-red-500'}`}>
+                           {editItemObj.shopifyInventoryMap[size]} In Stock
+                         </p>
+                      )}
                     </div>
                   ))}
                 </div>

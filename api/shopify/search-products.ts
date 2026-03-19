@@ -37,6 +37,8 @@ export default async function handler(req: Request) {
                 node {
                   title
                   price
+                  sku
+                  inventoryQuantity
                   image { url }
                   selectedOptions {
                     name

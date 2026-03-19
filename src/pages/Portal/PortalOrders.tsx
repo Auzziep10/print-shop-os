@@ -262,8 +262,11 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
                             <img src={item.image} alt={item.style} className="w-full h-full object-cover mix-blend-multiply p-1 pointer-events-none" />
                           </div>
                           <div>
-                             <h4 className="font-bold text-gray-900 text-[15px]">{item.gender || 'Unisex'}</h4>
-                             <p className="text-xs font-semibold text-gray-500 mt-1">{item.style}</p>
+                             <h4 className="font-bold text-gray-900 text-[15px]">{item.style}</h4>
+                             <p className="text-xs font-semibold text-gray-500 mt-0.5">
+                                {item.gender !== 'Unisex' ? `${item.gender} ` : ''} 
+                                {item.color ? `- ${item.color}` : ''}
+                             </p>
                           </div>
                         </div>
 
