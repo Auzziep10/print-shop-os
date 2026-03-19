@@ -102,6 +102,24 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
         else if (order.statusIndex === 2) visualIndex = 0.66;
         else if (order.statusIndex >= 3) visualIndex = order.statusIndex - 2;
 
+        if (order.statusIndex === 6) { // Currently in "In Production" which maps to visual node 4
+           let totalGarments = 0;
+           let completedGarments = 0;
+           order.items?.forEach((item: any) => {
+              if (item.sizes) {
+                 Object.entries(item.sizes).forEach(([size, qty]: [string, any]) => {
+                    const q = parseInt(qty) || 0;
+                    totalGarments += q;
+                    if (item.completedSizes?.includes(size)) {
+                       completedGarments += q;
+                    }
+                 });
+              }
+           });
+           const completionRatio = totalGarments > 0 ? (completedGarments / totalGarments) : 0;
+           visualIndex += completionRatio; // pushes visual index forward toward node 5 (Shipped/Inventory) incrementally
+        }
+
         // Calculate the percentage width for the progress bar fill
         const fillWidth = `${(visualIndex / (timelineSteps.length - 1)) * 100}%`;
 
