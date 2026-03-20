@@ -6,7 +6,7 @@ import { ArrowLeft, Mail, Phone, MapPin, Building2, ExternalLink, Plus, Loader2,
 
 import { storage, db } from '../../lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { doc, getDoc, setDoc, addDoc, collection } from 'firebase/firestore';
+import { doc, getDoc, setDoc, addDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import Cropper from 'react-easy-crop';
 import { getCroppedImg } from '../../lib/cropUtils';
 import { ShoppingBag } from 'lucide-react';
@@ -324,7 +324,19 @@ export function CustomerDetail() {
     if (!id || !newOrderForm.title) return;
     setIsCreatingOrder(true);
     try {
-      const portalId = "ORD-" + Math.floor(1000 + Math.random() * 9000);
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const todayEnd = new Date();
+      todayEnd.setHours(23, 59, 59, 999);
+      
+      const ordersQuery = query(collection(db, 'orders'), where('createdAt', '>=', todayStart.toISOString()), where('createdAt', '<=', todayEnd.toISOString()));
+      const ordersSnapshot = await getDocs(ordersQuery);
+      
+      const count = ordersSnapshot.size + 1;
+      const yy = String(todayStart.getFullYear()).slice(-2);
+      const mm = String(todayStart.getMonth() + 1).padStart(2, '0');
+      const dd = String(todayStart.getDate()).padStart(2, '0');
+      const portalId = `${yy}${mm}${dd}-${count}`;
       
       const fulfillmentTypeToUse = newOrderForm.fulfillmentType || (liveCustomerData?.fulfillmentType ?? 'Standard');
       
