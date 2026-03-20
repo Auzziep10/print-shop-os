@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { PillButton } from '../../components/ui/PillButton';
 import { PackingSlipsManager } from '../../components/Orders/PackingSlipsManager';
 import { TrackingModal } from '../../components/Orders/TrackingModal';
-import { ArrowLeft, MessageSquare, Clock, Users, Download, Loader2, X, Edit3, Upload, Trash2, Plus, ChevronDown, Image as ImageIcon, Box, Printer, ExternalLink, ShoppingBag, Search, Check, Truck } from 'lucide-react';
+import { ArrowLeft, MessageSquare, Clock, Users, Download, Loader2, X, Edit3, Upload, Trash2, Plus, ChevronDown, Image as ImageIcon, Box, Printer, ExternalLink, ShoppingBag, Search, Check, Truck, GripVertical } from 'lucide-react';
 import QRCode from 'react-qr-code';
 import { StatusBadge, type StatusType } from '../../components/ui/StatusBadge';
 import { useAuth } from '../../contexts/AuthContext';
@@ -59,6 +59,7 @@ export function OrderDetail() {
   const [trackingBoxId, setTrackingBoxId] = useState<string | null>(null);
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
   const [dragOverItemId, setDragOverItemId] = useState<string | null>(null);
+  const [draggableItemId, setDraggableItemId] = useState<string | null>(null);
 
   const handleDragStart = (e: React.DragEvent, id: string) => {
     setDraggedItemId(id);
@@ -674,12 +675,12 @@ export function OrderDetail() {
                {order.items?.length > 0 ? order.items.map((item: any) => (
                  <div 
                    key={item.id} 
-                   draggable
+                   draggable={draggableItemId === item.id}
                    onDragStart={(e) => handleDragStart(e, item.id)}
                    onDragOver={(e) => handleDragOver(e, item.id)}
                    onDragEnd={handleDragEnd}
                    onDrop={(e) => handleDrop(e, item.id)}
-                   className={`p-6 border-b border-brand-border/50 flex flex-col gap-6 items-start hover:bg-brand-bg transition-colors last:border-0 cursor-grab active:cursor-grabbing ${draggedItemId === item.id ? 'opacity-50' : ''} ${dragOverItemId === item.id ? 'border-t-2 border-t-brand-primary bg-brand-bg/50' : ''}`}
+                   className={`p-6 border-b border-brand-border/50 flex flex-col gap-6 items-start hover:bg-brand-bg transition-colors last:border-0 ${draggableItemId === item.id ? 'cursor-grab active:cursor-grabbing' : ''} ${draggedItemId === item.id ? 'opacity-50 relative z-50 shadow-xl' : ''} ${dragOverItemId === item.id ? 'border-t-2 border-t-brand-primary bg-brand-bg/50' : ''}`}
                  >
                     <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 w-full relative group">
                        
@@ -693,7 +694,14 @@ export function OrderDetail() {
                        </button>
 
                        {/* Left Side: Visual & Specs & Artwork */}
-                       <div className="flex flex-col gap-3 flex-1 min-w-0 pr-2 pb-2 lg:pb-0">
+                       <div className="flex flex-col gap-3 flex-1 min-w-0 pr-2 pb-2 lg:pb-0 relative pl-6">
+                         <div 
+                           className="absolute left-[-8px] top-1/2 -translate-y-1/2 text-brand-border hover:text-brand-primary transition-colors cursor-grab active:cursor-grabbing p-2"
+                           onMouseEnter={() => setDraggableItemId(item.id)}
+                           onMouseLeave={() => setDraggableItemId(null)}
+                         >
+                           <GripVertical size={20} />
+                         </div>
                          <div className="flex flex-col lg:flex-row lg:items-center gap-4">
                            {/* Product Visual */}
                            <div className="flex items-center gap-4 w-[160px] shrink-0">
