@@ -89,6 +89,7 @@ export function OrderDetail() {
   const [quickShipSizes, setQuickShipSizes] = useState<Record<string, number>>({});
   const [expandedImage, setExpandedImage] = useState<{src: string, alt: string} | null>(null);
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
+  const [expandedSpecs, setExpandedSpecs] = useState<Record<string, boolean>>({});
   const [isItemSaving, setIsItemSaving] = useState(false);
   const [isUploadingMain, setIsUploadingMain] = useState(false);
   const [isUploadingRef, setIsUploadingRef] = useState(false);
@@ -778,25 +779,23 @@ export function OrderDetail() {
                                       >
                                         <Plus size={12} strokeWidth={3} /> <span>Add Shipment</span>
                                       </button>
+                                      <button 
+                                        onClick={(e) => {
+                                           e.stopPropagation();
+                                           setExpandedSpecs(prev => ({ ...prev, [item.id]: !prev[item.id] }));
+                                        }}
+                                        className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest transition-all px-3 py-1.5 rounded-full border shrink-0 whitespace-nowrap ${expandedSpecs[item.id] ? 'bg-neutral-100 text-brand-primary shadow-inner border-brand-border/80' : 'bg-white text-brand-secondary border-brand-border hover:border-brand-primary hover:text-brand-primary shadow-sm hover:shadow-md hover:-translate-y-[1px]'}`}
+                                      >
+                                        <ChevronDown size={12} strokeWidth={3} className={`transition-transform duration-300 ${expandedSpecs[item.id] ? 'rotate-180 text-brand-primary' : ''}`} />
+                                        <span>Specs</span>
+                                      </button>
                                     </div>
                                   );
                                 })()}
                              </div>
                            </div>
 
-                           {/* Specs */}
-                           <div className="flex flex-wrap gap-2 flex-1">
-                              {item.itemNum && <DataPill label="Item #" value={item.itemNum} />}
-                              {item.color && <DataPill label="Garment Color" value={item.color} />}
-                              {item.logos?.map((logo: string, i: number) => (
-                                <DataPill key={i} label={`Logo ${i+1}`} value={logo} />
-                              ))}
-                              {item.logos?.map((logo: string, i: number) => (
-                                <a key={`art-${i}`} href="#" className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-brand-secondary hover:text-brand-primary transition-colors bg-brand-bg/50 px-2 py-1.5 rounded-2xl border border-brand-border h-max my-auto" onClick={(e) => e.preventDefault()}>
-                                   <Download size={10} /> {logo.replace(/\s+/g, '_')}_Art.ai
-                                </a>
-                              ))}
-                           </div>
+
                          </div>
                        </div>
 
@@ -848,7 +847,25 @@ export function OrderDetail() {
                        </div>
                      </div>
                      
-                     {/* Expanded Boxes List - Spans Full Width */}
+                   {/* Expanded Specs Dropdown Container */}
+                   <div className={`grid transition-all duration-300 ease-in-out ${expandedSpecs[item.id] ? 'grid-rows-[1fr] opacity-100 mt-4' : 'grid-rows-[0fr] opacity-0 mt-0 pointer-events-none'}`}>
+                      <div className="overflow-hidden">
+                         <div className="flex flex-wrap gap-2 items-center bg-gray-50/80 p-3 pt-4 rounded-xl border border-brand-border shadow-inner">
+                            {item.itemNum && <DataPill label="Item #" value={item.itemNum} />}
+                            {item.color && <DataPill label="Garment Color" value={item.color} />}
+                            {item.logos?.map((logo: string, i: number) => (
+                              <DataPill key={i} label={`Logo ${i+1}`} value={logo} />
+                            ))}
+                            {item.logos?.map((logo: string, i: number) => (
+                              <a key={`art-${i}`} href="#" className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-brand-secondary hover:text-brand-primary transition-colors bg-white px-3 py-1.5 rounded-2xl border border-brand-border h-max my-auto shadow-sm" onClick={(e) => e.preventDefault()}>
+                                 <Download size={10} /> {logo.replace(/\s+/g, '_')}_Art.ai
+                              </a>
+                            ))}
+                         </div>
+                      </div>
+                   </div>
+
+                   {/* Expanded Boxes List - Spans Full Width */}
                      {expandedItems[item.id] && (() => {
                        const itemBoxes = order.boxes?.filter((b: any) => b.items?.some((bi: any) => String(bi.id) === String(item.id))) || [];
                        if (itemBoxes.length === 0) return null;
