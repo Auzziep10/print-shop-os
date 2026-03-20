@@ -4,7 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useOrders } from '../../hooks/useOrders';
 import { db } from '../../lib/firebase';
 import QRCode from 'react-qr-code';
-import { doc, getDoc, deleteDoc } from 'firebase/firestore';
+import { doc, getDoc, deleteDoc, writeBatch } from 'firebase/firestore';
 import { getTrackingLink } from '../../lib/utils';
 
 const SIZE_ORDER = ['XXS', 'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL', 'OSFA'];
@@ -59,6 +59,65 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [expandedImage, setExpandedImage] = useState<{src: string, alt: string} | null>(null);
 
+  const [localOrders, setLocalOrders] = useState<any[]>([]);
+  const [draggedOrderId, setDraggedOrderId] = useState<string | null>(null);
+  const [dragOverOrderId, setDragOverOrderId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (orders) {
+      const sorted = [...orders].sort((a, b) => {
+        if (typeof a.orderIndex === 'number' && typeof b.orderIndex === 'number') {
+          return a.orderIndex - b.orderIndex;
+        }
+        return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+      });
+      setLocalOrders(sorted);
+    }
+  }, [orders]);
+
+  const handleDragStartOrder = (e: React.DragEvent, id: string) => {
+    e.stopPropagation();
+    setDraggedOrderId(id);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOverOrder = (e: React.DragEvent, id: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverOrderId !== id) setDragOverOrderId(id);
+  };
+
+  const handleDropOrder = async (e: React.DragEvent, dropId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverOrderId(null);
+    
+    if (!draggedOrderId || draggedOrderId === dropId) return;
+
+    const currentOrders = [...localOrders];
+    const draggedIndex = currentOrders.findIndex(o => o.id === draggedOrderId);
+    const dropIndex = currentOrders.findIndex(o => o.id === dropId);
+    
+    if (draggedIndex === -1 || dropIndex === -1) return;
+
+    const [draggedItem] = currentOrders.splice(draggedIndex, 1);
+    currentOrders.splice(dropIndex, 0, draggedItem);
+
+    setLocalOrders(currentOrders);
+    setDraggedOrderId(null);
+
+    try {
+      const batch = writeBatch(db);
+      currentOrders.forEach((o, index) => {
+         batch.update(doc(db, 'orders', o.id), { orderIndex: index });
+      });
+      await batch.commit();
+    } catch (err) {
+      console.error('Error updating order order', err);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-[50vh] flex flex-col items-center justify-center text-gray-400 gap-3">
@@ -87,7 +146,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
   return (
     <>
       <div className={`max-w-[1600px] mx-auto flex flex-col gap-6 ${hideHeader ? 'mt-0' : 'mt-8'}`}>
-      {orders.map((order: any) => {
+      {localOrders.map((order: any) => {
         const isExpanded = expandedId === order.id;
         const isKitting = order.fulfillmentType === 'Kitting' || (!order.fulfillmentType && customer?.fulfillmentType === 'Kitting');
         const timelineSteps = isKitting 
@@ -121,25 +180,45 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
         const fillWidth = `${(visualIndex / (timelineSteps.length - 1)) * 100}%`;
 
         return (
-          <div key={order.id} className="flex gap-6 w-full items-start">
+          <div 
+            key={order.id} 
+            className={`flex gap-6 w-full items-start transition-transform ${draggedOrderId === order.id ? 'opacity-50 scale-95' : ''} ${dragOverOrderId === order.id ? 'border-t-4 border-brand-primary rounded-xl pt-2' : ''}`}
+            draggable={!!overrideCustomerId}
+            onDragStart={(e) => overrideCustomerId && handleDragStartOrder(e, order.id)}
+            onDragOver={(e) => overrideCustomerId && handleDragOverOrder(e, order.id)}
+            onDrop={(e) => overrideCustomerId && handleDropOrder(e, order.id)}
+            onDragEnd={() => { setDraggedOrderId(null); setDragOverOrderId(null); }}
+          >
             
             {/* Main Gray Capsule */}
-            <div 
-              onClick={() => {
-                if (overrideCustomerId) {
-                  navigate(`/orders/${order.id}`);
-                } else {
-                  setExpandedId(isExpanded ? null : order.id);
-                }
-              }}
-              className={`flex-1 relative group bg-white border border-brand-border rounded-[2.5rem] p-6 lg:pr-10 transition-all cursor-pointer ${overrideCustomerId ? 'hover:border-black/50 hover:shadow-md' : 'hover:border-black/20'} ${isExpanded ? 'pb-8 shadow-sm' : ''}`}
-            >
-              
-              {/* Capsule Header Row */}
-              <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 xl:gap-8 min-h-[80px] relative">
-                
-                {/* Left: Logo & Title */}
-                <div className="flex items-center gap-6 w-[320px] shrink-0 relative">
+            <div className="flex-1 flex gap-2 w-full relative group/row">
+               {/* Grip handle for sorting visible only for admins */}
+               {overrideCustomerId && (
+                 <div className="flex-shrink-0 flex items-center justify-center cursor-grab active:cursor-grabbing text-neutral-300 hover:text-brand-primary opacity-0 group-hover/row:opacity-100 transition-opacity self-center p-2 mt-4" title="Drag to reorder">
+                   <div className="grid grid-cols-2 grid-rows-3 gap-[3px]">
+                     {[...Array(6)].map((_, i) => (
+                       <div key={i} className="w-[4px] h-[4px] bg-current rounded-full" />
+                     ))}
+                   </div>
+                 </div>
+               )}
+               
+               <div 
+                 onClick={() => {
+                   if (overrideCustomerId) {
+                     navigate(`/orders/${order.id}`);
+                   } else {
+                     setExpandedId(isExpanded ? null : order.id);
+                   }
+                 }}
+                 className={`flex-1 relative group bg-white border border-brand-border rounded-[2.5rem] p-6 lg:pr-10 transition-all cursor-pointer ${overrideCustomerId ? 'hover:border-black/50 hover:shadow-md' : 'hover:border-black/20'} ${isExpanded ? 'pb-8 shadow-sm' : ''}`}
+               >
+                 
+                 {/* Capsule Header Row */}
+                 <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 xl:gap-8 min-h-[80px] relative">
+                   
+                   {/* Left: Logo & Title */}
+                   <div className="flex items-center gap-6 w-[320px] shrink-0 relative">
                   <div className="w-20 h-20 shrink-0 flex items-center justify-center text-neutral-300">
                     {fetchingLogo ? (
                       <Loader2 className="animate-spin text-neutral-300" size={24} />
@@ -229,9 +308,10 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
 
                 {/* Action buttons moved outside */}
               </div>
+            </div>
 
-              {/* Expanded Items Section */}
-              {order.items && order.items.length > 0 && (
+            {/* Expanded Items Section */}
+            {order.items && order.items.length > 0 && (
                 <div className={`grid transition-all duration-500 ease-in-out ${isExpanded ? 'grid-rows-[1fr] opacity-100 mt-14' : 'grid-rows-[0fr] opacity-0 mt-0 pointer-events-none'}`}>
                   <div className="overflow-hidden space-y-4">
                     {order.items.map((item: any) => (
