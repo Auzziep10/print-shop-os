@@ -190,8 +190,8 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
             onDragEnd={() => { setDraggedOrderId(null); setDragOverOrderId(null); }}
           >
             
-            {/* Main Gray Capsule */}
-            <div className="flex-1 flex gap-2 w-full relative group/row min-w-0">
+            {/* Main Gray Capsule Wrapper */}
+            <div className="flex-1 flex gap-2 w-full min-w-0 items-center">
                {/* Grip handle for sorting visible only for admins */}
                {overrideCustomerId && (
                  <div className="flex-shrink-0 flex items-center justify-center cursor-grab active:cursor-grabbing text-neutral-300 hover:text-brand-primary opacity-0 group-hover/row:opacity-100 transition-opacity self-center p-2 mt-4" title="Drag to reorder">
@@ -211,14 +211,14 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
                      setExpandedId(isExpanded ? null : order.id);
                    }
                  }}
-                 className={`flex-1 relative group bg-white border border-brand-border rounded-[2.5rem] p-6 lg:pr-10 transition-all cursor-pointer ${overrideCustomerId ? 'hover:border-black/50 hover:shadow-md' : 'hover:border-black/20'} ${isExpanded ? 'pb-8 shadow-sm' : ''} min-w-0`}
+                 className={`flex-1 w-full min-w-0 relative group/card bg-white border border-brand-border rounded-[2.5rem] p-6 lg:pr-10 transition-all cursor-pointer ${overrideCustomerId ? 'hover:border-black/50 hover:shadow-md' : 'hover:border-black/20'} ${isExpanded ? 'pb-8 shadow-sm' : ''}`}
                >
                  
                  {/* Capsule Header Row */}
                  <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 xl:gap-8 min-h-[80px] relative w-full">
                    
                    {/* Left: Logo & Title */}
-                   <div className="flex items-center gap-6 w-[320px] shrink-0 relative">
+                   <div className="flex items-center gap-6 w-full xl:w-[320px] shrink-0 relative">
                   <div className="w-20 h-20 shrink-0 flex items-center justify-center text-neutral-300">
                     {fetchingLogo ? (
                       <Loader2 className="animate-spin text-neutral-300" size={24} />
@@ -253,7 +253,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
                 </div>
 
                 {/* Right: Progress Tracker */}
-                <div className="flex-1 w-full pt-4 xl:pt-0">
+                <div className="flex-1 w-full min-w-0 pt-4 xl:pt-0 pb-4 xl:pb-0">
                   <div className="relative w-full">
                     {/* The Track Base */}
                     <div className="absolute top-0 left-0 w-full h-[12px] bg-neutral-200 rounded-full"></div>
