@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
 import { ArrowLeft, Mail, Phone, MapPin, Building2, ExternalLink, Plus, Loader2, Upload, X, Check, Edit3, ChevronRight } from 'lucide-react';
-import { MOCK_CUSTOMERS_DB } from '../../lib/mockData';
+
 import { storage, db } from '../../lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { doc, getDoc, setDoc, addDoc, collection } from 'firebase/firestore';
@@ -17,8 +17,6 @@ import { useOrders } from '../../hooks/useOrders';
 export function CustomerDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  
-  const mockCustomer = id && MOCK_CUSTOMERS_DB[id] ? MOCK_CUSTOMERS_DB[id] : null;
   
   const { orders } = useOrders(id);
 
@@ -56,17 +54,17 @@ export function CustomerDetail() {
 
   // Edit Company & Portal State
   const [editCompanyForm, setEditCompanyForm] = useState({
-    name: mockCustomer?.company || '',
-    email: mockCustomer?.email || '',
-    phone: mockCustomer?.phone || '',
-    location: mockCustomer?.location || '',
-    shippingStreet: mockCustomer?.shippingStreet || '',
-    shippingCity: mockCustomer?.shippingCity || '',
-    shippingState: mockCustomer?.shippingState || '',
-    shippingZip: mockCustomer?.shippingZip || '',
-    type: mockCustomer?.type || 'B2C',
-    net30Terms: mockCustomer?.net30Terms === undefined ? true : mockCustomer.net30Terms,
-    fulfillmentType: mockCustomer?.fulfillmentType || 'Standard'
+    name: '',
+    email: '',
+    phone: '',
+    location: '',
+    shippingStreet: '',
+    shippingCity: '',
+    shippingState: '',
+    shippingZip: '',
+    type: 'B2C',
+    net30Terms: true,
+    fulfillmentType: 'Standard'
   });
   
   const [contacts, setContacts] = useState([
@@ -180,17 +178,17 @@ export function CustomerDetail() {
           setCatalogLinkIds(fetchedLinks);
           
           setEditCompanyForm({
-            name: data.company || data.contactName || mockCustomer?.company || '',
-            email: data.email || mockCustomer?.email || '',
-            phone: data.phone || mockCustomer?.phone || '',
-            location: data.location || mockCustomer?.location || '',
-            shippingStreet: data.shippingStreet || mockCustomer?.shippingStreet || '',
-            shippingCity: data.shippingCity || mockCustomer?.shippingCity || '',
-            shippingState: data.shippingState || mockCustomer?.shippingState || '',
-            shippingZip: data.shippingZip || mockCustomer?.shippingZip || '',
-            type: data.type || mockCustomer?.type || 'B2C',
-            net30Terms: data.net30Terms ?? mockCustomer?.net30Terms ?? true,
-            fulfillmentType: data.fulfillmentType ?? mockCustomer?.fulfillmentType ?? 'Standard'
+            name: data.company || data.contactName || '',
+            email: data.email || '',
+            phone: data.phone || '',
+            location: data.location || '',
+            shippingStreet: data.shippingStreet || '',
+            shippingCity: data.shippingCity || '',
+            shippingState: data.shippingState || '',
+            shippingZip: data.shippingZip || '',
+            type: data.type || 'B2C',
+            net30Terms: data.net30Terms ?? true,
+            fulfillmentType: data.fulfillmentType ?? 'Standard'
           });
 
           // Fetch the names for the linked catalogs immediately so they don't say "Linked WOVN Deck"
@@ -328,7 +326,7 @@ export function CustomerDetail() {
     try {
       const portalId = "ORD-" + Math.floor(1000 + Math.random() * 9000);
       
-      const fulfillmentTypeToUse = newOrderForm.fulfillmentType || (liveCustomerData?.fulfillmentType ?? mockCustomer?.fulfillmentType ?? 'Standard');
+      const fulfillmentTypeToUse = newOrderForm.fulfillmentType || (liveCustomerData?.fulfillmentType ?? 'Standard');
       
       const newOrder = {
         customerId: id,
@@ -368,9 +366,8 @@ export function CustomerDetail() {
   };
 
   const customer = { 
-    ...mockCustomer, 
     ...liveCustomerData,
-    logo: liveLogo || mockCustomer?.logo
+    logo: liveLogo || liveCustomerData?.logo
   };
 
   const totalOrders = orders.length;
@@ -1014,7 +1011,7 @@ export function CustomerDetail() {
                     className="w-full bg-white border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
                   >
                     {(() => {
-                      const custFulfillment = liveCustomerData?.fulfillmentType ?? mockCustomer?.fulfillmentType ?? 'Standard';
+                      const custFulfillment = liveCustomerData?.fulfillmentType ?? 'Standard';
                       const formIsKitting = newOrderForm.fulfillmentType === 'Kitting' || (!newOrderForm.fulfillmentType && custFulfillment === 'Kitting');
                       return (
                         <>

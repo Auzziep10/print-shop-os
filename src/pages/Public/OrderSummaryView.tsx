@@ -3,7 +3,6 @@ import { useParams } from 'react-router-dom';
 import { db } from '../../lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { Loader2, PackageSearch, PackageOpen, CheckCircle2, Building2 } from 'lucide-react';
-import { MOCK_CUSTOMERS_DB } from '../../lib/mockData';
 
 const sortSizes = (a: string, b: string) => {
     const orderMap: Record<string, number> = { 'xxs':1, 'xs':2, 's':3, 'm':4, 'l':5, 'xl':6, 'xxl':7, '2xl':7, '3xl':8, '4xl':9, '5xl':10, 'osfa':11, 'os':12 };
@@ -35,7 +34,7 @@ export function OrderSummaryView() {
              if (custDoc.exists()) {
                setCustomer(custDoc.data());
              } else {
-               setCustomer(MOCK_CUSTOMERS_DB[orderData.customerId] || MOCK_CUSTOMERS_DB['CUS-001']);
+               setCustomer({ company: 'Unknown Customer' });
              }
           }
         }
@@ -67,7 +66,7 @@ export function OrderSummaryView() {
      );
   }
 
-  const cust = customer || MOCK_CUSTOMERS_DB['CUS-001'];
+  const cust = customer || { company: 'Unknown Customer' };
   const totalItemsCount = order.items?.reduce((acc: number, item: any) => acc + (item.qty || 0), 0) || 0;
 
   return (

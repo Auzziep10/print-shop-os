@@ -3,7 +3,6 @@ import { useParams } from 'react-router-dom';
 import QRCode from 'react-qr-code';
 import { db } from '../../lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
-import { MOCK_CUSTOMERS_DB } from '../../lib/mockData';
 
 export function PrintLabel() {
   const { orderId, boxId } = useParams();
@@ -31,7 +30,7 @@ export function PrintLabel() {
              if (custDoc.exists()) {
                setCustomer(custDoc.data());
              } else {
-               setCustomer(MOCK_CUSTOMERS_DB[orderData.customerId] || MOCK_CUSTOMERS_DB['CUS-001']);
+               setCustomer({ company: 'Unknown Customer' });
              }
           }
         }
@@ -58,7 +57,7 @@ export function PrintLabel() {
      return <div className="p-4 text-center">Loading label data...</div>;
   }
 
-  const cust = customer || MOCK_CUSTOMERS_DB['CUS-001'];
+  const cust = customer || { company: 'Unknown Customer' };
   const publicUrl = `${window.location.origin}/packing-slip/${order.id}/${box.id}`;
 
   // Render a 4x6 thermal label. Usually thermal layers represent 4" width x 6" height.

@@ -9,7 +9,6 @@ import QRCode from 'react-qr-code';
 import { StatusBadge, type StatusType } from '../../components/ui/StatusBadge';
 import { useAuth } from '../../contexts/AuthContext';
 import { useOrders } from '../../hooks/useOrders';
-import { MOCK_CUSTOMERS_DB } from '../../lib/mockData';
 import { db, storage } from '../../lib/firebase';
 import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -195,11 +194,10 @@ export function OrderDetail() {
      setShopifySearchQuery('');
   };
 
-  const mockCust = order ? MOCK_CUSTOMERS_DB[order.customerId] : null;
-  const currentCustomer = mockCust || liveCustomer || MOCK_CUSTOMERS_DB['CUS-001'];
+  const currentCustomer = liveCustomer || { company: 'Unknown Customer' };
 
   const handleStatusChange = async (newIndex: number) => {
-    if (!id || !order || !currentCustomer) return;
+    if (!id || !order) return;
     try {
       const formIsKitting = order.fulfillmentType === 'Kitting' || (!order.fulfillmentType && currentCustomer.fulfillmentType === 'Kitting');
       const newStatusLabel = (() => {
@@ -512,11 +510,7 @@ export function OrderDetail() {
     );
   }
 
-  const customer = {
-    ...(MOCK_CUSTOMERS_DB['CUS-001']),
-    ...mockCust,
-    ...liveCustomer
-  };
+  const customer = currentCustomer;
   
   // Calculate dynamic sums from the line items array
   const totalItems = order.items?.reduce((acc: number, i: any) => acc + (i.qty || 0), 0) || 0;

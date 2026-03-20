@@ -1,7 +1,9 @@
 import { MoreHorizontal, Paperclip, MessageSquare, Loader2 } from 'lucide-react';
 import { useOrders } from '../../hooks/useOrders';
-import { MOCK_CUSTOMERS_DB } from '../../lib/mockData';
 import { useNavigate } from 'react-router-dom';
+import { db } from '../../lib/firebase';
+import { collection, getDocs } from 'firebase/firestore';
+import { useState, useEffect } from 'react';
 
 const COLUMNS = [
   { id: 0, title: 'Quote' },
@@ -16,6 +18,15 @@ const COLUMNS = [
 export function KanbanBoard() {
   const { orders, loading } = useOrders();
   const navigate = useNavigate();
+  const [customers, setCustomers] = useState<Record<string, any>>({});
+
+  useEffect(() => {
+    getDocs(collection(db, 'customers')).then(snap => {
+      const obj: Record<string,any> = {};
+      snap.forEach(d => { obj[d.id] = d.data(); });
+      setCustomers(obj);
+    }).catch(e => console.error(e));
+  }, []);
 
   if (loading) {
      return (
@@ -41,8 +52,7 @@ export function KanbanBoard() {
             
             <div className="flex flex-col gap-3 min-h-[150px] bg-brand-muted/40 rounded-2xl p-2 border border-brand-border/50 border-dashed">
               {columnOrders.map(order => {
-                const customer = MOCK_CUSTOMERS_DB[order.customerId] || MOCK_CUSTOMERS_DB['CUS-001'];
-                const companyName = customer?.company || 'Unknown Client';
+                const companyName = customers[order.customerId]?.company || customers[order.customerId]?.name || order.customerId || 'Unknown Client';
                 
                 return (
                   <div 

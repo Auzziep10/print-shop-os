@@ -18,6 +18,7 @@ import { WaitingRoom } from './pages/Auth/WaitingRoom';
 import { PackingSlipView } from './pages/Public/PackingSlipView';
 import { OrderSummaryView } from './pages/Public/OrderSummaryView';
 import { PrintLabel } from './pages/Print/PrintLabel';
+import { Production } from './pages/Production/Production';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, userData, loading } = useAuth();
@@ -82,7 +83,7 @@ function App() {
           <Route index element={<CustomersList />} />
           <Route path=":id" element={<CustomerDetail />} />
         </Route>
-        <Route path="production" element={<div className="p-6">Production coming soon...</div>} />
+        <Route path="production" element={<Production />} />
         <Route path="artwork" element={<div className="p-6">Artwork coming soon...</div>} />
         <Route path="team" element={<Team />} />
           <Route path="reports" element={<div className="p-6">Reports coming soon...</div>} />

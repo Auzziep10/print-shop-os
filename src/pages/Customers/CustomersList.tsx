@@ -5,7 +5,7 @@ import { PillButton } from '../../components/ui/PillButton';
 import { Search, Filter, Plus, FileDown, MoreHorizontal, Building2, User } from 'lucide-react';
 
 import { useEffect, useMemo } from 'react';
-import { MOCK_CUSTOMERS_DB } from '../../lib/mockData';
+
 import { db } from '../../lib/firebase';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { useOrders } from '../../hooks/useOrders';
@@ -33,12 +33,9 @@ export function CustomersList() {
   }, []);
 
   const customersList = useMemo(() => {
-    const allIds = Array.from(new Set([...Object.keys(MOCK_CUSTOMERS_DB), ...Object.keys(liveCustomers)]));
-    
-    return allIds.map(id => {
-      const mockData = MOCK_CUSTOMERS_DB[id] || {};
+    return Object.keys(liveCustomers).map(id => {
       const liveData = liveCustomers[id] || {};
-      const companyString = liveData.company || mockData.company || '-';
+      const companyString = liveData.company || '-';
       
       const customerOrders = orders.filter(o => o.customerId === id);
       const ordersToDate = customerOrders.length;
@@ -60,12 +57,12 @@ export function CustomersList() {
       return {
         id,
         company: companyString,
-        contact: liveData.contactName || liveData.email || mockData.email || 'N/A', // Using contact name or email as fallback
-        type: liveData.type || mockData.type || 'B2C',
+        contact: liveData.contactName || liveData.email || 'N/A', 
+        type: liveData.type || 'B2C',
         ordersToDate,
         ltv: ltvFormatted,
         lastOrder: lastOrderStr,
-        logo: liveData.logo !== undefined ? liveData.logo : (mockData.logo || null),
+        logo: liveData.logo !== undefined ? liveData.logo : null,
       };
     }).filter(c => c.company.toLowerCase().includes(search.toLowerCase()) || 
                    c.contact.toLowerCase().includes(search.toLowerCase()) ||

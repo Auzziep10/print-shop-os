@@ -5,7 +5,6 @@ import type { UserData, UserRole } from '../../contexts/AuthContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { Plus, Trash2, Edit2, Shield, Loader2, Sparkles } from 'lucide-react';
 import { PillButton } from '../../components/ui/PillButton';
-import { MOCK_CUSTOMERS_DB } from '../../lib/mockData';
 
 interface CustomerOption {
   id: string;
@@ -44,13 +43,7 @@ export function UsersTab() {
         return { id: doc.id, name: d.company || d.companyName || d.name || 'Unnamed Customer' };
       });
 
-      const mockCustomersData = Object.entries(MOCK_CUSTOMERS_DB).map(([custId, mockObj]) => ({
-        id: custId,
-        name: mockObj.company || 'Unnamed Mock Customer'
-      }));
-
       const allCustomersMap = new Map<string, CustomerOption>();
-      mockCustomersData.forEach(c => allCustomersMap.set(c.id, c));
       liveCustomersData.forEach(c => allCustomersMap.set(c.id, c));
 
       const sortedCustomers = Array.from(allCustomersMap.values()).sort((a,b) => a.name.localeCompare(b.name));

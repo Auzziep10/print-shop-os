@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { ChevronRight, Loader2, PackageOpen, Building2, X, Trash2, ChevronDown, Box, Printer, ExternalLink, Truck } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useOrders } from '../../hooks/useOrders';
-import { MOCK_CUSTOMERS_DB } from '../../lib/mockData';
 import { db } from '../../lib/firebase';
 import QRCode from 'react-qr-code';
 import { doc, getDoc, deleteDoc } from 'firebase/firestore';
@@ -36,9 +35,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
   
   // If no customerId is in the URL, fallback to Wayne Enterprises 'CUS-001' to demo it!
   const { orders, loading } = useOrders(currentCustomerId);
-  const mockCustomer = MOCK_CUSTOMERS_DB[currentCustomerId];
-
-  const [liveLogo, setLiveLogo] = useState<string | null>(null);
+  const [customer, setCustomer] = useState<any>(null);
   const [fetchingLogo, setFetchingLogo] = useState<boolean>(true);
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
   const [expandedOrderShipments, setExpandedOrderShipments] = useState<Record<string, boolean>>({});
@@ -47,19 +44,17 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
     const fetchCustomer = async () => {
       try {
         const d = await getDoc(doc(db, 'customers', currentCustomerId));
-        if (d.exists() && d.data().logo) {
-          setLiveLogo(d.data().logo);
+        if (d.exists()) {
+          setCustomer(d.data());
         }
       } catch (err) {
-        console.error("Error fetching live logo:", err)
+        console.error("Error fetching live customer:", err);
       } finally {
         setFetchingLogo(false);
       }
     };
     fetchCustomer();
   }, [currentCustomerId]);
-
-  const customer = { ...mockCustomer, logo: liveLogo || mockCustomer?.logo };
   
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [expandedImage, setExpandedImage] = useState<{src: string, alt: string} | null>(null);
@@ -94,7 +89,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
       <div className={`max-w-[1600px] mx-auto flex flex-col gap-6 ${hideHeader ? 'mt-0' : 'mt-8'}`}>
       {orders.map((order: any) => {
         const isExpanded = expandedId === order.id;
-        const isKitting = order.fulfillmentType === 'Kitting' || (!order.fulfillmentType && customer.fulfillmentType === 'Kitting');
+        const isKitting = order.fulfillmentType === 'Kitting' || (!order.fulfillmentType && customer?.fulfillmentType === 'Kitting');
         const timelineSteps = isKitting 
           ? ['Request', 'Approved', 'Sourcing', 'Ordered', 'Production', 'Inventory', 'Live'] 
           : ['Request', 'Approved', 'Sourcing', 'Ordered', 'Production', 'Shipped', 'Received'];
