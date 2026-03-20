@@ -182,7 +182,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
         return (
           <div 
             key={order.id} 
-            className={`flex gap-6 w-full items-start transition-transform ${draggedOrderId === order.id ? 'opacity-50 scale-95' : ''} ${dragOverOrderId === order.id ? 'border-t-4 border-brand-primary rounded-xl pt-2' : ''}`}
+            className={`flex flex-col xl:flex-row gap-6 w-full items-start transition-transform ${draggedOrderId === order.id ? 'opacity-50 scale-95' : ''} ${dragOverOrderId === order.id ? 'border-t-4 border-brand-primary rounded-xl pt-2' : ''}`}
             draggable={!!overrideCustomerId}
             onDragStart={(e) => overrideCustomerId && handleDragStartOrder(e, order.id)}
             onDragOver={(e) => overrideCustomerId && handleDragOverOrder(e, order.id)}
@@ -191,7 +191,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
           >
             
             {/* Main Gray Capsule */}
-            <div className="flex-1 flex gap-2 w-full relative group/row">
+            <div className="flex-1 flex gap-2 w-full relative group/row min-w-0">
                {/* Grip handle for sorting visible only for admins */}
                {overrideCustomerId && (
                  <div className="flex-shrink-0 flex items-center justify-center cursor-grab active:cursor-grabbing text-neutral-300 hover:text-brand-primary opacity-0 group-hover/row:opacity-100 transition-opacity self-center p-2 mt-4" title="Drag to reorder">
@@ -211,11 +211,11 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
                      setExpandedId(isExpanded ? null : order.id);
                    }
                  }}
-                 className={`flex-1 relative group bg-white border border-brand-border rounded-[2.5rem] p-6 lg:pr-10 transition-all cursor-pointer ${overrideCustomerId ? 'hover:border-black/50 hover:shadow-md' : 'hover:border-black/20'} ${isExpanded ? 'pb-8 shadow-sm' : ''}`}
+                 className={`flex-1 relative group bg-white border border-brand-border rounded-[2.5rem] p-6 lg:pr-10 transition-all cursor-pointer ${overrideCustomerId ? 'hover:border-black/50 hover:shadow-md' : 'hover:border-black/20'} ${isExpanded ? 'pb-8 shadow-sm' : ''} min-w-0`}
                >
                  
                  {/* Capsule Header Row */}
-                 <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 xl:gap-8 min-h-[80px] relative">
+                 <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 xl:gap-8 min-h-[80px] relative w-full">
                    
                    {/* Left: Logo & Title */}
                    <div className="flex items-center gap-6 w-[320px] shrink-0 relative">
