@@ -158,20 +158,24 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
         else if (order.statusIndex === 2) visualIndex = 0.66;
         else if (order.statusIndex >= 3) visualIndex = order.statusIndex - 2;
 
-        if (order.statusIndex === 6) { // Currently in "In Production" which maps to visual node 4
-           let totalGarments = 0;
-           let completedGarments = 0;
-           order.items?.forEach((item: any) => {
-              if (item.sizes) {
-                 Object.entries(item.sizes).forEach(([size, qty]: [string, any]) => {
+        let totalGarments = 0;
+        let completedGarments = 0;
+        order.items?.forEach((item: any) => {
+            if (item.sizes && Object.keys(item.sizes).length > 0) {
+                Object.entries(item.sizes).forEach(([size, qty]: [string, any]) => {
                     const q = parseInt(qty) || 0;
                     totalGarments += q;
                     if (item.completedSizes?.includes(size)) {
-                       completedGarments += q;
+                        completedGarments += q;
                     }
-                 });
-              }
-           });
+                });
+            } else if (item.qty) {
+                totalGarments += parseInt(item.qty) || 0;
+                // Optional completion logic based on qty, but mostly we need totals
+            }
+        });
+
+        if (order.statusIndex === 6) { // Currently in "In Production" which maps to visual node 4
            const completionRatio = totalGarments > 0 ? (completedGarments / totalGarments) : 0;
            visualIndex += completionRatio; // pushes visual index forward toward node 5 (Shipped/Inventory) incrementally
         }
@@ -188,23 +192,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
           >
             
             {/* Main Gray Capsule Wrapper */}
-            <div className={`flex-1 grid gap-1 w-full min-w-0 items-center ${overrideCustomerId ? 'grid-cols-[auto_minmax(0,1fr)]' : 'grid-cols-1'}`}>
-               {/* Grip handle for sorting visible only for admins */}
-               {overrideCustomerId && (
-                 <div 
-                   className="flex-shrink-0 flex items-center justify-center cursor-grab active:cursor-grabbing text-neutral-300 hover:text-brand-primary transition-colors self-center p-2 mt-4" 
-                   title="Drag to reorder"
-                   draggable={true}
-                   onDragStart={(e) => handleDragStartOrder(e, order.id)}
-                   onDragEnd={() => { setDraggedOrderId(null); setDragOverOrderId(null); }}
-                 >
-                   <div className="grid grid-cols-2 grid-rows-3 gap-[3px]">
-                     {[...Array(6)].map((_, i) => (
-                       <div key={i} className="w-[4px] h-[4px] bg-current rounded-full" />
-                     ))}
-                   </div>
-                 </div>
-               )}
+            <div className="flex-1 w-full min-w-0">
                
                <div 
                  onClick={() => {
@@ -221,7 +209,24 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
                  <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 xl:gap-8 min-h-[80px] relative w-full">
                    
                    {/* Left: Logo & Title */}
-                   <div className="flex items-center gap-6 w-full xl:w-[320px] shrink-0 relative">
+                   <div className="flex items-center gap-4 w-full xl:w-[320px] shrink-0 relative">
+                     {/* Grip handle for sorting visible only for admins */}
+                     {overrideCustomerId && (
+                       <div 
+                         className="flex-shrink-0 flex items-center justify-center cursor-grab active:cursor-grabbing text-neutral-300 hover:text-brand-primary transition-colors p-2 lg:-ml-4 xl:-ml-2" 
+                         title="Drag to reorder"
+                         draggable={true}
+                         onClick={(e) => e.stopPropagation()}
+                         onDragStart={(e) => handleDragStartOrder(e, order.id)}
+                         onDragEnd={() => { setDraggedOrderId(null); setDragOverOrderId(null); }}
+                       >
+                         <div className="grid grid-cols-2 grid-rows-3 gap-[3px]">
+                           {[...Array(6)].map((_, i) => (
+                             <div key={i} className="w-[4px] h-[4px] bg-current rounded-full" />
+                           ))}
+                         </div>
+                       </div>
+                     )}
                   <div className="w-20 h-20 shrink-0 flex items-center justify-center text-neutral-300">
                     {fetchingLogo ? (
                       <Loader2 className="animate-spin text-neutral-300" size={24} />
@@ -250,7 +255,15 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
                         </span>
                       )}
                     </div>
-                    <p className="text-xs font-medium text-gray-500 mt-1 uppercase tracking-wider">Order #{order.portalId || order.id.substring(0,8)}</p>
+                    <p className="text-xs font-medium text-gray-500 mt-1 uppercase tracking-wider flex items-center gap-2">
+                       <span>Order #{order.portalId || order.id.substring(0,8)}</span>
+                       {totalGarments > 0 && (
+                         <>
+                           <span className="text-gray-300 font-light">|</span>
+                           <span>{totalGarments} {totalGarments === 1 ? 'Garment' : 'Garments'}</span>
+                         </>
+                       )}
+                    </p>
                   </div>
 
                 </div>
