@@ -3,7 +3,8 @@ import { tokens } from '../../lib/tokens';
 import { useState, useEffect } from 'react';
 import { PillButton } from '../../components/ui/PillButton';
 import { PackingSlipsManager } from '../../components/Orders/PackingSlipsManager';
-import { ArrowLeft, MessageSquare, Clock, Users, Download, Loader2, X, Edit3, Upload, Trash2, Plus, ChevronDown, Image as ImageIcon, Box, Printer, ExternalLink, ShoppingBag, Search, Check } from 'lucide-react';
+import { TrackingModal } from '../../components/Orders/TrackingModal';
+import { ArrowLeft, MessageSquare, Clock, Users, Download, Loader2, X, Edit3, Upload, Trash2, Plus, ChevronDown, Image as ImageIcon, Box, Printer, ExternalLink, ShoppingBag, Search, Check, Truck } from 'lucide-react';
 import QRCode from 'react-qr-code';
 import { StatusBadge, type StatusType } from '../../components/ui/StatusBadge';
 import { useAuth } from '../../contexts/AuthContext';
@@ -55,6 +56,7 @@ export function OrderDetail() {
   const [isItemSaving, setIsItemSaving] = useState(false);
   const [isUploadingMain, setIsUploadingMain] = useState(false);
   const [isUploadingRef, setIsUploadingRef] = useState(false);
+  const [trackingBoxId, setTrackingBoxId] = useState<string | null>(null);
 
   const { user } = useAuth();
   const [noteText, setNoteText] = useState('');
@@ -813,6 +815,9 @@ export function OrderDetail() {
                                      <a href={publicUrl} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-brand-primary hover:text-black transition-colors tooltip whitespace-nowrap bg-neutral-50 hover:bg-neutral-100 px-3 py-1.5 rounded-full border border-neutral-200 w-full text-center" onClick={(e) => e.stopPropagation()}>
                                        <ExternalLink size={12} /> View Slip
                                      </a>
+                                     <button onClick={(e) => { e.stopPropagation(); setTrackingBoxId(box.id); }} className={`flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-widest transition-colors whitespace-nowrap px-3 py-1.5 rounded-full border border-neutral-200 w-full text-center ${box.trackingNumber || box.trackingCarrier ? 'bg-black text-white hover:bg-neutral-800 border-black' : 'text-brand-primary hover:text-black bg-neutral-50 hover:bg-neutral-100'}`}>
+                                       <Truck size={12} /> {box.trackingNumber || box.trackingCarrier ? 'Edit Tracking' : 'Add Tracking'}
+                                     </button>
                                    </div>
                                  </div>
                 
@@ -833,7 +838,7 @@ export function OrderDetail() {
             </div>
           </div>
           
-          <PackingSlipsManager order={order} />
+          <PackingSlipsManager order={order} onEditTracking={setTrackingBoxId} />
           
           {/* Bottom Grid: Team and Activity Feed */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -1373,6 +1378,14 @@ export function OrderDetail() {
             </div>
           </div>
         </div>
+      )}
+
+      {trackingBoxId && (
+        <TrackingModal
+          order={order}
+          boxId={trackingBoxId}
+          onClose={() => setTrackingBoxId(null)}
+        />
       )}
     </div>
   );

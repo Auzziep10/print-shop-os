@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ChevronRight, Loader2, PackageOpen, Building2, X, Trash2, ChevronDown, Box, Printer, ExternalLink } from 'lucide-react';
+import { ChevronRight, Loader2, PackageOpen, Building2, X, Trash2, ChevronDown, Box, Printer, ExternalLink, Truck } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useOrders } from '../../hooks/useOrders';
 import { MOCK_CUSTOMERS_DB } from '../../lib/mockData';
@@ -443,7 +443,16 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
                          <div className={`transition-all duration-300 ease-in-out ${expandedOrderShipments[order.id] ? 'grid grid-rows-[1fr] opacity-100' : 'grid grid-rows-[0fr] opacity-0 pointer-events-none'}`}>
                            <div className="overflow-hidden">
                              <div className="border-t border-brand-border/50 bg-[#F9FAFB] p-4 sm:p-6 flex flex-col gap-3">
-                               {order.boxes.map((box: any) => {
+                               {(() => {
+                                 const tempBoxes = [...order.boxes];
+                                 tempBoxes.sort((a, b) => {
+                                    if (!a.estArrival && !b.estArrival) return 0;
+                                    if (!a.estArrival) return 1;
+                                    if (!b.estArrival) return -1;
+                                    return new Date(a.estArrival).getTime() - new Date(b.estArrival).getTime();
+                                 });
+                                 return tempBoxes;
+                               })().map((box: any) => {
                                   const publicUrl = `${window.location.origin}/packing-slip/${order.id}/${box.id}`;
                                   const totalItems = box.items?.reduce((acc: number, item: any) => acc + (item.qty || 0), 0) || 0;
                                   return (
@@ -454,7 +463,24 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
                                       <div className="flex-1 flex flex-col sm:flex-row sm:items-center justify-between gap-4 w-full">
                                         <div>
                                           <h4 className="font-bold text-gray-900 text-[15px]">{box.name}</h4>
-                                          <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mt-1">{totalItems} Garments inside</p>
+                                          <div className="flex gap-2 items-center flex-wrap mt-1">
+                                            <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">{totalItems} Garments inside</p>
+                                            {box.estArrival && (
+                                              <span className="text-[10px] font-bold uppercase text-brand-primary bg-brand-primary/10 px-2 py-0.5 rounded-sm sm:ml-2 border border-brand-primary/20">
+                                                Est. Arrival: {new Date(box.estArrival + 'T12:00:00Z').toLocaleDateString('en-US', { timeZone: 'UTC', month: 'short', day: 'numeric', year: 'numeric' })}
+                                              </span>
+                                            )}
+                                            {box.trackingCarrier && box.trackingCarrier !== 'Pickup' && box.trackingNumber && (
+                                              <a href={getTrackingLink(box.trackingCarrier, box.trackingNumber) || '#'} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="text-[10px] font-bold uppercase text-brand-secondary bg-neutral-100 hover:bg-neutral-200 hover:text-black transition-colors px-2 py-0.5 rounded-sm flex items-center gap-1 border border-brand-border mt-0.5">
+                                                <Truck size={10} /> Track {box.trackingCarrier}: {box.trackingNumber}
+                                              </a>
+                                            )}
+                                            {box.trackingCarrier === 'Pickup' && (
+                                              <span className="text-[10px] font-bold uppercase text-brand-secondary bg-neutral-100 px-2 py-0.5 rounded-sm flex items-center gap-1 border border-brand-border mt-0.5">
+                                                <Truck size={10} /> Local Pickup / Delivery
+                                              </span>
+                                            )}
+                                          </div>
                                         </div>
                                         <div className="text-[10px] text-brand-primary font-bold uppercase tracking-widest bg-white shadow-sm border border-brand-border px-4 py-2.5 rounded-full inline-block shrink-0 mt-2 sm:mt-0 hover:bg-neutral-50 hover:text-black hover:border-black transition-colors flex flex-row items-center gap-2">
                                            View Slip <ExternalLink size={12} strokeWidth={2.5} />

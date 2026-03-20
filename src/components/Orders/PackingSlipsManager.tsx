@@ -3,7 +3,7 @@ import QRCode from 'react-qr-code';
 import { db } from '../../lib/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { PillButton } from '../ui/PillButton';
-import { Plus, Trash2, Box, ExternalLink, Printer, X, ChevronDown } from 'lucide-react';
+import { Plus, Trash2, Box, ExternalLink, Printer, X, ChevronDown, Truck } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { tokens } from '../../lib/tokens';
 
@@ -13,7 +13,7 @@ type DraftBox = {
   selectedItems: any;
 };
 
-export function PackingSlipsManager({ order }: { order: any }) {
+export function PackingSlipsManager({ order, onEditTracking }: { order: any, onEditTracking: (boxId: string) => void }) {
   const { user } = useAuth();
   const [isAddingBox, setIsAddingBox] = useState(false);
   const [workingBoxes, setWorkingBoxes] = useState<DraftBox[]>([]);
@@ -389,7 +389,14 @@ export function PackingSlipsManager({ order }: { order: any }) {
                          <Box size={24} />
                        </div>
                        <div>
-                         <h3 className="font-bold text-lg text-brand-primary">{box.name}</h3>
+                         <h3 className="font-bold text-lg text-brand-primary flex items-center gap-2">
+                           {box.name} 
+                           {(box.trackingNumber || box.trackingCarrier) && (
+                             <span className="bg-black text-white text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
+                               <Truck size={10} /> {(box.trackingCarrier && box.trackingCarrier !== 'Pickup') ? box.trackingCarrier : (box.trackingCarrier || 'Tracked')}
+                             </span>
+                           )}
+                         </h3>
                          <p className="text-xs text-brand-secondary font-medium tracking-wide">
                            {box.items?.reduce((acc: number, item: any) => acc + (item.qty || 0), 0) || 0} ITEMS TOTAL
                          </p>
@@ -432,7 +439,10 @@ export function PackingSlipsManager({ order }: { order: any }) {
                            <PillButton variant="outline" className="justify-center text-xs py-1.5 px-3 bg-white border-brand-border shadow-sm border w-full h-[32px]" onClick={() => handlePrintLabel(box.id)}>
                              <Printer size={14} className="mr-1.5" /> Print Label
                            </PillButton>
-                           <a href={publicUrl} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-brand-primary hover:text-black transition-colors tooltip w-full h-[32px] bg-brand-bg rounded-full border border-brand-border">
+                           <button onClick={(e) => { e.stopPropagation(); onEditTracking(box.id); }} className={`flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-widest transition-colors tooltip w-full h-[32px] rounded-full border ${box.trackingNumber || box.trackingCarrier ? 'bg-black text-white hover:bg-neutral-800 border-black' : 'bg-brand-bg hover:bg-neutral-100 text-brand-primary border-brand-border'}`}>
+                             <Truck size={12} /> {box.trackingNumber || box.trackingCarrier ? 'Edit Tracking' : 'Add Tracking'}
+                           </button>
+                           <a href={publicUrl} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-brand-primary hover:text-black transition-colors tooltip w-full h-[32px] bg-brand-bg hover:bg-neutral-100 rounded-full border border-brand-border">
                              <ExternalLink size={12} /> Public URL
                            </a>
                          </div>
