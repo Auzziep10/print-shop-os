@@ -191,7 +191,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
           >
             
             {/* Main Gray Capsule Wrapper */}
-            <div className="flex-1 flex gap-2 w-full min-w-0 items-center">
+            <div className="flex-1 grid grid-cols-[auto_minmax(0,1fr)] gap-1 w-full min-w-0 items-center">
                {/* Grip handle for sorting visible only for admins */}
                {overrideCustomerId && (
                  <div className="flex-shrink-0 flex items-center justify-center cursor-grab active:cursor-grabbing text-neutral-300 hover:text-brand-primary opacity-0 group-hover/row:opacity-100 transition-opacity self-center p-2 mt-4" title="Drag to reorder">
@@ -211,7 +211,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
                      setExpandedId(isExpanded ? null : order.id);
                    }
                  }}
-                 className={`flex-1 w-full min-w-0 relative group/card bg-white border border-brand-border rounded-[2.5rem] p-6 lg:pr-10 transition-all cursor-pointer ${overrideCustomerId ? 'hover:border-black/50 hover:shadow-md' : 'hover:border-black/20'} ${isExpanded ? 'pb-8 shadow-sm' : ''}`}
+                 className={`w-full relative group/card bg-white border border-brand-border rounded-[2.5rem] p-6 lg:pr-10 transition-all cursor-pointer ${overrideCustomerId ? 'hover:border-black/50 hover:shadow-md' : 'hover:border-black/20'} ${isExpanded ? 'pb-8 shadow-sm' : ''}`}
                >
                  
                  {/* Capsule Header Row */}
@@ -253,7 +253,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
                 </div>
 
                 {/* Right: Progress Tracker */}
-                <div className="flex-1 w-full min-w-0 pt-4 xl:pt-0 pb-4 xl:pb-0">
+                <div className="flex-1 min-w-0 w-full pt-4 xl:pt-0 pb-4 xl:pb-0">
                   <div className="relative w-full">
                     {/* The Track Base */}
                     <div className="absolute top-0 left-0 w-full h-[12px] bg-neutral-200 rounded-full"></div>
@@ -308,7 +308,6 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
 
                 {/* Action buttons moved outside */}
               </div>
-            </div>
 
             {/* Expanded Items Section */}
             {order.items && order.items.length > 0 && (
@@ -548,38 +547,40 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
               )}
             </div>
 
-            {/* Right: Action Buttons (Moved outside card) */}
-            <div className="flex xl:flex-col justify-center gap-3 w-full xl:w-[130px] shrink-0 mt-6 xl:mt-0 relative z-20 pt-4 xl:pt-6">
-              {order.trackingCarrier && order.trackingNumber ? (
-                <button 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    window.open(getTrackingLink(order.trackingCarrier, order.trackingNumber) || '#', '_blank');
-                  }}
-                  className="flex-1 bg-white border border-brand-border hover:border-black hover:bg-black hover:text-white text-[12px] font-bold text-gray-800 rounded-full py-3 xl:py-4 transition-all tracking-wide text-center"
+             </div>
+             
+             {/* Right: Action Buttons (Moved outside card) */}
+             <div className="flex xl:flex-col justify-center gap-3 w-full xl:w-[130px] shrink-0 xl:self-start mt-6 xl:mt-0 relative z-20 xl:pt-6">
+               {order.trackingCarrier && order.trackingNumber ? (
+                 <button 
+                   onClick={(e) => {
+                     e.stopPropagation();
+                     window.open(getTrackingLink(order.trackingCarrier, order.trackingNumber) || '#', '_blank');
+                   }}
+                   className="flex-1 xl:flex-none bg-white border border-brand-border hover:border-black hover:bg-black hover:text-white text-[12px] font-bold text-gray-800 rounded-full py-3 xl:py-4 transition-all tracking-wide text-center"
+                 >
+                   Track {order.trackingCarrier}
+                 </button>
+               ) : (
+                 <button 
+                   className="flex-1 xl:flex-none bg-white border border-brand-border/50 text-[12px] font-bold text-gray-400 rounded-full py-3 xl:py-4 transition-all tracking-wide cursor-default text-center"
+                   onClick={(e) => e.stopPropagation()}
                 >
-                  Track {order.trackingCarrier}
+                  {order.trackingCarrier === 'Pickup' || (!order.trackingCarrier && order.statusIndex >= 4) ? 'No Tracking' : 'Processing'}
                 </button>
-              ) : (
-                <button 
-                  className="flex-1 bg-white border border-brand-border/50 text-[12px] font-bold text-gray-400 rounded-full py-3 xl:py-4 transition-all tracking-wide cursor-default text-center"
-                  onClick={(e) => e.stopPropagation()}
-               >
-                 {order.trackingCarrier === 'Pickup' || (!order.trackingCarrier && order.statusIndex >= 4) ? 'No Tracking' : 'Processing'}
-               </button>
-             )}
-             <button 
-               className="flex-1 bg-white border border-brand-border hover:border-black hover:bg-black hover:text-white text-[12px] font-bold text-gray-800 rounded-full py-3 xl:py-4 transition-all tracking-wide text-center"
-               onClick={(e) => {
-                 e.stopPropagation();
-                 if (overrideCustomerId) navigate(`/orders/${order.id}`);
-                 else window.open(`/order-summary/${order.id}`, '_blank');
-               }}
-             >
-               Order Info
-             </button>
-            </div>
-          </div>
+              )}
+              <button 
+                className="flex-1 xl:flex-none bg-white border border-brand-border hover:border-black hover:bg-black hover:text-white text-[12px] font-bold text-gray-800 rounded-full py-3 xl:py-4 transition-all tracking-wide text-center"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (overrideCustomerId) navigate(`/orders/${order.id}`);
+                  else window.open(`/order-summary/${order.id}`, '_blank');
+                }}
+              >
+                Order Info
+              </button>
+             </div>
+           </div>
         );
       })}
     </div>
