@@ -188,7 +188,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
           >
             
             {/* Main Gray Capsule Wrapper */}
-            <div className="flex-1 grid grid-cols-[auto_minmax(0,1fr)] gap-1 w-full min-w-0 items-center">
+            <div className={`flex-1 grid gap-1 w-full min-w-0 items-center ${overrideCustomerId ? 'grid-cols-[auto_minmax(0,1fr)]' : 'grid-cols-1'}`}>
                {/* Grip handle for sorting visible only for admins */}
                {overrideCustomerId && (
                  <div 
