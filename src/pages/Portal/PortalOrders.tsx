@@ -183,18 +183,21 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
           <div 
             key={order.id} 
             className={`flex flex-col xl:flex-row gap-6 w-full items-start transition-transform ${draggedOrderId === order.id ? 'opacity-50 scale-95' : ''} ${dragOverOrderId === order.id ? 'border-t-4 border-brand-primary rounded-xl pt-2' : ''}`}
-            draggable={!!overrideCustomerId}
-            onDragStart={(e) => overrideCustomerId && handleDragStartOrder(e, order.id)}
             onDragOver={(e) => overrideCustomerId && handleDragOverOrder(e, order.id)}
             onDrop={(e) => overrideCustomerId && handleDropOrder(e, order.id)}
-            onDragEnd={() => { setDraggedOrderId(null); setDragOverOrderId(null); }}
           >
             
             {/* Main Gray Capsule Wrapper */}
             <div className="flex-1 grid grid-cols-[auto_minmax(0,1fr)] gap-1 w-full min-w-0 items-center">
                {/* Grip handle for sorting visible only for admins */}
                {overrideCustomerId && (
-                 <div className="flex-shrink-0 flex items-center justify-center cursor-grab active:cursor-grabbing text-neutral-300 hover:text-brand-primary opacity-0 group-hover/row:opacity-100 transition-opacity self-center p-2 mt-4" title="Drag to reorder">
+                 <div 
+                   className="flex-shrink-0 flex items-center justify-center cursor-grab active:cursor-grabbing text-neutral-300 hover:text-brand-primary transition-colors self-center p-2 mt-4" 
+                   title="Drag to reorder"
+                   draggable={true}
+                   onDragStart={(e) => handleDragStartOrder(e, order.id)}
+                   onDragEnd={() => { setDraggedOrderId(null); setDragOverOrderId(null); }}
+                 >
                    <div className="grid grid-cols-2 grid-rows-3 gap-[3px]">
                      {[...Array(6)].map((_, i) => (
                        <div key={i} className="w-[4px] h-[4px] bg-current rounded-full" />
