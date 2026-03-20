@@ -22,7 +22,7 @@ export default async function handler(req: Request) {
 
   const query = `
     query SearchOrders($query: String!) {
-      orders(first: 25, query: $query, sortKey: CREATED_AT, reverse: true) {
+      orders(first: 250, query: $query, sortKey: CREATED_AT, reverse: true) {
         edges {
           node {
             id
@@ -67,7 +67,7 @@ export default async function handler(req: Request) {
       body: JSON.stringify({
         query,
         variables: {
-          query: `tag:"${tag}"`
+          query: tag.split(',').map(t => `tag:"${t.trim()}"`).join(' OR ')
         }
       })
     });
