@@ -733,9 +733,9 @@ export function OrderDetail() {
                          >
                            <GripVertical size={20} />
                          </div>
-                         <div className="flex flex-col lg:flex-row lg:items-center gap-4">
+                         <div className="flex flex-col xl:flex-row xl:items-center gap-6 xl:gap-8 flex-1 min-w-0 pr-4">
                            {/* Product Visual */}
-                           <div className="flex items-center gap-4 w-[160px] shrink-0">
+                           <div className="flex items-center gap-4 min-w-[240px] w-auto shrink-0">
                              <div 
                                className="w-14 h-14 rounded-xl overflow-hidden shrink-0 border border-black/5 bg-gray-50 flex items-center justify-center cursor-pointer hover:border-brand-primary transition-colors hover:shadow-md"
                                onClick={() => setExpandedImage({ src: item.image, alt: item.style })}
