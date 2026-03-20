@@ -422,7 +422,10 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
                        <div className="bg-white rounded-2xl border border-brand-border overflow-hidden shadow-sm transition-all hover:border-black/10 hover:shadow-md">
                          <div 
                            className="p-4 sm:p-5 flex items-center justify-between cursor-pointer hover:bg-neutral-50 transition-colors"
-                           onClick={() => setExpandedOrderShipments(p => ({...p, [order.id]: !p[order.id]}))}
+                           onClick={(e) => {
+                             e.stopPropagation();
+                             setExpandedOrderShipments(p => ({...p, [order.id]: !p[order.id]}));
+                           }}
                          >
                            <div className="flex items-center gap-4">
                              <div className="w-12 h-12 bg-neutral-100 rounded-xl flex items-center justify-center text-brand-primary shrink-0 border border-brand-border/40">
