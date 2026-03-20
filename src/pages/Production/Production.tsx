@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ChevronRight, Loader2, PackageOpen, Building2, ChevronDown } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { ChevronRight, Loader2, PackageOpen, Building2 } from 'lucide-react';
 import { useOrders } from '../../hooks/useOrders';
 import { db } from '../../lib/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
@@ -24,10 +23,8 @@ const DataPill = ({ label, value }: { label: string, value: string }) => (
 );
 
 export function Production() {
-  const navigate = useNavigate();
   const { orders, loading } = useOrders();
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
   const [customerLogos, setCustomerLogos] = useState<Record<string, string>>({});
 
   // Filter orders that are In Production (statusIndex 6) or Kitting (statusIndex 7, assuming 7 is the next step locally)
@@ -187,7 +184,6 @@ export function Production() {
                       <div className="relative flex justify-between items-center z-10 px-0">
                         {timelineSteps.map((step, idx) => {
                           const isCompleted = idx <= Math.floor(visualIndex);
-                          const isLastStep = idx === timelineSteps.length - 1;
                           return (
                             <div key={step} className="flex flex-col items-center relative">
                               <div className={`w-[12px] h-[12px] rounded-full flex items-center justify-center transition-colors duration-300 ${isCompleted ? 'bg-black' : 'bg-[#f0f0f0] border-[2px] border-neutral-300'}`}></div>

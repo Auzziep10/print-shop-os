@@ -10,7 +10,7 @@ import { StatusBadge, type StatusType } from '../../components/ui/StatusBadge';
 import { useAuth } from '../../contexts/AuthContext';
 import { useOrders } from '../../hooks/useOrders';
 import { db, storage } from '../../lib/firebase';
-import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc, collection, getDocs } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { getTrackingLink } from '../../lib/utils';
 
@@ -46,6 +46,43 @@ export function OrderDetail() {
     trackingCarrier: '', trackingNumber: '',
     fulfillmentType: ''
   });
+
+  const [allUsers, setAllUsers] = useState<any[]>([]);
+  const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
+  const [activityLimit, setActivityLimit] = useState(3);
+
+  useEffect(() => {
+    getDocs(collection(db, 'users')).then(snap => {
+      setAllUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    }).catch(e => console.error(e));
+  }, []);
+
+  const handleAddTeamMember = async (userObj: any) => {
+    if (!id || !order) return;
+    try {
+      const newMember = {
+        id: userObj.id || userObj.uid || Date.now().toString(),
+        name: userObj.name || (userObj.email ? userObj.email.split('@')[0] : 'Unknown'),
+        role: userObj.role || 'Staff',
+        initials: (userObj.name || userObj.email || 'U').substring(0,2).toUpperCase()
+      };
+      const updatedTeam = [...(order.team || []), newMember];
+      await updateDoc(doc(db, 'orders', id), { team: updatedTeam });
+      setIsTeamModalOpen(false);
+    } catch(err) {
+      console.error(err);
+    }
+  };
+
+  const handleRemoveTeamMember = async (memberId: string) => {
+    if (!id || !order) return;
+    try {
+      const updatedTeam = (order.team || []).filter((m: any) => m.id !== memberId);
+      await updateDoc(doc(db, 'orders', id), { team: updatedTeam });
+    } catch(err) {
+      console.error(err);
+    }
+  };
 
   const [editItemObj, setEditItemObj] = useState<any>(null);
   const [quickShipItem, setQuickShipItem] = useState<any>(null);
@@ -899,24 +936,33 @@ export function OrderDetail() {
               <div className="bg-white p-6 rounded-card border border-brand-border shadow-sm h-full flex flex-col">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className={tokens.typography.h3}>Team</h3>
-                  <button className="text-brand-secondary hover:text-brand-primary"><Users size={16} /></button>
+                  <button onClick={() => setIsTeamModalOpen(true)} className="text-brand-secondary hover:text-brand-primary tooltip"><Users size={16} /><span className="tooltiptext">Add Member</span></button>
                 </div>
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3 p-2 hover:bg-brand-bg rounded-lg transition-colors cursor-pointer">
-                     <div className="w-8 h-8 rounded-full bg-brand-primary text-white text-xs font-bold flex items-center justify-center">AG</div>
-                     <div>
-                        <p className="text-sm font-medium">Anna Garcia</p>
-                        <p className="text-xs text-brand-secondary">Production Manager</p>
-                     </div>
-                  </div>
-                  <div className="flex items-center gap-3 p-2 hover:bg-brand-bg rounded-lg transition-colors cursor-pointer">
-                     <div className="w-8 h-8 rounded-full bg-amber-500 text-brand-primary text-xs font-bold flex items-center justify-center">VM</div>
-                     <div>
-                        <p className="text-sm font-medium">Vanessa Miller</p>
-                        <p className="text-xs text-brand-secondary">Printer</p>
-                     </div>
-                  </div>
+                <div className="space-y-3 flex-1">
+                  {order.team && order.team.length > 0 ? order.team.map((member: any) => (
+                    <div key={member.id} className="group flex justify-between items-center p-2 hover:bg-brand-bg rounded-lg transition-colors cursor-pointer border border-transparent hover:border-brand-border">
+                       <div className="flex items-center gap-3">
+                         <div className="w-8 h-8 rounded-full bg-brand-primary text-white text-xs font-bold flex items-center justify-center shrink-0">
+                           {member.initials}
+                         </div>
+                         <div>
+                            <p className="text-sm font-medium truncate max-w-[120px]">{member.name}</p>
+                            <p className="text-[10px] text-brand-secondary uppercase tracking-widest">{member.role}</p>
+                         </div>
+                       </div>
+                       <button onClick={(e) => { e.stopPropagation(); handleRemoveTeamMember(member.id); }} className="opacity-0 group-hover:opacity-100 p-1.5 text-brand-secondary hover:text-red-500 transition-all rounded">
+                         <X size={14} />
+                       </button>
+                    </div>
+                  )) : (
+                    <div className="text-sm text-brand-secondary text-center py-4 bg-brand-bg rounded-xl border border-dashed border-brand-border">
+                      No team members assigned.
+                    </div>
+                  )}
                 </div>
+                 <button onClick={() => setIsTeamModalOpen(true)} className="w-full mt-4 py-2 text-xs font-bold uppercase tracking-widest text-brand-secondary hover:text-brand-primary border border-brand-border hover:border-brand-primary transition-all rounded-lg flex items-center justify-center gap-2">
+                    <Plus size={14} /> Assign
+                 </button>
               </div>
             </div>
 
@@ -928,29 +974,51 @@ export function OrderDetail() {
                   <h3 className={tokens.typography.h3}>Activity</h3>
                 </div>
             
-            <div className="flex-1 overflow-y-auto pr-2 space-y-4 custom-scrollbar mb-4 max-h-[400px]">
-               {order.activities && order.activities.length > 0 ? order.activities.map((act: any) => (
-                 <div key={act.id} className="relative pl-6 border-l border-brand-border/60 pb-4 last:pb-0 last:border-0">
-                    <div className={`absolute w-2 h-2 rounded-full left-[-4.5px] top-1.5 ring-4 ring-white ${act.type === 'status_change' ? 'bg-brand-primary' : 'bg-brand-secondary'}`}></div>
-                    
-                    {act.type === 'status_change' ? (
-                       <p className="text-sm font-medium text-brand-primary mb-0.5">{act.message}</p>
-                    ) : (
-                       <>
-                         <p className="text-sm font-medium text-brand-primary mb-1">{act.user.split('@')[0]}</p>
-                         <div className="bg-brand-bg p-3 rounded-lg text-sm text-brand-secondary border border-brand-border/50">
-                            {act.message}
-                         </div>
-                       </>
-                    )}
-                    
-                    <p className="text-xs text-brand-secondary mt-1">
-                      {new Date(act.timestamp).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute:'2-digit' })} by {act.user.split('@')[0]}
-                    </p>
-                 </div>
-               )) : (
-                 <div className="text-xs text-brand-secondary text-center py-6">No activity recorded yet for this order.</div>
-               )}
+            <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar min-h-[150px]">
+               {(() => {
+                 const rawActivities = order.activities || [];
+                 // Sort activities descending by timestamp
+                 const sortedActivities = [...rawActivities].sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+                 const displayedActivities = sortedActivities.slice(0, activityLimit);
+                 if (displayedActivities.length === 0) {
+                    return <div className="text-xs text-brand-secondary text-center py-6">No activity recorded yet for this order.</div>;
+                 }
+                 return (
+                   <div className="space-y-4 mb-4">
+                     {displayedActivities.map((act: any) => (
+                       <div key={act.id} className="relative pl-6 border-l border-brand-border/60 pb-4 last:pb-0 last:border-0">
+                          <div className={`absolute w-2 h-2 rounded-full left-[-4.5px] top-1.5 ring-4 ring-white ${act.type === 'status_change' ? 'bg-brand-primary' : 'bg-brand-secondary'}`}></div>
+                          
+                          {act.type === 'status_change' ? (
+                             <p className="text-sm font-medium text-brand-primary mb-0.5">{act.message}</p>
+                          ) : (
+                             <>
+                               <p className="text-sm font-medium text-brand-primary mb-1">{act.user.split('@')[0]}</p>
+                               <div className="bg-brand-bg p-3 rounded-lg text-sm text-brand-secondary border border-brand-border/50 break-words">
+                                  {act.message}
+                               </div>
+                             </>
+                          )}
+                          
+                          <p className="text-[10px] text-brand-secondary mt-1 font-semibold tracking-wide">
+                            {new Date(act.timestamp).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute:'2-digit' })}
+                          </p>
+                       </div>
+                     ))}
+                     
+                     {sortedActivities.length > activityLimit && (
+                       <button onClick={() => setActivityLimit(sortedActivities.length)} className="w-full py-2 text-xs font-bold text-brand-secondary hover:text-brand-primary border border-brand-border rounded-lg bg-neutral-50 hover:bg-neutral-100 transition-colors">
+                         View All {sortedActivities.length} Recent Activities
+                       </button>
+                     )}
+                     {activityLimit > 3 && sortedActivities.length > 3 && (
+                       <button onClick={() => setActivityLimit(3)} className="w-full py-2 text-xs font-bold text-brand-secondary hover:text-brand-primary border border-transparent hover:border-brand-border rounded-lg hover:bg-brand-bg transition-colors">
+                         Collapse Activity
+                       </button>
+                     )}
+                   </div>
+                 );
+               })()}
             </div>
 
             {/* Comment Input */}
@@ -1428,6 +1496,37 @@ export function OrderDetail() {
               <PillButton variant="outline" onClick={() => setQuickShipItem(null)} className="flex-1 justify-center py-4">Cancel</PillButton>
               <PillButton variant="filled" className="flex-1 justify-center bg-black text-white hover:bg-neutral-800 py-4 shadow-lg shadow-black/10" onClick={handleSaveQuickShip}>Submit Shipment</PillButton>
             </div>
+          </div>
+        </div>
+      )}
+
+      {isTeamModalOpen && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setIsTeamModalOpen(false)}>
+          <div className="bg-white rounded-3xl p-6 md:p-8 max-w-sm w-full flex flex-col shadow-2xl border border-brand-border" onClick={(e) => e.stopPropagation()}>
+             <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-black text-gray-900 leading-tight">Add Team Member</h3>
+                <button className="p-2 bg-neutral-100 hover:bg-neutral-200 rounded-full transition-colors" onClick={() => setIsTeamModalOpen(false)}><X size={16} /></button>
+             </div>
+             
+             <div className="flex flex-col gap-3 max-h-[300px] overflow-y-auto custom-scrollbar mb-6">
+                {allUsers.filter(u => !(order.team || []).some((m: any) => m.id === u.id || m.name === u.name)).map(user => (
+                  <button 
+                    key={user.id} 
+                    onClick={() => handleAddTeamMember(user)}
+                    className="flex justify-between items-center p-3 hover:bg-brand-bg rounded-xl border border-transparent hover:border-brand-border transition-colors text-left"
+                  >
+                     <div>
+                       <p className="font-bold text-sm text-brand-primary truncate">{user.name || user.email?.split('@')[0] || 'Unknown User'}</p>
+                       <p className="text-[10px] uppercase tracking-widest text-brand-secondary mt-0.5">{user.role || 'Staff'}</p>
+                     </div>
+                     <Plus size={16} className="text-brand-secondary p-0.5 border border-brand-border rounded-full" />
+                  </button>
+                ))}
+                {allUsers.filter(u => !(order.team || []).some((m: any) => m.id === u.id || m.name === u.name)).length === 0 && (
+                  <div className="text-sm text-center text-brand-secondary py-4">All available users are already on the team.</div>
+                )}
+             </div>
+             <PillButton variant="outline" onClick={() => setIsTeamModalOpen(false)} className="w-full justify-center">Done</PillButton>
           </div>
         </div>
       )}
