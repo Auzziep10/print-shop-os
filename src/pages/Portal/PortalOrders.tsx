@@ -232,37 +232,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
                   </div>
                 )}
 
-                {/* Right: Action Buttons (Moved inside card) */}
-                <div className="flex xl:flex-col justify-center gap-3 w-full xl:w-[130px] shrink-0 mt-6 xl:mt-0 relative z-20">
-                  {order.trackingCarrier && order.trackingNumber ? (
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        window.open(getTrackingLink(order.trackingCarrier, order.trackingNumber) || '#', '_blank');
-                      }}
-                      className="flex-1 bg-white border border-brand-border hover:border-black hover:bg-black hover:text-white text-[12px] font-bold text-gray-800 rounded-full py-3 xl:py-4 transition-all tracking-wide text-center"
-                    >
-                      Track {order.trackingCarrier}
-                    </button>
-                  ) : (
-                    <button 
-                      className="flex-1 bg-white border border-brand-border/50 text-[12px] font-bold text-gray-400 rounded-full py-3 xl:py-4 transition-all tracking-wide cursor-default text-center"
-                      onClick={(e) => e.stopPropagation()}
-                   >
-                     {order.trackingCarrier === 'Pickup' || (!order.trackingCarrier && order.statusIndex >= 4) ? 'No Tracking' : 'Processing'}
-                   </button>
-                 )}
-                 <button 
-                   className="flex-1 bg-white border border-brand-border hover:border-black hover:bg-black hover:text-white text-[12px] font-bold text-gray-800 rounded-full py-3 xl:py-4 transition-all tracking-wide text-center"
-                   onClick={(e) => {
-                     e.stopPropagation();
-                     if (overrideCustomerId) navigate(`/orders/${order.id}`);
-                     else window.open(`/order-summary/${order.id}`, '_blank');
-                   }}
-                 >
-                   Order Info
-                 </button>
-                </div>
+                {/* Action buttons moved outside */}
               </div>
 
               {/* Expanded Items Section */}
@@ -501,6 +471,38 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
                   </div>
                 </div>
               )}
+            </div>
+
+            {/* Right: Action Buttons (Moved outside card) */}
+            <div className="flex xl:flex-col justify-center gap-3 w-full xl:w-[130px] shrink-0 mt-6 xl:mt-0 relative z-20 pt-4 xl:pt-6">
+              {order.trackingCarrier && order.trackingNumber ? (
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    window.open(getTrackingLink(order.trackingCarrier, order.trackingNumber) || '#', '_blank');
+                  }}
+                  className="flex-1 bg-white border border-brand-border hover:border-black hover:bg-black hover:text-white text-[12px] font-bold text-gray-800 rounded-full py-3 xl:py-4 transition-all tracking-wide text-center"
+                >
+                  Track {order.trackingCarrier}
+                </button>
+              ) : (
+                <button 
+                  className="flex-1 bg-white border border-brand-border/50 text-[12px] font-bold text-gray-400 rounded-full py-3 xl:py-4 transition-all tracking-wide cursor-default text-center"
+                  onClick={(e) => e.stopPropagation()}
+               >
+                 {order.trackingCarrier === 'Pickup' || (!order.trackingCarrier && order.statusIndex >= 4) ? 'No Tracking' : 'Processing'}
+               </button>
+             )}
+             <button 
+               className="flex-1 bg-white border border-brand-border hover:border-black hover:bg-black hover:text-white text-[12px] font-bold text-gray-800 rounded-full py-3 xl:py-4 transition-all tracking-wide text-center"
+               onClick={(e) => {
+                 e.stopPropagation();
+                 if (overrideCustomerId) navigate(`/orders/${order.id}`);
+                 else window.open(`/order-summary/${order.id}`, '_blank');
+               }}
+             >
+               Order Info
+             </button>
             </div>
           </div>
         );

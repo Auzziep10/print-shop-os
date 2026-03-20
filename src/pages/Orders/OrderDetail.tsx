@@ -11,7 +11,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useOrders } from '../../hooks/useOrders';
 import { MOCK_CUSTOMERS_DB } from '../../lib/mockData';
 import { db, storage } from '../../lib/firebase';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { getTrackingLink } from '../../lib/utils';
 
@@ -57,6 +57,48 @@ export function OrderDetail() {
   const [isUploadingMain, setIsUploadingMain] = useState(false);
   const [isUploadingRef, setIsUploadingRef] = useState(false);
   const [trackingBoxId, setTrackingBoxId] = useState<string | null>(null);
+  const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
+  const [dragOverItemId, setDragOverItemId] = useState<string | null>(null);
+
+  const handleDragStart = (e: React.DragEvent, id: string) => {
+    setDraggedItemId(id);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', id);
+  };
+
+  const handleDragOver = (e: React.DragEvent, id: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (id !== dragOverItemId) {
+      setDragOverItemId(id);
+    }
+  };
+
+  const handleDragEnd = () => {
+    setDraggedItemId(null);
+    setDragOverItemId(null);
+  };
+
+  const handleDrop = async (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    if (!draggedItemId || draggedItemId === targetId) return;
+
+    const newItems = [...(order.items || [])];
+    const draggedIdx = newItems.findIndex((i: any) => i.id === draggedItemId);
+    const targetIdx = newItems.findIndex((i: any) => i.id === targetId);
+    
+    if (draggedIdx !== -1 && targetIdx !== -1) {
+      const [movedItem] = newItems.splice(draggedIdx, 1);
+      newItems.splice(targetIdx, 0, movedItem);
+      
+      try {
+        await updateDoc(doc(db, 'orders', order.id), { items: newItems });
+      } catch (err) {
+        console.error("Error reordering items:", err);
+      }
+    }
+    handleDragEnd();
+  };
 
   const { user } = useAuth();
   const [noteText, setNoteText] = useState('');
@@ -630,7 +672,15 @@ export function OrderDetail() {
             </div>
             <div className="bg-white rounded-card border border-brand-border overflow-hidden">
                {order.items?.length > 0 ? order.items.map((item: any) => (
-                 <div key={item.id} className="p-6 border-b border-brand-border/50 flex flex-col gap-6 items-start hover:bg-brand-bg transition-colors last:border-0">
+                 <div 
+                   key={item.id} 
+                   draggable
+                   onDragStart={(e) => handleDragStart(e, item.id)}
+                   onDragOver={(e) => handleDragOver(e, item.id)}
+                   onDragEnd={handleDragEnd}
+                   onDrop={(e) => handleDrop(e, item.id)}
+                   className={`p-6 border-b border-brand-border/50 flex flex-col gap-6 items-start hover:bg-brand-bg transition-colors last:border-0 cursor-grab active:cursor-grabbing ${draggedItemId === item.id ? 'opacity-50' : ''} ${dragOverItemId === item.id ? 'border-t-2 border-t-brand-primary bg-brand-bg/50' : ''}`}
+                 >
                     <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 w-full relative group">
                        
                        {/* Edit Button */}
