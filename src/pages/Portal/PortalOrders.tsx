@@ -275,7 +275,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
                        {/* Left Side: Visual & Specs */}
                        <div className={`flex flex-col lg:flex-row lg:items-center gap-4 flex-1 min-w-0 ${hideHeader ? 'pr-2' : ''}`}>
                         {/* Product Visual */}
-                        <div className="flex items-center gap-4 w-[160px] shrink-0">
+                        <div className="flex items-center gap-4 w-auto shrink-0 pr-4 min-w-[240px]">
                           <div 
                             className={`w-14 h-14 rounded-xl overflow-hidden shrink-0 border border-black/5 bg-gray-50 cursor-pointer hover:border-brand-primary transition-colors hover:shadow-md ${hideHeader ? 'flex items-center justify-center' : ''}`}
                             onClick={() => setExpandedImage({ src: item.image, alt: item.style })}
@@ -283,18 +283,21 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
                           >
                             <img src={item.image} alt={item.style} className="w-full h-full object-cover mix-blend-multiply p-1 pointer-events-none" />
                           </div>
-                          <div>
-                             <h4 className="font-bold text-gray-900 text-[15px]">{item.style}</h4>
-                             <p className="text-xs font-semibold text-gray-500 mt-0.5">
-                                {item.gender !== 'Unisex' ? `${item.gender} ` : ''} 
-                                {item.color ? `- ${item.color}` : ''}
-                             </p>
+                          
+                          <div className="flex flex-col lg:flex-row lg:items-center gap-3 lg:gap-5 w-full">
+                             <div className="flex flex-col justify-center">
+                               <h4 className="font-bold text-gray-900 text-[15px]">{item.style}</h4>
+                               <p className="text-xs font-semibold text-gray-500 mt-0.5">
+                                  {item.gender !== 'Unisex' ? `${item.gender} ` : ''} 
+                                  {item.color ? `- ${item.color}` : ''}
+                               </p>
+                             </div>
                              
                              {(() => {
                                const itemBoxes = order.boxes?.filter((b: any) => b.items?.some((bi: any) => String(bi.id) === String(item.id))) || [];
                                if (itemBoxes.length === 0) return null;
                                return (
-                                 <div className="flex items-center gap-2.5 mt-3">
+                                 <div className="flex items-center">
                                    <button 
                                      onClick={(e) => {
                                        e.stopPropagation();
