@@ -930,8 +930,8 @@ export function OrderDetail() {
           <PackingSlipsManager order={order} onEditTracking={setTrackingBoxId} />
           
           {/* Bottom Grid: Team and Activity Feed */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-1">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="md:col-span-1">
               {/* Team Assignment */}
               <div className="bg-white p-6 rounded-card border border-brand-border shadow-sm h-full flex flex-col">
                 <div className="flex justify-between items-center mb-4">
@@ -966,7 +966,7 @@ export function OrderDetail() {
               </div>
             </div>
 
-            <div className="lg:col-span-2">
+            <div className="md:col-span-1">
               {/* Activity Feed */}
               <div className="bg-white p-6 rounded-card border border-brand-border shadow-sm flex flex-col h-full">
                 <div className="flex items-center gap-2 mb-6">
@@ -986,23 +986,24 @@ export function OrderDetail() {
                  return (
                    <div className="space-y-4 mb-4">
                      {displayedActivities.map((act: any) => (
-                       <div key={act.id} className="relative pl-6 border-l border-brand-border/60 pb-4 last:pb-0 last:border-0">
-                          <div className={`absolute w-2 h-2 rounded-full left-[-4.5px] top-1.5 ring-4 ring-white ${act.type === 'status_change' ? 'bg-brand-primary' : 'bg-brand-secondary'}`}></div>
+                       <div key={act.id} className="relative pl-6 border-l border-brand-border/60 pb-5 last:pb-0 last:border-0 hover:border-l-brand-primary/40 transition-colors">
+                          <div className={`absolute w-2 h-2 rounded-full left-[-4.5px] top-1.5 ring-4 ring-white ${act.type === 'status_change' ? 'bg-brand-primary' : 'bg-brand-secondary/40'}`}></div>
                           
-                          {act.type === 'status_change' ? (
-                             <p className="text-sm font-medium text-brand-primary mb-0.5">{act.message}</p>
-                          ) : (
-                             <>
-                               <p className="text-sm font-medium text-brand-primary mb-1">{act.user.split('@')[0]}</p>
-                               <div className="bg-brand-bg p-3 rounded-lg text-sm text-brand-secondary border border-brand-border/50 break-words">
-                                  {act.message}
-                               </div>
-                             </>
-                          )}
-                          
-                          <p className="text-[10px] text-brand-secondary mt-1 font-semibold tracking-wide">
-                            {new Date(act.timestamp).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute:'2-digit' })}
-                          </p>
+                          <div className="flex flex-col gap-0.5">
+                            {act.type === 'status_change' ? (
+                               <p className="text-[13px] font-bold text-brand-primary/80">{act.message}</p>
+                            ) : (
+                               <>
+                                 <p className="text-[13px] font-black text-brand-primary">{act.user.split('@')[0]}</p>
+                                 <p className="text-[13px] text-brand-secondary/90 leading-snug">
+                                    {act.message}
+                                 </p>
+                               </>
+                            )}
+                            <p className="text-[10px] text-brand-secondary/50 mt-1 font-semibold tracking-wide uppercase">
+                              {new Date(act.timestamp).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute:'2-digit' })}
+                            </p>
+                          </div>
                        </div>
                      ))}
                      
