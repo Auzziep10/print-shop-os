@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ChevronRight, Loader2, PackageOpen, Building2 } from 'lucide-react';
+import { ChevronRight, Loader2, PackageOpen, Building2, Search } from 'lucide-react';
 import { useOrders } from '../../hooks/useOrders';
 import { db } from '../../lib/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
@@ -27,9 +27,35 @@ export function Production() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [customerLogos, setCustomerLogos] = useState<Record<string, string>>({});
 
-  // Filter orders that are In Production (statusIndex 6) or Kitting (statusIndex 7, assuming 7 is the next step locally)
-  // Actually, we'll just show any order >= 6 and <= 8? "orders that are in production" means statusIndex === 6 probably. Let's include 6 and 7 to be safe.
-  const productionOrders = orders.filter(o => o.statusIndex === 6 || o.statusIndex === 7);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Calculate completion ratio helper
+  const getCompletionData = (order: any) => {
+    let totalGarments = 0;
+    let completedGarments = 0;
+    order.items?.forEach((item: any) => {
+      if (item.sizes) {
+        Object.entries(item.sizes).forEach(([size, qty]: [string, any]) => {
+          const q = parseInt(qty as string) || 0;
+          totalGarments += q;
+          if (item.completedSizes?.includes(size)) {
+            completedGarments += q;
+          }
+        });
+      }
+    });
+    const completionRatio = totalGarments > 0 ? (completedGarments / totalGarments) : 0;
+    return { totalGarments, completedGarments, completionRatio };
+  };
+
+  const productionOrders = orders
+    .filter(o => o.statusIndex === 6 || o.statusIndex === 7)
+    .filter(o => {
+      if (!searchQuery) return true;
+      const q = searchQuery.toLowerCase();
+      return (o.title?.toLowerCase().includes(q) || o.portalId?.toLowerCase().includes(q) || o.id.toLowerCase().includes(q));
+    })
+    .sort((a, b) => getCompletionData(b).completionRatio - getCompletionData(a).completionRatio);
 
   useEffect(() => {
     // Fetch unique customer logos
@@ -81,7 +107,7 @@ export function Production() {
     );
   }
 
-  if (productionOrders.length === 0) {
+  if (productionOrders.length === 0 && !searchQuery) {
     return (
       <div className="max-w-[800px] mx-auto mt-24 flex flex-col items-center justify-center text-center gap-6">
         <div className="w-24 h-24 bg-gray-50 rounded-full flex items-center justify-center text-gray-300 border border-gray-100">
@@ -99,33 +125,34 @@ export function Production() {
 
   return (
     <div className="p-6 md:p-10 max-w-[1600px] mx-auto space-y-8">
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-6 mb-8">
         <div>
           <h1 className={tokens.typography.h1}>Production Pipeline</h1>
           <p className="text-brand-secondary text-sm mt-1">Manage active orders currently on the floor.</p>
         </div>
+        <div className="relative w-full md:w-80">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+          <input
+            type="text"
+            placeholder="Search active orders..."
+            className="w-full bg-white border border-brand-border rounded-xl pl-10 pr-4 py-3 text-sm focus:border-brand-primary outline-none transition-colors"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
       </div>
 
       <div className="flex flex-col gap-6">
+        {productionOrders.length === 0 && searchQuery && (
+          <div className="text-center py-12 text-gray-500">
+             No orders completely match "{searchQuery}"
+          </div>
+        )}
         {productionOrders.map((order: any) => {
           const isExpanded = expandedId === order.id;
           const timelineSteps = ['Production', 'Kitting', 'Shipped'];
 
-          let totalGarments = 0;
-          let completedGarments = 0;
-          order.items?.forEach((item: any) => {
-            if (item.sizes) {
-              Object.entries(item.sizes).forEach(([size, qty]: [string, any]) => {
-                const q = parseInt(qty) || 0;
-                totalGarments += q;
-                if (item.completedSizes?.includes(size)) {
-                  completedGarments += q;
-                }
-              });
-            }
-          });
-
-          const completionRatio = totalGarments > 0 ? (completedGarments / totalGarments) : 0;
+          const { totalGarments, completedGarments, completionRatio } = getCompletionData(order);
           
           let visualIndex = 0; // Production
           if (order.statusIndex === 6) { // In Production
