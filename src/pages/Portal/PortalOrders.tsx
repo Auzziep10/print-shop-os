@@ -161,14 +161,14 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
                         }
                       }}
                     >
-                      <h2 className="text-2xl font-serif text-gray-900 hover:text-brand-primary transition-colors">Order {order.portalId}</h2>
+                      <h2 className="text-2xl font-serif text-gray-900 hover:text-brand-primary transition-colors line-clamp-1 break-all" title={order.title}>{order.title || 'Custom Order'}</h2>
                       {!overrideCustomerId && (
-                        <span className="text-gray-400 group-hover:text-black transition-colors">
+                        <span className="text-gray-400 group-hover:text-black transition-colors shrink-0">
                           <ChevronRight size={20} strokeWidth={2.5} className={`transition-transform duration-500 ease-out ${isExpanded ? 'rotate-90' : ''}`} />
                         </span>
                       )}
                     </div>
-                    <p className="text-xs font-medium text-gray-500 mt-1 uppercase tracking-wider">{order.title}</p>
+                    <p className="text-xs font-medium text-gray-500 mt-1 uppercase tracking-wider">Order #{order.portalId || order.id.substring(0,8)}</p>
                   </div>
 
                 </div>
