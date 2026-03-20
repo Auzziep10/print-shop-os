@@ -1341,11 +1341,11 @@ export function OrderDetail() {
                {Object.entries(quickShipItem.remainingSizes).sort(([a], [b]) => sortSizes(a, b)).map(([size, maxQty]: [string, any]) => {
                   if (maxQty === 0) return null;
                   return (
-                    <div key={size} className="flex flex-col border border-brand-border shadow-sm rounded-xl overflow-hidden focus-within:border-black focus-within:ring-1 focus-within:ring-black transition-all bg-white h-full group">
-                       <div className="bg-neutral-100/60 p-1.5 flex flex-col items-center justify-center flex-1 min-h-[44px] border-b border-brand-border group-focus-within:bg-neutral-100 transition-colors">
+                    <div key={size} className="grid grid-rows-[1fr_auto] border border-brand-border shadow-sm rounded-xl overflow-hidden focus-within:border-black focus-within:ring-1 focus-within:ring-black transition-all bg-white group">
+                       <div className="bg-neutral-100/60 p-1.5 flex flex-col items-center justify-center min-h-[44px] border-b border-brand-border group-focus-within:bg-neutral-100 transition-colors">
                          <span className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary leading-tight text-center line-clamp-2">{size}</span>
                        </div>
-                       <div className="relative bg-white pb-6 pt-3 shrink-0">
+                       <div className="relative bg-white pb-6 pt-3 h-full">
                          <input 
                            type="number"
                            min="0"
