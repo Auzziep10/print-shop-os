@@ -1352,6 +1352,7 @@ export function OrderDetail() {
                                          if (e.target.value) setMetricsTimeFilter(e.target.value);
                                          else setMetricsTimeFilter('All');
                                       }}
+                                      onClick={(e) => { try { (e.target as any).showPicker(); } catch(err){ } }}
                                       className={`px-2 py-1 text-[9px] font-bold uppercase tracking-wider rounded transition-all outline-none cursor-pointer w-auto ${(metricsTimeFilter !== 'All' && metricsTimeFilter !== 'Today' && metricsTimeFilter !== 'Yesterday') ? 'bg-brand-primary text-white shadow-sm' : 'bg-transparent text-brand-secondary hover:text-brand-primary cursor-pointer'}`}
                                     />
                                   </div>

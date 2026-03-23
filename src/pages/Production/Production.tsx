@@ -652,6 +652,7 @@ export function Production() {
                          if (e.target.value) setMetricsTimeFilter(e.target.value);
                          else setMetricsTimeFilter('All');
                       }}
+                      onClick={(e) => { try { (e.target as any).showPicker(); } catch(err){ } }}
                       className={`px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all outline-none cursor-pointer w-auto ${(metricsTimeFilter !== 'All' && metricsTimeFilter !== 'Today' && metricsTimeFilter !== 'Yesterday') ? 'bg-white text-brand-primary shadow-sm' : 'bg-transparent text-brand-secondary hover:text-brand-primary cursor-pointer'}`}
                     />
                   </div>
