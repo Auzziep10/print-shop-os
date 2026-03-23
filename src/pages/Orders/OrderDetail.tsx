@@ -37,6 +37,7 @@ const DataPill = ({ label, value }: { label: string, value: string }) => (
 export function OrderDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user, userData } = useAuth();
   const { orders, loading } = useOrders();
 
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -361,7 +362,7 @@ export function OrderDetail() {
        id: `act-${Date.now()}`,
        type: 'system',
        message: `Created ${nextName} containing ${totalQty} items`,
-       user: user?.displayName || user?.email?.split('@')[0] || 'Team Member',
+       user: userData?.name || user?.displayName || user?.email?.split('@')[0] || 'Team Member',
        timestamp: new Date().toISOString()
      };
 
@@ -416,7 +417,7 @@ export function OrderDetail() {
            id: `act-${Date.now()}`,
            type: 'system',
            message: `Completed ${qty}x ${size} for ${item.style} in ${formatedTime}. Rate: ${Math.round(itemsPerHour)}/hr`,
-           user: user?.displayName || user?.email?.split('@')[0] || 'Team Member',
+           user: userData?.name || user?.displayName || user?.email?.split('@')[0] || 'Team Member',
            timestamp: new Date().toISOString()
          };
 
@@ -441,7 +442,7 @@ export function OrderDetail() {
            id: `act-${Date.now()}`,
            type: 'system',
            message: `Started production on ${qty}x ${size} for ${item.style}`,
-           user: user?.displayName || user?.email?.split('@')[0] || 'Team Member',
+           user: userData?.name || user?.displayName || user?.email?.split('@')[0] || 'Team Member',
            timestamp: new Date().toISOString()
          };
 
@@ -537,7 +538,7 @@ export function OrderDetail() {
          id: `act-${Date.now()}`,
          type: 'system',
          message: activityMessage,
-         user: user?.displayName || user?.email?.split('@')[0] || 'Team Member',
+         user: userData?.name || user?.displayName || user?.email?.split('@')[0] || 'Team Member',
          timestamp: new Date().toISOString()
        };
 
@@ -1266,7 +1267,10 @@ export function OrderDetail() {
                                    userName = actMatch?.user?.split('@')[0] || actMatch?.user || 'Unknown';
                                }
 
-                               const rawName = userName || 'Unknown';
+                               let rawName = userName || 'Unknown';
+                               if (rawName.toLowerCase() === 'vanessa' || rawName.toLowerCase() === 'vanessa garcia' || rawName.toLowerCase().includes('vanessa')) {
+                                   rawName = 'Vanessa Miller';
+                               }
                                const groupKey = rawName.toLowerCase().replace(/[^a-z]/g, '') || 'unknown';
 
                                if (!bestDisplayNames[groupKey]) {

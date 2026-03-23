@@ -25,7 +25,7 @@ const DataPill = ({ label, value }: { label: string, value: string }) => (
 );
 
 export function Production() {
-  const { user } = useAuth();
+  const { user, userData } = useAuth();
   const { orders, loading } = useOrders();
   const navigate = useNavigate();
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -139,7 +139,7 @@ export function Production() {
            id: `act-${Date.now()}`,
            type: 'system',
            message: `Completed ${qty}x ${size} for ${item.style} in ${formatedTime}. Rate: ${Math.round(itemsPerHour)}/hr`,
-           user: user?.displayName || user?.email?.split('@')[0] || 'Team Member',
+           user: userData?.name || user?.displayName || user?.email?.split('@')[0] || 'Team Member',
            timestamp: new Date().toISOString()
          };
 
@@ -164,7 +164,7 @@ export function Production() {
            id: `act-${Date.now()}`,
            type: 'system',
            message: `Started production on ${qty}x ${size} for ${item.style}`,
-           user: user?.displayName || user?.email?.split('@')[0] || 'Team Member',
+           user: userData?.name || user?.displayName || user?.email?.split('@')[0] || 'Team Member',
            timestamp: new Date().toISOString()
          };
 
@@ -260,7 +260,7 @@ export function Production() {
          id: `act-${Date.now()}`,
          type: 'system',
          message: activityMessage,
-         user: user?.displayName || user?.email?.split('@')[0] || 'Team Member',
+         user: userData?.name || user?.displayName || user?.email?.split('@')[0] || 'Team Member',
          timestamp: new Date().toISOString()
        };
 
