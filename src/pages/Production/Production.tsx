@@ -614,25 +614,24 @@ export function Production() {
                {(() => {
                  const statsByUser: Record<string, { totalTimeMins: number, garmentsCompleted: number, completionsCount: number }> = {};
 
-                 (metricsOrder.activities || []).forEach((act: any) => {
-                   const match = act.message?.match(/^Completed (\d+)x (.*?) for (.*?) in (.*?)\. Rate: (\d+)\/hr$/);
-                   if (match) {
-                     const user = act.user?.split('@')[0] || act.user || 'Unknown';
-                     const [, qtyStr, , , totalTimeStr] = match;
-                     const qty = parseInt(qtyStr) || 0;
-                     
-                     let timeMins = 0;
-                     if (totalTimeStr.endsWith('m')) timeMins = parseInt(totalTimeStr.replace('m',''));
-                     else if (totalTimeStr.endsWith('s')) timeMins = parseInt(totalTimeStr.replace('s','')) / 60;
-                     else timeMins = 1;
+                 (metricsOrder.items || []).forEach((item: any) => {
+                    const completed = item.completedSizes || [];
+                    completed.forEach((size: string) => {
+                       const stat = item.sizeStats?.[size];
+                       if (stat) {
+                           const user = stat.user?.split('@')[0] || stat.user || 'Unknown';
+                           const qty = parseInt(item.sizes?.[size]) || 0;
+                           const durationMs = stat.durationMs || 0;
+                           const timeMins = durationMs / 60000;
 
-                     if (!statsByUser[user]) {
-                        statsByUser[user] = { totalTimeMins: 0, garmentsCompleted: 0, completionsCount: 0 };
-                     }
-                     statsByUser[user].totalTimeMins += timeMins;
-                     statsByUser[user].garmentsCompleted += qty;
-                     statsByUser[user].completionsCount += 1;
-                   }
+                           if (!statsByUser[user]) {
+                              statsByUser[user] = { totalTimeMins: 0, garmentsCompleted: 0, completionsCount: 0 };
+                           }
+                           statsByUser[user].totalTimeMins += timeMins;
+                           statsByUser[user].garmentsCompleted += qty;
+                           statsByUser[user].completionsCount += 1;
+                       }
+                    });
                  });
 
                  const users = Object.keys(statsByUser).sort((a,b) => statsByUser[b].garmentsCompleted - statsByUser[a].garmentsCompleted);
