@@ -298,7 +298,7 @@ export function Production() {
             <div key={order.id} className="w-full relative px-2">
               <div 
                 className={`bg-white rounded-[2rem] border border-brand-border/60 transition-all duration-300 relative group 
-                ${isExpanded ? 'shadow-[0_8px_30px_rgb(0,0,0,0.06)] scale-[1.01] z-10' : 'hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:-translate-y-1 hover:z-10 z-0'}`}
+                ${isExpanded ? 'shadow-[0_8px_30px_rgb(0,0,0,0.06)] z-10' : 'hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:-translate-y-1 hover:z-10 z-0'}`}
               >
                 <div 
                   onClick={() => setExpandedId(isExpanded ? null : order.id)}
