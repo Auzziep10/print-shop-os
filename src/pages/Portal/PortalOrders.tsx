@@ -566,7 +566,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
              </div>
              
              {/* Right: Action Buttons (Moved outside card) */}
-             <div className="flex xl:flex-col justify-center gap-3 w-full xl:w-[130px] shrink-0 xl:self-start mt-6 xl:mt-0 relative z-20 xl:pt-6">
+             <div className="flex xl:flex-col justify-center gap-3 w-full xl:w-[130px] shrink-0 xl:self-start mt-6 xl:mt-0 relative z-20 xl:h-[128px]">
                {order.trackingCarrier && order.trackingNumber ? (
                  <button 
                    onClick={(e) => {
