@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { ChevronRight, Loader2, PackageOpen, Building2, Search } from 'lucide-react';
+import { ChevronRight, Loader2, PackageOpen, Building2, Search, Check, Clock, Box, X } from 'lucide-react';
 import { useOrders } from '../../hooks/useOrders';
+import { useAuth } from '../../contexts/AuthContext';
 import { db } from '../../lib/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { tokens } from '../../lib/tokens';
@@ -23,9 +24,11 @@ const DataPill = ({ label, value }: { label: string, value: string }) => (
 );
 
 export function Production() {
+  const { user } = useAuth();
   const { orders, loading } = useOrders();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [customerLogos, setCustomerLogos] = useState<Record<string, string>>({});
+  const [contextMenu, setContextMenu] = useState<{ x: number, y: number, order: any, item: any, size: string, qty: number } | null>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -75,27 +78,149 @@ export function Production() {
     if (productionOrders.length > 0) fetchLogos();
   }, [orders]);
 
-  const handleToggleSizeComplete = async (order: any, item: any, size: string) => {
-    const updatedOrderItems = [...(order.items || [])];
-    const itemIndex = updatedOrderItems.findIndex((i: any) => i.id === item.id);
-    if (itemIndex === -1) return;
+  const handleSizeClick = async (order: any, item: any, size: string, qty: number) => {
+     const currentCompleted = item.completedSizes || [];
+     const inProgress = item.inProgressSizes || {};
+     
+     if (currentCompleted.includes(size)) {
+         return; 
+     }
+     
+     if (inProgress[size]) {
+         const startTime = new Date(inProgress[size].startTime).getTime();
+         const durationMs = Date.now() - startTime;
+         const avgItemTimeMs = qty > 0 ? durationMs / qty : 0;
+         const itemsPerHour = durationMs > 0 ? (qty / (durationMs / 3600000)) : 0;
+         
+         const newCompleted = [...currentCompleted, size];
+         const newInProgress = { ...inProgress };
+         delete newInProgress[size];
+         
+         const newStats = { ...(item.sizeStats || {}) };
+         newStats[size] = {
+             durationMs,
+             avgItemTimeMs,
+             itemsPerHour: Math.round(itemsPerHour)
+         };
+         
+         const updatedItems = order.items.map((i: any) => 
+             i.id === item.id ? { ...i, completedSizes: newCompleted, inProgressSizes: newInProgress, sizeStats: newStats } : i
+         );
+         
+         const formatedTime = durationMs > 60000 ? `${Math.round(durationMs/60000)}m` : `${Math.round(durationMs/1000)}s`;
+         const activity = {
+           id: `act-${Date.now()}`,
+           type: 'system',
+           message: `Completed ${qty}x ${size} for ${item.style} in ${formatedTime}. Rate: ${Math.round(itemsPerHour)}/hr`,
+           user: user?.displayName || user?.email?.split('@')[0] || 'Team Member',
+           timestamp: new Date().toISOString()
+         };
 
-    const currentItem = updatedOrderItems[itemIndex];
-    let completedSizes = currentItem.completedSizes || [];
+         await updateDoc(doc(db, 'orders', order.id), { 
+           items: updatedItems,
+           activities: [activity, ...(order.activities || [])]
+         });
+     } else {
+         const newInProgress = { 
+             ...inProgress, 
+             [size]: { 
+                 startTime: new Date().toISOString(), 
+                 user: user?.email || 'Team Member' 
+             } 
+         };
+         
+         const updatedItems = order.items.map((i: any) => 
+             i.id === item.id ? { ...i, inProgressSizes: newInProgress } : i
+         );
+         
+         const activity = {
+           id: `act-${Date.now()}`,
+           type: 'system',
+           message: `Started production on ${qty}x ${size} for ${item.style}`,
+           user: user?.displayName || user?.email?.split('@')[0] || 'Team Member',
+           timestamp: new Date().toISOString()
+         };
 
-    if (completedSizes.includes(size)) {
-      completedSizes = completedSizes.filter((s: string) => s !== size);
-    } else {
-      completedSizes.push(size);
+         await updateDoc(doc(db, 'orders', order.id), { 
+           items: updatedItems,
+           activities: [activity, ...(order.activities || [])]
+         });
+     }
+  };
+
+  const isSizeFullyBoxed = (order: any, item: any, size: string, totalQty: number) => {
+      if (!order.boxes || totalQty <= 0) return false;
+      let boxedQty = 0;
+      order.boxes.forEach((box: any) => {
+          const boxItem = box.items?.find((bi: any) => String(bi.id) === String(item.id));
+          if (boxItem?.sizes?.[size]) boxedQty += boxItem.sizes[size];
+      });
+      return boxedQty >= totalQty;
+  };
+
+  const handleContextMenuAction = async (action: string, boxId?: string) => {
+    if (!contextMenu) return;
+    const { order, item, size, qty } = contextMenu;
+    
+    let updatedItems = [...(order.items || [])];
+    let updatedBoxes = [...(order.boxes || [])];
+    let activityMessage = '';
+
+    if (action === 'uncomplete') {
+       updatedItems = updatedItems.map((i: any) => 
+           i.id === item.id ? { 
+               ...i, 
+               completedSizes: (i.completedSizes || []).filter((s: string) => s !== size) 
+           } : i
+       );
+       activityMessage = `Unmarked size ${size} for ${item.style}`;
+    } else if (action === 'cancel_timer') {
+       const newInProgress = { ...(item.inProgressSizes || {}) };
+       delete newInProgress[size];
+       updatedItems = updatedItems.map((i: any) => 
+           i.id === item.id ? { ...i, inProgressSizes: newInProgress } : i
+       );
+       activityMessage = `Canceled timer on size ${size} for ${item.style}`;
+    } else if (action === 'add_to_box' && boxId) {
+        const targetBoxIndex = updatedBoxes.findIndex((b: any) => b.id === boxId);
+        if (targetBoxIndex >= 0) {
+            const box = updatedBoxes[targetBoxIndex];
+            const existingBoxItems = [...(box.items || [])];
+            const matchIdx = existingBoxItems.findIndex((bi: any) => String(bi.id) === String(item.id));
+            
+            if (matchIdx >= 0) {
+                const bItem = existingBoxItems[matchIdx];
+                const newSizes = { ...(bItem.sizes || {}), [size]: (bItem.sizes?.[size] || 0) + qty };
+                const newTotalQty = Object.values(newSizes).reduce((a: any, b: any) => a + (parseInt(b) || 0), 0);
+                existingBoxItems[matchIdx] = { ...bItem, sizes: newSizes, qty: newTotalQty };
+            } else {
+                existingBoxItems.push({
+                   id: item.id, style: item.style || 'Custom Garment', color: item.color || '', gender: item.gender || '',
+                   image: item.image || '', itemNum: item.itemNum || '',
+                   sizes: { [size]: qty }, qty: qty
+                });
+            }
+            updatedBoxes[targetBoxIndex] = { ...box, items: existingBoxItems };
+            activityMessage = `Added ${qty}x ${size} to ${box.name}`;
+        }
     }
 
-    updatedOrderItems[itemIndex] = { ...currentItem, completedSizes };
+    if (activityMessage) {
+       const activity = {
+         id: `act-${Date.now()}`,
+         type: 'system',
+         message: activityMessage,
+         user: user?.displayName || user?.email?.split('@')[0] || 'Team Member',
+         timestamp: new Date().toISOString()
+       };
 
-    try {
-      await updateDoc(doc(db, 'orders', order.id), { items: updatedOrderItems });
-    } catch (err) {
-      console.error("Error toggling completion", err);
+       await updateDoc(doc(db, 'orders', order.id), { 
+         items: updatedItems,
+         boxes: updatedBoxes,
+         activities: [activity, ...(order.activities || [])]
+       });
     }
+    setContextMenu(null);
   };
 
   if (loading) {
@@ -171,8 +296,8 @@ export function Production() {
           return (
             <div key={order.id} className="w-full relative px-2">
               <div 
-                className={`bg-white rounded-[2rem] border border-brand-border/60 transition-all duration-300 relative group z-10 
-                ${isExpanded ? 'shadow-[0_8px_30px_rgb(0,0,0,0.06)] scale-[1.01]' : 'hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:-translate-y-1'}`}
+                className={`bg-white rounded-[2rem] border border-brand-border/60 transition-all duration-300 relative group 
+                ${isExpanded ? 'shadow-[0_8px_30px_rgb(0,0,0,0.06)] scale-[1.01] z-10' : 'hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:-translate-y-1 hover:z-10 z-0'}`}
               >
                 <div 
                   onClick={() => setExpandedId(isExpanded ? null : order.id)}
@@ -259,19 +384,70 @@ export function Production() {
                              {item.sizes && Object.entries(item.sizes).sort(([a], [b]) => sortSizes(a, b)).map(([size, qty]: [string, any]) => {
                                if (qty <= 0) return null;
                                const isCompleted = item.completedSizes?.includes(size);
-                               
+                               const inProgress = item.inProgressSizes?.[size];
+                               const isPacked = isSizeFullyBoxed(order, item, size, qty);
+
+                               let colorClassTop = 'bg-neutral-300 text-neutral-600 group-hover:bg-neutral-400';
+                               let colorClassBottom = 'bg-white text-neutral-800';
+                               let topContent: any = size;
+                               let wrapperClass = 'hover:-translate-y-0.5 hover:shadow-sm';
+
+                               if (isPacked) {
+                                   colorClassTop = 'bg-blue-500 text-white';
+                                   colorClassBottom = 'bg-blue-50 text-blue-700';
+                                   topContent = <Box size={12} strokeWidth={3} className="my-auto mx-auto" />;
+                                   wrapperClass = 'opacity-80 hover:opacity-100';
+                               } else if (isCompleted) {
+                                   colorClassTop = 'bg-green-500 text-white';
+                                   colorClassBottom = 'bg-green-50 text-green-700';
+                                   topContent = <Check size={12} strokeWidth={4} className="my-auto mx-auto" />;
+                                   wrapperClass = 'opacity-80 hover:opacity-100';
+                               } else if (inProgress) {
+                                   colorClassTop = 'bg-red-500 text-white';
+                                   colorClassBottom = 'bg-red-50 text-red-700';
+                                   topContent = <Clock size={12} strokeWidth={3} className="animate-pulse my-auto mx-auto" />;
+                                   wrapperClass = 'opacity-90 hover:opacity-100';
+                               }
+
                                return (
                                <div 
                                  key={size} 
-                                 onClick={(e) => { e.stopPropagation(); handleToggleSizeComplete(order, item, size); }}
-                                 className={`min-w-[44px] px-0.5 group text-center flex flex-col cursor-pointer transition-all relative ${isCompleted ? 'opacity-60 hover:opacity-100' : 'hover:-translate-y-0.5 hover:shadow-sm'}`}
+                                 className={`min-w-[44px] px-0.5 group text-center flex flex-col cursor-pointer transition-all relative ${wrapperClass}`}
+                                 onClick={(e) => { e.stopPropagation(); handleSizeClick(order, item, size, qty); }}
+                                 onContextMenu={(e) => { 
+                                   e.preventDefault(); 
+                                   e.stopPropagation(); 
+                                   setContextMenu({ x: e.clientX, y: e.clientY, order, item, size, qty }); 
+                                 }}
+                                 title={isPacked ? "Packed in shipments." : isCompleted ? `Completed. Right-click to manage.` : inProgress ? "Timer running. Click to complete!" : "Click to start timer"}
                                >
-                                 <div className={`text-[10px] font-bold py-1.5 px-2 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center transition-colors relative z-0 ${isCompleted ? 'bg-green-500 text-white' : 'bg-neutral-300 text-neutral-600 group-hover:bg-neutral-400'}`}>
-                                    {size}
+                                 {/* Hover hints */}
+                                 {!isCompleted && !isPacked && !inProgress && (
+                                   <div className="absolute inset-0 bg-brand-primary/5 backdrop-blur-[1px] opacity-0 group-hover:opacity-100 transition-opacity z-10 flex flex-col items-center justify-center rounded-[8px] pointer-events-none">
+                                      <Clock size={20} className="text-brand-primary drop-shadow-md" strokeWidth={3} />
+                                   </div>
+                                 )}
+                                 {!isCompleted && !isPacked && inProgress && (
+                                   <div className="absolute inset-0 bg-brand-primary/5 backdrop-blur-[1px] opacity-0 group-hover:opacity-100 transition-opacity z-10 flex flex-col items-center justify-center rounded-[8px] pointer-events-none">
+                                      <Check size={20} className="text-brand-primary drop-shadow-md" strokeWidth={3} />
+                                   </div>
+                                 )}
+
+                                 <div className={`text-[10px] font-bold py-1.5 px-2 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center transition-colors relative z-0 ${colorClassTop}`}>
+                                    {topContent}
                                  </div>
-                                 <div className={`text-[12px] font-bold py-2 px-2 rounded-b-[8px] h-8 flex items-center justify-center transition-colors relative z-0 ${isCompleted ? 'bg-green-50 text-green-700' : 'bg-white text-neutral-800'}`}>
+                                 <div className={`text-[12px] font-bold py-2 px-2 rounded-b-[8px] h-8 flex flex-col items-center justify-center transition-colors relative z-0 ${colorClassBottom}`}>
                                    {qty}
                                  </div>
+
+                                 {/* Stats Tooltip */}
+                                 {(isCompleted || isPacked) && item.sizeStats?.[size] && (
+                                   <div className="absolute bottom-[110%] left-1/2 -translate-x-1/2 bg-black text-white text-[10px] py-1.5 px-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-xl border border-neutral-700">
+                                      <div className="font-bold">{Math.round(item.sizeStats[size].durationMs / 60000)}m Total</div>
+                                      <div className="text-neutral-300 font-medium mt-0.5">{item.sizeStats[size].itemsPerHour}/hr Avg</div>
+                                      <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-black"></div>
+                                   </div>
+                                 )}
                                </div>
                                );
                              })}
@@ -289,6 +465,63 @@ export function Production() {
           );
         })}
       </div>
+      
+      {contextMenu && (
+        <div 
+          className="fixed inset-0 z-[200]" 
+          onContextMenu={(e) => { e.preventDefault(); setContextMenu(null); }}
+          onClick={() => setContextMenu(null)}
+        >
+          <div 
+            className="absolute bg-white rounded-xl shadow-2xl border border-brand-border overflow-hidden min-w-[200px] flex flex-col z-[201] p-1"
+            style={{ 
+              top: Math.min(contextMenu.y, window.innerHeight - Math.max(200, (contextMenu.order.boxes?.length || 0) * 40 + 100)), 
+               left: Math.min(contextMenu.x, window.innerWidth - 220) 
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-3 py-2 border-b border-brand-border/50 mb-1 flex items-center justify-between">
+              <span className="text-[10px] uppercase font-bold text-brand-secondary tracking-widest">{contextMenu.size} Options</span>
+              <span className="text-[10px] font-bold text-brand-primary bg-brand-bg px-2 py-0.5 rounded-full">Qty: {contextMenu.qty}</span>
+            </div>
+            
+            {contextMenu.item.inProgressSizes?.[contextMenu.size] && (
+               <button 
+                 onClick={() => handleContextMenuAction('cancel_timer')}
+                 className="text-left px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-2"
+               >
+                 <X size={14} /> Cancel Timer
+               </button>
+            )}
+
+            {contextMenu.item.completedSizes?.includes(contextMenu.size) && (
+               <button 
+                 onClick={() => handleContextMenuAction('uncomplete')}
+                 className="text-left px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-orange-600 hover:bg-orange-50 rounded-lg transition-colors flex items-center gap-2"
+               >
+                 <X size={14} /> Uncomplete Size
+               </button>
+            )}
+
+            <div className="my-1 border-t border-brand-border/30"></div>
+            <div className="px-3 py-1.5 text-[10px] font-bold uppercase text-brand-secondary tracking-widest">Add to Package</div>
+            
+            {contextMenu.order.boxes && contextMenu.order.boxes.length > 0 ? (
+                contextMenu.order.boxes.map((box: any) => (
+                   <button 
+                     key={box.id}
+                     onClick={() => handleContextMenuAction('add_to_box', box.id)}
+                     className="text-left px-3 py-2 text-[11px] font-bold tracking-wider text-brand-primary hover:bg-brand-bg rounded-lg transition-colors flex items-center gap-2"
+                   >
+                     <Box size={14} className="text-brand-secondary" /> Add to {box.name}
+                   </button>
+                ))
+            ) : (
+                <div className="px-3 py-2 text-[10px] text-brand-secondary italic text-center">No shipments created yet.</div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
