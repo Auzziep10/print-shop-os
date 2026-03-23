@@ -36,6 +36,7 @@ export function Production() {
   const [editingTargetId, setEditingTargetId] = useState<string | null>(null);
   const [targetInput, setTargetInput] = useState<string>('');
   const [allUsers, setAllUsers] = useState<any[]>([]);
+  const [metricsTimeFilter, setMetricsTimeFilter] = useState<'All' | 'Today' | 'Yesterday'>('All');
 
   useEffect(() => {
     getDocs(collection(db, 'users')).then(snap => {
@@ -135,7 +136,8 @@ export function Production() {
              durationMs,
              avgItemTimeMs,
              itemsPerHour: Math.round(itemsPerHour),
-             user: user?.email || 'Team Member'
+             user: user?.email || 'Team Member',
+             timestamp: new Date().toISOString()
          };
          
          const updatedItems = order.items.map((i: any) => 
@@ -629,22 +631,29 @@ export function Production() {
       {metricsOrder && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setMetricsOrder(null)}>
            <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl overflow-hidden border border-brand-border" onClick={e => e.stopPropagation()}>
-             <div className="p-6 border-b border-brand-border flex justify-between items-center bg-brand-bg/50">
-                <div className="flex items-center gap-3">
-                   <div className="w-10 h-10 rounded-full bg-brand-primary/10 flex items-center justify-center text-brand-primary">
+             <div className="p-6 border-b border-brand-border flex md:flex-row flex-col justify-between items-center bg-brand-bg/50 gap-4">
+                <div className="flex items-center gap-3 w-full md:w-auto overflow-hidden">
+                   <div className="w-10 h-10 shrink-0 rounded-full bg-brand-primary/10 flex items-center justify-center text-brand-primary">
                      <Activity size={20} strokeWidth={2.5} />
                    </div>
-                   <div>
-                     <h3 className="font-serif text-xl text-brand-primary">Team Production Metrics</h3>
-                     <p className="text-[11px] font-bold uppercase tracking-wider text-brand-secondary">{metricsOrder.title || 'Custom Order'}</p>
+                   <div className="min-w-0">
+                     <h3 className="font-serif text-xl text-brand-primary truncate">Team Production Metrics</h3>
+                     <p className="text-[11px] font-bold uppercase tracking-wider text-brand-secondary truncate">{metricsOrder.title || 'Custom Order'}</p>
                    </div>
                 </div>
-                <button 
-                  onClick={() => setMetricsOrder(null)}
-                  className="p-2 hover:bg-neutral-200 rounded-full transition-colors text-brand-secondary"
-                >
-                  <X size={20} />
-                </button>
+                <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end">
+                  <div className="flex bg-neutral-200/60 p-1 rounded-lg shrink-0 overflow-x-auto no-scrollbar">
+                    <button onClick={() => setMetricsTimeFilter('All')} className={`px-3 py-1.5 text-[10px] whitespace-nowrap font-bold uppercase tracking-wider rounded-md transition-all ${metricsTimeFilter === 'All' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}>All Time</button>
+                    <button onClick={() => setMetricsTimeFilter('Today')} className={`px-3 py-1.5 text-[10px] whitespace-nowrap font-bold uppercase tracking-wider rounded-md transition-all ${metricsTimeFilter === 'Today' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}>Today</button>
+                    <button onClick={() => setMetricsTimeFilter('Yesterday')} className={`px-3 py-1.5 text-[10px] whitespace-nowrap font-bold uppercase tracking-wider rounded-md transition-all ${metricsTimeFilter === 'Yesterday' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}>Yesterday</button>
+                  </div>
+                  <button 
+                    onClick={() => setMetricsOrder(null)}
+                    className="p-2 shrink-0 hover:bg-neutral-200 rounded-full transition-colors text-brand-secondary"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
              </div>
              
              <div className="p-6 overflow-y-auto">
@@ -673,12 +682,30 @@ export function Production() {
                        if (stat) {
                            let userName = stat.user?.split('@')[0] || stat.user;
                            
-                           // Fallback to searching activity log for older completions that lacked sizeStats.user
+                           const actMatch = (metricsOrder.activities || []).find((a: any) => 
+                               a.message?.startsWith('Completed') && a.message?.includes(`x ${size} for ${item.style}`)
+                           );
+                               
                            if (!userName) {
-                               const actMatch = (metricsOrder.activities || []).find((a: any) => 
-                                   a.message?.startsWith('Completed') && a.message?.includes(`x ${size} for ${item.style}`)
-                               );
                                userName = actMatch?.user?.split('@')[0] || actMatch?.user || 'Unknown';
+                           }
+
+                           if (metricsTimeFilter !== 'All') {
+                               const statTimeStr = stat.timestamp || actMatch?.timestamp;
+                               if (statTimeStr) {
+                                   const statDate = new Date(statTimeStr);
+                                   const now = new Date();
+                                   const isToday = statDate.getDate() === now.getDate() && statDate.getMonth() === now.getMonth() && statDate.getFullYear() === now.getFullYear();
+                                   
+                                   const yesterday = new Date(now);
+                                   yesterday.setDate(yesterday.getDate() - 1);
+                                   const isYesterday = statDate.getDate() === yesterday.getDate() && statDate.getMonth() === yesterday.getMonth() && statDate.getFullYear() === yesterday.getFullYear();
+                                   
+                                   if (metricsTimeFilter === 'Today' && !isToday) return;
+                                   if (metricsTimeFilter === 'Yesterday' && !isYesterday) return;
+                               } else {
+                                   return; // Omit metric chunk locally if filtered string has unknown date footprint
+                               }
                            }
 
                            let rawName = normalizeUser(userName, allUsers);

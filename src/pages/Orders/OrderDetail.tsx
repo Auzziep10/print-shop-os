@@ -53,6 +53,7 @@ export function OrderDetail() {
   const [activityLimit, setActivityLimit] = useState(3);
   const [activityFilter, setActivityFilter] = useState<'all' | 'performance' | 'metrics'>('all');
   const [performanceUserFilter, setPerformanceUserFilter] = useState<string>('All');
+  const [metricsTimeFilter, setMetricsTimeFilter] = useState<'All' | 'Today' | 'Yesterday'>('All');
   const [editingTargetId, setEditingTargetId] = useState<string | null>(null);
   const [targetInput, setTargetInput] = useState<string>('');
 
@@ -1257,15 +1258,33 @@ export function OrderDetail() {
 
                            const stat = item.sizeStats?.[size];
                            if (stat) {
-                               let userName = stat.user?.split('@')[0] || stat.user;
+                           let userName = stat.user?.split('@')[0] || stat.user;
+                           
+                           const actMatch = (metricsOrder.activities || []).find((a: any) =>
+                               a.message?.startsWith('Completed') && a.message?.includes(`x ${size} for ${item.style}`)
+                           );
 
-                               // Fallback to searching activity log for older completions that lacked sizeStats.user
-                               if (!userName) {
-                                   const actMatch = (metricsOrder.activities || []).find((a: any) =>
-                                       a.message?.startsWith('Completed') && a.message?.includes(`x ${size} for ${item.style}`)
-                                   );
-                                   userName = actMatch?.user?.split('@')[0] || actMatch?.user || 'Unknown';
+                           if (!userName) {
+                               userName = actMatch?.user?.split('@')[0] || actMatch?.user || 'Unknown';
+                           }
+
+                           if (metricsTimeFilter !== 'All') {
+                               const statTimeStr = stat.timestamp || actMatch?.timestamp;
+                               if (statTimeStr) {
+                                   const statDate = new Date(statTimeStr);
+                                   const now = new Date();
+                                   const isToday = statDate.getDate() === now.getDate() && statDate.getMonth() === now.getMonth() && statDate.getFullYear() === now.getFullYear();
+                                   
+                                   const yesterday = new Date(now);
+                                   yesterday.setDate(yesterday.getDate() - 1);
+                                   const isYesterday = statDate.getDate() === yesterday.getDate() && statDate.getMonth() === yesterday.getMonth() && statDate.getFullYear() === yesterday.getFullYear();
+                                   
+                                   if (metricsTimeFilter === 'Today' && !isToday) return;
+                                   if (metricsTimeFilter === 'Yesterday' && !isYesterday) return;
+                               } else {
+                                   return; 
                                }
+                           }
 
                                let rawName = normalizeUser(userName, allUsers);
                                const groupKey = rawName.toLowerCase().replace(/[^a-z]/g, '') || 'unknown';
@@ -1310,11 +1329,18 @@ export function OrderDetail() {
                        <div className="space-y-6">
                          {/* Predictive Metrics Banner */}
                          <div className="bg-gradient-to-br from-brand-primary/5 to-brand-primary/10 border border-brand-primary/20 rounded-xl p-5 shadow-sm text-brand-primary">
-                            <div className="flex flex-col md:flex-row md:items-center justify-between mb-3 border-b border-brand-primary/10 pb-3 gap-3">
-                               <div className="flex items-center gap-2">
-                                 <Clock size={16} />
-                                 <h4 className="font-bold uppercase tracking-wider text-[11px]">AI Production Forecast</h4>
-                               </div>
+                             <div className="flex flex-col md:flex-row md:items-center justify-between mb-3 border-b border-brand-primary/10 pb-3 gap-3">
+                                <div className="flex items-center justify-between w-full md:w-auto gap-4">
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    <Clock size={16} />
+                                    <h4 className="font-bold uppercase tracking-wider text-[11px]">AI Production Forecast</h4>
+                                  </div>
+                                  <div className="flex bg-white/50 p-1 rounded-lg shrink-0 overflow-x-auto no-scrollbar">
+                                    <button onClick={() => setMetricsTimeFilter('All')} className={`px-2 py-1 text-[9px] font-bold uppercase tracking-wider rounded transition-all ${metricsTimeFilter === 'All' ? 'bg-brand-primary text-white shadow-sm' : 'text-brand-secondary hover:text-brand-primary'}`}>All Time</button>
+                                    <button onClick={() => setMetricsTimeFilter('Today')} className={`px-2 py-1 text-[9px] font-bold uppercase tracking-wider rounded transition-all ${metricsTimeFilter === 'Today' ? 'bg-brand-primary text-white shadow-sm' : 'text-brand-secondary hover:text-brand-primary'}`}>Today</button>
+                                    <button onClick={() => setMetricsTimeFilter('Yesterday')} className={`px-2 py-1 text-[9px] font-bold uppercase tracking-wider rounded transition-all ${metricsTimeFilter === 'Yesterday' ? 'bg-brand-primary text-white shadow-sm' : 'text-brand-secondary hover:text-brand-primary'}`}>Yesterday</button>
+                                  </div>
+                                </div>
                                <div className="flex items-center">
                                   {editingTargetId === metricsOrder.id ? (
                                      <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-brand-primary/80 bg-white/50 px-2 py-1 rounded-md border border-brand-primary/10">
