@@ -622,8 +622,18 @@ export function Production() {
              <div className="p-6 overflow-y-auto">
                {(() => {
                  const statsByUser: Record<string, { totalTimeMins: number, garmentsCompleted: number, completionsCount: number }> = {};
+                 
+                 let globalTotalGarmentsCompleted = 0;
+                 let globalTotalTimeMins = 0;
+                 let totalOrderGarments = 0;
 
                  (metricsOrder.items || []).forEach((item: any) => {
+                    if (item.sizes) {
+                        Object.values(item.sizes).forEach((q: any) => {
+                            totalOrderGarments += (parseInt(q as string) || 0);
+                        });
+                    }
+
                     const completed = item.completedSizes || [];
                     completed.forEach((size: string) => {
                        const stat = item.sizeStats?.[size];
@@ -649,6 +659,9 @@ export function Production() {
                            statsByUser[user].totalTimeMins += timeMins;
                            statsByUser[user].garmentsCompleted += qty;
                            statsByUser[user].completionsCount += 1;
+                           
+                           globalTotalGarmentsCompleted += qty;
+                           globalTotalTimeMins += timeMins;
                        }
                     });
                  });
@@ -656,11 +669,43 @@ export function Production() {
                  const users = Object.keys(statsByUser).sort((a,b) => statsByUser[b].garmentsCompleted - statsByUser[a].garmentsCompleted);
 
                  if (users.length === 0) {
-                   return <p className="text-center text-sm text-brand-secondary py-8">No performance metrics recorded yet for this order.</p>;
+                   return <p className="text-center text-sm text-brand-secondary py-8">No performance metrics recorded yet for this order. Complete an item to see predictions.</p>;
                  }
 
+                 const remainingGarments = Math.max(0, totalOrderGarments - globalTotalGarmentsCompleted);
+                 const globalAvgMinsPerGarment = globalTotalGarmentsCompleted > 0 ? (globalTotalTimeMins / globalTotalGarmentsCompleted) : 0;
+                 const estimatedRemainingMins = remainingGarments * globalAvgMinsPerGarment;
+                 const estimatedTotalMins = globalTotalTimeMins + estimatedRemainingMins;
+
                  return (
-                   <div className="space-y-4">
+                   <div className="space-y-6">
+                     {/* Predictive Metrics Banner */}
+                     <div className="bg-gradient-to-br from-brand-primary/5 to-brand-primary/10 border border-brand-primary/20 rounded-xl p-5 shadow-sm text-brand-primary">
+                        <div className="flex items-center gap-2 mb-3 border-b border-brand-primary/10 pb-3">
+                           <Clock size={16} />
+                           <h4 className="font-bold uppercase tracking-wider text-[11px]">AI Production Forecast</h4>
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                           <div className="flex flex-col">
+                              <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/60 mb-1">Global Avg / Garment</span>
+                              <span className="text-xl font-black">{globalAvgMinsPerGarment >= 1 ? globalAvgMinsPerGarment.toFixed(1) + 'm' : Math.round(globalAvgMinsPerGarment * 60) + 's'}</span>
+                           </div>
+                           <div className="flex flex-col">
+                              <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/60 mb-1">Remaining Units</span>
+                              <span className="text-xl font-black">{remainingGarments}</span>
+                           </div>
+                           <div className="flex flex-col">
+                              <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/60 mb-1">Estimated Time Left</span>
+                              <span className="text-xl font-black">{estimatedRemainingMins > 60 ? (estimatedRemainingMins / 60).toFixed(1) + 'h' : Math.round(estimatedRemainingMins) + 'm'}</span>
+                           </div>
+                           <div className="flex flex-col">
+                              <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/60 mb-1">Total Expected Time</span>
+                              <span className="text-xl font-black">{estimatedTotalMins > 60 ? (estimatedTotalMins / 60).toFixed(1) + 'h' : Math.round(estimatedTotalMins) + 'm'}</span>
+                           </div>
+                        </div>
+                     </div>
+
+                     <div className="space-y-4">
                      {users.map(u => {
                        const stat = statsByUser[u];
                        const avgTimePerGarment = stat.garmentsCompleted > 0 ? (stat.totalTimeMins / stat.garmentsCompleted) : 0;
@@ -689,6 +734,7 @@ export function Production() {
                          </div>
                        );
                      })}
+                   </div>
                    </div>
                  );
                })()}
