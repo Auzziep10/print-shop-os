@@ -298,52 +298,6 @@ export function Production() {
     );
   }
 
-  const fixVanessa = async () => {
-   for (const order of productionOrders) {
-      if (!order.items) continue;
-      let changed = false;
-      const updatedItems = order.items.map((i: any) => {
-         if (i.style === 'Hazy Mock Neck Pullover' && i.sizeStats?.['L']) {
-            if (i.sizeStats['L'].user?.toLowerCase().includes('joe')) {
-                i.sizeStats['L'].user = 'Vanessa Miller';
-                changed = true;
-            }
-         }
-         if (i.sizeStats) {
-             Object.keys(i.sizeStats).forEach(size => {
-                const userAttr = i.sizeStats[size].user?.toLowerCase();
-                if (userAttr === 'vanessa garcia' || userAttr === 'vanessa' || userAttr?.includes('vanessa')) {
-                    i.sizeStats[size].user = 'Vanessa Miller';
-                    changed = true;
-                }
-             });
-         }
-         return i;
-      });
-      
-      let updatedActivities = [...(order.activities || [])];
-      updatedActivities = updatedActivities.map((act: any) => {
-         if (act.message?.includes('Completed 15x L for Hazy Mock Neck Pullover')) {
-             if (act.user?.toLowerCase().includes('joe')) {
-                 act.user = 'Vanessa Miller';
-                 changed = true;
-             }
-         }
-         const userAttr = act.user?.toLowerCase();
-         if (userAttr === 'vanessa garcia' || userAttr === 'vanessa' || userAttr?.includes('vanessa')) {
-             act.user = 'Vanessa Miller';
-             changed = true;
-         }
-         return act;
-      });
-      
-      if (changed) {
-          await updateDoc(doc(db, 'orders', order.id), { items: updatedItems, activities: updatedActivities });
-          alert('Database fully rewritten for Vanessa Miller! Wait a second for it to visually refresh!');
-      }
-   }
-  };
-
   return (
     <div className="p-6 md:p-10 max-w-[1600px] mx-auto space-y-8">
       <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-6 mb-8">
@@ -361,9 +315,6 @@ export function Production() {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <button onClick={fixVanessa} className="bg-red-600 text-white px-4 py-3 rounded-xl font-bold text-[11px] uppercase tracking-widest hover:bg-black transition-colors shadow-sm ml-4 shrink-0 relative z-[999]">
-          Fix Hazy Pullover
-        </button>
       </div>
 
       <div className="flex flex-col gap-6">
