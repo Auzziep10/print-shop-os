@@ -619,7 +619,17 @@ export function Production() {
                     completed.forEach((size: string) => {
                        const stat = item.sizeStats?.[size];
                        if (stat) {
-                           const user = stat.user?.split('@')[0] || stat.user || 'Unknown';
+                           let userName = stat.user?.split('@')[0] || stat.user;
+                           
+                           // Fallback to searching activity log for older completions that lacked sizeStats.user
+                           if (!userName) {
+                               const actMatch = (metricsOrder.activities || []).find((a: any) => 
+                                   a.message?.startsWith('Completed') && a.message?.includes(`x ${size} for ${item.style}`)
+                               );
+                               userName = actMatch?.user?.split('@')[0] || actMatch?.user || 'Unknown';
+                           }
+
+                           const user = userName;
                            const qty = parseInt(item.sizes?.[size]) || 0;
                            const durationMs = stat.durationMs || 0;
                            const timeMins = durationMs / 60000;
