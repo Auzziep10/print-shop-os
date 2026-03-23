@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { PillButton } from '../../components/ui/PillButton';
 import { PackingSlipsManager } from '../../components/Orders/PackingSlipsManager';
 import { TrackingModal } from '../../components/Orders/TrackingModal';
-import { ArrowLeft, MessageSquare, Clock, Users, Download, Loader2, X, Edit3, Upload, Trash2, Plus, ChevronDown, Image as ImageIcon, Box, Printer, ExternalLink, ShoppingBag, Search, Check, Truck, GripVertical, Pause, Play } from 'lucide-react';
+import { ArrowLeft, MessageSquare, Clock, Users, Download, Loader2, X, Edit3, Upload, Trash2, Plus, ChevronDown, Image as ImageIcon, Box, Printer, ExternalLink, ShoppingBag, Search, Check, Truck, GripVertical, Pause, Play, DollarSign } from 'lucide-react';
 import QRCode from 'react-qr-code';
 import { StatusBadge, type StatusType } from '../../components/ui/StatusBadge';
 import { useAuth } from '../../contexts/AuthContext';
@@ -1378,8 +1378,8 @@ export function OrderDetail() {
 
       {/* Edit Item Dialog */}
       {editItemObj && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 backdrop-blur-sm p-6 overflow-y-auto">
-          <div className="bg-brand-bg max-w-2xl w-full rounded-2xl overflow-hidden shadow-2xl flex flex-col border border-brand-border my-auto">
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 md:p-6 overflow-y-auto">
+          <div className="bg-brand-bg max-w-[95vw] xl:max-w-[1400px] w-full rounded-2xl overflow-hidden shadow-2xl flex flex-col border border-brand-border my-auto">
             <div className="p-6 border-b border-brand-border flex justify-between items-center bg-white">
               <h3 className="font-serif text-2xl text-brand-primary">Edit Item Specs</h3>
               <div className="flex items-center gap-3">
@@ -1448,186 +1448,239 @@ export function OrderDetail() {
                </div>
             )}
             
-            <div className="p-6 flex flex-col gap-6 max-h-[70vh] overflow-y-auto">
-              {/* Basic Fields */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Gender</label>
-                  <select 
-                    value={editItemObj.gender || ''}
-                    onChange={(e) => setEditItemObj({...editItemObj, gender: e.target.value})}
-                    className="w-full bg-white border border-brand-border rounded-lg px-4 py-3 font-serif text-brand-secondary focus:border-brand-primary focus:outline-none transition-colors outline-none cursor-pointer"
-                  >
-                    <option value="" disabled>Select Gender</option>
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                    <option value="Accessories">Accessories</option>
-                    <option value="Unisex">Unisex</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Garment Style Name</label>
-                  <input 
-                    type="text" 
-                    value={editItemObj.style || ''}
-                    onChange={(e) => setEditItemObj({...editItemObj, style: e.target.value})}
-                    className="w-full bg-white border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
-                    placeholder="e.g. Pique Polo"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Item #</label>
-                  <input 
-                    type="text" 
-                    value={editItemObj.itemNum || ''}
-                    onChange={(e) => setEditItemObj({...editItemObj, itemNum: e.target.value})}
-                    className="w-full bg-white border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Garment Color</label>
-                  <input 
-                    type="text" 
-                    value={editItemObj.color || ''}
-                    onChange={(e) => setEditItemObj({...editItemObj, color: e.target.value})}
-                    className="w-full bg-white border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
-                  />
-                </div>
+            <div className="p-6 grid grid-cols-1 lg:grid-cols-12 gap-8 max-h-[80vh] overflow-y-auto custom-scrollbar">
+              
+              {/* Left Column: Images (4 cols) */}
+              <div className="lg:col-span-4 flex flex-col gap-6">
+                 <div className="flex items-center justify-between pointer-events-none">
+                    <label className="text-xs font-bold uppercase tracking-widest text-brand-secondary">Item Imagery</label>
+                 </div>
+                 <div className="bg-white rounded-xl border border-brand-border p-5 flex flex-col gap-5 shadow-sm">
+                   
+                   {/* Main Mockup */}
+                   <div className="flex flex-col gap-3">
+                     <span className="text-xs font-semibold text-brand-primary flex items-center gap-2"><ImageIcon size={14}/> Main Mockup</span>
+                     <div className="w-full aspect-square bg-brand-bg border border-brand-border rounded-lg flex items-center justify-center overflow-hidden">
+                       {editItemObj.image ? (
+                         <img src={editItemObj.image} alt="Main mockup" className="w-full h-full object-contain p-2 hover:scale-105 transition-transform cursor-crosshair" onClick={() => setExpandedImage({ src: editItemObj.image, alt: "Main mockup" })} />
+                       ) : (
+                         <div className="flex flex-col items-center gap-2 text-brand-secondary/50">
+                           <ImageIcon size={32} />
+                           <span className="text-xs font-medium">No main image</span>
+                         </div>
+                       )}
+                     </div>
+                     <label className="cursor-pointer bg-white border border-brand-border rounded-lg py-2.5 flex items-center justify-center gap-2 hover:bg-brand-bg transition-colors text-sm font-semibold text-brand-primary shadow-sm hover:shadow">
+                       {isUploadingMain ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+                       {isUploadingMain ? 'Uploading...' : 'Replace Mockup'}
+                       <input type="file" className="hidden" accept="image/*" onChange={handleMainImageUpload} disabled={isUploadingMain} />
+                     </label>
+                   </div>
+                   
+                   <div className="h-px bg-brand-border w-full"></div>
+
+                   {/* Reference Images */}
+                   <div className="flex flex-col gap-3">
+                     <span className="text-xs font-semibold text-brand-primary flex items-center gap-2"><ImageIcon size={14}/> Additional References</span>
+                     <div className="flex-1 border border-brand-border bg-brand-bg rounded-lg p-3 overflow-y-auto min-h-[140px] max-h-[300px]">
+                       {editItemObj.referenceImages?.length > 0 ? (
+                         <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+                           {editItemObj.referenceImages.map((refImg: string, i: number) => (
+                             <div key={i} className="relative aspect-square rounded-lg group overflow-hidden border border-brand-border bg-white shadow-sm">
+                               <img src={refImg} alt={`Reference ${i}`} className="w-full h-full object-contain p-1" />
+                               <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity" onClick={() => setExpandedImage({ src: refImg, alt: `Reference ${i}` })}>
+                                   <Search size={16} className="text-white hover:text-brand-primary cursor-pointer drop-shadow-md" />
+                               </div>
+                               <button 
+                                 onClick={(e) => {
+                                   e.stopPropagation();
+                                   setEditItemObj({
+                                     ...editItemObj,
+                                     referenceImages: editItemObj.referenceImages.filter((_: any, idx: number) => idx !== i)
+                                   })
+                                 }}
+                                 className="absolute top-1 right-1 bg-red-500 text-white p-1.5 rounded-md hover:bg-red-600 transition-colors opacity-0 group-hover:opacity-100 shadow-md"
+                               >
+                                 <Trash2 size={12} />
+                               </button>
+                             </div>
+                           ))}
+                         </div>
+                       ) : (
+                         <div className="h-full flex flex-col items-center justify-center text-xs text-brand-secondary p-4 text-center gap-2">
+                           <ImageIcon size={24} className="opacity-20" />
+                           <p>No extra reference images added yet.</p>
+                         </div>
+                       )}
+                     </div>
+                     <label className="cursor-pointer bg-white border border-brand-border rounded-lg py-2.5 flex items-center justify-center gap-2 hover:bg-brand-bg transition-colors text-sm font-semibold text-brand-primary shadow-sm hover:shadow">
+                       {isUploadingRef ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
+                       {isUploadingRef ? 'Uploading...' : 'Add Reference'}
+                       <input type="file" className="hidden" accept="image/*" onChange={handleRefImageUpload} disabled={isUploadingRef} />
+                     </label>
+                   </div>
+                 </div>
               </div>
 
-              {/* Images Section */}
-              <div className="pt-4 border-t border-brand-border">
-                <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-4">Item Imagery</label>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Main Mockup */}
-                  <div className="bg-brand-bg rounded-xl border border-brand-border p-4 flex flex-col gap-3">
-                    <span className="text-xs font-semibold text-brand-primary">Main Mockup Image</span>
-                    <div className="w-full aspect-square bg-white border border-brand-border rounded-lg flex items-center justify-center overflow-hidden">
-                      {editItemObj.image ? (
-                        <img src={editItemObj.image} alt="Main mockup" className="w-full h-full object-contain p-2" />
-                      ) : (
-                        <ImageIcon size={32} className="text-brand-muted/50" />
-                      )}
-                    </div>
-                    <label className="cursor-pointer bg-white border border-brand-border rounded-lg py-2 flex items-center justify-center gap-2 hover:bg-brand-muted transition-colors text-sm font-semibold text-brand-secondary">
-                      {isUploadingMain ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
-                      {isUploadingMain ? 'Uploading...' : 'Replace Mockup'}
-                      <input type="file" className="hidden" accept="image/*" onChange={handleMainImageUpload} disabled={isUploadingMain} />
-                    </label>
-                  </div>
+              {/* Right Column: Data Fields & Sizing (8 cols) */}
+              <div className="lg:col-span-8 flex flex-col gap-8">
+                 
+                 {/* Top Row: Basic Info Grid */}
+                 <div className="flex flex-col gap-3">
+                   <label className="text-xs font-bold uppercase tracking-widest text-brand-secondary">Core Details</label>
+                   <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 bg-white p-5 rounded-xl border border-brand-border shadow-sm">
+                     <div className="flex flex-col gap-1.5">
+                       <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Gender</label>
+                       <select 
+                         value={editItemObj.gender || ''}
+                         onChange={(e) => setEditItemObj({...editItemObj, gender: e.target.value})}
+                         className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-2.5 font-serif text-brand-primary focus:border-brand-primary focus:bg-white focus:outline-none transition-all outline-none cursor-pointer"
+                       >
+                         <option value="" disabled>Select</option>
+                         <option value="Male">Male</option>
+                         <option value="Female">Female</option>
+                         <option value="Accessories">Accessories</option>
+                         <option value="Unisex">Unisex</option>
+                       </select>
+                     </div>
+                     <div className="flex flex-col gap-1.5">
+                       <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Garment Style</label>
+                       <input 
+                         type="text" 
+                         value={editItemObj.style || ''}
+                         onChange={(e) => setEditItemObj({...editItemObj, style: e.target.value})}
+                         className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-2.5 text-sm focus:border-brand-primary focus:bg-white focus:outline-none transition-all"
+                         placeholder="e.g. Pique Polo"
+                       />
+                     </div>
+                     <div className="flex flex-col gap-1.5">
+                       <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Item #</label>
+                       <input 
+                         type="text" 
+                         value={editItemObj.itemNum || ''}
+                         onChange={(e) => setEditItemObj({...editItemObj, itemNum: e.target.value})}
+                         className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-2.5 text-sm focus:border-brand-primary focus:bg-white focus:outline-none transition-all font-mono"
+                       />
+                     </div>
+                     <div className="flex flex-col gap-1.5">
+                       <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Garment Color</label>
+                       <input 
+                         type="text" 
+                         value={editItemObj.color || ''}
+                         onChange={(e) => setEditItemObj({...editItemObj, color: e.target.value})}
+                         className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-2.5 text-sm focus:border-brand-primary focus:bg-white focus:outline-none transition-all"
+                       />
+                     </div>
+                   </div>
+                 </div>
 
-                  {/* Reference Images */}
-                  <div className="bg-brand-bg rounded-xl border border-brand-border p-4 flex flex-col gap-3">
-                    <span className="text-xs font-semibold text-brand-primary">Reference Images</span>
-                    <div className="flex-1 border border-brand-border bg-white rounded-lg p-2 overflow-y-auto max-h-[220px]">
-                      {editItemObj.referenceImages?.length > 0 ? (
-                        <div className="grid grid-cols-3 gap-2">
-                          {editItemObj.referenceImages.map((refImg: string, i: number) => (
-                            <div key={i} className="relative aspect-square rounded group overflow-hidden border border-brand-border">
-                              <img src={refImg} alt={`Reference ${i}`} className="w-full h-full object-cover" />
-                              <button 
-                                onClick={() => setEditItemObj({
-                                  ...editItemObj,
-                                  referenceImages: editItemObj.referenceImages.filter((_: any, idx: number) => idx !== i)
-                                })}
-                                className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white"
-                              >
-                                <Trash2 size={16} />
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="h-full flex items-center justify-center text-xs text-brand-secondary p-4 text-center">
-                          No extra reference images added yet.
-                        </div>
-                      )}
-                    </div>
-                    <label className="cursor-pointer bg-white border border-brand-border rounded-lg py-2 flex items-center justify-center gap-2 hover:bg-brand-muted transition-colors text-sm font-semibold text-brand-secondary">
-                      {isUploadingRef ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
-                      {isUploadingRef ? 'Uploading...' : 'Add Reference Image'}
-                      <input type="file" className="hidden" accept="image/*" onChange={handleRefImageUpload} disabled={isUploadingRef} />
-                    </label>
-                  </div>
-                </div>
+                 {/* Middle Row: Price & Logos Grid */}
+                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+                   <div className="flex flex-col gap-3">
+                     <label className="text-xs font-bold uppercase tracking-widest text-brand-secondary">Decoration Options (Logos)</label>
+                     <div className="bg-white p-5 rounded-xl border border-brand-border shadow-sm flex flex-col gap-3 h-full justify-center">
+                       {[0, 1, 2].map(idx => (
+                         <div key={idx} className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-300 w-4">{idx + 1}.</span>
+                            <input 
+                              type="text" 
+                              placeholder={`e.g. Left Chest`}
+                              value={editItemObj.logos?.[idx] || ''}
+                              onChange={(e) => {
+                                const newLogos = [...(editItemObj.logos || [])];
+                                newLogos[idx] = e.target.value;
+                                setEditItemObj({...editItemObj, logos: newLogos.filter(Boolean)});
+                              }}
+                              className="w-full bg-brand-bg/50 border border-brand-border rounded-lg pl-9 pr-4 py-2.5 text-sm focus:border-brand-primary focus:bg-white focus:outline-none transition-all"
+                            />
+                         </div>
+                       ))}
+                     </div>
+                   </div>
+                   
+                   <div className="flex flex-col gap-3">
+                     <label className="text-xs font-bold uppercase tracking-widest text-brand-secondary">Pricing Strategy</label>
+                     <div className="bg-white p-5 rounded-xl border border-brand-border shadow-sm flex flex-col gap-4 h-full">
+                       <div className="flex flex-col gap-1.5">
+                           <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Price Per Garment ($)</label>
+                           <div className="relative">
+                               <DollarSign size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                               <input 
+                                 type="text" 
+                                 value={editItemObj.price || ''}
+                                 onChange={(e) => setEditItemObj({...editItemObj, price: e.target.value})}
+                                 className="w-full bg-brand-bg/50 border border-brand-border rounded-lg pl-9 pr-4 py-3 text-lg font-bold focus:border-brand-primary focus:bg-white focus:outline-none transition-all text-brand-primary"
+                                 placeholder="0.00"
+                               />
+                           </div>
+                       </div>
+                       <div className="bg-brand-bg rounded-lg p-3 border border-brand-border flex items-start gap-3 mt-auto">
+                           <Clock size={16} className="text-brand-secondary shrink-0 mt-0.5" />
+                           <p className="text-xs font-medium text-brand-secondary leading-relaxed">Ensure prices are accurate and reflect final agreed-upon rates for complete decoration and fulfillment packages per unit.</p>
+                       </div>
+                     </div>
+                   </div>
+                 </div>
+
+                 {/* Bottom Row: Sizing */}
+                 <div className="flex flex-col gap-3">
+                   <div className="flex items-center justify-between">
+                     <label className="text-xs font-bold uppercase tracking-widest text-brand-secondary">Size Spread Matrix</label>
+                     <span className="text-xs font-semibold text-brand-primary bg-brand-primary/10 px-2 py-0.5 rounded-full">
+                        {Number(Object.values(editItemObj.sizes || {}).reduce((a: any, b: any) => a + (parseInt(b) || 0), 0))} Total Units
+                     </span>
+                   </div>
+                   <div className="bg-white p-6 rounded-xl border border-brand-border shadow-sm">
+                     <div className="grid grid-cols-4 sm:grid-cols-6 xl:grid-cols-9 lg:grid-cols-8 gap-4">
+                       {Array.from(new Set([...SIZE_ORDER, ...Object.keys(editItemObj.sizes || {})])).sort(sortSizes).map((size) => (
+                         <div key={size} className="flex flex-col group relative">
+                           <label className="block text-[10px] font-extrabold text-center text-gray-500 mb-2 uppercase tracking-wide group-hover:text-brand-primary transition-colors">{size}</label>
+                           <input 
+                             type="number" 
+                             min="0"
+                             value={editItemObj.sizes?.[size] === 0 ? '' : (editItemObj.sizes?.[size] || '')}
+                             onChange={(e) => setEditItemObj({
+                               ...editItemObj, 
+                               sizes: { ...editItemObj.sizes, [size]: parseInt(e.target.value) || 0 }
+                             })}
+                             className={`w-full bg-brand-bg/50 border border-brand-border rounded-lg px-2 py-2.5 text-sm text-center focus:border-brand-primary focus:bg-white focus:ring-1 focus:ring-brand-primary focus:outline-none transition-all font-bold ${editItemObj.sizes?.[size] > 0 ? 'bg-white border-brand-primary/30 text-brand-primary shadow-sm' : 'text-gray-400'}`}
+                             placeholder="-"
+                           />
+                           {editItemObj.shopifyInventoryMap && editItemObj.shopifyInventoryMap[size] !== undefined && (
+                              <div className="absolute top-[108%] left-1/2 -translate-x-1/2 w-full text-center pointer-events-none">
+                                <p className={`text-[9px] font-bold tracking-wide leading-tight ${editItemObj.shopifyInventoryMap[size] > 0 ? 'text-green-600' : 'text-red-500'}`}>
+                                  {editItemObj.shopifyInventoryMap[size]} In Stock
+                                </p>
+                              </div>
+                           )}
+                         </div>
+                       ))}
+                     </div>
+                   </div>
+                 </div>
+
+              </div>
+              
+              {/* Footer Actions */}
+              <div className="lg:col-span-12 flex flex-col sm:flex-row justify-between items-center gap-4 pt-6 border-t border-brand-border mt-2 sticky bottom-0 bg-brand-bg/95 backdrop-blur-md pb-2 -mb-2">
+                 <button 
+                   onClick={handleDeleteItem} 
+                   className="px-5 py-2.5 text-red-500 hover:text-white font-bold bg-white hover:bg-red-500 rounded-xl transition-colors flex items-center justify-center border border-red-200 hover:border-red-500 shadow-sm w-full sm:w-auto"
+                   title="Delete Item"
+                   disabled={isItemSaving}
+                 >
+                   <Trash2 size={18} className="mr-2" /> Delete Segment
+                 </button>
+                 <div className="flex items-center gap-4 w-full sm:w-auto">
+                   <PillButton variant="outline" onClick={() => setEditItemObj(null)} className="flex-1 sm:flex-none justify-center py-2.5 px-8 bg-white">
+                     Cancel
+                   </PillButton>
+                   <PillButton variant="filled" onClick={handleSaveItemEdit} className="flex-1 sm:flex-none justify-center py-2.5 px-10 shadow-md shadow-brand-primary/20" disabled={isItemSaving}>
+                     {isItemSaving ? <Loader2 className="animate-spin" size={18} /> : <span>Save Specifications</span>}
+                   </PillButton>
+                 </div>
               </div>
 
-              {/* Price */}
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Price Per Garment ($)</label>
-                <input 
-                  type="text" 
-                  value={editItemObj.price || ''}
-                  onChange={(e) => setEditItemObj({...editItemObj, price: e.target.value})}
-                  className="w-full bg-white border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
-                  placeholder="$0.00"
-                />
-              </div>
-
-              {/* Logos */}
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Decoration Options (Logos)</label>
-                <div className="space-y-3">
-                  {[0, 1, 2].map(idx => (
-                    <input 
-                      key={idx}
-                      type="text" 
-                      placeholder={`e.g. Left Chest`}
-                      value={editItemObj.logos?.[idx] || ''}
-                      onChange={(e) => {
-                        const newLogos = [...(editItemObj.logos || [])];
-                        newLogos[idx] = e.target.value;
-                        setEditItemObj({...editItemObj, logos: newLogos.filter(Boolean)});
-                      }}
-                      className="w-full bg-white border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
-                    />
-                  ))}
-                </div>
-              </div>
-
-              {/* Sizing Grid */}
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Size Spread</label>
-                <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-3">
-                  {Array.from(new Set([...SIZE_ORDER, ...Object.keys(editItemObj.sizes || {})])).sort(sortSizes).map((size) => (
-                    <div key={size}>
-                      <label className="block text-[10px] font-bold text-center text-brand-secondary mb-1">{size}</label>
-                      <input 
-                        type="number" 
-                        min="0"
-                        value={editItemObj.sizes?.[size] || ''}
-                        onChange={(e) => setEditItemObj({
-                          ...editItemObj, 
-                          sizes: { ...editItemObj.sizes, [size]: parseInt(e.target.value) || 0 }
-                        })}
-                        className="w-full bg-white border border-brand-border rounded-lg px-2 py-2 text-sm text-center focus:border-brand-primary focus:outline-none transition-colors"
-                      />
-                      {editItemObj.shopifyInventoryMap && editItemObj.shopifyInventoryMap[size] !== undefined && (
-                         <p className={`text-[9px] text-center font-bold tracking-wide mt-1 leading-tight ${editItemObj.shopifyInventoryMap[size] > 0 ? 'text-green-600' : 'text-red-500'}`}>
-                           {editItemObj.shopifyInventoryMap[size]} In Stock
-                         </p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex gap-4 pt-4 border-t border-brand-border mt-2">
-                <button 
-                  onClick={handleDeleteItem} 
-                  className="px-4 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors flex items-center justify-center border border-transparent hover:border-red-100"
-                  title="Delete Item"
-                  disabled={isItemSaving}
-                >
-                  <Trash2 size={20} />
-                </button>
-                <PillButton variant="outline" onClick={() => setEditItemObj(null)} className="flex-1 justify-center py-3">
-                  Cancel
-                </PillButton>
-                <PillButton variant="filled" onClick={handleSaveItemEdit} className="flex-1 justify-center py-3" disabled={isItemSaving}>
-                  {isItemSaving ? <Loader2 className="animate-spin" size={18} /> : <span>Save Item Update</span>}
-                </PillButton>
-              </div>
             </div>
           </div>
         </div>
