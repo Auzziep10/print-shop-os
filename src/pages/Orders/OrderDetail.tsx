@@ -928,8 +928,8 @@ export function OrderDetail() {
                              const inProgress = item.inProgressSizes?.[size];
                              const isPacked = isSizeFullyBoxed(item, size, qty);
 
-                             let colorClassTop = 'bg-neutral-300 text-neutral-600 group-hover:bg-neutral-400';
-                             let colorClassBottom = (qty > 0 ? 'bg-white text-neutral-800 group-hover:bg-neutral-50' : 'bg-white text-neutral-400');
+                             let colorClassTop = 'bg-neutral-300 text-neutral-600 group-hover/sizebtn:bg-neutral-400';
+                             let colorClassBottom = (qty > 0 ? 'bg-white text-neutral-800 group-hover/sizebtn:bg-neutral-50' : 'bg-white text-neutral-400');
                              let topContent: any = size;
                              let wrapperClass = 'hover:-translate-y-0.5 hover:shadow-sm';
 
@@ -953,7 +953,7 @@ export function OrderDetail() {
                              return (
                              <div 
                                key={size} 
-                               className={`min-w-[44px] px-0.5 group text-center flex flex-col cursor-pointer transition-all relative ${wrapperClass}`}
+                               className={`min-w-[44px] px-0.5 group/sizebtn text-center flex flex-col cursor-pointer transition-all relative ${wrapperClass}`}
                                onClick={(e) => { e.stopPropagation(); handleSizeClick(item, size, qty); }}
                                onContextMenu={(e) => { 
                                  e.preventDefault(); 
@@ -964,12 +964,12 @@ export function OrderDetail() {
                              >
                                {/* Hover hints */}
                                {!isCompleted && !isPacked && !inProgress && (
-                                 <div className="absolute inset-0 bg-brand-primary/5 backdrop-blur-[1px] opacity-0 group-hover:opacity-100 transition-opacity z-10 flex flex-col items-center justify-center rounded-[8px] pointer-events-none">
+                                 <div className="absolute inset-0 bg-brand-primary/5 backdrop-blur-[1px] opacity-0 group-hover/sizebtn:opacity-100 transition-opacity z-10 flex flex-col items-center justify-center rounded-[8px] pointer-events-none">
                                     <Clock size={20} className="text-brand-primary drop-shadow-md" strokeWidth={3} />
                                  </div>
                                )}
                                {!isCompleted && !isPacked && inProgress && (
-                                 <div className="absolute inset-0 bg-brand-primary/5 backdrop-blur-[1px] opacity-0 group-hover:opacity-100 transition-opacity z-10 flex flex-col items-center justify-center rounded-[8px] pointer-events-none">
+                                 <div className="absolute inset-0 bg-brand-primary/5 backdrop-blur-[1px] opacity-0 group-hover/sizebtn:opacity-100 transition-opacity z-10 flex flex-col items-center justify-center rounded-[8px] pointer-events-none">
                                     <Check size={20} className="text-brand-primary drop-shadow-md" strokeWidth={3} />
                                  </div>
                                )}
@@ -983,7 +983,7 @@ export function OrderDetail() {
 
                                {/* Stats Tooltip */}
                                {(isCompleted || isPacked) && item.sizeStats?.[size] && (
-                                 <div className="absolute bottom-[110%] left-1/2 -translate-x-1/2 bg-black text-white text-[10px] py-1.5 px-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-xl border border-neutral-700">
+                                 <div className="absolute bottom-[110%] left-1/2 -translate-x-1/2 bg-black text-white text-[10px] py-1.5 px-2 rounded-lg opacity-0 group-hover/sizebtn:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-xl border border-neutral-700">
                                     <div className="font-bold">{Math.round(item.sizeStats[size].durationMs / 60000)}m Total</div>
                                     <div className="text-neutral-300 font-medium mt-0.5">{item.sizeStats[size].itemsPerHour}/hr Avg</div>
                                     <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-black"></div>
