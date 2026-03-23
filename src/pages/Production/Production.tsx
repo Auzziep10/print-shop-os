@@ -4,8 +4,9 @@ import { ChevronRight, Loader2, PackageOpen, Building2, Search, Check, Clock, Bo
 import { useOrders } from '../../hooks/useOrders';
 import { useAuth } from '../../contexts/AuthContext';
 import { db } from '../../lib/firebase';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, collection, getDocs } from 'firebase/firestore';
 import { tokens } from '../../lib/tokens';
+import { normalizeUser } from '../../lib/utils';
 
 const sortSizes = (a: string, b: string) => {
   const SIZE_ORDER = ['XXS', 'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL', 'OSFA'];
@@ -34,6 +35,13 @@ export function Production() {
   const [metricsOrder, setMetricsOrder] = useState<any | null>(null);
   const [editingTargetId, setEditingTargetId] = useState<string | null>(null);
   const [targetInput, setTargetInput] = useState<string>('');
+  const [allUsers, setAllUsers] = useState<any[]>([]);
+
+  useEffect(() => {
+    getDocs(collection(db, 'users')).then(snap => {
+      setAllUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    }).catch(e => console.error(e));
+  }, []);
 
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -673,10 +681,7 @@ export function Production() {
                                userName = actMatch?.user?.split('@')[0] || actMatch?.user || 'Unknown';
                            }
 
-                           let rawName = userName || 'Unknown';
-                           if (rawName.toLowerCase() === 'vanessa' || rawName.toLowerCase() === 'vanessa garcia' || rawName.toLowerCase().includes('vanessa')) {
-                               rawName = 'Vanessa Miller';
-                           }
+                           let rawName = normalizeUser(userName, allUsers);
                            const groupKey = rawName.toLowerCase().replace(/[^a-z]/g, '') || 'unknown';
                            
                            if (!bestDisplayNames[groupKey]) {

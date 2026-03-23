@@ -12,7 +12,7 @@ import { useOrders } from '../../hooks/useOrders';
 import { db, storage } from '../../lib/firebase';
 import { doc, setDoc, getDoc, updateDoc, collection, getDocs } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { getTrackingLink } from '../../lib/utils';
+import { getTrackingLink, normalizeUser } from '../../lib/utils';
 
 const SIZE_ORDER = ['XXS', 'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL', 'OSFA'];
 
@@ -1267,10 +1267,7 @@ export function OrderDetail() {
                                    userName = actMatch?.user?.split('@')[0] || actMatch?.user || 'Unknown';
                                }
 
-                               let rawName = userName || 'Unknown';
-                               if (rawName.toLowerCase() === 'vanessa' || rawName.toLowerCase() === 'vanessa garcia' || rawName.toLowerCase().includes('vanessa')) {
-                                   rawName = 'Vanessa Miller';
-                               }
+                               let rawName = normalizeUser(userName, allUsers);
                                const groupKey = rawName.toLowerCase().replace(/[^a-z]/g, '') || 'unknown';
 
                                if (!bestDisplayNames[groupKey]) {
@@ -1435,10 +1432,7 @@ export function OrderDetail() {
                      });
 
                      rawActivities = keptActivities.map((act: any) => {
-                         let userAttr = act.user || '';
-                         if (userAttr.toLowerCase() === 'vanessa' || userAttr.toLowerCase() === 'vanessa garcia' || userAttr.toLowerCase().includes('vanessa')) {
-                             userAttr = 'Vanessa Miller';
-                         }
+                         let userAttr = normalizeUser((act.user || ''), allUsers);
                          return { ...act, user: userAttr };
                      });
                      
@@ -1459,10 +1453,7 @@ export function OrderDetail() {
                      const sortedActivities = [...rawActivities]
                          .sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
                          .map((act: any) => {
-                             let userAttr = act.user || '';
-                             if (userAttr.toLowerCase() === 'vanessa' || userAttr.toLowerCase() === 'vanessa garcia' || userAttr.toLowerCase().includes('vanessa')) {
-                                 userAttr = 'Vanessa Miller';
-                             }
+                             let userAttr = normalizeUser((act.user || ''), allUsers);
                              return { ...act, user: userAttr };
                          });
                      finalDisplayedActivities = sortedActivities.slice(0, activityLimit);
