@@ -423,8 +423,8 @@ export function Production() {
 
                 {/* Expanded Items Section */}
                 {order.items && order.items.length > 0 && (
-                  <div className={`grid transition-all duration-500 ease-in-out px-6 lg:px-10 pb-6 origin-top ${isExpanded ? 'grid-rows-[1fr] opacity-100 border-t border-brand-border/40 pt-6' : 'grid-rows-[0fr] opacity-0 pointer-events-none'}`}>
-                    <div className="overflow-hidden space-y-4">
+                  <div className={`grid transition-all duration-500 ease-in-out px-6 lg:px-10 origin-top ${isExpanded ? 'grid-rows-[1fr] opacity-100 border-t border-brand-border/40' : 'grid-rows-[0fr] opacity-0 pointer-events-none'}`}>
+                    <div className={`${isExpanded ? 'overflow-visible pb-6 pt-6' : 'overflow-hidden pt-0'} space-y-4`}>
                       {order.items.map((item: any) => (
                       <div key={item.id} className="flex flex-col gap-0 border-b border-brand-border/40 last:border-b-0 pb-6 mb-4">
                         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
