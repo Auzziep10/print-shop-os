@@ -51,6 +51,7 @@ export function OrderDetail() {
   const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
   const [activityLimit, setActivityLimit] = useState(3);
   const [activityFilter, setActivityFilter] = useState<'all' | 'performance' | 'metrics'>('all');
+  const [performanceUserFilter, setPerformanceUserFilter] = useState<string>('All');
   const [editingTargetId, setEditingTargetId] = useState<string | null>(null);
   const [targetInput, setTargetInput] = useState<string>('');
 
@@ -1400,19 +1401,53 @@ export function OrderDetail() {
                   }
 
                   let rawActivities = order.activities || [];
+                  let uniquePerformanceUsers: string[] = [];
+
                   if (activityFilter === 'performance') {
                      // Filter to only completion items
                      rawActivities = rawActivities.filter((act: any) => act.message?.match(/^Completed (\d+)x (.*?) for (.*?) in (.*?)\. Rate: (\d+)\/hr$/));
+                     
+                     uniquePerformanceUsers = Array.from(new Set(
+                         rawActivities.map((act: any) => act.user?.split('@')[0] || act.user || 'Unknown')
+                     )).filter(Boolean) as string[];
+
+                     if (performanceUserFilter !== 'All') {
+                         rawActivities = rawActivities.filter((act: any) => {
+                             const uName = act.user?.split('@')[0] || act.user || 'Unknown';
+                             return uName === performanceUserFilter;
+                         });
+                     }
                   }
+                  
                   // Sort activities descending by timestamp
                   const sortedActivities = [...rawActivities].sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
                   const displayedActivities = sortedActivities.slice(0, activityLimit);
-                  if (displayedActivities.length === 0) {
-                     return <div className="text-xs text-brand-secondary text-center py-6">No activity recorded yet for this order.</div>;
-                  }
+                  
                   return (
                     <div className="space-y-4 mb-4">
-                     {displayedActivities.map((act: any) => {
+                      {activityFilter === 'performance' && uniquePerformanceUsers.length > 1 && (
+                         <div className="flex flex-wrap gap-2 mb-2 pb-4 border-b border-brand-border/40">
+                            <button 
+                               onClick={() => { setPerformanceUserFilter('All'); setActivityLimit(10); }}
+                               className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all ${performanceUserFilter === 'All' ? 'bg-brand-primary text-white shadow-sm' : 'bg-neutral-100 text-brand-secondary hover:text-brand-primary'}`}
+                            >
+                               All Team
+                            </button>
+                            {uniquePerformanceUsers.map(u => (
+                               <button 
+                                  key={u}
+                                  onClick={() => { setPerformanceUserFilter(u); setActivityLimit(10); }}
+                                  className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all ${performanceUserFilter === u ? 'bg-brand-primary text-white shadow-sm' : 'bg-neutral-100 text-brand-secondary hover:text-brand-primary'}`}
+                               >
+                                  {u}
+                               </button>
+                            ))}
+                         </div>
+                      )}
+
+                      {displayedActivities.length === 0 ? (
+                         <div className="text-xs text-brand-secondary text-center py-6">No activity recorded for this view.</div>
+                      ) : displayedActivities.map((act: any) => {
                        let isCompletion = false;
                        let parsedStats : any = null;
                        const completionMatch = act.message?.match(/^Completed (\d+)x (.*?) for (.*?) in (.*?)\. Rate: (\d+)\/hr$/);
