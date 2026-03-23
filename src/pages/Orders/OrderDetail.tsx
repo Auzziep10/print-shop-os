@@ -1405,11 +1405,12 @@ export function OrderDetail() {
                   let finalDisplayedActivities: any[] = [];
 
                   if (activityFilter === 'performance') {
-                     const reversed = [...rawActivities].reverse();
+                     // Ensure activities are exactly Newest-To-Oldest
+                     const newestFirst = [...rawActivities].sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
                      const seenKeys = new Set<string>();
                      const keptActivities: any[] = [];
 
-                     reversed.forEach((act: any) => {
+                     newestFirst.forEach((act: any) => {
                          const compMatch = act.message?.match(/^Completed (\d+)x (.*?) for (.*?) in (.*?)\. Rate: (\d+)\/hr$/);
                          const unmarkMatch = act.message?.match(/^Unmarked size (.*?) for (.*?)$/);
                          
