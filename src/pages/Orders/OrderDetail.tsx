@@ -1204,7 +1204,27 @@ export function OrderDetail() {
                  }
                  return (
                    <div className="space-y-4 mb-4">
-                     {displayedActivities.map((act: any) => (
+                     {displayedActivities.map((act: any) => {
+                       let isCompletion = false;
+                       let parsedStats : any = null;
+                       const completionMatch = act.message?.match(/^Completed (\d+)x (.*?) for (.*?) in (.*?)\. Rate: (\d+)\/hr$/);
+                       if (completionMatch) {
+                          isCompletion = true;
+                          const [, qtyStr, sizeStr, styleStr, totalTime, rate] = completionMatch;
+                          
+                          let totalTimeInMins = 0;
+                          if (totalTime.endsWith('m')) totalTimeInMins = parseInt(totalTime.replace('m',''));
+                          else if (totalTime.endsWith('s')) totalTimeInMins = parseInt(totalTime.replace('s','')) / 60;
+                          else totalTimeInMins = 1;
+                          
+                          const parsedQty = parseInt(qtyStr) || 1;
+                          const timePerGarment = totalTimeInMins / parsedQty;
+                          const timePerGarmentFormatted = timePerGarment >= 1 ? `${timePerGarment.toFixed(1)}m` : `${Math.round(timePerGarment * 60)}s`;
+                          
+                          parsedStats = { qty: qtyStr, size: sizeStr, style: styleStr, totalTime, rate, timePerGarmentFormatted };
+                       }
+
+                       return (
                        <div key={act.id} className="relative pl-6 border-l border-brand-border/60 pb-5 last:pb-0 last:border-0 hover:border-l-brand-primary/40 transition-colors">
                           <div className={`absolute w-2 h-2 rounded-full left-[-4.5px] top-1.5 ring-4 ring-white ${act.type === 'status_change' ? 'bg-brand-primary' : 'bg-brand-secondary/40'}`}></div>
                           
@@ -1213,10 +1233,32 @@ export function OrderDetail() {
                                <p className="text-[13px] font-bold text-brand-primary/80">{act.message}</p>
                             ) : (
                                <>
-                                 <p className="text-[13px] font-black text-brand-primary">{act.user.split('@')[0]}</p>
-                                 <p className="text-[13px] text-brand-secondary/90 leading-snug">
-                                    {act.message}
-                                 </p>
+                                 <p className="text-[13px] font-black text-brand-primary">{act.user?.split('@')?.[0] || act.user}</p>
+                                 {isCompletion && parsedStats ? (
+                                   <div className="flex flex-col gap-2 mt-0.5">
+                                      <p className="text-[13px] text-brand-secondary/90 leading-snug">
+                                         Completed <span className="font-bold">{parsedStats.qty}x {parsedStats.size}</span> for {parsedStats.style}
+                                      </p>
+                                      <div className="grid grid-cols-3 gap-0 bg-brand-bg rounded-lg border border-brand-border/60 overflow-hidden w-[95%] shadow-sm mt-1">
+                                          <div className="flex flex-col items-center justify-center p-2.5 bg-white w-full">
+                                              <span className="text-[9px] uppercase tracking-widest text-brand-secondary/50 font-bold mb-0.5">Total Time</span>
+                                              <span className="text-sm font-bold text-brand-primary">{parsedStats.totalTime}</span>
+                                          </div>
+                                          <div className="flex flex-col items-center justify-center p-2.5 bg-white border-l border-brand-border/60 w-full">
+                                              <span className="text-[9px] uppercase tracking-widest text-brand-secondary/50 font-bold mb-0.5">Rate (/hr)</span>
+                                              <span className="text-sm font-bold text-brand-primary">{parsedStats.rate}</span>
+                                          </div>
+                                          <div className="flex flex-col items-center justify-center p-2.5 bg-brand-primary/5 border-l border-brand-border/60 w-full">
+                                              <span className="text-[9px] uppercase tracking-widest text-brand-primary/60 font-bold mb-0.5">Time / Garment</span>
+                                              <span className="text-sm font-bold text-brand-primary">{parsedStats.timePerGarmentFormatted}</span>
+                                          </div>
+                                      </div>
+                                   </div>
+                                 ) : (
+                                   <p className="text-[13px] text-brand-secondary/90 leading-snug">
+                                      {act.message}
+                                   </p>
+                                 )}
                                </>
                             )}
                             <p className="text-[10px] text-brand-secondary/50 mt-1 font-semibold tracking-wide uppercase">
@@ -1224,7 +1266,7 @@ export function OrderDetail() {
                             </p>
                           </div>
                        </div>
-                     ))}
+                     )})}
                      
                      {sortedActivities.length > activityLimit && (
                        <button onClick={() => setActivityLimit(sortedActivities.length)} className="w-full py-2 text-xs font-bold text-brand-secondary hover:text-brand-primary border border-brand-border rounded-lg bg-neutral-50 hover:bg-neutral-100 transition-colors">
