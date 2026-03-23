@@ -298,6 +298,38 @@ export function Production() {
     );
   }
 
+  const fixVanessa = async () => {
+   for (const order of productionOrders) {
+      if (!order.items) continue;
+      let changed = false;
+      const updatedItems = order.items.map((i: any) => {
+         if (i.sizeStats) {
+             Object.keys(i.sizeStats).forEach(size => {
+                const userAttr = i.sizeStats[size].user?.toLowerCase();
+                if (userAttr === 'vanessa garcia' || userAttr === 'vanessa' || userAttr?.includes('vanessa')) {
+                    i.sizeStats[size].user = 'Vanessa Miller';
+                    changed = true;
+                }
+             });
+         }
+         return i;
+      });
+      let updatedActivities = [...(order.activities || [])];
+      updatedActivities = updatedActivities.map((act: any) => {
+         const userAttr = act.user?.toLowerCase();
+         if (userAttr === 'vanessa garcia' || userAttr === 'vanessa' || userAttr?.includes('vanessa')) {
+             act.user = 'Vanessa Miller';
+             changed = true;
+         }
+         return act;
+      });
+      if (changed) {
+          await updateDoc(doc(db, 'orders', order.id), { items: updatedItems, activities: updatedActivities });
+          alert('All Vanessa stats merged into Vanessa Miller! Refreshing...');
+      }
+   }
+  };
+
   return (
     <div className="p-6 md:p-10 max-w-[1600px] mx-auto space-y-8">
       <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-6 mb-8">
@@ -315,6 +347,9 @@ export function Production() {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
+        <button onClick={fixVanessa} className="bg-orange-500 text-white px-4 py-3 rounded-xl font-bold text-[11px] uppercase tracking-widest hover:bg-orange-600 transition-colors shadow-sm ml-4 shrink-0">
+          Merge Vanessa
+        </button>
       </div>
 
       <div className="flex flex-col gap-6">
