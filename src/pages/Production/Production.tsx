@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ChevronRight, Loader2, PackageOpen, Building2, Search, Check, Clock, Box, X } from 'lucide-react';
+import { ChevronRight, Loader2, PackageOpen, Building2, Search, Check, Clock, Box, X, Play, Pause } from 'lucide-react';
 import { useOrders } from '../../hooks/useOrders';
 import { useAuth } from '../../contexts/AuthContext';
 import { db } from '../../lib/firebase';
@@ -88,7 +88,10 @@ export function Production() {
      
      if (inProgress[size]) {
          const startTime = new Date(inProgress[size].startTime).getTime();
-         const durationMs = Date.now() - startTime;
+         const runningDuration = inProgress[size].paused ? 0 : Date.now() - startTime;
+         const totalElapsedMs = (inProgress[size].elapsedMs || 0) + runningDuration;
+         const durationMs = totalElapsedMs > 0 ? totalElapsedMs : (Date.now() - startTime);
+         
          const avgItemTimeMs = qty > 0 ? durationMs / qty : 0;
          const itemsPerHour = durationMs > 0 ? (qty / (durationMs / 3600000)) : 0;
          
@@ -175,6 +178,29 @@ export function Production() {
            } : i
        );
        activityMessage = `Unmarked size ${size} for ${item.style}`;
+    } else if (action === 'pause_timer') {
+       const newInProgress = { ...(item.inProgressSizes || {}) };
+       const target = newInProgress[size];
+       if (target && !target.paused) {
+         const runningDuration = Date.now() - new Date(target.startTime).getTime();
+         target.elapsedMs = (target.elapsedMs || 0) + runningDuration;
+         target.paused = true;
+       }
+       updatedItems = updatedItems.map((i: any) => 
+           i.id === item.id ? { ...i, inProgressSizes: newInProgress } : i
+       );
+       activityMessage = `Paused timer on size ${size} for ${item.style}`;
+    } else if (action === 'resume_timer') {
+       const newInProgress = { ...(item.inProgressSizes || {}) };
+       const target = newInProgress[size];
+       if (target && target.paused) {
+         target.startTime = new Date().toISOString();
+         target.paused = false;
+       }
+       updatedItems = updatedItems.map((i: any) => 
+           i.id === item.id ? { ...i, inProgressSizes: newInProgress } : i
+       );
+       activityMessage = `Resumed timer on size ${size} for ${item.style}`;
     } else if (action === 'cancel_timer') {
        const newInProgress = { ...(item.inProgressSizes || {}) };
        delete newInProgress[size];
@@ -404,10 +430,17 @@ export function Production() {
                                    topContent = <Check size={12} strokeWidth={4} className="my-auto mx-auto" />;
                                    wrapperClass = 'opacity-80 hover:opacity-100';
                                } else if (inProgress) {
-                                   colorClassTop = 'bg-red-500 text-white';
-                                   colorClassBottom = 'bg-red-50 text-red-700';
-                                   topContent = <Clock size={12} strokeWidth={3} className="animate-pulse my-auto mx-auto" />;
-                                   wrapperClass = 'opacity-90 hover:opacity-100';
+                                   if (inProgress.paused) {
+                                       colorClassTop = 'bg-orange-500 text-white';
+                                       colorClassBottom = 'bg-orange-50 text-orange-700';
+                                       topContent = <Pause size={12} strokeWidth={3} className="my-auto mx-auto" />;
+                                       wrapperClass = 'opacity-90 hover:opacity-100';
+                                   } else {
+                                       colorClassTop = 'bg-red-500 text-white';
+                                       colorClassBottom = 'bg-red-50 text-red-700';
+                                       topContent = <Clock size={12} strokeWidth={3} className="animate-pulse my-auto mx-auto" />;
+                                       wrapperClass = 'opacity-90 hover:opacity-100';
+                                   }
                                }
 
                                return (
@@ -420,7 +453,7 @@ export function Production() {
                                    e.stopPropagation(); 
                                    setContextMenu({ x: e.clientX, y: e.clientY, order, item, size, qty }); 
                                  }}
-                                 title={isPacked ? "Packed in shipments." : isCompleted ? `Completed. Right-click to manage.` : inProgress ? "Timer running. Click to complete!" : "Click to start timer"}
+                                 title={isPacked ? "Packed in shipments." : isCompleted ? `Completed. Right-click to manage.` : inProgress ? (inProgress.paused ? "Timer paused. Right-click to resume!" : "Timer running. Click to complete!") : "Click to start timer"}
                                >
                                  {/* Hover hints */}
                                  {!isCompleted && !isPacked && !inProgress && (
@@ -428,9 +461,14 @@ export function Production() {
                                       <Clock size={20} className="text-brand-primary drop-shadow-md" strokeWidth={3} />
                                    </div>
                                  )}
-                                 {!isCompleted && !isPacked && inProgress && (
+                                 {!isCompleted && !isPacked && inProgress && !inProgress.paused && (
                                    <div className="absolute inset-0 bg-brand-primary/5 backdrop-blur-[1px] opacity-0 group-hover/sizebtn:opacity-100 transition-opacity z-10 flex flex-col items-center justify-center rounded-[8px] pointer-events-none">
                                       <Check size={20} className="text-brand-primary drop-shadow-md" strokeWidth={3} />
+                                   </div>
+                                 )}
+                                 {!isCompleted && !isPacked && inProgress && inProgress.paused && (
+                                   <div className="absolute inset-0 bg-brand-primary/5 backdrop-blur-[1px] opacity-0 group-hover/sizebtn:opacity-100 transition-opacity z-10 flex flex-col items-center justify-center rounded-[8px] pointer-events-none">
+                                      <Play size={20} className="text-brand-primary drop-shadow-md" strokeWidth={3} />
                                    </div>
                                  )}
 
@@ -487,12 +525,29 @@ export function Production() {
             </div>
             
             {contextMenu.item.inProgressSizes?.[contextMenu.size] && contextMenu.item.inProgressSizes[contextMenu.size].user === (user?.email || 'Team Member') && (
-               <button 
-                 onClick={() => handleContextMenuAction('cancel_timer')}
-                 className="text-left px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-2"
-               >
-                 <X size={14} /> Cancel Timer
-               </button>
+               <>
+                 {contextMenu.item.inProgressSizes[contextMenu.size].paused ? (
+                   <button 
+                     onClick={() => handleContextMenuAction('resume_timer')}
+                     className="text-left px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-green-600 hover:bg-green-50 rounded-lg transition-colors flex items-center gap-2"
+                   >
+                     <Play size={14} /> Resume Timer
+                   </button>
+                 ) : (
+                   <button 
+                     onClick={() => handleContextMenuAction('pause_timer')}
+                     className="text-left px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-orange-600 hover:bg-orange-50 rounded-lg transition-colors flex items-center gap-2"
+                   >
+                     <Pause size={14} /> Pause Timer
+                   </button>
+                 )}
+                 <button 
+                   onClick={() => handleContextMenuAction('cancel_timer')}
+                   className="text-left px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-2"
+                 >
+                   <X size={14} /> Cancel Timer
+                 </button>
+               </>
             )}
 
             {contextMenu.item.completedSizes?.includes(contextMenu.size) && (!contextMenu.item.sizeStats?.[contextMenu.size]?.user || contextMenu.item.sizeStats[contextMenu.size].user === (user?.email || 'Team Member')) && (
