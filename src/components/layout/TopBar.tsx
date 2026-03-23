@@ -6,7 +6,7 @@ export function TopBar() {
   const { user, signOut } = useAuth();
 
   return (
-    <header className="h-16 border-b border-brand-border bg-white px-6 flex items-center justify-between sticky top-0 z-10 w-full">
+    <header className="h-16 border-b border-brand-border bg-white px-6 flex items-center justify-between sticky top-0 z-40 w-full">
       <div className="max-w-md w-full relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-secondary" size={16} strokeWidth={2} />
         <input 
