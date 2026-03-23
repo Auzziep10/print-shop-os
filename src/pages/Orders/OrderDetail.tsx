@@ -1299,7 +1299,8 @@ export function OrderDetail() {
                      }
 
                      const remainingGarments = Math.max(0, totalOrderGarments - trueTotalGarmentsCompleted);
-                     const globalAvgMinsPerGarment = globalTotalGarmentsCompletedWithStats > 0 ? (globalTotalTimeMins / globalTotalGarmentsCompletedWithStats) : 0;
+                     const concurrentGlobalTotalTimeMins = globalTotalTimeMins / Math.max(1, users.length);
+                     const globalAvgMinsPerGarment = globalTotalGarmentsCompletedWithStats > 0 ? (concurrentGlobalTotalTimeMins / globalTotalGarmentsCompletedWithStats) : 0;
                      const estimatedRemainingMins = remainingGarments * globalAvgMinsPerGarment;
                      const estimatedTotalMins = (trueTotalGarmentsCompleted * globalAvgMinsPerGarment) + estimatedRemainingMins;
 
