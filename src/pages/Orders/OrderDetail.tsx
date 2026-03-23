@@ -152,7 +152,7 @@ export function OrderDetail() {
     handleDragEnd();
   };
 
-  const { user } = useAuth();
+
   const [noteText, setNoteText] = useState('');
   
   // Shopify Product Search
