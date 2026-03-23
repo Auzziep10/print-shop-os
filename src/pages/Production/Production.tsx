@@ -32,8 +32,21 @@ export function Production() {
   const [customerLogos, setCustomerLogos] = useState<Record<string, string>>({});
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, order: any, item: any, size: string, qty: number } | null>(null);
   const [metricsOrder, setMetricsOrder] = useState<any | null>(null);
+  const [editingTargetId, setEditingTargetId] = useState<string | null>(null);
+  const [targetInput, setTargetInput] = useState<string>('');
 
   const [searchQuery, setSearchQuery] = useState('');
+
+  const handleSaveTarget = async (orderId: string) => {
+    const val = parseFloat(targetInput);
+    if (!isNaN(val) && val >= 0) {
+       await updateDoc(doc(db, 'orders', orderId), { targetAvgMinsPerGarment: val });
+       if (metricsOrder && metricsOrder.id === orderId) {
+          setMetricsOrder({ ...metricsOrder, targetAvgMinsPerGarment: val });
+       }
+    }
+    setEditingTargetId(null);
+  };
 
   // Calculate completion ratio helper
   const getCompletionData = (order: any) => {
@@ -623,9 +636,10 @@ export function Production() {
                {(() => {
                  const statsByUser: Record<string, { totalTimeMins: number, garmentsCompleted: number, completionsCount: number }> = {};
                  
-                 let globalTotalGarmentsCompleted = 0;
+                 let globalTotalGarmentsCompletedWithStats = 0;
                  let globalTotalTimeMins = 0;
                  let totalOrderGarments = 0;
+                 let trueTotalGarmentsCompleted = 0; // The actual count regardless of attached stat metrics
 
                  (metricsOrder.items || []).forEach((item: any) => {
                     if (item.sizes) {
@@ -636,6 +650,9 @@ export function Production() {
 
                     const completed = item.completedSizes || [];
                     completed.forEach((size: string) => {
+                       const qty = parseInt(item.sizes?.[size]) || 0;
+                       trueTotalGarmentsCompleted += qty;
+
                        const stat = item.sizeStats?.[size];
                        if (stat) {
                            let userName = stat.user?.split('@')[0] || stat.user;
@@ -649,7 +666,6 @@ export function Production() {
                            }
 
                            const user = userName;
-                           const qty = parseInt(item.sizes?.[size]) || 0;
                            const durationMs = stat.durationMs || 0;
                            const timeMins = durationMs / 60000;
 
@@ -660,7 +676,7 @@ export function Production() {
                            statsByUser[user].garmentsCompleted += qty;
                            statsByUser[user].completionsCount += 1;
                            
-                           globalTotalGarmentsCompleted += qty;
+                           globalTotalGarmentsCompletedWithStats += qty;
                            globalTotalTimeMins += timeMins;
                        }
                     });
@@ -672,23 +688,56 @@ export function Production() {
                    return <p className="text-center text-sm text-brand-secondary py-8">No performance metrics recorded yet for this order. Complete an item to see predictions.</p>;
                  }
 
-                 const remainingGarments = Math.max(0, totalOrderGarments - globalTotalGarmentsCompleted);
-                 const globalAvgMinsPerGarment = globalTotalGarmentsCompleted > 0 ? (globalTotalTimeMins / globalTotalGarmentsCompleted) : 0;
+                 // Calculates remaining purely from the physical pipeline truth `completedSizes` 
+                 const remainingGarments = Math.max(0, totalOrderGarments - trueTotalGarmentsCompleted);
+                 const globalAvgMinsPerGarment = globalTotalGarmentsCompletedWithStats > 0 ? (globalTotalTimeMins / globalTotalGarmentsCompletedWithStats) : 0;
                  const estimatedRemainingMins = remainingGarments * globalAvgMinsPerGarment;
-                 const estimatedTotalMins = globalTotalTimeMins + estimatedRemainingMins;
+                 const estimatedTotalMins = (trueTotalGarmentsCompleted * globalAvgMinsPerGarment) + estimatedRemainingMins;
+
 
                  return (
                    <div className="space-y-6">
                      {/* Predictive Metrics Banner */}
                      <div className="bg-gradient-to-br from-brand-primary/5 to-brand-primary/10 border border-brand-primary/20 rounded-xl p-5 shadow-sm text-brand-primary">
-                        <div className="flex items-center gap-2 mb-3 border-b border-brand-primary/10 pb-3">
-                           <Clock size={16} />
-                           <h4 className="font-bold uppercase tracking-wider text-[11px]">AI Production Forecast</h4>
+                        <div className="flex items-center justify-between mb-3 border-b border-brand-primary/10 pb-3">
+                           <div className="flex items-center gap-2">
+                             <Clock size={16} />
+                             <h4 className="font-bold uppercase tracking-wider text-[11px]">AI Production Forecast</h4>
+                           </div>
+                           <div className="flex items-center">
+                              {editingTargetId === metricsOrder.id ? (
+                                 <div className="flex items-center gap-2">
+                                    <input 
+                                      type="number" 
+                                      step="0.1"
+                                      value={targetInput} 
+                                      onChange={e => setTargetInput(e.target.value)} 
+                                      className="w-16 px-2 py-0.5 text-xs text-brand-primary font-bold border border-brand-primary/40 rounded bg-white outline-none"
+                                      placeholder="Mins"
+                                      autoFocus
+                                    />
+                                    <button onClick={() => handleSaveTarget(metricsOrder.id)} className="text-[10px] font-bold uppercase bg-brand-primary text-white px-2 py-1 rounded">Save</button>
+                                    <button onClick={() => setEditingTargetId(null)} className="text-brand-secondary hover:text-brand-primary"><X size={14} /></button>
+                                 </div>
+                              ) : (
+                                 <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-brand-primary/80 bg-white/50 px-2 py-1 rounded-md border border-brand-primary/10">
+                                    <span>Expected Target: {metricsOrder.targetAvgMinsPerGarment ? `${metricsOrder.targetAvgMinsPerGarment}m` : 'Not Set'}</span>
+                                    <button onClick={() => { setTargetInput(metricsOrder.targetAvgMinsPerGarment?.toString() || ''); setEditingTargetId(metricsOrder.id); }} className="hover:text-brand-primary text-brand-secondary underline decoration-brand-border underline-offset-2">Edit</button>
+                                 </div>
+                              )}
+                           </div>
                         </div>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                           <div className="flex flex-col">
+                           <div className="flex flex-col relative">
                               <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/60 mb-1">Global Avg / Garment</span>
-                              <span className="text-xl font-black">{globalAvgMinsPerGarment >= 1 ? globalAvgMinsPerGarment.toFixed(1) + 'm' : Math.round(globalAvgMinsPerGarment * 60) + 's'}</span>
+                              <div className="flex items-end gap-2">
+                                <span className="text-xl font-black">{globalAvgMinsPerGarment >= 1 ? globalAvgMinsPerGarment.toFixed(1) + 'm' : Math.round(globalAvgMinsPerGarment * 60) + 's'}</span>
+                                {metricsOrder.targetAvgMinsPerGarment && (
+                                   <span className={`text-[10px] font-bold mb-1 ${globalAvgMinsPerGarment <= metricsOrder.targetAvgMinsPerGarment ? 'text-green-600' : 'text-orange-500'}`}>
+                                      {globalAvgMinsPerGarment <= metricsOrder.targetAvgMinsPerGarment ? 'On Track' : 'Behind'}
+                                   </span>
+                                )}
+                              </div>
                            </div>
                            <div className="flex flex-col">
                               <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/60 mb-1">Remaining Units</span>

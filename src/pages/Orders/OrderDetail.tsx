@@ -1059,11 +1059,14 @@ export function OrderDetail() {
                             {item.logos?.map((logo: string, i: number) => (
                               <DataPill key={i} label={`Logo ${i+1}`} value={logo} />
                             ))}
-                            {item.logos?.map((logo: string, i: number) => (
-                              <a key={`art-${i}`} href="#" className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-brand-secondary hover:text-brand-primary transition-colors bg-white px-3 py-1.5 rounded-2xl border border-brand-border h-max my-auto shadow-sm" onClick={(e) => e.preventDefault()}>
-                                 <Download size={10} /> {logo.replace(/\s+/g, '_')}_Art.ai
-                              </a>
-                            ))}
+                            {item.artworks?.map((art: any, i: number) => {
+                               if (!art?.url) return null;
+                               return (
+                                  <a key={`art-${i}`} href={art.url} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-brand-secondary hover:text-brand-primary transition-colors bg-white px-3 py-1.5 rounded-2xl border border-brand-border h-max my-auto shadow-sm">
+                                     <Download size={10} /> {art.name || `${item.logos?.[i]?.replace(/\s+/g, '_') || 'VECTOR'}_Art`}
+                                  </a>
+                               );
+                            })}
                          </div>
                       </div>
                    </div>
@@ -1642,22 +1645,40 @@ export function OrderDetail() {
                    <div className="flex flex-col gap-3">
                      <label className="text-xs font-bold uppercase tracking-widest text-brand-secondary">Decoration Options (Logos)</label>
                      <div className="bg-white p-5 rounded-xl border border-brand-border shadow-sm flex flex-col gap-3 h-full justify-center">
-                       {[0, 1, 2].map(idx => (
-                         <div key={idx} className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-300 w-4">{idx + 1}.</span>
-                            <input 
-                              type="text" 
-                              placeholder={`e.g. Left Chest`}
-                              value={editItemObj.logos?.[idx] || ''}
-                              onChange={(e) => {
-                                const newLogos = [...(editItemObj.logos || [])];
-                                newLogos[idx] = e.target.value;
-                                setEditItemObj({...editItemObj, logos: newLogos.filter(Boolean)});
-                              }}
-                              className="w-full bg-brand-bg/50 border border-brand-border rounded-lg pl-9 pr-4 py-2.5 text-sm focus:border-brand-primary focus:bg-white focus:outline-none transition-all"
-                            />
-                         </div>
-                       ))}
+                        {[0, 1, 2].map(idx => (
+                          <div key={idx} className="flex gap-2 items-center relative">
+                             <div className="relative flex-1">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-300 w-4">{idx + 1}.</span>
+                                <input 
+                                  type="text" 
+                                  placeholder={`e.g. Left Chest`}
+                                  value={editItemObj.logos?.[idx] || ''}
+                                  onChange={(e) => {
+                                    const newLogos = [...(editItemObj.logos || [])];
+                                    newLogos[idx] = e.target.value;
+                                    setEditItemObj({...editItemObj, logos: newLogos});
+                                  }}
+                                  className="w-full bg-brand-bg/50 border border-brand-border rounded-lg pl-9 pr-4 py-2.5 text-sm focus:border-brand-primary focus:bg-white focus:outline-none transition-all"
+                                />
+                             </div>
+                             <label className="shrink-0 flex items-center justify-center bg-brand-bg border border-brand-border rounded-lg px-3 py-2.5 cursor-pointer hover:bg-neutral-100 transition-colors tooltip-trigger relative group min-w-[46px]">
+                                {editItemObj.artworks?.[idx]?.url ? <Check size={16} className="text-green-600" /> : <Upload size={16} className="text-brand-secondary" />}
+                                <input type="file" className="hidden" accept=".ai,.eps,.pdf,.svg,.png" onChange={async (e) => {
+                                    const file = e.target.files?.[0];
+                                    if (!file) return;
+                                    const storageRef = ref(storage, `orders/${id}/items/${editItemObj.id || 'new'}/art-${idx}-${Date.now()}`);
+                                    await uploadBytes(storageRef, file);
+                                    const url = await getDownloadURL(storageRef);
+                                    const newArtworks = [...(editItemObj.artworks || [])];
+                                    newArtworks[idx] = { name: file.name, url };
+                                    setEditItemObj((prev: any) => ({...prev, artworks: newArtworks}));
+                                }} />
+                                <div className="absolute right-0 bottom-full mb-2 bg-gray-900 text-white text-[10px] uppercase font-bold px-2 py-1 rounded hidden group-hover:block whitespace-nowrap shadow-xl z-50">
+                                    {editItemObj.artworks?.[idx]?.name ? editItemObj.artworks[idx].name : 'Upload Vector Art'}
+                                </div>
+                             </label>
+                          </div>
+                        ))}
                      </div>
                    </div>
                    
