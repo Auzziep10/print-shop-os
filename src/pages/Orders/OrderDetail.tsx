@@ -50,6 +50,7 @@ export function OrderDetail() {
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
   const [activityLimit, setActivityLimit] = useState(3);
+  const [activityFilter, setActivityFilter] = useState<'all' | 'performance'>('all');
 
   useEffect(() => {
     getDocs(collection(db, 'users')).then(snap => {
@@ -1188,14 +1189,34 @@ export function OrderDetail() {
             <div className="md:col-span-1">
               {/* Activity Feed */}
               <div className="bg-white p-6 rounded-card border border-brand-border shadow-sm flex flex-col h-full">
-                <div className="flex items-center gap-2 mb-6">
-                  <Clock className="text-brand-primary" size={20} />
-                  <h3 className={tokens.typography.h3}>Activity</h3>
+                <div className="flex items-center justify-between gap-4 mb-6">
+                  <div className="flex items-center gap-2">
+                    <Clock className="text-brand-primary" size={20} />
+                    <h3 className={tokens.typography.h3}>Activity</h3>
+                  </div>
+                  <div className="flex bg-neutral-100 p-1 rounded-lg">
+                    <button 
+                      onClick={() => { setActivityFilter('all'); setActivityLimit(3); }} 
+                      className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all ${activityFilter === 'all' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}
+                    >
+                      All
+                    </button>
+                    <button 
+                      onClick={() => { setActivityFilter('performance'); setActivityLimit(10); }} 
+                      className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all ${activityFilter === 'performance' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}
+                    >
+                      Performance
+                    </button>
+                  </div>
                 </div>
             
             <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar min-h-[150px]">
                {(() => {
-                 const rawActivities = order.activities || [];
+                 let rawActivities = order.activities || [];
+                 if (activityFilter === 'performance') {
+                    // Filter to only completion items
+                    rawActivities = rawActivities.filter((act: any) => act.message?.match(/^Completed (\d+)x (.*?) for (.*?) in (.*?)\. Rate: (\d+)\/hr$/));
+                 }
                  // Sort activities descending by timestamp
                  const sortedActivities = [...rawActivities].sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
                  const displayedActivities = sortedActivities.slice(0, activityLimit);
