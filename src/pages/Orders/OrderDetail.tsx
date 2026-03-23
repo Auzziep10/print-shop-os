@@ -388,7 +388,8 @@ export function OrderDetail() {
          newStats[size] = {
              durationMs,
              avgItemTimeMs,
-             itemsPerHour: Math.round(itemsPerHour)
+             itemsPerHour: Math.round(itemsPerHour),
+             user: user?.email || 'Team Member'
          };
          
          const updatedItems = order.items.map((i: any) => 
@@ -1739,7 +1740,7 @@ export function OrderDetail() {
               <span className="text-[10px] font-bold text-brand-primary bg-brand-bg px-2 py-0.5 rounded-full">Qty: {contextMenu.qty}</span>
             </div>
             
-            {contextMenu.item.inProgressSizes?.[contextMenu.size] && (
+            {contextMenu.item.inProgressSizes?.[contextMenu.size] && contextMenu.item.inProgressSizes[contextMenu.size].user === (user?.email || 'Team Member') && (
                <button 
                  onClick={() => handleContextMenuAction('cancel_timer')}
                  className="text-left px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-2"
@@ -1748,7 +1749,7 @@ export function OrderDetail() {
                </button>
             )}
 
-            {contextMenu.item.completedSizes?.includes(contextMenu.size) && (
+            {contextMenu.item.completedSizes?.includes(contextMenu.size) && (!contextMenu.item.sizeStats?.[contextMenu.size]?.user || contextMenu.item.sizeStats[contextMenu.size].user === (user?.email || 'Team Member')) && (
                <button 
                  onClick={() => handleContextMenuAction('uncomplete')}
                  className="text-left px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-orange-600 hover:bg-orange-50 rounded-lg transition-colors flex items-center gap-2"
