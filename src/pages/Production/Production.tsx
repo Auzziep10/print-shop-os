@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { ChevronRight, Loader2, PackageOpen, Building2, Search, Check, Clock, Box, X, Play, Pause, Activity } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { ChevronRight, Loader2, PackageOpen, Building2, Search, Check, Clock, Box, X, Play, Pause, Activity, ExternalLink } from 'lucide-react';
 import { useOrders } from '../../hooks/useOrders';
 import { useAuth } from '../../contexts/AuthContext';
 import { db } from '../../lib/firebase';
@@ -26,6 +27,7 @@ const DataPill = ({ label, value }: { label: string, value: string }) => (
 export function Production() {
   const { user } = useAuth();
   const { orders, loading } = useOrders();
+  const navigate = useNavigate();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [customerLogos, setCustomerLogos] = useState<Record<string, string>>({});
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, order: any, item: any, size: string, qty: number } | null>(null);
@@ -347,7 +349,14 @@ export function Production() {
                           <ChevronRight size={20} strokeWidth={2.5} className={`transition-transform duration-500 ease-out ${isExpanded ? 'rotate-90' : ''}`} />
                         </span>
                       </div>
-                      <p className="text-xs font-medium text-gray-500 mt-1 uppercase tracking-wider">Order #{order.portalId || order.id.substring(0,8)}</p>
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); navigate(`/orders/${order.id}`); }}
+                        className="flex items-center gap-1.5 text-[11px] font-bold text-gray-500 hover:text-brand-primary mt-1.5 uppercase tracking-widest transition-colors z-20 relative bg-neutral-100/80 hover:bg-brand-primary/10 px-2.5 py-1 rounded-md max-w-max border border-transparent hover:border-brand-primary/20"
+                        title="Open Order Details"
+                      >
+                         Order #{order.portalId || order.id.substring(0,8)}
+                         <ExternalLink size={12} className="opacity-80" />
+                      </button>
                     </div>
                   </div>
 
