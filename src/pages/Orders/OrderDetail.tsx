@@ -1400,12 +1400,34 @@ export function OrderDetail() {
                      );
                   }
 
-                  let rawActivities = order.activities || [];
+                  let rawActivities = [...(order.activities || [])];
                   let uniquePerformanceUsers: string[] = [];
+                  let finalDisplayedActivities: any[] = [];
 
                   if (activityFilter === 'performance') {
-                     // Filter to only completion items
-                     rawActivities = rawActivities.filter((act: any) => act.message?.match(/^Completed (\d+)x (.*?) for (.*?) in (.*?)\. Rate: (\d+)\/hr$/));
+                     const reversed = [...rawActivities].reverse();
+                     const seenKeys = new Set<string>();
+                     const keptActivities: any[] = [];
+
+                     reversed.forEach((act: any) => {
+                         const compMatch = act.message?.match(/^Completed (\d+)x (.*?) for (.*?) in (.*?)\. Rate: (\d+)\/hr$/);
+                         const unmarkMatch = act.message?.match(/^Unmarked size (.*?) for (.*?)$/);
+                         
+                         if (unmarkMatch) {
+                             const key = `${unmarkMatch[1]}_${unmarkMatch[2]}`; // size_style
+                             if (!seenKeys.has(key)) {
+                                 seenKeys.add(key); 
+                             }
+                         } else if (compMatch) {
+                             const key = `${compMatch[2]}_${compMatch[3]}`; // size_style
+                             if (!seenKeys.has(key)) {
+                                 seenKeys.add(key);
+                                 keptActivities.push(act);
+                             }
+                         }
+                     });
+
+                     rawActivities = keptActivities;
                      
                      uniquePerformanceUsers = Array.from(new Set(
                          rawActivities.map((act: any) => act.user?.split('@')[0] || act.user || 'Unknown')
@@ -1417,11 +1439,13 @@ export function OrderDetail() {
                              return uName === performanceUserFilter;
                          });
                      }
+                     
+                     finalDisplayedActivities = rawActivities.slice(0, activityLimit);
+                  } else {
+                     // Sort activities descending by timestamp for 'all'
+                     const sortedActivities = [...rawActivities].sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+                     finalDisplayedActivities = sortedActivities.slice(0, activityLimit);
                   }
-                  
-                  // Sort activities descending by timestamp
-                  const sortedActivities = [...rawActivities].sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-                  const displayedActivities = sortedActivities.slice(0, activityLimit);
                   
                   return (
                     <div className="space-y-4 mb-4">
@@ -1445,9 +1469,9 @@ export function OrderDetail() {
                          </div>
                       )}
 
-                      {displayedActivities.length === 0 ? (
+                      {finalDisplayedActivities.length === 0 ? (
                          <div className="text-xs text-brand-secondary text-center py-6">No activity recorded for this view.</div>
-                      ) : displayedActivities.map((act: any) => {
+                      ) : finalDisplayedActivities.map((act: any) => {
                        let isCompletion = false;
                        let parsedStats : any = null;
                        const completionMatch = act.message?.match(/^Completed (\d+)x (.*?) for (.*?) in (.*?)\. Rate: (\d+)\/hr$/);
@@ -1515,12 +1539,12 @@ export function OrderDetail() {
                        </div>
                      )})}
                      
-                     {sortedActivities.length > activityLimit && (
-                       <button onClick={() => setActivityLimit(sortedActivities.length)} className="w-full py-2 text-xs font-bold text-brand-secondary hover:text-brand-primary border border-brand-border rounded-lg bg-neutral-50 hover:bg-neutral-100 transition-colors">
-                         View All {sortedActivities.length} Recent Activities
+                     {(activityFilter === 'performance' ? rawActivities.length : (order.activities?.length || 0)) > activityLimit && (
+                       <button onClick={() => setActivityLimit((activityFilter === 'performance' ? rawActivities.length : (order.activities?.length || 0)))} className="w-full py-2 text-xs font-bold text-brand-secondary hover:text-brand-primary border border-brand-border rounded-lg bg-neutral-50 hover:bg-neutral-100 transition-colors">
+                         View All {(activityFilter === 'performance' ? rawActivities.length : (order.activities?.length || 0))} Recent Activities
                        </button>
                      )}
-                     {activityLimit > 3 && sortedActivities.length > 3 && (
+                     {activityLimit > 3 && (activityFilter === 'performance' ? rawActivities.length : (order.activities?.length || 0)) > 3 && (
                        <button onClick={() => setActivityLimit(3)} className="w-full py-2 text-xs font-bold text-brand-secondary hover:text-brand-primary border border-transparent hover:border-brand-border rounded-lg hover:bg-brand-bg transition-colors">
                          Collapse Activity
                        </button>
