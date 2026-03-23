@@ -50,7 +50,17 @@ export function OrderDetail() {
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
   const [activityLimit, setActivityLimit] = useState(3);
-  const [activityFilter, setActivityFilter] = useState<'all' | 'performance'>('all');
+  const [activityFilter, setActivityFilter] = useState<'all' | 'performance' | 'metrics'>('all');
+  const [editingTargetId, setEditingTargetId] = useState<string | null>(null);
+  const [targetInput, setTargetInput] = useState<string>('');
+
+  const handleSaveTarget = async (orderId: string) => {
+    const val = parseFloat(targetInput);
+    if (!isNaN(val) && val >= 0) {
+       await updateDoc(doc(db, 'orders', orderId), { targetAvgMinsPerGarment: val });
+    }
+    setEditingTargetId(null);
+  };
 
   useEffect(() => {
     getDocs(collection(db, 'users')).then(snap => {
@@ -1210,24 +1220,197 @@ export function OrderDetail() {
                     >
                       Performance
                     </button>
+                    <button 
+                      onClick={() => { setActivityFilter('metrics'); }} 
+                      className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all ${activityFilter === 'metrics' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}
+                    >
+                      Metrics
+                    </button>
                   </div>
                 </div>
             
             <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar min-h-[150px]">
-               {(() => {
-                 let rawActivities = order.activities || [];
-                 if (activityFilter === 'performance') {
-                    // Filter to only completion items
-                    rawActivities = rawActivities.filter((act: any) => act.message?.match(/^Completed (\d+)x (.*?) for (.*?) in (.*?)\. Rate: (\d+)\/hr$/));
-                 }
-                 // Sort activities descending by timestamp
-                 const sortedActivities = [...rawActivities].sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-                 const displayedActivities = sortedActivities.slice(0, activityLimit);
-                 if (displayedActivities.length === 0) {
-                    return <div className="text-xs text-brand-secondary text-center py-6">No activity recorded yet for this order.</div>;
-                 }
-                 return (
-                   <div className="space-y-4 mb-4">
+                {(() => {
+                  if (activityFilter === 'metrics') {
+                     const metricsOrder = order;
+                     const statsByUser: Record<string, { totalTimeMins: number, garmentsCompleted: number, completionsCount: number }> = {};
+                     const bestDisplayNames: Record<string, string> = {};
+
+                     let globalTotalGarmentsCompletedWithStats = 0;
+                     let globalTotalTimeMins = 0;
+                     let totalOrderGarments = 0;
+                     let trueTotalGarmentsCompleted = 0; // The actual count regardless of attached stat metrics
+
+                     (metricsOrder.items || []).forEach((item: any) => {
+                        if (item.sizes) {
+                            Object.values(item.sizes).forEach((q: any) => {
+                                totalOrderGarments += (parseInt(q as string) || 0);
+                            });
+                        }
+
+                        const completed = item.completedSizes || [];
+                        completed.forEach((size: string) => {
+                           const qty = parseInt(item.sizes?.[size]) || 0;
+                           trueTotalGarmentsCompleted += qty;
+
+                           const stat = item.sizeStats?.[size];
+                           if (stat) {
+                               let userName = stat.user?.split('@')[0] || stat.user;
+
+                               // Fallback to searching activity log for older completions that lacked sizeStats.user
+                               if (!userName) {
+                                   const actMatch = (metricsOrder.activities || []).find((a: any) =>
+                                       a.message?.startsWith('Completed') && a.message?.includes(`x ${size} for ${item.style}`)
+                                   );
+                                   userName = actMatch?.user?.split('@')[0] || actMatch?.user || 'Unknown';
+                               }
+
+                               const rawName = userName || 'Unknown';
+                               const groupKey = rawName.toLowerCase().replace(/[^a-z]/g, '') || 'unknown';
+
+                               if (!bestDisplayNames[groupKey]) {
+                                  bestDisplayNames[groupKey] = rawName;
+                               } else if (rawName.includes(' ') && !bestDisplayNames[groupKey].includes(' ')) {
+                                  bestDisplayNames[groupKey] = rawName;
+                               } else if (rawName.length > bestDisplayNames[groupKey].length && rawName !== rawName.toLowerCase()) {
+                                  bestDisplayNames[groupKey] = rawName;
+                               }
+
+                               const durationMs = stat.durationMs || 0;
+                               const timeMins = durationMs / 60000;
+
+                               if (!statsByUser[groupKey]) {
+                                  statsByUser[groupKey] = { totalTimeMins: 0, garmentsCompleted: 0, completionsCount: 0 };
+                               }
+                               statsByUser[groupKey].totalTimeMins += timeMins;
+                               statsByUser[groupKey].garmentsCompleted += qty;
+                               statsByUser[groupKey].completionsCount += 1;
+
+                               globalTotalGarmentsCompletedWithStats += qty;
+                               globalTotalTimeMins += timeMins;
+                           }
+                        });
+                     });
+
+                     const users = Object.keys(statsByUser).sort((a,b) => statsByUser[b].garmentsCompleted - statsByUser[a].garmentsCompleted);
+
+                     if (users.length === 0) {
+                       return <div className="text-xs text-brand-secondary text-center py-6">No performance metrics recorded yet for this order. Complete an item to see predictions.</div>;
+                     }
+
+                     const remainingGarments = Math.max(0, totalOrderGarments - trueTotalGarmentsCompleted);
+                     const globalAvgMinsPerGarment = globalTotalGarmentsCompletedWithStats > 0 ? (globalTotalTimeMins / globalTotalGarmentsCompletedWithStats) : 0;
+                     const estimatedRemainingMins = remainingGarments * globalAvgMinsPerGarment;
+                     const estimatedTotalMins = (trueTotalGarmentsCompleted * globalAvgMinsPerGarment) + estimatedRemainingMins;
+
+                     return (
+                       <div className="space-y-6">
+                         {/* Predictive Metrics Banner */}
+                         <div className="bg-gradient-to-br from-brand-primary/5 to-brand-primary/10 border border-brand-primary/20 rounded-xl p-5 shadow-sm text-brand-primary">
+                            <div className="flex flex-col md:flex-row md:items-center justify-between mb-3 border-b border-brand-primary/10 pb-3 gap-3">
+                               <div className="flex items-center gap-2">
+                                 <Clock size={16} />
+                                 <h4 className="font-bold uppercase tracking-wider text-[11px]">AI Production Forecast</h4>
+                               </div>
+                               <div className="flex items-center">
+                                  {editingTargetId === metricsOrder.id ? (
+                                     <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-brand-primary/80 bg-white/50 px-2 py-1 rounded-md border border-brand-primary/10">
+                                        <span>Expected Time / Garment:</span>
+                                        <input
+                                          type="number"
+                                          step="0.1"
+                                          value={targetInput}
+                                          onChange={e => setTargetInput(e.target.value)}
+                                          className="w-16 px-2 py-0.5 text-xs text-brand-primary font-bold border border-brand-primary/40 rounded bg-white outline-none ml-1"
+                                          placeholder="Mins"
+                                          autoFocus
+                                        />
+                                        <button onClick={() => handleSaveTarget(metricsOrder.id)} className="text-[10px] font-bold uppercase bg-brand-primary text-white px-2 py-1 rounded ml-1">Save</button>
+                                        <button onClick={() => setEditingTargetId(null)} className="text-brand-secondary hover:text-brand-primary"><X size={14} /></button>
+                                     </div>
+                                  ) : (
+                                     <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-brand-primary/80 bg-white/50 px-2 py-1 rounded-md border border-brand-primary/10">
+                                        <span>Expected Time / Garment: {metricsOrder.targetAvgMinsPerGarment ? `${metricsOrder.targetAvgMinsPerGarment}m` : 'Not Set'}</span>
+                                        <button onClick={() => { setTargetInput(metricsOrder.targetAvgMinsPerGarment?.toString() || ''); setEditingTargetId(metricsOrder.id); }} className="hover:text-brand-primary text-brand-secondary underline decoration-brand-border underline-offset-2">Edit</button>
+                                     </div>
+                                  )}
+                               </div>
+                            </div>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                               <div className="flex flex-col">
+                                  <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/60 mb-1">Remaining Units</span>
+                                  <span className="text-xl font-black">{remainingGarments}</span>
+                               </div>
+                               <div className="flex flex-col relative">
+                                  <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/60 mb-1">Global Avg / Garment</span>
+                                  <div className="flex items-end gap-2">
+                                    <span className="text-xl font-black">{globalAvgMinsPerGarment >= 1 ? globalAvgMinsPerGarment.toFixed(1) + 'm' : Math.round(globalAvgMinsPerGarment * 60) + 's'}</span>
+                                    {metricsOrder.targetAvgMinsPerGarment && (
+                                       <span className={`text-[10px] font-bold mb-1 ${globalAvgMinsPerGarment <= metricsOrder.targetAvgMinsPerGarment ? 'text-green-600' : 'text-orange-500'}`}>
+                                          {globalAvgMinsPerGarment <= metricsOrder.targetAvgMinsPerGarment ? 'On Track' : 'Behind'}
+                                       </span>
+                                    )}
+                                  </div>
+                               </div>
+                               <div className="flex flex-col">
+                                  <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/60 mb-1">Estimated Time Left</span>
+                                  <span className="text-xl font-black">{estimatedRemainingMins > 60 ? (estimatedRemainingMins / 60).toFixed(1) + 'h' : Math.round(estimatedRemainingMins) + 'm'}</span>
+                               </div>
+                               <div className="flex flex-col">
+                                  <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/60 mb-1">Total Expected Time</span>
+                                  <span className="text-xl font-black">{estimatedTotalMins > 60 ? (estimatedTotalMins / 60).toFixed(1) + 'h' : Math.round(estimatedTotalMins) + 'm'}</span>
+                               </div>
+                            </div>
+                         </div>
+
+                         <div className="space-y-4">
+                         {users.map(groupKey => {
+                           const stat = statsByUser[groupKey];
+                           const displayName = bestDisplayNames[groupKey] || groupKey;
+                           const avgTimePerGarment = stat.garmentsCompleted > 0 ? (stat.totalTimeMins / stat.garmentsCompleted) : 0;
+                           const overallRatePerHour = stat.totalTimeMins > 0 ? ((stat.garmentsCompleted / stat.totalTimeMins) * 60) : 0;
+                           return (
+                             <div key={groupKey} className="bg-white border border-brand-border rounded-xl p-5 shadow-sm">
+                               <h4 className="font-bold text-lg text-brand-primary mb-4 pb-2 border-b border-brand-border/40">{displayName}</h4>
+                               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                                  <div className="flex flex-col">
+                                     <span className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary/70 mb-1">Total Garments</span>
+                                     <span className="text-xl font-black text-brand-primary">{stat.garmentsCompleted}</span>
+                                  </div>
+                                  <div className="flex flex-col">
+                                     <span className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary/70 mb-1">Avg Time / Garment</span>
+                                     <span className="text-xl font-black text-blue-600">{avgTimePerGarment >= 1 ? avgTimePerGarment.toFixed(1) + 'm' : Math.round(avgTimePerGarment * 60) + 's'}</span>
+                                  </div>
+                                  <div className="flex flex-col">
+                                     <span className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary/70 mb-1">Total Time</span>
+                                     <span className="text-xl font-black text-brand-primary">{Math.round(stat.totalTimeMins)}m</span>
+                                  </div>
+                                  <div className="flex flex-col">
+                                     <span className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary/70 mb-1">Overall Rate</span>
+                                     <span className="text-xl font-black text-green-600">{Math.round(overallRatePerHour)}/hr</span>
+                                  </div>
+                               </div>
+                             </div>
+                           );
+                         })}
+                         </div>
+                       </div>
+                     );
+                  }
+
+                  let rawActivities = order.activities || [];
+                  if (activityFilter === 'performance') {
+                     // Filter to only completion items
+                     rawActivities = rawActivities.filter((act: any) => act.message?.match(/^Completed (\d+)x (.*?) for (.*?) in (.*?)\. Rate: (\d+)\/hr$/));
+                  }
+                  // Sort activities descending by timestamp
+                  const sortedActivities = [...rawActivities].sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+                  const displayedActivities = sortedActivities.slice(0, activityLimit);
+                  if (displayedActivities.length === 0) {
+                     return <div className="text-xs text-brand-secondary text-center py-6">No activity recorded yet for this order.</div>;
+                  }
+                  return (
+                    <div className="space-y-4 mb-4">
                      {displayedActivities.map((act: any) => {
                        let isCompletion = false;
                        let parsedStats : any = null;
