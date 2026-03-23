@@ -1412,18 +1412,20 @@ export function OrderDetail() {
 
                      newestFirst.forEach((act: any) => {
                          const compMatch = act.message?.match(/^Completed (\d+)x (.*?) for (.*?) in (.*?)\. Rate: (\d+)\/hr$/);
-                         const unmarkMatch = act.message?.match(/^Unmarked size (.*?) for (.*?)$/);
                          
-                         if (unmarkMatch) {
-                             const key = `${unmarkMatch[1]}_${unmarkMatch[2]}`; // size_style
-                             if (!seenKeys.has(key)) {
-                                 seenKeys.add(key); 
-                             }
-                         } else if (compMatch) {
-                             const key = `${compMatch[2]}_${compMatch[3]}`; // size_style
-                             if (!seenKeys.has(key)) {
-                                 seenKeys.add(key);
-                                 keptActivities.push(act);
+                         if (compMatch) {
+                             const size = compMatch[2];
+                             const style = compMatch[3];
+                             const key = `${size}_${style}`;
+                             
+                             const itemMatches = (order.items || []).filter((i: any) => i.style === style || (i.style === "" && style === "Custom Garment"));
+                             const isStillCompleted = itemMatches.some((i: any) => i.completedSizes?.includes(size));
+                             
+                             if (isStillCompleted) {
+                                 if (!seenKeys.has(key)) {
+                                     seenKeys.add(key);
+                                     keptActivities.push(act);
+                                 }
                              }
                          }
                      });
