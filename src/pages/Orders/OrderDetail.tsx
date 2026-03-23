@@ -1430,7 +1430,13 @@ export function OrderDetail() {
                          }
                      });
 
-                     rawActivities = keptActivities;
+                     rawActivities = keptActivities.map((act: any) => {
+                         let userAttr = act.user || '';
+                         if (userAttr.toLowerCase() === 'vanessa' || userAttr.toLowerCase() === 'vanessa garcia' || userAttr.toLowerCase().includes('vanessa')) {
+                             userAttr = 'Vanessa Miller';
+                         }
+                         return { ...act, user: userAttr };
+                     });
                      
                      uniquePerformanceUsers = Array.from(new Set(
                          rawActivities.map((act: any) => act.user?.split('@')[0] || act.user || 'Unknown')
@@ -1446,7 +1452,15 @@ export function OrderDetail() {
                      finalDisplayedActivities = rawActivities.slice(0, activityLimit);
                   } else {
                      // Sort activities descending by timestamp for 'all'
-                     const sortedActivities = [...rawActivities].sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+                     const sortedActivities = [...rawActivities]
+                         .sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+                         .map((act: any) => {
+                             let userAttr = act.user || '';
+                             if (userAttr.toLowerCase() === 'vanessa' || userAttr.toLowerCase() === 'vanessa garcia' || userAttr.toLowerCase().includes('vanessa')) {
+                                 userAttr = 'Vanessa Miller';
+                             }
+                             return { ...act, user: userAttr };
+                         });
                      finalDisplayedActivities = sortedActivities.slice(0, activityLimit);
                   }
                   

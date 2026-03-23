@@ -673,7 +673,10 @@ export function Production() {
                                userName = actMatch?.user?.split('@')[0] || actMatch?.user || 'Unknown';
                            }
 
-                           const rawName = userName || 'Unknown';
+                           let rawName = userName || 'Unknown';
+                           if (rawName.toLowerCase() === 'vanessa' || rawName.toLowerCase() === 'vanessa garcia' || rawName.toLowerCase().includes('vanessa')) {
+                               rawName = 'Vanessa Miller';
+                           }
                            const groupKey = rawName.toLowerCase().replace(/[^a-z]/g, '') || 'unknown';
                            
                            if (!bestDisplayNames[groupKey]) {
