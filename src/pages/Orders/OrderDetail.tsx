@@ -1263,18 +1263,22 @@ export function OrderDetail() {
                                       <p className="text-[13px] text-brand-secondary/90 leading-snug">
                                          Completed <span className="font-bold">{parsedStats.qty}x {parsedStats.size}</span> for {parsedStats.style}
                                       </p>
-                                      <div className="grid grid-cols-3 gap-0 bg-brand-bg rounded-lg border border-brand-border/60 overflow-hidden w-[95%] shadow-sm mt-1">
+                                      <div className="grid grid-cols-4 gap-0 bg-brand-bg rounded-lg border border-brand-border/60 overflow-hidden w-full shadow-sm mt-1">
                                           <div className="flex flex-col items-center justify-center p-2.5 bg-white w-full">
-                                              <span className="text-[9px] uppercase tracking-widest text-brand-secondary/50 font-bold mb-0.5">Total Time</span>
-                                              <span className="text-sm font-bold text-brand-primary">{parsedStats.totalTime}</span>
+                                              <span className="text-[8px] uppercase tracking-widest text-brand-secondary/60 font-bold mb-0.5">Total Garments</span>
+                                              <span className="text-[13px] font-bold text-brand-primary">{parsedStats.qty}</span>
                                           </div>
                                           <div className="flex flex-col items-center justify-center p-2.5 bg-white border-l border-brand-border/60 w-full">
-                                              <span className="text-[9px] uppercase tracking-widest text-brand-secondary/50 font-bold mb-0.5">Rate (/hr)</span>
-                                              <span className="text-sm font-bold text-brand-primary">{parsedStats.rate}</span>
+                                              <span className="text-[8px] uppercase tracking-widest text-brand-secondary/60 font-bold mb-0.5">Avg Time / Garment</span>
+                                              <span className="text-[13px] font-bold text-blue-600">{parsedStats.timePerGarmentFormatted}</span>
                                           </div>
-                                          <div className="flex flex-col items-center justify-center p-2.5 bg-brand-primary/5 border-l border-brand-border/60 w-full">
-                                              <span className="text-[9px] uppercase tracking-widest text-brand-primary/60 font-bold mb-0.5">Time / Garment</span>
-                                              <span className="text-sm font-bold text-brand-primary">{parsedStats.timePerGarmentFormatted}</span>
+                                          <div className="flex flex-col items-center justify-center p-2.5 bg-white border-l border-brand-border/60 w-full">
+                                              <span className="text-[8px] uppercase tracking-widest text-brand-secondary/60 font-bold mb-0.5">Total Time</span>
+                                              <span className="text-[13px] font-bold text-brand-primary">{parsedStats.totalTime}</span>
+                                          </div>
+                                          <div className="flex flex-col items-center justify-center p-2.5 bg-white border-l border-brand-border/60 w-full">
+                                              <span className="text-[8px] uppercase tracking-widest text-brand-secondary/60 font-bold mb-0.5">Overall Rate</span>
+                                              <span className="text-[13px] font-bold text-green-600">{parsedStats.rate}/hr</span>
                                           </div>
                                       </div>
                                    </div>
