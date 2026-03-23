@@ -298,38 +298,6 @@ export function Production() {
     );
   }
 
-  const fixVanessa = async () => {
-   for (const order of productionOrders) {
-      if (!order.items) continue;
-      let changed = false;
-      const updatedItems = order.items.map((i: any) => {
-         if (i.style === 'Hazy Mock Neck Pullover') {
-            if (i.sizeStats?.['L']) {
-                if (i.sizeStats['L'].user?.toLowerCase().includes('joe')) {
-                    i.sizeStats['L'].user = 'Vanessa Garcia';
-                    changed = true;
-                }
-            }
-         }
-         return i;
-      });
-      let updatedActivities = [...(order.activities || [])];
-      updatedActivities = updatedActivities.map((act: any) => {
-         if (act.message?.includes('Completed 15x L for Hazy Mock Neck Pullover')) {
-             if (act.user?.toLowerCase().includes('joe')) {
-                 act.user = 'Vanessa Garcia';
-                 changed = true;
-             }
-         }
-         return act;
-      });
-      if (changed) {
-          await updateDoc(doc(db, 'orders', order.id), { items: updatedItems, activities: updatedActivities });
-          alert('Fixed Vanessa! It might take a couple seconds to refresh.');
-      }
-   }
-  };
-
   return (
     <div className="p-6 md:p-10 max-w-[1600px] mx-auto space-y-8">
       <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-6 mb-8">
@@ -347,9 +315,6 @@ export function Production() {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <button onClick={fixVanessa} className="bg-red-500 text-white px-4 py-3 rounded-xl font-bold text-[11px] uppercase tracking-widest hover:bg-red-600 transition-colors shadow-sm ml-4 shrink-0">
-          Fix Vanessa
-        </button>
       </div>
 
       <div className="flex flex-col gap-6">
