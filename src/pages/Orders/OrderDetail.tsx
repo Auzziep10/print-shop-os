@@ -53,7 +53,7 @@ export function OrderDetail() {
   const [activityLimit, setActivityLimit] = useState(3);
   const [activityFilter, setActivityFilter] = useState<'all' | 'performance' | 'metrics'>('all');
   const [performanceUserFilter, setPerformanceUserFilter] = useState<string>('All');
-  const [metricsTimeFilter, setMetricsTimeFilter] = useState<'All' | 'Today' | 'Yesterday'>('All');
+  const [metricsTimeFilter, setMetricsTimeFilter] = useState<string>('All');
   const [editingTargetId, setEditingTargetId] = useState<string | null>(null);
   const [targetInput, setTargetInput] = useState<string>('');
 
@@ -1281,6 +1281,13 @@ export function OrderDetail() {
                                    
                                    if (metricsTimeFilter === 'Today' && !isToday) return;
                                    if (metricsTimeFilter === 'Yesterday' && !isYesterday) return;
+                                   if (metricsTimeFilter !== 'All' && metricsTimeFilter !== 'Today' && metricsTimeFilter !== 'Yesterday') {
+                                       const lYear = statDate.getFullYear();
+                                       const lMonth = String(statDate.getMonth() + 1).padStart(2, '0');
+                                       const lDay = String(statDate.getDate()).padStart(2, '0');
+                                       const statDateString = `${lYear}-${lMonth}-${lDay}`;
+                                       if (statDateString !== metricsTimeFilter) return;
+                                   }
                                } else {
                                    return; 
                                }
@@ -1329,21 +1336,29 @@ export function OrderDetail() {
                        <div className="space-y-6">
                          {/* Predictive Metrics Banner */}
                          <div className="bg-gradient-to-br from-brand-primary/5 to-brand-primary/10 border border-brand-primary/20 rounded-xl p-5 shadow-sm text-brand-primary">
-                             <div className="flex flex-col md:flex-row md:items-center justify-between mb-3 border-b border-brand-primary/10 pb-3 gap-3">
-                                <div className="flex items-center justify-between w-full md:w-auto gap-4">
+                             <div className="flex flex-wrap items-center justify-between mb-3 border-b border-brand-primary/10 pb-3 gap-3">
+                                <div className="flex flex-wrap items-center gap-4">
                                   <div className="flex items-center gap-2 shrink-0">
                                     <Clock size={16} />
                                     <h4 className="font-bold uppercase tracking-wider text-[11px]">AI Production Forecast</h4>
                                   </div>
-                                  <div className="flex bg-white/50 p-1 rounded-lg shrink-0 overflow-x-auto no-scrollbar">
+                                  <div className="flex items-stretch bg-white/50 p-1 rounded-lg shrink-0 overflow-x-auto no-scrollbar gap-0.5">
                                     <button onClick={() => setMetricsTimeFilter('All')} className={`px-2 py-1 text-[9px] font-bold uppercase tracking-wider rounded transition-all ${metricsTimeFilter === 'All' ? 'bg-brand-primary text-white shadow-sm' : 'text-brand-secondary hover:text-brand-primary'}`}>All Time</button>
                                     <button onClick={() => setMetricsTimeFilter('Today')} className={`px-2 py-1 text-[9px] font-bold uppercase tracking-wider rounded transition-all ${metricsTimeFilter === 'Today' ? 'bg-brand-primary text-white shadow-sm' : 'text-brand-secondary hover:text-brand-primary'}`}>Today</button>
-                                    <button onClick={() => setMetricsTimeFilter('Yesterday')} className={`px-2 py-1 text-[9px] font-bold uppercase tracking-wider rounded transition-all ${metricsTimeFilter === 'Yesterday' ? 'bg-brand-primary text-white shadow-sm' : 'text-brand-secondary hover:text-brand-primary'}`}>Yesterday</button>
+                                    <input 
+                                      type="date" 
+                                      value={(metricsTimeFilter !== 'All' && metricsTimeFilter !== 'Today' && metricsTimeFilter !== 'Yesterday') ? metricsTimeFilter : ''}
+                                      onChange={(e) => {
+                                         if (e.target.value) setMetricsTimeFilter(e.target.value);
+                                         else setMetricsTimeFilter('All');
+                                      }}
+                                      className={`px-2 py-1 text-[9px] font-bold uppercase tracking-wider rounded transition-all outline-none cursor-pointer w-auto ${(metricsTimeFilter !== 'All' && metricsTimeFilter !== 'Today' && metricsTimeFilter !== 'Yesterday') ? 'bg-brand-primary text-white shadow-sm' : 'bg-transparent text-brand-secondary hover:text-brand-primary cursor-pointer'}`}
+                                    />
                                   </div>
                                 </div>
-                               <div className="flex items-center">
+                               <div className="flex items-center shrink-0">
                                   {editingTargetId === metricsOrder.id ? (
-                                     <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-brand-primary/80 bg-white/50 px-2 py-1 rounded-md border border-brand-primary/10">
+                                     <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-brand-primary/80 bg-white/50 px-2 py-1 rounded-md border border-brand-primary/10 w-full sm:w-auto">
                                         <span>Expected Time / Garment:</span>
                                         <input
                                           type="number"

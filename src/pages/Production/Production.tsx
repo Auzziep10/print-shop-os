@@ -36,7 +36,7 @@ export function Production() {
   const [editingTargetId, setEditingTargetId] = useState<string | null>(null);
   const [targetInput, setTargetInput] = useState<string>('');
   const [allUsers, setAllUsers] = useState<any[]>([]);
-  const [metricsTimeFilter, setMetricsTimeFilter] = useState<'All' | 'Today' | 'Yesterday'>('All');
+  const [metricsTimeFilter, setMetricsTimeFilter] = useState<string>('All');
 
   useEffect(() => {
     getDocs(collection(db, 'users')).then(snap => {
@@ -642,10 +642,18 @@ export function Production() {
                    </div>
                 </div>
                 <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end">
-                  <div className="flex bg-neutral-200/60 p-1 rounded-lg shrink-0 overflow-x-auto no-scrollbar">
+                  <div className="flex bg-neutral-200/60 p-1 rounded-lg shrink-0 overflow-x-auto no-scrollbar gap-0.5 items-stretch">
                     <button onClick={() => setMetricsTimeFilter('All')} className={`px-3 py-1.5 text-[10px] whitespace-nowrap font-bold uppercase tracking-wider rounded-md transition-all ${metricsTimeFilter === 'All' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}>All Time</button>
                     <button onClick={() => setMetricsTimeFilter('Today')} className={`px-3 py-1.5 text-[10px] whitespace-nowrap font-bold uppercase tracking-wider rounded-md transition-all ${metricsTimeFilter === 'Today' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}>Today</button>
-                    <button onClick={() => setMetricsTimeFilter('Yesterday')} className={`px-3 py-1.5 text-[10px] whitespace-nowrap font-bold uppercase tracking-wider rounded-md transition-all ${metricsTimeFilter === 'Yesterday' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}>Yesterday</button>
+                    <input 
+                      type="date" 
+                      value={(metricsTimeFilter !== 'All' && metricsTimeFilter !== 'Today' && metricsTimeFilter !== 'Yesterday') ? metricsTimeFilter : ''}
+                      onChange={(e) => {
+                         if (e.target.value) setMetricsTimeFilter(e.target.value);
+                         else setMetricsTimeFilter('All');
+                      }}
+                      className={`px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all outline-none cursor-pointer w-auto ${(metricsTimeFilter !== 'All' && metricsTimeFilter !== 'Today' && metricsTimeFilter !== 'Yesterday') ? 'bg-white text-brand-primary shadow-sm' : 'bg-transparent text-brand-secondary hover:text-brand-primary cursor-pointer'}`}
+                    />
                   </div>
                   <button 
                     onClick={() => setMetricsOrder(null)}
@@ -703,6 +711,13 @@ export function Production() {
                                    
                                    if (metricsTimeFilter === 'Today' && !isToday) return;
                                    if (metricsTimeFilter === 'Yesterday' && !isYesterday) return;
+                                   if (metricsTimeFilter !== 'All' && metricsTimeFilter !== 'Today' && metricsTimeFilter !== 'Yesterday') {
+                                       const lYear = statDate.getFullYear();
+                                       const lMonth = String(statDate.getMonth() + 1).padStart(2, '0');
+                                       const lDay = String(statDate.getDate()).padStart(2, '0');
+                                       const statDateString = `${lYear}-${lMonth}-${lDay}`;
+                                       if (statDateString !== metricsTimeFilter) return;
+                                   }
                                } else {
                                    return; // Omit metric chunk locally if filtered string has unknown date footprint
                                }
