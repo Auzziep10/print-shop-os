@@ -336,6 +336,21 @@ export function Production() {
         <div>
           <h1 className={tokens.typography.h1}>Production Pipeline</h1>
           <p className="text-brand-secondary text-sm mt-1">Manage active orders currently on the floor.</p>
+          <div className="mt-4 p-4 bg-red-100 border border-red-300 font-mono text-[10px] break-words text-red-900 z-[999] relative">
+            <h4 className="font-bold border-b border-red-200 mb-2 pb-1">Vanessa Diagnostic Dump (Live Orders):</h4>
+            {productionOrders.map(o => (
+               <div key={o.id} className="mb-2">
+                 <strong>Order {o.id}:</strong><br/>
+                 {o.items?.filter((i:any) => i.style==='Hazy Mock Neck Pullover').map((i:any) => (
+                     <div key={i.id}>
+                       Style: {i.style} | 
+                       Completed Sizes: {JSON.stringify(i.completedSizes)} | 
+                       Stats: {JSON.stringify(i.sizeStats)}
+                     </div>
+                 ))}
+               </div>
+            ))}
+          </div>
         </div>
         <div className="relative w-full md:w-80">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
@@ -347,7 +362,7 @@ export function Production() {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <button onClick={fixVanessa} className="bg-orange-500 text-white px-4 py-3 rounded-xl font-bold text-[11px] uppercase tracking-widest hover:bg-orange-600 transition-colors shadow-sm ml-4 shrink-0">
+        <button onClick={fixVanessa} className="bg-orange-500 text-white px-4 py-3 rounded-xl font-bold text-[11px] uppercase tracking-widest hover:bg-orange-600 transition-colors shadow-sm ml-4 shrink-0 relative z-[999]">
           Merge Vanessa
         </button>
       </div>
