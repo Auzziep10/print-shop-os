@@ -739,6 +739,10 @@ export function Production() {
                            </div>
                         </div>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                           <div className="flex flex-col">
+                              <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/60 mb-1">Remaining Units</span>
+                              <span className="text-xl font-black">{remainingGarments}</span>
+                           </div>
                            <div className="flex flex-col relative">
                               <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/60 mb-1">Global Avg / Garment</span>
                               <div className="flex items-end gap-2">
@@ -749,10 +753,6 @@ export function Production() {
                                    </span>
                                 )}
                               </div>
-                           </div>
-                           <div className="flex flex-col">
-                              <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/60 mb-1">Remaining Units</span>
-                              <span className="text-xl font-black">{remainingGarments}</span>
                            </div>
                            <div className="flex flex-col">
                               <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/60 mb-1">Estimated Time Left</span>
