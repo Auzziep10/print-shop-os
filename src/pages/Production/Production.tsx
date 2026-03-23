@@ -635,6 +635,7 @@ export function Production() {
              <div className="p-6 overflow-y-auto">
                {(() => {
                  const statsByUser: Record<string, { totalTimeMins: number, garmentsCompleted: number, completionsCount: number }> = {};
+                 const bestDisplayNames: Record<string, string> = {};
                  
                  let globalTotalGarmentsCompletedWithStats = 0;
                  let globalTotalTimeMins = 0;
@@ -665,16 +666,26 @@ export function Production() {
                                userName = actMatch?.user?.split('@')[0] || actMatch?.user || 'Unknown';
                            }
 
-                           const user = userName;
+                           const rawName = userName || 'Unknown';
+                           const groupKey = rawName.toLowerCase().replace(/[^a-z]/g, '') || 'unknown';
+                           
+                           if (!bestDisplayNames[groupKey]) {
+                              bestDisplayNames[groupKey] = rawName;
+                           } else if (rawName.includes(' ') && !bestDisplayNames[groupKey].includes(' ')) {
+                              bestDisplayNames[groupKey] = rawName;
+                           } else if (rawName.length > bestDisplayNames[groupKey].length && rawName !== rawName.toLowerCase()) {
+                              bestDisplayNames[groupKey] = rawName;
+                           }
+
                            const durationMs = stat.durationMs || 0;
                            const timeMins = durationMs / 60000;
 
-                           if (!statsByUser[user]) {
-                              statsByUser[user] = { totalTimeMins: 0, garmentsCompleted: 0, completionsCount: 0 };
+                           if (!statsByUser[groupKey]) {
+                              statsByUser[groupKey] = { totalTimeMins: 0, garmentsCompleted: 0, completionsCount: 0 };
                            }
-                           statsByUser[user].totalTimeMins += timeMins;
-                           statsByUser[user].garmentsCompleted += qty;
-                           statsByUser[user].completionsCount += 1;
+                           statsByUser[groupKey].totalTimeMins += timeMins;
+                           statsByUser[groupKey].garmentsCompleted += qty;
+                           statsByUser[groupKey].completionsCount += 1;
                            
                            globalTotalGarmentsCompletedWithStats += qty;
                            globalTotalTimeMins += timeMins;
@@ -755,13 +766,14 @@ export function Production() {
                      </div>
 
                      <div className="space-y-4">
-                     {users.map(u => {
-                       const stat = statsByUser[u];
+                     {users.map(groupKey => {
+                       const stat = statsByUser[groupKey];
+                       const displayName = bestDisplayNames[groupKey] || groupKey;
                        const avgTimePerGarment = stat.garmentsCompleted > 0 ? (stat.totalTimeMins / stat.garmentsCompleted) : 0;
                        const overallRatePerHour = stat.totalTimeMins > 0 ? ((stat.garmentsCompleted / stat.totalTimeMins) * 60) : 0;
                        return (
-                         <div key={u} className="bg-white border border-brand-border rounded-xl p-5 shadow-sm">
-                           <h4 className="font-bold text-lg text-brand-primary mb-4 pb-2 border-b border-brand-border/40">{u}</h4>
+                         <div key={groupKey} className="bg-white border border-brand-border rounded-xl p-5 shadow-sm">
+                           <h4 className="font-bold text-lg text-brand-primary mb-4 pb-2 border-b border-brand-border/40">{displayName}</h4>
                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                               <div className="flex flex-col">
                                  <span className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary/70 mb-1">Total Garments</span>
