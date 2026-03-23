@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ChevronRight, Loader2, PackageOpen, Building2, Search, Check, Clock, Box, X, Play, Pause } from 'lucide-react';
+import { ChevronRight, Loader2, PackageOpen, Building2, Search, Check, Clock, Box, X, Play, Pause, Activity } from 'lucide-react';
 import { useOrders } from '../../hooks/useOrders';
 import { useAuth } from '../../contexts/AuthContext';
 import { db } from '../../lib/firebase';
@@ -29,6 +29,7 @@ export function Production() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [customerLogos, setCustomerLogos] = useState<Record<string, string>>({});
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, order: any, item: any, size: string, qty: number } | null>(null);
+  const [metricsOrder, setMetricsOrder] = useState<any | null>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -354,7 +355,15 @@ export function Production() {
                   <div className="flex-1 w-full pt-4 xl:pt-0">
                     <div className="w-full flex justify-between items-center mb-6 px-4">
                        <span className="text-brand-primary font-bold text-lg">{Math.round(completionRatio * 100)}% Complete</span>
-                       <span className="text-brand-secondary text-sm font-semibold">{completedGarments} of {totalGarments} Garments Processed</span>
+                       <div className="flex items-center gap-4">
+                         <button 
+                           onClick={(e) => { e.stopPropagation(); setMetricsOrder(order); }}
+                           className="text-[10px] font-bold uppercase tracking-widest text-brand-primary bg-brand-primary/5 hover:bg-brand-primary/10 px-3 py-1.5 rounded-lg flex items-center gap-2 transition-colors border border-brand-primary/10"
+                         >
+                           <Activity size={14} /> Team Metrics
+                         </button>
+                         <span className="text-brand-secondary text-sm font-semibold hidden md:inline">{completedGarments} of {totalGarments} Garments Processed</span>
+                       </div>
                     </div>
                     <div className="relative w-full px-4">
                       <div className="absolute top-0 left-4 right-4 h-[12px] bg-neutral-200 rounded-full"></div>
@@ -576,6 +585,97 @@ export function Production() {
                 <div className="px-3 py-2 text-[10px] text-brand-secondary italic text-center">No shipments created yet.</div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Team Metrics Modal */}
+      {metricsOrder && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setMetricsOrder(null)}>
+           <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl overflow-hidden border border-brand-border" onClick={e => e.stopPropagation()}>
+             <div className="p-6 border-b border-brand-border flex justify-between items-center bg-brand-bg/50">
+                <div className="flex items-center gap-3">
+                   <div className="w-10 h-10 rounded-full bg-brand-primary/10 flex items-center justify-center text-brand-primary">
+                     <Activity size={20} strokeWidth={2.5} />
+                   </div>
+                   <div>
+                     <h3 className="font-serif text-xl text-brand-primary">Team Production Metrics</h3>
+                     <p className="text-[11px] font-bold uppercase tracking-wider text-brand-secondary">{metricsOrder.title || 'Custom Order'}</p>
+                   </div>
+                </div>
+                <button 
+                  onClick={() => setMetricsOrder(null)}
+                  className="p-2 hover:bg-neutral-200 rounded-full transition-colors text-brand-secondary"
+                >
+                  <X size={20} />
+                </button>
+             </div>
+             
+             <div className="p-6 overflow-y-auto">
+               {(() => {
+                 const statsByUser: Record<string, { totalTimeMins: number, garmentsCompleted: number, completionsCount: number }> = {};
+
+                 (metricsOrder.activities || []).forEach((act: any) => {
+                   const match = act.message?.match(/^Completed (\d+)x (.*?) for (.*?) in (.*?)\. Rate: (\d+)\/hr$/);
+                   if (match) {
+                     const user = act.user?.split('@')[0] || act.user || 'Unknown';
+                     const [, qtyStr, , , totalTimeStr] = match;
+                     const qty = parseInt(qtyStr) || 0;
+                     
+                     let timeMins = 0;
+                     if (totalTimeStr.endsWith('m')) timeMins = parseInt(totalTimeStr.replace('m',''));
+                     else if (totalTimeStr.endsWith('s')) timeMins = parseInt(totalTimeStr.replace('s','')) / 60;
+                     else timeMins = 1;
+
+                     if (!statsByUser[user]) {
+                        statsByUser[user] = { totalTimeMins: 0, garmentsCompleted: 0, completionsCount: 0 };
+                     }
+                     statsByUser[user].totalTimeMins += timeMins;
+                     statsByUser[user].garmentsCompleted += qty;
+                     statsByUser[user].completionsCount += 1;
+                   }
+                 });
+
+                 const users = Object.keys(statsByUser).sort((a,b) => statsByUser[b].garmentsCompleted - statsByUser[a].garmentsCompleted);
+
+                 if (users.length === 0) {
+                   return <p className="text-center text-sm text-brand-secondary py-8">No performance metrics recorded yet for this order.</p>;
+                 }
+
+                 return (
+                   <div className="space-y-4">
+                     {users.map(u => {
+                       const stat = statsByUser[u];
+                       const avgTimePerGarment = stat.garmentsCompleted > 0 ? (stat.totalTimeMins / stat.garmentsCompleted) : 0;
+                       const overallRatePerHour = stat.totalTimeMins > 0 ? ((stat.garmentsCompleted / stat.totalTimeMins) * 60) : 0;
+                       return (
+                         <div key={u} className="bg-white border border-brand-border rounded-xl p-5 shadow-sm">
+                           <h4 className="font-bold text-lg text-brand-primary mb-4 pb-2 border-b border-brand-border/40">{u}</h4>
+                           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                              <div className="flex flex-col">
+                                 <span className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary/70 mb-1">Total Garments</span>
+                                 <span className="text-xl font-black text-brand-primary">{stat.garmentsCompleted}</span>
+                              </div>
+                              <div className="flex flex-col">
+                                 <span className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary/70 mb-1">Avg Time / Garment</span>
+                                 <span className="text-xl font-black text-blue-600">{avgTimePerGarment >= 1 ? avgTimePerGarment.toFixed(1) + 'm' : Math.round(avgTimePerGarment * 60) + 's'}</span>
+                              </div>
+                              <div className="flex flex-col">
+                                 <span className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary/70 mb-1">Total Time</span>
+                                 <span className="text-xl font-black text-brand-primary">{Math.round(stat.totalTimeMins)}m</span>
+                              </div>
+                              <div className="flex flex-col">
+                                 <span className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary/70 mb-1">Overall Rate</span>
+                                 <span className="text-xl font-black text-green-600">{Math.round(overallRatePerHour)}/hr</span>
+                              </div>
+                           </div>
+                         </div>
+                       );
+                     })}
+                   </div>
+                 );
+               })()}
+             </div>
+           </div>
         </div>
       )}
     </div>
