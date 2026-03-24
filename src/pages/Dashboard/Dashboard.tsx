@@ -7,6 +7,7 @@ import { TimelinePlanner } from '../Team/TimelinePlanner';
 export function Dashboard() {
   const [roleView, setRoleView] = useState('Manager / Admin');
   const [staffTimeframe, setStaffTimeframe] = useState('Day');
+  const [activeStat, setActiveStat] = useState<string | null>(null);
 
   return (
     <div className={tokens.layout.container}>
@@ -35,23 +36,74 @@ export function Dashboard() {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             
             {/* Left: Quick Stats */}
-            <div className="lg:col-span-8 grid grid-cols-2 gap-4">
+            <div className="lg:col-span-8 flex flex-col gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {[
                 { label: 'Awaiting Artwork', value: '12', trend: '+2 today' },
                 { label: 'Pending Approval', value: '5', trend: 'Urgent' },
                 { label: 'In Production', value: '28', trend: 'On schedule' },
                 { label: 'Completed Today', value: '14', trend: '+15% vs yesterday' }
               ].map((stat) => (
-                <div key={stat.label} className="bg-white p-5 rounded-card border border-brand-border flex flex-col justify-center">
-                  <span className={tokens.typography.label + " mb-2"}>{stat.label}</span>
-                  <div className="flex items-end justify-between">
-                    <span className="font-serif text-4xl tracking-tight text-brand-primary">{stat.value}</span>
-                    <span className={`text-[10px] uppercase font-bold tracking-wider ${stat.trend.includes('Urgent') ? 'text-red-500' : 'text-brand-secondary'}`}>
+                <button 
+                  key={stat.label} 
+                  onClick={() => setActiveStat(stat.label === activeStat ? null : stat.label)}
+                  className={`p-4 rounded-card border text-left flex flex-col justify-between transition-all group ${
+                    activeStat === stat.label 
+                      ? 'bg-brand-bg border-brand-primary shadow-sm' 
+                      : 'bg-white border-brand-border hover:border-brand-primary/30 hover:shadow-sm'
+                  }`}
+                >
+                  <span className={`${tokens.typography.label} mb-3 leading-tight text-[11px] min-h-[2.5rem]`}>{stat.label}</span>
+                  <div className="flex flex-col items-start gap-1 w-full">
+                    <span className="font-serif text-3xl tracking-tight text-brand-primary leading-none">{stat.value}</span>
+                    <span className={`text-[9px] uppercase font-bold tracking-wider mt-1 ${stat.trend.includes('Urgent') ? 'text-red-500' : 'text-brand-secondary'}`}>
                       {stat.trend}
                     </span>
                   </div>
-                </div>
+                </button>
               ))}
+              </div>
+              
+              {/* Breakdown Section */}
+              {activeStat && (
+                <div className="bg-brand-bg/50 rounded-card border border-brand-primary/30 p-5 mt-2 transition-all animate-in fade-in slide-in-from-top-1">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-serif text-xl tracking-tight text-brand-primary">
+                      {activeStat} Summary
+                    </h3>
+                    <button 
+                      onClick={() => setActiveStat(null)}
+                      className="text-brand-secondary hover:text-brand-primary text-xs uppercase tracking-wider font-semibold p-1"
+                    >
+                      Close ✕
+                    </button>
+                  </div>
+                  <div className="bg-white rounded-lg border border-brand-border overflow-hidden shadow-sm">
+                    <div className="flex border-b border-brand-border bg-brand-bg px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-brand-secondary">
+                      <div className="w-24">Order</div>
+                      <div className="flex-1">Details</div>
+                      <div className="w-24 text-right">Status</div>
+                    </div>
+                    <div className="divide-y divide-brand-border max-h-40 overflow-y-auto custom-scrollbar">
+                      {[1, 2, 3].map((i) => (
+                        <div key={i} className="flex px-4 py-3 text-sm hover:bg-brand-bg/50 transition-colors cursor-pointer items-center group">
+                          <div className="w-24 font-medium text-brand-primary group-hover:underline">
+                            ORD-20{i + Math.floor(Math.random() * 10)}
+                          </div>
+                          <div className="flex-1 text-brand-secondary truncate pr-4">
+                            Sample task for {activeStat}
+                          </div>
+                          <div className="w-24 text-right flex justify-end">
+                            <span className="text-[10px] bg-brand-bg border border-brand-border px-2 py-0.5 rounded-md text-brand-secondary font-semibold uppercase tracking-wide">
+                              Action
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Right: Command Center Focus */}
