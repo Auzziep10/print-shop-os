@@ -40,6 +40,7 @@ export function Production() {
   const { orders, loading } = useOrders();
   const navigate = useNavigate();
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [expandedSubOrderId, setExpandedSubOrderId] = useState<string | null>(null);
   const [customerLogos, setCustomerLogos] = useState<Record<string, string>>({});
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, order: any, item: any, size: string, qty: number } | null>(null);
   const [metricsOrder, setMetricsOrder] = useState<any | null>(null);
@@ -332,6 +333,126 @@ export function Production() {
     setContextMenu(null);
   };
 
+  const renderItemCard = (orderContext: any, item: any) => (
+    <div key={item.id} className="flex flex-col gap-0 border-b border-brand-border/40 last:border-b-0 pb-6 mb-4">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+       
+       {/* Left Side: Visual & Specs */}
+       <div className="flex flex-col gap-3 flex-1 min-w-0 pr-2">
+         <div className="flex items-center gap-4">
+           <div className="w-16 h-16 rounded-xl overflow-hidden shrink-0 border border-black/5 bg-gray-50 flex items-center justify-center">
+             <img src={item.image} alt={item.style} className="w-full h-full object-cover mix-blend-multiply p-1" />
+           </div>
+           <div>
+              <h4 className="font-bold text-gray-900 text-[15px]">{item.style}</h4>
+              <p className="text-xs font-semibold text-gray-500 mt-0.5">
+                 {item.gender && item.gender !== 'Unisex' ? `${item.gender} ` : ''} 
+                 {item.color ? (item.gender && item.gender !== 'Unisex' ? `- ${item.color}` : item.color) : ''}
+              </p>
+           </div>
+         </div>
+         
+         {/* Specs pills */}
+         <div className="flex flex-wrap gap-2 mt-1">
+            {item.itemNum && <DataPill label="Item #" value={item.itemNum} />}
+            {item.color && <DataPill label="Color" value={item.color} />}
+         </div>
+       </div>
+
+       {/* Right Side: Interactive Checking Area */}
+       <div className="flex flex-wrap lg:flex-nowrap items-end lg:items-center gap-4 shrink-0">
+         <div className="flex items-stretch gap-[2px] bg-neutral-200 p-[3px] rounded-xl font-sans shrink-0">
+           {item.sizes && Object.entries(item.sizes).sort(([a], [b]) => sortSizes(a, b)).map(([size, qty]: [string, any]) => {
+             if (qty <= 0) return null;
+             const isCompleted = item.completedSizes?.includes(size);
+             const inProgress = item.inProgressSizes?.[size];
+             const isPacked = isSizeFullyBoxed(orderContext, item, size, qty);
+
+             let colorClassTop = 'bg-neutral-300 text-neutral-600 group-hover/sizebtn:bg-neutral-400';
+             let colorClassBottom = 'bg-white text-neutral-800';
+             let topContent: any = <span className="truncate inline-block max-w-[40px] leading-none" title={size}>{size}</span>;
+             let iconContent: any = null;
+             let wrapperClass = 'hover:-translate-y-0.5 hover:shadow-sm';
+
+             if (isPacked) {
+                 colorClassTop = 'bg-blue-500 text-white';
+                 colorClassBottom = 'bg-blue-50 text-blue-700';
+                 iconContent = <Box size={10} strokeWidth={3} className="ml-1 opacity-80 shrink-0" />;
+                 wrapperClass = 'opacity-80 hover:opacity-100';
+             } else if (isCompleted) {
+                 colorClassTop = 'bg-green-500 text-white';
+                 colorClassBottom = 'bg-green-50 text-green-700';
+                 iconContent = <Check size={10} strokeWidth={4} className="ml-1 opacity-80 shrink-0" />;
+                 wrapperClass = 'opacity-80 hover:opacity-100';
+             } else if (inProgress) {
+                 if (inProgress.paused) {
+                     colorClassTop = 'bg-orange-500 text-white';
+                     colorClassBottom = 'bg-orange-50 text-orange-700';
+                     iconContent = <Pause size={10} strokeWidth={3} className="ml-1 opacity-80 shrink-0" />;
+                     wrapperClass = 'opacity-90 hover:opacity-100';
+                 } else {
+                     colorClassTop = 'bg-red-500 text-white';
+                     colorClassBottom = 'bg-red-50 text-red-700';
+                     iconContent = <Clock size={10} strokeWidth={3} className="animate-pulse ml-1 opacity-80 shrink-0" />;
+                     wrapperClass = 'opacity-90 hover:opacity-100';
+                 }
+             }
+
+             return (
+             <div 
+               key={size} 
+               className={`min-w-[44px] px-0.5 group/sizebtn text-center flex flex-col cursor-pointer transition-all relative ${wrapperClass}`}
+               onClick={(e) => { e.stopPropagation(); handleSizeClick(orderContext, item, size, qty); }}
+               onContextMenu={(e) => { 
+                 e.preventDefault(); 
+                 e.stopPropagation(); 
+                 setContextMenu({ x: e.clientX, y: e.clientY, order: orderContext, item, size, qty }); 
+               }}
+               title={isPacked ? "Packed in shipments." : isCompleted ? `Completed. Right-click to manage.` : inProgress ? (inProgress.paused ? "Timer paused. Right-click to resume!" : "Timer running. Click to complete!") : "Click to start timer"}
+             >
+               {/* Hover hints */}
+               {!isCompleted && !isPacked && !inProgress && (
+                 <div className="absolute inset-0 bg-brand-primary/5 backdrop-blur-[1px] opacity-0 group-hover/sizebtn:opacity-100 transition-opacity z-10 flex flex-col items-center justify-center rounded-[8px] pointer-events-none">
+                    <Clock size={20} className="text-brand-primary drop-shadow-md" strokeWidth={3} />
+                 </div>
+               )}
+               {!isCompleted && !isPacked && inProgress && !inProgress.paused && (
+                 <div className="absolute inset-0 bg-brand-primary/5 backdrop-blur-[1px] opacity-0 group-hover/sizebtn:opacity-100 transition-opacity z-10 flex flex-col items-center justify-center rounded-[8px] pointer-events-none">
+                    <Check size={20} className="text-brand-primary drop-shadow-md" strokeWidth={3} />
+                 </div>
+               )}
+               {!isCompleted && !isPacked && inProgress && inProgress.paused && (
+                 <div className="absolute inset-0 bg-brand-primary/5 backdrop-blur-[1px] opacity-0 group-hover/sizebtn:opacity-100 transition-opacity z-10 flex flex-col items-center justify-center rounded-[8px] pointer-events-none">
+                    <Play size={20} className="text-brand-primary drop-shadow-md" strokeWidth={3} />
+                 </div>
+               )}
+
+               <div className={`text-[10px] font-bold py-1.5 px-2 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center transition-colors relative z-0 ${colorClassTop}`}>
+                  {topContent}
+                  {iconContent}
+               </div>
+               <div className={`text-[12px] font-bold py-2 px-2 rounded-b-[8px] h-8 flex flex-col items-center justify-center transition-colors relative z-0 ${colorClassBottom}`}>
+                 {qty}
+               </div>
+
+               {/* Stats Tooltip */}
+               {(isCompleted || isPacked) && item.sizeStats?.[size] && (
+                 <div className="absolute bottom-[110%] left-1/2 -translate-x-1/2 bg-black text-white text-[10px] py-1.5 px-2 rounded-lg opacity-0 group-hover/sizebtn:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-xl border border-neutral-700">
+                    <div className="font-bold">{Math.round(item.sizeStats[size].durationMs / 60000)}m Total</div>
+                    <div className="text-neutral-300 font-medium mt-0.5">{item.sizeStats[size].itemsPerHour}/hr Avg</div>
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-black"></div>
+                 </div>
+               )}
+             </div>
+             );
+           })}
+         </div>
+       </div>
+
+      </div>
+    </div>
+  );
+
   if (loading) {
     return (
       <div className="min-h-[50vh] flex flex-col items-center justify-center text-gray-400 gap-3">
@@ -509,128 +630,48 @@ export function Production() {
                 </div>
 
                 {/* Expanded Items Section */}
-                {order.items && order.items.length > 0 && (
+                {order.isProjectGroup && order.orders && order.orders.length > 0 ? (
+                  <div className={`grid transition-all duration-500 ease-in-out px-4 origin-top ${isExpanded ? 'grid-rows-[1fr] opacity-100 border-t border-brand-border/40' : 'grid-rows-[0fr] opacity-0 pointer-events-none'}`}>
+                     <div className={`${isExpanded ? 'overflow-visible pb-6 pt-6' : 'overflow-hidden pt-0'} space-y-4`}>
+                        {order.orders.map((subOrder: any) => {
+                           const subIsExpanded = expandedSubOrderId === subOrder.id;
+                           return (
+                              <div key={subOrder.id} className="border border-brand-border/40 rounded-2xl bg-white shadow-sm overflow-hidden group">
+                                 <div 
+                                    className="flex justify-between items-center px-6 py-4 cursor-pointer hover:bg-gray-50 transition-colors border-b border-transparent group-hover:border-brand-border/20"
+                                    onClick={() => setExpandedSubOrderId(subIsExpanded ? null : subOrder.id)}
+                                 >
+                                    <div className="flex items-center gap-3">
+                                       <ChevronRight size={18} strokeWidth={2.5} className={`transition-transform duration-300 text-brand-secondary ${subIsExpanded ? 'rotate-90 text-brand-primary' : ''}`} />
+                                       <span className="font-bold text-sm tracking-wide text-brand-primary">{subOrder.title || `Order #${subOrder.portalId || subOrder.id.substring(0,8)}`}</span>
+                                       <span className="text-[10px] uppercase font-bold tracking-widest bg-brand-bg px-2 py-0.5 rounded text-brand-secondary ml-2 border border-brand-border/50">
+                                          {(subOrder.items || []).length} items
+                                       </span>
+                                    </div>
+                                    <div className="flex items-center gap-4">
+                                       <button 
+                                         onClick={(e) => { e.stopPropagation(); navigate(`/orders/${subOrder.id}`); }}
+                                         className="flex items-center gap-1.5 text-[10px] font-bold text-gray-500 hover:text-brand-primary uppercase tracking-widest transition-colors bg-white hover:bg-brand-primary/10 px-3 py-1.5 rounded-lg border border-brand-border"
+                                       >
+                                          Open Order <ExternalLink size={12} className="opacity-80" />
+                                       </button>
+                                    </div>
+                                 </div>
+                                 
+                                 <div className={`grid transition-all duration-300 ease-in-out origin-top ${subIsExpanded ? 'grid-rows-[1fr] opacity-100 border-t border-brand-border/40' : 'grid-rows-[0fr] opacity-0 pointer-events-none'}`}>
+                                    <div className={`${subIsExpanded ? 'overflow-visible pb-4 pt-4 px-6 lg:px-10' : 'overflow-hidden pt-0 px-6 lg:px-10'} space-y-4 bg-gray-50/30`}>
+                                       {subOrder.items?.map((item: any) => renderItemCard(order, { ...item, sourceOrder: subOrder }))}
+                                    </div>
+                                 </div>
+                              </div>
+                           );
+                        })}
+                     </div>
+                  </div>
+                ) : order.items && order.items.length > 0 && (
                   <div className={`grid transition-all duration-500 ease-in-out px-6 lg:px-10 origin-top ${isExpanded ? 'grid-rows-[1fr] opacity-100 border-t border-brand-border/40' : 'grid-rows-[0fr] opacity-0 pointer-events-none'}`}>
                     <div className={`${isExpanded ? 'overflow-visible pb-6 pt-6' : 'overflow-hidden pt-0'} space-y-4`}>
-                      {order.items.map((item: any) => (
-                      <div key={item.id} className="flex flex-col gap-0 border-b border-brand-border/40 last:border-b-0 pb-6 mb-4">
-                        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-                         
-                         {/* Left Side: Visual & Specs */}
-                         <div className="flex flex-col gap-3 flex-1 min-w-0 pr-2">
-                           <div className="flex items-center gap-4">
-                             <div className="w-16 h-16 rounded-xl overflow-hidden shrink-0 border border-black/5 bg-gray-50 flex items-center justify-center">
-                               <img src={item.image} alt={item.style} className="w-full h-full object-cover mix-blend-multiply p-1" />
-                             </div>
-                             <div>
-                                <h4 className="font-bold text-gray-900 text-[15px]">{item.style}</h4>
-                                <p className="text-xs font-semibold text-gray-500 mt-0.5">
-                                   {item.gender && item.gender !== 'Unisex' ? `${item.gender} ` : ''} 
-                                   {item.color ? (item.gender && item.gender !== 'Unisex' ? `- ${item.color}` : item.color) : ''}
-                                </p>
-                             </div>
-                           </div>
-                           
-                           {/* Specs pills */}
-                           <div className="flex flex-wrap gap-2 mt-1">
-                              {item.itemNum && <DataPill label="Item #" value={item.itemNum} />}
-                              {item.color && <DataPill label="Color" value={item.color} />}
-                           </div>
-                         </div>
- 
-                         {/* Right Side: Interactive Checking Area */}
-                         <div className="flex flex-wrap lg:flex-nowrap items-end lg:items-center gap-4 shrink-0">
-                           <div className="flex items-stretch gap-[2px] bg-neutral-200 p-[3px] rounded-xl font-sans shrink-0">
-                             {item.sizes && Object.entries(item.sizes).sort(([a], [b]) => sortSizes(a, b)).map(([size, qty]: [string, any]) => {
-                               if (qty <= 0) return null;
-                               const isCompleted = item.completedSizes?.includes(size);
-                               const inProgress = item.inProgressSizes?.[size];
-                               const isPacked = isSizeFullyBoxed(order, item, size, qty);
-
-                               let colorClassTop = 'bg-neutral-300 text-neutral-600 group-hover/sizebtn:bg-neutral-400';
-                               let colorClassBottom = 'bg-white text-neutral-800';
-                               let topContent: any = <span className="truncate inline-block max-w-[40px] leading-none" title={size}>{size}</span>;
-                               let iconContent: any = null;
-                               let wrapperClass = 'hover:-translate-y-0.5 hover:shadow-sm';
-
-                               if (isPacked) {
-                                   colorClassTop = 'bg-blue-500 text-white';
-                                   colorClassBottom = 'bg-blue-50 text-blue-700';
-                                   iconContent = <Box size={10} strokeWidth={3} className="ml-1 opacity-80 shrink-0" />;
-                                   wrapperClass = 'opacity-80 hover:opacity-100';
-                               } else if (isCompleted) {
-                                   colorClassTop = 'bg-green-500 text-white';
-                                   colorClassBottom = 'bg-green-50 text-green-700';
-                                   iconContent = <Check size={10} strokeWidth={4} className="ml-1 opacity-80 shrink-0" />;
-                                   wrapperClass = 'opacity-80 hover:opacity-100';
-                               } else if (inProgress) {
-                                   if (inProgress.paused) {
-                                       colorClassTop = 'bg-orange-500 text-white';
-                                       colorClassBottom = 'bg-orange-50 text-orange-700';
-                                       iconContent = <Pause size={10} strokeWidth={3} className="ml-1 opacity-80 shrink-0" />;
-                                       wrapperClass = 'opacity-90 hover:opacity-100';
-                                   } else {
-                                       colorClassTop = 'bg-red-500 text-white';
-                                       colorClassBottom = 'bg-red-50 text-red-700';
-                                       iconContent = <Clock size={10} strokeWidth={3} className="animate-pulse ml-1 opacity-80 shrink-0" />;
-                                       wrapperClass = 'opacity-90 hover:opacity-100';
-                                   }
-                               }
-
-                               return (
-                               <div 
-                                 key={size} 
-                                 className={`min-w-[44px] px-0.5 group/sizebtn text-center flex flex-col cursor-pointer transition-all relative ${wrapperClass}`}
-                                 onClick={(e) => { e.stopPropagation(); handleSizeClick(order, item, size, qty); }}
-                                 onContextMenu={(e) => { 
-                                   e.preventDefault(); 
-                                   e.stopPropagation(); 
-                                   setContextMenu({ x: e.clientX, y: e.clientY, order, item, size, qty }); 
-                                 }}
-                                 title={isPacked ? "Packed in shipments." : isCompleted ? `Completed. Right-click to manage.` : inProgress ? (inProgress.paused ? "Timer paused. Right-click to resume!" : "Timer running. Click to complete!") : "Click to start timer"}
-                               >
-                                 {/* Hover hints */}
-                                 {!isCompleted && !isPacked && !inProgress && (
-                                   <div className="absolute inset-0 bg-brand-primary/5 backdrop-blur-[1px] opacity-0 group-hover/sizebtn:opacity-100 transition-opacity z-10 flex flex-col items-center justify-center rounded-[8px] pointer-events-none">
-                                      <Clock size={20} className="text-brand-primary drop-shadow-md" strokeWidth={3} />
-                                   </div>
-                                 )}
-                                 {!isCompleted && !isPacked && inProgress && !inProgress.paused && (
-                                   <div className="absolute inset-0 bg-brand-primary/5 backdrop-blur-[1px] opacity-0 group-hover/sizebtn:opacity-100 transition-opacity z-10 flex flex-col items-center justify-center rounded-[8px] pointer-events-none">
-                                      <Check size={20} className="text-brand-primary drop-shadow-md" strokeWidth={3} />
-                                   </div>
-                                 )}
-                                 {!isCompleted && !isPacked && inProgress && inProgress.paused && (
-                                   <div className="absolute inset-0 bg-brand-primary/5 backdrop-blur-[1px] opacity-0 group-hover/sizebtn:opacity-100 transition-opacity z-10 flex flex-col items-center justify-center rounded-[8px] pointer-events-none">
-                                      <Play size={20} className="text-brand-primary drop-shadow-md" strokeWidth={3} />
-                                   </div>
-                                 )}
-
-                                 <div className={`text-[10px] font-bold py-1.5 px-2 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center transition-colors relative z-0 ${colorClassTop}`}>
-                                    {topContent}
-                                    {iconContent}
-                                 </div>
-                                 <div className={`text-[12px] font-bold py-2 px-2 rounded-b-[8px] h-8 flex flex-col items-center justify-center transition-colors relative z-0 ${colorClassBottom}`}>
-                                   {qty}
-                                 </div>
-
-                                 {/* Stats Tooltip */}
-                                 {(isCompleted || isPacked) && item.sizeStats?.[size] && (
-                                   <div className="absolute bottom-[110%] left-1/2 -translate-x-1/2 bg-black text-white text-[10px] py-1.5 px-2 rounded-lg opacity-0 group-hover/sizebtn:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-xl border border-neutral-700">
-                                      <div className="font-bold">{Math.round(item.sizeStats[size].durationMs / 60000)}m Total</div>
-                                      <div className="text-neutral-300 font-medium mt-0.5">{item.sizeStats[size].itemsPerHour}/hr Avg</div>
-                                      <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-black"></div>
-                                   </div>
-                                 )}
-                               </div>
-                               );
-                             })}
-                           </div>
-                         </div>
-
-                        </div>
-                      </div>
-                      ))}
+                      {order.items.map((item: any) => renderItemCard(order, item))}
                     </div>
                   </div>
                 )}

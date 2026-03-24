@@ -21,6 +21,7 @@ export function Dashboard() {
   const [customers, setCustomers] = useState<Record<string, any>>({});
   const [activeMetricsTab, setActiveMetricsTab] = useState<string>('All');
   const [allUsersList, setAllUsersList] = useState<any[]>([]);
+  const [metricsTimeFilter, setMetricsTimeFilter] = useState<string>('All');
 
   useEffect(() => {
     if (userData && (userData.role === 'Admin' || userData.role === 'Manager')) {
@@ -80,6 +81,26 @@ export function Dashboard() {
                );
                if (!userName) {
                    userName = actMatch?.user?.split('@')[0] || actMatch?.user || 'Unknown';
+               }
+
+               if (metricsTimeFilter !== 'All') {
+                   const ts = actMatch?.timestamp;
+                   if (ts) {
+                       const statDateStr = ts.split('T')[0];
+                       if (metricsTimeFilter === 'Today') {
+                           const lDate = new Date();
+                           const lYear = lDate.getFullYear();
+                           const lMonth = String(lDate.getMonth() + 1).padStart(2, '0');
+                           const lDay = String(lDate.getDate()).padStart(2, '0');
+                           const todayStr = `${lYear}-${lMonth}-${lDay}`;
+                           if (statDateStr !== todayStr) return;
+                       } else {
+                           // custom calendar date matching YYYY-MM-DD
+                           if (statDateStr !== metricsTimeFilter) return;
+                       }
+                   } else {
+                       return; // Omit metric if no valid timestamp
+                   }
                }
 
                let rawName = normalizeUser(userName, allUsersList);
@@ -237,10 +258,36 @@ export function Dashboard() {
           {teamMetricUsers.length > 0 && (
             <div className="bg-white rounded-card border border-brand-border p-6 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.02)]">
                 <div className="flex flex-col gap-4">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                      <div>
                         <h2 className={tokens.typography.h2}>Team Production Metrics</h2>
                         <p className="text-sm text-brand-secondary mt-1">Aggregated statistics across all recorded orders.</p>
+                     </div>
+                     <div className="flex items-center bg-brand-bg/50 p-1.5 rounded-xl border border-brand-border/60 shadow-sm shrink-0">
+                        <button 
+                           onClick={() => setMetricsTimeFilter('All')}
+                           className={`px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-widest transition-colors ${metricsTimeFilter === 'All' ? 'bg-white shadow-sm text-brand-primary border border-brand-primary/10' : 'text-brand-secondary hover:text-brand-primary'}`}
+                        >
+                          All Time
+                        </button>
+                        <button 
+                           onClick={() => setMetricsTimeFilter('Today')}
+                           className={`px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-widest transition-colors ${metricsTimeFilter === 'Today' ? 'bg-white shadow-sm text-brand-primary border border-brand-primary/10' : 'text-brand-secondary hover:text-brand-primary'}`}
+                        >
+                          Today
+                        </button>
+                        <div className="relative">
+                           <input 
+                             type="date" 
+                             className={`ml-1 pl-2 pr-2 py-1.5 text-xs font-bold uppercase tracking-widest outline-none rounded-lg cursor-pointer transition-colors ${metricsTimeFilter !== 'All' && metricsTimeFilter !== 'Today' ? 'bg-white text-brand-primary shadow-sm border border-brand-primary/10' : 'bg-transparent text-brand-secondary hover:text-brand-primary'}`}
+                             onChange={(e) => {
+                                 if (e.target.value) {
+                                     setMetricsTimeFilter(e.target.value);
+                                 }
+                             }}
+                             value={metricsTimeFilter !== 'All' && metricsTimeFilter !== 'Today' ? metricsTimeFilter : ''}
+                           />
+                        </div>
                      </div>
                   </div>
                   <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar pb-2">
