@@ -47,6 +47,9 @@ export function Production() {
   const [targetInput, setTargetInput] = useState<string>('');
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [metricsTimeFilter, setMetricsTimeFilter] = useState<string>('All');
+  const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
+  const [showGroupModal, setShowGroupModal] = useState(false);
+  const [newGroupName, setNewGroupName] = useState('');
 
   useEffect(() => {
     getDocs(collection(db, 'users')).then(snap => {
@@ -102,14 +105,14 @@ export function Production() {
       return (title.toLowerCase().includes(q) || pid.toLowerCase().includes(q) || orderId.toLowerCase().includes(q));
     })
     .reduce((acc: any, order: any) => {
-       const projectKey = order.project || order.title || 'Untitled Project';
+       const projectKey = order.project;
        const cid = order.customerId;
-       const hash = `${cid}-${projectKey}`;
+       const hash = projectKey ? `proj-${projectKey}` : `single-${order.id}`;
        if (!acc[hash]) {
            acc[hash] = {
-              id: `project-${hash}`,
-              isProjectGroup: true,
-              title: projectKey,
+              id: projectKey ? `project-${hash}` : order.id,
+              isProjectGroup: !!projectKey,
+              title: projectKey || order.title || 'Untitled Order',
               customerId: cid,
               orders: [],
               items: [],
@@ -410,8 +413,25 @@ export function Production() {
                   className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 xl:gap-8 min-h-[80px] p-6 lg:pr-10 cursor-pointer"
                 >
                   {/* Left: Logo & Title */}
-                  <div className="flex items-center gap-6 w-[320px] shrink-0 relative">
-                    <div className="w-20 h-20 shrink-0 flex items-center justify-center text-neutral-300">
+                  <div className="flex items-center gap-6 w-[320px] shrink-0 relative group/left">
+                    {!order.isProjectGroup && (
+                      <div className={`absolute -left-3 top-1/2 -translate-y-1/2 z-30 transition-opacity ${selectedOrderIds.includes(order.id) ? 'opacity-100' : 'opacity-0 group-hover/left:opacity-100'}`}>
+                         <div 
+                           className={`w-5 h-5 rounded-md border-[2px] cursor-pointer flex items-center justify-center transition-colors shadow-sm ${selectedOrderIds.includes(order.id) ? 'bg-brand-primary border-brand-primary text-white' : 'border-neutral-300 bg-white hover:border-brand-primary/50'}`}
+                           onClick={(e) => {
+                               e.stopPropagation();
+                               if (selectedOrderIds.includes(order.id)) {
+                                   setSelectedOrderIds(prev => prev.filter(id => id !== order.id));
+                               } else {
+                                   setSelectedOrderIds(prev => [...prev, order.id]);
+                               }
+                           }}
+                         >
+                            {selectedOrderIds.includes(order.id) && <Check size={12} strokeWidth={4} />}
+                         </div>
+                      </div>
+                    )}
+                    <div className={`w-20 h-20 shrink-0 flex items-center justify-center text-neutral-300 transition-all duration-300 ${!order.isProjectGroup && selectedOrderIds.includes(order.id) ? 'ml-4' : 'group-hover/left:ml-4'}`}>
                       {customerLogos[order.customerId] ? (
                         <img src={customerLogos[order.customerId]} alt="Customer Logo" className="max-w-full max-h-full object-contain shrink-0 filter mix-blend-multiply opacity-90" />
                       ) : (
@@ -447,6 +467,19 @@ export function Production() {
                     <div className="w-full flex justify-between items-center mb-6 px-4">
                        <span className="text-brand-primary font-bold text-lg">{Math.round(completionRatio * 100)}% Complete</span>
                        <div className="flex items-center gap-4">
+                         {order.isProjectGroup && (
+                            <button 
+                               onClick={async (e) => { 
+                                  e.stopPropagation(); 
+                                  if (window.confirm('Ungroup these orders? They will become standalone again.')) {
+                                      await Promise.all(order.orders.map((o: any) => updateDoc(doc(db, 'orders', o.id), { project: null })));
+                                  }
+                               }}
+                               className="text-[10px] font-bold uppercase tracking-widest text-orange-600 bg-orange-50 hover:bg-orange-100 px-3 py-1.5 rounded-lg flex items-center gap-2 transition-colors border border-orange-200 hidden xl:flex"
+                            >
+                               Ungroup
+                            </button>
+                         )}
                          <button 
                            onClick={(e) => { e.stopPropagation(); setMetricsOrder(order); }}
                            className="text-[10px] font-bold uppercase tracking-widest text-brand-primary bg-brand-primary/5 hover:bg-brand-primary/10 px-3 py-1.5 rounded-lg flex items-center gap-2 transition-colors border border-brand-primary/10"
@@ -681,6 +714,65 @@ export function Production() {
         </div>
       )}
 
+      {/* Grouping Actions */}
+      {selectedOrderIds.length > 0 && (
+         <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-neutral-900 border border-neutral-700 text-white px-6 py-4 rounded-full shadow-2xl z-[150] flex items-center gap-6 animate-in slide-in-from-bottom-5">
+            <span className="font-bold text-sm tracking-wide">{selectedOrderIds.length} orders selected</span>
+            <div className="w-[1px] h-6 bg-white/20"></div>
+            <button onClick={() => setShowGroupModal(true)} className="px-4 py-2 bg-white text-black font-bold uppercase tracking-wider text-[11px] rounded-full hover:bg-neutral-200 transition-colors shadow-sm">
+               Group into Project
+            </button>
+            <button onClick={() => setSelectedOrderIds([])} className="p-2 -mr-2 hover:bg-white/10 rounded-full transition-colors text-white/60 hover:text-white shrink-0">
+               <X size={18} strokeWidth={2.5} />
+            </button>
+         </div>
+      )}
+
+      {showGroupModal && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+           <div className="bg-white rounded-[24px] w-full max-w-md p-8 shadow-2xl border border-brand-border animate-in zoom-in-95">
+              <h3 className="font-serif text-2xl text-brand-primary mb-2">Create Project Group</h3>
+              <p className="text-sm text-brand-secondary mb-6 leading-relaxed">Enter a name for this project to group the {selectedOrderIds.length} selected orders tightly together on the production floor pipeline.</p>
+              
+              <div className="mb-8">
+                 <label className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary/70 mb-2 block">Project Name</label>
+                 <input 
+                    type="text"
+                    placeholder="e.g. Acme Q3 Release"
+                    className="w-full bg-brand-bg/50 border border-brand-border rounded-xl px-4 py-3 outline-none focus:border-brand-primary transition-colors text-brand-primary font-medium"
+                    value={newGroupName}
+                    onChange={e => setNewGroupName(e.target.value)}
+                    autoFocus
+                    onKeyDown={(e) => {
+                       if (e.key === 'Enter' && newGroupName.trim()) {
+                           Promise.all(selectedOrderIds.map(id => updateDoc(doc(db, 'orders', id), { project: newGroupName.trim() })));
+                           setSelectedOrderIds([]);
+                           setNewGroupName('');
+                           setShowGroupModal(false);
+                       }
+                    }}
+                 />
+              </div>
+
+              <div className="flex items-center justify-end gap-3">
+                 <button onClick={() => { setShowGroupModal(false); setNewGroupName(''); }} className="px-5 py-2.5 rounded-full text-sm font-bold uppercase tracking-widest text-brand-secondary hover:bg-brand-bg transition-colors">Cancel</button>
+                 <button 
+                   onClick={async () => {
+                       if (!newGroupName.trim()) return;
+                       await Promise.all(selectedOrderIds.map(id => updateDoc(doc(db, 'orders', id), { project: newGroupName.trim() })));
+                       setSelectedOrderIds([]);
+                       setNewGroupName('');
+                       setShowGroupModal(false);
+                   }} 
+                   className="px-6 py-2.5 rounded-full text-sm font-bold uppercase tracking-widest bg-brand-primary text-white hover:opacity-90 transition-opacity shadow-md"
+                 >
+                   Group
+                 </button>
+              </div>
+           </div>
+        </div>
+      )}
+
       {/* Team Metrics Modal */}
       {metricsOrder && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setMetricsOrder(null)}>
@@ -852,32 +944,36 @@ export function Production() {
                                    )}
                             </div>
                          </div>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                           <div className="flex flex-col">
-                              <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/60 mb-1">Remaining Units</span>
-                              <span className="text-xl font-black">{remainingGarments}</span>
-                           </div>
-                           <div className="flex flex-col relative">
-                              <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/60 mb-1">Global Avg / Garment</span>
-                              <div className="flex items-end gap-2">
-                                <span className="text-xl font-black">{globalAvgMinsPerGarment >= 1 ? globalAvgMinsPerGarment.toFixed(1) + 'm' : Math.round(globalAvgMinsPerGarment * 60) + 's'}</span>
-                                {metricsOrder.targetAvgMinsPerGarment && (
-                                   <span className={`text-[10px] font-bold mb-1 ${globalAvgMinsPerGarment <= metricsOrder.targetAvgMinsPerGarment ? 'text-green-600' : 'text-orange-500'}`}>
-                                      {globalAvgMinsPerGarment <= metricsOrder.targetAvgMinsPerGarment ? 'On Track' : 'Behind'}
-                                   </span>
-                                )}
-                              </div>
-                           </div>
-                           <div className="flex flex-col">
-                              <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/60 mb-1">Estimated Time Left</span>
-                              <span className="text-xl font-black">{estimatedRemainingMins > 60 ? (estimatedRemainingMins / 60).toFixed(1) + 'h' : Math.round(estimatedRemainingMins) + 'm'}</span>
-                           </div>
-                           <div className="flex flex-col">
-                              <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/60 mb-1">Total Expected Time</span>
-                              <span className="text-xl font-black">{estimatedTotalMins > 60 ? (estimatedTotalMins / 60).toFixed(1) + 'h' : Math.round(estimatedTotalMins) + 'm'}</span>
-                           </div>
-                        </div>
-                     </div>
+                         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                            <div className="flex flex-col">
+                               <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/60 mb-1">Total {metricsTimeFilter === 'All' ? 'Processed' : 'Produced'}</span>
+                               <span className="text-xl font-black">{globalTotalGarmentsCompletedWithStats || trueTotalGarmentsCompleted}</span>
+                            </div>
+                            <div className="flex flex-col border-l border-brand-primary/10 pl-4">
+                               <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/60 mb-1">Remaining Units</span>
+                               <span className="text-xl font-black">{remainingGarments}</span>
+                            </div>
+                            <div className="flex flex-col relative border-l border-brand-primary/10 pl-4">
+                               <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/60 mb-1">Avg / Garment</span>
+                               <div className="flex items-end gap-2">
+                                 <span className="text-xl font-black">{globalAvgMinsPerGarment >= 1 ? globalAvgMinsPerGarment.toFixed(1) + 'm' : Math.round(globalAvgMinsPerGarment * 60) + 's'}</span>
+                                 {metricsOrder.targetAvgMinsPerGarment && (
+                                    <span className={`text-[10px] font-bold mb-1 ${globalAvgMinsPerGarment <= metricsOrder.targetAvgMinsPerGarment ? 'text-green-600' : 'text-orange-500'}`}>
+                                       {globalAvgMinsPerGarment <= metricsOrder.targetAvgMinsPerGarment ? 'On Track' : 'Behind'}
+                                    </span>
+                                 )}
+                               </div>
+                            </div>
+                            <div className="flex flex-col border-l border-brand-primary/10 pl-4">
+                               <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/60 mb-1">Time Left</span>
+                               <span className="text-xl font-black">{estimatedRemainingMins > 60 ? (estimatedRemainingMins / 60).toFixed(1) + 'h' : Math.round(estimatedRemainingMins) + 'm'}</span>
+                            </div>
+                            <div className="flex flex-col border-l border-brand-primary/10 pl-4">
+                               <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/60 mb-1">Expected Time</span>
+                               <span className="text-xl font-black">{estimatedTotalMins > 60 ? (estimatedTotalMins / 60).toFixed(1) + 'h' : Math.round(estimatedTotalMins) + 'm'}</span>
+                            </div>
+                         </div>
+                      </div>
 
                      <div className="space-y-4">
                      {users.map(groupKey => {
