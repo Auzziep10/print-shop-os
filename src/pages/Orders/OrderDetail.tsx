@@ -53,9 +53,11 @@ export function OrderDetail() {
   const [activityLimit, setActivityLimit] = useState(3);
   const [activityFilter, setActivityFilter] = useState<'all' | 'performance' | 'metrics'>('all');
   const [performanceUserFilter, setPerformanceUserFilter] = useState<string>('All');
-  const [metricsTimeFilter, setMetricsTimeFilter] = useState<string>('All');
+  const [metricsTimeFilter, setMetricsTimeFilter] = useState<string>('Today');
   const [editingTargetId, setEditingTargetId] = useState<string | null>(null);
   const [targetInput, setTargetInput] = useState<string>('');
+  const [editingTargetDateId, setEditingTargetDateId] = useState<string | null>(null);
+  const [targetDateInput, setTargetDateInput] = useState<string>('');
 
   const handleSaveTarget = async (orderId: string) => {
     const val = parseFloat(targetInput);
@@ -63,6 +65,13 @@ export function OrderDetail() {
        await updateDoc(doc(db, 'orders', orderId), { targetAvgMinsPerGarment: val });
     }
     setEditingTargetId(null);
+  };
+
+  const handleSaveTargetDate = async (orderId: string) => {
+     if (targetDateInput) {
+       await updateDoc(doc(db, 'orders', orderId), { targetCompletionDate: targetDateInput });
+     }
+     setEditingTargetDateId(null);
   };
 
   const [timelineMembers, setTimelineMembers] = useState<any[]>([]);
@@ -1373,6 +1382,25 @@ export function OrderDetail() {
                      const globalAvgMinsPerGarment = globalTotalGarmentsCompletedWithStats > 0 ? (concurrentGlobalTotalTimeMins / globalTotalGarmentsCompletedWithStats) : 0;
                      const estimatedRemainingMins = remainingGarments * globalAvgMinsPerGarment;
                      const estimatedTotalMins = (trueTotalGarmentsCompleted * globalAvgMinsPerGarment) + estimatedRemainingMins;
+                     
+                     let businessHoursRemaining = 0;
+                     let hasTargetDate = false;
+                     if (metricsOrder.targetCompletionDate) {
+                         hasTargetDate = true;
+                         const tDate = new Date(metricsOrder.targetCompletionDate);
+                         const now = new Date();
+                         if (tDate > now) {
+                             let current = new Date(now);
+                             let bHours = 0;
+                             while (current < tDate) {
+                                 if (current.getDay() !== 0 && current.getDay() !== 6) {
+                                     bHours += 8;
+                                 }
+                                 current.setTime(current.getTime() + (1000 * 60 * 60 * 24));
+                             }
+                             businessHoursRemaining = bHours;
+                         }
+                     }
 
                      return (
                        <div className="space-y-6">
@@ -1399,55 +1427,81 @@ export function OrderDetail() {
                                     />
                                   </div>
                                 </div>
-                               <div className="flex items-center shrink-0">
-                                  {editingTargetId === metricsOrder.id ? (
-                                     <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-brand-primary/80 bg-white/50 px-2 py-1 rounded-md border border-brand-primary/10 w-full sm:w-auto">
-                                        <span>Expected Time / Garment:</span>
-                                        <input
-                                          type="number"
-                                          step="0.1"
-                                          value={targetInput}
-                                          onChange={e => setTargetInput(e.target.value)}
-                                          className="w-16 px-2 py-0.5 text-xs text-brand-primary font-bold border border-brand-primary/40 rounded bg-white outline-none ml-1"
-                                          placeholder="Mins"
-                                          autoFocus
-                                        />
-                                        <button onClick={() => handleSaveTarget(metricsOrder.id)} className="text-[10px] font-bold uppercase bg-brand-primary text-white px-2 py-1 rounded ml-1">Save</button>
-                                        <button onClick={() => setEditingTargetId(null)} className="text-brand-secondary hover:text-brand-primary"><X size={14} /></button>
-                                     </div>
-                                  ) : (
-                                     <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-brand-primary/80 bg-white/50 px-2 py-1 rounded-md border border-brand-primary/10">
-                                        <span>Expected Time / Garment: {metricsOrder.targetAvgMinsPerGarment ? `${metricsOrder.targetAvgMinsPerGarment}m` : 'Not Set'}</span>
-                                        <button onClick={() => { setTargetInput(metricsOrder.targetAvgMinsPerGarment?.toString() || ''); setEditingTargetId(metricsOrder.id); }} className="hover:text-brand-primary text-brand-secondary underline decoration-brand-border underline-offset-2">Edit</button>
-                                     </div>
-                                  )}
-                               </div>
-                            </div>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                               <div className="flex flex-col">
-                                  <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/60 mb-1">Remaining Units</span>
-                                  <span className="text-xl font-black">{remainingGarments}</span>
-                               </div>
-                               <div className="flex flex-col relative">
-                                  <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/60 mb-1">Global Avg / Garment</span>
-                                  <div className="flex items-end gap-2">
-                                    <span className="text-xl font-black">{globalAvgMinsPerGarment >= 1 ? globalAvgMinsPerGarment.toFixed(1) + 'm' : Math.round(globalAvgMinsPerGarment * 60) + 's'}</span>
-                                    {metricsOrder.targetAvgMinsPerGarment && (
-                                       <span className={`text-[10px] font-bold mb-1 ${globalAvgMinsPerGarment <= metricsOrder.targetAvgMinsPerGarment ? 'text-green-600' : 'text-orange-500'}`}>
-                                          {globalAvgMinsPerGarment <= metricsOrder.targetAvgMinsPerGarment ? 'On Track' : 'Behind'}
-                                       </span>
-                                    )}
-                                  </div>
-                               </div>
-                               <div className="flex flex-col">
-                                  <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/60 mb-1">Estimated Time Left</span>
-                                  <span className="text-xl font-black">{estimatedRemainingMins > 60 ? (estimatedRemainingMins / 60).toFixed(1) + 'h' : Math.round(estimatedRemainingMins) + 'm'}</span>
-                               </div>
-                               <div className="flex flex-col">
-                                  <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/60 mb-1">Total Expected Time</span>
-                                  <span className="text-xl font-black">{estimatedTotalMins > 60 ? (estimatedTotalMins / 60).toFixed(1) + 'h' : Math.round(estimatedTotalMins) + 'm'}</span>
-                               </div>
-                            </div>
+                                <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2 shrink-0 mt-2 sm:mt-0">
+                                   {editingTargetId === metricsOrder.id ? (
+                                      <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-brand-primary/80 bg-white/50 px-2 py-1 rounded-md border border-brand-primary/10 w-full sm:w-auto">
+                                         <span>Expected / Garment:</span>
+                                         <input
+                                           type="number"
+                                           step="0.1"
+                                           value={targetInput}
+                                           onChange={e => setTargetInput(e.target.value)}
+                                           className="w-16 px-2 py-0.5 text-xs text-brand-primary font-bold border border-brand-primary/40 rounded bg-white outline-none ml-1"
+                                           placeholder="Mins"
+                                           autoFocus
+                                         />
+                                         <button onClick={() => handleSaveTarget(metricsOrder.id)} className="text-[10px] font-bold uppercase bg-brand-primary text-white px-2 py-1 rounded ml-1">Save</button>
+                                         <button onClick={() => setEditingTargetId(null)} className="text-brand-secondary hover:text-brand-primary"><X size={14} /></button>
+                                      </div>
+                                   ) : (
+                                      <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-brand-primary/80 bg-white/50 px-2 py-1 rounded-md border border-brand-primary/10">
+                                         <span>Expected / Garment: {metricsOrder.targetAvgMinsPerGarment ? `${metricsOrder.targetAvgMinsPerGarment}m` : 'Not Set'}</span>
+                                         <button onClick={() => { setTargetInput(metricsOrder.targetAvgMinsPerGarment?.toString() || ''); setEditingTargetId(metricsOrder.id); }} className="hover:text-brand-primary text-brand-secondary underline decoration-brand-border underline-offset-2">Edit</button>
+                                      </div>
+                                   )}
+
+                                   {editingTargetDateId === metricsOrder.id ? (
+                                      <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-brand-primary/80 bg-white/50 px-2 py-1 rounded-md border border-brand-primary/10 w-full sm:w-auto">
+                                         <span>Deadline:</span>
+                                         <input
+                                           type="datetime-local"
+                                           value={targetDateInput}
+                                           onChange={e => setTargetDateInput(e.target.value)}
+                                           className="px-2 py-0.5 text-xs text-brand-primary font-bold border border-brand-primary/40 rounded bg-white outline-none ml-1"
+                                           autoFocus
+                                         />
+                                         <button onClick={() => handleSaveTargetDate(metricsOrder.id)} className="text-[10px] font-bold uppercase bg-brand-primary text-white px-2 py-1 rounded ml-1">Save</button>
+                                         <button onClick={() => setEditingTargetDateId(null)} className="text-brand-secondary hover:text-brand-primary"><X size={14} /></button>
+                                      </div>
+                                   ) : (
+                                      <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-brand-primary/80 bg-white/50 px-2 py-1 rounded-md border border-brand-primary/10">
+                                         <span>Deadline: {metricsOrder.targetCompletionDate ? new Date(metricsOrder.targetCompletionDate).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Not Set'}</span>
+                                         <button onClick={() => { setTargetDateInput(metricsOrder.targetCompletionDate || ''); setEditingTargetDateId(metricsOrder.id); }} className="hover:text-brand-primary text-brand-secondary underline decoration-brand-border underline-offset-2">Edit</button>
+                                      </div>
+                                   )}
+                                </div>
+                             </div>
+                             <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+                                <div className="flex flex-col">
+                                   <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/60 mb-1">Total {metricsTimeFilter === 'All' ? 'Processed' : 'Produced'}</span>
+                                   <span className="text-xl font-black">{globalTotalGarmentsCompletedWithStats || trueTotalGarmentsCompleted}</span>
+                                </div>
+                                <div className="flex flex-col border-l border-brand-primary/10 pl-4">
+                                   <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/60 mb-1">Remaining Units</span>
+                                   <span className="text-xl font-black">{remainingGarments}</span>
+                                </div>
+                                <div className="flex flex-col relative border-l border-brand-primary/10 pl-4">
+                                   <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/60 mb-1">Avg / Garment</span>
+                                   <div className="flex items-end gap-2">
+                                     <span className="text-xl font-black">{globalAvgMinsPerGarment >= 1 ? globalAvgMinsPerGarment.toFixed(1) + 'm' : Math.round(globalAvgMinsPerGarment * 60) + 's'}</span>
+                                     {metricsOrder.targetAvgMinsPerGarment && (
+                                        <span className={`text-[10px] font-bold mb-1 ${globalAvgMinsPerGarment <= metricsOrder.targetAvgMinsPerGarment ? 'text-green-600' : 'text-orange-500'}`}>
+                                           {globalAvgMinsPerGarment <= metricsOrder.targetAvgMinsPerGarment ? 'On Track' : 'Behind'}
+                                        </span>
+                                     )}
+                                   </div>
+                                </div>
+                                <div className="flex flex-col border-l border-brand-primary/10 pl-4">
+                                   <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/60 mb-1">Expected Time</span>
+                                   <span className="text-xl font-black">{estimatedTotalMins > 60 ? (estimatedTotalMins / 60).toFixed(1) + 'h' : Math.round(estimatedTotalMins) + 'm'}</span>
+                                </div>
+                                <div className="flex flex-col border-l border-brand-primary/10 pl-4">
+                                   <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/60 mb-1">Time Left</span>
+                                   <span className={`text-xl font-black ${hasTargetDate && businessHoursRemaining <= 0 ? 'text-red-500' : ''}`}>
+                                      {hasTargetDate ? (businessHoursRemaining <= 0 ? 'Overdue' : `${businessHoursRemaining}h`) : 'No Deadline'}
+                                   </span>
+                                </div>
+                             </div>
                          </div>
 
                          <div className="space-y-4">

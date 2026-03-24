@@ -49,7 +49,7 @@ export function Production() {
   const [editingTargetDateId, setEditingTargetDateId] = useState<string | null>(null);
   const [targetDateInput, setTargetDateInput] = useState<string>('');
   const [allUsers, setAllUsers] = useState<any[]>([]);
-  const [metricsTimeFilter, setMetricsTimeFilter] = useState<string>('All');
+  const [metricsTimeFilter, setMetricsTimeFilter] = useState<string>('Today');
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
   const [showGroupModal, setShowGroupModal] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
@@ -66,8 +66,8 @@ export function Production() {
     const val = parseFloat(targetInput);
     if (!isNaN(val) && val >= 0) {
        if (metricsOrder?.isProjectGroup) {
-           await Promise.all(metricsOrder.orders.map((o: any) => updateDoc(doc(db, 'orders', o.id), { targetAvgMinsPerGarment: val })));
-           setMetricsOrder({ ...metricsOrder, targetAvgMinsPerGarment: val });
+           await Promise.all(metricsOrder.orders.map((o: any) => updateDoc(doc(db, 'orders', o.id), { projectTargetAvgMinsPerGarment: val })));
+           setMetricsOrder({ ...metricsOrder, projectTargetAvgMinsPerGarment: val });
        } else {
            await updateDoc(doc(db, 'orders', orderId), { targetAvgMinsPerGarment: val });
            if (metricsOrder && metricsOrder.id === orderId) {
@@ -81,8 +81,8 @@ export function Production() {
   const handleSaveTargetDate = async (orderId: string) => {
      if (targetDateInput) {
        if (metricsOrder?.isProjectGroup) {
-           await Promise.all(metricsOrder.orders.map((o: any) => updateDoc(doc(db, 'orders', o.id), { targetCompletionDate: targetDateInput })));
-           setMetricsOrder({ ...metricsOrder, targetCompletionDate: targetDateInput });
+           await Promise.all(metricsOrder.orders.map((o: any) => updateDoc(doc(db, 'orders', o.id), { projectTargetCompletionDate: targetDateInput })));
+           setMetricsOrder({ ...metricsOrder, projectTargetCompletionDate: targetDateInput });
        } else {
            await updateDoc(doc(db, 'orders', orderId), { targetCompletionDate: targetDateInput });
            if (metricsOrder && metricsOrder.id === orderId) {
@@ -970,7 +970,9 @@ export function Production() {
                  
                  let businessHoursRemaining = 0;
                  let hasTargetDate = false;
-                 const targetDateRaw = metricsOrder.isProjectGroup ? (metricsOrder.targetCompletionDate || metricsOrder.orders?.[0]?.targetCompletionDate) : metricsOrder.targetCompletionDate;
+                 const targetDateRaw = metricsOrder.isProjectGroup ? (metricsOrder.projectTargetCompletionDate || metricsOrder.orders?.[0]?.projectTargetCompletionDate) : metricsOrder.targetCompletionDate;
+                 const activeTargetAvgMins = metricsOrder.isProjectGroup ? (metricsOrder.projectTargetAvgMinsPerGarment || metricsOrder.orders?.[0]?.projectTargetAvgMinsPerGarment) : metricsOrder.targetAvgMinsPerGarment;
+                 
                  if (targetDateRaw) {
                      hasTargetDate = true;
                      const tDate = new Date(targetDateRaw);
@@ -1015,8 +1017,8 @@ export function Production() {
                                       </div>
                                    ) : (
                                       <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-brand-primary/80 bg-white/50 px-2 py-1 rounded-md border border-brand-primary/10">
-                                         <span>Expected / Garment: {(metricsOrder.isProjectGroup ? metricsOrder.orders?.[0]?.targetAvgMinsPerGarment : metricsOrder.targetAvgMinsPerGarment) ? `${metricsOrder.isProjectGroup ? metricsOrder.orders[0].targetAvgMinsPerGarment : metricsOrder.targetAvgMinsPerGarment}m` : 'Not Set'}</span>
-                                         <button onClick={() => { setTargetInput((metricsOrder.isProjectGroup ? metricsOrder.orders?.[0]?.targetAvgMinsPerGarment : metricsOrder.targetAvgMinsPerGarment)?.toString() || ''); setEditingTargetId(metricsOrder.id); }} className="hover:text-brand-primary text-brand-secondary underline decoration-brand-border underline-offset-2">Edit</button>
+                                         <span>Expected / Garment: {activeTargetAvgMins ? `${activeTargetAvgMins}m` : 'Not Set'}</span>
+                                         <button onClick={() => { setTargetInput(activeTargetAvgMins?.toString() || ''); setEditingTargetId(metricsOrder.id); }} className="hover:text-brand-primary text-brand-secondary underline decoration-brand-border underline-offset-2">Edit</button>
                                       </div>
                                    )}
                                    {editingTargetDateId === metricsOrder.id ? (
@@ -1053,9 +1055,9 @@ export function Production() {
                                <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/60 mb-1">Avg / Garment</span>
                                <div className="flex items-end gap-2">
                                  <span className="text-xl font-black">{globalAvgMinsPerGarment >= 1 ? globalAvgMinsPerGarment.toFixed(1) + 'm' : Math.round(globalAvgMinsPerGarment * 60) + 's'}</span>
-                                 {metricsOrder.targetAvgMinsPerGarment && (
-                                    <span className={`text-[10px] font-bold mb-1 ${globalAvgMinsPerGarment <= metricsOrder.targetAvgMinsPerGarment ? 'text-green-600' : 'text-orange-500'}`}>
-                                       {globalAvgMinsPerGarment <= metricsOrder.targetAvgMinsPerGarment ? 'On Track' : 'Behind'}
+                                 {activeTargetAvgMins && (
+                                    <span className={`text-[10px] font-bold mb-1 ${globalAvgMinsPerGarment <= activeTargetAvgMins ? 'text-green-600' : 'text-orange-500'}`}>
+                                       {globalAvgMinsPerGarment <= activeTargetAvgMins ? 'On Track' : 'Behind'}
                                     </span>
                                  )}
                                </div>

@@ -24,7 +24,7 @@ export function Dashboard() {
   const [activeMetricsTab, setActiveMetricsTab] = useState<string>('All');
   const [activeKittingTab, setActiveKittingTab] = useState<string>('All');
   const [allUsersList, setAllUsersList] = useState<any[]>([]);
-  const [metricsTimeFilter, setMetricsTimeFilter] = useState<string>('All');
+  const [metricsTimeFilter, setMetricsTimeFilter] = useState<string>('Today');
 
   useEffect(() => {
     if (userData && (userData.role === 'Admin' || userData.role === 'Manager')) {
