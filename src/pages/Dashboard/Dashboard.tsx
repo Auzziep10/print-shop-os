@@ -162,7 +162,7 @@ export function Dashboard() {
             </div>
             
             {/* We constrain the height of the dashboard Kanban so it acts as an overview tool */}
-            <div className="max-h-[500px] overflow-x-auto pr-2 pb-2 custom-scrollbar">
+            <div className="max-h-[500px] overflow-y-auto overflow-x-hidden pr-2 pb-2 custom-scrollbar">
               <KanbanBoard />
             </div>
           </div>

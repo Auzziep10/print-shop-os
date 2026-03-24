@@ -50,10 +50,13 @@ export function KanbanBoard() {
   }
 
   return (
-    <div className="gap-6 pt-2 pb-4 overflow-x-auto overflow-y-hidden flex custom-scrollbar w-full">
+    <div 
+      className="gap-6 pt-2 pb-4 w-full grid"
+      style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))' }}
+    >
       {activeColumns.map(col => {
         return (
-          <div key={col.id} className="flex flex-col gap-4 w-[340px] shrink-0">
+          <div key={col.id} className="flex flex-col gap-4 w-full">
             <div className="flex items-center justify-between px-2 pb-2 border-b border-brand-border/50">
               <h3 className="font-sans font-bold text-[11px] text-brand-secondary uppercase tracking-widest">{col.title}</h3>
               <span className="w-5 h-5 rounded-full bg-brand-bg border border-brand-border text-brand-primary text-[10px] flex items-center justify-center font-bold">
