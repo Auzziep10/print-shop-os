@@ -176,7 +176,14 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
         });
 
         if (order.statusIndex === 6) { // Currently in "In Production" which maps to visual node 4
-           const completionRatio = totalGarments > 0 ? (completedGarments / totalGarments) : 0;
+           const prodRatio = totalGarments > 0 ? (completedGarments / totalGarments) : 0;
+           
+           const kitGarments = order.boxes?.reduce((acc: number, box: any) => acc + (box.items?.reduce((iAcc: number, bi: any) => iAcc + (bi.qty || 0), 0) || 0), 0) || 0;
+           const kitRatio = totalGarments > 0 ? (kitGarments / totalGarments) : 0;
+
+           // Blend them: 50% visual weight to Production, 50% to Kitting/Packing.
+           const completionRatio = (prodRatio * 0.5) + (kitRatio * 0.5);
+
            // Cap the visual progression so it doesn't touch the next node (Shipped) until officially shipped.
            const scaledRatio = completionRatio > 0.95 ? 0.95 : completionRatio;
            visualIndex += scaledRatio;
