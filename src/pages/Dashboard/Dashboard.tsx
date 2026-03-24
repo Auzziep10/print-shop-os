@@ -134,6 +134,20 @@ export function Dashboard() {
             </div>
           </div>
 
+          {/* Team Schedule Overview */}
+          <div className="bg-white rounded-card border border-brand-border p-6 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.02)]">
+            <div className="flex items-center justify-between mb-6">
+               <div>
+                  <h2 className={tokens.typography.h2}>Today's Floor Schedule</h2>
+                  <p className="text-sm text-brand-secondary mt-1">Real-time team allocation and timeline blocks.</p>
+               </div>
+               <a href="/team" className="px-4 py-2 border border-brand-border rounded-pill text-xs font-semibold uppercase tracking-widest text-brand-secondary hover:text-brand-primary hover:bg-brand-bg transition-colors">Manage Team</a>
+            </div>
+            <div className="border border-brand-border/50 rounded-2xl overflow-hidden">
+              <TimelinePlanner />
+            </div>
+          </div>
+
           {/* Active Orders Kanban Overview */}
           <div className="bg-white rounded-card border border-brand-border p-6 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.02)]">
             <div className="flex items-center justify-between mb-6">
@@ -148,22 +162,8 @@ export function Dashboard() {
             </div>
             
             {/* We constrain the height of the dashboard Kanban so it acts as an overview tool */}
-            <div className="max-h-[500px] overflow-y-auto pr-2 pb-2 custom-scrollbar">
+            <div className="max-h-[500px] overflow-x-auto pr-2 pb-2 custom-scrollbar">
               <KanbanBoard />
-            </div>
-          </div>
-
-          {/* Team Schedule Overview */}
-          <div className="bg-white rounded-card border border-brand-border p-6 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.02)]">
-            <div className="flex items-center justify-between mb-6">
-               <div>
-                  <h2 className={tokens.typography.h2}>Today's Floor Schedule</h2>
-                  <p className="text-sm text-brand-secondary mt-1">Real-time team allocation and timeline blocks.</p>
-               </div>
-               <a href="/team" className="px-4 py-2 border border-brand-border rounded-pill text-xs font-semibold uppercase tracking-widest text-brand-secondary hover:text-brand-primary hover:bg-brand-bg transition-colors">Manage Team</a>
-            </div>
-            <div className="border border-brand-border/50 rounded-2xl overflow-hidden">
-              <TimelinePlanner />
             </div>
           </div>
         </div>
