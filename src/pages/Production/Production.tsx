@@ -46,6 +46,8 @@ export function Production() {
   const [metricsOrder, setMetricsOrder] = useState<any | null>(null);
   const [editingTargetId, setEditingTargetId] = useState<string | null>(null);
   const [targetInput, setTargetInput] = useState<string>('');
+  const [editingTargetDateId, setEditingTargetDateId] = useState<string | null>(null);
+  const [targetDateInput, setTargetDateInput] = useState<string>('');
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [metricsTimeFilter, setMetricsTimeFilter] = useState<string>('All');
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
@@ -74,6 +76,21 @@ export function Production() {
        }
     }
     setEditingTargetId(null);
+  };
+
+  const handleSaveTargetDate = async (orderId: string) => {
+     if (targetDateInput) {
+       if (metricsOrder?.isProjectGroup) {
+           await Promise.all(metricsOrder.orders.map((o: any) => updateDoc(doc(db, 'orders', o.id), { targetCompletionDate: targetDateInput })));
+           setMetricsOrder({ ...metricsOrder, targetCompletionDate: targetDateInput });
+       } else {
+           await updateDoc(doc(db, 'orders', orderId), { targetCompletionDate: targetDateInput });
+           if (metricsOrder && metricsOrder.id === orderId) {
+              setMetricsOrder({ ...metricsOrder, targetCompletionDate: targetDateInput });
+           }
+       }
+     }
+     setEditingTargetDateId(null);
   };
 
   // Calculate completion ratio helper
@@ -950,7 +967,26 @@ export function Production() {
                  const globalAvgMinsPerGarment = globalTotalGarmentsCompletedWithStats > 0 ? (concurrentGlobalTotalTimeMins / globalTotalGarmentsCompletedWithStats) : 0;
                  const estimatedRemainingMins = remainingGarments * globalAvgMinsPerGarment;
                  const estimatedTotalMins = (trueTotalGarmentsCompleted * globalAvgMinsPerGarment) + estimatedRemainingMins;
-
+                 
+                 let businessHoursRemaining = 0;
+                 let hasTargetDate = false;
+                 const targetDateRaw = metricsOrder.isProjectGroup ? (metricsOrder.targetCompletionDate || metricsOrder.orders?.[0]?.targetCompletionDate) : metricsOrder.targetCompletionDate;
+                 if (targetDateRaw) {
+                     hasTargetDate = true;
+                     const tDate = new Date(targetDateRaw);
+                     const now = new Date();
+                     if (tDate > now) {
+                         let current = new Date(now);
+                         let bHours = 0;
+                         while (current < tDate) {
+                             if (current.getDay() !== 0 && current.getDay() !== 6) {
+                                 bHours += 8;
+                             }
+                             current.setTime(current.getTime() + (1000 * 60 * 60 * 24));
+                         }
+                         businessHoursRemaining = bHours;
+                     }
+                 }
 
                  return (
                    <div className="space-y-6">
@@ -961,10 +997,10 @@ export function Production() {
                              <Clock size={16} />
                              <h4 className="font-bold uppercase tracking-wider text-[11px]">AI Production Forecast</h4>
                            </div>
-                           <div className="flex items-center">
+                           <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2">
                                    {editingTargetId === metricsOrder.id ? (
                                       <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-brand-primary/80 bg-white/50 px-2 py-1 rounded-md border border-brand-primary/10 w-full sm:w-auto">
-                                         <span>Expected Time / Garment:</span>
+                                         <span>Expected / Garment:</span>
                                          <input
                                            type="number"
                                            step="0.1"
@@ -979,8 +1015,27 @@ export function Production() {
                                       </div>
                                    ) : (
                                       <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-brand-primary/80 bg-white/50 px-2 py-1 rounded-md border border-brand-primary/10">
-                                         <span>Expected Time / Garment: {(metricsOrder.isProjectGroup ? metricsOrder.orders?.[0]?.targetAvgMinsPerGarment : metricsOrder.targetAvgMinsPerGarment) ? `${metricsOrder.isProjectGroup ? metricsOrder.orders[0].targetAvgMinsPerGarment : metricsOrder.targetAvgMinsPerGarment}m` : 'Not Set'}</span>
+                                         <span>Expected / Garment: {(metricsOrder.isProjectGroup ? metricsOrder.orders?.[0]?.targetAvgMinsPerGarment : metricsOrder.targetAvgMinsPerGarment) ? `${metricsOrder.isProjectGroup ? metricsOrder.orders[0].targetAvgMinsPerGarment : metricsOrder.targetAvgMinsPerGarment}m` : 'Not Set'}</span>
                                          <button onClick={() => { setTargetInput((metricsOrder.isProjectGroup ? metricsOrder.orders?.[0]?.targetAvgMinsPerGarment : metricsOrder.targetAvgMinsPerGarment)?.toString() || ''); setEditingTargetId(metricsOrder.id); }} className="hover:text-brand-primary text-brand-secondary underline decoration-brand-border underline-offset-2">Edit</button>
+                                      </div>
+                                   )}
+                                   {editingTargetDateId === metricsOrder.id ? (
+                                      <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-brand-primary/80 bg-white/50 px-2 py-1 rounded-md border border-brand-primary/10 w-full sm:w-auto">
+                                         <span>Deadline:</span>
+                                         <input
+                                           type="datetime-local"
+                                           value={targetDateInput}
+                                           onChange={e => setTargetDateInput(e.target.value)}
+                                           className="px-2 py-0.5 text-xs text-brand-primary font-bold border border-brand-primary/40 rounded bg-white outline-none ml-1"
+                                           autoFocus
+                                         />
+                                         <button onClick={() => handleSaveTargetDate(metricsOrder.id)} className="text-[10px] font-bold uppercase bg-brand-primary text-white px-2 py-1 rounded ml-1">Save</button>
+                                         <button onClick={() => setEditingTargetDateId(null)} className="text-brand-secondary hover:text-brand-primary"><X size={14} /></button>
+                                      </div>
+                                   ) : (
+                                      <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-brand-primary/80 bg-white/50 px-2 py-1 rounded-md border border-brand-primary/10">
+                                         <span>Deadline: {targetDateRaw ? new Date(targetDateRaw).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Not Set'}</span>
+                                         <button onClick={() => { setTargetDateInput(targetDateRaw || ''); setEditingTargetDateId(metricsOrder.id); }} className="hover:text-brand-primary text-brand-secondary underline decoration-brand-border underline-offset-2">Edit</button>
                                       </div>
                                    )}
                             </div>
@@ -1011,7 +1066,9 @@ export function Production() {
                             </div>
                             <div className="flex flex-col border-l border-brand-primary/10 pl-4">
                                <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/60 mb-1">Time Left</span>
-                               <span className="text-xl font-black">{estimatedRemainingMins > 60 ? (estimatedRemainingMins / 60).toFixed(1) + 'h' : Math.round(estimatedRemainingMins) + 'm'}</span>
+                               <span className={`text-xl font-black ${hasTargetDate && businessHoursRemaining <= 0 ? 'text-red-500' : ''}`}>
+                                  {hasTargetDate ? (businessHoursRemaining <= 0 ? 'Overdue' : `${businessHoursRemaining}h`) : 'No Deadline'}
+                               </span>
                             </div>
                          </div>
                       </div>
