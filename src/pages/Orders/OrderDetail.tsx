@@ -1380,7 +1380,6 @@ export function OrderDetail() {
                      const remainingGarments = Math.max(0, totalOrderGarments - trueTotalGarmentsCompleted);
                      const globalAvgMinsPerGarment = globalTotalGarmentsCompletedWithStats > 0 ? (globalTotalTimeMins / globalTotalGarmentsCompletedWithStats) : 0;
                      const estimatedRemainingMins = remainingGarments * globalAvgMinsPerGarment;
-                     const estimatedTotalMins = (trueTotalGarmentsCompleted * globalAvgMinsPerGarment) + estimatedRemainingMins;
                      
                      let businessHoursRemaining = 0;
                      let hasTargetDate = false;
@@ -1470,14 +1469,31 @@ export function OrderDetail() {
                                    )}
                                 </div>
                              </div>
+                             {metricsOrder.project && (
+                                <div className="bg-brand-primary/5 border border-brand-primary/10 text-brand-primary text-[11px] p-3 rounded-xl mb-4 flex w-full items-center justify-between">
+                                   <div>
+                                     <strong>Active Project Header: </strong>
+                                     This order is mapped to pipeline project <span className="font-bold uppercase tracking-wider">{metricsOrder.project}</span>. For the master projected deadlines & pipeline timelines, please examine the grouped metrics directly from the Production page.
+                                   </div>
+                                </div>
+                             )}
+
+                             {remainingGarments === 0 ? (
+                                <div className="bg-gradient-to-r from-emerald-500 to-emerald-400 text-white rounded-xl p-6 shadow-md flex items-center justify-center gap-3 mb-6 relative overflow-hidden">
+                                   <div className="absolute inset-0 opacity-20" style={{ backgroundImage: "url('data:image/svg+xml,%3Csvg width=\\'20\\' height=\\'20\\' viewBox=\\'0 0 20 20\\' xmlns=\\'http://www.w3.org/2000/svg\\'%3E%3Cg fill=\\'%23ffffff\\' fill-opacity=\\'1\\' fill-rule=\\'evenodd\\'%3E%3Ccircle cx=\\'3\\' cy=\\'3\\' r=\\'3\\'/%3E%3Ccircle cx=\\'13\\' cy=\\'13\\' r=\\'3\\'/%3E%3C/g%3E%3C/svg%3E')" }}></div>
+                                   <Check className="h-8 w-8 shrink-0 relative z-10" strokeWidth={3} />
+                                   <div className="relative z-10 text-2xl font-black tracking-tight drop-shadow-md">PRODUCTION COMPLETE!</div>
+                                </div>
+                             ) : null}
+
                              <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
                                 <div className="flex flex-col">
-                                   <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/60 mb-1">Total {metricsTimeFilter === 'All' ? 'Processed' : 'Produced'}</span>
-                                   <span className="text-xl font-black">{globalTotalGarmentsCompletedWithStats || trueTotalGarmentsCompleted}</span>
+                                   <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/60 mb-1">Time Filter Output</span>
+                                   <span className="text-xl font-black text-blue-600">{globalTotalGarmentsCompletedWithStats}</span>
                                 </div>
                                 <div className="flex flex-col border-l border-brand-primary/10 pl-4">
-                                   <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/60 mb-1">Remaining Units</span>
-                                   <span className="text-xl font-black">{remainingGarments}</span>
+                                   <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/60 mb-1">Order Total Produced</span>
+                                   <span className="text-xl font-black">{trueTotalGarmentsCompleted} <span className="text-sm text-brand-secondary font-bold">/ {totalOrderGarments}</span></span>
                                 </div>
                                 <div className="flex flex-col relative border-l border-brand-primary/10 pl-4">
                                    <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/60 mb-1">Avg / Garment</span>
@@ -1492,7 +1508,7 @@ export function OrderDetail() {
                                 </div>
                                 <div className="flex flex-col border-l border-brand-primary/10 pl-4">
                                    <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/60 mb-1">Expected Time</span>
-                                   <span className="text-xl font-black">{estimatedTotalMins > 60 ? (estimatedTotalMins / 60).toFixed(1) + 'h' : Math.round(estimatedTotalMins) + 'm'}</span>
+                                   <span className="text-xl font-black">{estimatedRemainingMins > 60 ? (estimatedRemainingMins / 60).toFixed(1) + 'h' : Math.round(estimatedRemainingMins) + 'm'}</span>
                                 </div>
                                 <div className="flex flex-col border-l border-brand-primary/10 pl-4">
                                    <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/60 mb-1">Time Left</span>

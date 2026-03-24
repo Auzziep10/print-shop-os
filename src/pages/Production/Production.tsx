@@ -965,7 +965,6 @@ export function Production() {
                  const remainingGarments = Math.max(0, totalOrderGarments - trueTotalGarmentsCompleted);
                  const globalAvgMinsPerGarment = globalTotalGarmentsCompletedWithStats > 0 ? (globalTotalTimeMins / globalTotalGarmentsCompletedWithStats) : 0;
                  const estimatedRemainingMins = remainingGarments * globalAvgMinsPerGarment;
-                 const estimatedTotalMins = (trueTotalGarmentsCompleted * globalAvgMinsPerGarment) + estimatedRemainingMins;
                  
                  let businessHoursRemaining = 0;
                  let hasTargetDate = false;
@@ -1063,7 +1062,7 @@ export function Production() {
                             </div>
                             <div className="flex flex-col border-l border-brand-primary/10 pl-4">
                                <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/60 mb-1">Expected Time</span>
-                               <span className="text-xl font-black">{estimatedTotalMins > 60 ? (estimatedTotalMins / 60).toFixed(1) + 'h' : Math.round(estimatedTotalMins) + 'm'}</span>
+                               <span className="text-xl font-black">{estimatedRemainingMins > 60 ? (estimatedRemainingMins / 60).toFixed(1) + 'h' : Math.round(estimatedRemainingMins) + 'm'}</span>
                             </div>
                             <div className="flex flex-col border-l border-brand-primary/10 pl-4">
                                <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/60 mb-1">Time Left</span>
