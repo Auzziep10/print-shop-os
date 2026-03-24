@@ -7,6 +7,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useOrders } from '../../hooks/useOrders';
 import { db } from '../../lib/firebase';
 import { collection, query, where, getDocs, onSnapshot } from 'firebase/firestore';
+import { normalizeUser } from '../../lib/utils';
 
 export function Dashboard() {
   const { userData } = useAuth();
@@ -18,6 +19,8 @@ export function Dashboard() {
   
   const [myTasks, setMyTasks] = useState<any[]>([]);
   const [customers, setCustomers] = useState<Record<string, any>>({});
+  const [activeMetricsTab, setActiveMetricsTab] = useState<string>('All');
+  const [allUsersList, setAllUsersList] = useState<any[]>([]);
 
   useEffect(() => {
     if (userData && (userData.role === 'Admin' || userData.role === 'Manager')) {
@@ -32,6 +35,10 @@ export function Dashboard() {
       const obj: Record<string,any> = {};
       snap.forEach(d => { obj[d.id] = d.data(); });
       setCustomers(obj);
+    }).catch(e => console.error(e));
+
+    getDocs(collection(db, 'users')).then(snap => {
+      setAllUsersList(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     }).catch(e => console.error(e));
   }, []);
 
@@ -56,6 +63,50 @@ export function Dashboard() {
     };
     return `${formatHour(start)} - ${formatHour(start + duration)}`;
   };
+
+  const statsByUser: Record<string, { totalTimeMins: number, garmentsCompleted: number }> = {};
+  const bestDisplayNames: Record<string, string> = {};
+
+  orders.forEach(order => {
+     (order.items || []).forEach((item: any) => {
+        const completed = item.completedSizes || [];
+        completed.forEach((size: string) => {
+           const qty = parseInt(item.sizes?.[size]) || 0;
+           const stat = item.sizeStats?.[size];
+           if (stat) {
+               let userName = stat.user?.split('@')[0] || stat.user;
+               const actMatch = (order.activities || []).find((a: any) =>
+                   a.message?.startsWith('Completed') && a.message?.includes(`x ${size} for ${item.style}`)
+               );
+               if (!userName) {
+                   userName = actMatch?.user?.split('@')[0] || actMatch?.user || 'Unknown';
+               }
+
+               let rawName = normalizeUser(userName, allUsersList);
+               const groupKey = rawName.toLowerCase().replace(/[^a-z]/g, '') || 'unknown';
+
+               if (!bestDisplayNames[groupKey]) {
+                  bestDisplayNames[groupKey] = rawName;
+               } else if (rawName.includes(' ') && !bestDisplayNames[groupKey].includes(' ')) {
+                  bestDisplayNames[groupKey] = rawName;
+               } else if (rawName.length > bestDisplayNames[groupKey].length && rawName !== rawName.toLowerCase()) {
+                  bestDisplayNames[groupKey] = rawName;
+               }
+
+               const durationMs = stat.durationMs || 0;
+               const timeMins = durationMs / 60000;
+
+               if (!statsByUser[groupKey]) {
+                  statsByUser[groupKey] = { totalTimeMins: 0, garmentsCompleted: 0 };
+               }
+               statsByUser[groupKey].totalTimeMins += timeMins;
+               statsByUser[groupKey].garmentsCompleted += qty;
+           }
+        });
+     });
+  });
+
+  const teamMetricUsers = Object.keys(statsByUser).sort((a,b) => statsByUser[b].garmentsCompleted - statsByUser[a].garmentsCompleted);
 
   return (
     <div className={tokens.layout.container}>
@@ -181,6 +232,78 @@ export function Dashboard() {
                </button>
             </div>
           </div>
+
+          {/* Team Performance Metrics */}
+          {teamMetricUsers.length > 0 && (
+            <div className="bg-white rounded-card border border-brand-border p-6 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.02)]">
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-center justify-between">
+                     <div>
+                        <h2 className={tokens.typography.h2}>Team Production Metrics</h2>
+                        <p className="text-sm text-brand-secondary mt-1">Aggregated statistics across all recorded orders.</p>
+                     </div>
+                  </div>
+                  <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar pb-2">
+                     <button 
+                        onClick={() => setActiveMetricsTab('All')}
+                        className={`px-4 py-2 text-xs font-bold uppercase tracking-widest rounded-pill border transition-all whitespace-nowrap ${activeMetricsTab === 'All' ? 'bg-brand-primary text-white border-brand-primary shadow-sm' : 'bg-white text-brand-secondary border-brand-border hover:border-brand-primary/50'}`}
+                     >
+                        Full Team
+                     </button>
+                     {teamMetricUsers.map(uId => (
+                        <button 
+                           key={uId}
+                           onClick={() => setActiveMetricsTab(uId)}
+                           className={`px-4 py-2 text-xs font-bold uppercase tracking-widest rounded-pill border transition-all whitespace-nowrap ${activeMetricsTab === uId ? 'bg-brand-primary text-white border-brand-primary shadow-sm' : 'bg-white text-brand-secondary border-brand-border hover:border-brand-primary/50'}`}
+                        >
+                           {bestDisplayNames[uId] || uId}
+                        </button>
+                     ))}
+                  </div>
+                  
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-2">
+                     {(() => {
+                        let totalMins = 0;
+                        let totalGarments = 0;
+
+                        if (activeMetricsTab === 'All') {
+                           Object.values(statsByUser).forEach(stat => {
+                              totalMins += stat.totalTimeMins;
+                              totalGarments += stat.garmentsCompleted;
+                           });
+                        } else if (statsByUser[activeMetricsTab]) {
+                           totalMins = statsByUser[activeMetricsTab].totalTimeMins;
+                           totalGarments = statsByUser[activeMetricsTab].garmentsCompleted;
+                        }
+
+                        const avgTime = totalGarments > 0 ? (totalMins / totalGarments) : 0;
+                        const rateHour = totalMins > 0 ? ((totalGarments / totalMins) * 60) : 0;
+
+                        return (
+                           <>
+                             <div className="bg-brand-bg/50 border border-brand-border rounded-xl p-4 flex flex-col items-center justify-center">
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1">Total Garments</span>
+                                <span className="text-3xl font-black text-brand-primary">{totalGarments}</span>
+                             </div>
+                             <div className="bg-brand-bg/50 border border-brand-border rounded-xl p-4 flex flex-col items-center justify-center">
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1">Avg Time / Garment</span>
+                                <span className="text-3xl font-black text-blue-600">{avgTime >= 1 ? avgTime.toFixed(1) + 'm' : Math.round(avgTime * 60) + 's'}</span>
+                             </div>
+                             <div className="bg-brand-bg/50 border border-brand-border rounded-xl p-4 flex flex-col items-center justify-center">
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1">Total Time</span>
+                                <span className="text-3xl font-black text-brand-primary">{Math.round(totalMins)}m</span>
+                             </div>
+                             <div className="bg-brand-bg/50 border border-brand-border rounded-xl p-4 flex flex-col items-center justify-center">
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1">Overall Rate</span>
+                                <span className="text-3xl font-black text-green-600">{Math.round(rateHour)}/hr</span>
+                             </div>
+                           </>
+                        );
+                     })()}
+                  </div>
+                </div>
+            </div>
+          )}
 
           {/* Team Schedule Overview */}
           <div className="bg-white rounded-card border border-brand-border p-6 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.02)]">
