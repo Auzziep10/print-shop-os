@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { tokens } from '../../lib/tokens';
 import { collection, query, onSnapshot, addDoc, updateDoc, doc, deleteDoc, serverTimestamp, getDocs } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
@@ -40,6 +40,21 @@ export function TimelinePlanner() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<TimelineTask | null>(null);
   
+  const gridRef = useRef<HTMLDivElement>(null);
+  const isDraggingRef = useRef(false);
+  const [dragState, setDragState] = useState<{ 
+    taskId: string, 
+    type: 'move' | 'resize', 
+    startX: number, 
+    startY: number, 
+    initialStart: number, 
+    initialDuration: number, 
+    initialMemberId: string,
+    currentStart: number,
+    currentDuration: number,
+    currentMemberId: string
+  } | null>(null);
+
   const [formData, setFormData] = useState({
     memberIds: [] as string[],
     title: '',
@@ -71,6 +86,70 @@ export function TimelinePlanner() {
     const interval = setInterval(updateTime, 60000);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (!dragState) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      e.preventDefault();
+      isDraggingRef.current = true;
+      if (!gridRef.current) return;
+      
+      const gridRect = gridRef.current.getBoundingClientRect();
+      const timelineWidth = gridRect.width - 200; // 200px is the member name column
+      const pxPerHour = timelineWidth / HOURS.length;
+      
+      const deltaX = e.clientX - dragState.startX;
+      const hoursDelta = deltaX / pxPerHour;
+      const snappedHoursDelta = Math.round(hoursDelta * 2) / 2; // Snap to nearest 30 mins
+      
+      if (dragState.type === 'resize') {
+         const newDuration = Math.max(0.5, dragState.initialDuration + snappedHoursDelta);
+         setDragState(prev => prev ? { ...prev, currentDuration: newDuration } : null);
+      } else if (dragState.type === 'move') {
+         let newStart = dragState.initialStart + snappedHoursDelta;
+         // Clamp start so it doesn't overflow backwards or forwards past available hours
+         newStart = Math.max(HOURS[0], Math.min(HOURS[HOURS.length - 1] - dragState.currentDuration + 1, newStart));
+         
+         let newMemberId = dragState.currentMemberId;
+         // Detect which member row is underneath the cursor for vertical draggability
+         const el = document.elementFromPoint(e.clientX, e.clientY);
+         const rowEl = el?.closest('[data-member-id]');
+         if (rowEl) {
+           newMemberId = rowEl.getAttribute('data-member-id') || dragState.currentMemberId;
+         }
+         
+         setDragState(prev => prev ? { ...prev, currentStart: newStart, currentMemberId: newMemberId } : null);
+      }
+    };
+
+    const handleMouseUp = async () => {
+      if (dragState) {
+         if (dragState.currentStart !== dragState.initialStart || 
+             dragState.currentDuration !== dragState.initialDuration || 
+             dragState.currentMemberId !== dragState.initialMemberId) {
+             
+             updateDoc(doc(db, 'timelineTasks', dragState.taskId), {
+               start: dragState.currentStart,
+               duration: dragState.currentDuration,
+               memberId: dragState.currentMemberId,
+               updatedAt: serverTimestamp()
+             }).catch(err => console.error(err));
+         }
+      }
+      setDragState(null);
+      setTimeout(() => {
+         isDraggingRef.current = false;
+      }, 50);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [dragState]);
 
   useEffect(() => {
     // Fetch customers to map company names
@@ -215,8 +294,8 @@ export function TimelinePlanner() {
         </button>
       </div>
 
-      <div className="overflow-x-auto custom-scrollbar">
-        <div className="min-w-[1000px]">
+      <div className="overflow-x-auto custom-scrollbar" ref={gridRef}>
+        <div className="min-w-[1000px] select-none">
           {/* Header Row */}
           <div className="grid grid-cols-[200px_1fr] border-b border-brand-border relative">
             <div className="p-4 text-xs font-semibold uppercase tracking-wider text-brand-secondary">
@@ -249,7 +328,7 @@ export function TimelinePlanner() {
             </div>
           ) : (
             members.map((member) => (
-              <div key={member.id} className="grid grid-cols-[200px_1fr] border-b border-brand-border/50 group transition-colors hover:bg-brand-bg/30">
+              <div key={member.id} data-member-id={member.id} className="grid grid-cols-[200px_1fr] border-b border-brand-border/50 group transition-colors hover:bg-brand-bg/30">
                 <div className="p-4 flex items-center gap-3 border-r border-brand-border/50 bg-white group-hover:bg-brand-bg/50 transition-colors relative z-20">
                   <span className="w-8 h-8 rounded-full bg-brand-bg border border-brand-border flex items-center justify-center text-[11px] font-bold tracking-wider text-brand-primary shadow-sm">
                     {member.initials}
@@ -267,32 +346,68 @@ export function TimelinePlanner() {
                   </div>
 
                   {/* Tasks */}
-                  {tasks.filter(t => t.memberId === member.id).map((task) => {
-                    const hourWidth = 100 / HOURS.length;
-                    const left = (task.start - HOURS[0]) * hourWidth;
-                    const width = task.duration * hourWidth;
+                  {(() => {
+                    const displayTasks = tasks.map(t => {
+                       if (dragState && dragState.taskId === t.id) {
+                          return { ...t, start: dragState.currentStart, duration: dragState.currentDuration, memberId: dragState.currentMemberId };
+                       }
+                       return t;
+                    });
                     
-                    // Simple collision avoidance - if they overlap visually, just stack them normally without raw rows yet
-                    return (
-                      <div 
-                        key={task.id}
-                        onClick={(e) => { e.stopPropagation(); handleEditTask(task); }}
-                        className={`absolute h-[42px] rounded-lg text-white px-3 flex flex-col justify-center shadow-sm cursor-pointer hover:shadow-md hover:scale-[1.01] hover:-translate-y-0.5 transition-all overflow-hidden border border-black/10 ${task.color}`}
-                        style={{ 
-                          left: `${Math.max(0, left)}%`, 
-                          width: `calc(${width}% - 6px)`, 
-                          top: `14px`,
-                          zIndex: 20
-                        }}
-                      >
-                        <span className="font-semibold text-xs truncate leading-tight tracking-wide">{task.title}</span>
-                        <span className="text-[9px] opacity-80 uppercase font-bold tracking-widest mt-0.5">
-                          {Math.floor(task.start) > 12 ? Math.floor(task.start) - 12 : Math.floor(task.start)}{task.start % 1 !== 0 ? ':30' : ':00'} - 
-                          {Math.floor(task.start + task.duration) > 12 ? Math.floor(task.start + task.duration) - 12 : Math.floor(task.start + task.duration)}{(task.start + task.duration) % 1 !== 0 ? ':30' : ':00'}
-                        </span>
-                      </div>
-                    );
-                  })}
+                    return displayTasks.filter(t => t.memberId === member.id).map((task) => {
+                      const hourWidth = 100 / HOURS.length;
+                      const left = (task.start - HOURS[0]) * hourWidth;
+                      const width = task.duration * hourWidth;
+                      const isDragging = dragState?.taskId === task.id;
+                      
+                      return (
+                        <div 
+                          key={task.id}
+                          onClick={(e) => { 
+                             e.stopPropagation(); 
+                             if (!isDraggingRef.current) handleEditTask(task); 
+                          }}
+                          onMouseDown={(e) => {
+                             // Default drag (move) action unless they precisely click the resize handle
+                             if ((e.target as HTMLElement).getAttribute('data-resize-handle')) return;
+                             setDragState({
+                               taskId: task.id, type: 'move', startX: e.clientX, startY: e.clientY,
+                               initialStart: task.start, initialDuration: task.duration, initialMemberId: task.memberId,
+                               currentStart: task.start, currentDuration: task.duration, currentMemberId: task.memberId
+                             });
+                          }}
+                          className={`absolute h-[42px] rounded-lg text-white px-3 flex flex-col justify-center shadow-sm cursor-grab active:cursor-grabbing hover:shadow-md hover:scale-[1.01] hover:-translate-y-0.5 transition-all overflow-hidden border border-black/10 ${task.color} ${isDragging ? 'opacity-80 shadow-2xl scale-[1.02] z-50' : 'z-20'}`}
+                          style={{ 
+                            left: `${Math.max(0, left)}%`, 
+                            width: `calc(${width}% - 6px)`, 
+                            top: `14px`,
+                            transition: isDragging ? 'none' : 'all 0.2s ease-in-out' // Disable CSS transition while dragging for responsiveness
+                          }}
+                        >
+                          <span className="font-semibold text-xs truncate leading-tight tracking-wide pointer-events-none">{task.title}</span>
+                          <span className="text-[9px] opacity-80 uppercase font-bold tracking-widest mt-0.5 pointer-events-none">
+                            {Math.floor(task.start) > 12 ? Math.floor(task.start) - 12 : Math.floor(task.start)}{task.start % 1 !== 0 ? ':30' : ':00'} - 
+                            {Math.floor(task.start + task.duration) > 12 ? Math.floor(task.start + task.duration) - 12 : Math.floor(task.start + task.duration)}{(task.start + task.duration) % 1 !== 0 ? ':30' : ':00'}
+                          </span>
+
+                          <div 
+                             data-resize-handle="true"
+                             className="absolute right-0 top-0 bottom-0 w-3 cursor-ew-resize hover:bg-white/30 transition-colors flex flex-col justify-center items-center opacity-0 hover:opacity-100 group-hover:opacity-100"
+                             onMouseDown={(e) => {
+                                e.stopPropagation();
+                                setDragState({
+                                  taskId: task.id, type: 'resize', startX: e.clientX, startY: e.clientY,
+                                  initialStart: task.start, initialDuration: task.duration, initialMemberId: task.memberId,
+                                  currentStart: task.start, currentDuration: task.duration, currentMemberId: task.memberId
+                                });
+                             }}
+                          >
+                             <div className="w-[3px] h-3 border-l border-r border-white/50 pointer-events-none"></div>
+                          </div>
+                        </div>
+                      );
+                    });
+                  })()}
                 </div>
               </div>
             ))
