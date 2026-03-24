@@ -1389,14 +1389,17 @@ export function OrderDetail() {
                          const now = new Date();
                          if (tDate > now) {
                              let current = new Date(now);
-                             let bHours = 0;
+                             let bMins = 0;
                              while (current < tDate) {
                                  if (current.getDay() !== 0 && current.getDay() !== 6) {
-                                     bHours += 8;
+                                     const h = current.getHours();
+                                     if (h >= 9 && h < 17) {
+                                         bMins++;
+                                     }
                                  }
-                                 current.setTime(current.getTime() + (1000 * 60 * 60 * 24));
+                                 current.setTime(current.getTime() + 60000);
                              }
-                             businessHoursRemaining = bHours;
+                             businessHoursRemaining = Math.round(bMins / 60);
                          }
                      }
 
@@ -1488,7 +1491,7 @@ export function OrderDetail() {
 
                              <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
                                 <div className="flex flex-col">
-                                   <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/60 mb-1">Time Filter Output</span>
+                                   <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/60 mb-1">Completed Garments</span>
                                    <span className="text-xl font-black text-blue-600">{globalTotalGarmentsCompletedWithStats}</span>
                                 </div>
                                 <div className="flex flex-col border-l border-brand-primary/10 pl-4">

@@ -977,14 +977,17 @@ export function Production() {
                      const now = new Date();
                      if (tDate > now) {
                          let current = new Date(now);
-                         let bHours = 0;
+                         let bMins = 0;
                          while (current < tDate) {
                              if (current.getDay() !== 0 && current.getDay() !== 6) {
-                                 bHours += 8;
+                                 const h = current.getHours();
+                                 if (h >= 9 && h < 17) {
+                                     bMins++;
+                                 }
                              }
-                             current.setTime(current.getTime() + (1000 * 60 * 60 * 24));
+                             current.setTime(current.getTime() + 60000);
                          }
-                         businessHoursRemaining = bHours;
+                         businessHoursRemaining = Math.round(bMins / 60);
                      }
                  }
 
