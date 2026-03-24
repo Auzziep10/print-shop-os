@@ -1006,12 +1006,12 @@ export function Production() {
                                </div>
                             </div>
                             <div className="flex flex-col border-l border-brand-primary/10 pl-4">
-                               <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/60 mb-1">Time Left</span>
-                               <span className="text-xl font-black">{estimatedRemainingMins > 60 ? (estimatedRemainingMins / 60).toFixed(1) + 'h' : Math.round(estimatedRemainingMins) + 'm'}</span>
-                            </div>
-                            <div className="flex flex-col border-l border-brand-primary/10 pl-4">
                                <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/60 mb-1">Expected Time</span>
                                <span className="text-xl font-black">{estimatedTotalMins > 60 ? (estimatedTotalMins / 60).toFixed(1) + 'h' : Math.round(estimatedTotalMins) + 'm'}</span>
+                            </div>
+                            <div className="flex flex-col border-l border-brand-primary/10 pl-4">
+                               <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/60 mb-1">Time Left</span>
+                               <span className="text-xl font-black">{estimatedRemainingMins > 60 ? (estimatedRemainingMins / 60).toFixed(1) + 'h' : Math.round(estimatedRemainingMins) + 'm'}</span>
                             </div>
                          </div>
                       </div>
