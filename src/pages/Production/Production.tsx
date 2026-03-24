@@ -59,9 +59,14 @@ export function Production() {
   const handleSaveTarget = async (orderId: string) => {
     const val = parseFloat(targetInput);
     if (!isNaN(val) && val >= 0) {
-       await updateDoc(doc(db, 'orders', orderId), { targetAvgMinsPerGarment: val });
-       if (metricsOrder && metricsOrder.id === orderId) {
-          setMetricsOrder({ ...metricsOrder, targetAvgMinsPerGarment: val });
+       if (metricsOrder?.isProjectGroup) {
+           await Promise.all(metricsOrder.orders.map((o: any) => updateDoc(doc(db, 'orders', o.id), { targetAvgMinsPerGarment: val })));
+           setMetricsOrder({ ...metricsOrder, targetAvgMinsPerGarment: val });
+       } else {
+           await updateDoc(doc(db, 'orders', orderId), { targetAvgMinsPerGarment: val });
+           if (metricsOrder && metricsOrder.id === orderId) {
+              setMetricsOrder({ ...metricsOrder, targetAvgMinsPerGarment: val });
+           }
        }
     }
     setEditingTargetId(null);
@@ -86,19 +91,46 @@ export function Production() {
     return { totalGarments, completedGarments, completionRatio };
   };
 
-  const productionOrders = orders
+  const groupedProjectsList = Object.values(orders
     .filter(o => o.statusIndex === 6 || o.statusIndex === 7)
     .filter(o => {
       if (!searchQuery) return true;
       const q = searchQuery.toLowerCase();
-      return (o.title?.toLowerCase().includes(q) || o.portalId?.toLowerCase().includes(q) || o.id.toLowerCase().includes(q));
+      const title = o.title || '';
+      const pid = o.portalId || '';
+      const orderId = o.id || '';
+      return (title.toLowerCase().includes(q) || pid.toLowerCase().includes(q) || orderId.toLowerCase().includes(q));
     })
-    .sort((a, b) => getCompletionData(b).completionRatio - getCompletionData(a).completionRatio);
+    .reduce((acc: any, order: any) => {
+       const projectKey = order.project || order.title || 'Untitled Project';
+       const cid = order.customerId;
+       const hash = `${cid}-${projectKey}`;
+       if (!acc[hash]) {
+           acc[hash] = {
+              id: `project-${hash}`,
+              isProjectGroup: true,
+              title: projectKey,
+              customerId: cid,
+              orders: [],
+              items: [],
+              activities: [],
+              statusIndex: order.statusIndex
+           };
+       }
+       acc[hash].orders.push(order);
+       const itemsWithMeta = (order.items || []).map((i: any) => ({ ...i, sourceOrder: order }));
+       acc[hash].items.push(...itemsWithMeta);
+       acc[hash].activities.push(...(order.activities || []));
+       
+       return acc;
+    }, {}));
+
+  const productionOrders: any[] = groupedProjectsList.sort((a: any, b: any) => getCompletionData(b).completionRatio - getCompletionData(a).completionRatio);
 
   useEffect(() => {
     // Fetch unique customer logos
     const fetchLogos = async () => {
-      const custIds = [...new Set(productionOrders.map(o => o.customerId).filter(Boolean))];
+      const custIds = [...new Set(productionOrders.map((o: any) => o.customerId).filter(Boolean))];
       for (const cid of custIds) {
         if (!customerLogos[cid]) {
           try {
@@ -113,7 +145,8 @@ export function Production() {
     if (productionOrders.length > 0) fetchLogos();
   }, [orders]);
 
-  const handleSizeClick = async (order: any, item: any, size: string, qty: number) => {
+  const handleSizeClick = async (projectOrOrder: any, item: any, size: string, qty: number) => {
+     const realOrder = item.sourceOrder || projectOrOrder;
      const currentCompleted = item.completedSizes || [];
      const inProgress = item.inProgressSizes || {};
      
@@ -150,7 +183,8 @@ export function Production() {
              timestamp: new Date().toISOString()
          };
          
-         const updatedItems = order.items.map((i: any) => 
+         const updatedItems = realOrder.items.map((i: any) => 
+             // IMPORTANT: Match `i.id === item.id` from realOrder.items
              i.id === item.id ? { ...i, completedSizes: newCompleted, inProgressSizes: newInProgress, sizeStats: newStats } : i
          );
          
@@ -163,9 +197,9 @@ export function Production() {
            timestamp: new Date().toISOString()
          };
 
-         await updateDoc(doc(db, 'orders', order.id), { 
+         await updateDoc(doc(db, 'orders', realOrder.id), { 
            items: updatedItems,
-           activities: [activity, ...(order.activities || [])]
+           activities: [activity, ...(realOrder.activities || [])]
          });
      } else {
          const newInProgress = { 
@@ -176,7 +210,7 @@ export function Production() {
              } 
          };
          
-         const updatedItems = order.items.map((i: any) => 
+         const updatedItems = realOrder.items.map((i: any) => 
              i.id === item.id ? { ...i, inProgressSizes: newInProgress } : i
          );
          
@@ -188,17 +222,18 @@ export function Production() {
            timestamp: new Date().toISOString()
          };
 
-         await updateDoc(doc(db, 'orders', order.id), { 
+         await updateDoc(doc(db, 'orders', realOrder.id), { 
            items: updatedItems,
-           activities: [activity, ...(order.activities || [])]
+           activities: [activity, ...(realOrder.activities || [])]
          });
      }
   };
 
-  const isSizeFullyBoxed = (order: any, item: any, size: string, totalQty: number) => {
-      if (!order.boxes || totalQty <= 0) return false;
+  const isSizeFullyBoxed = (orderOrProject: any, item: any, size: string, totalQty: number) => {
+      const realOrder = item.sourceOrder || orderOrProject;
+      if (!realOrder.boxes || totalQty <= 0) return false;
       let boxedQty = 0;
-      order.boxes.forEach((box: any) => {
+      realOrder.boxes.forEach((box: any) => {
           const boxItem = box.items?.find((bi: any) => String(bi.id) === String(item.id));
           if (boxItem?.sizes?.[size]) boxedQty += boxItem.sizes[size];
       });
@@ -207,10 +242,11 @@ export function Production() {
 
   const handleContextMenuAction = async (action: string, boxId?: string) => {
     if (!contextMenu) return;
-    const { order, item, size, qty } = contextMenu;
+    const { order: projectOrOrder, item, size, qty } = contextMenu;
+    const realOrder = item.sourceOrder || projectOrOrder;
     
-    let updatedItems = [...(order.items || [])];
-    let updatedBoxes = [...(order.boxes || [])];
+    let updatedItems = [...(realOrder.items || [])];
+    let updatedBoxes = [...(realOrder.boxes || [])];
     let activityMessage = '';
 
     if (action === 'uncomplete') {
@@ -284,10 +320,10 @@ export function Production() {
          timestamp: new Date().toISOString()
        };
 
-       await updateDoc(doc(db, 'orders', order.id), { 
+       await updateDoc(doc(db, 'orders', realOrder.id), { 
          items: updatedItems,
          boxes: updatedBoxes,
-         activities: [activity, ...(order.activities || [])]
+         activities: [activity, ...(realOrder.activities || [])]
        });
     }
     setContextMenu(null);
@@ -389,14 +425,20 @@ export function Production() {
                           <ChevronRight size={20} strokeWidth={2.5} className={`transition-transform duration-500 ease-out ${isExpanded ? 'rotate-90' : ''}`} />
                         </span>
                       </div>
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); navigate(`/orders/${order.id}`); }}
-                        className="flex items-center gap-1.5 text-[11px] font-bold text-gray-500 hover:text-brand-primary mt-1.5 uppercase tracking-widest transition-colors z-20 relative bg-neutral-100/80 hover:bg-brand-primary/10 px-2.5 py-1 rounded-md max-w-max border border-transparent hover:border-brand-primary/20"
-                        title="Open Order Details"
-                      >
-                         Order #{order.portalId || order.id.substring(0,8)}
-                         <ExternalLink size={12} className="opacity-80" />
-                      </button>
+                      {order.isProjectGroup && order.orders.length > 1 ? (
+                         <span className="flex items-center gap-1.5 text-[11px] font-bold text-gray-500 mt-1.5 uppercase tracking-widest bg-neutral-100/80 px-2.5 py-1 rounded-md max-w-max border border-transparent z-20 relative">
+                            {order.orders.length} Orders Grouped
+                         </span>
+                      ) : (
+                         <button 
+                           onClick={(e) => { e.stopPropagation(); navigate(`/orders/${order.orders?.[0]?.id || order.id}`); }}
+                           className="flex items-center gap-1.5 text-[11px] font-bold text-gray-500 hover:text-brand-primary mt-1.5 uppercase tracking-widest transition-colors z-20 relative bg-neutral-100/80 hover:bg-brand-primary/10 px-2.5 py-1 rounded-md max-w-max border border-transparent hover:border-brand-primary/20"
+                           title="Open Order Details"
+                         >
+                            Order #{order.orders?.[0]?.portalId || order.portalId || (order.orders?.[0]?.id || order.id).substring(0,8)}
+                            <ExternalLink size={12} className="opacity-80" />
+                         </button>
+                      )}
                     </div>
                   </div>
 
@@ -787,29 +829,29 @@ export function Production() {
                              <h4 className="font-bold uppercase tracking-wider text-[11px]">AI Production Forecast</h4>
                            </div>
                            <div className="flex items-center">
-                              {editingTargetId === metricsOrder.id ? (
-                                 <div className="flex items-center gap-2">
-                                    <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/80 bg-white/50 px-2 py-1 rounded-md border border-brand-primary/10">Expected Time / Garment:</span>
-                                    <input 
-                                      type="number" 
-                                      step="0.1"
-                                      value={targetInput} 
-                                      onChange={e => setTargetInput(e.target.value)} 
-                                      className="w-16 px-2 py-0.5 text-xs text-brand-primary font-bold border border-brand-primary/40 rounded bg-white outline-none ml-1"
-                                      placeholder="Mins"
-                                      autoFocus
-                                    />
-                                    <button onClick={() => handleSaveTarget(metricsOrder.id)} className="text-[10px] font-bold uppercase bg-brand-primary text-white px-2 py-1 rounded ml-1">Save</button>
-                                    <button onClick={() => setEditingTargetId(null)} className="text-brand-secondary hover:text-brand-primary"><X size={14} /></button>
-                                 </div>
-                              ) : (
-                                 <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-brand-primary/80 bg-white/50 px-2 py-1 rounded-md border border-brand-primary/10">
-                                    <span>Expected Time / Garment: {metricsOrder.targetAvgMinsPerGarment ? `${metricsOrder.targetAvgMinsPerGarment}m` : 'Not Set'}</span>
-                                    <button onClick={() => { setTargetInput(metricsOrder.targetAvgMinsPerGarment?.toString() || ''); setEditingTargetId(metricsOrder.id); }} className="hover:text-brand-primary text-brand-secondary underline decoration-brand-border underline-offset-2">Edit</button>
-                                 </div>
-                              )}
-                           </div>
-                        </div>
+                                   {editingTargetId === metricsOrder.id ? (
+                                      <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-brand-primary/80 bg-white/50 px-2 py-1 rounded-md border border-brand-primary/10 w-full sm:w-auto">
+                                         <span>Expected Time / Garment:</span>
+                                         <input
+                                           type="number"
+                                           step="0.1"
+                                           value={targetInput}
+                                           onChange={e => setTargetInput(e.target.value)}
+                                           className="w-16 px-2 py-0.5 text-xs text-brand-primary font-bold border border-brand-primary/40 rounded bg-white outline-none ml-1"
+                                           placeholder="Mins"
+                                           autoFocus
+                                         />
+                                         <button onClick={() => handleSaveTarget(metricsOrder.id)} className="text-[10px] font-bold uppercase bg-brand-primary text-white px-2 py-1 rounded ml-1">Save</button>
+                                         <button onClick={() => setEditingTargetId(null)} className="text-brand-secondary hover:text-brand-primary"><X size={14} /></button>
+                                      </div>
+                                   ) : (
+                                      <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-brand-primary/80 bg-white/50 px-2 py-1 rounded-md border border-brand-primary/10">
+                                         <span>Expected Time / Garment: {(metricsOrder.isProjectGroup ? metricsOrder.orders?.[0]?.targetAvgMinsPerGarment : metricsOrder.targetAvgMinsPerGarment) ? `${metricsOrder.isProjectGroup ? metricsOrder.orders[0].targetAvgMinsPerGarment : metricsOrder.targetAvgMinsPerGarment}m` : 'Not Set'}</span>
+                                         <button onClick={() => { setTargetInput((metricsOrder.isProjectGroup ? metricsOrder.orders?.[0]?.targetAvgMinsPerGarment : metricsOrder.targetAvgMinsPerGarment)?.toString() || ''); setEditingTargetId(metricsOrder.id); }} className="hover:text-brand-primary text-brand-secondary underline decoration-brand-border underline-offset-2">Edit</button>
+                                      </div>
+                                   )}
+                            </div>
+                         </div>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                            <div className="flex flex-col">
                               <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/60 mb-1">Remaining Units</span>
