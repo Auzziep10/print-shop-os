@@ -1006,23 +1006,23 @@ export function OrderDetail() {
                              if (isPacked) {
                                  colorClassTop = 'bg-blue-500 text-white';
                                  colorClassBottom = 'bg-blue-50 text-blue-700';
-                                 topContent = <Box size={12} strokeWidth={3} className="my-auto mx-auto" />;
+                                 topContent = <div className="flex items-center gap-[2px]"><Box size={10} strokeWidth={3} /> <span className="text-[10px] leading-none mb-[1px]">{size}</span></div>;
                                  wrapperClass = 'opacity-80 hover:opacity-100';
                              } else if (isCompleted) {
                                  colorClassTop = 'bg-green-500 text-white';
                                  colorClassBottom = 'bg-green-50 text-green-700';
-                                 topContent = <Check size={12} strokeWidth={4} className="my-auto mx-auto" />;
+                                 topContent = <div className="flex items-center gap-[2px]"><Check size={10} strokeWidth={4} /> <span className="text-[10px] leading-none mb-[1px]">{size}</span></div>;
                                  wrapperClass = 'opacity-80 hover:opacity-100';
                              } else if (inProgress) {
                                  if (inProgress.paused) {
                                      colorClassTop = 'bg-orange-500 text-white';
                                      colorClassBottom = 'bg-orange-50 text-orange-700';
-                                     topContent = <Pause size={12} strokeWidth={3} className="my-auto mx-auto" />;
+                                     topContent = <div className="flex items-center gap-[2px]"><Pause size={10} strokeWidth={3} /> <span className="text-[10px] leading-none mb-[1px]">{size}</span></div>;
                                      wrapperClass = 'opacity-90 hover:opacity-100';
                                  } else {
                                      colorClassTop = 'bg-red-500 text-white';
                                      colorClassBottom = 'bg-red-50 text-red-700';
-                                     topContent = <Clock size={12} strokeWidth={3} className="animate-pulse my-auto mx-auto" />;
+                                     topContent = <div className="flex items-center gap-[2px]"><Clock size={10} strokeWidth={3} className="animate-pulse" /> <span className="text-[10px] leading-none mb-[1px]">{size}</span></div>;
                                      wrapperClass = 'opacity-90 hover:opacity-100';
                                  }
                              }
@@ -1294,6 +1294,8 @@ export function OrderDetail() {
                      let globalTotalTimeMins = 0;
                      let totalOrderGarments = 0;
                      let trueTotalGarmentsCompleted = 0; // The actual count regardless of attached stat metrics
+                     let trueTotalTimeMins = 0;
+                     let trueTotalGarmentsCompletedWithStats = 0;
 
                      (metricsOrder.items || []).forEach((item: any) => {
                         if (item.sizes) {
@@ -1309,6 +1311,10 @@ export function OrderDetail() {
 
                            const stat = item.sizeStats?.[size];
                            if (stat) {
+                           const durationMs = stat.durationMs || 0;
+                           trueTotalTimeMins += durationMs / 60000;
+                           trueTotalGarmentsCompletedWithStats += qty;
+
                            let userName = stat.user?.split('@')[0] || stat.user;
                            
                            const actMatch = (metricsOrder.activities || []).find((a: any) =>
@@ -1355,7 +1361,6 @@ export function OrderDetail() {
                                   bestDisplayNames[groupKey] = rawName;
                                }
 
-                               const durationMs = stat.durationMs || 0;
                                const timeMins = durationMs / 60000;
 
                                if (!statsByUser[groupKey]) {
@@ -1400,6 +1405,26 @@ export function OrderDetail() {
                                  current.setTime(current.getTime() + 60000);
                              }
                              businessHoursRemaining = Math.round(bMins / 60);
+                         }
+                     }
+
+                     let efficiencyMessage = null;
+                     const activeTargetAvgMins = metricsOrder.targetAvgMinsPerGarment;
+                     
+                     if (remainingGarments === 0 && activeTargetAvgMins && trueTotalGarmentsCompletedWithStats > 0) {
+                         const trueOverallAvg = trueTotalTimeMins / trueTotalGarmentsCompletedWithStats;
+                         const projectedFinalMins = trueOverallAvg * totalOrderGarments;
+                         const targetFinalMins = activeTargetAvgMins * totalOrderGarments;
+                         const savedMins = targetFinalMins - projectedFinalMins;
+                         
+                         if (Math.abs(savedMins) >= 1) {
+                             const h = Math.abs(savedMins) / 60;
+                             const timeStr = h >= 1 ? `${h.toFixed(1)}h` : `${Math.round(Math.abs(savedMins))}m`;
+                             efficiencyMessage = savedMins > 0 
+                                 ? `Finished ${timeStr} ahead of schedule!` 
+                                 : `Ran ${timeStr} behind schedule.`;
+                         } else {
+                             efficiencyMessage = "Finished exactly on schedule!";
                          }
                      }
 
@@ -1482,10 +1507,17 @@ export function OrderDetail() {
                              )}
 
                              {remainingGarments === 0 ? (
-                                <div className="bg-gradient-to-r from-emerald-500 to-emerald-400 text-white rounded-xl p-6 shadow-md flex items-center justify-center gap-3 mb-6 relative overflow-hidden">
+                                <div className="bg-gradient-to-r from-emerald-500 to-emerald-400 text-white rounded-xl p-6 shadow-md flex flex-col items-center justify-center gap-2 mb-6 relative overflow-hidden text-center">
                                    <div className="absolute inset-0 opacity-20" style={{ backgroundImage: "url('data:image/svg+xml,%3Csvg width=\\'20\\' height=\\'20\\' viewBox=\\'0 0 20 20\\' xmlns=\\'http://www.w3.org/2000/svg\\'%3E%3Cg fill=\\'%23ffffff\\' fill-opacity=\\'1\\' fill-rule=\\'evenodd\\'%3E%3Ccircle cx=\\'3\\' cy=\\'3\\' r=\\'3\\'/%3E%3Ccircle cx=\\'13\\' cy=\\'13\\' r=\\'3\\'/%3E%3C/g%3E%3C/svg%3E')" }}></div>
-                                   <Check className="h-8 w-8 shrink-0 relative z-10" strokeWidth={3} />
-                                   <div className="relative z-10 text-2xl font-black tracking-tight drop-shadow-md">PRODUCTION COMPLETE!</div>
+                                   <div className="flex items-center gap-3 relative z-10">
+                                     <Check className="h-8 w-8 shrink-0" strokeWidth={3} />
+                                     <div className="text-2xl font-black tracking-tight drop-shadow-md">PRODUCTION COMPLETE!</div>
+                                   </div>
+                                   {efficiencyMessage && (
+                                     <div className="relative z-10 text-sm font-bold bg-black/10 px-4 py-1.5 rounded-full mt-1">
+                                       {efficiencyMessage}
+                                     </div>
+                                   )}
                                 </div>
                              ) : null}
 

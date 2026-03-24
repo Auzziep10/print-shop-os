@@ -655,20 +655,61 @@ export function Production() {
                            return (
                               <div key={subOrder.id} className="border border-brand-border/40 rounded-2xl bg-white shadow-sm overflow-hidden group">
                                  <div 
-                                    className="flex justify-between items-center px-6 py-4 cursor-pointer hover:bg-gray-50 transition-colors border-b border-transparent group-hover:border-brand-border/20"
+                                    className="flex flex-col xl:flex-row xl:items-center justify-between px-6 py-4 cursor-pointer hover:bg-gray-50 transition-colors border-b border-transparent group-hover:border-brand-border/20 gap-4 xl:gap-8"
                                     onClick={() => setExpandedSubOrderId(subIsExpanded ? null : subOrder.id)}
                                  >
-                                    <div className="flex items-center gap-3">
-                                       <ChevronRight size={18} strokeWidth={2.5} className={`transition-transform duration-300 text-brand-secondary ${subIsExpanded ? 'rotate-90 text-brand-primary' : ''}`} />
-                                       <span className="font-bold text-sm tracking-wide text-brand-primary">{subOrder.title || `Order #${subOrder.portalId || subOrder.id.substring(0,8)}`}</span>
-                                       <span className="text-[10px] uppercase font-bold tracking-widest bg-brand-bg px-2 py-0.5 rounded text-brand-secondary ml-2 border border-brand-border/50">
+                                    <div className="flex items-center justify-between xl:justify-start gap-3 shrink-0 xl:w-1/4">
+                                       <div className="flex items-center gap-3">
+                                          <ChevronRight size={18} strokeWidth={2.5} className={`transition-transform duration-300 text-brand-secondary ${subIsExpanded ? 'rotate-90 text-brand-primary' : ''}`} />
+                                          <span className="font-bold text-sm tracking-wide text-brand-primary">{subOrder.title || `Order #${subOrder.portalId || subOrder.id.substring(0,8)}`}</span>
+                                       </div>
+                                       <span className="text-[10px] uppercase font-bold tracking-widest bg-brand-bg px-2 py-0.5 rounded text-brand-secondary border border-brand-border/50 shrink-0">
                                           {(subOrder.items || []).length} items
                                        </span>
                                     </div>
-                                    <div className="flex items-center gap-4">
+                                    
+                                    <div className="flex-1 w-full max-w-2xl mx-auto py-2 xl:py-0">
+                                       {(() => {
+                                          const subData = getCompletionData(subOrder);
+                                          const subTimelineSteps = ['Production', 'Kitting', 'Shipped'];
+                                          let subVisualIndex = 0;
+                                          if (subOrder.statusIndex === 6) subVisualIndex = 0 + subData.completionRatio;
+                                          else if (subOrder.statusIndex === 7) subVisualIndex = 1;
+                                          else if (subOrder.statusIndex > 7) subVisualIndex = 2;
+                                          const subFillWidth = `${(subVisualIndex / (subTimelineSteps.length - 1)) * 100}%`;
+
+                                          return (
+                                             <div className="flex flex-col gap-2">
+                                                <div className="flex justify-between items-center px-1 text-[9px] font-bold text-neutral-400 tracking-wider uppercase">
+                                                   <span>{subData.completedGarments} of {subData.totalGarments} Done</span>
+                                                   <span className="text-brand-primary">{Math.round(subData.completionRatio * 100)}%</span>
+                                                </div>
+                                                <div className="relative w-full px-1">
+                                                   <div className="absolute top-0 left-1 right-1 h-[6px] bg-neutral-200 rounded-full"></div>
+                                                   <div className="absolute top-0 left-1 h-[6px] bg-brand-primary rounded-full transition-all duration-700 ease-in-out" style={{ width: `calc(${subFillWidth} - 0.5rem)` }}></div>
+                                                   <div className="relative flex justify-between items-center z-10 px-0 -mt-[3px]">
+                                                     {subTimelineSteps.map((step, idx) => {
+                                                       const isCompleted = idx <= Math.floor(subVisualIndex);
+                                                       return (
+                                                         <div key={step} className="flex flex-col items-center relative group/tip">
+                                                           <div className={`w-[12px] h-[12px] rounded-full flex items-center justify-center transition-colors duration-300 ${isCompleted ? 'bg-black' : 'bg-[#f0f0f0] border-[2px] border-neutral-300'}`}></div>
+                                                           <div className="absolute top-full mt-1.5 bg-black text-white text-[10px] font-bold px-2 py-1 rounded opacity-0 group-hover/tip:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-md">
+                                                              {step}
+                                                           </div>
+                                                         </div>
+                                                       );
+                                                     })}
+                                                   </div>
+                                                </div>
+                                             </div>
+                                          );
+                                       })()}
+                                    </div>
+
+                                    <div className="flex items-center justify-end gap-3 shrink-0 xl:w-1/4">
                                        <button 
                                          onClick={(e) => { e.stopPropagation(); navigate(`/orders/${subOrder.id}`); }}
-                                         className="flex items-center gap-1.5 text-[10px] font-bold text-gray-500 hover:text-brand-primary uppercase tracking-widest transition-colors bg-white hover:bg-brand-primary/10 px-3 py-1.5 rounded-lg border border-brand-border"
+                                         className="flex items-center gap-1.5 text-[10px] font-bold text-gray-500 hover:text-brand-primary uppercase tracking-widest transition-colors bg-white hover:bg-brand-primary/10 px-3 py-1.5 rounded-lg border border-brand-border w-full sm:w-auto justify-center"
                                        >
                                           Open Order <ExternalLink size={12} className="opacity-80" />
                                        </button>
@@ -878,6 +919,8 @@ export function Production() {
                  let globalTotalTimeMins = 0;
                  let totalOrderGarments = 0;
                  let trueTotalGarmentsCompleted = 0; // The actual count regardless of attached stat metrics
+                 let trueTotalTimeMins = 0;
+                 let trueTotalGarmentsCompletedWithStats = 0;
 
                  (metricsOrder.items || []).forEach((item: any) => {
                     if (item.sizes) {
@@ -893,6 +936,10 @@ export function Production() {
 
                        const stat = item.sizeStats?.[size];
                        if (stat) {
+                           const durationMs = stat.durationMs || 0;
+                           trueTotalTimeMins += durationMs / 60000;
+                           trueTotalGarmentsCompletedWithStats += qty;
+
                            let userName = stat.user?.split('@')[0] || stat.user;
                            
                            const actMatch = (metricsOrder.activities || []).find((a: any) => 
@@ -939,7 +986,6 @@ export function Production() {
                               bestDisplayNames[groupKey] = rawName;
                            }
 
-                           const durationMs = stat.durationMs || 0;
                            const timeMins = durationMs / 60000;
 
                            if (!statsByUser[groupKey]) {
@@ -991,11 +1037,29 @@ export function Production() {
                      }
                  }
 
-                 return (
-                   <div className="space-y-6">
-                     {/* Predictive Metrics Banner */}
-                     <div className="bg-gradient-to-br from-brand-primary/5 to-brand-primary/10 border border-brand-primary/20 rounded-xl p-5 shadow-sm text-brand-primary">
-                        <div className="flex items-center justify-between mb-3 border-b border-brand-primary/10 pb-3">
+                     let efficiencyMessage = null;
+                     if (remainingGarments === 0 && activeTargetAvgMins && trueTotalGarmentsCompletedWithStats > 0) {
+                         const trueOverallAvg = trueTotalTimeMins / trueTotalGarmentsCompletedWithStats;
+                         const projectedFinalMins = trueOverallAvg * totalOrderGarments;
+                         const targetFinalMins = activeTargetAvgMins * totalOrderGarments;
+                         const savedMins = targetFinalMins - projectedFinalMins;
+                         
+                         if (Math.abs(savedMins) >= 1) {
+                             const h = Math.abs(savedMins) / 60;
+                             const timeStr = h >= 1 ? `${h.toFixed(1)}h` : `${Math.round(Math.abs(savedMins))}m`;
+                             efficiencyMessage = savedMins > 0 
+                                 ? `Finished ${timeStr} ahead of schedule!` 
+                                 : `Ran ${timeStr} behind schedule.`;
+                         } else {
+                             efficiencyMessage = "Finished exactly on schedule!";
+                         }
+                     }
+
+                     return (
+                       <div className="space-y-6">
+                         {/* Predictive Metrics Banner */}
+                         <div className="bg-gradient-to-br from-brand-primary/5 to-brand-primary/10 border border-brand-primary/20 rounded-xl p-5 shadow-sm text-brand-primary">
+                            <div className="flex items-center justify-between mb-3 border-b border-brand-primary/10 pb-3">
                            <div className="flex items-center gap-2">
                              <Clock size={16} />
                              <h4 className="font-bold uppercase tracking-wider text-[11px]">AI Production Forecast</h4>
@@ -1074,7 +1138,22 @@ export function Production() {
                                </span>
                             </div>
                          </div>
-                      </div>
+                       </div>
+
+                             {remainingGarments === 0 ? (
+                                <div className="bg-gradient-to-r from-emerald-500 to-emerald-400 text-white rounded-xl p-6 shadow-md flex flex-col items-center justify-center gap-2 mb-6 relative overflow-hidden text-center">
+                                   <div className="absolute inset-0 opacity-20" style={{ backgroundImage: "url('data:image/svg+xml,%3Csvg width=\\'20\\' height=\\'20\\' viewBox=\\'0 0 20 20\\' xmlns=\\'http://www.w3.org/2000/svg\\'%3E%3Cg fill=\\'%23ffffff\\' fill-opacity=\\'1\\' fill-rule=\\'evenodd\\'%3E%3Ccircle cx=\\'3\\' cy=\\'3\\' r=\\'3\\'/%3E%3Ccircle cx=\\'13\\' cy=\\'13\\' r=\\'3\\'/%3E%3C/g%3E%3C/svg%3E')" }}></div>
+                                   <div className="flex items-center gap-3 relative z-10">
+                                     <Check className="h-8 w-8 shrink-0" strokeWidth={3} />
+                                     <div className="text-2xl font-black tracking-tight drop-shadow-md">PRODUCTION COMPLETE!</div>
+                                   </div>
+                                   {efficiencyMessage && (
+                                     <div className="relative z-10 text-sm font-bold bg-black/10 px-4 py-1.5 rounded-full mt-1">
+                                       {efficiencyMessage}
+                                     </div>
+                                   )}
+                                </div>
+                             ) : null}
 
                      <div className="space-y-4">
                      {users.map(groupKey => {
