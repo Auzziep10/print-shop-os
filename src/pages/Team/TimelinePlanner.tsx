@@ -41,7 +41,7 @@ export function TimelinePlanner() {
   const [editingTask, setEditingTask] = useState<TimelineTask | null>(null);
   
   const [formData, setFormData] = useState({
-    memberId: '',
+    memberIds: [] as string[],
     title: '',
     start: '9',
     duration: '1',
@@ -127,7 +127,7 @@ export function TimelinePlanner() {
 
   const handleOpenModal = (memberId?: string, hour?: number) => {
     setFormData({
-      memberId: memberId || (members.length > 0 ? members[0].id : ''),
+      memberIds: memberId ? [memberId] : (members.length > 0 ? [members[0].id] : []),
       title: '',
       start: hour ? hour.toString() : '9',
       duration: '1',
@@ -139,7 +139,7 @@ export function TimelinePlanner() {
 
   const handleEditTask = (task: TimelineTask) => {
     setFormData({
-      memberId: task.memberId,
+      memberIds: [task.memberId],
       title: task.title,
       start: task.start.toString(),
       duration: task.duration.toString(),
@@ -150,10 +150,9 @@ export function TimelinePlanner() {
   };
 
   const handleSave = async () => {
-    if (!formData.memberId || !formData.title.trim()) return;
+    if (formData.memberIds.length === 0 || !formData.title.trim()) return;
 
-    const taskData = {
-      memberId: formData.memberId,
+    const baseTaskData = {
       title: formData.title,
       start: parseFloat(formData.start),
       duration: parseFloat(formData.duration),
@@ -163,12 +162,19 @@ export function TimelinePlanner() {
 
     try {
       if (editingTask) {
-        await updateDoc(doc(db, 'timelineTasks', editingTask.id), taskData);
-      } else {
-        await addDoc(collection(db, 'timelineTasks'), {
-          ...taskData,
-          createdAt: serverTimestamp()
+        await updateDoc(doc(db, 'timelineTasks', editingTask.id), {
+          ...baseTaskData,
+          memberId: formData.memberIds[0] // Update single task if editing
         });
+      } else {
+        // Create duplicate tasks for each selected member when assigning multiple
+        for (const mId of formData.memberIds) {
+          await addDoc(collection(db, 'timelineTasks'), {
+            ...baseTaskData,
+            memberId: mId,
+            createdAt: serverTimestamp()
+          });
+        }
       }
       setIsModalOpen(false);
     } catch (error) {
@@ -320,7 +326,7 @@ export function TimelinePlanner() {
                   key={order.id} 
                   onClick={() => {
                      setFormData({
-                       memberId: members.length > 0 ? members[0].id : '',
+                       memberIds: members.length > 0 ? [members[0].id] : [],
                        title: `#${displayId} - ${companyName}`,
                        start: '9',
                        duration: '1',
@@ -371,17 +377,34 @@ export function TimelinePlanner() {
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1.5">Assign To</label>
-                <select 
-                  value={formData.memberId}
-                  onChange={e => setFormData({...formData, memberId: e.target.value})}
-                  className="w-full border border-brand-border rounded-lg p-3 text-sm focus:outline-none focus:border-brand-primary appearance-none bg-brand-bg/30"
-                >
-                  <option value="" disabled>Select a team member...</option>
-                  {members.map(m => (
-                    <option key={m.id} value={m.id}>{m.name}</option>
-                  ))}
-                </select>
+                <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1.5 flex items-center justify-between">
+                  <span>Assign To {editingTask ? '' : '(Select Multiple)'}</span>
+                  {formData.memberIds.length > 1 && <span className="text-brand-primary">{formData.memberIds.length} Selected</span>}
+                </label>
+                <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto custom-scrollbar p-1">
+                  {members.map(m => {
+                    const isSelected = formData.memberIds.includes(m.id);
+                    return (
+                      <button
+                        key={m.id}
+                        onClick={() => {
+                          if (editingTask) {
+                            setFormData({...formData, memberIds: [m.id]});
+                          } else {
+                            if (isSelected) {
+                              setFormData({...formData, memberIds: formData.memberIds.filter(id => id !== m.id)});
+                            } else {
+                              setFormData({...formData, memberIds: [...formData.memberIds, m.id]});
+                            }
+                          }
+                        }}
+                        className={`px-3 py-1.5 rounded-pill border text-xs font-semibold transition-all ${isSelected ? 'bg-brand-primary text-white border-brand-primary shadow-sm' : 'bg-white text-brand-secondary border-brand-border hover:border-brand-primary/50'}`}
+                      >
+                        {m.name}
+                      </button>
+                    )
+                  })}
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -459,7 +482,7 @@ export function TimelinePlanner() {
                 <button 
                   onClick={handleSave}
                   className="bg-brand-primary text-white text-xs font-bold px-6 py-2 rounded-lg uppercase tracking-widest hover:bg-black transition-colors shadow-sm disabled:opacity-50"
-                  disabled={!formData.memberId || !formData.title.trim()}
+                  disabled={formData.memberIds.length === 0 || !formData.title.trim()}
                 >
                   Save Task
                 </button>
