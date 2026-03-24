@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { tokens } from '../../lib/tokens';
 import { collection, query, onSnapshot, addDoc, updateDoc, doc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
+import { useOrders } from '../../hooks/useOrders';
 import { Plus, X, Loader2, Clock, Trash2 } from 'lucide-react';
 
 const HOURS = Array.from({ length: 14 }, (_, i) => i + 6); // 6am to 7pm
@@ -33,6 +34,7 @@ export function TimelinePlanner() {
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [tasks, setTasks] = useState<TimelineTask[]>([]);
   const [loading, setLoading] = useState(true);
+  const { orders } = useOrders();
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<TimelineTask | null>(null);
@@ -291,6 +293,41 @@ export function TimelinePlanner() {
              {status.label}
            </div>
         ))}
+      </div>
+
+      {/* Unassigned Orders Tray */}
+      <div className="p-5 border-t border-brand-border bg-white flex flex-col gap-3">
+        <h3 className="text-[10px] font-bold text-brand-secondary uppercase tracking-widest">Active Orders (Click to Assign)</h3>
+        <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar flex-nowrap">
+          {orders.filter(o => o.statusIndex !== undefined && o.statusIndex >= 0 && o.statusIndex <= 6).length === 0 ? (
+            <span className="text-sm text-brand-muted italic">No active orders right now.</span>
+          ) : (
+            orders.filter(o => o.statusIndex !== undefined && o.statusIndex >= 0 && o.statusIndex <= 6).map(order => (
+              <button 
+                key={order.id} 
+                onClick={() => {
+                   setFormData({
+                     memberId: members.length > 0 ? members[0].id : '',
+                     title: `${order.orderNumber} ${order.customerName}`,
+                     start: '9',
+                     duration: '1',
+                     color: 'bg-blue-500'
+                   });
+                   setEditingTask(null);
+                   setIsModalOpen(true);
+                }}
+                className="flex-shrink-0 bg-brand-bg/50 border border-brand-border rounded-lg p-3 text-left hover:border-brand-primary hover:shadow-sm transition-all min-w-[220px] max-w-[220px] group cursor-copy"
+              >
+                <div className="flex justify-between items-start mb-1">
+                  <div className="text-[10px] font-bold text-brand-secondary uppercase tracking-wider group-hover:text-brand-primary transition-colors truncate">#{order.orderNumber}</div>
+                  <span className="text-[9px] bg-white border border-brand-border px-1.5 py-0.5 rounded-sm font-bold text-brand-secondary shrink-0 ml-2">Assign +</span>
+                </div>
+                <div className="text-sm font-semibold text-brand-primary truncate">{order.customerName}</div>
+                <div className="text-xs text-brand-secondary truncate">{order.jobName || 'Standard Order'}</div>
+              </button>
+            ))
+          )}
+        </div>
       </div>
 
       {/* Task Modal */}
