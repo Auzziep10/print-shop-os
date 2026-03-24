@@ -668,21 +668,21 @@ export function Production() {
                                        </span>
                                     </div>
                                     
-                                    <div className="flex-1 w-full max-w-2xl mx-auto py-2 xl:py-0">
+                                    <div className="flex-1 w-full xl:min-w-[350px] max-w-2xl mx-auto py-2 xl:py-0 px-4">
                                        {(() => {
                                           const subData = getCompletionData(subOrder);
                                           const subTimelineSteps = ['Production', 'Kitting', 'Shipped'];
                                           let subVisualIndex = 0;
-                                          if (subOrder.statusIndex === 6) subVisualIndex = 0 + subData.completionRatio;
+                                          if (subOrder.statusIndex === 6) subVisualIndex = 0 + (subData.completionRatio || 0);
                                           else if (subOrder.statusIndex === 7) subVisualIndex = 1;
                                           else if (subOrder.statusIndex > 7) subVisualIndex = 2;
                                           const subFillWidth = `${(subVisualIndex / (subTimelineSteps.length - 1)) * 100}%`;
 
                                           return (
-                                             <div className="flex flex-col gap-2">
+                                             <div className="flex flex-col gap-2 w-full">
                                                 <div className="flex justify-between items-center px-1 text-[9px] font-bold text-neutral-400 tracking-wider uppercase">
-                                                   <span>{subData.completedGarments} of {subData.totalGarments} Done</span>
-                                                   <span className="text-brand-primary">{Math.round(subData.completionRatio * 100)}%</span>
+                                                   <span>{subData.completedGarments || 0} of {subData.totalGarments || 0} Done</span>
+                                                   <span className="text-brand-primary">{Math.round((subData.completionRatio || 0) * 100)}%</span>
                                                 </div>
                                                 <div className="relative w-full px-1">
                                                    <div className="absolute top-0 left-1 right-1 h-[6px] bg-neutral-200 rounded-full"></div>

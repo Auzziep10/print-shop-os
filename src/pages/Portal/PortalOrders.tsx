@@ -177,7 +177,9 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
 
         if (order.statusIndex === 6) { // Currently in "In Production" which maps to visual node 4
            const completionRatio = totalGarments > 0 ? (completedGarments / totalGarments) : 0;
-           visualIndex += completionRatio; // pushes visual index forward toward node 5 (Shipped/Inventory) incrementally
+           // Cap the visual progression so it doesn't touch the next node (Shipped) until officially shipped.
+           const scaledRatio = completionRatio > 0.95 ? 0.95 : completionRatio;
+           visualIndex += scaledRatio;
         }
 
         // Calculate the percentage width for the progress bar fill
