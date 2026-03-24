@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { KanbanBoard } from '../../components/shared/KanbanBoard';
@@ -10,6 +11,7 @@ import { collection, query, where, getDocs, onSnapshot } from 'firebase/firestor
 import { normalizeUser } from '../../lib/utils';
 
 export function Dashboard() {
+  const navigate = useNavigate();
   const { userData } = useAuth();
   const { orders } = useOrders();
   
@@ -55,6 +57,8 @@ export function Dashboard() {
   }, [userData?.id]);
 
   const productionOrders = orders.filter(o => o.statusIndex === 6 || o.statusIndex === 7);
+  const assignedOrderIds = new Set(myTasks.filter(t => t.orderId).map(t => String(t.orderId)));
+  const assignedOrders = productionOrders.filter(o => assignedOrderIds.has(String(o.id)));
 
   const formatTaskTime = (start: number, duration: number) => {
     const formatHour = (h: number) => {
@@ -522,15 +526,15 @@ export function Dashboard() {
                    <div>Due</div>
                  </div>
                  <div className="divide-y divide-brand-border max-h-[400px] overflow-y-auto">
-                    {productionOrders.length === 0 ? (
-                      <div className="p-8 text-center text-brand-secondary italic text-sm">No orders currently active on the floor.</div>
+                    {assignedOrders.length === 0 ? (
+                      <div className="p-8 text-center text-brand-secondary italic text-sm">No orders currently assigned to you on the floor.</div>
                     ) : (
-                      productionOrders.map((order) => {
+                      assignedOrders.map((order) => {
                         const companyName = customers[order.customerId]?.company || customers[order.customerId]?.name || order.customerId || 'Unknown Client';
                         const displayId = order.portalId || order.id.substring(0, 8);
                         
                         return (
-                         <div key={order.id} className="grid grid-cols-4 p-4 items-center hover:bg-brand-bg transition-colors cursor-pointer group">
+                         <div key={order.id} onClick={() => navigate(`/orders/${order.id}`)} className="grid grid-cols-4 p-4 items-center hover:bg-brand-bg transition-colors cursor-pointer group">
                            <div className="col-span-2 pr-4">
                              <div className="flex items-center gap-2 mb-1">
                                <span className="text-[10px] uppercase font-bold text-brand-secondary tracking-widest px-1.5 py-0.5 border border-brand-border/50 rounded">#{displayId}</span>
