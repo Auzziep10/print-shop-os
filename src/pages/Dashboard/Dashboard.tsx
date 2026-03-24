@@ -1,13 +1,61 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { tokens } from '../../lib/tokens';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { KanbanBoard } from '../../components/shared/KanbanBoard';
 import { TimelinePlanner } from '../Team/TimelinePlanner';
+import { useAuth } from '../../contexts/AuthContext';
+import { useOrders } from '../../hooks/useOrders';
+import { db } from '../../lib/firebase';
+import { collection, query, where, getDocs, onSnapshot } from 'firebase/firestore';
 
 export function Dashboard() {
-  const [roleView, setRoleView] = useState('Manager / Admin');
+  const { userData } = useAuth();
+  const { orders } = useOrders();
+  
+  const [roleView, setRoleView] = useState('Production Staff');
   const [staffTimeframe, setStaffTimeframe] = useState('Day');
   const [activeStat, setActiveStat] = useState<string | null>(null);
+  
+  const [myTasks, setMyTasks] = useState<any[]>([]);
+  const [customers, setCustomers] = useState<Record<string, any>>({});
+
+  useEffect(() => {
+    if (userData && (userData.role === 'Admin' || userData.role === 'Manager')) {
+      setRoleView('Manager / Admin');
+    } else {
+      setRoleView('Production Staff');
+    }
+  }, [userData]);
+
+  useEffect(() => {
+    getDocs(collection(db, 'customers')).then(snap => {
+      const obj: Record<string,any> = {};
+      snap.forEach(d => { obj[d.id] = d.data(); });
+      setCustomers(obj);
+    }).catch(e => console.error(e));
+  }, []);
+
+  useEffect(() => {
+    if (!userData?.id) return;
+    const qTasks = query(collection(db, 'timelineTasks'), where('memberId', '==', userData.id));
+    const unsub = onSnapshot(qTasks, (snap) => {
+      const tasks = snap.docs.map(doc => ({ id: doc.id, ...(doc.data() as any) }));
+      setMyTasks(tasks.sort((a, b) => (a.start || 0) - (b.start || 0)));
+    });
+    return unsub;
+  }, [userData?.id]);
+
+  const productionOrders = orders.filter(o => o.statusIndex === 6 || o.statusIndex === 7);
+
+  const formatTaskTime = (start: number, duration: number) => {
+    const formatHour = (h: number) => {
+       const displayH = Math.floor(h) > 12 ? Math.floor(h) - 12 : Math.floor(h);
+       const mins = h % 1 !== 0 ? ':30' : ':00';
+       const ampm = Math.floor(h) >= 12 && h < 24 ? 'PM' : 'AM';
+       return `${displayH}${mins} ${ampm}`;
+    };
+    return `${formatHour(start)} - ${formatHour(start + duration)}`;
+  };
 
   return (
     <div className={tokens.layout.container}>
@@ -182,20 +230,21 @@ export function Dashboard() {
              {/* Personal Tasks */}
              <div>
                <h3 className={tokens.typography.h3 + " mb-4"}>Assigned Tasks</h3>
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                 {[
-                   { title: 'Research ColDesi information', time: '10:00 AM - 12:00 PM', status: 'Active', color: 'bg-blue-500' },
-                   { title: 'Calibrate Printers', time: '1:00 PM - 2:00 PM', status: 'Not Started', color: 'bg-amber-500' },
-                 ].map((task, i) => (
-                   <div key={i} className="bg-white p-5 rounded-card border border-brand-border flex items-start gap-4">
-                     <div className={`w-3 h-3 rounded-sm mt-1 shrink-0 ${task.color}`}></div>
-                     <div>
-                       <h4 className="font-semibold text-brand-primary mb-1">{task.title}</h4>
-                       <span className="text-xs text-brand-secondary font-medium tracking-wide uppercase">{task.time}</span>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {myTasks.length === 0 ? (
+                    <div className="md:col-span-2 text-sm text-brand-secondary italic p-4 bg-brand-bg/50 rounded-xl border border-brand-border">No tasks immediately assigned to you right now.</div>
+                  ) : (
+                    myTasks.map((task) => (
+                     <div key={task.id} className="bg-white p-5 rounded-card border border-brand-border flex items-start gap-4 shadow-sm hover:shadow-md transition-shadow">
+                       <div className={`w-3 h-3 rounded-sm mt-1 shrink-0 ${task.color || 'bg-blue-500'}`}></div>
+                       <div>
+                         <h4 className="font-semibold text-brand-primary mb-1 leading-tight">{task.title}</h4>
+                         <span className="text-xs text-brand-secondary font-bold tracking-wider uppercase">{formatTaskTime(task.start, task.duration)}</span>
+                       </div>
                      </div>
-                   </div>
-                 ))}
-               </div>
+                    ))
+                  )}
+                </div>
              </div>
 
              {/* Order Assignments */}
@@ -207,30 +256,36 @@ export function Dashboard() {
                    <div>Status</div>
                    <div>Due</div>
                  </div>
-                 <div className="divide-y divide-brand-border">
-                   {[
-                     { id: 'ORD-103', title: '250x Event Polos', customer: 'Wayne Ent', status: 'Printing', due: 'Today' },
-                     { id: 'ORD-105', title: '1000x Tote Bags', customer: 'Daily Bugle', status: 'Curing', due: 'Tomorrow' },
-                   ].map((order) => (
-                     <div key={order.id} className="grid grid-cols-4 p-4 items-center hover:bg-brand-bg transition-colors cursor-pointer group">
-                       <div className="col-span-2">
-                         <div className="flex items-center gap-2 mb-1">
-                           <span className="text-xs font-semibold text-brand-secondary">{order.id}</span>
-                           <span className="text-brand-primary font-serif">— {order.customer}</span>
+                 <div className="divide-y divide-brand-border max-h-[400px] overflow-y-auto">
+                    {productionOrders.length === 0 ? (
+                      <div className="p-8 text-center text-brand-secondary italic text-sm">No orders currently active on the floor.</div>
+                    ) : (
+                      productionOrders.map((order) => {
+                        const companyName = customers[order.customerId]?.company || customers[order.customerId]?.name || order.customerId || 'Unknown Client';
+                        const displayId = order.portalId || order.id.substring(0, 8);
+                        
+                        return (
+                         <div key={order.id} className="grid grid-cols-4 p-4 items-center hover:bg-brand-bg transition-colors cursor-pointer group">
+                           <div className="col-span-2 pr-4">
+                             <div className="flex items-center gap-2 mb-1">
+                               <span className="text-[10px] uppercase font-bold text-brand-secondary tracking-widest px-1.5 py-0.5 border border-brand-border/50 rounded">#{displayId}</span>
+                               <span className="text-brand-primary font-serif">— {companyName}</span>
+                             </div>
+                             <p className="font-semibold text-brand-primary text-sm group-hover:underline line-clamp-1">{order.title}</p>
+                           </div>
+                           <div>
+                             <span className={`text-[10px] border px-2.5 py-1 rounded-md font-bold tracking-wide uppercase ${order.statusIndex > 6 ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-brand-bg border-brand-border/60 text-brand-secondary'}`}>
+                               {order.statusIndex > 6 ? 'Kitting' : 'In Production'}
+                             </span>
+                           </div>
+                           <div className="text-xs font-bold uppercase tracking-wider text-brand-secondary">
+                             {order.shipDate ? new Date(order.shipDate).toLocaleDateString([], { month: 'short', day: 'numeric'}) : 'TBD'}
+                           </div>
                          </div>
-                         <p className="font-medium text-brand-primary group-hover:underline">{order.title}</p>
-                       </div>
-                       <div>
-                         <span className="text-[10px] bg-brand-bg border border-brand-border/60 px-2.5 py-1 rounded-md text-brand-secondary font-semibold tracking-wide uppercase">
-                           {order.status}
-                         </span>
-                       </div>
-                       <div className="text-sm font-medium text-brand-primary">
-                         {order.due}
-                       </div>
-                     </div>
-                   ))}
-                 </div>
+                        );
+                      })
+                    )}
+                  </div>
                </div>
              </div>
            </div>

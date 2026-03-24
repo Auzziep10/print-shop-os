@@ -10,7 +10,7 @@ import { StatusBadge, type StatusType } from '../../components/ui/StatusBadge';
 import { useAuth } from '../../contexts/AuthContext';
 import { useOrders } from '../../hooks/useOrders';
 import { db, storage } from '../../lib/firebase';
-import { doc, setDoc, getDoc, updateDoc, collection, getDocs } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc, collection, getDocs, query, where, onSnapshot } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { getTrackingLink, normalizeUser } from '../../lib/utils';
 
@@ -65,11 +65,32 @@ export function OrderDetail() {
     setEditingTargetId(null);
   };
 
+  const [timelineMembers, setTimelineMembers] = useState<any[]>([]);
+
   useEffect(() => {
     getDocs(collection(db, 'users')).then(snap => {
       setAllUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     }).catch(e => console.error(e));
   }, []);
+
+  useEffect(() => {
+     if (!id || allUsers.length === 0) return;
+     const qTasks = query(collection(db, 'timelineTasks'), where('orderId', '==', id));
+     const unsub = onSnapshot(qTasks, (snap) => {
+        const memberIds = new Set<string>();
+        snap.forEach(doc => memberIds.add(doc.data().memberId));
+        
+        const mapped = Array.from(memberIds).map(mId => {
+           const u = allUsers.find(user => user.id === mId) || allUsers.find(user => user.uid === mId);
+           if (!u) return null;
+           const name = u.name || `${u.firstName || ''} ${u.lastName || ''}`.trim() || 'Unknown Staff';
+           const initials = name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase();
+           return { id: mId, name, initials, role: u.role || 'Staff' };
+        }).filter(Boolean);
+        setTimelineMembers(mapped);
+     });
+     return unsub;
+  }, [id, allUsers]);
 
   const handleAddTeamMember = async (userObj: any) => {
     if (!id || !order) return;
@@ -1175,26 +1196,47 @@ export function OrderDetail() {
                   <button onClick={() => setIsTeamModalOpen(true)} className="text-brand-secondary hover:text-brand-primary tooltip"><Users size={16} /><span className="tooltiptext">Add Member</span></button>
                 </div>
                 <div className="space-y-3 flex-1">
-                  {order.team && order.team.length > 0 ? order.team.map((member: any) => (
-                    <div key={member.id} className="group flex justify-between items-center p-2 hover:bg-brand-bg rounded-lg transition-colors cursor-pointer border border-transparent hover:border-brand-border">
-                       <div className="flex items-center gap-3">
-                         <div className="w-8 h-8 rounded-full bg-brand-primary text-white text-xs font-bold flex items-center justify-center shrink-0">
-                           {member.initials}
+                  {(() => {
+                    const manualTeamMembers = order?.team || [];
+                    const combinedMap = new Map();
+                    manualTeamMembers.forEach((m: any) => combinedMap.set(m.id, m));
+                    timelineMembers.forEach((m: any) => {
+                       if (!combinedMap.has(m.id)) {
+                          combinedMap.set(m.id, { ...m, isAutoAssigned: true });
+                       }
+                    });
+                    const mergedTeam = Array.from(combinedMap.values());
+                    
+                    if (mergedTeam.length === 0) {
+                      return (
+                        <div className="text-sm text-brand-secondary text-center py-4 bg-brand-bg rounded-xl border border-dashed border-brand-border">
+                          No team members assigned.
+                        </div>
+                      );
+                    }
+                    
+                    return mergedTeam.map((member: any) => (
+                      <div key={member.id} className="group flex justify-between items-center p-2 hover:bg-brand-bg rounded-lg transition-colors cursor-pointer border border-transparent hover:border-brand-border">
+                         <div className="flex items-center gap-3">
+                           <div className={`w-8 h-8 rounded-full text-white text-xs font-bold flex items-center justify-center shrink-0 ${member.isAutoAssigned ? 'bg-cyan-600' : 'bg-brand-primary'}`}>
+                             {member.initials}
+                           </div>
+                           <div>
+                              <p className="text-sm font-medium truncate max-w-[120px]">{member.name}</p>
+                              <div className="flex gap-2 items-center">
+                                <p className="text-[10px] text-brand-secondary uppercase tracking-widest">{member.role}</p>
+                                {member.isAutoAssigned && <span className="text-[8px] bg-cyan-50 border border-cyan-200 text-cyan-700 px-1 py-[1px] rounded font-bold uppercase tracking-widest leading-none">Timeline</span>}
+                              </div>
+                           </div>
                          </div>
-                         <div>
-                            <p className="text-sm font-medium truncate max-w-[120px]">{member.name}</p>
-                            <p className="text-[10px] text-brand-secondary uppercase tracking-widest">{member.role}</p>
-                         </div>
-                       </div>
-                       <button onClick={(e) => { e.stopPropagation(); handleRemoveTeamMember(member.id); }} className="opacity-0 group-hover:opacity-100 p-1.5 text-brand-secondary hover:text-red-500 transition-all rounded">
-                         <X size={14} />
-                       </button>
-                    </div>
-                  )) : (
-                    <div className="text-sm text-brand-secondary text-center py-4 bg-brand-bg rounded-xl border border-dashed border-brand-border">
-                      No team members assigned.
-                    </div>
-                  )}
+                         {!member.isAutoAssigned && (
+                           <button onClick={(e) => { e.stopPropagation(); handleRemoveTeamMember(member.id); }} className="opacity-0 group-hover:opacity-100 p-1.5 text-brand-secondary hover:text-red-500 transition-all rounded">
+                             <X size={14} />
+                           </button>
+                         )}
+                      </div>
+                    ));
+                  })()}
                 </div>
                  <button onClick={() => setIsTeamModalOpen(true)} className="w-full mt-4 py-2 text-xs font-bold uppercase tracking-widest text-brand-secondary hover:text-brand-primary border border-brand-border hover:border-brand-primary transition-all rounded-lg flex items-center justify-center gap-2">
                     <Plus size={14} /> Assign

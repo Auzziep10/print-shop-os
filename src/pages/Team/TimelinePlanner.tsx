@@ -21,6 +21,7 @@ interface TimelineTask {
   duration: number; // 1 = 1 hour, 1.5 = 1.5 hours
   color: string;
   rowOffset?: number;
+  orderId?: string;
 }
 
 const STATUS_COLORS = [
@@ -60,7 +61,8 @@ export function TimelinePlanner() {
     title: '',
     start: '9',
     duration: '1',
-    color: 'bg-blue-500'
+    color: 'bg-blue-500',
+    orderId: ''
   });
 
   const [currentTimeLeft, setCurrentTimeLeft] = useState(0);
@@ -210,7 +212,8 @@ export function TimelinePlanner() {
       title: '',
       start: hour ? hour.toString() : '9',
       duration: '1',
-      color: 'bg-blue-500'
+      color: 'bg-blue-500',
+      orderId: ''
     });
     setEditingTask(null);
     setIsModalOpen(true);
@@ -222,7 +225,8 @@ export function TimelinePlanner() {
       title: task.title,
       start: task.start.toString(),
       duration: task.duration.toString(),
-      color: task.color
+      color: task.color,
+      orderId: task.orderId || ''
     });
     setEditingTask(task);
     setIsModalOpen(true);
@@ -236,6 +240,7 @@ export function TimelinePlanner() {
       start: parseFloat(formData.start),
       duration: parseFloat(formData.duration),
       color: formData.color,
+      orderId: formData.orderId || null,
       updatedAt: serverTimestamp()
     };
 
@@ -445,7 +450,8 @@ export function TimelinePlanner() {
                        title: `#${displayId} - ${companyName}`,
                        start: '9',
                        duration: '1',
-                       color: 'bg-blue-500'
+                       color: 'bg-blue-500',
+                       orderId: order.id
                      });
                      setEditingTask(null);
                      setIsModalOpen(true);
