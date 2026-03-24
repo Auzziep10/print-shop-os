@@ -8,10 +8,20 @@ import { doc, getDoc, updateDoc, collection, getDocs } from 'firebase/firestore'
 import { tokens } from '../../lib/tokens';
 import { normalizeUser } from '../../lib/utils';
 
+const getBaseSize = (s: string) => {
+  const base = s.split(' ')[0].toUpperCase();
+  if (base === 'XXL') return '2XL';
+  if (base === 'XXXL') return '3XL';
+  if (base === 'XXXXL') return '4XL';
+  return base;
+};
+
 const sortSizes = (a: string, b: string) => {
-  const SIZE_ORDER = ['XXS', 'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL', 'OSFA'];
-  const iA = SIZE_ORDER.indexOf(a.toUpperCase());
-  const iB = SIZE_ORDER.indexOf(b.toUpperCase());
+  const SIZE_ORDER = ['YXS', 'YS', 'YM', 'YL', 'YXL', 'XXS', 'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL', '6XL', 'OSFA'];
+  const baseA = getBaseSize(a);
+  const baseB = getBaseSize(b);
+  const iA = SIZE_ORDER.indexOf(baseA);
+  const iB = SIZE_ORDER.indexOf(baseB);
   if (iA === -1 && iB === -1) return a.localeCompare(b);
   if (iA === -1) return 1;
   if (iB === -1) return -1;
@@ -464,29 +474,30 @@ export function Production() {
 
                                let colorClassTop = 'bg-neutral-300 text-neutral-600 group-hover/sizebtn:bg-neutral-400';
                                let colorClassBottom = 'bg-white text-neutral-800';
-                               let topContent: any = size;
+                               let topContent: any = <span className="truncate inline-block max-w-[40px] leading-none" title={size}>{size}</span>;
+                               let iconContent: any = null;
                                let wrapperClass = 'hover:-translate-y-0.5 hover:shadow-sm';
 
                                if (isPacked) {
                                    colorClassTop = 'bg-blue-500 text-white';
                                    colorClassBottom = 'bg-blue-50 text-blue-700';
-                                   topContent = <Box size={12} strokeWidth={3} className="my-auto mx-auto" />;
+                                   iconContent = <Box size={10} strokeWidth={3} className="ml-1 opacity-80 shrink-0" />;
                                    wrapperClass = 'opacity-80 hover:opacity-100';
                                } else if (isCompleted) {
                                    colorClassTop = 'bg-green-500 text-white';
                                    colorClassBottom = 'bg-green-50 text-green-700';
-                                   topContent = <Check size={12} strokeWidth={4} className="my-auto mx-auto" />;
+                                   iconContent = <Check size={10} strokeWidth={4} className="ml-1 opacity-80 shrink-0" />;
                                    wrapperClass = 'opacity-80 hover:opacity-100';
                                } else if (inProgress) {
                                    if (inProgress.paused) {
                                        colorClassTop = 'bg-orange-500 text-white';
                                        colorClassBottom = 'bg-orange-50 text-orange-700';
-                                       topContent = <Pause size={12} strokeWidth={3} className="my-auto mx-auto" />;
+                                       iconContent = <Pause size={10} strokeWidth={3} className="ml-1 opacity-80 shrink-0" />;
                                        wrapperClass = 'opacity-90 hover:opacity-100';
                                    } else {
                                        colorClassTop = 'bg-red-500 text-white';
                                        colorClassBottom = 'bg-red-50 text-red-700';
-                                       topContent = <Clock size={12} strokeWidth={3} className="animate-pulse my-auto mx-auto" />;
+                                       iconContent = <Clock size={10} strokeWidth={3} className="animate-pulse ml-1 opacity-80 shrink-0" />;
                                        wrapperClass = 'opacity-90 hover:opacity-100';
                                    }
                                }
@@ -522,6 +533,7 @@ export function Production() {
 
                                  <div className={`text-[10px] font-bold py-1.5 px-2 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center transition-colors relative z-0 ${colorClassTop}`}>
                                     {topContent}
+                                    {iconContent}
                                  </div>
                                  <div className={`text-[12px] font-bold py-2 px-2 rounded-b-[8px] h-8 flex flex-col items-center justify-center transition-colors relative z-0 ${colorClassBottom}`}>
                                    {qty}
