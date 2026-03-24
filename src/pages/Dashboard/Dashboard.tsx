@@ -20,6 +20,7 @@ export function Dashboard() {
   const [myTasks, setMyTasks] = useState<any[]>([]);
   const [customers, setCustomers] = useState<Record<string, any>>({});
   const [activeMetricsTab, setActiveMetricsTab] = useState<string>('All');
+  const [activeKittingTab, setActiveKittingTab] = useState<string>('All');
   const [allUsersList, setAllUsersList] = useState<any[]>([]);
   const [metricsTimeFilter, setMetricsTimeFilter] = useState<string>('All');
 
@@ -66,9 +67,50 @@ export function Dashboard() {
   };
 
   const statsByUser: Record<string, { totalTimeMins: number, garmentsCompleted: number }> = {};
+  const kittingStatsByUser: Record<string, { garmentsKitted: number }> = {};
   const bestDisplayNames: Record<string, string> = {};
 
   orders.forEach(order => {
+     (order.activities || []).forEach((act: any) => {
+         if (act.message?.startsWith('Added ') && act.message?.includes(' to ')) {
+             let userName = act.user?.split('@')[0] || 'Unknown';
+             let qtyMatch = act.message.match(/Added (\d+)x/);
+             let qty = qtyMatch ? parseInt(qtyMatch[1]) : 0;
+             
+             if (metricsTimeFilter !== 'All') {
+                 const ts = act?.timestamp;
+                 if (ts) {
+                     const statDateStr = ts.split('T')[0];
+                     if (metricsTimeFilter === 'Today') {
+                         const lDate = new Date();
+                         const lYear = lDate.getFullYear();
+                         const lMonth = String(lDate.getMonth() + 1).padStart(2, '0');
+                         const lDay = String(lDate.getDate()).padStart(2, '0');
+                         const todayStr = `${lYear}-${lMonth}-${lDay}`;
+                         if (statDateStr !== todayStr) return;
+                     } else {
+                         if (statDateStr !== metricsTimeFilter) return;
+                     }
+                 } else {
+                     return;
+                 }
+             }
+
+             let rawName = normalizeUser(userName, allUsersList);
+             const groupKey = rawName.toLowerCase().replace(/[^a-z]/g, '') || 'unknown';
+
+             if (!bestDisplayNames[groupKey]) {
+                bestDisplayNames[groupKey] = rawName;
+             } else if (rawName.includes(' ') && !bestDisplayNames[groupKey].includes(' ')) {
+                bestDisplayNames[groupKey] = rawName;
+             }
+
+             if (!kittingStatsByUser[groupKey]) {
+                kittingStatsByUser[groupKey] = { garmentsKitted: 0 };
+             }
+             kittingStatsByUser[groupKey].garmentsKitted += qty;
+         }
+     });
      (order.items || []).forEach((item: any) => {
         const completed = item.completedSizes || [];
         completed.forEach((size: string) => {
@@ -128,6 +170,7 @@ export function Dashboard() {
   });
 
   const teamMetricUsers = Object.keys(statsByUser).sort((a,b) => statsByUser[b].garmentsCompleted - statsByUser[a].garmentsCompleted);
+  const teamKittingMetricUsers = Object.keys(kittingStatsByUser).sort((a,b) => kittingStatsByUser[b].garmentsKitted - kittingStatsByUser[a].garmentsKitted);
 
   return (
     <div className={tokens.layout.container}>
@@ -345,6 +388,58 @@ export function Dashboard() {
                                 <span className="text-3xl font-black text-green-600">{Math.round(rateHour)}/hr</span>
                              </div>
                            </>
+                        );
+                     })()}
+                  </div>
+                </div>
+            </div>
+          )}
+
+          {/* Team Kitting Metrics */}
+          {teamKittingMetricUsers.length > 0 && (
+            <div className="bg-white rounded-card border border-brand-border p-6 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.02)]">
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                     <div>
+                        <h2 className={tokens.typography.h2}>Team Kitting Metrics</h2>
+                        <p className="text-sm text-brand-secondary mt-1">Aggregated statistics for shipments created and boxed items.</p>
+                     </div>
+                  </div>
+                  <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar pb-2">
+                     <button 
+                        onClick={() => setActiveKittingTab('All')}
+                        className={`px-4 py-2 text-xs font-bold uppercase tracking-widest rounded-pill border transition-all whitespace-nowrap ${activeKittingTab === 'All' ? 'bg-brand-primary text-white border-brand-primary shadow-sm' : 'bg-white text-brand-secondary border-brand-border hover:border-brand-primary/50'}`}
+                     >
+                        Full Team
+                     </button>
+                     {teamKittingMetricUsers.map(uId => (
+                        <button 
+                           key={uId}
+                           onClick={() => setActiveKittingTab(uId)}
+                           className={`px-4 py-2 text-xs font-bold uppercase tracking-widest rounded-pill border transition-all whitespace-nowrap ${activeKittingTab === uId ? 'bg-brand-primary text-white border-brand-primary shadow-sm' : 'bg-white text-brand-secondary border-brand-border hover:border-brand-primary/50'}`}
+                        >
+                           {bestDisplayNames[uId] || uId}
+                        </button>
+                     ))}
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
+                     {(() => {
+                        let totalGarmentsKitted = 0;
+
+                        if (activeKittingTab === 'All') {
+                           Object.values(kittingStatsByUser).forEach(stat => {
+                              totalGarmentsKitted += stat.garmentsKitted;
+                           });
+                        } else if (kittingStatsByUser[activeKittingTab]) {
+                           totalGarmentsKitted = kittingStatsByUser[activeKittingTab].garmentsKitted;
+                        }
+
+                        return (
+                           <div className="bg-brand-bg/50 border border-brand-border rounded-xl p-4 flex flex-col items-center justify-center">
+                              <span className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1">Total Garments Kitted</span>
+                              <span className="text-3xl font-black text-brand-primary">{totalGarmentsKitted}</span>
+                           </div>
                         );
                      })()}
                   </div>
