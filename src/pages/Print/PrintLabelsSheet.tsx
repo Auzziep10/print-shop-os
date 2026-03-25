@@ -85,20 +85,21 @@ export function PrintLabelsSheet() {
       `}} />
       
       <div className="no-print text-center py-4 text-sm text-gray-500">
-        Generating 8.5"x11" sheet (Avery 5164 template 6-up). Make sure margins are set to "None" in the print dialog.
+        Generating 8.5"x11" sheet (OnlineLabels OL500 / 6-up). Make sure margins are set to "None" in the print dialog.
       </div>
 
       {pages.map((pageBoxes, pageIndex) => (
         <div key={pageIndex} className={`sheet mx-auto bg-white mb-8 page-break relative`} style={{
           width: '8.5in',
           height: '11in',
-          padding: '0.45in 0.156in',
+          padding: '1in 0.1875in',
           boxSizing: 'border-box',
           boxShadow: '0 0 10px rgba(0,0,0,0.1)',
           display: 'grid',
           gridTemplateColumns: '4in 4in',
-          gridAutoRows: '3.333in',
-          gap: '0 0.1875in'
+          gridAutoRows: '3in',
+          columnGap: '0.125in',
+          rowGap: '0in'
         }}>
           {pageBoxes.map((box: any) => {
              const publicUrl = `${window.location.origin}/packing-slip/${order.id}/${box.id}`;

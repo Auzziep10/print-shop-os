@@ -191,7 +191,7 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
         <div className="flex items-center gap-3">
           {(order.boxes && order.boxes.length > 0) && (
             <PillButton variant="outline" onClick={() => window.open(`/print/labels-sheet/${order.id}`, '_blank')} className="gap-2 shrink-0 px-4 py-2 text-xs bg-black text-white hover:bg-neutral-800 hover:text-white border-black">
-              <Printer size={14} /> Print Sheet (Avery)
+              <Printer size={14} /> Print Sheet (OL500)
             </PillButton>
           )}
           <PillButton variant="outline" onClick={handleStartAddBox} className="gap-2 shrink-0 px-4 py-2 text-xs">
