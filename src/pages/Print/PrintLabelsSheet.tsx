@@ -104,28 +104,31 @@ export function PrintLabelsSheet() {
           {pageBoxes.map((box: any) => {
              const publicUrl = `${window.location.origin}/packing-slip/${order.id}/${box.id}`;
              return (
-               <div key={box.id} className="w-full h-full p-[0.1in] box-border">
-                 {/* Inner Label Container matching the physical sticker format */}
-                 <div className="w-full h-full bg-black text-white p-3 flex flex-col justify-between items-center box-border font-serif text-center relative rounded-[0.5rem] overflow-hidden border border-black">
+               <div key={box.id} className="w-full h-full p-[0.05in] box-border flex items-center justify-center relative overflow-hidden">
+                 {/* Inner Label Container rotated to fit the 4x3 space physically, but design is 3x4 portrait */}
+                 <div 
+                   style={{ width: '2.8in', height: '3.8in', transform: 'rotate(-90deg)', transformOrigin: 'center center' }}
+                   className="bg-black text-white p-4 flex flex-col justify-between items-center box-border font-serif text-center relative rounded-xl border border-black shrink-0"
+                 >
                    <div className="w-full flex-1 flex flex-col justify-between items-center h-full">
                      {/* Logo */}
-                     <div className="w-full flex justify-center items-center h-12 mt-2">
+                     <div className="w-full flex justify-center items-center h-14 mt-2">
                        <img 
                          src="/logo.png" 
                          alt={cust.company || 'WOVN'} 
-                         className="w-[75%] h-full object-contain brightness-0 invert"
+                         className="w-[80%] h-full object-contain brightness-0 invert"
                          onError={(e) => {
                            e.currentTarget.style.display = 'none';
-                           e.currentTarget.parentElement!.innerHTML = '<span class="text-4xl font-black italic tracking-tighter text-white">WOVN</span>';
+                           e.currentTarget.parentElement!.innerHTML = '<span class="text-4xl font-black italic tracking-tight text-white">WOVN</span>';
                          }}
                        />
                      </div>
 
                      <div className="flex-1 flex flex-col justify-center items-center my-3 w-full">
-                        <div className="bg-white p-2.5 rounded-sm shadow-sm inline-block">
+                        <div className="bg-white p-3 rounded-sm shadow-sm inline-block">
                           <QRCode 
                             value={publicUrl} 
-                            size={130} 
+                            size={140} 
                             level="H" 
                             bgColor="#ffffff"
                             fgColor="#000000"
@@ -134,7 +137,7 @@ export function PrintLabelsSheet() {
                         </div>
                      </div>
 
-                     <div className="text-[2.2rem] leading-none mb-3 text-white font-serif tracking-wide">
+                     <div className="text-[2.2rem] leading-none mb-4 text-white font-serif tracking-wide">
                        {box.name}
                      </div>
                    </div>
