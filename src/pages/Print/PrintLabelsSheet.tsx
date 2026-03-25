@@ -104,11 +104,21 @@ export function PrintLabelsSheet() {
           {pageBoxes.map((box: any) => {
              const publicUrl = `${window.location.origin}/packing-slip/${order.id}/${box.id}`;
              return (
-               <div key={box.id} className="w-full h-full p-[0.05in] box-border flex items-center justify-center relative overflow-hidden">
-                 {/* Inner Label Container rotated to fit the 4x3 space physically, but design is 3x4 portrait */}
+               <div key={box.id} className="relative w-full h-full box-border overflow-hidden rounded-xl">
+                 {/* 
+                    Inner Label Container rotated to fit the 4x3 space physically, but design is 3x4 portrait.
+                    MUST be absolutely positioned so the 3.8in height doesn't expand the 3in CSS grid row!
+                 */}
                  <div 
-                   style={{ width: '2.8in', height: '3.8in', transform: 'rotate(-90deg)', transformOrigin: 'center center' }}
-                   className="bg-black text-white p-4 flex flex-col justify-between items-center box-border font-serif text-center relative rounded-xl border border-black shrink-0"
+                   style={{ 
+                     position: 'absolute',
+                     top: '50%',
+                     left: '50%',
+                     width: '2.8in', 
+                     height: '3.8in', 
+                     transform: 'translate(-50%, -50%) rotate(-90deg)' 
+                   }}
+                   className="bg-black text-white p-4 flex flex-col justify-between items-center box-border font-serif text-center rounded-xl border border-black"
                  >
                    <div className="w-full flex-1 flex flex-col justify-between items-center h-full">
                      {/* Logo */}
