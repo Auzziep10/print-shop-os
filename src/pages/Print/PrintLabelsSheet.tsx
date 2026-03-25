@@ -111,8 +111,12 @@ export function PrintLabelsSheet() {
                     of the label cuts, completely removing artificial visual gaps between rows.
                  */}
                  <div 
-                   style={{ width: '100%', height: '100%' }}
-                   className="bg-black text-white p-4 flex flex-row justify-between items-center box-border font-serif text-center rounded-[0.75rem] border border-black"
+                   style={{ 
+                     width: '100%', 
+                     height: '100%',
+                     outline: '0.05in solid black'
+                   }}
+                   className="bg-black text-white p-4 flex flex-row justify-between items-center box-border font-serif text-center rounded-[0.75rem]"
                  >
                    {/* Logo (Left side, rotated to read bottom-to-top) */}
                    <div className="relative h-full flex justify-center items-center w-20 shrink-0">
