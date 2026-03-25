@@ -106,14 +106,13 @@ export function PrintLabelsSheet() {
              return (
                <div key={box.id} className="relative w-full h-full box-border flex items-center justify-center">
                  {/* 
-                    Landscape 3.8w x 2.8h container. 
-                    We use flex-row to stack Logo (Left), QR (Center), Text (Right).
-                    We individually rotate the logo and text by -90deg so they read sideways, 
-                    matching the rotated portrait design WITHOUT causing unrotated box overflow clipping!
+                    Landscape 4w x 3h container (FULL BLEED).
+                    We use width/height 100% so the black background physically touches the edge 
+                    of the label cuts, completely removing artificial visual gaps between rows.
                  */}
                  <div 
-                   style={{ width: '3.8in', height: '2.8in' }}
-                   className="bg-black text-white p-4 flex flex-row justify-between items-center box-border font-serif text-center rounded-xl border border-black"
+                   style={{ width: '100%', height: '100%' }}
+                   className="bg-black text-white p-4 flex flex-row justify-between items-center box-border font-serif text-center rounded-[0.75rem] border border-black"
                  >
                    {/* Logo (Left side, rotated to read bottom-to-top) */}
                    <div className="h-full flex justify-center items-center w-14 shrink-0">
