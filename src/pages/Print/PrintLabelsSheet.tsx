@@ -104,50 +104,51 @@ export function PrintLabelsSheet() {
           {pageBoxes.map((box: any) => {
              const publicUrl = `${window.location.origin}/packing-slip/${order.id}/${box.id}`;
              return (
-               <div key={box.id} className="relative w-full h-full box-border overflow-hidden rounded-xl">
+               <div key={box.id} className="relative w-full h-full box-border flex items-center justify-center">
                  {/* 
-                    Inner Label Container rotated to fit the 4x3 space physically, but design is 3x4 portrait.
-                    MUST be absolutely positioned so the 3.8in height doesn't expand the 3in CSS grid row!
+                    Landscape 3.8w x 2.8h container. 
+                    We use flex-row to stack Logo (Left), QR (Center), Text (Right).
+                    We individually rotate the logo and text by -90deg so they read sideways, 
+                    matching the rotated portrait design WITHOUT causing unrotated box overflow clipping!
                  */}
                  <div 
-                   style={{ 
-                     position: 'absolute',
-                     top: '50%',
-                     left: '50%',
-                     width: '2.8in', 
-                     height: '3.8in', 
-                     transform: 'translate(-50%, -50%) rotate(-90deg)' 
-                   }}
-                   className="bg-black text-white p-4 flex flex-col justify-between items-center box-border font-serif text-center rounded-xl border border-black"
+                   style={{ width: '3.8in', height: '2.8in' }}
+                   className="bg-black text-white p-4 flex flex-row justify-between items-center box-border font-serif text-center rounded-xl border border-black"
                  >
-                   <div className="w-full flex-1 flex flex-col justify-between items-center h-full">
-                     {/* Logo */}
-                     <div className="w-full flex justify-center items-center h-14 mt-2">
-                       <img 
-                         src="/logo.png" 
-                         alt={cust.company || 'WOVN'} 
-                         className="w-[80%] h-full object-contain brightness-0 invert"
-                         onError={(e) => {
-                           e.currentTarget.style.display = 'none';
-                           e.currentTarget.parentElement!.innerHTML = '<span class="text-4xl font-black italic tracking-tight text-white">WOVN</span>';
-                         }}
-                       />
-                     </div>
+                   {/* Logo (Left side, rotated to read bottom-to-top) */}
+                   <div className="h-full flex justify-center items-center w-14 shrink-0">
+                     <img 
+                       src="/logo.png" 
+                       alt={cust.company || 'WOVN'} 
+                       className="w-[120%] h-auto object-contain brightness-0 invert"
+                       style={{ transform: 'rotate(-90deg)' }}
+                       onError={(e) => {
+                         e.currentTarget.style.display = 'none';
+                         e.currentTarget.parentElement!.innerHTML = '<span class="text-4xl font-black italic tracking-tight text-white whitespace-nowrap" style="transform: rotate(-90deg)">WOVN</span>';
+                       }}
+                     />
+                   </div>
 
-                     <div className="flex-1 flex flex-col justify-center items-center my-3 w-full">
-                        <div className="bg-white p-3 rounded-sm shadow-sm inline-block">
-                          <QRCode 
-                            value={publicUrl} 
-                            size={140} 
-                            level="H" 
-                            bgColor="#ffffff"
-                            fgColor="#000000"
-                            style={{ maxWidth: "100%", height: "auto" }} 
-                          />
-                        </div>
-                     </div>
+                   {/* QR Code (Center) */}
+                   <div className="flex-1 flex justify-center items-center mx-3 h-full">
+                      <div className="bg-white p-3 rounded-sm shadow-sm inline-block">
+                        <QRCode 
+                          value={publicUrl} 
+                          size={140} 
+                          level="H" 
+                          bgColor="#ffffff"
+                          fgColor="#000000"
+                          style={{ maxWidth: "100%", height: "auto" }} 
+                        />
+                      </div>
+                   </div>
 
-                     <div className="text-[2.2rem] leading-none mb-4 text-white font-serif tracking-wide">
+                   {/* Box Name (Right side, rotated to read bottom-to-top) */}
+                   <div className="h-full flex justify-center items-center w-12 shrink-0">
+                     <div 
+                       className="text-[2.2rem] leading-none text-white font-serif tracking-wide whitespace-nowrap"
+                       style={{ transform: 'rotate(-90deg)' }}
+                     >
                        {box.name}
                      </div>
                    </div>
