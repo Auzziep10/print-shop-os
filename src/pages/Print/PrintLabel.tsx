@@ -60,39 +60,38 @@ export function PrintLabel() {
   const cust = customer || { company: 'Unknown Customer' };
   const publicUrl = `${window.location.origin}/packing-slip/${order.id}/${box.id}`;
 
-  // Render a 4x6 thermal label. Usually thermal layers represent 4" width x 6" height.
-  // We'll style a container to approximately 4in x 6in for browser rendering.
+  // Render a 3x4 thermal label.
   return (
-    <div className="w-[4in] h-[6in] bg-white text-black p-6 flex flex-col justify-between items-center mx-auto box-border border-[6px] border-gray-500 font-serif text-center relative">
+    <div className="w-[3in] h-[4in] bg-black text-white p-4 flex flex-col justify-between items-center mx-auto box-border font-serif text-center relative rounded-xl overflow-hidden">
       <div className="w-full flex-1 flex flex-col justify-between items-center h-full">
         {/* Logo */}
-        <div className="w-full flex justify-center items-center h-24 mt-2">
+        <div className="w-full flex justify-center items-center h-16 mt-4">
           <img 
             src="/logo.png" 
             alt={cust.company || 'WOVN'} 
-            className="w-[90%] h-full object-contain"
+            className="w-[80%] h-full object-contain brightness-0 invert"
             onError={(e) => {
               // Fallback if logo.png is missing or broken
               e.currentTarget.style.display = 'none';
-              e.currentTarget.parentElement!.innerHTML = '<span class="text-6xl font-black italic tracking-tighter">WOVN</span>';
+              e.currentTarget.parentElement!.innerHTML = '<span class="text-5xl font-black italic tracking-tighter text-white">WOVN</span>';
             }}
           />
         </div>
 
-        <div className="text-5xl uppercase tracking-[0.2em] mt-8 text-black">
-          ITEMS
+        <div className="flex-1 flex flex-col justify-center items-center my-4 w-full">
+           <div className="bg-white p-3 rounded-sm">
+             <QRCode 
+               value={publicUrl} 
+               size={180} 
+               level="H" 
+               bgColor="#ffffff"
+               fgColor="#000000"
+               style={{ width: "100%", maxWidth: "160px", height: "auto" }} 
+             />
+           </div>
         </div>
 
-        <div className="flex-1 flex flex-col justify-center items-center my-6 w-full">
-           <QRCode 
-             value={publicUrl} 
-             size={280} 
-             level="H" 
-             style={{ width: "100%", maxWidth: "260px", height: "auto" }} 
-           />
-        </div>
-
-        <div className="text-[4rem] leading-none mb-4 text-black">
+        <div className="text-[3rem] leading-none mb-6 text-white font-serif tracking-wide">
           {box.name}
         </div>
       </div>
