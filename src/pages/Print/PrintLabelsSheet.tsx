@@ -64,7 +64,7 @@ export function PrintLabelsSheet() {
   }
 
   return (
-    <div className="bg-gray-200 min-h-screen pb-10">
+    <div className="bg-gray-200 print:bg-white min-h-screen print:min-h-0 print:pb-0 pb-10">
       <style dangerouslySetInnerHTML={{__html: `
         @media print {
           @page { margin: 0; }
@@ -78,7 +78,7 @@ export function PrintLabelsSheet() {
           .sheet { 
             margin: 0 !important; 
             box-shadow: none !important; 
-            background: transparent !important;
+            background: white !important;
           }
           .page-break { page-break-after: always; }
         }
@@ -89,7 +89,7 @@ export function PrintLabelsSheet() {
       </div>
 
       {pages.map((pageBoxes, pageIndex) => (
-        <div key={pageIndex} className={`sheet mx-auto bg-white mb-8 page-break relative`} style={{
+        <div key={pageIndex} className={`sheet mx-auto bg-white mb-8 print:mb-0 relative ${pageIndex < pages.length - 1 ? 'page-break' : ''}`} style={{
           width: '8.5in',
           height: '11in',
           padding: '1in 0.1875in',
