@@ -115,15 +115,20 @@ export function PrintLabelsSheet() {
                    className="bg-black text-white p-4 flex flex-row justify-between items-center box-border font-serif text-center rounded-[0.75rem] border border-black"
                  >
                    {/* Logo (Left side, rotated to read bottom-to-top) */}
-                   <div className="h-full flex justify-center items-center w-14 shrink-0">
+                   <div className="relative h-full flex justify-center items-center w-20 shrink-0">
                      <img 
                        src="/logo.png" 
                        alt={cust.company || 'WOVN'} 
-                       className="w-[120%] h-auto object-contain brightness-0 invert"
-                       style={{ transform: 'rotate(-90deg)' }}
+                       className="object-contain brightness-0 invert"
+                       style={{ 
+                         transform: 'rotate(-90deg)',
+                         width: '2.5in',
+                         height: 'auto',
+                         maxWidth: 'none'
+                       }}
                        onError={(e) => {
                          e.currentTarget.style.display = 'none';
-                         e.currentTarget.parentElement!.innerHTML = '<span class="text-4xl font-black italic tracking-tight text-white whitespace-nowrap" style="transform: rotate(-90deg)">WOVN</span>';
+                         e.currentTarget.parentElement!.innerHTML = '<span class="text-[3.2rem] font-black italic tracking-tighter text-white whitespace-nowrap" style="transform: rotate(-90deg)">WOVN</span>';
                        }}
                      />
                    </div>
@@ -143,9 +148,9 @@ export function PrintLabelsSheet() {
                    </div>
 
                    {/* Box Name (Right side, rotated to read bottom-to-top) */}
-                   <div className="h-full flex justify-center items-center w-12 shrink-0">
+                   <div className="h-full flex justify-center items-center w-20 shrink-0">
                      <div 
-                       className="text-[2.2rem] leading-none text-white font-serif tracking-wide whitespace-nowrap"
+                       className="text-[3rem] leading-none text-white font-serif tracking-wide whitespace-nowrap"
                        style={{ transform: 'rotate(-90deg)' }}
                      >
                        {box.name}
