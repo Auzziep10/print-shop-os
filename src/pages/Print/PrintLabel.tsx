@@ -62,7 +62,19 @@ export function PrintLabel() {
 
   // Render a 3x4 thermal label.
   return (
-    <div className="w-[3in] h-[4in] bg-black text-white p-4 flex flex-col justify-between items-center mx-auto box-border font-serif text-center relative rounded-xl overflow-hidden">
+    <>
+      <style dangerouslySetInnerHTML={{__html: `
+        @media print {
+          @page { margin: 0; size: 3in 4in; }
+          body { 
+            margin: 0; 
+            -webkit-print-color-adjust: exact !important; 
+            print-color-adjust: exact !important; 
+            background: white !important;
+          }
+        }
+      `}} />
+      <div className="w-[3in] h-[4in] bg-black text-white p-4 flex flex-col justify-between items-center mx-auto box-border font-serif text-center relative overflow-hidden">
       <div className="w-full flex-1 flex flex-col justify-between items-center h-full">
         {/* Logo */}
         <div className="w-full flex justify-center items-center h-16 mt-4">
@@ -96,5 +108,6 @@ export function PrintLabel() {
         </div>
       </div>
     </div>
+    </>
   );
 }
