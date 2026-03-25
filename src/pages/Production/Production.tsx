@@ -93,20 +93,23 @@ export function Production() {
      setEditingTargetDateId(null);
   };
 
-  // Calculate completion ratio helper
   const getCompletionData = (order: any) => {
     let totalGarments = 0;
     let completedGarments = 0;
     order.items?.forEach((item: any) => {
+      let sizeSum = 0;
       if (item.sizes) {
         Object.entries(item.sizes).forEach(([size, qty]: [string, any]) => {
           const q = parseInt(qty as string) || 0;
-          totalGarments += q;
+          sizeSum += q;
           if (item.completedSizes?.includes(size)) {
             completedGarments += q;
           }
         });
       }
+      // Always count the requested item globally so 'Total Garments Processed' updates 
+      // accurately even if size breakdowns haven't been completed yet.
+      totalGarments += Math.max(parseInt(item.qty as string) || 0, sizeSum);
     });
     const completionRatio = totalGarments > 0 ? (completedGarments / totalGarments) : 0;
     return { totalGarments, completedGarments, completionRatio };
@@ -923,11 +926,13 @@ export function Production() {
                  let trueTotalGarmentsCompletedWithStats = 0;
 
                  (metricsOrder.items || []).forEach((item: any) => {
+                    let sizeSum = 0;
                     if (item.sizes) {
                         Object.values(item.sizes).forEach((q: any) => {
-                            totalOrderGarments += (parseInt(q as string) || 0);
+                            sizeSum += (parseInt(q as string) || 0);
                         });
                     }
+                    totalOrderGarments += Math.max(parseInt(item.qty as string) || 0, sizeSum);
 
                     const completed = item.completedSizes || [];
                     completed.forEach((size: string) => {
