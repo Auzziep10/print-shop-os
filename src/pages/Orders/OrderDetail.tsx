@@ -933,20 +933,8 @@ export function OrderDetail() {
             <div className="flex justify-between items-center mb-4 relative z-[100]">
                <h2 className={tokens.typography.h2}>Details</h2>
                <div className="flex items-center gap-3 relative z-[110]">
-                 {(liveCustomer?.catalogLinkIds?.length > 0) && (
-                    <PillButton 
-                      variant="outline" 
-                      onClick={() => {
-                        setIsDeckModalOpen(true);
-                        handleFetchDecks();
-                      }}
-                      className="gap-2 shrink-0 px-4 py-2 text-xs border-brand-primary text-brand-primary hover:bg-brand-primary hover:text-white transition-colors"
-                    >
-                      <PackagePlus size={14} /> Pull from Deck
-                    </PillButton>
-                 )}
                  <PillButton 
-                   variant="filled" 
+                   variant="outline" 
                    onClick={() => setEditItemObj({
                      id: `item-${Date.now()}`,
                      gender: '',
@@ -958,10 +946,22 @@ export function OrderDetail() {
                      qty: 0,
                      total: '$0.00'
                    })}
-                   className="gap-2 shrink-0 px-4 py-2 text-xs bg-black text-white hover:bg-neutral-800"
+                   className="gap-2 shrink-0 px-4 py-2 text-xs border-[1.5px] border-brand-primary text-brand-primary hover:bg-brand-primary hover:text-white transition-colors font-bold"
                  >
                    <Plus size={14} /> Create Ad Hoc
                  </PillButton>
+                 {(liveCustomer?.catalogLinkIds?.length > 0) && (
+                    <PillButton 
+                      variant="filled" 
+                      onClick={() => {
+                        setIsDeckModalOpen(true);
+                        handleFetchDecks();
+                      }}
+                      className="gap-2 shrink-0 px-4 py-2 text-xs bg-black text-white hover:bg-neutral-800 shadow-sm border border-transparent font-bold"
+                    >
+                      <PackagePlus size={14} /> Pull from Deck
+                    </PillButton>
+                 )}
                </div>
             </div>
             <div className="bg-white rounded-card border border-brand-border overflow-hidden">
