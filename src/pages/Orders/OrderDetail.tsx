@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { PillButton } from '../../components/ui/PillButton';
 import { PackingSlipsManager } from '../../components/Orders/PackingSlipsManager';
 import { TrackingModal } from '../../components/Orders/TrackingModal';
-import { ArrowLeft, MessageSquare, Clock, Users, Download, Loader2, X, Edit3, Upload, Trash2, Plus, ChevronDown, Image as ImageIcon, Box, Printer, ExternalLink, ShoppingBag, Search, Check, Truck, GripVertical, Pause, Play, DollarSign } from 'lucide-react';
+import { ArrowLeft, MessageSquare, Clock, Users, Download, Loader2, X, Edit3, Upload, Trash2, Plus, ChevronDown, Image as ImageIcon, Box, Printer, ExternalLink, ShoppingBag, Search, Check, Truck, GripVertical, Pause, Play, DollarSign, PackagePlus } from 'lucide-react';
 import QRCode from 'react-qr-code';
 import { StatusBadge, type StatusType } from '../../components/ui/StatusBadge';
 import { useAuth } from '../../contexts/AuthContext';
@@ -142,6 +142,37 @@ export function OrderDetail() {
   const [dragOverItemId, setDragOverItemId] = useState<string | null>(null);
   const [draggableItemId, setDraggableItemId] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, item: any, size: string, qty: number } | null>(null);
+
+  const [isDeckModalOpen, setIsDeckModalOpen] = useState(false);
+  const [customerDecks, setCustomerDecks] = useState<any[]>([]);
+  const [isLoadingDecks, setIsLoadingDecks] = useState(false);
+
+  const handleFetchDecks = async () => {
+    if (!liveCustomer?.catalogLinkIds || liveCustomer.catalogLinkIds.length === 0) {
+       setCustomerDecks([]);
+       return;
+    }
+    setIsLoadingDecks(true);
+    try {
+      const fetchedArrays = await Promise.all(
+        liveCustomer.catalogLinkIds.map(async (deckId: string) => {
+          try {
+            const response = await fetch(`https://wovn-garment-catalog.vercel.app/api/decks?deckId=${deckId}`);
+            if (response.ok) return await response.json();
+          } catch (e) {
+             console.error(e);
+          }
+          return null;
+        })
+      );
+      const validArrays = fetchedArrays.filter(d => d !== null && Array.isArray(d));
+      setCustomerDecks(validArrays.flat());
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoadingDecks(false);
+    }
+  };
 
   const handleDragStart = (e: React.DragEvent, id: string) => {
     setDraggedItemId(id);
@@ -899,25 +930,39 @@ export function OrderDetail() {
       <div className="space-y-8 mt-8">
           {/* Garments / Items */}
           <div>
-            <div className="flex justify-between items-center mb-4">
+            <div className="flex justify-between items-center mb-4 relative z-[100]">
                <h2 className={tokens.typography.h2}>Details</h2>
-               <PillButton 
-                 variant="outline" 
-                 onClick={() => setEditItemObj({
-                   id: `item-${Date.now()}`,
-                   gender: '',
-                   style: '',
-                   itemNum: '',
-                   color: '',
-                   sizes: { 'XS': 0, 'S': 0, 'M': 0, 'L': 0, 'XL': 0, '2XL': 0, '3XL': 0 },
-                   price: '$0.00',
-                   qty: 0,
-                   total: '$0.00'
-                 })}
-                 className="gap-2 shrink-0 px-4 py-2 text-xs"
-               >
-                 <Plus size={14} /> Add Item
-               </PillButton>
+               <div className="flex items-center gap-3 relative z-[110]">
+                 {(liveCustomer?.catalogLinkIds?.length > 0) && (
+                    <PillButton 
+                      variant="outline" 
+                      onClick={() => {
+                        setIsDeckModalOpen(true);
+                        handleFetchDecks();
+                      }}
+                      className="gap-2 shrink-0 px-4 py-2 text-xs border-brand-primary text-brand-primary hover:bg-brand-primary hover:text-white transition-colors"
+                    >
+                      <PackagePlus size={14} /> Pull from Deck
+                    </PillButton>
+                 )}
+                 <PillButton 
+                   variant="filled" 
+                   onClick={() => setEditItemObj({
+                     id: `item-${Date.now()}`,
+                     gender: '',
+                     style: '',
+                     itemNum: '',
+                     color: '',
+                     sizes: { 'XS': 0, 'S': 0, 'M': 0, 'L': 0, 'XL': 0, '2XL': 0, '3XL': 0 },
+                     price: '$0.00',
+                     qty: 0,
+                     total: '$0.00'
+                   })}
+                   className="gap-2 shrink-0 px-4 py-2 text-xs bg-black text-white hover:bg-neutral-800"
+                 >
+                   <Plus size={14} /> Create Blank Item
+                 </PillButton>
+               </div>
             </div>
             <div className="bg-white rounded-card border border-brand-border overflow-hidden">
                {order.items?.length > 0 ? order.items.map((item: any) => (
@@ -2458,6 +2503,107 @@ export function OrderDetail() {
           </div>
         </div>
       )}
+
+      {/* Add From Deck Modal */}
+      {isDeckModalOpen && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto" onClick={() => setIsDeckModalOpen(false)}>
+          <div className="bg-brand-bg rounded-3xl p-0 max-w-2xl w-full flex flex-col shadow-2xl border border-brand-border my-auto overflow-hidden max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
+            <div className="px-8 py-6 border-b border-brand-border bg-white flex items-center justify-between sticky top-0 z-10 shadow-sm">
+              <div>
+                <h2 className="text-xl font-serif text-brand-primary">Select from Assigned Decks</h2>
+                <p className="text-sm font-medium text-brand-secondary mt-1">Pre-fill the item editor with a garment from the catalog.</p>
+              </div>
+              <button 
+                onClick={() => setIsDeckModalOpen(false)}
+                className="w-10 h-10 rounded-full bg-neutral-50 border border-brand-border flex items-center justify-center text-brand-secondary hover:text-black hover:border-black transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-8 custom-scrollbar bg-neutral-50 min-h-[400px]">
+              {isLoadingDecks ? (
+                <div className="flex items-center justify-center p-8">
+                  <div className="animate-spin w-8 h-8 border-4 border-brand-primary border-t-transparent rounded-full"></div>
+                </div>
+              ) : customerDecks.length === 0 ? (
+                <div className="flex flex-col items-center justify-center p-8 text-center text-brand-secondary h-full">
+                  <PackagePlus size={32} className="mb-4 text-brand-secondary/40" />
+                  <p>No catalog decks connected for this client.</p>
+                  <p className="text-xs mt-2">Connect decks via the Edit Company panel.</p>
+                </div>
+              ) : (
+                customerDecks.map((deck) => (
+                  <div key={deck.id || deck.name} className="flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
+                    <div className="bg-white rounded-2xl p-6 border border-brand-border flex flex-col justify-center items-center text-center shadow-[0_2px_10px_rgb(0,0,0,0.02)]">
+                       <h3 className="font-bold text-brand-primary tracking-tight text-lg">{deck.name || "Catalog Deck"}</h3>
+                       {deck.name && (
+                         <p className="text-brand-secondary font-bold mt-1 uppercase tracking-widest text-[10px]">Active Collection</p>
+                       )}
+                    </div>
+
+                    <div className="flex flex-col gap-3 mt-1">
+                      {(deck.items || deck.garments || []).map((item: any, idx: number) => {
+                        const style = item.garment_name || item.name || item.style || item.title || 'Unknown Style';
+                        const gender = item.gender || 'Unisex';
+                        const itemNum = item.itemNum || item.garment_id || item.sku || item.id || `GARMENT-${idx+1}`;
+                        let colors = ['Custom Color']; 
+                        if (Array.isArray(item.colors) && item.colors.length > 0) colors = item.colors;
+                        else if (Array.isArray(item.availableColors)) colors = item.availableColors;
+                        else if (Array.isArray(item.variations) && item.variations.length > 0) colors = item.variations.map((v:any) => v.color).filter(Boolean);
+                        
+                        const image = item.mockup_image || item.mock_image || item.original_image || item.image || item.imageUrl || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
+                        const numericPrice = parseFloat((item.price || '0').toString().replace(/[^0-9.]/g, '')) || 0;
+                        const formattedPrice = numericPrice ? `$${numericPrice.toFixed(2)}` : '$0.00';
+                        
+                        return (
+                          <div 
+                            key={item.id || idx} 
+                            onClick={() => {
+                               setIsDeckModalOpen(false);
+                               setEditItemObj({
+                                 id: `item-${Date.now()}`,
+                                 gender: gender,
+                                 style: style,
+                                 itemNum: itemNum,
+                                 color: colors[0] || '',
+                                 sizes: { 'XS': 0, 'S': 0, 'M': 0, 'L': 0, 'XL': 0, '2XL': 0, '3XL': 0, 'OSFA': 0, ...item.sizes },
+                                 price: formattedPrice,
+                                 qty: 0,
+                                 total: '$0.00',
+                                 image: image
+                               });
+                            }}
+                            className="group flex items-center gap-5 bg-white border border-brand-border hover:border-brand-primary transition-colors rounded-2xl p-4 cursor-pointer shadow-sm hover:shadow-md hover:-translate-y-0.5"
+                          >
+                            <div className="w-16 h-16 rounded-xl overflow-hidden bg-brand-bg border border-brand-border shrink-0">
+                              <img src={image} alt={style} className="w-full h-full object-cover mix-blend-multiply" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between mb-1">
+                                 <h4 className="font-bold text-brand-primary text-[15px] truncate pr-2">{style}</h4>
+                                 <span className="text-[10px] font-bold text-brand-secondary bg-brand-bg px-2 py-0.5 rounded-full shrink-0">{gender}</span>
+                              </div>
+                              {itemNum && itemNum.length < 15 && (
+                                <p className="text-xs font-semibold text-brand-secondary">{itemNum}</p>
+                              )}
+                              <p className="text-xs text-brand-secondary/60 font-medium mt-1 truncate max-w-sm">{colors.join(' • ')}</p>
+                            </div>
+                            <div className="w-8 h-8 rounded-full bg-brand-bg text-brand-secondary group-hover:bg-brand-primary group-hover:text-white flex items-center justify-center transition-colors shrink-0">
+                               <PackagePlus size={16} strokeWidth={2.5} />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

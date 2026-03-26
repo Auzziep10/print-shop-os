@@ -90,6 +90,41 @@ export function CustomerDetail() {
   const [availableCatalogs, setAvailableCatalogs] = useState<any[]>([]);
   const [isLoadingCatalogs, setIsLoadingCatalogs] = useState(false);
 
+  const [customerDecks, setCustomerDecks] = useState<any[]>([]);
+  const [isLoadingCustomerDecks, setIsLoadingCustomerDecks] = useState(false);
+
+  useEffect(() => {
+    const loadFullDecks = async () => {
+      if (catalogLinkIds.length === 0) {
+        setCustomerDecks([]);
+        return;
+      }
+      setIsLoadingCustomerDecks(true);
+      try {
+        const fetchedArrays = await Promise.all(
+          catalogLinkIds.map(async (deckId: string) => {
+            try {
+              const response = await fetch(`https://wovn-garment-catalog.vercel.app/api/decks?deckId=${deckId}`);
+              if (response.ok) return await response.json();
+            } catch (e) {
+              console.error("Failed to fetch deck:", deckId, e);
+            }
+            return null;
+          })
+        );
+        const validArrays = fetchedArrays.filter(d => d !== null && Array.isArray(d));
+        setCustomerDecks(validArrays.flat());
+      } catch (err) {
+        console.error("Error loading full decks", err);
+      } finally {
+         setIsLoadingCustomerDecks(false);
+      }
+    };
+    if (!fetchingLogo) {
+      loadFullDecks();
+    }
+  }, [catalogLinkIds, fetchingLogo]);
+
   useEffect(() => {
     if (isCatalogDialogOpen && wovnCustomers.length === 0) {
       const fetchWovnCustomers = async () => {
@@ -545,6 +580,40 @@ export function CustomerDetail() {
 
       {/* Main Content Area */}
       <div className="flex flex-col gap-8">
+
+        {/* Active Catalogs */}
+        {customerDecks.length > 0 && (
+          <div className="mt-4">
+             <div className="flex items-center justify-between mb-6">
+                <div>
+                   <h2 className={tokens.typography.h2}>Assigned Garment Decks</h2>
+                   <p className="text-sm text-brand-secondary mt-1">Collections pulled from the WOVN catalog for this customer.</p>
+                </div>
+             </div>
+             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+               {customerDecks.map((deck) => (
+                 <div key={deck.id || deck.name} className="bg-white rounded-card border border-brand-border shadow-sm p-6 overflow-hidden">
+                   <div className="flex items-center justify-between border-b border-brand-border/60 pb-4 mb-4">
+                      <h3 className="font-bold text-lg text-brand-primary tracking-tight">{deck.name || "Catalog Deck"}</h3>
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary bg-brand-bg px-2 py-1 rounded-md">{(deck.items || deck.garments || []).length} Styles</span>
+                   </div>
+                   <div className="flex items-center gap-3 overflow-x-auto custom-scrollbar pb-2 relative">
+                      {(deck.items || deck.garments || []).map((item: any, idx: number) => {
+                        const style = item.garment_name || item.name || item.style || item.title || 'Unknown Style';
+                        const image = item.mockup_image || item.mock_image || item.original_image || item.image || item.imageUrl || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
+                        return (
+                           <div key={idx} className="w-16 h-16 rounded-xl overflow-hidden bg-brand-bg border border-brand-border shrink-0 hover:border-brand-primary transition-colors tooltip relative group/deckitem">
+                             <img src={image} alt={style} className="w-full h-full object-cover mix-blend-multiply" />
+                             <span className="tooltiptext whitespace-nowrap z-[110]">{style}</span>
+                           </div>
+                        );
+                      })}
+                   </div>
+                 </div>
+               ))}
+             </div>
+          </div>
+        )}
 
         {/* Order History using Portal Component */}
         <div className="mt-4">
