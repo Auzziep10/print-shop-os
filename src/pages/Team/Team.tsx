@@ -51,21 +51,7 @@ export function Team() {
       {/* Main Content Area */}
       <div className="mt-6">
         {activeView === 'Timeline' ? (
-          activeRange === 'Day' ? (
-            <TimelinePlanner />
-          ) : activeRange === 'Week' ? (
-            <div className="bg-white border border-brand-border rounded-card h-64 flex flex-col items-center justify-center text-brand-secondary gap-3">
-              <Calendar size={32} strokeWidth={1.5} className="opacity-50" />
-              <p className="font-semibold text-sm">Weekly timeline view is under construction.</p>
-              <p className="text-xs text-brand-muted">Awaiting date-based data migration.</p>
-            </div>
-          ) : (
-            <div className="bg-white border border-brand-border rounded-card h-64 flex flex-col items-center justify-center text-brand-secondary gap-3">
-              <Calendar size={32} strokeWidth={1.5} className="opacity-50" />
-              <p className="font-semibold text-sm">Monthly timeline view is under construction.</p>
-              <p className="text-xs text-brand-muted">Awaiting date-based data migration.</p>
-            </div>
-          )
+          <TimelinePlanner activeRange={activeRange} />
         ) : (
           <div className="p-12 text-center text-brand-secondary border border-brand-border rounded-card bg-white">
             Kanban view coming soon...

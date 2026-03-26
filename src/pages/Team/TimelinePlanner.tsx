@@ -5,7 +5,12 @@ import { db } from '../../lib/firebase';
 import { useOrders } from '../../hooks/useOrders';
 import { Plus, X, Loader2, Clock, Trash2 } from 'lucide-react';
 
-const HOURS = Array.from({ length: 14 }, (_, i) => i + 6); // 6am to 7pm
+const getColumns = (range: string) => {
+  if (range === 'Week') return ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map((name, i) => ({ id: `wk-${i}`, label: name, startVal: i, snapMode: 0.5 })); 
+  if (range === 'Month') return ['Week 1', 'Week 2', 'Week 3', 'Week 4'].map((name, i) => ({ id: `mo-${i}`, label: name, startVal: i, snapMode: 0.25 }));
+  // Day (default)
+  return Array.from({ length: 14 }, (_, i) => ({ id: `dy-${i + 6}`, label: `${i+6 > 12 ? i-6 : (i+6===12 ? 12 : i+6)} ${i+6>=12 ? 'PM' : 'AM'}`, startVal: i + 6, snapMode: 0.5 }));
+};
 
 interface TeamMember {
   id: string;
@@ -15,7 +20,19 @@ interface TeamMember {
 
 export const OPEN_NEW_TASK_EVENT = 'open-new-timeline-task';
 
-function formatTaskTime(val: number) {
+function formatTaskTime(val: number, range: string) {
+  if (range === 'Week') {
+     const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Weekend', 'Weekend'];
+     const dayIdx = Math.max(0, Math.floor(val));
+     const day = days[dayIdx] || 'Weekend';
+     const fraction = val % 1;
+     const time = fraction < 0.3 ? 'AM' : (fraction < 0.7 ? 'Noon' : 'PM');
+     return fraction > 0 ? `${day} ${time}` : day;
+  }
+  if (range === 'Month') {
+     return `Day ${Math.floor(val) + 1}`;
+  }
+
   const time = val + 0.01;
   const h = Math.floor(time);
   const m = Math.floor((time % 1) * 60) >= 30 ? '30' : '00';
@@ -32,6 +49,7 @@ interface TimelineTask {
   color: string;
   rowOffset?: number;
   orderId?: string;
+  range?: string;
 }
 
 const STATUS_COLORS = [
@@ -41,7 +59,11 @@ const STATUS_COLORS = [
   { label: 'Delayed', value: 'bg-red-500' },
 ];
 
-export function TimelinePlanner() {
+interface TimelinePlannerProps {
+  activeRange?: string;
+}
+
+export function TimelinePlanner({ activeRange = 'Day' }: TimelinePlannerProps) {
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [tasks, setTasks] = useState<TimelineTask[]>([]);
   const [loading, setLoading] = useState(true);
@@ -77,8 +99,12 @@ export function TimelinePlanner() {
     start: '9',
     duration: '1',
     color: 'bg-blue-500',
-    orderId: ''
+    orderId: '',
+    range: activeRange
   });
+
+  const columns = getColumns(activeRange);
+  const startOffset = columns[0].startVal;
 
   const [currentTimeLeft, setCurrentTimeLeft] = useState(0);
 
@@ -117,19 +143,20 @@ export function TimelinePlanner() {
       
       const gridRect = gridRef.current.getBoundingClientRect();
       const timelineWidth = gridRect.width - 200; // 200px is the member name column
-      const pxPerHour = timelineWidth / HOURS.length;
+      const pxPerUnit = timelineWidth / columns.length;
       
       const deltaX = e.clientX - currentDrag.startX;
-      const hoursDelta = deltaX / pxPerHour;
-      const snappedHoursDelta = Math.round(hoursDelta * 2) / 2; // Snap to nearest 30 mins
+      const unitsDelta = deltaX / pxPerUnit;
+      const currentSnap = columns[0].snapMode || 0.5;
+      const snappedUnitsDelta = Math.round(unitsDelta / currentSnap) * currentSnap;
       
       if (currentDrag.type === 'resize') {
-         const newDuration = Math.max(0.5, currentDrag.initialDuration + snappedHoursDelta);
+         const newDuration = Math.max(currentSnap, currentDrag.initialDuration + snappedUnitsDelta);
          setDragState(prev => prev ? { ...prev, currentDuration: newDuration } : null);
       } else if (currentDrag.type === 'move') {
-         let newStart = currentDrag.initialStart + snappedHoursDelta;
-         // Clamp start so it doesn't overflow backwards or forwards past available hours
-         newStart = Math.max(HOURS[0], Math.min(HOURS[HOURS.length - 1] - currentDrag.currentDuration + 1, newStart));
+         let newStart = currentDrag.initialStart + snappedUnitsDelta;
+         // Clamp start so it doesn't overflow backwards or forwards past available units
+         newStart = Math.max(startOffset, Math.min(startOffset + columns.length - currentDrag.currentDuration, newStart));
          
          let newMemberId = currentDrag.currentMemberId;
          // Detect which member row is underneath the cursor for vertical draggability
@@ -212,10 +239,11 @@ export function TimelinePlanner() {
           start: data.start,
           duration: data.duration,
           color: data.color || 'bg-blue-500',
-          rowOffset: data.rowOffset || 0
+          rowOffset: data.rowOffset || 0,
+          range: data.range || 'Day'
         });
       });
-      setTasks(liveTasks);
+      setTasks(liveTasks.filter(t => t.range === activeRange || (!t.range && activeRange === 'Day')));
       setLoading(false);
     });
 
@@ -223,16 +251,17 @@ export function TimelinePlanner() {
       unsubUsers();
       unsubTasks();
     };
-  }, []);
+  }, [activeRange]);
 
-  const handleOpenModal = (memberId?: string, hour?: number) => {
+  const handleOpenModal = (memberId?: string, trackVal?: number) => {
     setFormData({
       memberIds: memberId ? [memberId] : (members.length > 0 ? [members[0].id] : []),
       title: '',
-      start: hour ? hour.toString() : '9',
-      duration: '1',
+      start: trackVal !== undefined ? trackVal.toString() : startOffset.toString(),
+      duration: activeRange === 'Day' ? '1' : activeRange === 'Week' ? '1' : '1',
       color: 'bg-blue-500',
-      orderId: ''
+      orderId: '',
+      range: activeRange
     });
     setEditingTask(null);
     setIsModalOpen(true);
@@ -251,7 +280,8 @@ export function TimelinePlanner() {
       start: task.start.toString(),
       duration: task.duration.toString(),
       color: task.color,
-      orderId: task.orderId || ''
+      orderId: task.orderId || '',
+      range: task.range || 'Day'
     });
     setEditingTask(task);
     setIsModalOpen(true);
@@ -266,6 +296,7 @@ export function TimelinePlanner() {
       duration: parseFloat(formData.duration),
       color: formData.color,
       orderId: formData.orderId || null,
+      range: activeRange,
       updatedAt: serverTimestamp()
     };
 
@@ -325,20 +356,58 @@ export function TimelinePlanner() {
       </div>
 
       <div className="overflow-x-auto custom-scrollbar" ref={gridRef}>
-        <div className="min-w-[1000px] select-none">
+        {activeRange === 'Month' ? (
+          <div className="min-w-[800px] border-t border-brand-border">
+            <div className="grid grid-cols-7 border-b border-brand-border bg-brand-bg/50">
+              {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(d => (
+                <div key={d} className="p-3 text-center text-[10px] font-bold uppercase tracking-widest text-brand-secondary">{d}</div>
+              ))}
+            </div>
+            <div className="grid grid-cols-7 grid-rows-5 bg-brand-border gap-[1px]">
+              {Array.from({length: 35}).map((_, i) => {
+                const dayTasks = tasks.filter(t => t.range === 'Month' && i >= t.start && i < t.start + t.duration);
+                return (
+                   <div 
+                     key={i} 
+                     onClick={() => handleOpenModal(undefined, i)}
+                     className="bg-white min-h-[140px] p-2 hover:bg-brand-bg/30 transition-colors cursor-crosshair flex flex-col group relative"
+                   >
+                      <div className="text-[11px] font-bold text-brand-secondary mb-1.5 group-hover:text-brand-primary transition-colors">{i + 1 <= 31 ? i + 1 : ''}</div>
+                      <div className="flex flex-col gap-1 overflow-y-auto custom-scrollbar flex-1 pr-1">
+                        {dayTasks.map(task => {
+                          const member = members.find(m => m.id === task.memberId);
+                          return (
+                            <div 
+                               key={task.id} 
+                               onClick={(e) => { e.stopPropagation(); handleEditTask(task); }}
+                               className={`text-white text-[10px] px-1.5 py-1 rounded shadow-sm truncate font-semibold cursor-pointer hover:scale-[1.02] transition-transform ${task.color}`}
+                            >
+                               <span className="font-bold opacity-80 mr-1">{member?.initials}</span>
+                               {task.title}
+                            </div>
+                          );
+                        })}
+                      </div>
+                   </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <div className="min-w-[1000px] select-none">
           {/* Header Row */}
           <div className="grid grid-cols-[200px_1fr] border-b border-brand-border relative">
             <div className="p-4 text-xs font-semibold uppercase tracking-wider text-brand-secondary">
               Team Members
             </div>
             <div className="flex relative">
-              {HOURS.map((hour) => (
-                <div key={hour} className="flex-1 border-l border-brand-border/50 p-4 text-[10px] font-bold text-brand-secondary/70 uppercase tracking-widest text-center">
-                  {hour > 12 ? `${hour-12} PM` : hour === 12 ? '12 PM' : `${hour} AM`}
+              {columns.map((col) => (
+                <div key={col.id} className="flex-1 border-l border-brand-border/50 p-4 text-[10px] font-bold text-brand-secondary/70 uppercase tracking-widest text-center">
+                  {col.label}
                 </div>
               ))}
-              {/* Current Time Indicator line */}
-              {currentTimeLeft > 0 && currentTimeLeft < 100 && (
+              {/* Current Time Indicator line (Only for Day) */}
+              {activeRange === 'Day' && currentTimeLeft > 0 && currentTimeLeft < 100 && (
                 <div 
                   className="absolute top-0 bottom-0 w-0.5 bg-red-400 z-10 flex flex-col items-center shadow-[0_0_8px_rgba(248,113,113,0.5)] transition-all duration-1000"
                   style={{ left: `${currentTimeLeft}%` }}
@@ -370,8 +439,8 @@ export function TimelinePlanner() {
                 <div className="relative min-h-[70px] py-3 cursor-crosshair" onClick={() => handleOpenModal(member.id)}>
                   {/* Background grid lines */}
                   <div className="absolute inset-0 flex">
-                     {HOURS.map((hour) => (
-                       <div key={hour} className="flex-1 border-l border-brand-border/50 border-dashed hover:bg-brand-primary/5 transition-colors group-hover:border-brand-border" onClick={(e) => { e.stopPropagation(); handleOpenModal(member.id, hour); }}></div>
+                     {columns.map((col) => (
+                       <div key={col.id} className="flex-1 border-l border-brand-border/50 border-dashed hover:bg-brand-primary/5 transition-colors group-hover:border-brand-border" onClick={(e) => { e.stopPropagation(); handleOpenModal(member.id, col.startVal); }}></div>
                      ))}
                   </div>
 
@@ -384,10 +453,10 @@ export function TimelinePlanner() {
                        return t;
                     });
                     
-                    return displayTasks.filter(t => t.memberId === member.id).map((task) => {
-                      const hourWidth = 100 / HOURS.length;
-                      const left = (task.start - HOURS[0]) * hourWidth;
-                      const width = task.duration * hourWidth;
+                    return displayTasks.filter(t => t.memberId === member.id && (t.range === activeRange || (!t.range && activeRange === 'Day'))).map((task) => {
+                      const unitWidth = 100 / columns.length;
+                      const left = (task.start - startOffset) * unitWidth;
+                      const width = task.duration * unitWidth;
                       const isDragging = dragState?.taskId === task.id;
                       
                       return (
@@ -416,7 +485,7 @@ export function TimelinePlanner() {
                         >
                           <span className="font-semibold text-xs truncate leading-tight tracking-wide pointer-events-none">{task.title}</span>
                           <span className="text-[9px] opacity-80 uppercase font-bold tracking-widest mt-0.5 pointer-events-none">
-                            {formatTaskTime(task.start)} - {formatTaskTime(task.start + task.duration)}
+                            {formatTaskTime(task.start, activeRange)} - {formatTaskTime(task.start + task.duration, activeRange)}
                           </span>
 
                           <div 
@@ -442,6 +511,7 @@ export function TimelinePlanner() {
             ))
           )}
         </div>
+        )}
       </div>
       
       {/* Legend */}
@@ -472,10 +542,11 @@ export function TimelinePlanner() {
                      setFormData({
                        memberIds: members.length > 0 ? [members[0].id] : [],
                        title: `#${displayId} - ${companyName}`,
-                       start: '9',
-                       duration: '1',
+                       start: startOffset.toString(),
+                       duration: activeRange === 'Day' ? '1' : activeRange === 'Week' ? '1' : '1',
                        color: 'bg-blue-500',
-                       orderId: order.id
+                       orderId: order.id,
+                       range: activeRange
                      });
                      setEditingTask(null);
                      setIsModalOpen(true);
@@ -560,12 +631,19 @@ export function TimelinePlanner() {
                     onChange={e => setFormData({...formData, start: e.target.value})}
                     className="w-full border border-brand-border rounded-lg p-3 text-sm focus:outline-none focus:border-brand-primary appearance-none bg-brand-bg/30"
                   >
-                    {Array.from({length: 27}, (_, i) => 6 + (i * 0.5)).map(hour => {
+                    {activeRange === 'Day' ? Array.from({length: 27}, (_, i) => 6 + (i * 0.5)).map(hour => {
                       const displayHour = Math.floor(hour) > 12 ? Math.floor(hour) - 12 : Math.floor(hour);
                       const displayMin = hour % 1 === 0 ? ':00' : ':30';
                       const ampm = Math.floor(hour) >= 12 ? 'PM' : 'AM';
                       return <option key={hour} value={hour}>{displayHour}{displayMin} {ampm}</option>;
-                    })}
+                    }) : activeRange === 'Week' ? 
+                       ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].flatMap((d, i) => [
+                          <option key={`${i}-am`} value={i}>{d} AM</option>,
+                          <option key={`${i}-pm`} value={i + 0.5}>{d} PM</option>
+                       ])
+                     : Array.from({length: 31}).map((_, i) => (
+                          <option key={i} value={i}>Day {i + 1}</option>
+                       ))}
                   </select>
                 </div>
                 <div>
@@ -575,14 +653,37 @@ export function TimelinePlanner() {
                     onChange={e => setFormData({...formData, duration: e.target.value})}
                     className="w-full border border-brand-border rounded-lg p-3 text-sm focus:outline-none focus:border-brand-primary appearance-none bg-brand-bg/30"
                   >
-                    <option value="0.5">30 Minutes</option>
-                    <option value="1">1 Hour</option>
-                    <option value="1.5">1.5 Hours</option>
-                    <option value="2">2 Hours</option>
-                    <option value="2.5">2.5 Hours</option>
-                    <option value="3">3 Hours</option>
-                    <option value="4">4 Hours</option>
-                    <option value="8">Full Day (8 Hrs)</option>
+                    {activeRange === 'Day' ? (
+                      <>
+                        <option value="0.5">30 Minutes</option>
+                        <option value="1">1 Hour</option>
+                        <option value="1.5">1.5 Hours</option>
+                        <option value="2">2 Hours</option>
+                        <option value="2.5">2.5 Hours</option>
+                        <option value="3">3 Hours</option>
+                        <option value="4">4 Hours</option>
+                        <option value="8">Full Day (8 Hrs)</option>
+                      </>
+                    ) : activeRange === 'Week' ? (
+                      <>
+                        <option value="0.5">Half Day</option>
+                        <option value="1">1 Day</option>
+                        <option value="1.5">1.5 Days</option>
+                        <option value="2">2 Days</option>
+                        <option value="3">3 Days</option>
+                        <option value="4">4 Days</option>
+                        <option value="5">Full Week</option>
+                      </>
+                    ) : (
+                      <>
+                        <option value="1">1 Day</option>
+                        <option value="2">2 Days</option>
+                        <option value="3">3 Days</option>
+                        <option value="4">4 Days</option>
+                        <option value="5">5 Days</option>
+                        <option value="7">1 Week</option>
+                      </>
+                    )}
                   </select>
                 </div>
               </div>
