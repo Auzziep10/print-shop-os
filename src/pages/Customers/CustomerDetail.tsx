@@ -183,6 +183,7 @@ export function CustomerDetail() {
 
   // Cropper State
   const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
+  const [expandedImage, setExpandedImage] = useState<{src: string, alt: string} | null>(null);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
@@ -607,8 +608,12 @@ export function CustomerDetail() {
                         const style = item.garment_name || item.name || item.style || item.title || 'Unknown Style';
                         const image = item.mockup_image || item.mock_image || item.original_image || item.image || item.imageUrl || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
                         return (
-                           <div key={idx} className="w-16 h-16 rounded-xl overflow-hidden bg-brand-bg border border-brand-border shrink-0 hover:border-brand-primary transition-colors tooltip relative group/deckitem">
-                             <img src={image} alt={style} className="w-full h-full object-cover mix-blend-multiply" />
+                           <div 
+                             key={idx} 
+                             onClick={() => setExpandedImage({src: image, alt: style})}
+                             className="w-16 h-16 rounded-xl overflow-hidden bg-transparent shrink-0 hover:scale-[1.05] transition-transform tooltip relative group/deckitem cursor-pointer"
+                           >
+                             <img src={image} alt={style} className="w-full h-full object-contain mix-blend-multiply" />
                              <span className="tooltiptext whitespace-nowrap z-[110]">{style}</span>
                            </div>
                         );
@@ -1178,6 +1183,38 @@ export function CustomerDetail() {
          onClose={() => setIsShopifyImportOpen(false)}
          customerId={id || ''}
       />
+      {/* Image Overlay */}
+      {expandedImage && (
+        <div 
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/30 backdrop-blur-md p-6 animate-in fade-in duration-200" 
+          onClick={() => setExpandedImage(null)}
+        >
+           <button 
+             className="absolute top-6 right-6 text-white/70 hover:text-white transition-colors p-2 bg-black/20 hover:bg-black/40 rounded-full" 
+             onClick={() => setExpandedImage(null)}
+           >
+             <X size={24} />
+           </button>
+           <div 
+             className="relative w-full max-w-3xl aspect-[4/3] max-h-[85vh] rounded-[2rem] overflow-hidden cursor-crosshair bg-white shadow-[0_30px_100px_-20px_rgba(0,0,0,0.6)] animate-in zoom-in-95 duration-200 flex items-center justify-center border border-white/20"
+             onClick={(e) => e.stopPropagation()}
+             onMouseMove={(e) => {
+               const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
+               const x = (e.clientX - left) / width;
+               const y = (e.clientY - top) / height;
+               const img = e.currentTarget.querySelector('img');
+               if (img) img.style.transformOrigin = `${x * 100}% ${y * 100}%`;
+             }}
+             title="Hover to zoom"
+           >
+             <img 
+               src={expandedImage.src} 
+               alt={expandedImage.alt} 
+               className="w-full h-full object-contain mix-blend-multiply transition-transform duration-200 ease-out hover:scale-[2] p-8 md:p-12" 
+             />
+           </div>
+        </div>
+      )}
     </div>
   );
 }

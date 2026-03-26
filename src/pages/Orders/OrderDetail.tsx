@@ -999,11 +999,11 @@ export function OrderDetail() {
                            {/* Product Visual */}
                            <div className="flex items-center gap-4 min-w-[240px] w-auto shrink-0">
                              <div 
-                               className="w-14 h-14 rounded-xl overflow-hidden shrink-0 border border-black/5 bg-gray-50 flex items-center justify-center cursor-pointer hover:border-brand-primary transition-colors hover:shadow-md"
+                               className="w-14 h-14 rounded-[14px] overflow-hidden shrink-0 bg-transparent flex items-center justify-center cursor-pointer hover:scale-[1.05] transition-transform"
                                onClick={() => setExpandedImage({ src: item.image, alt: item.style })}
                                title="Click to view full screen"
                              >
-                               <img src={item.image} alt={item.style} className="w-full h-full object-cover mix-blend-multiply p-1 pointer-events-none" />
+                               <img src={item.image} alt={item.style} className="w-full h-full object-contain mix-blend-multiply p-1 pointer-events-none" />
                              </div>
                              <div>
                                 <div className="flex items-center gap-2">
@@ -2307,17 +2307,17 @@ export function OrderDetail() {
       {/* Image Overlay */}
       {expandedImage && (
         <div 
-          className="fixed inset-0 z-[120] flex items-center justify-center bg-black/20 backdrop-blur-sm p-6" 
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/30 backdrop-blur-md p-6 animate-in fade-in duration-200" 
           onClick={() => setExpandedImage(null)}
         >
            <button 
-             className="absolute top-6 right-6 text-white/50 hover:text-white transition-colors p-2 bg-black/50 rounded-full" 
+             className="absolute top-6 right-6 text-white/70 hover:text-white transition-colors p-2 bg-black/20 hover:bg-black/40 rounded-full" 
              onClick={() => setExpandedImage(null)}
            >
              <X size={24} />
            </button>
            <div 
-             className="relative w-full max-w-4xl aspect-video rounded-3xl overflow-hidden cursor-crosshair bg-white"
+             className="relative w-full max-w-3xl aspect-[4/3] max-h-[85vh] rounded-[2rem] overflow-hidden cursor-crosshair bg-white shadow-[0_30px_100px_-20px_rgba(0,0,0,0.6)] animate-in zoom-in-95 duration-200 flex items-center justify-center border border-white/20"
              onClick={(e) => e.stopPropagation()}
              onMouseMove={(e) => {
                const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
@@ -2331,7 +2331,7 @@ export function OrderDetail() {
              <img 
                src={expandedImage.src} 
                alt={expandedImage.alt} 
-               className="w-full h-full object-contain mix-blend-multiply transition-transform duration-200 ease-out hover:scale-[2]" 
+               className="w-full h-full object-contain mix-blend-multiply transition-transform duration-200 ease-out hover:scale-[2] p-8 md:p-12" 
              />
            </div>
         </div>
@@ -2576,8 +2576,8 @@ export function OrderDetail() {
                             }}
                             className="group flex items-center gap-5 bg-white border border-brand-border hover:border-brand-primary transition-colors rounded-2xl p-4 cursor-pointer shadow-sm hover:shadow-md hover:-translate-y-0.5"
                           >
-                            <div className="w-16 h-16 rounded-xl overflow-hidden bg-brand-bg border border-brand-border shrink-0">
-                              <img src={image} alt={style} className="w-full h-full object-cover mix-blend-multiply" />
+                            <div className="w-16 h-16 rounded-[14px] overflow-hidden bg-transparent shrink-0">
+                              <img src={image} alt={style} className="w-full h-full object-contain mix-blend-multiply" />
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center justify-between mb-1">
