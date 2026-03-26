@@ -554,7 +554,7 @@ export function Production() {
                   className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 xl:gap-8 min-h-[80px] p-6 lg:pr-10 cursor-pointer"
                 >
                   {/* Left: Logo & Title */}
-                  <div className="flex items-center gap-6 w-[320px] shrink-0 relative group/left">
+                  <div className="flex items-center gap-6 w-full xl:w-[320px] shrink-0 relative group/left">
                     {!order.isProjectGroup && (
                       <div className={`absolute -left-3 top-1/2 -translate-y-1/2 z-30 transition-opacity ${selectedOrderIds.includes(order.id) ? 'opacity-100' : 'opacity-0 group-hover/left:opacity-100'}`}>
                          <div 
@@ -605,9 +605,9 @@ export function Production() {
 
                   {/* Right: Progress Tracker */}
                   <div className="flex-1 w-full pt-4 xl:pt-0">
-                    <div className="w-full flex justify-between items-center mb-6 px-4">
-                       <span className="text-brand-primary font-bold text-lg">{Math.round(completionRatio * 100)}% Complete</span>
-                       <div className="flex items-center gap-4">
+                    <div className="w-full flex flex-wrap justify-between items-center mb-4 sm:mb-6 px-2 sm:px-4 gap-4">
+                       <span className="text-brand-primary font-bold text-lg shrink-0">{Math.round(completionRatio * 100)}% Complete</span>
+                       <div className="flex flex-wrap items-center gap-2 sm:gap-4 shrink-0">
                          {order.isProjectGroup && (
                             <button 
                                onClick={async (e) => { 

@@ -7,11 +7,16 @@ import {
   Image as ImageIcon, 
   UsersRound, 
   Settings, 
-  FileBox
+  FileBox,
+  X
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
-export function Sidebar() {
+interface SidebarProps {
+  onClose?: () => void;
+}
+
+export function Sidebar({ onClose }: SidebarProps) {
   const location = useLocation();
 
   const navItems = [
@@ -25,10 +30,17 @@ export function Sidebar() {
   ];
 
   return (
-    <aside className="w-64 border-r border-brand-border bg-brand-bg flex flex-col h-screen sticky top-0">
-      <div className="p-6">
-        <img src="/logo.png" alt="WOVN Logo" className="h-6 w-auto mb-1" />
-        <p className="text-[10px] uppercase font-semibold tracking-widest text-brand-secondary mt-2">Print Shop OS</p>
+    <aside className="w-[280px] lg:w-64 border-r border-brand-border bg-brand-bg flex flex-col h-full lg:h-[100dvh] lg:sticky top-0 bg-white shadow-2xl lg:shadow-none overflow-hidden">
+      <div className="p-6 flex justify-between items-start">
+        <div>
+          <img src="/logo.png" alt="WOVN Logo" className="h-6 w-auto mb-1" />
+          <p className="text-[10px] uppercase font-semibold tracking-widest text-brand-secondary mt-2">Print Shop OS</p>
+        </div>
+        {onClose && (
+          <button onClick={onClose} className="lg:hidden p-1 -mr-2 -mt-2 text-brand-secondary hover:text-brand-primary transition-colors hover:bg-black/5 rounded-lg">
+            <X size={20} />
+          </button>
+        )}
       </div>
 
       <nav className="flex-1 px-4 space-y-1 overflow-y-auto">

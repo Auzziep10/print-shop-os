@@ -18,7 +18,7 @@ export const tokens = {
     layout: {
         page: 'min-h-screen bg-brand-bg font-sans selection:bg-brand-primary selection:text-white',
         container: 'max-w-7xl mx-auto px-6 py-12 w-full',
-        pageHeader: 'pb-10 pt-4 flex justify-between items-end',
+        pageHeader: 'pb-10 pt-4 flex flex-col md:flex-row justify-between md:items-end gap-6',
         editorialSplit: 'grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-24',
         editorialLeft: 'lg:col-span-7',
         editorialRight: 'lg:col-span-5 flex flex-col',

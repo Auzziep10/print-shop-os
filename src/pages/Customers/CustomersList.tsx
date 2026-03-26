@@ -88,7 +88,7 @@ export function CustomersList() {
           </p>
         </div>
         
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 mt-4 sm:mt-0">
           <PillButton variant="outline" className="gap-2">
             <FileDown size={16} />
             Export Context
@@ -101,7 +101,7 @@ export function CustomersList() {
       </div>
 
       {/* Filters and Search Bar */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between mb-6 gap-4">
         <div className="flex gap-2 w-full max-w-md">
            <div className="relative flex-1">
              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-secondary" size={16} />

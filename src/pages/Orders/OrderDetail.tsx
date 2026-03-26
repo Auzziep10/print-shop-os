@@ -642,7 +642,22 @@ export function OrderDetail() {
         ? existingItems.map((i:any) => i.id === finalItem.id ? finalItem : i)
         : [...existingItems, finalItem];
 
-      await setDoc(doc(db, 'orders', id), { items: updatedItems }, { merge: true });
+      const activityRawMessage = itemExists 
+        ? `Updated specifications for ${finalItem.style}` 
+        : `Added ${finalItem.qty}x ${finalItem.style} to order`;
+
+      const activity = {
+        id: `act-${Date.now()}`,
+        type: 'system',
+        message: activityRawMessage,
+        user: userData?.name || user?.displayName || user?.email?.split('@')[0] || 'Team Member',
+        timestamp: new Date().toISOString()
+      };
+
+      await setDoc(doc(db, 'orders', id), { 
+         items: updatedItems,
+         activities: [activity, ...(orderData.activities || [])]
+      }, { merge: true });
       setEditItemObj(null);
     } catch (err) {
       console.error(err);
@@ -664,7 +679,18 @@ export function OrderDetail() {
       const existingItems = orderData.items || [];
       const updatedItems = existingItems.filter((i: any) => i.id !== editItemObj.id);
 
-      await setDoc(doc(db, 'orders', id), { items: updatedItems }, { merge: true });
+      const activity = {
+        id: `act-${Date.now()}`,
+        type: 'system',
+        message: `Removed ${editItemObj.qty > 0 ? `${editItemObj.qty}x ` : ''}${editItemObj.style || 'an item'} from order`,
+        user: userData?.name || user?.displayName || user?.email?.split('@')[0] || 'Team Member',
+        timestamp: new Date().toISOString()
+      };
+
+      await setDoc(doc(db, 'orders', id), { 
+         items: updatedItems,
+         activities: [activity, ...(orderData.activities || [])]
+      }, { merge: true });
       setEditItemObj(null);
     } catch (err) {
       console.error(err);
@@ -797,12 +823,12 @@ export function OrderDetail() {
           
           {/* Header */}
           <div className="bg-white p-8 rounded-card border border-brand-border shadow-sm">
-            <div className="flex justify-between items-start mb-6">
+            <div className="flex flex-col lg:flex-row justify-between lg:items-start mb-6 gap-6">
                <div>
-                  <h1 className="font-serif text-4xl text-brand-primary mb-2">{customer.company}</h1>
-                  <p className="text-lg text-brand-secondary">{order.title}</p>
+                  <h1 className="font-serif text-4xl text-brand-primary mb-2 line-clamp-2 md:line-clamp-none leading-tight">{customer.company}</h1>
+                  <p className="text-lg text-brand-secondary line-clamp-2">{order.title}</p>
                </div>
-               <div className="flex flex-col items-end gap-3 text-right">
+               <div className="flex flex-col items-start lg:items-end gap-3 lg:text-right shrink-0">
                   <p className="text-xs uppercase font-bold tracking-widest text-brand-secondary">Order {order.portalId || order.id}</p>
                   
                   <div className="flex items-center gap-3">
@@ -832,7 +858,7 @@ export function OrderDetail() {
                </div>
             </div>
             
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 pt-6 border-t border-brand-border">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 pt-6 border-t border-brand-border">
                <div>
                   <span className="text-xs text-brand-secondary font-medium uppercase tracking-wider block mb-1">Due Date</span>
                   <span className="font-serif text-lg">{order.date}</span>
@@ -1537,7 +1563,7 @@ export function OrderDetail() {
                                 </div>
                              ) : null}
 
-                             <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 sm:gap-4">
                                 <div className="flex flex-col">
                                    <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/60 mb-1">Completed Garments</span>
                                    <span className="text-xl font-black text-blue-600">{globalTotalGarmentsCompletedWithStats}</span>
@@ -1579,7 +1605,7 @@ export function OrderDetail() {
                            return (
                              <div key={groupKey} className="bg-white border border-brand-border rounded-xl p-5 shadow-sm">
                                <h4 className="font-bold text-lg text-brand-primary mb-4 pb-2 border-b border-brand-border/40">{displayName}</h4>
-                               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                                   <div className="flex flex-col">
                                      <span className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary/70 mb-1">Total Garments</span>
                                      <span className="text-xl font-black text-brand-primary">{stat.garmentsCompleted}</span>
