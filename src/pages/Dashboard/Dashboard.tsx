@@ -176,6 +176,33 @@ export function Dashboard() {
   const teamMetricUsers = Object.keys(statsByUser).sort((a,b) => statsByUser[b].garmentsCompleted - statsByUser[a].garmentsCompleted);
   const teamKittingMetricUsers = Object.keys(kittingStatsByUser).sort((a,b) => kittingStatsByUser[b].garmentsKitted - kittingStatsByUser[a].garmentsKitted);
 
+  const awaitingArtworkOrders = orders.filter(o => o.statusIndex === 0 && !o.isProjectGroup);
+  const pendingApprovalOrders = orders.filter(o => o.statusIndex === 1 && !o.isProjectGroup);
+  
+  const todayDateStr = new Date().toISOString().split('T')[0];
+  const completedTodayOrders = orders.filter(o => {
+    if (o.statusIndex < 6) return false;
+    const lastAct = o.activities?.[0];
+    return lastAct?.timestamp?.startsWith(todayDateStr) && lastAct?.message?.toLowerCase().includes('complete');
+  });
+
+  const getBreakdownOrders = () => {
+    switch (activeStat) {
+      case 'Awaiting Artwork': return awaitingArtworkOrders;
+      case 'Pending Approval': return pendingApprovalOrders;
+      case 'In Production': return productionOrders;
+      case 'Completed Today': return completedTodayOrders;
+      default: return [];
+    }
+  };
+
+  const statCards = [
+    { label: 'Awaiting Artwork', value: awaitingArtworkOrders.length.toString(), trend: awaitingArtworkOrders.length > 0 ? 'Requires attention' : 'All clear' },
+    { label: 'Pending Approval', value: pendingApprovalOrders.length.toString(), trend: pendingApprovalOrders.length > 0 ? 'Urgent' : 'All clear' },
+    { label: 'In Production', value: productionOrders.length.toString(), trend: 'On schedule' },
+    { label: 'Completed Today', value: completedTodayOrders.length.toString(), trend: 'Great work' }
+  ];
+
   return (
     <div className={tokens.layout.container}>
       {/* Header */}
@@ -205,12 +232,7 @@ export function Dashboard() {
             {/* Left: Quick Stats */}
             <div className="lg:col-span-8 flex flex-col gap-4">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {[
-                { label: 'Awaiting Artwork', value: '12', trend: '+2 today' },
-                { label: 'Pending Approval', value: '5', trend: 'Urgent' },
-                { label: 'In Production', value: '28', trend: 'On schedule' },
-                { label: 'Completed Today', value: '14', trend: '+15% vs yesterday' }
-              ].map((stat) => (
+              {statCards.map((stat) => (
                 <button 
                   key={stat.label} 
                   onClick={() => setActiveStat(stat.label === activeStat ? null : stat.label)}
@@ -223,7 +245,7 @@ export function Dashboard() {
                   <span className={`${tokens.typography.label} mb-3 leading-tight text-[11px] min-h-[2.5rem]`}>{stat.label}</span>
                   <div className="flex flex-col items-start gap-1 w-full">
                     <span className="font-serif text-3xl tracking-tight text-brand-primary leading-none">{stat.value}</span>
-                    <span className={`text-[9px] uppercase font-bold tracking-wider mt-1 ${stat.trend.includes('Urgent') ? 'text-red-500' : 'text-brand-secondary'}`}>
+                    <span className={`text-[9px] uppercase font-bold tracking-wider mt-1 ${stat.trend.includes('Urgent') || stat.trend.includes('Requires') ? 'text-red-500' : 'text-brand-secondary'}`}>
                       {stat.trend}
                     </span>
                   </div>
@@ -249,24 +271,26 @@ export function Dashboard() {
                     <div className="flex border-b border-brand-border bg-brand-bg px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-brand-secondary">
                       <div className="w-24">Order</div>
                       <div className="flex-1">Details</div>
-                      <div className="w-24 text-right">Status</div>
+                      <div className="w-24 text-right">Action</div>
                     </div>
                     <div className="divide-y divide-brand-border max-h-40 overflow-y-auto custom-scrollbar">
-                      {[1, 2, 3].map((i) => (
-                        <div key={i} className="flex px-4 py-3 text-sm hover:bg-brand-bg/50 transition-colors cursor-pointer items-center group">
-                          <div className="w-24 font-medium text-brand-primary group-hover:underline">
-                            ORD-20{i + Math.floor(Math.random() * 10)}
+                      {getBreakdownOrders().length > 0 ? getBreakdownOrders().map((o: any) => (
+                        <div key={o.id} onClick={() => navigate(`/orders/${o.id}`)} className="flex px-4 py-3 text-sm hover:bg-brand-bg/50 transition-colors cursor-pointer items-center group">
+                          <div className="w-24 font-medium text-brand-primary group-hover:underline truncate pr-2">
+                            ORD-{o.portalId || o.id.substring(0, 8)}
                           </div>
                           <div className="flex-1 text-brand-secondary truncate pr-4">
-                            Sample task for {activeStat}
+                            {o.title || 'Untitled Order'}
                           </div>
                           <div className="w-24 text-right flex justify-end">
-                            <span className="text-[10px] bg-brand-bg border border-brand-border px-2 py-0.5 rounded-md text-brand-secondary font-semibold uppercase tracking-wide">
-                              Action
+                            <span className="text-[10px] bg-white border border-brand-border px-2 py-0.5 rounded-md text-brand-primary group-hover:bg-brand-primary group-hover:text-white group-hover:border-brand-primary transition-colors font-semibold uppercase tracking-wide shadow-sm">
+                              Open
                             </span>
                           </div>
                         </div>
-                      ))}
+                      )) : (
+                        <div className="p-4 text-center text-sm text-brand-secondary italic">No orders in this category.</div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -284,18 +308,18 @@ export function Dashboard() {
                  <p className="text-white/60 text-sm mb-6">Tools requiring immediate attention.</p>
                  
                  <div className="space-y-3 mb-6">
-                    <div className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-colors cursor-pointer group">
+                    <div onClick={() => setActiveStat('Pending Approval')} className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-colors cursor-pointer group">
                       <span className="text-sm font-medium text-white/90 group-hover:text-white transition-colors">Review Client Proofs</span>
-                      <span className="w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center font-bold text-xs shadow-sm">5</span>
+                      <span className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs shadow-sm ${pendingApprovalOrders.length > 0 ? 'bg-red-500 text-white' : 'bg-white/20 text-white/50'}`}>{pendingApprovalOrders.length}</span>
                     </div>
-                    <div className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-colors cursor-pointer group">
+                    <div onClick={() => setActiveStat('Awaiting Artwork')} className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-colors cursor-pointer group">
                       <span className="text-sm font-medium text-white/90 group-hover:text-white transition-colors">Assign New Orders</span>
-                      <span className="w-6 h-6 rounded-full bg-amber-500 text-brand-primary flex items-center justify-center font-bold text-xs shadow-sm">2</span>
+                      <span className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs shadow-sm ${awaitingArtworkOrders.length > 0 ? 'bg-amber-500 text-brand-primary' : 'bg-white/20 text-white/50'}`}>{awaitingArtworkOrders.length}</span>
                     </div>
                  </div>
                </div>
 
-               <button className="relative z-10 w-full bg-white text-brand-primary font-semibold py-3 rounded-pill text-sm hover:bg-brand-bg transition-colors shadow-sm">
+               <button onClick={() => navigate('/orders')} className="relative z-10 w-full bg-white text-brand-primary font-semibold py-3 rounded-pill text-sm hover:bg-brand-bg transition-colors shadow-sm">
                  Open Command Center
                </button>
             </div>
