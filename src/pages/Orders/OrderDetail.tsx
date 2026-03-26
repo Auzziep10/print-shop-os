@@ -960,7 +960,7 @@ export function OrderDetail() {
                    })}
                    className="gap-2 shrink-0 px-4 py-2 text-xs bg-black text-white hover:bg-neutral-800"
                  >
-                   <Plus size={14} /> Create Blank Item
+                   <Plus size={14} /> Create Ad Hoc
                  </PillButton>
                </div>
             </div>
