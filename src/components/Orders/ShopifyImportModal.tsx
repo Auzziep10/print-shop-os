@@ -74,12 +74,13 @@ export function ShopifyImportModal({ isOpen, onClose, customerId }: Props) {
                }
             }
 
-            const key = title + '|' + color;
+            const key = title + '|' + color + '|' + order.name;
 
             if (!groupedItems.has(key)) {
                groupedItems.set(key, {
                   id: Date.now() + globalIdx++,
                   style: title,
+                  shopifyOrder: order.name,
                   gender: color || 'Unisex', // Option details appear bold on top
                   color: '',
                   qty: 0,

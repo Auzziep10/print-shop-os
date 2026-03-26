@@ -3,11 +3,13 @@ import { tokens } from '../../lib/tokens';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { PillButton } from '../../components/ui/PillButton';
 import { Calendar, Users, Plus } from 'lucide-react';
-import { TimelinePlanner } from './TimelinePlanner';
+import { TimelinePlanner, OPEN_NEW_TASK_EVENT } from './TimelinePlanner';
+import { useNavigate } from 'react-router-dom';
 
 export function Team() {
   const [activeView, setActiveView] = useState('Timeline');
   const [activeRange, setActiveRange] = useState('Day');
+  const navigate = useNavigate();
 
   return (
     <div className={tokens.layout.container}>
@@ -35,11 +37,11 @@ export function Team() {
             onChange={setActiveView} 
           />
           <div className="w-px h-8 bg-brand-border mx-2"></div>
-          <PillButton variant="outline" className="gap-2">
+          <PillButton variant="outline" className="gap-2" onClick={() => navigate('/settings')}>
             <Users size={16} />
             Manage Teams
           </PillButton>
-          <PillButton variant="filled" className="gap-2">
+          <PillButton variant="filled" className="gap-2" onClick={() => window.dispatchEvent(new CustomEvent(OPEN_NEW_TASK_EVENT))}>
             <Plus size={16} />
             New Task
           </PillButton>
@@ -49,7 +51,21 @@ export function Team() {
       {/* Main Content Area */}
       <div className="mt-6">
         {activeView === 'Timeline' ? (
-          <TimelinePlanner />
+          activeRange === 'Day' ? (
+            <TimelinePlanner />
+          ) : activeRange === 'Week' ? (
+            <div className="bg-white border border-brand-border rounded-card h-64 flex flex-col items-center justify-center text-brand-secondary gap-3">
+              <Calendar size={32} strokeWidth={1.5} className="opacity-50" />
+              <p className="font-semibold text-sm">Weekly timeline view is under construction.</p>
+              <p className="text-xs text-brand-muted">Awaiting date-based data migration.</p>
+            </div>
+          ) : (
+            <div className="bg-white border border-brand-border rounded-card h-64 flex flex-col items-center justify-center text-brand-secondary gap-3">
+              <Calendar size={32} strokeWidth={1.5} className="opacity-50" />
+              <p className="font-semibold text-sm">Monthly timeline view is under construction.</p>
+              <p className="text-xs text-brand-muted">Awaiting date-based data migration.</p>
+            </div>
+          )
         ) : (
           <div className="p-12 text-center text-brand-secondary border border-brand-border rounded-card bg-white">
             Kanban view coming soon...

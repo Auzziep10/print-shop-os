@@ -935,7 +935,14 @@ export function OrderDetail() {
                                <img src={item.image} alt={item.style} className="w-full h-full object-cover mix-blend-multiply p-1 pointer-events-none" />
                              </div>
                              <div>
-                                <h4 className="font-bold text-gray-900 text-[15px]">{item.style}</h4>
+                                <div className="flex items-center gap-2">
+                                  <h4 className="font-bold text-gray-900 text-[15px]">{item.style}</h4>
+                                  {item.shopifyOrder && (
+                                    <span className="text-[9px] font-bold uppercase tracking-wider text-blue-600 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded shadow-sm">
+                                      {item.shopifyOrder}
+                                    </span>
+                                  )}
+                                </div>
                                 <p className="text-xs font-semibold text-gray-500 mt-0.5">
                                    {item.gender && item.gender !== 'Unisex' ? `${item.gender} ` : ''} 
                                    {item.color ? (item.gender && item.gender !== 'Unisex' ? `- ${item.color}` : item.color) : ''}
@@ -1140,9 +1147,18 @@ export function OrderDetail() {
                                  <div className="flex-1 md:border-l border-brand-border md:pl-4 overflow-y-auto custom-scrollbar flex flex-col gap-1 md:pr-4">
                                      {box.items?.filter((bi: any) => String(bi.id) === String(item.id)).map((bi: any, i: number) => (
                                        <div key={i} className="flex flex-col xl:flex-row items-start xl:items-center py-2 gap-2 xl:gap-8 min-w-0 flex-1">
-                                          <div className="flex items-center justify-between w-full xl:w-auto xl:min-w-[180px]">
-                                             <span className="font-bold text-brand-primary text-sm truncate">{bi.style}</span>
-                                             <span className="font-bold text-brand-secondary text-xs bg-neutral-100 px-2 py-1 rounded-md">x{bi.qty}</span>
+                                          <div className="flex flex-col items-start w-full xl:w-auto xl:min-w-[180px]">
+                                             <div className="flex items-center justify-between w-full">
+                                                <div className="flex items-center gap-2">
+                                                   <span className="font-bold text-brand-primary text-sm truncate">{bi.style}</span>
+                                                   {bi.shopifyOrder && (
+                                                     <span className="text-[8px] font-bold uppercase tracking-wider text-blue-600 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded">
+                                                       {bi.shopifyOrder}
+                                                     </span>
+                                                   )}
+                                                </div>
+                                                <span className="font-bold text-brand-secondary text-xs bg-neutral-100 px-2 py-1 rounded-md">x{bi.qty}</span>
+                                             </div>
                                           </div>
                                           {bi.sizes && Object.keys(bi.sizes).length > 0 && (
                                              <div className="flex gap-1.5 flex-wrap w-full xl:flex-1">

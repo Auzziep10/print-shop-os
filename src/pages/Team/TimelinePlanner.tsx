@@ -13,6 +13,16 @@ interface TeamMember {
   initials: string;
 }
 
+export const OPEN_NEW_TASK_EVENT = 'open-new-timeline-task';
+
+function formatTaskTime(val: number) {
+  const time = val + 0.01;
+  const h = Math.floor(time);
+  const m = Math.floor((time % 1) * 60) >= 30 ? '30' : '00';
+  const displayH = h > 12 ? h - 12 : h;
+  return `${displayH}:${m}`;
+}
+
 interface TimelineTask {
   id: string;
   memberId: string;
@@ -56,6 +66,11 @@ export function TimelinePlanner() {
     currentMemberId: string
   } | null>(null);
 
+  const dragStateRef = useRef(dragState);
+  useEffect(() => {
+    dragStateRef.current = dragState;
+  }, [dragState]);
+
   const [formData, setFormData] = useState({
     memberIds: [] as string[],
     title: '',
@@ -97,28 +112,31 @@ export function TimelinePlanner() {
       isDraggingRef.current = true;
       if (!gridRef.current) return;
       
+      const currentDrag = dragStateRef.current;
+      if (!currentDrag) return;
+      
       const gridRect = gridRef.current.getBoundingClientRect();
       const timelineWidth = gridRect.width - 200; // 200px is the member name column
       const pxPerHour = timelineWidth / HOURS.length;
       
-      const deltaX = e.clientX - dragState.startX;
+      const deltaX = e.clientX - currentDrag.startX;
       const hoursDelta = deltaX / pxPerHour;
       const snappedHoursDelta = Math.round(hoursDelta * 2) / 2; // Snap to nearest 30 mins
       
-      if (dragState.type === 'resize') {
-         const newDuration = Math.max(0.5, dragState.initialDuration + snappedHoursDelta);
+      if (currentDrag.type === 'resize') {
+         const newDuration = Math.max(0.5, currentDrag.initialDuration + snappedHoursDelta);
          setDragState(prev => prev ? { ...prev, currentDuration: newDuration } : null);
-      } else if (dragState.type === 'move') {
-         let newStart = dragState.initialStart + snappedHoursDelta;
+      } else if (currentDrag.type === 'move') {
+         let newStart = currentDrag.initialStart + snappedHoursDelta;
          // Clamp start so it doesn't overflow backwards or forwards past available hours
-         newStart = Math.max(HOURS[0], Math.min(HOURS[HOURS.length - 1] - dragState.currentDuration + 1, newStart));
+         newStart = Math.max(HOURS[0], Math.min(HOURS[HOURS.length - 1] - currentDrag.currentDuration + 1, newStart));
          
-         let newMemberId = dragState.currentMemberId;
+         let newMemberId = currentDrag.currentMemberId;
          // Detect which member row is underneath the cursor for vertical draggability
          const el = document.elementFromPoint(e.clientX, e.clientY);
          const rowEl = el?.closest('[data-member-id]');
          if (rowEl) {
-           newMemberId = rowEl.getAttribute('data-member-id') || dragState.currentMemberId;
+           newMemberId = rowEl.getAttribute('data-member-id') || currentDrag.currentMemberId;
          }
          
          setDragState(prev => prev ? { ...prev, currentStart: newStart, currentMemberId: newMemberId } : null);
@@ -126,15 +144,16 @@ export function TimelinePlanner() {
     };
 
     const handleMouseUp = async () => {
-      if (dragState) {
-         if (dragState.currentStart !== dragState.initialStart || 
-             dragState.currentDuration !== dragState.initialDuration || 
-             dragState.currentMemberId !== dragState.initialMemberId) {
+      const currentDrag = dragStateRef.current;
+      if (currentDrag) {
+         if (currentDrag.currentStart !== currentDrag.initialStart || 
+             currentDrag.currentDuration !== currentDrag.initialDuration || 
+             currentDrag.currentMemberId !== currentDrag.initialMemberId) {
              
-             updateDoc(doc(db, 'timelineTasks', dragState.taskId), {
-               start: dragState.currentStart,
-               duration: dragState.currentDuration,
-               memberId: dragState.currentMemberId,
+             updateDoc(doc(db, 'timelineTasks', currentDrag.taskId), {
+               start: currentDrag.currentStart,
+               duration: currentDrag.currentDuration,
+               memberId: currentDrag.currentMemberId,
                updatedAt: serverTimestamp()
              }).catch(err => console.error(err));
          }
@@ -151,7 +170,7 @@ export function TimelinePlanner() {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [dragState]);
+  }, [!!dragState]);
 
   useEffect(() => {
     // Fetch customers to map company names
@@ -218,6 +237,12 @@ export function TimelinePlanner() {
     setEditingTask(null);
     setIsModalOpen(true);
   };
+
+  useEffect(() => {
+    const handleNewTask = () => handleOpenModal();
+    window.addEventListener(OPEN_NEW_TASK_EVENT, handleNewTask);
+    return () => window.removeEventListener(OPEN_NEW_TASK_EVENT, handleNewTask);
+  }, [members]);
 
   const handleEditTask = (task: TimelineTask) => {
     setFormData({
@@ -381,7 +406,7 @@ export function TimelinePlanner() {
                                currentStart: task.start, currentDuration: task.duration, currentMemberId: task.memberId
                              });
                           }}
-                          className={`absolute h-[42px] rounded-lg text-white px-3 flex flex-col justify-center shadow-sm cursor-grab active:cursor-grabbing hover:shadow-md hover:scale-[1.01] hover:-translate-y-0.5 transition-all overflow-hidden border border-black/10 ${task.color} ${isDragging ? 'opacity-80 shadow-2xl scale-[1.02] z-50' : 'z-20'}`}
+                          className={`absolute h-[42px] rounded-lg text-white px-3 flex flex-col justify-center shadow-sm cursor-grab active:cursor-grabbing hover:shadow-md hover:scale-[1.01] hover:-translate-y-0.5 transition-all overflow-hidden border border-black/10 ${task.color} ${isDragging ? 'opacity-80 shadow-2xl scale-[1.02] z-50 pointer-events-none' : 'z-20'}`}
                           style={{ 
                             left: `${Math.max(0, left)}%`, 
                             width: `calc(${width}% - 6px)`, 
@@ -391,8 +416,7 @@ export function TimelinePlanner() {
                         >
                           <span className="font-semibold text-xs truncate leading-tight tracking-wide pointer-events-none">{task.title}</span>
                           <span className="text-[9px] opacity-80 uppercase font-bold tracking-widest mt-0.5 pointer-events-none">
-                            {Math.floor(task.start) > 12 ? Math.floor(task.start) - 12 : Math.floor(task.start)}{task.start % 1 !== 0 ? ':30' : ':00'} - 
-                            {Math.floor(task.start + task.duration) > 12 ? Math.floor(task.start + task.duration) - 12 : Math.floor(task.start + task.duration)}{(task.start + task.duration) % 1 !== 0 ? ':30' : ':00'}
+                            {formatTaskTime(task.start)} - {formatTaskTime(task.start + task.duration)}
                           </span>
 
                           <div 
