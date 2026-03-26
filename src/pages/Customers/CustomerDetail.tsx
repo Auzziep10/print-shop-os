@@ -582,7 +582,12 @@ export function CustomerDetail() {
       <div className="flex flex-col gap-8">
 
         {/* Active Catalogs */}
-        {customerDecks.length > 0 && (
+        {isLoadingCustomerDecks ? (
+          <div className="mt-4 flex flex-col items-center justify-center p-12 bg-white rounded-card border border-brand-border border-dashed">
+            <Loader2 className="animate-spin text-brand-primary mb-4" size={28} />
+            <p className="text-sm font-medium text-brand-secondary">Syncing assigned design decks...</p>
+          </div>
+        ) : customerDecks.length > 0 && (
           <div className="mt-4">
              <div className="flex items-center justify-between mb-6">
                 <div>
