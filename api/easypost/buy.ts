@@ -28,17 +28,28 @@ export default async function handler(req: Request) {
     };
 
     const shipmentPayload: any = {
-      to_address,
+      to_address: {
+        name: to_address.name || to_address.company || 'Customer',
+        company: to_address.company || '',
+        street1: to_address.street1,
+        street2: to_address.street2 || '',
+        city: to_address.city,
+        state: to_address.state,
+        zip: to_address.zip,
+        country: to_address.country || 'US',
+        phone: to_address.phone || '555-555-5555'
+      },
       from_address,
-      parcel
+      parcel,
+      options: {
+        label_format: 'PDF'
+      }
     };
 
     // Third party billing injection
     if (thirdPartyAccount) {
-      shipmentPayload.options = {
-        bill_receiver_account: thirdPartyAccount,
-        bill_receiver_postal_code: thirdPartyZip || ''
-      };
+      shipmentPayload.options.bill_receiver_account = thirdPartyAccount;
+      shipmentPayload.options.bill_receiver_postal_code = thirdPartyZip || '';
     }
 
     // 1. Create the shipment to get rates from EasyPost

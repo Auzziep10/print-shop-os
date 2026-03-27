@@ -23,8 +23,27 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
   const [isBuyingLabel, setIsBuyingLabel] = useState(false);
   const [shippingError, setShippingError] = useState('');
   const [shippingForm, setShippingForm] = useState({
-     length: 12, width: 12, height: 12, weightOz: 16, isTest: true, thirdPartyAccount: '', thirdPartyZip: ''
+     length: 12, width: 12, height: 12, weightOz: 16, isTest: true, thirdPartyAccount: '', thirdPartyZip: '',
+     address: { name: '', company: '', street1: '', street2: '', city: '', state: '', zip: '', country: 'US' }
   });
+
+  const handleOpenShippingLabel = (box: any) => {
+    const customer = order.customerDetails || order.shippingAddress || {};
+    setShippingForm(prev => ({
+      ...prev,
+      address: {
+        name: customer.name || customer.company || order.companyName || '',
+        company: customer.company || order.companyName || '',
+        street1: customer.street1 || '',
+        street2: customer.street2 || '',
+        city: customer.city || '',
+        state: customer.state || '',
+        zip: customer.zip || '',
+        country: customer.country || 'US'
+      }
+    }));
+    setShippingLabelBox(box);
+  };
 
   const handleBuyShippingLabel = async () => {
     setShippingError('');
@@ -33,23 +52,16 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
       const boxObj = order.boxes?.find((b: any) => b.id === shippingLabelBox.id);
       if (!boxObj) throw new Error("Box not found");
 
-      const customer = order.customerDetails || order.shippingAddress || {
-        company: order.companyName || 'Valued Customer',
-        street1: '123 Customer St',
-        city: 'Any Town',
-        state: 'CA',
-        zip: '90000',
-        country: 'US'
-      };
-
       const payload = {
         to_address: {
-          company: customer.company || order.companyName || 'Valued Customer',
-          street1: customer.street1 || '123 Unknown St',
-          city: customer.city || 'Any Town',
-          state: customer.state || 'CA',
-          zip: customer.zip || '90000',
-          country: customer.country || 'US'
+          name: shippingForm.address.name,
+          company: shippingForm.address.company,
+          street1: shippingForm.address.street1,
+          street2: shippingForm.address.street2,
+          city: shippingForm.address.city,
+          state: shippingForm.address.state,
+          zip: shippingForm.address.zip,
+          country: shippingForm.address.country
         },
         parcel: {
           length: shippingForm.length,
@@ -534,7 +546,7 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
                                 <Printer size={12} /> Courier Label
                               </button>
                            ) : (
-                              <button onClick={(e) => { e.stopPropagation(); setShippingLabelBox(box); }} className="flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-widest transition-colors w-full h-[32px] rounded-full border bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200">
+                              <button onClick={(e) => { e.stopPropagation(); handleOpenShippingLabel(box); }} className="flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-widest transition-colors w-full h-[32px] rounded-full border bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200">
                                 <Package size={12} /> Buy UPS Label
                               </button>
                            )}
@@ -578,6 +590,22 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
                      {shippingError}
                    </div>
                  )}
+                 <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-2">Destination Address</label>
+                    <div className="flex flex-col gap-2">
+                       <div className="flex gap-2">
+                          <input type="text" value={shippingForm.address.name || ''} onChange={e => setShippingForm(prev => ({...prev, address: {...prev.address, name: e.target.value}}))} placeholder="Recipient Name" className="w-1/2 bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary outline-none" />
+                          <input type="text" value={shippingForm.address.company || ''} onChange={e => setShippingForm(prev => ({...prev, address: {...prev.address, company: e.target.value}}))} placeholder="Company (Optional)" className="w-1/2 bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary outline-none" />
+                       </div>
+                       <input type="text" value={shippingForm.address.street1 || ''} onChange={e => setShippingForm(prev => ({...prev, address: {...prev.address, street1: e.target.value}}))} placeholder="Street Address" className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary outline-none" />
+                       <div className="flex gap-2">
+                          <input type="text" value={shippingForm.address.city || ''} onChange={e => setShippingForm(prev => ({...prev, address: {...prev.address, city: e.target.value}}))} placeholder="City" className="w-[45%] bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary outline-none" />
+                          <input type="text" value={shippingForm.address.state || ''} onChange={e => setShippingForm(prev => ({...prev, address: {...prev.address, state: e.target.value}}))} placeholder="State" className="w-[25%] bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary outline-none uppercase" maxLength={2} />
+                          <input type="text" value={shippingForm.address.zip || ''} onChange={e => setShippingForm(prev => ({...prev, address: {...prev.address, zip: e.target.value}}))} placeholder="Zip" className="w-[30%] bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary outline-none" />
+                       </div>
+                    </div>
+                 </div>
+                 
                  <div>
                     <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-2">Package Dimensions (in)</label>
                     <div className="flex gap-3">
