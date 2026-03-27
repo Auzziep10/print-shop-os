@@ -154,10 +154,15 @@ export function PrintLabelsSheet() {
                    {/* Box Name (Right side, rotated to read bottom-to-top) */}
                    <div className="h-full flex justify-center items-center w-20 shrink-0">
                      <div 
-                       className="text-[3rem] leading-none text-white font-serif tracking-wide whitespace-nowrap"
+                       className="flex flex-col items-center justify-center text-white font-serif tracking-wide whitespace-nowrap"
                        style={{ transform: 'rotate(-90deg)' }}
                      >
-                       {box.name}
+                       {order.title && (
+                         <span className="text-xs font-sans tracking-widest uppercase opacity-80 mb-2 max-w-[2.5in] truncate block text-center">
+                           {order.title}
+                         </span>
+                       )}
+                       <span className="text-[3rem] leading-none">{box.name}</span>
                      </div>
                    </div>
                  </div>
