@@ -48,8 +48,9 @@ export default async function handler(req: Request) {
 
     // Third party billing injection
     if (thirdPartyAccount) {
-      shipmentPayload.options.bill_receiver_account = thirdPartyAccount;
-      shipmentPayload.options.bill_receiver_postal_code = thirdPartyZip || '';
+      shipmentPayload.options.bill_third_party_account = thirdPartyAccount;
+      shipmentPayload.options.bill_third_party_postal_code = thirdPartyZip || '';
+      shipmentPayload.options.bill_third_party_country = 'US';
     }
 
     // 1. Create the shipment to get rates from EasyPost
