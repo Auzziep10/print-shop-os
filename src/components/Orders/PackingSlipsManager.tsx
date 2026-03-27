@@ -3,7 +3,7 @@ import QRCode from 'react-qr-code';
 import { db } from '../../lib/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { PillButton } from '../ui/PillButton';
-import { Plus, Trash2, Box, ExternalLink, Printer, X, ChevronDown, Truck } from 'lucide-react';
+import { Plus, Trash2, Box, ExternalLink, Printer, X, ChevronDown, Truck, Loader2, Package, ShieldAlert, CreditCard } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { tokens } from '../../lib/tokens';
 
@@ -18,6 +18,89 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
   const [isAddingBox, setIsAddingBox] = useState(false);
   const [workingBoxes, setWorkingBoxes] = useState<DraftBox[]>([]);
   const [isExpanded, setIsExpanded] = useState(false);
+  
+  const [shippingLabelBox, setShippingLabelBox] = useState<any>(null);
+  const [isBuyingLabel, setIsBuyingLabel] = useState(false);
+  const [shippingError, setShippingError] = useState('');
+  const [shippingForm, setShippingForm] = useState({
+     length: 12, width: 12, height: 12, weightOz: 16, isTest: true, thirdPartyAccount: '', thirdPartyZip: ''
+  });
+
+  const handleBuyShippingLabel = async () => {
+    setShippingError('');
+    setIsBuyingLabel(true);
+    try {
+      const boxObj = order.boxes?.find((b: any) => b.id === shippingLabelBox.id);
+      if (!boxObj) throw new Error("Box not found");
+
+      const customer = order.customerDetails || order.shippingAddress || {
+        company: order.companyName || 'Valued Customer',
+        street1: '123 Customer St',
+        city: 'Any Town',
+        state: 'CA',
+        zip: '90000',
+        country: 'US'
+      };
+
+      const payload = {
+        to_address: {
+          company: customer.company || order.companyName || 'Valued Customer',
+          street1: customer.street1 || '123 Unknown St',
+          city: customer.city || 'Any Town',
+          state: customer.state || 'CA',
+          zip: customer.zip || '90000',
+          country: customer.country || 'US'
+        },
+        parcel: {
+          length: shippingForm.length,
+          width: shippingForm.width,
+          height: shippingForm.height,
+          weight: shippingForm.weightOz
+        },
+        isTest: shippingForm.isTest,
+        thirdPartyAccount: shippingForm.thirdPartyAccount,
+        thirdPartyZip: shippingForm.thirdPartyZip
+      };
+
+      const res = await fetch('/api/easypost/buy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        throw new Error(data.error || 'Failed to generate shipping label');
+      }
+
+      // Update box tracking and label in Firebase
+      const updatedBoxes = order.boxes.map((b: any) => {
+        if (b.id === shippingLabelBox.id) {
+          return { ...b, trackingNumber: data.trackingNumber, trackingCarrier: data.carrier, labelUrl: data.labelUrl };
+        }
+        return b;
+      });
+
+      const newActivity = {
+        id: `act-${Date.now()}`,
+        type: 'system',
+        message: `Purchased ${data.carrier} ${data.service} Label (Test Mode: ${shippingForm.isTest ? 'Yes':'No'}) for ${boxObj.name}: ${data.trackingNumber}`,
+        user: user?.displayName || user?.email?.split('@')[0] || 'Team Member',
+        timestamp: new Date().toISOString()
+      };
+
+      await setDoc(doc(db, 'orders', order.id), { 
+        boxes: updatedBoxes,
+        activities: [newActivity, ...(order.activities || [])]
+      }, { merge: true });
+
+      setShippingLabelBox(null);
+    } catch (err: any) {
+      setShippingError(err.message);
+    } finally {
+      setIsBuyingLabel(false);
+    }
+  };
   
   const sortSizes = (a: string, b: string) => {
       const orderMap: Record<string, number> = { 'xxs':1, 'xs':2, 's':3, 'm':4, 'l':5, 'xl':6, 'xxl':7, '2xl':7, '3xl':8, '4xl':9, '5xl':10, 'osfa':11, 'os':12 };
@@ -444,8 +527,17 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
                          </div>
                          <div className="flex flex-col gap-2 min-w-[140px]">
                            <PillButton variant="outline" className="justify-center text-xs py-1.5 px-3 bg-white border-brand-border shadow-sm border w-full h-[32px]" onClick={() => handlePrintLabel(box.id)}>
-                             <Printer size={14} className="mr-1.5" /> Print Label
+                             <Printer size={14} className="mr-1.5" /> Print QR Label
                            </PillButton>
+                           {box.labelUrl ? (
+                              <button onClick={() => window.open(box.labelUrl, '_blank')} className="flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-widest transition-colors w-full h-[32px] rounded-full border bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-200">
+                                <Printer size={12} /> Courier Label
+                              </button>
+                           ) : (
+                              <button onClick={(e) => { e.stopPropagation(); setShippingLabelBox(box); }} className="flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-widest transition-colors w-full h-[32px] rounded-full border bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200">
+                                <Package size={12} /> Buy UPS Label
+                              </button>
+                           )}
                            <button onClick={(e) => { e.stopPropagation(); onEditTracking(box.id); }} className={`flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-widest transition-colors tooltip w-full h-[32px] rounded-full border ${box.trackingNumber || box.trackingCarrier ? 'bg-black text-white hover:bg-neutral-800 border-black' : 'bg-brand-bg hover:bg-neutral-100 text-brand-primary border-brand-border'}`}>
                              <Truck size={12} /> {box.trackingNumber || box.trackingCarrier ? 'Edit Tracking' : 'Add Tracking'}
                            </button>
@@ -466,6 +558,66 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
             </div>
           )}
         </div>
+      )}
+
+      {/* Buy Shipping Label Modal */}
+      {shippingLabelBox && (
+         <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto" onClick={() => setShippingLabelBox(null)}>
+           <div className="bg-white max-w-md w-full rounded-2xl shadow-2xl flex flex-col border border-brand-border my-auto overflow-hidden" onClick={e => e.stopPropagation()}>
+              <div className="bg-brand-bg border-b border-brand-border p-6 flex justify-between items-start">
+                 <div>
+                   <h3 className="font-serif text-2xl text-brand-primary leading-tight">Buy UPS Label</h3>
+                   <p className="text-xs font-bold uppercase tracking-widest text-brand-secondary mt-1">{shippingLabelBox.name}</p>
+                 </div>
+                 <button onClick={() => setShippingLabelBox(null)} className="p-1 hover:bg-neutral-200 rounded-full transition-colors text-brand-secondary"><X size={18} /></button>
+              </div>
+              <div className="p-6 flex flex-col gap-6 bg-white overflow-y-auto max-h-[70vh]">
+                 {shippingError && (
+                   <div className="bg-red-50 text-red-700 p-3 rounded-xl border border-red-200 text-sm font-medium flex gap-2">
+                     <ShieldAlert size={18} className="shrink-0" />
+                     {shippingError}
+                   </div>
+                 )}
+                 <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-2">Package Dimensions (in)</label>
+                    <div className="flex gap-3">
+                       <input type="number" value={shippingForm.length} onChange={e => setShippingForm({...shippingForm, length: Number(e.target.value)})} placeholder="L" className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm text-center" />
+                       <span className="text-brand-secondary font-bold self-center">×</span>
+                       <input type="number" value={shippingForm.width} onChange={e => setShippingForm({...shippingForm, width: Number(e.target.value)})} placeholder="W" className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm text-center" />
+                       <span className="text-brand-secondary font-bold self-center">×</span>
+                       <input type="number" value={shippingForm.height} onChange={e => setShippingForm({...shippingForm, height: Number(e.target.value)})} placeholder="H" className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm text-center" />
+                    </div>
+                 </div>
+                 <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-2">Package Weight (oz)</label>
+                    <input type="number" value={shippingForm.weightOz} onChange={e => setShippingForm({...shippingForm, weightOz: Number(e.target.value)})} placeholder="Ounces" className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary outline-none" />
+                 </div>
+                 
+                 <div className="border-t border-brand-border pt-6">
+                    <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-2 flex items-center gap-1.5"><CreditCard size={12}/> Third-Party Billing (Optional)</label>
+                    <input type="text" value={shippingForm.thirdPartyAccount} onChange={e => setShippingForm({...shippingForm, thirdPartyAccount: e.target.value})} placeholder="e.g. UPS Account Number" className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary outline-none mb-3" />
+                    
+                    {shippingForm.thirdPartyAccount && (
+                       <input type="text" value={shippingForm.thirdPartyZip} onChange={e => setShippingForm({...shippingForm, thirdPartyZip: e.target.value})} placeholder="Billing Zip Code (Required for UPS)" className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary outline-none" />
+                    )}
+                 </div>
+
+                 <div className="bg-brand-bg/50 border border-brand-border p-4 rounded-xl items-center flex gap-3 cursor-pointer" onClick={() => setShippingForm({...shippingForm, isTest: !shippingForm.isTest})}>
+                    <input type="checkbox" checked={shippingForm.isTest} readOnly className="w-4 h-4 rounded text-brand-primary" />
+                    <div>
+                       <p className="text-sm font-bold text-brand-primary">Test Mode</p>
+                       <p className="text-[10px] text-brand-secondary">Generates a VOID label to test formatting securely without charges.</p>
+                    </div>
+                 </div>
+              </div>
+              <div className="p-5 border-t border-brand-border flex gap-3 bg-brand-bg items-center">
+                 <button onClick={() => setShippingLabelBox(null)} className="px-5 py-2.5 rounded-full text-xs font-bold uppercase tracking-widest text-brand-secondary hover:bg-neutral-200 transition-colors">Cancel</button>
+                 <PillButton variant="filled" onClick={handleBuyShippingLabel} disabled={isBuyingLabel} className="flex-1 justify-center py-2.5 bg-black hover:bg-neutral-800">
+                    {isBuyingLabel ? <><Loader2 size={16} className="animate-spin mr-2" /> Purchasing...</> : "Purchase Label"}
+                 </PillButton>
+              </div>
+           </div>
+         </div>
       )}
     </div>
   );
