@@ -75,7 +75,7 @@ export function PackingSlipView() {
   const cust = customer || { company: 'Unknown Customer' };
 
   return (
-    <div className="min-h-screen bg-[#FDFCF9] py-6 md:py-12 px-4 font-sans text-neutral-900 overflow-x-hidden">
+    <div className="min-h-screen bg-[#FDFCF9] print:bg-white py-6 md:py-12 px-4 print:p-0 font-sans text-neutral-900 overflow-x-hidden">
       <div className="max-w-3xl mx-auto">
         {/* Header */}
         <div className="flex flex-col items-center text-center mb-6 md:mb-10 gap-2 md:gap-4">
@@ -90,7 +90,7 @@ export function PackingSlipView() {
         </div>
 
         {/* Packing Details Card */}
-        <div className="bg-white rounded-[2rem] p-6 md:p-12 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-neutral-100 flex flex-col gap-6 md:gap-10 relative overflow-hidden">
+        <div className="bg-white rounded-[2rem] print:rounded-none p-6 md:p-12 print:p-0 shadow-[0_8px_30px_rgb(0,0,0,0.04)] print:shadow-none border border-neutral-100 print:border-none flex flex-col gap-6 md:gap-10 relative overflow-hidden">
           
           {/* Subtle decoration */}
           <div className="absolute -top-10 -right-10 p-8 opacity-[0.03] pointer-events-none">
@@ -171,7 +171,7 @@ export function PackingSlipView() {
              </div>
           </div>
           
-          <div className="mt-8 pt-8 text-center border-t border-neutral-100 relative z-10 flex flex-col items-center gap-4">
+          <div className="mt-8 pt-8 text-center border-t border-neutral-100 print:hidden relative z-10 flex flex-col items-center gap-4">
              <a href="/" className="inline-flex items-center justify-center bg-black hover:bg-neutral-800 transition-colors text-white text-xs font-bold uppercase tracking-widest px-10 py-4 rounded-full shadow-lg cursor-pointer w-full sm:w-auto">
                  Login to Portal
              </a>
