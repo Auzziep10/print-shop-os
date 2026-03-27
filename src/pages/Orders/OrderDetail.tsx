@@ -2240,6 +2240,129 @@ export function OrderDetail() {
                    </div>
                  </div>
 
+                 {/* Material & Build */}
+                 <div className="flex flex-col gap-3">
+                   <label className="text-xs font-bold uppercase tracking-widest text-brand-secondary">Material & Build</label>
+                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-white p-5 rounded-xl border border-brand-border shadow-sm">
+                     <div className="flex flex-col gap-1.5 sm:col-span-2 xl:col-span-1">
+                       <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Fabric Details</label>
+                       <input 
+                         type="text" 
+                         value={editItemObj.materialDetails || ''}
+                         onChange={(e) => setEditItemObj({...editItemObj, materialDetails: e.target.value})}
+                         className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-2.5 text-sm focus:border-brand-primary focus:bg-white focus:outline-none transition-all"
+                       />
+                     </div>
+                     <div className="flex flex-col gap-1.5 sm:col-span-2 xl:col-span-1">
+                       <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Fabric Finish</label>
+                       <input 
+                         type="text" 
+                         value={editItemObj.materialFinish || ''}
+                         onChange={(e) => setEditItemObj({...editItemObj, materialFinish: e.target.value})}
+                         className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-2.5 text-sm focus:border-brand-primary focus:bg-white focus:outline-none transition-all"
+                       />
+                     </div>
+                     <div className="flex flex-col gap-1.5">
+                       <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Fit / Cut</label>
+                       <input 
+                         type="text" 
+                         value={editItemObj.fit || ''}
+                         onChange={(e) => setEditItemObj({...editItemObj, fit: e.target.value})}
+                         className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-2.5 text-sm focus:border-brand-primary focus:bg-white focus:outline-none transition-all"
+                       />
+                     </div>
+                     <div className="flex flex-col gap-1.5">
+                       <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Fabric Weight (GSM)</label>
+                       <input 
+                         type="text" 
+                         value={editItemObj.weight || ''}
+                         onChange={(e) => setEditItemObj({...editItemObj, weight: e.target.value})}
+                         className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-2.5 text-sm focus:border-brand-primary focus:bg-white focus:outline-none transition-all"
+                       />
+                     </div>
+                     <div className="flex flex-col gap-1.5 sm:col-span-2">
+                       <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Care Instructions</label>
+                       <input 
+                         type="text" 
+                         value={editItemObj.careInstructions || ''}
+                         onChange={(e) => setEditItemObj({...editItemObj, careInstructions: e.target.value})}
+                         className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-2.5 text-sm focus:border-brand-primary focus:bg-white focus:outline-none transition-all"
+                       />
+                     </div>
+                   </div>
+                 </div>
+
+                 {/* Customization & Production */}
+                 <div className="flex flex-col gap-3">
+                   <label className="text-xs font-bold uppercase tracking-widest text-brand-secondary">Customization & Production</label>
+                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-white p-5 rounded-xl border border-brand-border shadow-sm">
+                     <div className="flex flex-col gap-1.5 sm:col-span-2">
+                       <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Decorating Methods</label>
+                       <input 
+                         type="text" 
+                         value={Array.isArray(editItemObj.decoratingMethods) ? editItemObj.decoratingMethods.join(', ') : editItemObj.decoratingMethods || ''}
+                         onChange={(e) => setEditItemObj({...editItemObj, decoratingMethods: e.target.value.split(',').map(s=>s.trim()).filter(Boolean)})}
+                         placeholder="e.g. DTF, Embroidery, Screen Print"
+                         className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-2.5 text-sm focus:border-brand-primary focus:bg-white focus:outline-none transition-all"
+                       />
+                     </div>
+                     <div className="flex flex-col gap-1.5 sm:col-span-2">
+                       <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Thread / Ink Colors</label>
+                       <input 
+                         type="text" 
+                         value={editItemObj.threadColors || ''}
+                         onChange={(e) => setEditItemObj({...editItemObj, threadColors: e.target.value})}
+                         className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-2.5 text-sm focus:border-brand-primary focus:bg-white focus:outline-none transition-all"
+                       />
+                     </div>
+                     <div className="flex flex-col gap-1.5">
+                       <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Turnaround Time</label>
+                       <input 
+                         type="text" 
+                         value={editItemObj.turnaroundTime || ''}
+                         onChange={(e) => setEditItemObj({...editItemObj, turnaroundTime: e.target.value})}
+                         className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-2.5 text-sm focus:border-brand-primary focus:bg-white focus:outline-none transition-all"
+                       />
+                     </div>
+                     <div className="flex flex-col gap-1.5">
+                       <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">MOQ</label>
+                       <input 
+                         type="text" 
+                         value={editItemObj.moq || ''}
+                         onChange={(e) => setEditItemObj({...editItemObj, moq: e.target.value})}
+                         className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-2.5 text-sm focus:border-brand-primary focus:bg-white focus:outline-none transition-all"
+                       />
+                     </div>
+                   </div>
+                 </div>
+
+                 {/* Backend Pricing */}
+                 <div className="flex flex-col gap-3">
+                   <label className="text-xs font-bold uppercase tracking-widest text-brand-secondary">Backend Pricing</label>
+                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-white p-5 rounded-xl border border-brand-border shadow-sm">
+                     <div className="flex flex-col gap-1.5">
+                       <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Cost Price ($)</label>
+                       <input 
+                         type="text"
+                         value={editItemObj.costPrice || ''}
+                         onChange={(e) => setEditItemObj({...editItemObj, costPrice: e.target.value})}
+                         className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-2.5 text-sm focus:border-brand-primary focus:bg-white focus:outline-none transition-all"
+                         placeholder="0.00"
+                       />
+                     </div>
+                     <div className="flex flex-col gap-1.5">
+                       <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Wholesale Price ($)</label>
+                       <input 
+                         type="text" 
+                         value={editItemObj.wholesalePrice || ''}
+                         onChange={(e) => setEditItemObj({...editItemObj, wholesalePrice: e.target.value})}
+                         className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-2.5 text-sm focus:border-brand-primary focus:bg-white focus:outline-none transition-all"
+                         placeholder="0.00"
+                       />
+                     </div>
+                   </div>
+                 </div>
+
                  {/* Bottom Row: Sizing */}
                  <div className="flex flex-col gap-3">
                    <div className="flex items-center justify-between">
@@ -2571,7 +2694,18 @@ export function OrderDetail() {
                                  price: formattedPrice,
                                  qty: 0,
                                  total: '$0.00',
-                                 image: image
+                                 image: image,
+                                 materialDetails: item.fabric_details || item.materialDetails || item.fabric || '',
+                                 materialFinish: item.fabric_finish || item.fabricFinish || item.finish || '',
+                                 fit: item.fit_cut || item.fit || '',
+                                 weight: item.fabric_weight || item.weight || '',
+                                 careInstructions: item.care_instructions || item.careInstructions || '',
+                                 decoratingMethods: item.decorating_methods || item.decoratingMethods || [],
+                                 threadColors: item.thread_colors || item.threadColors || '',
+                                 turnaroundTime: item.turnaround_time || item.turnaroundTime || '',
+                                 moq: item.moq || '',
+                                 costPrice: item.cost_price || item.costPrice || '',
+                                 wholesalePrice: item.wholesale_price || item.wholesalePrice || ''
                                });
                             }}
                             className="group flex items-center gap-5 bg-white border border-brand-border hover:border-brand-primary transition-colors rounded-2xl p-4 cursor-pointer shadow-sm hover:shadow-md hover:-translate-y-0.5"
