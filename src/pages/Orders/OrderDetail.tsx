@@ -2361,7 +2361,7 @@ export function OrderDetail() {
                        <div className="bg-neutral-100/60 p-1.5 flex flex-col items-center justify-center min-h-[44px] border-b border-brand-border group-focus-within:bg-neutral-100 transition-colors">
                          <span className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary leading-tight text-center line-clamp-2">{size}</span>
                        </div>
-                       <div className="relative bg-white pb-6 pt-3 h-full">
+                       <div className="bg-white flex flex-col items-center justify-center py-2.5 h-full gap-1.5">
                          <input 
                            type="number"
                            min="0"
@@ -2376,7 +2376,7 @@ export function OrderDetail() {
                            className="w-full bg-transparent px-2 text-xl font-black text-center focus:outline-none placeholder:text-gray-200"
                            placeholder="0"
                          />
-                         <span className="absolute bottom-1.5 left-0 w-full text-center text-[8px] font-bold text-brand-primary/40 uppercase tracking-widest">Max {maxQty}</span>
+                         <span className="text-[10px] bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-md text-blue-700 font-bold uppercase tracking-widest shadow-sm">Max {maxQty}</span>
                        </div>
                     </div>
                   )
