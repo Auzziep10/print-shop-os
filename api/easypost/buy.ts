@@ -12,8 +12,14 @@ export default async function handler(req: Request) {
     const { to_address, from_address: fromAddressOverride, parcel, isTest, thirdPartyAccount, thirdPartyZip } = body;
 
     const apiKey = isTest ? process.env.EASYPOST_TEST_KEY : process.env.EASYPOST_PROD_KEY;
+    
     if (!apiKey) {
-      return new Response(JSON.stringify({ error: 'EasyPost API key not configured on server' }), { status: 500 });
+      const modeName = isTest ? 'Test (EASYPOST_TEST_KEY)' : 'Production (EASYPOST_PROD_KEY)';
+      return new Response(JSON.stringify({ error: `Vercel is reporting that the ${modeName} is empty. Please check your Vercel Environment Variables spelling exactly.` }), { status: 500 });
+    }
+
+    if (!apiKey.startsWith(isTest ? 'EZTK' : 'EZAK')) {
+       return new Response(JSON.stringify({ error: `Vercel loaded a key, but it's formatted incorrectly! You requested ${isTest ? 'Test' : 'Prod'} mode, but the loaded key starts with: ${apiKey.substring(0, 4)}... instead of ${isTest ? 'EZTK' : 'EZAK'}.` }), { status: 500 });
     }
 
     // Default origin address (WOVN default HQ or warehouse context)
