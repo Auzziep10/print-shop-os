@@ -1031,7 +1031,7 @@ export function OrderDetail() {
                                   const hasCourierLabels = itemBoxes.some((b: any) => !!b.labelUrl);
                                   
                                   return (
-                                    <div className="flex items-center flex-wrap gap-2.5 mt-3">
+                                    <div className="flex items-center flex-wrap gap-2 mt-3 min-w-0 w-full overflow-hidden sm:overflow-visible">
                                       {itemBoxes.length > 0 && (
                                         <button 
                                           onClick={(e) => {
