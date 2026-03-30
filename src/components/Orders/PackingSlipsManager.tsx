@@ -30,21 +30,24 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
   const handleOpenShippingLabel = (box: any) => {
     const defaultProfile = order.lastShippingProfile || {};
     const defaultAddress = defaultProfile.address || {};
-    const customer = order.customerDetails || order.shippingAddress || {};
+    
+    // Explicit global order shipping structure overrides naive customer details
+    const orderAddress = order.shippingAddress || {};
+    const customer = order.customerDetails || {};
     
     setShippingForm(prev => ({
       ...prev,
-      thirdPartyAccount: defaultProfile.thirdPartyAccount || '',
-      thirdPartyZip: defaultProfile.thirdPartyZip || '',
+      thirdPartyAccount: defaultProfile.thirdPartyAccount || order.thirdPartyBilling?.account || '',
+      thirdPartyZip: defaultProfile.thirdPartyZip || order.thirdPartyBilling?.zip || '',
       address: {
-        name: defaultAddress.name || customer.name || customer.company || order.companyName || '',
-        company: defaultAddress.company || customer.company || order.companyName || '',
-        street1: defaultAddress.street1 || customer.street1 || '',
-        street2: defaultAddress.street2 || customer.street2 || '',
-        city: defaultAddress.city || customer.city || '',
-        state: defaultAddress.state || customer.state || '',
-        zip: defaultAddress.zip || customer.zip || '',
-        country: defaultAddress.country || customer.country || 'US'
+        name: defaultAddress.name || orderAddress.name || customer.name || customer.company || order.companyName || '',
+        company: defaultAddress.company || orderAddress.company || customer.company || order.companyName || '',
+        street1: defaultAddress.street1 || orderAddress.street1 || customer.street1 || '',
+        street2: defaultAddress.street2 || orderAddress.street2 || customer.street2 || '',
+        city: defaultAddress.city || orderAddress.city || customer.city || '',
+        state: defaultAddress.state || orderAddress.state || customer.state || '',
+        zip: defaultAddress.zip || orderAddress.zip || customer.zip || '',
+        country: defaultAddress.country || orderAddress.country || customer.country || 'US'
       }
     }));
     setShippingLabelBox(box);

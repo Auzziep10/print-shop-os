@@ -45,7 +45,9 @@ export function OrderDetail() {
   const [editForm, setEditForm] = useState({ 
     title: '', date: '', statusIndex: 0,
     trackingCarrier: '', trackingNumber: '',
-    fulfillmentType: ''
+    fulfillmentType: '',
+    shippingAddress: { name: '', company: '', street1: '', street2: '', city: '', state: '', zip: '', country: 'US' },
+    thirdPartyBilling: { account: '', zip: '' }
   });
 
   const [allUsers, setAllUsers] = useState<any[]>([]);
@@ -751,7 +753,9 @@ export function OrderDetail() {
         statusIndex: order.statusIndex || 0,
         trackingCarrier: order.trackingCarrier || '',
         trackingNumber: order.trackingNumber || '',
-        fulfillmentType: order.fulfillmentType || ''
+        fulfillmentType: order.fulfillmentType || '',
+        shippingAddress: order.shippingAddress || { name: '', company: '', street1: '', street2: '', city: '', state: '', zip: '', country: 'US' },
+        thirdPartyBilling: order.thirdPartyBilling || { account: '', zip: '' }
       });
     }
   }, [orders, id]);
@@ -766,7 +770,9 @@ export function OrderDetail() {
         statusIndex: editForm.statusIndex,
         trackingCarrier: editForm.trackingCarrier,
         trackingNumber: editForm.trackingNumber,
-        fulfillmentType: editForm.fulfillmentType
+        fulfillmentType: editForm.fulfillmentType,
+        shippingAddress: editForm.shippingAddress,
+        thirdPartyBilling: editForm.thirdPartyBilling
       }, { merge: true });
       setIsEditDialogOpen(false);
     } catch (err) {
@@ -1861,10 +1867,10 @@ export function OrderDetail() {
 
       {/* Edit Order Dialog */}
       {isEditDialogOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-6 overflow-y-auto">
-          <div className="bg-brand-bg max-w-lg w-full rounded-2xl overflow-hidden shadow-2xl flex flex-col border border-brand-border my-auto">
-            <div className="p-6 border-b border-brand-border flex justify-between items-center bg-white">
-              <h3 className="font-serif text-2xl text-brand-primary">Edit Order</h3>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 md:p-6 overflow-y-auto">
+          <div className="bg-brand-bg max-w-[95vw] xl:max-w-[1200px] w-full rounded-2xl overflow-hidden shadow-2xl flex flex-col border border-brand-border my-auto">
+            <div className="p-6 border-b border-brand-border flex justify-between items-center bg-white sticky top-0 z-10">
+              <h3 className="font-serif text-2xl text-brand-primary">Edit Order Settings</h3>
               <button 
                 onClick={() => setIsEditDialogOpen(false)} 
                 className="text-brand-secondary hover:text-brand-primary transition-colors bg-brand-bg border border-brand-border rounded-md p-1"
@@ -1873,104 +1879,203 @@ export function OrderDetail() {
               </button>
             </div>
             
-            <div className="p-6 flex flex-col gap-6">
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Order Title</label>
-                <input 
-                  type="text" 
-                  value={editForm.title}
-                  onChange={(e) => setEditForm(prev => ({ ...prev, title: e.target.value }))}
-                  className="w-full bg-white border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
-                  placeholder="e.g. Polos, Jackets, Accessories"
-                />
+            <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 overflow-y-auto custom-scrollbar flex-1 bg-white">
+              {/* Left Column: Core Order Info */}
+              <div className="flex flex-col gap-6">
+                <div>
+                  <h4 className="text-sm font-bold text-brand-primary mb-4 pb-2 border-b border-brand-border flex items-center gap-2"><div className="w-1.5 h-4 bg-brand-primary rounded-full"></div> Core Details</h4>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Order Title</label>
+                      <input 
+                        type="text" 
+                        value={editForm.title}
+                        onChange={(e) => setEditForm(prev => ({ ...prev, title: e.target.value }))}
+                        className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
+                        placeholder="e.g. Polos, Jackets, Accessories"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Due Date</label>
+                      <input 
+                        type="text" 
+                        value={editForm.date}
+                        onChange={(e) => setEditForm(prev => ({ ...prev, date: e.target.value }))}
+                        className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
+                        placeholder="e.g. 3/29/26"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="text-sm font-bold text-brand-primary mb-4 pb-2 border-b border-brand-border flex items-center gap-2"><div className="w-1.5 h-4 bg-blue-500 rounded-full"></div> Pipeline & Legacy Tracking</h4>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Fulfillment Type</label>
+                        <select 
+                          value={editForm.fulfillmentType}
+                          onChange={(e) => setEditForm(prev => ({ ...prev, fulfillmentType: e.target.value }))}
+                          className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
+                        >
+                          <option value="">Default (From Customer)</option>
+                          <option value="Standard">Standard Drop-Ship</option>
+                          <option value="Kitting">Inventory & Kitting</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Pipeline Status</label>
+                        <select 
+                          value={editForm.statusIndex.toString()}
+                          onChange={(e) => setEditForm(prev => ({ ...prev, statusIndex: parseInt(e.target.value) }))}
+                          className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
+                        >
+                          {(() => {
+                            const formIsKitting = editForm.fulfillmentType === 'Kitting' || (!editForm.fulfillmentType && customer.fulfillmentType === 'Kitting');
+                            return (
+                              <>
+                                <option value="0">0 - Quote</option>
+                                <option value="1">1 - Mgmt Notified</option>
+                                <option value="2">2 - Quote Sent</option>
+                                <option value="3">3 - Approved</option>
+                                <option value="4">4 - Shopping</option>
+                                <option value="5">5 - Ordered</option>
+                                <option value="6">6 - Processing</option>
+                                <option value="7">7 - {formIsKitting ? 'Inventory' : 'Shipped'}</option>
+                                <option value="8">8 - {formIsKitting ? 'Live (Shopify)' : 'Received'}</option>
+                              </>
+                            );
+                          })()}
+                        </select>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Legacy Carrier</label>
+                        <select 
+                          value={editForm.trackingCarrier}
+                          onChange={(e) => setEditForm(prev => ({ ...prev, trackingCarrier: e.target.value }))}
+                          className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
+                        >
+                          <option value="">Pickup / Local</option>
+                          <option value="UPS">UPS</option>
+                          <option value="FedEx">FedEx</option>
+                          <option value="USPS">USPS</option>
+                          <option value="DHL">DHL</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Legacy Tracking Num</label>
+                        <input 
+                          type="text" 
+                          value={editForm.trackingNumber}
+                          onChange={(e) => setEditForm(prev => ({ ...prev, trackingNumber: e.target.value }))}
+                          className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
+                          placeholder="e.g. 1Z9999..."
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Due Date</label>
-                <input 
-                  type="text" 
-                  value={editForm.date}
-                  onChange={(e) => setEditForm(prev => ({ ...prev, date: e.target.value }))}
-                  className="w-full bg-white border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
-                  placeholder="e.g. 3/29/26"
-                />
-              </div>
+              {/* Right Column: Global Shipping Architecture */}
+              <div className="flex flex-col gap-6">
+                <div>
+                  <h4 className="text-sm font-bold text-brand-primary mb-4 pb-2 border-b border-brand-border flex items-center gap-2"><div className="w-1.5 h-4 bg-indigo-500 rounded-full"></div> Global Origin / Destination Profile</h4>
+                  
+                  <div className="space-y-4">
+                    <p className="text-xs text-brand-secondary -mt-2">This is the default configuration used whenever you click "Buy UPS Label" on a specific box for this exact order.</p>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Fulfillment Type</label>
-                  <select 
-                    value={editForm.fulfillmentType}
-                    onChange={(e) => setEditForm(prev => ({ ...prev, fulfillmentType: e.target.value }))}
-                    className="w-full bg-white border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
-                  >
-                    <option value="">Default (From Customer)</option>
-                    <option value="Standard">Standard Drop-Ship</option>
-                    <option value="Kitting">Inventory & Kitting</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Pipeline Status</label>
-                  <select 
-                    value={editForm.statusIndex.toString()}
-                    onChange={(e) => setEditForm(prev => ({ ...prev, statusIndex: parseInt(e.target.value) }))}
-                    className="w-full bg-white border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
-                  >
-                    {(() => {
-                      const formIsKitting = editForm.fulfillmentType === 'Kitting' || (!editForm.fulfillmentType && customer.fulfillmentType === 'Kitting');
-                      return (
-                        <>
-                          <option value="0">0 - Quote</option>
-                          <option value="1">1 - Mgmt Notified</option>
-                          <option value="2">2 - Quote Sent</option>
-                          <option value="3">3 - Approved</option>
-                          <option value="4">4 - Shopping</option>
-                          <option value="5">5 - Ordered</option>
-                          <option value="6">6 - Processing</option>
-                          <option value="7">7 - {formIsKitting ? 'Inventory' : 'Shipped'}</option>
-                          <option value="8">8 - {formIsKitting ? 'Live (Shopify)' : 'Received'}</option>
-                        </>
-                      );
-                    })()}
-                  </select>
-                </div>
-              </div>
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-2">Recipient Information</label>
+                      <div className="flex gap-2 mb-2">
+                        <input 
+                          type="text" placeholder="Recipient Name" 
+                          value={editForm.shippingAddress.name || ''} 
+                          onChange={e => setEditForm(prev => ({...prev, shippingAddress: {...prev.shippingAddress, name: e.target.value}}))}
+                          className="w-1/2 bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2.5 text-sm focus:border-brand-primary outline-none" 
+                        />
+                        <input 
+                          type="text" placeholder="Company (Optional)" 
+                          value={editForm.shippingAddress.company || ''} 
+                          onChange={e => setEditForm(prev => ({...prev, shippingAddress: {...prev.shippingAddress, company: e.target.value}}))}
+                          className="w-1/2 bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2.5 text-sm focus:border-brand-primary outline-none" 
+                        />
+                      </div>
+                      <input 
+                        type="text" placeholder="Street Address" 
+                        value={editForm.shippingAddress.street1 || ''} 
+                        onChange={e => setEditForm(prev => ({...prev, shippingAddress: {...prev.shippingAddress, street1: e.target.value}}))}
+                        className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2.5 text-sm focus:border-brand-primary outline-none mb-2" 
+                      />
+                      <input 
+                        type="text" placeholder="Apt, Suite, Unit (Optional)" 
+                        value={editForm.shippingAddress.street2 || ''} 
+                        onChange={e => setEditForm(prev => ({...prev, shippingAddress: {...prev.shippingAddress, street2: e.target.value}}))}
+                        className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2.5 text-sm focus:border-brand-primary outline-none mb-2" 
+                      />
+                      <div className="flex gap-2">
+                        <input 
+                          type="text" placeholder="City" 
+                          value={editForm.shippingAddress.city || ''} 
+                          onChange={e => setEditForm(prev => ({...prev, shippingAddress: {...prev.shippingAddress, city: e.target.value}}))}
+                          className="w-[45%] bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2.5 text-sm focus:border-brand-primary outline-none" 
+                        />
+                        <input 
+                          type="text" placeholder="State" 
+                          value={editForm.shippingAddress.state || ''} 
+                          onChange={e => setEditForm(prev => ({...prev, shippingAddress: {...prev.shippingAddress, state: e.target.value}}))}
+                          className="w-[20%] bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2.5 text-sm focus:border-brand-primary outline-none uppercase" maxLength={2} 
+                        />
+                        <input 
+                          type="text" placeholder="Zip" 
+                          value={editForm.shippingAddress.zip || ''} 
+                          onChange={e => setEditForm(prev => ({...prev, shippingAddress: {...prev.shippingAddress, zip: e.target.value}}))}
+                          className="w-[35%] bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2.5 text-sm focus:border-brand-primary outline-none" 
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="mt-8 border-t border-brand-border pt-6">
+                      <h4 className="text-sm font-bold text-brand-primary mb-4"><div className="w-1.5 h-4 bg-emerald-500 rounded-full inline-block align-middle mr-2"></div> Third-Party Logistics</h4>
+                      <div className="bg-brand-bg/30 p-4 rounded-xl border border-brand-border space-y-3">
+                         <div>
+                            <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1">Global 3rd-Party Ups Account</label>
+                            <input 
+                              type="text" placeholder="e.g. UPS Account Number" 
+                              value={editForm.thirdPartyBilling.account || ''} 
+                              onChange={e => setEditForm(prev => ({...prev, thirdPartyBilling: {...prev.thirdPartyBilling, account: e.target.value}}))}
+                              className="w-full bg-white border border-brand-border rounded-lg px-3 py-2.5 text-sm focus:border-brand-primary outline-none" 
+                            />
+                         </div>
+                         <div>
+                            <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1">Billing Zip Code</label>
+                            <input 
+                              type="text" placeholder="ZIP associated with Account" 
+                              value={editForm.thirdPartyBilling.zip || ''} 
+                              onChange={e => setEditForm(prev => ({...prev, thirdPartyBilling: {...prev.thirdPartyBilling, zip: e.target.value}}))}
+                              className="w-full bg-white border border-brand-border rounded-lg px-3 py-2.5 text-sm focus:border-brand-primary outline-none" 
+                            />
+                         </div>
+                      </div>
+                    </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Carrier</label>
-                  <select 
-                    value={editForm.trackingCarrier}
-                    onChange={(e) => setEditForm(prev => ({ ...prev, trackingCarrier: e.target.value }))}
-                    className="w-full bg-white border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
-                  >
-                    <option value="">Pickup / Local</option>
-                    <option value="UPS">UPS</option>
-                    <option value="FedEx">FedEx</option>
-                    <option value="USPS">USPS</option>
-                    <option value="DHL">DHL</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Tracking Number</label>
-                  <input 
-                    type="text" 
-                    value={editForm.trackingNumber}
-                    onChange={(e) => setEditForm(prev => ({ ...prev, trackingNumber: e.target.value }))}
-                    className="w-full bg-white border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
-                    placeholder="e.g. 1Z9999..."
-                  />
+                  </div>
                 </div>
               </div>
+            </div>
 
-              <div className="flex gap-4 pt-4 border-t border-brand-border">
-                <PillButton variant="outline" onClick={() => setIsEditDialogOpen(false)} className="flex-1 justify-center py-3">
-                  Cancel
-                </PillButton>
-                <PillButton variant="filled" onClick={handleSaveEdit} className="flex-1 justify-center py-3" disabled={isSaving}>
-                  {isSaving ? <Loader2 className="animate-spin" size={18} /> : <span>Save Changes</span>}
-                </PillButton>
-              </div>
+            <div className="p-6 bg-brand-bg flex gap-4 border-t border-brand-border sticky bottom-0">
+              <PillButton variant="outline" onClick={() => setIsEditDialogOpen(false)} className="flex-1 justify-center py-3">
+                Cancel
+              </PillButton>
+              <PillButton variant="filled" onClick={handleSaveEdit} className="flex-1 justify-center py-3" disabled={isSaving}>
+                {isSaving ? <Loader2 className="animate-spin" size={18} /> : <span>Save All Changes</span>}
+              </PillButton>
             </div>
           </div>
         </div>
