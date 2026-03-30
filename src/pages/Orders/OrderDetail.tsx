@@ -1056,38 +1056,49 @@ export function OrderDetail() {
                                       </button>
                                       {itemBoxes.length > 0 && (
                                         <>
-                                          <button 
-                                            onClick={(e) => {
-                                               e.stopPropagation();
-                                               window.open(`/packing-slip/${order.id}/item/${item.id}`, '_blank');
-                                            }}
-                                            className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-brand-secondary hover:text-brand-primary transition-all bg-white hover:bg-neutral-50 px-3 py-1.5 rounded-full border border-brand-border hover:border-brand-primary hover:shadow-md hover:-translate-y-[1px] shrink-0 whitespace-nowrap"
-                                            title="Print packing slips for all boxes containing this item"
-                                          >
-                                            <Printer size={12} strokeWidth={3} /> <span>Print Slips</span>
-                                          </button>
-                                          <button 
-                                            onClick={(e) => {
-                                               e.stopPropagation();
-                                               window.open(`/print/labels-sheet/${order.id}/item/${item.id}`, '_blank');
-                                            }}
-                                            className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-brand-secondary hover:text-brand-primary transition-all bg-white hover:bg-neutral-50 px-3 py-1.5 rounded-full border border-brand-border hover:border-brand-primary hover:shadow-md hover:-translate-y-[1px] shrink-0 whitespace-nowrap"
-                                            title="Print Avery sheet labels for all boxes containing this item"
-                                          >
-                                            <QrCode size={12} strokeWidth={3} /> <span>Print Tags</span>
-                                          </button>
-                                          {hasCourierLabels && (
+                                          <div className="group relative shrink-0 z-20">
                                             <button 
-                                              onClick={(e) => {
-                                                 e.stopPropagation();
-                                                 window.open(`/print/courier/${order.id}/item/${item.id}`, '_blank');
-                                              }}
-                                              className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-[#d52b1e] hover:text-white transition-all bg-[#d52b1e]/5 hover:bg-[#d52b1e] px-3 py-1.5 rounded-full border border-[#d52b1e]/30 hover:border-[#d52b1e] hover:shadow-md hover:-translate-y-[1px] shrink-0 whitespace-nowrap"
-                                              title="Print UPS shipping labels for all boxes containing this item"
+                                              className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-brand-secondary group-hover:text-brand-primary transition-all bg-white group-hover:bg-neutral-50 px-3 py-1.5 rounded-full border border-brand-border group-hover:border-brand-primary group-hover:shadow-md shrink-0 whitespace-nowrap"
                                             >
-                                              <Truck size={12} strokeWidth={3} /> <span>Print UPS</span>
+                                              <Printer size={12} strokeWidth={3} /> <span>Print</span> <ChevronDown size={10} strokeWidth={3} className="opacity-50 group-hover:opacity-100 transition-opacity" />
                                             </button>
-                                          )}
+                                            
+                                            {/* Dropdown Menu */}
+                                            <div className="absolute left-0 top-full mt-1.5 w-40 bg-white border border-brand-border rounded-xl shadow-xl flex flex-col overflow-hidden opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all -translate-y-1 group-hover:translate-y-0 origin-top">
+                                              <button 
+                                                onClick={(e) => {
+                                                   e.stopPropagation();
+                                                   window.open(`/packing-slip/${order.id}/item/${item.id}`, '_blank');
+                                                }}
+                                                className="flex items-center gap-2.5 px-3 py-2.5 text-[10px] font-bold uppercase tracking-widest text-brand-secondary hover:bg-brand-primary/5 hover:text-brand-primary text-left border-b border-brand-border"
+                                              >
+                                                <Printer size={12} strokeWidth={3} className="opacity-60" /> <span>Packing Slips</span>
+                                              </button>
+                                              <button 
+                                                onClick={(e) => {
+                                                   e.stopPropagation();
+                                                   window.open(`/print/labels-sheet/${order.id}/item/${item.id}`, '_blank');
+                                                }}
+                                                className={`flex items-center gap-2.5 px-3 py-2.5 text-[10px] font-bold uppercase tracking-widest text-brand-secondary hover:bg-brand-primary/5 hover:text-brand-primary text-left ${hasCourierLabels ? 'border-b border-brand-border' : ''}`}
+                                              >
+                                                <QrCode size={12} strokeWidth={3} className="opacity-60" /> <span>Box Tags</span>
+                                              </button>
+                                              {hasCourierLabels && (
+                                                <button 
+                                                  onClick={(e) => {
+                                                     e.stopPropagation();
+                                                     window.open(`/print/courier/${order.id}/item/${item.id}`, '_blank');
+                                                  }}
+                                                  className="flex items-center justify-between gap-2.5 px-3 py-2.5 text-[10px] font-bold uppercase tracking-widest text-[#d52b1e] hover:bg-[#d52b1e]/10 text-left bg-[#d52b1e]/5"
+                                                >
+                                                  <div className="flex items-center gap-2.5">
+                                                    <Truck size={12} strokeWidth={3} className="opacity-80" /> <span>UPS Labels</span>
+                                                  </div>
+                                                  <div className="bg-[#d52b1e] text-white rounded-full w-2 h-2 shrink-0 animate-pulse"></div>
+                                                </button>
+                                              )}
+                                            </div>
+                                          </div>
                                         </>
                                       )}
                                       <button 
