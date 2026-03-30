@@ -97,6 +97,26 @@ export function Production() {
   const getCompletionData = (order: any) => {
     let totalGarments = 0;
     let completedGarments = 0;
+    let totalPackedGarments = 0;
+    
+    // Compute packed pieces from boxes in actual orders
+    const ordersToProcess = order.isProjectGroup ? order.orders : [order];
+    ordersToProcess.forEach((realOrder: any) => {
+        if (realOrder.boxes) {
+            realOrder.boxes.forEach((box: any) => {
+               box.items?.forEach((item: any) => {
+                  if (item.sizes && Object.keys(item.sizes).length > 0) {
+                      Object.values(item.sizes).forEach((qty: any) => {
+                          totalPackedGarments += (parseInt(qty as string) || 0);
+                      });
+                  } else if (item.qty) {
+                      totalPackedGarments += parseInt(item.qty as string) || 0;
+                  }
+               });
+            });
+        }
+    });
+
     order.items?.forEach((item: any) => {
       let sizeSum = 0;
       if (item.sizes) {
@@ -113,7 +133,8 @@ export function Production() {
       totalGarments += Math.max(parseInt(item.qty as string) || 0, sizeSum);
     });
     const completionRatio = totalGarments > 0 ? (completedGarments / totalGarments) : 0;
-    return { totalGarments, completedGarments, completionRatio };
+    const packingRatio = totalGarments > 0 ? (totalPackedGarments / totalGarments) : 0;
+    return { totalGarments, completedGarments, completionRatio, totalPackedGarments, packingRatio };
   };
 
   const groupedProjectsList = Object.values(orders
@@ -532,16 +553,16 @@ export function Production() {
           const isExpanded = expandedId === order.id;
           const timelineSteps = ['Production', 'Kitting', 'Shipped'];
 
-          const { totalGarments, completedGarments, completionRatio } = getCompletionData(order);
+          const { totalGarments, completedGarments, completionRatio, packingRatio } = getCompletionData(order);
           
           let visualIndex = 0; // Production
           if (order.statusIndex === 6) { // In Production
              visualIndex = 0 + completionRatio; // Fills toward Kitting
+             if (completionRatio >= 0.99 && packingRatio > 0) {
+                 visualIndex = 1 + packingRatio;
+             }
           } else if (order.statusIndex === 7) { // Kitting (Internally mapping statusIndex=7)
-             visualIndex = 1 + completionRatio; // If still checking off, or just static at Kitting
-             // Actually if it's physically in Kitting, we might just set it to 1
-             visualIndex = 1;
-             // Let's assume if status 7, it's 1.0 filling toward Shipped if there's Kitting logic, but let's keep it simple
+             visualIndex = 1 + packingRatio;
           } else if (order.statusIndex > 7) {
              visualIndex = 2; // Shipped
           }
@@ -681,8 +702,13 @@ export function Production() {
                                           const subData = getCompletionData(subOrder);
                                           const subTimelineSteps = ['Production', 'Kitting', 'Shipped'];
                                           let subVisualIndex = 0;
-                                          if (subOrder.statusIndex === 6) subVisualIndex = 0 + (subData.completionRatio || 0);
-                                          else if (subOrder.statusIndex === 7) subVisualIndex = 1;
+                                          if (subOrder.statusIndex === 6) {
+                                              subVisualIndex = 0 + (subData.completionRatio || 0);
+                                              if ((subData.completionRatio || 0) >= 0.99 && (subData.packingRatio || 0) > 0) {
+                                                  subVisualIndex = 1 + (subData.packingRatio || 0);
+                                              }
+                                          }
+                                          else if (subOrder.statusIndex === 7) subVisualIndex = 1 + (subData.packingRatio || 0);
                                           else if (subOrder.statusIndex > 7) subVisualIndex = 2;
                                           const subFillWidth = `${(subVisualIndex / (subTimelineSteps.length - 1)) * 100}%`;
 
