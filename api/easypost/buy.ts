@@ -19,10 +19,10 @@ export default async function handler(req: Request) {
     // Default origin address (WOVN default HQ or warehouse context)
     const from_address = {
       company: 'WOVN',
-      street1: '123 Maker Street',
+      street1: '100 E 1st St',
       city: 'Los Angeles',
       state: 'CA',
-      zip: '90001',
+      zip: '90012',
       country: 'US',
       phone: '555-555-5555'
     };
