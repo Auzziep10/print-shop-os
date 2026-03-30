@@ -99,7 +99,7 @@ export function Production() {
     let completedGarments = 0;
     let totalPackedGarments = 0;
     
-    // Compute packed pieces from boxes in actual orders
+    // Compute packed pieces and completed garments from actual orders
     const ordersToProcess = order.isProjectGroup ? order.orders : [order];
     ordersToProcess.forEach((realOrder: any) => {
         if (realOrder.boxes) {
@@ -115,22 +115,23 @@ export function Production() {
                });
             });
         }
-    });
-
-    order.items?.forEach((item: any) => {
-      let sizeSum = 0;
-      if (item.sizes) {
-        Object.entries(item.sizes).forEach(([size, qty]: [string, any]) => {
-          const q = parseInt(qty as string) || 0;
-          sizeSum += q;
-          if (item.completedSizes?.includes(size)) {
-            completedGarments += q;
+        
+        // Compute Garments
+        realOrder.items?.forEach((item: any) => {
+          let sizeSum = 0;
+          if (item.sizes) {
+            Object.entries(item.sizes).forEach(([size, qty]: [string, any]) => {
+              const q = parseInt(qty as string) || 0;
+              sizeSum += q;
+              if (item.completedSizes?.includes(size)) {
+                completedGarments += q;
+              }
+            });
           }
+          // Always count the requested item globally so 'Total Garments Processed' updates 
+          // accurately even if size breakdowns haven't been completed yet.
+          totalGarments += Math.max(parseInt(item.qty as string) || 0, sizeSum);
         });
-      }
-      // Always count the requested item globally so 'Total Garments Processed' updates 
-      // accurately even if size breakdowns haven't been completed yet.
-      totalGarments += Math.max(parseInt(item.qty as string) || 0, sizeSum);
     });
     const completionRatio = totalGarments > 0 ? (completedGarments / totalGarments) : 0;
     const packingRatio = totalGarments > 0 ? (totalPackedGarments / totalGarments) : 0;

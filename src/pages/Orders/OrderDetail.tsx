@@ -1031,7 +1031,7 @@ export function OrderDetail() {
                                   const hasCourierLabels = itemBoxes.some((b: any) => !!b.labelUrl);
                                   
                                   return (
-                                    <div className="flex items-center flex-wrap gap-2 mt-3 min-w-0 w-full overflow-hidden sm:overflow-visible">
+                                    <div className="flex items-center flex-wrap gap-2 mt-3 min-w-0 w-full overflow-visible">
                                       {itemBoxes.length > 0 && (
                                         <button 
                                           onClick={(e) => {
@@ -1056,15 +1056,15 @@ export function OrderDetail() {
                                       </button>
                                       {itemBoxes.length > 0 && (
                                         <>
-                                          <div className="group relative shrink-0 z-20">
+                                          <div className="group/print relative shrink-0 z-20">
                                             <button 
-                                              className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-brand-secondary group-hover:text-brand-primary transition-all bg-white group-hover:bg-neutral-50 px-3 py-1.5 rounded-full border border-brand-border group-hover:border-brand-primary group-hover:shadow-md shrink-0 whitespace-nowrap"
+                                              className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-brand-secondary transition-all bg-white px-3 py-1.5 rounded-full border border-brand-border group-hover/print:border-brand-primary group-focus-within/print:border-brand-primary group-hover/print:text-brand-primary group-focus-within/print:text-brand-primary hover:bg-neutral-50 shadow-sm hover:shadow-md shrink-0 whitespace-nowrap"
                                             >
-                                              <Printer size={12} strokeWidth={3} /> <span>Print</span> <ChevronDown size={10} strokeWidth={3} className="opacity-50 group-hover:opacity-100 transition-opacity" />
+                                              <Printer size={12} strokeWidth={3} /> <span>Print</span> <ChevronDown size={10} strokeWidth={3} className="opacity-50 transition-transform duration-300 group-focus-within/print:rotate-180 group-focus-within/print:opacity-100 group-hover/print:opacity-100" />
                                             </button>
                                             
                                             {/* Dropdown Menu */}
-                                            <div className="absolute left-0 top-full mt-1.5 w-40 bg-white border border-brand-border rounded-xl shadow-xl flex flex-col overflow-hidden opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all -translate-y-1 group-hover:translate-y-0 origin-top">
+                                            <div className="absolute left-0 top-full mt-1.5 w-40 bg-white border border-brand-border rounded-xl shadow-xl flex flex-col overflow-hidden opacity-0 pointer-events-none group-focus-within/print:opacity-100 group-focus-within/print:pointer-events-auto transition-all -translate-y-1 group-focus-within/print:translate-y-0 origin-top">
                                               <button 
                                                 onClick={(e) => {
                                                    e.stopPropagation();
