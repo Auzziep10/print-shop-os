@@ -11,7 +11,7 @@ export default async function handler(req: Request) {
     const body = await req.json();
     const { to_address, from_address: fromAddressOverride, parcel, isTest, thirdPartyAccount, thirdPartyZip } = body;
 
-    const apiKey = isTest ? process.env.EASYPOST_TEST_KEY : process.env.EASYPOST_PROD_KEY;
+    const apiKey = (isTest ? process.env.EASYPOST_TEST_KEY : process.env.EASYPOST_PROD_KEY)?.trim() || '';
     
     if (!apiKey) {
       const modeName = isTest ? 'Test (EASYPOST_TEST_KEY)' : 'Production (EASYPOST_PROD_KEY)';
