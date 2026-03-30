@@ -17,6 +17,7 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
   const { user } = useAuth();
   const [isAddingBox, setIsAddingBox] = useState(false);
   const [workingBoxes, setWorkingBoxes] = useState<DraftBox[]>([]);
+  const [selectedSheetLabels, setSelectedSheetLabels] = useState<string[]>([]);
   const [isExpanded, setIsExpanded] = useState(false);
   
   const [shippingLabelBox, setShippingLabelBox] = useState<any>(null);
@@ -340,8 +341,18 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
         <h2 className={tokens.typography.h2}>Packing Slips & Labels</h2>
         <div className="flex items-center gap-3">
           {(order.boxes && order.boxes.length > 0) && (
-            <PillButton variant="outline" onClick={() => window.open(`/print/labels-sheet/${order.id}`, '_blank')} className="gap-2 shrink-0 px-4 py-2 text-xs bg-black text-white hover:bg-neutral-800 hover:text-white border-black">
-              <Printer size={14} /> Print Sheet (OL500)
+            <PillButton 
+              variant="outline" 
+              onClick={() => {
+                 let url = `/print/labels-sheet/${order.id}`;
+                 if (selectedSheetLabels.length > 0) {
+                    url += `?boxes=${selectedSheetLabels.join(',')}`;
+                 }
+                 window.open(url, '_blank');
+              }} 
+              className={`gap-2 shrink-0 px-4 py-2 text-xs transition-all ${selectedSheetLabels.length > 0 ? 'bg-brand-primary text-white border-brand-primary hover:bg-neutral-800 hover:border-neutral-800' : 'bg-black text-white hover:bg-neutral-800 hover:text-white border-black'}`}
+            >
+              <Printer size={14} /> {selectedSheetLabels.length > 0 ? `Print Selected (${selectedSheetLabels.length})` : 'Print Sheet (OL500)'}
             </PillButton>
           )}
           <PillButton variant="outline" onClick={handleStartAddBox} className="gap-2 shrink-0 px-4 py-2 text-xs">
@@ -542,8 +553,20 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
                      
                      {/* Left: Box Info */}
                      <div className="flex items-center gap-4 md:min-w-[220px]">
-                       <div className="w-12 h-12 bg-neutral-100 rounded-xl flex items-center justify-center text-brand-primary shrink-0">
-                         <Box size={24} />
+                       <div className="flex items-center gap-3">
+                         <input 
+                           type="checkbox" 
+                           checked={selectedSheetLabels.includes(box.id)}
+                           onChange={(e) => {
+                             if (e.target.checked) setSelectedSheetLabels(prev => [...prev, box.id]);
+                             else setSelectedSheetLabels(prev => prev.filter(id => id !== box.id));
+                           }}
+                           className="w-5 h-5 rounded border-brand-border/60 text-brand-primary focus:ring-brand-primary cursor-pointer transition-colors shrink-0"
+                           title="Select for OL500 sheet"
+                         />
+                         <div className="w-12 h-12 bg-neutral-100 rounded-xl flex items-center justify-center text-brand-primary shrink-0">
+                           <Box size={24} />
+                         </div>
                        </div>
                        <div>
                          <h3 className="font-bold text-lg text-brand-primary flex items-center gap-2">

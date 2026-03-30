@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useLocation } from 'react-router-dom';
 import QRCode from 'react-qr-code';
 import { db } from '../../lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
@@ -9,6 +9,7 @@ export function PrintLabelsSheet() {
   const [order, setOrder] = useState<any>(null);
   const [customer, setCustomer] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const location = useLocation();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -23,6 +24,13 @@ export function PrintLabelsSheet() {
             modifiedOrderData.boxes = modifiedOrderData.boxes.filter((b: any) => 
                b.items?.some((bi: any) => String(bi.id) === String(itemId))
             );
+          }
+          
+          const searchParams = new URLSearchParams(location.search);
+          const selectedBoxIds = searchParams.get('boxes');
+          if (selectedBoxIds && modifiedOrderData.boxes) {
+              const allowedIds = selectedBoxIds.split(',');
+              modifiedOrderData.boxes = modifiedOrderData.boxes.filter((b: any) => allowedIds.includes(b.id));
           }
           
           setOrder(modifiedOrderData);
