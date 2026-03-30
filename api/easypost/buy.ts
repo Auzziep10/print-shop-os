@@ -83,7 +83,7 @@ export default async function handler(req: Request) {
     const shipmentData = await shipmentRes.json();
     
     if (shipmentData.error) {
-       return new Response(JSON.stringify({ error: shipmentData.error.message }), { status: 400 });
+       return new Response(JSON.stringify({ error: `[Key ends with: ${apiKey.slice(-4)}] EasyPost rejected: ${shipmentData.error.message}` }), { status: 400 });
     }
 
     if (!shipmentData.rates || shipmentData.rates.length === 0) {
@@ -109,7 +109,7 @@ export default async function handler(req: Request) {
     const buyData = await buyRes.json();
 
     if (buyData.error) {
-       return new Response(JSON.stringify({ error: buyData.error.message }), { status: 400 });
+       return new Response(JSON.stringify({ error: `[Key ends with: ${apiKey.slice(-4)}] EasyPost Purchase failed: ${buyData.error.message}` }), { status: 400 });
     }
 
     // Return the label url and tracking code back to frontend
