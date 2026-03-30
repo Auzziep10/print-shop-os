@@ -36,7 +36,7 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
   }, []);
 
   const [shippingForm, setShippingForm] = useState({
-     length: 12, width: 12, height: 12, weightOz: 16, isTest: true, thirdPartyAccount: '', thirdPartyZip: '',
+     length: 12, width: 12, height: 12, weightOz: 16, isTest: false, thirdPartyAccount: '', thirdPartyZip: '',
      address: { name: '', company: '', street1: '', street2: '', city: '', state: '', zip: '', country: 'US' }
   });
 
