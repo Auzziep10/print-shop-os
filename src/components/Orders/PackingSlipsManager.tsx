@@ -28,18 +28,23 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
   });
 
   const handleOpenShippingLabel = (box: any) => {
+    const defaultProfile = order.lastShippingProfile || {};
+    const defaultAddress = defaultProfile.address || {};
     const customer = order.customerDetails || order.shippingAddress || {};
+    
     setShippingForm(prev => ({
       ...prev,
+      thirdPartyAccount: defaultProfile.thirdPartyAccount || '',
+      thirdPartyZip: defaultProfile.thirdPartyZip || '',
       address: {
-        name: customer.name || customer.company || order.companyName || '',
-        company: customer.company || order.companyName || '',
-        street1: customer.street1 || '',
-        street2: customer.street2 || '',
-        city: customer.city || '',
-        state: customer.state || '',
-        zip: customer.zip || '',
-        country: customer.country || 'US'
+        name: defaultAddress.name || customer.name || customer.company || order.companyName || '',
+        company: defaultAddress.company || customer.company || order.companyName || '',
+        street1: defaultAddress.street1 || customer.street1 || '',
+        street2: defaultAddress.street2 || customer.street2 || '',
+        city: defaultAddress.city || customer.city || '',
+        state: defaultAddress.state || customer.state || '',
+        zip: defaultAddress.zip || customer.zip || '',
+        country: defaultAddress.country || customer.country || 'US'
       }
     }));
     setShippingLabelBox(box);
@@ -103,6 +108,11 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
 
       await setDoc(doc(db, 'orders', order.id), { 
         boxes: updatedBoxes,
+        lastShippingProfile: {
+           address: shippingForm.address,
+           thirdPartyAccount: shippingForm.thirdPartyAccount,
+           thirdPartyZip: shippingForm.thirdPartyZip
+        },
         activities: [newActivity, ...(order.activities || [])]
       }, { merge: true });
 
@@ -111,6 +121,34 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
       setShippingError(err.message);
     } finally {
       setIsBuyingLabel(false);
+    }
+  };
+
+  const handleClearLabel = async (boxId: string) => {
+    if (!window.confirm("Remove this label? If this was a paid production label, make sure to void it in your EasyPost dashboard to get a refund!")) return;
+    try {
+      const updatedBoxes = order.boxes.map((b: any) => {
+        if (b.id === boxId) {
+          const { labelUrl, trackingNumber, trackingCarrier, easyPostShipmentId, ...rest } = b;
+          return rest;
+        }
+        return b;
+      });
+
+      const newActivity = {
+        id: `act-${Date.now()}`,
+        type: 'system',
+        message: `Removed shipping label from Box`,
+        user: user?.displayName || user?.email?.split('@')[0] || 'Team Member',
+        timestamp: new Date().toISOString()
+      };
+
+      await setDoc(doc(db, 'orders', order.id), { 
+        boxes: updatedBoxes,
+        activities: [newActivity, ...(order.activities || [])]
+      }, { merge: true });
+    } catch (err: any) {
+      console.error("Error removing label:", err);
     }
   };
   
@@ -542,9 +580,14 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
                              <Printer size={14} className="mr-1.5" /> Print QR Label
                            </PillButton>
                            {box.labelUrl ? (
-                              <button onClick={() => window.open(box.labelUrl, '_blank')} className="flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-widest transition-colors w-full h-[32px] rounded-full border bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-200">
-                                <Printer size={12} /> Courier Label
-                              </button>
+                              <div className="flex w-full">
+                                <button onClick={() => window.open(box.labelUrl, '_blank')} className="flex-1 flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-widest transition-colors h-[32px] rounded-l-full border border-r-0 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-200">
+                                  <Printer size={12} /> Courier Label
+                                </button>
+                                <button onClick={(e) => { e.stopPropagation(); handleClearLabel(box.id); }} className="w-[36px] flex items-center justify-center transition-colors h-[32px] rounded-r-full border bg-red-50 text-red-600 hover:bg-red-100 border-red-200" title="Delete Label">
+                                  <Trash2 size={12} />
+                                </button>
+                              </div>
                            ) : (
                               <button onClick={(e) => { e.stopPropagation(); handleOpenShippingLabel(box); }} className="flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-widest transition-colors w-full h-[32px] rounded-full border bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200">
                                 <Package size={12} /> Buy UPS Label
@@ -629,6 +672,8 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
                        <input type="text" value={shippingForm.thirdPartyZip} onChange={e => setShippingForm({...shippingForm, thirdPartyZip: e.target.value})} placeholder="Billing Zip Code (Required for UPS)" className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary outline-none" />
                     )}
                  </div>
+
+                 <p className="text-[10px] text-brand-secondary italic text-center px-4 -mt-2">The address & billing info used will automatically be cached as the default template for all subsequent boxes on this order.</p>
 
                  <div className="bg-brand-bg/50 border border-brand-border p-4 rounded-xl items-center flex gap-3 cursor-pointer" onClick={() => setShippingForm({...shippingForm, isTest: !shippingForm.isTest})}>
                     <input type="checkbox" checked={shippingForm.isTest} readOnly className="w-4 h-4 rounded text-brand-primary" />
