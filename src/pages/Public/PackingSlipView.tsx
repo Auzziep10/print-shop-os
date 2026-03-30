@@ -165,9 +165,9 @@ export function PackingSlipView() {
                             </div>
                           )}
                         </div>
-                        <div className="text-right shrink-0 pl-3 sm:pl-4 border-l border-neutral-100">
-                           <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-1.5">Qty</p>
-                           <p className="font-black text-xl sm:text-2xl text-neutral-900 bg-neutral-50 border border-neutral-200 rounded-xl px-3 sm:px-4 py-2 min-w-[2.5rem] sm:min-w-[3rem] text-center inline-block">{packedItem.qty}</p>
+                        <div className="flex flex-col items-center justify-center shrink-0 pl-3 sm:pl-4 border-l border-neutral-100">
+                           <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-1.5 text-center">Qty</p>
+                           <p className="font-black text-xl sm:text-2xl text-neutral-900 bg-neutral-50 border border-neutral-200 rounded-xl px-3 sm:px-4 py-2 min-w-[3rem] text-center inline-block">{packedItem.qty}</p>
                         </div>
                       </div>
                     )}) : (
