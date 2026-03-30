@@ -19,6 +19,7 @@ import { PackingSlipView } from './pages/Public/PackingSlipView';
 import { OrderSummaryView } from './pages/Public/OrderSummaryView';
 import { PrintLabel } from './pages/Print/PrintLabel';
 import { PrintLabelsSheet } from './pages/Print/PrintLabelsSheet';
+import { PrintCourierLabel } from './pages/Print/PrintCourierLabel';
 import { Production } from './pages/Production/Production';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -73,6 +74,11 @@ function App() {
         <Route path="/print/labels-sheet/:orderId/item/:itemId" element={
           <PrivateRoute>
             <PrintLabelsSheet />
+          </PrivateRoute>
+        } />
+        <Route path="/print/courier/:orderId/item/:itemId" element={
+          <PrivateRoute>
+            <PrintCourierLabel />
           </PrivateRoute>
         } />
 

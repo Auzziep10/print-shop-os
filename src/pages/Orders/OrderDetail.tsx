@@ -1028,9 +1028,10 @@ export function OrderDetail() {
                                 {/* Dropdown Chevron for Item Boxes under Garment Name */}
                                 {(() => {
                                   const itemBoxes = order.boxes?.filter((b: any) => b.items?.some((bi: any) => String(bi.id) === String(item.id))) || [];
+                                  const hasCourierLabels = itemBoxes.some((b: any) => !!b.labelUrl);
                                   
                                   return (
-                                    <div className="flex items-center gap-2.5 mt-3">
+                                    <div className="flex items-center flex-wrap gap-2.5 mt-3">
                                       {itemBoxes.length > 0 && (
                                         <button 
                                           onClick={(e) => {
@@ -1075,6 +1076,18 @@ export function OrderDetail() {
                                           >
                                             <QrCode size={12} strokeWidth={3} /> <span>Print Tags</span>
                                           </button>
+                                          {hasCourierLabels && (
+                                            <button 
+                                              onClick={(e) => {
+                                                 e.stopPropagation();
+                                                 window.open(`/print/courier/${order.id}/item/${item.id}`, '_blank');
+                                              }}
+                                              className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-[#d52b1e] hover:text-white transition-all bg-[#d52b1e]/5 hover:bg-[#d52b1e] px-3 py-1.5 rounded-full border border-[#d52b1e]/30 hover:border-[#d52b1e] hover:shadow-md hover:-translate-y-[1px] shrink-0 whitespace-nowrap"
+                                              title="Print UPS shipping labels for all boxes containing this item"
+                                            >
+                                              <Truck size={12} strokeWidth={3} /> <span>Print UPS</span>
+                                            </button>
+                                          )}
                                         </>
                                       )}
                                       <button 
