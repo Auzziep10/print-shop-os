@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import QRCode from 'react-qr-code';
 import { db } from '../../lib/firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { PillButton } from '../ui/PillButton';
 import { Plus, Trash2, Box, ExternalLink, Printer, X, ChevronDown, Truck, Loader2, Package, ShieldAlert, CreditCard } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
@@ -22,6 +22,19 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
   const [shippingLabelBox, setShippingLabelBox] = useState<any>(null);
   const [isBuyingLabel, setIsBuyingLabel] = useState(false);
   const [shippingError, setShippingError] = useState('');
+  const [shopSettings, setShopSettings] = useState<any>(null);
+  
+  // Pre-load shop settings for origin address
+  useEffect(() => {
+    const fetchShopSettings = async () => {
+      try {
+        const d = await getDoc(doc(db, 'settings', 'business'));
+        if (d.exists()) setShopSettings(d.data());
+      } catch (err) {}
+    };
+    fetchShopSettings();
+  }, []);
+
   const [shippingForm, setShippingForm] = useState({
      length: 12, width: 12, height: 12, weightOz: 16, isTest: true, thirdPartyAccount: '', thirdPartyZip: '',
      address: { name: '', company: '', street1: '', street2: '', city: '', state: '', zip: '', country: 'US' }
@@ -79,7 +92,8 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
         },
         isTest: shippingForm.isTest,
         thirdPartyAccount: shippingForm.thirdPartyAccount,
-        thirdPartyZip: shippingForm.thirdPartyZip
+        thirdPartyZip: shippingForm.thirdPartyZip,
+        from_address: shopSettings // Passed cleanly, if null it uses backend defaults
       };
 
       const res = await fetch('/api/easypost/buy', {

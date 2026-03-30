@@ -9,7 +9,7 @@ export default async function handler(req: Request) {
 
   try {
     const body = await req.json();
-    const { to_address, parcel, isTest, thirdPartyAccount, thirdPartyZip } = body;
+    const { to_address, from_address: fromAddressOverride, parcel, isTest, thirdPartyAccount, thirdPartyZip } = body;
 
     const apiKey = isTest ? process.env.EASYPOST_TEST_KEY : process.env.EASYPOST_PROD_KEY;
     if (!apiKey) {
@@ -17,7 +17,7 @@ export default async function handler(req: Request) {
     }
 
     // Default origin address (WOVN default HQ or warehouse context)
-    const from_address = {
+    const default_from_address = {
       company: 'WOVN',
       street1: '100 E 1st St',
       city: 'Los Angeles',
@@ -26,6 +26,17 @@ export default async function handler(req: Request) {
       country: 'US',
       phone: '555-555-5555'
     };
+    
+    // Use user-provided settings if provided, otherwise default
+    const from_address = fromAddressOverride ? {
+      company: fromAddressOverride.companyName || default_from_address.company,
+      street1: fromAddressOverride.street1 || default_from_address.street1,
+      city: fromAddressOverride.city || default_from_address.city,
+      state: fromAddressOverride.state || default_from_address.state,
+      zip: fromAddressOverride.zip || default_from_address.zip,
+      country: fromAddressOverride.country || default_from_address.country,
+      phone: fromAddressOverride.phone || default_from_address.phone
+    } : default_from_address;
 
     const shipmentPayload: any = {
       to_address: {
