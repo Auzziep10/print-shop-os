@@ -90,7 +90,7 @@ export function PackingSlipView() {
                  <img src={cust.logo} alt="Customer Logo" className="h-20 md:h-24 object-contain mix-blend-multiply mb-1 md:mb-2 opacity-90" />
               )}
               <h1 className="text-3xl md:text-[2.5rem] font-serif text-neutral-900 leading-tight text-center">{cust?.company || cust?.companyName || 'Packing Slip'}</h1>
-              <p className="text-xs md:text-sm font-semibold text-neutral-500 uppercase tracking-widest bg-white px-4 py-2 md:px-5 md:py-2.5 rounded-full border border-neutral-200 shadow-sm flex items-center gap-2">
+              <p className="text-xs md:text-sm font-semibold text-neutral-500 uppercase tracking-widest bg-white print:bg-transparent px-4 py-2 md:px-5 md:py-2.5 rounded-full border border-neutral-200 shadow-sm print:shadow-none flex items-center gap-2">
                 <PackageOpen size={16} />
                 {box.name}
               </p>
@@ -127,7 +127,7 @@ export function PackingSlipView() {
                     {box.items?.length > 0 ? box.items.map((packedItem: any, i: number) => {
                       const fullItem = order.items?.find((i: any) => String(i.id) === String(packedItem.id)) || packedItem;
                       return (
-                      <div key={i} className="bg-white shadow-[0_2px_10px_rgb(0,0,0,0.02)] border border-neutral-100 hover:border-black/10 transition-colors rounded-2xl p-4 sm:p-5 flex gap-3 sm:gap-5 items-center">
+                      <div key={i} className="bg-white print:bg-transparent shadow-[0_2px_10px_rgb(0,0,0,0.02)] print:shadow-none border border-neutral-100 hover:border-black/10 transition-colors rounded-2xl p-4 sm:p-5 flex gap-3 sm:gap-5 items-center">
                         {fullItem.image ? (
                            <div className="w-16 h-16 sm:w-20 sm:h-20 shrink-0 flex items-center justify-center">
                                <img src={fullItem.image} alt={fullItem.style} className="w-full h-full object-contain mix-blend-multiply" />
@@ -152,8 +152,8 @@ export function PackingSlipView() {
                                   const sQty = packedItem.sizes[sKey];
                                   if (!sQty) return null;
                                   return (
-                                    <div key={sKey} className="bg-white border border-neutral-200 rounded-lg overflow-hidden flex flex-col w-12 shrink-0 shadow-[0_2px_4px_rgb(0,0,0,0.02)]">
-                                      <span className="bg-neutral-50 text-[9px] text-center font-bold text-neutral-400 py-1.5 uppercase tracking-wider block border-b border-neutral-200 leading-none">
+                                    <div key={sKey} className="bg-white print:bg-transparent border border-neutral-200 rounded-lg overflow-hidden flex flex-col w-12 shrink-0 shadow-[0_2px_4px_rgb(0,0,0,0.02)] print:shadow-none">
+                                      <span className="bg-neutral-50 print:bg-transparent text-[9px] text-center font-bold text-neutral-400 py-1.5 uppercase tracking-wider block border-b border-neutral-200 leading-none">
                                          {sKey}
                                       </span>
                                       <span className="text-[13px] text-center font-black text-neutral-900 py-2 block leading-none">
