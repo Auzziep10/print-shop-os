@@ -1994,45 +1994,45 @@ export function OrderDetail() {
                       <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-2">Recipient Information</label>
                       <div className="flex gap-2 mb-2">
                         <input 
-                          type="text" placeholder="Recipient Name" 
+                          type="text" placeholder="Recipient Name" autoComplete="name"
                           value={editForm.shippingAddress.name || ''} 
                           onChange={e => setEditForm(prev => ({...prev, shippingAddress: {...prev.shippingAddress, name: e.target.value}}))}
                           className="w-1/2 bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2.5 text-sm focus:border-brand-primary outline-none" 
                         />
                         <input 
-                          type="text" placeholder="Company (Optional)" 
+                          type="text" placeholder="Company (Optional)" autoComplete="organization"
                           value={editForm.shippingAddress.company || ''} 
                           onChange={e => setEditForm(prev => ({...prev, shippingAddress: {...prev.shippingAddress, company: e.target.value}}))}
                           className="w-1/2 bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2.5 text-sm focus:border-brand-primary outline-none" 
                         />
                       </div>
                       <input 
-                        type="text" placeholder="Street Address" 
+                        type="text" placeholder="Street Address" autoComplete="address-line1"
                         value={editForm.shippingAddress.street1 || ''} 
                         onChange={e => setEditForm(prev => ({...prev, shippingAddress: {...prev.shippingAddress, street1: e.target.value}}))}
                         className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2.5 text-sm focus:border-brand-primary outline-none mb-2" 
                       />
                       <input 
-                        type="text" placeholder="Apt, Suite, Unit (Optional)" 
+                        type="text" placeholder="Apt, Suite, Unit (Optional)" autoComplete="address-line2"
                         value={editForm.shippingAddress.street2 || ''} 
                         onChange={e => setEditForm(prev => ({...prev, shippingAddress: {...prev.shippingAddress, street2: e.target.value}}))}
                         className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2.5 text-sm focus:border-brand-primary outline-none mb-2" 
                       />
                       <div className="flex gap-2">
                         <input 
-                          type="text" placeholder="City" 
+                          type="text" placeholder="City" autoComplete="address-level2"
                           value={editForm.shippingAddress.city || ''} 
                           onChange={e => setEditForm(prev => ({...prev, shippingAddress: {...prev.shippingAddress, city: e.target.value}}))}
                           className="w-[45%] bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2.5 text-sm focus:border-brand-primary outline-none" 
                         />
                         <input 
-                          type="text" placeholder="State" 
+                          type="text" placeholder="State" autoComplete="address-level1"
                           value={editForm.shippingAddress.state || ''} 
                           onChange={e => setEditForm(prev => ({...prev, shippingAddress: {...prev.shippingAddress, state: e.target.value}}))}
                           className="w-[20%] bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2.5 text-sm focus:border-brand-primary outline-none uppercase" maxLength={2} 
                         />
                         <input 
-                          type="text" placeholder="Zip" 
+                          type="text" placeholder="Zip" autoComplete="postal-code"
                           value={editForm.shippingAddress.zip || ''} 
                           onChange={e => setEditForm(prev => ({...prev, shippingAddress: {...prev.shippingAddress, zip: e.target.value}}))}
                           className="w-[35%] bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2.5 text-sm focus:border-brand-primary outline-none" 
