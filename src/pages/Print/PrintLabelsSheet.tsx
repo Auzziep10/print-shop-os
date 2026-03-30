@@ -5,7 +5,7 @@ import { db } from '../../lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 
 export function PrintLabelsSheet() {
-  const { orderId } = useParams();
+  const { orderId, itemId } = useParams();
   const [order, setOrder] = useState<any>(null);
   const [customer, setCustomer] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -17,7 +17,15 @@ export function PrintLabelsSheet() {
         const orderDoc = await getDoc(doc(db, 'orders', orderId));
         if (orderDoc.exists()) {
           const orderData = orderDoc.data();
-          setOrder({ id: orderDoc.id, ...orderData });
+          let modifiedOrderData: any = { id: orderDoc.id, ...orderData };
+          
+          if (itemId && modifiedOrderData.boxes) {
+            modifiedOrderData.boxes = modifiedOrderData.boxes.filter((b: any) => 
+               b.items?.some((bi: any) => String(bi.id) === String(itemId))
+            );
+          }
+          
+          setOrder(modifiedOrderData);
           
           if (orderData.customerId) {
              const custDoc = await getDoc(doc(db, 'customers', orderData.customerId));
@@ -35,7 +43,7 @@ export function PrintLabelsSheet() {
       }
     };
     fetchData();
-  }, [orderId]);
+  }, [orderId, itemId]);
 
   // Wait a moment for rendering, then trigger print automatically
   useEffect(() => {

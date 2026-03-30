@@ -1068,10 +1068,10 @@ export function OrderDetail() {
                                           <button 
                                             onClick={(e) => {
                                                e.stopPropagation();
-                                               window.open(`/print/label/${order.id}/item/${item.id}`, '_blank', 'width=600,height=800');
+                                               window.open(`/print/labels-sheet/${order.id}/item/${item.id}`, '_blank');
                                             }}
                                             className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-brand-secondary hover:text-brand-primary transition-all bg-white hover:bg-neutral-50 px-3 py-1.5 rounded-full border border-brand-border hover:border-brand-primary hover:shadow-md hover:-translate-y-[1px] shrink-0 whitespace-nowrap"
-                                            title="Print thermal labels for all boxes containing this item"
+                                            title="Print Avery sheet labels for all boxes containing this item"
                                           >
                                             <QrCode size={12} strokeWidth={3} /> <span>Print Tags</span>
                                           </button>

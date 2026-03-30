@@ -70,6 +70,11 @@ function App() {
             <PrintLabelsSheet />
           </PrivateRoute>
         } />
+        <Route path="/print/labels-sheet/:orderId/item/:itemId" element={
+          <PrivateRoute>
+            <PrintLabelsSheet />
+          </PrivateRoute>
+        } />
 
         {/* Public Client Portal Routes */}
         <Route path="/portal" element={<PortalLayout />}>
