@@ -1053,6 +1053,18 @@ export function OrderDetail() {
                                       >
                                         <Plus size={12} strokeWidth={3} /> <span>Add Shipment</span>
                                       </button>
+                                      {itemBoxes.length > 0 && (
+                                        <button 
+                                          onClick={(e) => {
+                                             e.stopPropagation();
+                                             window.open(`/packing-slip/${order.id}/item/${item.id}`, '_blank');
+                                          }}
+                                          className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-brand-secondary hover:text-brand-primary transition-all bg-white hover:bg-neutral-50 px-3 py-1.5 rounded-full border border-brand-border hover:border-brand-primary hover:shadow-md hover:-translate-y-[1px] shrink-0 whitespace-nowrap"
+                                          title="Print packing slips for all boxes containing this item"
+                                        >
+                                          <Printer size={12} strokeWidth={3} /> <span>Print Slips</span>
+                                        </button>
+                                      )}
                                       <button 
                                         onClick={(e) => {
                                            e.stopPropagation();
@@ -2800,17 +2812,17 @@ export function OrderDetail() {
                                  qty: 0,
                                  total: '$0.00',
                                  image: image,
-                                 materialDetails: item.fabric_details || item.materialDetails || item.fabric || '',
-                                 materialFinish: item.fabric_finish || item.fabricFinish || item.finish || '',
-                                 fit: item.fit_cut || item.fit || '',
-                                 weight: item.fabric_weight || item.weight || '',
-                                 careInstructions: item.care_instructions || item.careInstructions || '',
-                                 decoratingMethods: item.decorating_methods || item.decoratingMethods || [],
-                                 threadColors: item.thread_colors || item.threadColors || '',
-                                 turnaroundTime: item.turnaround_time || item.turnaroundTime || '',
-                                 moq: item.moq || '',
-                                 costPrice: item.cost_price || item.costPrice || '',
-                                 wholesalePrice: item.wholesale_price || item.wholesalePrice || ''
+                                 materialDetails: item.fabric_details || item.materialDetails || item.fabric || item.garment?.fabric || item.garmentSpecs?.fabric || item.specs?.fabric || '',
+                                 materialFinish: item.fabric_finish || item.fabricFinish || item.finish || item.garment?.finish || item.garmentSpecs?.finish || item.specs?.finish || '',
+                                 fit: item.fit_cut || item.fit || item.garment?.fit || item.garmentSpecs?.fit || item.specs?.fit || '',
+                                 weight: item.fabric_weight || item.weight || item.garment?.weight || item.garmentSpecs?.weight || item.specs?.weight || '',
+                                 careInstructions: item.care_instructions || item.careInstructions || item.garment?.careInstructions || item.garmentSpecs?.careInstructions || item.specs?.careInstructions || '',
+                                 decoratingMethods: item.decorating_methods || item.decoratingMethods || item.garment?.decoratingMethods || item.garmentSpecs?.decoratingMethods || item.specs?.decoratingMethods || [],
+                                 threadColors: item.thread_colors || item.threadColors || item.garment?.threadColors || item.garmentSpecs?.threadColors || item.specs?.threadColors || '',
+                                 turnaroundTime: item.turnaround_time || item.turnaroundTime || item.garment?.turnaroundTime || item.garmentSpecs?.turnaroundTime || item.specs?.turnaroundTime || '',
+                                 moq: item.moq || item.garment?.moq || item.garmentSpecs?.moq || item.specs?.moq || '',
+                                 costPrice: item.cost_price || item.costPrice || item.garment?.costPrice || item.garment?.cost_price || item.garmentSpecs?.costPrice || item.specs?.costPrice || '',
+                                 wholesalePrice: item.wholesale_price || item.wholesalePrice || item.garment?.wholesalePrice || item.garment?.wholesale_price || item.garmentSpecs?.wholesalePrice || item.specs?.wholesalePrice || ''
                                });
                             }}
                             className="group flex items-center gap-5 bg-white border border-brand-border hover:border-brand-primary transition-colors rounded-2xl p-4 cursor-pointer shadow-sm hover:shadow-md hover:-translate-y-0.5"

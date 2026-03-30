@@ -53,6 +53,7 @@ function App() {
         {/* Public Packing Slip Views */}
         <Route path="/order-summary/:orderId" element={<OrderSummaryView />} />
         <Route path="/packing-slip/:orderId/:boxId" element={<PackingSlipView />} />
+        <Route path="/packing-slip/:orderId/item/:itemId" element={<PackingSlipView />} />
         
         <Route path="/print/label/:orderId/:boxId" element={
           <PrivateRoute>
