@@ -60,6 +60,11 @@ function App() {
             <PrintLabel />
           </PrivateRoute>
         } />
+        <Route path="/print/label/:orderId/item/:itemId" element={
+          <PrivateRoute>
+            <PrintLabel />
+          </PrivateRoute>
+        } />
         <Route path="/print/labels-sheet/:orderId" element={
           <PrivateRoute>
             <PrintLabelsSheet />

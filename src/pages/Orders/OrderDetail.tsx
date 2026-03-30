@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { PillButton } from '../../components/ui/PillButton';
 import { PackingSlipsManager } from '../../components/Orders/PackingSlipsManager';
 import { TrackingModal } from '../../components/Orders/TrackingModal';
-import { ArrowLeft, MessageSquare, Clock, Users, Download, Loader2, X, Edit3, Upload, Trash2, Plus, ChevronDown, Image as ImageIcon, Box, Printer, ExternalLink, ShoppingBag, Search, Check, Truck, GripVertical, Pause, Play, DollarSign, PackagePlus } from 'lucide-react';
+import { ArrowLeft, MessageSquare, QrCode, Clock, Users, Download, Loader2, X, Edit3, Upload, Trash2, Plus, ChevronDown, Image as ImageIcon, Box, Printer, ExternalLink, ShoppingBag, Search, Check, Truck, GripVertical, Pause, Play, DollarSign, PackagePlus } from 'lucide-react';
 import QRCode from 'react-qr-code';
 import { StatusBadge, type StatusType } from '../../components/ui/StatusBadge';
 import { useAuth } from '../../contexts/AuthContext';
@@ -1054,16 +1054,28 @@ export function OrderDetail() {
                                         <Plus size={12} strokeWidth={3} /> <span>Add Shipment</span>
                                       </button>
                                       {itemBoxes.length > 0 && (
-                                        <button 
-                                          onClick={(e) => {
-                                             e.stopPropagation();
-                                             window.open(`/packing-slip/${order.id}/item/${item.id}`, '_blank');
-                                          }}
-                                          className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-brand-secondary hover:text-brand-primary transition-all bg-white hover:bg-neutral-50 px-3 py-1.5 rounded-full border border-brand-border hover:border-brand-primary hover:shadow-md hover:-translate-y-[1px] shrink-0 whitespace-nowrap"
-                                          title="Print packing slips for all boxes containing this item"
-                                        >
-                                          <Printer size={12} strokeWidth={3} /> <span>Print Slips</span>
-                                        </button>
+                                        <>
+                                          <button 
+                                            onClick={(e) => {
+                                               e.stopPropagation();
+                                               window.open(`/packing-slip/${order.id}/item/${item.id}`, '_blank');
+                                            }}
+                                            className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-brand-secondary hover:text-brand-primary transition-all bg-white hover:bg-neutral-50 px-3 py-1.5 rounded-full border border-brand-border hover:border-brand-primary hover:shadow-md hover:-translate-y-[1px] shrink-0 whitespace-nowrap"
+                                            title="Print packing slips for all boxes containing this item"
+                                          >
+                                            <Printer size={12} strokeWidth={3} /> <span>Print Slips</span>
+                                          </button>
+                                          <button 
+                                            onClick={(e) => {
+                                               e.stopPropagation();
+                                               window.open(`/print/label/${order.id}/item/${item.id}`, '_blank', 'width=600,height=800');
+                                            }}
+                                            className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-brand-secondary hover:text-brand-primary transition-all bg-white hover:bg-neutral-50 px-3 py-1.5 rounded-full border border-brand-border hover:border-brand-primary hover:shadow-md hover:-translate-y-[1px] shrink-0 whitespace-nowrap"
+                                            title="Print thermal labels for all boxes containing this item"
+                                          >
+                                            <QrCode size={12} strokeWidth={3} /> <span>Print Tags</span>
+                                          </button>
+                                        </>
                                       )}
                                       <button 
                                         onClick={(e) => {
