@@ -59,7 +59,8 @@ export default async function handler(req: Request) {
       from_address,
       parcel,
       options: {
-        label_format: 'PDF'
+        label_format: 'PNG',
+        label_size: '4x6'
       }
     };
 
