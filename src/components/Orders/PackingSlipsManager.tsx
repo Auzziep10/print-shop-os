@@ -3,7 +3,7 @@ import QRCode from 'react-qr-code';
 import { db } from '../../lib/firebase';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { PillButton } from '../ui/PillButton';
-import { Plus, Trash2, Box, ExternalLink, Printer, X, ChevronDown, Truck, Loader2, Package, ShieldAlert, CreditCard } from 'lucide-react';
+import { Plus, Trash2, Box, ExternalLink, Printer, X, ChevronDown, Truck, Loader2, Package, ShieldAlert, CreditCard, Edit3 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { tokens } from '../../lib/tokens';
 
@@ -181,16 +181,15 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
   };
 
   const getNextAvailableBoxName = () => {
-     let maxBase = 0;
      const allBoxes = [...(order.boxes || []), ...workingBoxes];
-     allBoxes.forEach((b: any) => {
-        const match = b.name.match(/Box (\d+)/i);
-        if (match) {
-           const num = parseInt(match[1]);
-           if (num > maxBase) maxBase = num;
-        }
-     });
-     return `Box ${maxBase + 1}`;
+     let n = 1;
+     while (allBoxes.some((b: any) => {
+        const name = b.name.trim().toLowerCase();
+        return name === `box ${n}` || name.startsWith(`box ${n} `) || name.startsWith(`box ${n}-`);
+     })) {
+        n++;
+     }
+     return `Box ${n}`;
   };
 
   const handleStartAddBox = () => {
@@ -569,17 +568,47 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
                          </div>
                        </div>
                        <div>
-                         <h3 className="font-bold text-lg text-brand-primary flex items-center gap-2">
-                           {box.name} 
-                           {(box.trackingNumber || box.trackingCarrier) && (
-                             <span className="bg-black text-white text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
-                               <Truck size={10} /> {(box.trackingCarrier && box.trackingCarrier !== 'Pickup') ? box.trackingCarrier : (box.trackingCarrier || 'Tracked')}
-                             </span>
-                           )}
-                         </h3>
-                         <p className="text-xs text-brand-secondary font-medium tracking-wide">
-                           {box.items?.reduce((acc: number, item: any) => acc + (item.qty || 0), 0) || 0} ITEMS TOTAL
-                         </p>
+                          <h3 className="font-bold text-lg text-brand-primary flex items-center gap-2">
+                            <span 
+                               className="cursor-pointer hover:bg-neutral-100 px-2 py-1 -ml-2 rounded transition-colors group/rename flex items-center gap-2"
+                               title="Click to rename box (Admin PIN required)"
+                               onClick={async (e) => {
+                                   e.stopPropagation();
+                                   const pin = window.prompt("Enter Admin PIN to rename box:");
+                                   if (!pin) return;
+                                   if (pin !== "P@tterson10") {
+                                       alert("Incorrect PIN.");
+                                       return;
+                                   }
+                                   const newName = window.prompt("Enter new Box/Slip Name:", box.name);
+                                   if (newName && newName.trim() !== box.name) {
+                                       try {
+                                           const prevBoxes = order.boxes || [];
+                                           const boxIdx = prevBoxes.findIndex((b: any) => b.id === box.id);
+                                           if (boxIdx > -1) {
+                                               const updatedBoxes = [...prevBoxes];
+                                               updatedBoxes[boxIdx] = { ...updatedBoxes[boxIdx], name: newName.trim() };
+                                               await setDoc(doc(db, 'orders', order.id), { boxes: updatedBoxes }, { merge: true });
+                                           }
+                                       } catch (err) {
+                                           console.error(err);
+                                           alert("Failed to rename box.");
+                                       }
+                                   }
+                               }}
+                            >
+                               {box.name}
+                               <Edit3 size={12} className="opacity-0 group-hover/rename:opacity-50 transition-opacity" />
+                            </span>
+                            {(box.trackingNumber || box.trackingCarrier) && (
+                              <span className="bg-black text-white text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1 shrink-0">
+                                <Truck size={10} /> {(box.trackingCarrier && box.trackingCarrier !== 'Pickup') ? box.trackingCarrier : (box.trackingCarrier || 'Tracked')}
+                              </span>
+                            )}
+                          </h3>
+                          <p className="text-xs text-brand-secondary font-medium tracking-wide flex items-center gap-2">
+                            {box.items?.reduce((acc: number, item: any) => acc + (item.qty || 0), 0) || 0} ITEMS TOTAL
+                          </p>
                        </div>
                      </div>
                      
