@@ -554,7 +554,7 @@ export function Production() {
           const isExpanded = expandedId === order.id;
           const timelineSteps = ['Production', 'Kitting', 'Shipped'];
 
-          const { totalGarments, completedGarments, completionRatio, packingRatio } = getCompletionData(order);
+          const { totalGarments, completedGarments, completionRatio, totalPackedGarments, packingRatio } = getCompletionData(order);
           
           let visualIndex = 0; // Production
           if (order.statusIndex === 6) { // In Production
@@ -632,8 +632,24 @@ export function Production() {
 
                   {/* Right: Progress Tracker */}
                   <div className="flex-1 w-full pt-4 xl:pt-0">
-                    <div className="w-full flex flex-wrap justify-between items-center mb-4 sm:mb-6 px-2 sm:px-4 gap-4">
-                       <span className="text-brand-primary font-bold text-lg shrink-0">{Math.round(completionRatio * 100)}% Complete</span>
+                     <div className="w-full flex flex-wrap justify-between items-center mb-4 sm:mb-6 px-2 sm:px-4 gap-4">
+                       <div className="flex items-center gap-4 sm:gap-6 bg-white/50 border border-brand-border/60 rounded-xl px-4 py-2 shrink-0 shadow-sm">
+                          <div className="flex flex-col">
+                             <span className="text-[9px] font-bold uppercase tracking-widest text-brand-secondary/70">Production</span>
+                             <span className="text-brand-primary font-bold text-lg leading-none mt-1 flex items-baseline gap-1.5">
+                                {Math.round(completionRatio * 100)}% 
+                                <span className="text-[11px] font-semibold text-brand-secondary/60 tracking-wider inline-block min-w-max hidden lg:inline-block">{completedGarments}/{totalGarments} DONE</span>
+                             </span>
+                          </div>
+                          <div className="w-[1px] h-8 bg-brand-border/50"></div>
+                          <div className="flex flex-col">
+                             <span className="text-[9px] font-bold uppercase tracking-widest text-brand-secondary/70">Kitting</span>
+                             <span className={`${packingRatio > 0 ? 'text-brand-primary' : 'text-neutral-400'} font-bold text-lg leading-none mt-1 flex items-baseline gap-1.5`}>
+                                {Math.round(packingRatio * 100)}% 
+                                <span className={`text-[11px] font-semibold ${packingRatio > 0 ? 'text-brand-secondary/60' : 'text-neutral-400/60'} tracking-wider inline-block min-w-max hidden lg:inline-block`}>{totalPackedGarments}/{totalGarments} PACKED</span>
+                             </span>
+                          </div>
+                       </div>
                        <div className="flex flex-wrap items-center gap-2 sm:gap-4 shrink-0">
                          {order.isProjectGroup && (
                             <button 
@@ -654,7 +670,6 @@ export function Production() {
                          >
                            <Activity size={14} /> Team Metrics
                          </button>
-                         <span className="text-brand-secondary text-sm font-semibold hidden md:inline">{completedGarments} of {totalGarments} Garments Processed</span>
                        </div>
                     </div>
                     <div className="relative w-full px-4">
@@ -715,9 +730,15 @@ export function Production() {
 
                                           return (
                                              <div className="flex flex-col gap-2 w-full">
-                                                <div className="flex justify-between items-center px-1 text-[9px] font-bold text-neutral-400 tracking-wider uppercase">
-                                                   <span>{subData.completedGarments || 0} of {subData.totalGarments || 0} Done</span>
-                                                   <span className="text-brand-primary">{Math.round((subData.completionRatio || 0) * 100)}%</span>
+                                                <div className="flex justify-between items-center px-1 text-[9px] font-bold tracking-wider uppercase flex-wrap gap-2">
+                                                   <div className="flex gap-3">
+                                                      <span className="text-neutral-500"><span className="opacity-60 font-semibold mr-1">PROD:</span> {subData.completedGarments || 0}/{subData.totalGarments || 0}</span>
+                                                      <span className={subData.packingRatio > 0 ? 'text-brand-primary' : 'text-neutral-400'}><span className={`${subData.packingRatio > 0 ? 'opacity-80' : 'opacity-50'} font-semibold mr-1`}>KIT:</span> {subData.totalPackedGarments || 0}/{subData.totalGarments || 0}</span>
+                                                   </div>
+                                                   <div className="flex gap-3">
+                                                      <span className={subData.completionRatio === 1 ? 'text-brand-primary' : 'text-neutral-500'}><span className="opacity-60 font-semibold mr-1">PROD:</span> {Math.round((subData.completionRatio || 0) * 100)}%</span>
+                                                      <span className={subData.packingRatio > 0 ? 'text-brand-primary' : 'text-neutral-400'}><span className={`${subData.packingRatio > 0 ? 'opacity-80' : 'opacity-50'} font-semibold mr-1`}>KIT:</span> {Math.round((subData.packingRatio || 0) * 100)}%</span>
+                                                   </div>
                                                 </div>
                                                 <div className="relative w-full px-1">
                                                    <div className="absolute top-0 left-1 right-1 h-[6px] bg-neutral-200 rounded-full"></div>
