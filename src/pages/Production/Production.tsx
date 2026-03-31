@@ -676,7 +676,7 @@ export function Production() {
                       <div className="absolute top-0 left-4 right-4 h-[12px] bg-neutral-200 rounded-full"></div>
                       <div className="absolute top-0 left-4 h-[12px] bg-brand-primary rounded-full transition-all duration-700 ease-in-out" style={{ width: `calc(${fillWidth} - 2rem)` }}></div>
                       
-                      <div className="relative flex justify-between items-center z-10 px-0 -mt-[1px]">
+                      <div className="relative flex justify-between items-center z-10 px-0 h-[12px]">
                         {timelineSteps.map((step, idx) => {
                           const isCompleted = idx <= Math.floor(visualIndex);
                           return (
@@ -743,7 +743,7 @@ export function Production() {
                                                 <div className="relative w-full px-1">
                                                    <div className="absolute top-0 left-1 right-1 h-[6px] bg-neutral-200 rounded-full"></div>
                                                    <div className="absolute top-0 left-1 h-[6px] bg-brand-primary rounded-full transition-all duration-700 ease-in-out" style={{ width: `calc(${subFillWidth} - 0.5rem)` }}></div>
-                                                   <div className="relative flex justify-between items-center z-10 px-0 -mt-[4px]">
+                                                   <div className="relative flex justify-between items-center z-10 px-0 h-[6px]">
                                                      {subTimelineSteps.map((step, idx) => {
                                                        const isCompleted = idx <= Math.floor(subVisualIndex);
                                                        return (
