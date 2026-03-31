@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, Loader2, PackageOpen, Building2, Search, Check, Clock, Box, X, Play, Pause, Activity, ExternalLink } from 'lucide-react';
+import { ChevronRight, Loader2, PackageOpen, Building2, Search, Check, Clock, Box, X, Play, Pause, Activity, ExternalLink, Archive } from 'lucide-react';
 import { useOrders } from '../../hooks/useOrders';
 import { useAuth } from '../../contexts/AuthContext';
 import { db } from '../../lib/firebase';
@@ -510,17 +510,41 @@ export function Production() {
     );
   }
 
-  if (productionOrders.length === 0 && !searchQuery) {
+  if (productionOrders.length === 0 && !searchQuery && activePipelineTab === 'Active') {
     return (
-      <div className="max-w-[800px] mx-auto mt-24 flex flex-col items-center justify-center text-center gap-6">
-        <div className="w-24 h-24 bg-gray-50 rounded-full flex items-center justify-center text-gray-300 border border-gray-100">
-          <PackageOpen strokeWidth={1.5} size={40} />
+      <div className="max-w-[1600px] mx-auto mt-8 flex flex-col gap-6 p-6 md:p-10">
+        <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-6 mb-8">
+          <div className="flex flex-col gap-3">
+            <div>
+              <h1 className={tokens.typography.h1}>Production Pipeline</h1>
+              <p className="text-brand-secondary text-sm mt-1">Manage active orders currently on the floor.</p>
+            </div>
+            <div className="flex items-center gap-1 bg-neutral-100/80 p-1.5 rounded-xl w-fit border border-neutral-200 shadow-inner mt-2">
+               <button 
+                  onClick={() => setActivePipelineTab('Active')}
+                  className={`px-5 py-1.5 rounded-lg text-[13px] font-bold tracking-widest uppercase transition-all ${activePipelineTab==='Active' ? 'bg-white text-brand-primary shadow-sm border border-neutral-200' : 'text-brand-secondary hover:text-brand-primary border border-transparent'}`}
+               >
+                 Active
+               </button>
+               <button 
+                  onClick={() => setActivePipelineTab('Archived')}
+                  className={`px-5 py-1.5 rounded-lg text-[13px] font-bold tracking-widest uppercase transition-all ${activePipelineTab==='Archived' ? 'bg-white text-brand-primary shadow-sm border border-neutral-200' : 'text-brand-secondary hover:text-brand-primary border border-transparent'}`}
+               >
+                 Archived
+               </button>
+            </div>
+          </div>
         </div>
-        <div>
-          <h2 className="text-3xl font-serif text-gray-900 mb-2">No active production orders yet.</h2>
-          <p className="text-gray-500 font-medium max-w-sm mx-auto leading-relaxed">
-             There are no orders actively in the Production phase right now.
-          </p>
+        <div className="max-w-[800px] mx-auto mt-16 flex flex-col items-center justify-center text-center gap-6">
+          <div className="w-24 h-24 bg-gray-50 rounded-full flex items-center justify-center text-gray-300 border border-gray-100">
+            <PackageOpen strokeWidth={1.5} size={40} />
+          </div>
+          <div>
+            <h2 className="text-3xl font-serif text-gray-900 mb-2">No active production orders yet.</h2>
+            <p className="text-gray-500 font-medium max-w-sm mx-auto leading-relaxed">
+               There are no orders actively in the Production phase right now.
+            </p>
+          </div>
         </div>
       </div>
     );
@@ -529,15 +553,31 @@ export function Production() {
   return (
     <div className="p-6 md:p-10 max-w-[1600px] mx-auto space-y-8">
       <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-6 mb-8">
-        <div>
-          <h1 className={tokens.typography.h1}>Production Pipeline</h1>
-          <p className="text-brand-secondary text-sm mt-1">Manage active orders currently on the floor.</p>
+        <div className="flex flex-col gap-3">
+          <div>
+            <h1 className={tokens.typography.h1}>Production Pipeline</h1>
+            <p className="text-brand-secondary text-sm mt-1">Manage active orders currently on the floor.</p>
+          </div>
+          <div className="flex items-center gap-1 bg-neutral-100/80 p-1.5 rounded-xl w-fit border border-neutral-200 shadow-inner mt-2">
+             <button 
+                onClick={() => setActivePipelineTab('Active')}
+                className={`px-5 py-1.5 rounded-lg text-[13px] font-bold tracking-widest uppercase transition-all ${activePipelineTab==='Active' ? 'bg-white text-brand-primary shadow-sm border border-neutral-200' : 'text-brand-secondary hover:text-brand-primary border border-transparent'}`}
+             >
+               Active
+             </button>
+             <button 
+                onClick={() => setActivePipelineTab('Archived')}
+                className={`px-5 py-1.5 rounded-lg text-[13px] font-bold tracking-widest uppercase transition-all ${activePipelineTab==='Archived' ? 'bg-white text-brand-primary shadow-sm border border-neutral-200' : 'text-brand-secondary hover:text-brand-primary border border-transparent'}`}
+             >
+               Archived
+             </button>
+          </div>
         </div>
         <div className="relative w-full md:w-80">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
           <input
             type="text"
-            placeholder="Search active orders..."
+            placeholder="Search orders..."
             className="w-full bg-white border border-brand-border rounded-xl pl-10 pr-4 py-3 text-sm focus:border-brand-primary outline-none transition-colors"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -574,8 +614,9 @@ export function Production() {
           return (
             <div key={order.id} className="w-full relative px-2">
               <div 
-                className={`bg-white rounded-[2rem] border border-brand-border/60 transition-all duration-300 relative group 
-                ${isExpanded ? 'shadow-[0_8px_30px_rgb(0,0,0,0.06)] z-10' : 'hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:-translate-y-1 hover:z-10 z-0'}`}
+                className={`bg-white rounded-[2rem] border transition-all duration-300 relative group 
+                ${isExpanded ? 'shadow-[0_8px_30px_rgb(0,0,0,0.06)] z-10 border-brand-border/60' : 'hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:-translate-y-1 hover:z-10 z-0 border-brand-border/60'}
+                ${order.isMetricsArchived ? 'opacity-80 hover:opacity-100 grayscale-[0.2]' : ''}`}
               >
                 <div 
                   onClick={() => setExpandedId(isExpanded ? null : order.id)}
@@ -650,27 +691,39 @@ export function Production() {
                                 <span className={`text-[11px] font-semibold ${packingRatio > 0 ? 'text-brand-secondary/60' : 'text-neutral-400/60'} tracking-wider inline-block min-w-max hidden lg:inline-block`}>{totalPackedGarments}/{totalGarments} PACKED</span>
                              </span>
                           </div>
-                       </div>
                        <div className="flex flex-wrap items-center gap-2 sm:gap-4 shrink-0">
                          {order.isProjectGroup && (
-                            <button 
-                               onClick={async (e) => { 
-                                  e.stopPropagation(); 
-                                  if (window.confirm('Ungroup these orders? They will become standalone again.')) {
-                                      await Promise.all(order.orders.map((o: any) => updateDoc(doc(db, 'orders', o.id), { project: null })));
-                                  }
-                               }}
-                               className="text-[10px] font-bold uppercase tracking-widest text-orange-600 bg-orange-50 hover:bg-orange-100 px-3 py-1.5 rounded-lg flex items-center gap-2 transition-colors border border-orange-200 hidden xl:flex"
-                            >
+                             <button
+                               onClick={(e) => { e.stopPropagation(); setShowGroupModal(true); setEditingTargetId(order.id); }}
+                               className="text-[10px] font-bold uppercase tracking-widest text-orange-500 bg-orange-50 hover:bg-orange-100 border border-orange-100 px-3 py-1.5 rounded-lg flex items-center gap-2 transition-colors ml-auto"
+                             >
                                Ungroup
-                            </button>
-                         )}
-                         <button 
-                           onClick={(e) => { e.stopPropagation(); setMetricsOrder(order); }}
-                           className="text-[10px] font-bold uppercase tracking-widest text-brand-primary bg-brand-primary/5 hover:bg-brand-primary/10 px-3 py-1.5 rounded-lg flex items-center gap-2 transition-colors border border-brand-primary/10"
-                         >
-                           <Activity size={14} /> Team Metrics
-                         </button>
+                             </button>
+                           )}
+                           <button
+                             onClick={async (e) => {
+                               e.stopPropagation();
+                               const newArchivedState = !order.isMetricsArchived;
+                               if (order.isProjectGroup) {
+                                  await Promise.all(order.orders.map((o: any) => updateDoc(doc(db, 'orders', o.id), { isMetricsArchived: newArchivedState })));
+                               } else {
+                                  await updateDoc(doc(db, 'orders', order.id), { isMetricsArchived: newArchivedState });
+                               }
+                             }}
+                             className={`text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-lg flex items-center gap-2 transition-colors border ${
+                               order.isMetricsArchived
+                                 ? 'text-brand-secondary bg-neutral-100 hover:bg-neutral-200 border-neutral-200'
+                                 : 'text-brand-secondary bg-white hover:bg-neutral-50 shadow-sm border border-neutral-200'
+                             }`}
+                           >
+                             <Archive size={14} /> {order.isMetricsArchived ? 'Unarchive' : 'Archive'}
+                           </button>
+                           <button
+                             onClick={(e) => { e.stopPropagation(); setMetricsOrder(order); }}
+                             className="text-[10px] font-bold uppercase tracking-widest text-brand-primary bg-brand-primary/5 hover:bg-brand-primary/10 px-3 py-1.5 rounded-lg flex items-center gap-2 transition-colors border border-brand-primary/10"
+                           >
+                             <Activity size={14} /> Team Metrics
+                           </button>
                        </div>
                     </div>
                     <div className="relative w-full px-4 pb-8">

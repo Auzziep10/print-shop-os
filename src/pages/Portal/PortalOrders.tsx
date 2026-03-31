@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ChevronRight, Loader2, PackageOpen, Building2, X, Trash2, ChevronDown, Box, Printer, ExternalLink, Truck } from 'lucide-react';
+import { ChevronRight, Loader2, PackageOpen, Building2, X, Trash2, ChevronDown, Box, Printer, ExternalLink, Truck, Download } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useOrders } from '../../hooks/useOrders';
 import { db } from '../../lib/firebase';
@@ -116,6 +116,54 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
     } catch (err) {
       console.error('Error updating order order', err);
     }
+  };
+
+  const handleExportItemCSV = (e: React.MouseEvent, order: any, item: any, itemBoxes: any[]) => {
+    e.stopPropagation();
+    
+    const allSizes = new Set<string>();
+    itemBoxes.forEach((box: any) => {
+      const boxItem = box.items?.find((bi: any) => String(bi.id) === String(item.id));
+      if (boxItem?.sizes) {
+        Object.keys(boxItem.sizes).forEach(s => allSizes.add(s));
+      }
+    });
+    
+    const sizeKeys = Array.from(allSizes).sort((a,b) => sortSizes(a,b));
+    
+    const headers = ["Box Number", "Tracking Number", "Carrier", "Item Style", "Color", ...sizeKeys, "Total Qty"];
+    
+    const rows = itemBoxes.map((box: any) => {
+       const boxItem = box.items?.find((bi: any) => String(bi.id) === String(item.id));
+       const rowData = [
+         box.name || '',
+         box.trackingNumber || 'Unfulfilled',
+         box.trackingCarrier || 'None',
+         item.style || '',
+         item.color || ''
+       ];
+       
+       sizeKeys.forEach(s => {
+         rowData.push(boxItem?.sizes?.[s] || 0);
+       });
+       
+       rowData.push(boxItem?.qty || 0);
+       return rowData;
+    });
+    
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(r => r.map(c => typeof c === 'string' ? `"${c.replace(/"/g, '""')}"` : c).join(','))
+    ].join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `Order_${order.id}_${item.style?.replace(/[^a-z0-9]/gi, '_') || 'Item'}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   if (loading) {
@@ -366,7 +414,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
                                const itemBoxes = order.boxes?.filter((b: any) => b.items?.some((bi: any) => String(bi.id) === String(item.id))) || [];
                                if (itemBoxes.length === 0) return null;
                                return (
-                                 <div className="flex items-center">
+                                 <div className="flex items-center gap-2">
                                    <button 
                                      onClick={(e) => {
                                        e.stopPropagation();
@@ -376,6 +424,14 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
                                    >
                                      <ChevronDown size={12} strokeWidth={3} className={`transition-transform duration-300 ${expandedItems[item.id] ? 'rotate-180 text-gray-900' : ''}`} />
                                      <span>{itemBoxes.length} {itemBoxes.length === 1 ? 'Shipment' : 'Shipments'}</span>
+                                   </button>
+                                   <button 
+                                     onClick={(e) => handleExportItemCSV(e, order, item, itemBoxes)}
+                                     title="Export Shipments CSV"
+                                     className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full border bg-white text-brand-primary/60 hover:border-brand-primary/30 hover:text-brand-primary shadow-sm hover:shadow-md hover:-translate-y-[1px] border-brand-primary/10 transition-all shrink-0"
+                                   >
+                                     <Download size={12} strokeWidth={3} />
+                                     <span>CSV</span>
                                    </button>
                                  </div>
                                );
