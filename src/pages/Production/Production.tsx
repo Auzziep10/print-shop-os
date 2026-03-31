@@ -681,7 +681,7 @@ export function Production() {
                           const isCompleted = idx <= Math.floor(visualIndex);
                           return (
                             <div key={step} className="flex flex-col items-center relative">
-                              <div className={`w-[12px] h-[12px] rounded-full flex items-center justify-center transition-colors duration-300 ${isCompleted ? 'bg-black' : 'bg-[#f0f0f0] border-[2px] border-neutral-300'}`}></div>
+                              <div className={`w-[14px] h-[14px] rounded-full flex items-center justify-center transition-colors duration-300 relative z-10 ${isCompleted ? 'bg-neutral-500 border-[2.5px] border-white shadow-sm' : 'bg-[#f0f0f0] border-[2px] border-neutral-300'}`}></div>
                               <span className="absolute top-6 text-[11px] font-bold text-neutral-500 w-24 text-center tracking-wide">{step}</span>
                             </div>
                           );
@@ -748,7 +748,7 @@ export function Production() {
                                                        const isCompleted = idx <= Math.floor(subVisualIndex);
                                                        return (
                                                          <div key={step} className="flex flex-col items-center relative group/tip">
-                                                           <div className={`w-[12px] h-[12px] rounded-full flex items-center justify-center transition-colors duration-300 ${isCompleted ? 'bg-black' : 'bg-[#f0f0f0] border-[2px] border-neutral-300'}`}></div>
+                                                           <div className={`w-[14px] h-[14px] rounded-full flex items-center justify-center transition-colors duration-300 relative z-10 ${isCompleted ? 'bg-neutral-500 border-[2.5px] border-white shadow-sm' : 'bg-[#f0f0f0] border-[2px] border-neutral-300'}`}></div>
                                                            <div className="absolute top-full mt-1.5 bg-black text-white text-[10px] font-bold px-2 py-1 rounded opacity-0 group-hover/tip:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-md">
                                                               {step}
                                                            </div>
