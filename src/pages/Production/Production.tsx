@@ -672,7 +672,7 @@ export function Production() {
                          </button>
                        </div>
                     </div>
-                    <div className="relative w-full px-4">
+                    <div className="relative w-full px-4 pb-8">
                       <div className="absolute top-0 left-4 right-4 h-[12px] bg-neutral-200 rounded-full"></div>
                       <div className="absolute top-0 left-4 h-[12px] bg-brand-primary rounded-full transition-all duration-700 ease-in-out" style={{ width: `calc(${fillWidth} - 2rem)` }}></div>
                       
