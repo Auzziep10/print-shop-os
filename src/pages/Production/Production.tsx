@@ -55,6 +55,7 @@ export function Production() {
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
   const [showGroupModal, setShowGroupModal] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
+  const [activePipelineTab, setActivePipelineTab] = useState<'Active' | 'Archived'>('Active');
 
   useEffect(() => {
     getDocs(collection(db, 'users')).then(snap => {
@@ -140,7 +141,10 @@ export function Production() {
   };
 
   const groupedProjectsList = Object.values(orders
-    .filter(o => o.statusIndex === 6 || o.statusIndex === 7)
+    .filter(o => {
+       if (activePipelineTab === 'Archived') return !!o.isMetricsArchived;
+       return (o.statusIndex === 6 || o.statusIndex === 7) && !o.isMetricsArchived;
+    })
     .filter(o => {
       if (!searchQuery) return true;
       const q = searchQuery.toLowerCase();
@@ -690,8 +694,9 @@ export function Production() {
                                 {Math.round(packingRatio * 100)}% 
                                 <span className={`text-[11px] font-semibold ${packingRatio > 0 ? 'text-brand-secondary/60' : 'text-neutral-400/60'} tracking-wider inline-block min-w-max hidden lg:inline-block`}>{totalPackedGarments}/{totalGarments} PACKED</span>
                              </span>
-                          </div>
-                       <div className="flex flex-wrap items-center gap-2 sm:gap-4 shrink-0">
+                           </div>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 sm:gap-4 shrink-0">
                          {order.isProjectGroup && (
                              <button
                                onClick={(e) => { e.stopPropagation(); setShowGroupModal(true); setEditingTargetId(order.id); }}
