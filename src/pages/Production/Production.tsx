@@ -51,6 +51,7 @@ export function Production() {
   const [expandedImage, setExpandedImage] = useState<{src: string, alt: string} | null>(null);
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [metricsTimeFilter, setMetricsTimeFilter] = useState<string>('Today');
+  const [metricsMode, setMetricsMode] = useState<'Production' | 'Kitting'>('Production');
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
   const [showGroupModal, setShowGroupModal] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
@@ -944,6 +945,10 @@ export function Production() {
                 </div>
                 <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end">
                   <div className="flex bg-neutral-200/60 p-1 rounded-lg shrink-0 overflow-x-auto no-scrollbar gap-0.5 items-stretch">
+                    <button onClick={() => setMetricsMode('Production')} className={`px-3 py-1.5 text-[10px] whitespace-nowrap font-bold uppercase tracking-wider rounded-md transition-all ${metricsMode === 'Production' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}>Production</button>
+                    <button onClick={() => setMetricsMode('Kitting')} className={`px-3 py-1.5 text-[10px] whitespace-nowrap font-bold uppercase tracking-wider rounded-md transition-all ${metricsMode === 'Kitting' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}>Kitting</button>
+                  </div>
+                  <div className="flex bg-neutral-200/60 p-1 rounded-lg shrink-0 overflow-x-auto no-scrollbar gap-0.5 items-stretch">
                     <button onClick={() => setMetricsTimeFilter('All')} className={`px-3 py-1.5 text-[10px] whitespace-nowrap font-bold uppercase tracking-wider rounded-md transition-all ${metricsTimeFilter === 'All' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}>All Time</button>
                     <button onClick={() => setMetricsTimeFilter('Today')} className={`px-3 py-1.5 text-[10px] whitespace-nowrap font-bold uppercase tracking-wider rounded-md transition-all ${metricsTimeFilter === 'Today' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}>Today</button>
                     <input 
@@ -978,6 +983,7 @@ export function Production() {
                  let trueTotalTimeMins = 0;
                  let trueTotalGarmentsCompletedWithStats = 0;
 
+                 if (metricsMode === 'Production') {
                  (metricsOrder.items || []).forEach((item: any) => {
                     let sizeSum = 0;
                     if (item.sizes) {
@@ -1058,6 +1064,77 @@ export function Production() {
                        }
                     });
                  });
+                 } else { // Kitting
+                     (metricsOrder.items || []).forEach((item: any) => {
+                         let sizeSum = 0;
+                         if (item.sizes) {
+                             Object.values(item.sizes).forEach((q: any) => {
+                                 sizeSum += (parseInt(q as string) || 0);
+                             });
+                         }
+                         totalOrderGarments += Math.max(parseInt(item.qty as string) || 0, sizeSum);
+                     });
+                     
+                     (metricsOrder.boxes || []).forEach((box: any) => {
+                         trueTotalGarmentsCompleted += box.items?.reduce((s:number, i:any)=> s + (parseInt(i.qty)||0), 0) || 0;
+                     });
+
+                     (metricsOrder.activities || []).forEach((act: any) => {
+                         let userToCredit = act.user;
+                         let createdMatch = act.message?.match(/Created .* containing (\d+) items/);
+                         let updatedMatch = act.message?.match(/Updated shipment box: .* \((\d+) -> (\d+) items\)/);
+                         let garmentsDelta = 0;
+
+                         if (createdMatch) {
+                            garmentsDelta = parseInt(createdMatch[1]) || 0;
+                         } else if (updatedMatch) {
+                            const oldQ = parseInt(updatedMatch[1]) || 0;
+                            const newQ = parseInt(updatedMatch[2]) || 0;
+                            garmentsDelta = newQ - oldQ;
+                         }
+
+                         if (garmentsDelta !== 0) {
+                             if (metricsTimeFilter !== 'All') {
+                                 const statTimeStr = act.timestamp;
+                                 if (statTimeStr) {
+                                     const statDate = new Date(statTimeStr);
+                                     const now = new Date();
+                                     const isToday = statDate.getDate() === now.getDate() && statDate.getMonth() === now.getMonth() && statDate.getFullYear() === now.getFullYear();
+                                     
+                                     const yesterday = new Date(now);
+                                     yesterday.setDate(yesterday.getDate() - 1);
+                                     const isYesterday = statDate.getDate() === yesterday.getDate() && statDate.getMonth() === yesterday.getMonth() && statDate.getFullYear() === yesterday.getFullYear();
+                                     
+                                     if (metricsTimeFilter === 'Today' && !isToday) return;
+                                     if (metricsTimeFilter === 'Yesterday' && !isYesterday) return;
+                                     if (metricsTimeFilter !== 'All' && metricsTimeFilter !== 'Today' && metricsTimeFilter !== 'Yesterday') {
+                                         const lYear = statDate.getFullYear();
+                                         const lMonth = String(statDate.getMonth() + 1).padStart(2, '0');
+                                         const lDay = String(statDate.getDate()).padStart(2, '0');
+                                         const statDateString = `${lYear}-${lMonth}-${lDay}`;
+                                         if (statDateString !== metricsTimeFilter) return;
+                                     }
+                                 } else {
+                                     return;
+                                 }
+                             }
+
+                             let rawName = normalizeUser(userToCredit || 'Unknown', allUsers);
+                             const groupKey = rawName.toLowerCase().replace(/[^a-z]/g, '') || 'unknown';
+                             if (!bestDisplayNames[groupKey]) {
+                                bestDisplayNames[groupKey] = rawName;
+                             }
+                             if (!statsByUser[groupKey]) {
+                                statsByUser[groupKey] = { totalTimeMins: 0, garmentsCompleted: 0, completionsCount: 0 };
+                             }
+                             statsByUser[groupKey].garmentsCompleted += garmentsDelta;
+                             statsByUser[groupKey].completionsCount += garmentsDelta > 0 ? 1 : 0;
+                             
+                             globalTotalGarmentsCompletedWithStats += garmentsDelta;
+                             trueTotalGarmentsCompletedWithStats += garmentsDelta;
+                         }
+                     });
+                 }
 
                  const users = Object.keys(statsByUser).sort((a,b) => statsByUser[b].garmentsCompleted - statsByUser[a].garmentsCompleted);
 
@@ -1177,8 +1254,8 @@ export function Production() {
                             <div className="flex flex-col relative border-l border-brand-primary/10 pl-4">
                                <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/60 mb-1">Avg / Garment</span>
                                <div className="flex items-end gap-2">
-                                 <span className="text-xl font-black">{globalAvgMinsPerGarment >= 1 ? globalAvgMinsPerGarment.toFixed(1) + 'm' : Math.round(globalAvgMinsPerGarment * 60) + 's'}</span>
-                                 {activeTargetAvgMins && (
+                                 <span className={`text-xl font-black ${metricsMode === 'Kitting' ? 'text-brand-primary/40' : 'text-brand-primary'}`}>{metricsMode === 'Kitting' ? 'N/A' : (globalAvgMinsPerGarment >= 1 ? globalAvgMinsPerGarment.toFixed(1) + 'm' : Math.round(globalAvgMinsPerGarment * 60) + 's')}</span>
+                                 {metricsMode === 'Production' && activeTargetAvgMins && (
                                     <span className={`text-[10px] font-bold mb-1 ${globalAvgMinsPerGarment <= activeTargetAvgMins ? 'text-green-600' : 'text-orange-500'}`}>
                                        {globalAvgMinsPerGarment <= activeTargetAvgMins ? 'On Track' : 'Behind'}
                                     </span>
@@ -1187,12 +1264,12 @@ export function Production() {
                             </div>
                             <div className="flex flex-col border-l border-brand-primary/10 pl-4">
                                <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/60 mb-1">Expected Time</span>
-                               <span className="text-xl font-black">{estimatedRemainingMins > 60 ? (estimatedRemainingMins / 60).toFixed(1) + 'h' : Math.round(estimatedRemainingMins) + 'm'}</span>
+                               <span className={`text-xl font-black text-brand-primary ${metricsMode === 'Kitting' ? 'opacity-40' : ''}`}>{metricsMode === 'Kitting' ? 'N/A' : (estimatedRemainingMins > 60 ? (estimatedRemainingMins / 60).toFixed(1) + 'h' : Math.round(estimatedRemainingMins) + 'm')}</span>
                             </div>
                             <div className="flex flex-col border-l border-brand-primary/10 pl-4">
                                <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/60 mb-1">Time Left</span>
-                               <span className={`text-xl font-black ${hasTargetDate && businessHoursRemaining <= 0 ? 'text-red-500' : ''}`}>
-                                  {hasTargetDate ? (businessHoursRemaining <= 0 ? 'Overdue' : `${businessHoursRemaining}h`) : 'No Deadline'}
+                               <span className={`text-xl font-black ${hasTargetDate && businessHoursRemaining <= 0 && metricsMode !== 'Kitting' ? 'text-red-500' : 'text-brand-primary'} ${metricsMode === 'Kitting' ? 'opacity-40' : ''}`}>
+                                  {metricsMode === 'Kitting' ? 'N/A' : (hasTargetDate ? (businessHoursRemaining <= 0 ? 'Overdue' : `${businessHoursRemaining}h`) : 'No Deadline')}
                                </span>
                             </div>
                          </div>
@@ -1229,15 +1306,15 @@ export function Production() {
                               </div>
                               <div className="flex flex-col">
                                  <span className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary/70 mb-1">Avg Time / Garment</span>
-                                 <span className="text-xl font-black text-blue-600">{avgTimePerGarment >= 1 ? avgTimePerGarment.toFixed(1) + 'm' : Math.round(avgTimePerGarment * 60) + 's'}</span>
+                                 <span className={`text-xl font-black ${metricsMode === 'Kitting' ? 'text-gray-300' : 'text-blue-600'}`}>{metricsMode === 'Kitting' ? 'N/A' : (avgTimePerGarment >= 1 ? avgTimePerGarment.toFixed(1) + 'm' : Math.round(avgTimePerGarment * 60) + 's')}</span>
                               </div>
                               <div className="flex flex-col">
                                  <span className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary/70 mb-1">Total Time</span>
-                                 <span className="text-xl font-black text-brand-primary">{Math.round(stat.totalTimeMins)}m</span>
+                                 <span className={`text-xl font-black ${metricsMode === 'Kitting' ? 'text-gray-300' : 'text-brand-primary'}`}>{metricsMode === 'Kitting' ? 'N/A' : `${Math.round(stat.totalTimeMins)}m`}</span>
                               </div>
                               <div className="flex flex-col">
                                  <span className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary/70 mb-1">Overall Rate</span>
-                                 <span className="text-xl font-black text-green-600">{Math.round(overallRatePerHour)}/hr</span>
+                                 <span className={`text-xl font-black ${metricsMode === 'Kitting' ? 'text-gray-300' : 'text-green-600'}`}>{metricsMode === 'Kitting' ? 'N/A' : `${Math.round(overallRatePerHour)}/hr`}</span>
                               </div>
                            </div>
                          </div>

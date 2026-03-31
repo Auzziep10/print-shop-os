@@ -490,6 +490,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
                     <div className="mt-8 border-t border-brand-border pt-6 pb-2">
                        <div className="bg-white rounded-2xl border border-brand-border overflow-hidden shadow-sm transition-all hover:border-black/10 hover:shadow-md">
                          <div 
+                           id={`shipments-overview-${order.id}`}
                            className="p-4 sm:p-5 flex items-center justify-between cursor-pointer hover:bg-neutral-50 transition-colors"
                            onClick={(e) => {
                              e.stopPropagation();
@@ -576,24 +577,76 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
              
              {/* Right: Action Buttons (Moved outside card) */}
              <div className="flex xl:flex-col justify-center gap-3 w-full xl:w-[130px] shrink-0 xl:self-start mt-6 xl:mt-0 relative z-20 xl:h-[128px]">
-               {order.trackingCarrier && order.trackingNumber ? (
-                 <button 
-                   onClick={(e) => {
-                     e.stopPropagation();
-                     window.open(getTrackingLink(order.trackingCarrier, order.trackingNumber) || '#', '_blank');
-                   }}
-                   className="flex-1 xl:flex-none bg-white border border-brand-border hover:border-black hover:bg-black hover:text-white text-[12px] font-bold text-gray-800 rounded-full py-3 xl:py-4 transition-all tracking-wide text-center"
-                 >
-                   Track {order.trackingCarrier}
-                 </button>
-               ) : (
-                 <button 
-                   className="flex-1 xl:flex-none bg-white border border-brand-border/50 text-[12px] font-bold text-gray-400 rounded-full py-3 xl:py-4 transition-all tracking-wide cursor-default text-center"
-                   onClick={(e) => e.stopPropagation()}
-                >
-                  {order.trackingCarrier === 'Pickup' || (!order.trackingCarrier && order.statusIndex >= 4) ? 'No Tracking' : 'Processing'}
-                </button>
-              )}
+                {(() => {
+                 const boxesWithTracking = (order.boxes || []).filter((b: any) => b.trackingNumber && b.trackingCarrier && b.trackingCarrier !== 'Pickup');
+                 const isLocalPickup = order.trackingCarrier === 'Pickup' || (order.boxes || []).some((b: any) => b.trackingCarrier === 'Pickup');
+                 
+                 if (order.trackingCarrier && order.trackingNumber && order.trackingCarrier !== 'Pickup') {
+                   // Legacy order-level tracking
+                   return (
+                     <button 
+                       onClick={(e) => {
+                         e.stopPropagation();
+                         window.open(getTrackingLink(order.trackingCarrier, order.trackingNumber) || '#', '_blank');
+                       }}
+                       className="flex-1 xl:flex-none bg-white border border-brand-border hover:border-black hover:bg-black hover:text-white text-[12px] font-bold text-gray-800 rounded-full py-3 xl:py-4 transition-all tracking-wide text-center"
+                     >
+                       Track {order.trackingCarrier}
+                     </button>
+                   );
+                 } else if (boxesWithTracking.length === 1) {
+                   return (
+                     <button 
+                       onClick={(e) => {
+                         e.stopPropagation();
+                         window.open(getTrackingLink(boxesWithTracking[0].trackingCarrier, boxesWithTracking[0].trackingNumber) || '#', '_blank');
+                       }}
+                       className="flex-1 xl:flex-none bg-white border border-brand-border hover:border-black hover:bg-black hover:text-white text-[12px] font-bold text-gray-800 rounded-full py-3 xl:py-4 transition-all tracking-wide text-center"
+                     >
+                       Track Shipment
+                     </button>
+                   );
+                 } else if (boxesWithTracking.length > 1) {
+                   return (
+                     <button 
+                       onClick={(e) => {
+                         e.stopPropagation();
+                         if (!isExpanded) {
+                           setExpandedId(order.id);
+                           setExpandedOrderShipments(p => ({...p, [order.id]: true}));
+                           setTimeout(() => {
+                             document.getElementById('shipments-overview-' + order.id)?.scrollIntoView({ behavior: 'smooth' });
+                           }, 100);
+                         } else {
+                           setExpandedOrderShipments(p => ({...p, [order.id]: true}));
+                           document.getElementById('shipments-overview-' + order.id)?.scrollIntoView({ behavior: 'smooth' });
+                         }
+                       }}
+                       className="flex-1 xl:flex-none bg-white border border-brand-border hover:border-black hover:bg-black hover:text-white text-[12px] font-bold text-gray-800 rounded-full py-3 px-2 xl:py-4 transition-all tracking-wide text-center leading-tight sm:leading-normal flex flex-col items-center justify-center gap-0.5"
+                     >
+                       <span>Track {boxesWithTracking.length}</span><span className="text-[10px] xl:text-[12px]">Shipments</span>
+                     </button>
+                   );
+                 } else if (isLocalPickup) {
+                   return (
+                     <button 
+                       className="flex-1 xl:flex-none bg-white border border-brand-border/50 text-[12px] font-bold text-gray-400 rounded-full py-3 xl:py-4 transition-all tracking-wide cursor-default text-center px-1"
+                       onClick={(e) => e.stopPropagation()}
+                    >
+                      Local Pickup
+                    </button>
+                   );
+                 } else {
+                   return (
+                     <button 
+                       className="flex-1 xl:flex-none bg-white border border-brand-border/50 text-[12px] font-bold text-gray-400 rounded-full py-3 xl:py-4 transition-all tracking-wide cursor-default text-center"
+                       onClick={(e) => e.stopPropagation()}
+                    >
+                      {(!order.trackingCarrier && order.statusIndex >= 4 && order.statusIndex !== 6) ? 'No Tracking' : 'Processing'}
+                    </button>
+                   );
+                 }
+               })()}
               <button 
                 className="flex-1 xl:flex-none bg-white border border-brand-border hover:border-black hover:bg-black hover:text-white text-[12px] font-bold text-gray-800 rounded-full py-3 xl:py-4 transition-all tracking-wide text-center"
                 onClick={(e) => {
