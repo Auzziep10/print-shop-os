@@ -977,6 +977,7 @@ export function Production() {
                  const bestDisplayNames: Record<string, string> = {};
                  
                  let globalTotalGarmentsCompletedWithStats = 0;
+                 let globalTotalUnitsPackedWithStats = 0;
                  let globalTotalTimeMins = 0;
                  let totalOrderGarments = 0;
                  let trueTotalGarmentsCompleted = 0; // The actual count regardless of attached stat metrics
@@ -1081,12 +1082,14 @@ export function Production() {
 
                      (metricsOrder.activities || []).forEach((act: any) => {
                          let userToCredit = act.user;
-                         let createdMatch = act.message?.match(/Created .* containing \d+ items/);
+                         let createdMatch = act.message?.match(/Created .* containing (\d+) items/);
                          let deletedMatch = act.message?.match(/Deleted shipment box/);
                          let boxesDelta = 0;
+                         let unitsDelta = 0;
 
                          if (createdMatch) {
                             boxesDelta = 1;
+                            unitsDelta = parseInt(createdMatch[1]) || 0;
                          } else if (deletedMatch) {
                             boxesDelta = -1;
                          }
@@ -1130,6 +1133,7 @@ export function Production() {
                              
                              globalTotalGarmentsCompletedWithStats += boxesDelta;
                              trueTotalGarmentsCompletedWithStats += boxesDelta;
+                             globalTotalUnitsPackedWithStats += unitsDelta;
 
                              const statTimeStr = act.timestamp;
                              if (statTimeStr) {
@@ -1166,7 +1170,7 @@ export function Production() {
                  const remainingGarments = Math.max(0, totalOrderGarments - trueTotalGarmentsCompleted);
                  const globalAvgMinsPerGarment = globalTotalGarmentsCompletedWithStats > 0 ? (globalTotalTimeMins / globalTotalGarmentsCompletedWithStats) : 0;
                  const estimatedRemainingMins = remainingGarments * globalAvgMinsPerGarment;
-                 const averageUnitsPerBox = (metricsMode === 'Kitting' && metricsOrder.boxes && metricsOrder.boxes.length > 0) ? (metricsOrder.boxes.reduce((sum: number, box: any) => sum + (box.items?.reduce((s: number, i: any) => s + (parseInt(i.qty) || 0), 0) || 0), 0) / metricsOrder.boxes.length).toFixed(1) : '0';
+                 const averageUnitsPerBox = (metricsMode === 'Kitting' && globalTotalGarmentsCompletedWithStats > 0) ? (globalTotalUnitsPackedWithStats / globalTotalGarmentsCompletedWithStats).toFixed(1) : '0';
                  
                  let businessHoursRemaining = 0;
                  let hasTargetDate = false;
