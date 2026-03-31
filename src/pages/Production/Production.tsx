@@ -1166,6 +1166,7 @@ export function Production() {
                  const remainingGarments = Math.max(0, totalOrderGarments - trueTotalGarmentsCompleted);
                  const globalAvgMinsPerGarment = globalTotalGarmentsCompletedWithStats > 0 ? (globalTotalTimeMins / globalTotalGarmentsCompletedWithStats) : 0;
                  const estimatedRemainingMins = remainingGarments * globalAvgMinsPerGarment;
+                 const averageUnitsPerBox = (metricsMode === 'Kitting' && metricsOrder.boxes && metricsOrder.boxes.length > 0) ? (metricsOrder.boxes.reduce((sum: number, box: any) => sum + (box.items?.reduce((s: number, i: any) => s + (parseInt(i.qty) || 0), 0) || 0), 0) / metricsOrder.boxes.length).toFixed(1) : '0';
                  
                  let businessHoursRemaining = 0;
                  let hasTargetDate = false;
@@ -1268,8 +1269,8 @@ export function Production() {
                                 <span className="text-xl font-black">{globalTotalGarmentsCompletedWithStats || trueTotalGarmentsCompleted}</span>
                              </div>
                              <div className="flex flex-col border-l border-brand-primary/10 pl-4">
-                                <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/60 mb-1">Remaining Units</span>
-                                <span className="text-xl font-black">{metricsMode === 'Kitting' ? 'N/A' : remainingGarments}</span>
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/60 mb-1">{metricsMode === 'Kitting' ? 'Avg Units / Box' : 'Remaining Units'}</span>
+                                <span className="text-xl font-black">{metricsMode === 'Kitting' ? averageUnitsPerBox : remainingGarments}</span>
                              </div>
                              <div className="flex flex-col relative border-l border-brand-primary/10 pl-4">
                                 <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/60 mb-1">Avg / {metricsMode === 'Kitting' ? 'Box' : 'Garment'}</span>
