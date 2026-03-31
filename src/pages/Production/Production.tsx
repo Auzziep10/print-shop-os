@@ -1169,8 +1169,20 @@ export function Production() {
                  // Calculates remaining purely from the physical pipeline truth `completedSizes` 
                  const remainingGarments = Math.max(0, totalOrderGarments - trueTotalGarmentsCompleted);
                  const globalAvgMinsPerGarment = globalTotalGarmentsCompletedWithStats > 0 ? (globalTotalTimeMins / globalTotalGarmentsCompletedWithStats) : 0;
-                 const estimatedRemainingMins = remainingGarments * globalAvgMinsPerGarment;
                  const averageUnitsPerBox = (metricsMode === 'Kitting' && globalTotalGarmentsCompletedWithStats > 0) ? (globalTotalUnitsPackedWithStats / globalTotalGarmentsCompletedWithStats).toFixed(1) : '0';
+
+                 let estimatedRemainingMins = remainingGarments * globalAvgMinsPerGarment;
+                 if (metricsMode === 'Kitting') {
+                     const avgUnitsNum = parseFloat(averageUnitsPerBox);
+                     if (avgUnitsNum > 0) {
+                         const expectedTotalBoxes = totalOrderGarments / avgUnitsNum;
+                         const trueAllTimeBoxes = metricsOrder.boxes?.length || 0;
+                         const remainingBoxes = Math.max(0, expectedTotalBoxes - trueAllTimeBoxes);
+                         estimatedRemainingMins = remainingBoxes * globalAvgMinsPerGarment;
+                     } else {
+                         estimatedRemainingMins = 0;
+                     }
+                 }
                  
                  let businessHoursRemaining = 0;
                  let hasTargetDate = false;
