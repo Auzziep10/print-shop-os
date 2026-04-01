@@ -1268,9 +1268,8 @@ export function Production() {
                  if (metricsMode === 'Kitting') {
                      const avgUnitsNum = parseFloat(averageUnitsPerBox);
                      if (avgUnitsNum > 0) {
-                         const expectedTotalBoxes = totalOrderGarments / avgUnitsNum;
-                         const trueAllTimeBoxes = metricsOrder.boxes?.length || 0;
-                         kittingRemainingBoxes = Math.max(0, Math.ceil(expectedTotalBoxes - trueAllTimeBoxes));
+                         const remainingItemsToPack = Math.max(0, totalOrderGarments - globalTotalUnitsPackedWithStats);
+                         kittingRemainingBoxes = Math.ceil(remainingItemsToPack / avgUnitsNum);
                          estimatedRemainingMins = kittingRemainingBoxes * globalAvgMinsPerGarment;
                      } else {
                          estimatedRemainingMins = 0;
