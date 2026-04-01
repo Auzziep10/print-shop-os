@@ -405,8 +405,8 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
                 </div>
 
                 {/* Right: Progress Tracker */}
-                <div className="flex-1 min-w-0 w-full pt-4 xl:pt-0 pb-4 xl:pb-0">
-                  <div className="relative w-full">
+                <div className="flex-1 min-w-0 w-full pt-6 xl:pt-0 pb-4 xl:pb-0 overflow-x-auto custom-scrollbar -mx-6 px-6 lg:mx-0 lg:px-0 lg:overflow-visible">
+                  <div className="relative w-full min-w-[600px] lg:min-w-0 mt-8 mb-6 lg:mt-0 lg:mb-0">
                     {/* The Track Base */}
                     <div className="absolute top-0 left-0 w-full h-[12px] bg-neutral-200 rounded-full"></div>
                     {/* The Fill */}
@@ -711,7 +711,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
              </div>
              
              {/* Right: Action Buttons (Moved outside card) */}
-             <div className="flex xl:flex-col justify-center gap-3 w-full xl:w-[130px] shrink-0 xl:self-start mt-6 xl:mt-0 relative z-20 xl:min-h-[128px]">
+             <div className="flex flex-col sm:flex-row xl:flex-col justify-center gap-3 w-full xl:w-[130px] shrink-0 xl:self-start mt-6 xl:mt-0 relative z-20 xl:min-h-[128px]">
                 {(() => {
                  const boxesWithTracking = (order.boxes || []).filter((b: any) => b.trackingNumber && b.trackingCarrier && b.trackingCarrier !== 'Pickup');
                  const isLocalPickup = order.trackingCarrier === 'Pickup' || (order.boxes || []).some((b: any) => b.trackingCarrier === 'Pickup');
