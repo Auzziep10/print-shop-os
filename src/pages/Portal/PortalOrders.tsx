@@ -409,12 +409,6 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
                   {/* Subtle fade effect for mobile to indicate scrollability */}
                   <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-white to-transparent lg:hidden z-20 pointer-events-none rounded-r-[2rem]"></div>
                   
-                  {/* Mobile swipe helper text */}
-                  <div className="absolute -top-1 right-2 text-[9px] font-bold tracking-widest uppercase text-brand-primary/60 lg:hidden flex items-center gap-0.5 pointer-events-none">
-                     <span>Swipe</span>
-                     <ChevronRight size={10} strokeWidth={3} />
-                  </div>
-
                   <div className="w-full overflow-x-auto custom-scrollbar -mx-6 px-6 lg:mx-0 lg:px-0 lg:overflow-visible relative z-10">
                     <div className="relative w-full min-w-[600px] lg:min-w-0 mt-8 mb-6 lg:mt-0 lg:mb-0">
                       {/* The Track Base */}
