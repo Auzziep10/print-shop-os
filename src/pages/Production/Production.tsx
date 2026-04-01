@@ -140,42 +140,63 @@ export function Production() {
     return { totalGarments, completedGarments, completionRatio, totalPackedGarments, packingRatio };
   };
 
-  const groupedProjectsList = Object.values(orders
-    .filter(o => {
-       if (activePipelineTab === 'Archived') return !!o.isMetricsArchived || o.statusIndex > 7;
-       return (o.statusIndex === 6 || o.statusIndex === 7) && !o.isMetricsArchived;
-    })
-    .filter(o => {
-      if (!searchQuery) return true;
-      const q = searchQuery.toLowerCase();
-      const title = o.title || '';
-      const pid = o.portalId || '';
-      const orderId = o.id || '';
-      return (title.toLowerCase().includes(q) || pid.toLowerCase().includes(q) || orderId.toLowerCase().includes(q));
-    })
-    .reduce((acc: any, order: any) => {
-       const projectKey = order.project;
-       const cid = order.customerId;
-       const hash = projectKey ? `proj-${projectKey}` : `single-${order.id}`;
-       if (!acc[hash]) {
-           acc[hash] = {
-              id: projectKey ? `project-${hash}` : order.id,
-              isProjectGroup: !!projectKey,
-              title: projectKey || order.title || 'Untitled Order',
-              customerId: cid,
-              orders: [],
-              items: [],
-              activities: [],
-              statusIndex: order.statusIndex
-           };
-       }
-       acc[hash].orders.push(order);
-       const itemsWithMeta = (order.items || []).map((i: any) => ({ ...i, sourceOrder: order }));
-       acc[hash].items.push(...itemsWithMeta);
-       acc[hash].activities.push(...(order.activities || []));
+  const groupedProjectsList = (() => {
+    // 1. Group all production / post-production orders first
+    const groups = orders
+      .filter((o: any) => o.statusIndex >= 6 || o.isMetricsArchived) 
+      .reduce((acc: any, order: any) => {
+         const projectKey = order.project;
+         const cid = order.customerId;
+         const hash = projectKey ? `proj-${projectKey}` : `single-${order.id}`;
+         if (!acc[hash]) {
+             acc[hash] = {
+                id: projectKey ? `project-${hash}` : order.id,
+                isProjectGroup: !!projectKey,
+                title: projectKey || order.title || 'Untitled Order',
+                customerId: cid,
+                orders: [],
+                items: [],
+                activities: [],
+                statusIndex: order.statusIndex
+             };
+         }
+         acc[hash].orders.push(order);
+         const itemsWithMeta = (order.items || []).map((i: any) => ({ ...i, sourceOrder: order }));
+         acc[hash].items.push(...itemsWithMeta);
+         acc[hash].activities.push(...(order.activities || []));
+         return acc;
+      }, {});
+
+    // 2. Filter resulting groups based on Pipeline Tab
+    let finalGroups = Object.values(groups).filter((group: any) => {
+       const hasActiveOrder = group.orders.some((o: any) => 
+          (o.statusIndex === 6 || o.statusIndex === 7) && !o.isMetricsArchived
+       );
        
-       return acc;
-    }, {}));
+       if (activePipelineTab === 'Archived') {
+          return !hasActiveOrder && group.orders.some((o: any) => !!o.isMetricsArchived || o.statusIndex > 7);
+       } else {
+          return hasActiveOrder;
+       }
+    });
+
+    // 3. Apply Search Filter
+    if (searchQuery) {
+       const q = searchQuery.toLowerCase();
+       finalGroups = finalGroups.filter((group: any) => {
+          if (group.title.toLowerCase().includes(q)) return true;
+          if (group.id.toLowerCase().includes(q)) return true;
+          return group.orders.some((o: any) => {
+             const title = o.title || '';
+             const pid = o.portalId || '';
+             const orderId = o.id || '';
+             return title.toLowerCase().includes(q) || pid.toLowerCase().includes(q) || orderId.toLowerCase().includes(q);
+          });
+       });
+    }
+
+    return finalGroups;
+  })();
 
   const productionOrders: any[] = groupedProjectsList.sort((a: any, b: any) => getCompletionData(b).completionRatio - getCompletionData(a).completionRatio);
 
@@ -602,15 +623,20 @@ export function Production() {
           const { totalGarments, completedGarments, completionRatio, totalPackedGarments, packingRatio } = getCompletionData(order);
           
           let visualIndex = 0; // Production
-          if (order.statusIndex === 6) { // In Production
+          
+          const effectiveStatusIndex = order.isProjectGroup
+             ? Math.min(...order.orders.map((o: any) => o.statusIndex))
+             : order.statusIndex;
+
+          if (effectiveStatusIndex <= 6) { // In Production or earlier
              visualIndex = 0 + completionRatio; // Fills toward Kitting
              if (completionRatio >= 0.99 && packingRatio > 0) {
                  visualIndex = 1 + packingRatio;
              }
-          } else if (order.statusIndex === 7) { // Kitting (Internally mapping statusIndex=7)
+          } else if (effectiveStatusIndex === 7) { // Kitting (Internally mapping statusIndex=7)
              visualIndex = 1 + packingRatio;
-          } else if (order.statusIndex > 7) {
-             visualIndex = 2; // Shipped
+          } else if (effectiveStatusIndex > 7) {
+             visualIndex = 2; // Shipped completely
           }
 
           const fillWidth = `${(visualIndex / (timelineSteps.length - 1)) * 100}%`;
@@ -777,14 +803,14 @@ export function Production() {
                                           const subData = getCompletionData(subOrder);
                                           const subTimelineSteps = ['Production', 'Kitting', 'Shipped'];
                                           let subVisualIndex = 0;
-                                          if (subOrder.statusIndex === 6) {
+                                          if (subOrder.statusIndex <= 6) {
                                               subVisualIndex = 0 + (subData.completionRatio || 0);
                                               if ((subData.completionRatio || 0) >= 0.99 && (subData.packingRatio || 0) > 0) {
                                                   subVisualIndex = 1 + (subData.packingRatio || 0);
                                               }
                                           }
                                           else if (subOrder.statusIndex === 7) subVisualIndex = 1 + (subData.packingRatio || 0);
-                                          else if (subOrder.statusIndex > 7) subVisualIndex = 2;
+                                          else if (subOrder.statusIndex > 7) subVisualIndex = 2; // Shipped
                                           const subFillWidth = `${(subVisualIndex / (subTimelineSteps.length - 1)) * 100}%`;
 
                                           return (
