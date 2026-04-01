@@ -166,6 +166,78 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
     document.body.removeChild(link);
   };
 
+  const handleExportOrderCSV = (e: React.MouseEvent, order: any) => {
+    e.stopPropagation();
+
+    if (!order.boxes || order.boxes.length === 0) {
+      alert("No completed shipments for this order yet.");
+      return;
+    }
+
+    const allSizes = new Set<string>();
+    order.boxes.forEach((box: any) => {
+      box.items?.forEach((boxItem: any) => {
+        if (boxItem?.sizes) {
+          Object.keys(boxItem.sizes).forEach(s => allSizes.add(s));
+        }
+      });
+    });
+
+    const sizeKeys = Array.from(allSizes).sort((a,b) => sortSizes(a,b));
+
+    const headers = ["Box Number", "Tracking Number", "Carrier", "Item Title", "Item Style", "Color", ...sizeKeys, "Total Qty"];
+
+    const rows: (string | number)[][] = [];
+
+    order.boxes.forEach((box: any) => {
+      if (box.items && box.items.length > 0) {
+         box.items.forEach((boxItem: any) => {
+            const ogItem = order.items?.find((i: any) => String(i.id) === String(boxItem.id)) || boxItem;
+
+            const rowData: (string | number)[] = [
+              box.name || '',
+              box.trackingNumber || 'Unfulfilled',
+              box.trackingCarrier || 'None',
+              ogItem.title || boxItem.title || '',
+              ogItem.style || boxItem.style || '',
+              ogItem.color || boxItem.color || ''
+            ];
+
+            sizeKeys.forEach(s => {
+              rowData.push(boxItem?.sizes?.[s] || 0);
+            });
+
+            rowData.push(boxItem?.qty || 0);
+            rows.push(rowData);
+         });
+      } else {
+         const rowData: (string | number)[] = [
+            box.name || '',
+            box.trackingNumber || 'Unfulfilled',
+            box.trackingCarrier || 'None',
+            'Empty Box', '', ''
+         ];
+         sizeKeys.forEach(() => rowData.push(0));
+         rowData.push(0);
+         rows.push(rowData);
+      }
+    });
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(r => r.map(c => typeof c === 'string' ? `"${c.replace(/"/g, '""')}"` : c).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `Order_${order.portalId || order.id || 'Full'}_Shipments.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   if (loading) {
     return (
       <div className="min-h-[50vh] flex flex-col items-center justify-center text-gray-400 gap-3">
@@ -712,6 +784,12 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
                 }}
               >
                 Order Info
+              </button>
+              <button 
+                className="flex-1 xl:flex-none bg-white border border-brand-border hover:border-brand-primary hover:bg-brand-primary/5 hover:text-brand-primary text-[12px] font-bold text-gray-800 rounded-full py-3 xl:py-4 transition-all tracking-wide text-center flex items-center justify-center gap-2"
+                onClick={(e) => handleExportOrderCSV(e, order)}
+              >
+                <Download size={14} /> Export CSV
               </button>
              </div>
            </div>
