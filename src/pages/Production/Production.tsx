@@ -142,7 +142,7 @@ export function Production() {
 
   const groupedProjectsList = Object.values(orders
     .filter(o => {
-       if (activePipelineTab === 'Archived') return !!o.isMetricsArchived;
+       if (activePipelineTab === 'Archived') return !!o.isMetricsArchived || o.statusIndex > 7;
        return (o.statusIndex === 6 || o.statusIndex === 7) && !o.isMetricsArchived;
     })
     .filter(o => {
