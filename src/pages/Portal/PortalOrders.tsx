@@ -301,12 +301,19 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
            const kitGarments = order.boxes?.reduce((acc: number, box: any) => acc + (box.items?.reduce((iAcc: number, bi: any) => iAcc + (bi.qty || 0), 0) || 0), 0) || 0;
            const kitRatio = totalGarments > 0 ? (kitGarments / totalGarments) : 0;
 
-           // Blend them: 50% visual weight to Production, 50% to Kitting/Packing.
-           const completionRatio = (prodRatio * 0.5) + (kitRatio * 0.5);
+           const hasBoxes = order.boxes && order.boxes.length > 0;
+           const allBoxesHaveTracking = hasBoxes && order.boxes.every((b: any) => b.trackingNumber || b.trackingCarrier === 'Pickup');
 
-           // Cap the visual progression so it doesn't touch the next node (Shipped) until officially shipped.
-           const scaledRatio = completionRatio > 0.95 ? 0.95 : completionRatio;
-           visualIndex += scaledRatio;
+           if (kitRatio >= 0.95 && allBoxesHaveTracking) {
+               visualIndex += 1; // Visually hit the Shipped node if almost fully packed + labels bought
+           } else {
+               // Blend them: 50% visual weight to Production, 50% to Kitting/Packing.
+               const completionRatio = (prodRatio * 0.5) + (kitRatio * 0.5);
+
+               // Cap the visual progression so it doesn't touch the next node (Shipped) until officially shipped.
+               const scaledRatio = completionRatio > 0.95 ? 0.95 : completionRatio;
+               visualIndex += scaledRatio;
+           }
         }
 
         // Calculate the percentage width for the progress bar fill
