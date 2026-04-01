@@ -168,7 +168,15 @@ export function Production() {
       }, {});
 
     // 2. Filter resulting groups based on Pipeline Tab
-    let finalGroups = Object.values(groups).filter((group: any) => {
+    let finalGroups = Object.values(groups).map((group: any) => {
+       if (!group.isProjectGroup && group.orders.length > 0) {
+           group.isMetricsArchived = group.orders[0].isMetricsArchived;
+       } else {
+           // For a group, it is legally 'archived' as a UI flag if ALL orders in it are manually archived
+           group.isMetricsArchived = group.orders.every((o: any) => !!o.isMetricsArchived);
+       }
+       return group;
+    }).filter((group: any) => {
        const hasActiveOrder = group.orders.some((o: any) => 
           (o.statusIndex === 6 || o.statusIndex === 7) && !o.isMetricsArchived
        );
