@@ -532,7 +532,7 @@ export function Production() {
                </button>
                <button 
                   onClick={() => setActivePipelineTab('Archived')}
-                  className={`px-5 py-1.5 rounded-lg text-[13px] font-bold tracking-widest uppercase transition-all ${activePipelineTab==='Archived' ? 'bg-white text-brand-primary shadow-sm border border-neutral-200' : 'text-brand-secondary hover:text-brand-primary border border-transparent'}`}
+                  className={`px-5 py-1.5 rounded-lg text-[13px] font-bold tracking-widest uppercase transition-all ${(activePipelineTab as string)==='Archived' ? 'bg-white text-brand-primary shadow-sm border border-neutral-200' : 'text-brand-secondary hover:text-brand-primary border border-transparent'}`}
                >
                  Archived
                </button>
