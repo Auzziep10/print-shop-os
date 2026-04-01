@@ -405,33 +405,44 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
                 </div>
 
                 {/* Right: Progress Tracker */}
-                <div className="flex-1 min-w-0 w-full pt-6 xl:pt-0 pb-4 xl:pb-0 overflow-x-auto custom-scrollbar -mx-6 px-6 lg:mx-0 lg:px-0 lg:overflow-visible">
-                  <div className="relative w-full min-w-[600px] lg:min-w-0 mt-8 mb-6 lg:mt-0 lg:mb-0">
-                    {/* The Track Base */}
-                    <div className="absolute top-0 left-0 w-full h-[12px] bg-neutral-200 rounded-full"></div>
-                    {/* The Fill */}
-                    <div className="absolute top-0 left-0 h-[12px] bg-neutral-400 rounded-full transition-all duration-700 ease-in-out" style={{ width: fillWidth }}></div>
-                    
-                    {/* Steps */}
-                    <div className="relative flex justify-between items-center z-10 px-0">
-                      {timelineSteps.map((step, idx) => {
-                        const isCompleted = idx <= Math.floor(visualIndex);
-                        const isLastStep = idx === timelineSteps.length - 1;
-                        return (
-                          <div key={step} className="flex flex-col items-center relative">
-                            {/* The Step Dot */}
-                            <div className={`w-[12px] h-[12px] rounded-full flex items-center justify-center transition-colors duration-300 ${isCompleted ? 'bg-black' : 'bg-[#f0f0f0] border-[2px] border-neutral-300'}`}>
+                <div className="flex-1 min-w-0 w-full pt-6 xl:pt-0 pb-4 xl:pb-0 relative">
+                  {/* Subtle fade effect for mobile to indicate scrollability */}
+                  <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-white to-transparent lg:hidden z-20 pointer-events-none rounded-r-[2rem]"></div>
+                  
+                  {/* Mobile swipe helper text */}
+                  <div className="absolute -top-1 right-2 text-[9px] font-bold tracking-widest uppercase text-brand-primary/60 lg:hidden flex items-center gap-0.5 pointer-events-none">
+                     <span>Swipe</span>
+                     <ChevronRight size={10} strokeWidth={3} />
+                  </div>
+
+                  <div className="w-full overflow-x-auto custom-scrollbar -mx-6 px-6 lg:mx-0 lg:px-0 lg:overflow-visible relative z-10">
+                    <div className="relative w-full min-w-[600px] lg:min-w-0 mt-8 mb-6 lg:mt-0 lg:mb-0">
+                      {/* The Track Base */}
+                      <div className="absolute top-0 left-0 w-full h-[12px] bg-neutral-200 rounded-full"></div>
+                      {/* The Fill */}
+                      <div className="absolute top-0 left-0 h-[12px] bg-neutral-400 rounded-full transition-all duration-700 ease-in-out" style={{ width: fillWidth }}></div>
+                      
+                      {/* Steps */}
+                      <div className="relative flex justify-between items-center z-10 px-0">
+                        {timelineSteps.map((step, idx) => {
+                          const isCompleted = idx <= Math.floor(visualIndex);
+                          const isLastStep = idx === timelineSteps.length - 1;
+                          return (
+                            <div key={step} className="flex flex-col items-center relative">
+                              {/* The Step Dot */}
+                              <div className={`w-[12px] h-[12px] rounded-full flex items-center justify-center transition-colors duration-300 ${isCompleted ? 'bg-black' : 'bg-[#f0f0f0] border-[2px] border-neutral-300'}`}>
+                              </div>
+                              {/* Step Label below */}
+                              <span className="absolute top-6 text-[11px] font-bold text-neutral-500 w-24 text-center tracking-wide">{step}</span>
+                              
+                              {/* Completion Date (Floating over the last item naturally if complete, or mock placing it over received for layout) */}
+                              {isLastStep && (
+                                 <span className="absolute -top-7 text-[12px] font-bold text-neutral-900 w-24 text-center">{order.date}</span>
+                              )}
                             </div>
-                            {/* Step Label below */}
-                            <span className="absolute top-6 text-[11px] font-bold text-neutral-500 w-24 text-center tracking-wide">{step}</span>
-                            
-                            {/* Completion Date (Floating over the last item naturally if complete, or mock placing it over received for layout) */}
-                            {isLastStep && (
-                               <span className="absolute -top-7 text-[12px] font-bold text-neutral-900 w-24 text-center">{order.date}</span>
-                            )}
-                          </div>
-                        );
-                      })}
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
                 </div>
