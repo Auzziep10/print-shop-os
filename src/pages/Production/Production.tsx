@@ -1264,13 +1264,14 @@ export function Production() {
                  const averageUnitsPerBox = (metricsMode === 'Kitting' && globalTotalGarmentsCompletedWithStats > 0) ? (globalTotalUnitsPackedWithStats / globalTotalGarmentsCompletedWithStats).toFixed(1) : '0';
 
                  let estimatedRemainingMins = remainingGarments * globalAvgMinsPerGarment;
+                 let kittingRemainingBoxes = 0;
                  if (metricsMode === 'Kitting') {
                      const avgUnitsNum = parseFloat(averageUnitsPerBox);
                      if (avgUnitsNum > 0) {
                          const expectedTotalBoxes = totalOrderGarments / avgUnitsNum;
                          const trueAllTimeBoxes = metricsOrder.boxes?.length || 0;
-                         const remainingBoxes = Math.max(0, expectedTotalBoxes - trueAllTimeBoxes);
-                         estimatedRemainingMins = remainingBoxes * globalAvgMinsPerGarment;
+                         kittingRemainingBoxes = Math.max(0, Math.ceil(expectedTotalBoxes - trueAllTimeBoxes));
+                         estimatedRemainingMins = kittingRemainingBoxes * globalAvgMinsPerGarment;
                      } else {
                          estimatedRemainingMins = 0;
                      }
@@ -1301,23 +1302,23 @@ export function Production() {
                      }
                  }
 
-                     let efficiencyMessage = null;
-                     if (remainingGarments === 0 && activeTargetAvgMins && trueTotalGarmentsCompletedWithStats > 0) {
-                         const trueOverallAvg = trueTotalTimeMins / trueTotalGarmentsCompletedWithStats;
-                         const projectedFinalMins = trueOverallAvg * totalOrderGarments;
-                         const targetFinalMins = activeTargetAvgMins * totalOrderGarments;
-                         const savedMins = targetFinalMins - projectedFinalMins;
-                         
-                         if (Math.abs(savedMins) >= 1) {
-                             const h = Math.abs(savedMins) / 60;
-                             const timeStr = h >= 1 ? `${h.toFixed(1)}h` : `${Math.round(Math.abs(savedMins))}m`;
-                             efficiencyMessage = savedMins > 0 
-                                 ? `Finished ${timeStr} ahead of schedule!` 
-                                 : `Ran ${timeStr} behind schedule.`;
-                         } else {
-                             efficiencyMessage = "Finished exactly on schedule!";
-                         }
+                 let efficiencyMessage = null;
+                 if (remainingGarments === 0 && activeTargetAvgMins && globalTotalGarmentsCompletedWithStats > 0) {
+                     const trueOverallAvg = globalTotalTimeMins / globalTotalGarmentsCompletedWithStats;
+                     const projectedFinalMins = trueOverallAvg * totalOrderGarments;
+                     const targetFinalMins = activeTargetAvgMins * totalOrderGarments;
+                     const savedMins = targetFinalMins - projectedFinalMins;
+                     
+                     if (Math.abs(savedMins) >= 1) {
+                         const h = Math.abs(savedMins) / 60;
+                         const timeStr = h >= 1 ? `${h.toFixed(1)}h` : `${Math.round(Math.abs(savedMins))}m`;
+                         efficiencyMessage = savedMins > 0 
+                             ? `Finished ${timeStr} ahead of schedule!` 
+                             : `Ran ${timeStr} behind schedule.`;
+                     } else {
+                         efficiencyMessage = "Finished exactly on schedule!";
                      }
+                 }
 
                      return (
                        <div className="space-y-6">
@@ -1396,10 +1397,14 @@ export function Production() {
                                 <span className={`text-xl font-black text-brand-primary`}>{estimatedRemainingMins > 60 ? (estimatedRemainingMins / 60).toFixed(1) + 'h' : Math.round(estimatedRemainingMins) + 'm'}</span>
                              </div>
                              <div className="flex flex-col border-l border-brand-primary/10 pl-4">
-                                <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/60 mb-1">Time Left</span>
-                                <span className={`text-xl font-black ${hasTargetDate && businessHoursRemaining <= 0 ? 'text-red-500' : 'text-brand-primary'}`}>
-                                   {hasTargetDate ? (businessHoursRemaining <= 0 ? 'Overdue' : `${businessHoursRemaining}h`) : 'No Deadline'}
-                                </span>
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/60 mb-1">{metricsMode === 'Kitting' ? 'Boxes Left' : 'Time Left'}</span>
+                                {metricsMode === 'Kitting' ? (
+                                   <span className="text-xl font-black text-brand-primary">{kittingRemainingBoxes}</span>
+                                ) : (
+                                   <span className={`text-xl font-black ${hasTargetDate && businessHoursRemaining <= 0 ? 'text-red-500' : 'text-brand-primary'}`}>
+                                      {hasTargetDate ? (businessHoursRemaining <= 0 ? 'Overdue' : `${businessHoursRemaining}h`) : 'No Deadline'}
+                                   </span>
+                                )}
                              </div>
                           </div>
                         </div>
