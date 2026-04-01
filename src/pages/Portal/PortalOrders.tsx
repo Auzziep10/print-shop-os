@@ -704,7 +704,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
              </div>
              
              {/* Right: Action Buttons (Moved outside card) */}
-             <div className="flex xl:flex-col justify-center gap-3 w-full xl:w-[130px] shrink-0 xl:self-start mt-6 xl:mt-0 relative z-20 xl:h-[128px]">
+             <div className="flex xl:flex-col justify-center gap-3 w-full xl:w-[130px] shrink-0 xl:self-start mt-6 xl:mt-0 relative z-20 xl:min-h-[128px]">
                 {(() => {
                  const boxesWithTracking = (order.boxes || []).filter((b: any) => b.trackingNumber && b.trackingCarrier && b.trackingCarrier !== 'Pickup');
                  const isLocalPickup = order.trackingCarrier === 'Pickup' || (order.boxes || []).some((b: any) => b.trackingCarrier === 'Pickup');
@@ -775,22 +775,25 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
                    );
                  }
                })()}
-              <button 
-                className="flex-1 xl:flex-none bg-white border border-brand-border hover:border-black hover:bg-black hover:text-white text-[12px] font-bold text-gray-800 rounded-full py-3 xl:py-4 transition-all tracking-wide text-center"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (overrideCustomerId) navigate(`/orders/${order.id}`);
-                  else window.open(`/order-summary/${order.id}`, '_blank');
-                }}
-              >
-                Order Info
-              </button>
-              <button 
-                className="flex-1 xl:flex-none bg-white border border-brand-border hover:border-brand-primary hover:bg-brand-primary/5 hover:text-brand-primary text-[12px] font-bold text-gray-800 rounded-full py-3 xl:py-4 transition-all tracking-wide text-center flex items-center justify-center gap-2"
-                onClick={(e) => handleExportOrderCSV(e, order)}
-              >
-                <Download size={14} /> Export CSV
-              </button>
+              <div className="flex w-full gap-2">
+                <button 
+                  className="flex-1 bg-white border border-brand-border hover:border-black hover:bg-black hover:text-white text-[12px] font-bold text-gray-800 rounded-full py-3 xl:py-4 transition-all tracking-wide text-center"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (overrideCustomerId) navigate(`/orders/${order.id}`);
+                    else window.open(`/order-summary/${order.id}`, '_blank');
+                  }}
+                >
+                  Order Info
+                </button>
+                <button 
+                  className="w-[48px] xl:w-[52px] shrink-0 bg-white border border-brand-border hover:border-brand-primary hover:bg-brand-primary/5 hover:text-brand-primary rounded-full transition-all flex items-center justify-center text-gray-600"
+                  onClick={(e) => handleExportOrderCSV(e, order)}
+                  title="Export Order CSV"
+                >
+                  <Download size={16} strokeWidth={2.5} />
+                </button>
+              </div>
              </div>
            </div>
         );
