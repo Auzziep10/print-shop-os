@@ -2713,14 +2713,14 @@ export function OrderDetail() {
           onClick={() => setContextMenu(null)}
         >
           <div 
-            className="absolute bg-white rounded-xl shadow-2xl border border-brand-border overflow-hidden min-w-[200px] flex flex-col z-[201] p-1"
+            className="absolute bg-white rounded-xl shadow-2xl border border-brand-border overflow-y-auto custom-scrollbar min-w-[220px] max-h-[50vh] flex flex-col z-[201] p-1"
             style={{ 
-              top: Math.min(contextMenu.y, window.innerHeight - Math.max(200, (order.boxes?.length || 0) * 40 + 100)), 
-               left: Math.min(contextMenu.x, window.innerWidth - 220) 
+              top: Math.min(contextMenu.y, window.innerHeight - Math.min(window.innerHeight * 0.5, (order.boxes?.length || 0) * 36 + 180)), 
+               left: Math.min(contextMenu.x, window.innerWidth - 240) 
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-3 py-2 border-b border-brand-border/50 mb-1 flex items-center justify-between">
+            <div className="px-3 py-2 border-b border-brand-border/50 mb-1 flex items-center justify-between pointer-events-none sticky top-0 bg-white z-10">
               <span className="text-[10px] uppercase font-bold text-brand-secondary tracking-widest">{contextMenu.size} Options</span>
               <span className="text-[10px] font-bold text-brand-primary bg-brand-bg px-2 py-0.5 rounded-full">Qty: {contextMenu.qty}</span>
             </div>
@@ -2730,21 +2730,21 @@ export function OrderDetail() {
                  {contextMenu.item.inProgressSizes[contextMenu.size].paused ? (
                    <button 
                      onClick={() => handleContextMenuAction('resume_timer')}
-                     className="text-left px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-green-600 hover:bg-green-50 rounded-lg transition-colors flex items-center gap-2"
+                     className="text-left px-3 py-2.5 text-[11px] font-bold uppercase tracking-wider text-green-600 hover:bg-green-50 rounded-lg transition-colors flex items-center gap-2"
                    >
                      <Play size={14} /> Resume Timer
                    </button>
                  ) : (
                    <button 
                      onClick={() => handleContextMenuAction('pause_timer')}
-                     className="text-left px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-orange-600 hover:bg-orange-50 rounded-lg transition-colors flex items-center gap-2"
+                     className="text-left px-3 py-2.5 text-[11px] font-bold uppercase tracking-wider text-orange-600 hover:bg-orange-50 rounded-lg transition-colors flex items-center gap-2"
                    >
                      <Pause size={14} /> Pause Timer
                    </button>
                  )}
                  <button 
                    onClick={() => handleContextMenuAction('cancel_timer')}
-                   className="text-left px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-2"
+                   className="text-left px-3 py-2.5 text-[11px] font-bold uppercase tracking-wider text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-2"
                  >
                    <X size={14} /> Cancel Timer
                  </button>
@@ -2754,28 +2754,34 @@ export function OrderDetail() {
             {contextMenu.item.completedSizes?.includes(contextMenu.size) && (!contextMenu.item.sizeStats?.[contextMenu.size]?.user || contextMenu.item.sizeStats[contextMenu.size].user === (user?.email || 'Team Member')) && (
                <button 
                  onClick={() => handleContextMenuAction('uncomplete')}
-                 className="text-left px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-orange-600 hover:bg-orange-50 rounded-lg transition-colors flex items-center gap-2"
+                 className="text-left px-3 py-2.5 text-[11px] font-bold uppercase tracking-wider text-orange-600 hover:bg-orange-50 rounded-lg transition-colors flex items-center gap-2"
                >
                  <X size={14} /> Uncomplete Size
                </button>
             )}
 
-            <div className="my-1 border-t border-brand-border/30"></div>
-            <div className="px-3 py-1.5 text-[10px] font-bold uppercase text-brand-secondary tracking-widest">Add to Package</div>
-            
-            {order.boxes && order.boxes.length > 0 ? (
-                order.boxes.map((box: any) => (
-                   <button 
-                     key={box.id}
-                     onClick={() => handleContextMenuAction('add_to_box', box.id)}
-                     className="text-left px-3 py-2 text-[11px] font-bold tracking-wider text-brand-primary hover:bg-brand-bg rounded-lg transition-colors flex items-center gap-2"
-                   >
-                     <Box size={14} className="text-brand-secondary" /> Add to {box.name}
-                   </button>
-                ))
-            ) : (
-                <div className="px-3 py-2 text-[10px] text-brand-secondary italic text-center">No shipments created yet.</div>
+            {((contextMenu.item.inProgressSizes?.[contextMenu.size] && contextMenu.item.inProgressSizes[contextMenu.size].user === (user?.email || 'Team Member')) || 
+               (contextMenu.item.completedSizes?.includes(contextMenu.size) && (!contextMenu.item.sizeStats?.[contextMenu.size]?.user || contextMenu.item.sizeStats[contextMenu.size].user === (user?.email || 'Team Member')))) && (
+               <div className="my-1 border-t border-brand-border/30"></div>
             )}
+
+            <div className="px-3 py-2 text-[10px] font-bold uppercase text-brand-secondary tracking-widest bg-white sticky top-9 z-10 border-b border-brand-border/30 mb-1">Add to Package</div>
+            
+            <div className="flex flex-col gap-0.5">
+               {order.boxes && order.boxes.length > 0 ? (
+                   order.boxes.map((box: any) => (
+                      <button 
+                        key={box.id}
+                        onClick={() => handleContextMenuAction('add_to_box', box.id)}
+                        className="text-left px-3 py-2 text-[12px] font-bold tracking-wider text-brand-primary hover:bg-brand-bg hover:text-black rounded-lg transition-colors flex items-center gap-2.5"
+                      >
+                        <Box size={14} className="text-brand-secondary" /> Add to {box.name}
+                      </button>
+                   ))
+               ) : (
+                   <div className="px-3 py-3 text-[11px] font-medium text-brand-secondary italic text-center">No shipments created yet.</div>
+               )}
+            </div>
           </div>
         </div>
       )}
