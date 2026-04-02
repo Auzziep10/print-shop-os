@@ -611,6 +611,11 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
                                   
                                   <div className="flex flex-col sm:flex-row items-center gap-3 shrink-0">
                                     <div className="flex flex-col gap-1.5 min-w-[100px]">
+                                      {box.trackingCarrier && box.trackingCarrier !== 'Pickup' && box.trackingNumber && (
+                                        <a href={getTrackingLink(box.trackingCarrier, box.trackingNumber) || '#'} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-brand-primary hover:text-black transition-colors whitespace-nowrap bg-neutral-50 hover:bg-neutral-100 px-3 py-1.5 rounded-full border border-neutral-200 w-full text-center">
+                                          <Truck size={12} /> Track
+                                        </a>
+                                      )}
                                       <a href={publicUrl} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-brand-primary hover:text-black transition-colors tooltip whitespace-nowrap bg-neutral-50 hover:bg-neutral-100 px-3 py-1.5 rounded-full border border-neutral-200 w-full text-center" onClick={(e) => e.stopPropagation()}>
                                         <ExternalLink size={12} /> View Slip
                                       </a>
