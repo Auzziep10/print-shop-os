@@ -61,7 +61,10 @@ export function PortalLayout() {
           </button>
           
           <button 
-            onClick={() => signOut()}
+            onClick={async () => {
+              await signOut();
+              navigate('/login');
+            }}
             className="text-[13px] font-semibold tracking-wide text-gray-400 hover:text-black transition-colors"
           >
             Log Out
