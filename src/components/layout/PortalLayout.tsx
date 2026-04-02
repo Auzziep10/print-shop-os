@@ -6,7 +6,7 @@ export function PortalLayout() {
   const { customerId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const { signOut } = useAuth();
+  const { signOut, userData } = useAuth();
 
   const handleCreateOrder = () => {
     navigate(customerId ? `/portal/${customerId}/create` : '/portal');
@@ -15,7 +15,7 @@ export function PortalLayout() {
   return (
     <div className="min-h-screen bg-white text-black font-sans selection:bg-black selection:text-white">
       {/* Admin Impersonation Banner */}
-      {customerId && (
+      {customerId && userData?.role !== 'Client' && (
         <div className="bg-amber-300 text-amber-900 px-6 py-2 text-[13px] font-bold flex items-center justify-center gap-3 uppercase tracking-wider">
           <Info size={16} />
           Admin View: You are currently viewing the portal as Customer {customerId}
