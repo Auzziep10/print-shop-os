@@ -134,6 +134,11 @@ export function PrintItemLabels() {
                    case 'brand': return lbl.item.brand || 'Unknown Brand';
                    case 'customer': return lbl.cust.companyName || lbl.cust.company || 'Unknown Customer';
                    case 'style': return lbl.item.style || 'Custom Garment';
+                   case 'style_before': return (lbl.item.style || 'Custom Garment').split('-')[0].trim();
+                   case 'style_after': {
+                       const parts = (lbl.item.style || 'Custom Garment').split('-');
+                       return parts.length > 1 ? parts.slice(1).join('-').trim() : parts[0].trim();
+                   }
                    case 'itemNum': return lbl.item.itemNum || '';
                    case 'gender': return lbl.item.gender && lbl.item.gender !== 'Unisex' ? lbl.item.gender : '';
                    case 'color': return lbl.item.color || '';

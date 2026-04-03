@@ -397,7 +397,9 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
                         <option value="none">-- Blank / None --</option>
                         <option value="brand">Brand</option>
                         <option value="customer">Customer Company</option>
-                        <option value="style">Garment Style Name</option>
+                        <option value="style">Garment Style Name (Full)</option>
+                        <option value="style_before">Garment Style Name (Before '-')</option>
+                        <option value="style_after">Garment Style Name (After '-')</option>
                         <option value="itemNum">Item # (SKU)</option>
                         <option value="gender">Gender</option>
                         <option value="color">Garment Color</option>
