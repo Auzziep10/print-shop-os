@@ -141,8 +141,8 @@ export function PackingSlipView() {
                               </div>
                            )}
                            <div className="flex-1 min-w-0">
-                             <p className="font-bold text-neutral-900 text-base print:text-[11px] sm:pr-4 leading-tight mb-2 sm:mb-0 print:mb-0">{fullItem.style || packedItem.style || 'Custom Garment'}</p>
-                             <div className="text-[10px] sm:text-xs print:text-[8px] font-semibold text-neutral-500 mt-1 sm:mt-1.5 print:mt-1 flex flex-wrap gap-x-2 gap-y-1 print:gap-x-1.5 mb-3 print:mb-1">
+                             <p className="font-bold text-neutral-900 text-base print:text-sm sm:pr-4 leading-tight mb-2 sm:mb-0 print:mb-0">{fullItem.style || packedItem.style || 'Custom Garment'}</p>
+                             <div className="text-[10px] sm:text-xs print:text-[10px] font-semibold text-neutral-500 mt-1 sm:mt-1.5 print:mt-1 flex flex-wrap gap-x-2 gap-y-1 print:gap-x-1.5 mb-3 print:mb-1">
                                {fullItem.gender && fullItem.gender !== 'Unisex' && <span className="bg-neutral-100 print:bg-transparent print:p-0 px-2 py-1 rounded-md">{fullItem.gender}</span>}
                                {fullItem.color && <span className="bg-neutral-100 print:bg-transparent print:p-0 px-2 py-1 rounded-md">{fullItem.color}</span>}
                                {fullItem.itemNum && <span className="bg-neutral-100 print:bg-transparent print:p-0 px-2 py-1 rounded-md">ID: {fullItem.itemNum}</span>}
@@ -155,11 +155,11 @@ export function PackingSlipView() {
                                      const sQty = packedItem.sizes[sKey];
                                      if (!sQty) return null;
                                      return (
-                                       <div key={sKey} className="bg-white print:bg-transparent border border-neutral-200 print:border-black/20 rounded-lg print:rounded overflow-hidden flex flex-col w-12 print:w-auto print:min-w-[1.25rem] shrink-0 shadow-[0_2px_4px_rgb(0,0,0,0.02)] print:shadow-none">
-                                         <span className="bg-neutral-50 print:bg-transparent text-[9px] print:text-[7px] text-center font-bold text-neutral-400 print:text-neutral-500 py-1.5 print:py-0 print:px-1 uppercase tracking-wider block border-b border-neutral-200 print:border-black/20 leading-none">
+                                       <div key={sKey} className="bg-white print:bg-transparent border border-neutral-200 print:border-black/30 rounded-lg print:rounded overflow-hidden flex flex-col w-12 print:w-auto print:min-w-[1.5rem] shrink-0 shadow-[0_2px_4px_rgb(0,0,0,0.02)] print:shadow-none">
+                                         <span className="bg-neutral-50 print:bg-transparent text-[9px] text-center font-bold text-neutral-400 print:text-neutral-500 py-1.5 print:py-0.5 print:px-1 uppercase tracking-wider block border-b border-neutral-200 print:border-black/30 leading-none">
                                             {sKey}
                                          </span>
-                                         <span className="text-[13px] print:text-[9px] text-center font-black text-neutral-900 py-2 print:py-1 block leading-none">
+                                         <span className="text-[13px] text-center font-black text-neutral-900 py-2 print:py-1 block leading-none">
                                             {sQty}
                                          </span>
                                        </div>
@@ -168,9 +168,9 @@ export function PackingSlipView() {
                                </div>
                              )}
                            </div>
-                           <div className="flex flex-col items-center justify-center shrink-0 pl-3 sm:pl-4 print:pl-2 border-l border-neutral-100 print:border-none">
-                              <p className="text-[10px] print:text-[7px] font-bold text-neutral-400 print:text-neutral-500 uppercase tracking-widest mb-1.5 print:mb-0 text-center">Qty</p>
-                              <p className="font-black text-xl sm:text-2xl print:text-sm text-neutral-900 bg-neutral-50 print:bg-transparent border border-neutral-200 print:border-none rounded-xl px-3 sm:px-4 py-2 print:p-0 min-w-[3rem] print:min-w-0 text-center inline-block">{packedItem.qty}</p>
+                           <div className="flex flex-col items-center justify-center shrink-0 pl-3 sm:pl-4 print:pl-3 border-l border-neutral-100 print:border-none">
+                              <p className="text-[10px] print:text-[9px] font-bold text-neutral-400 print:text-neutral-500 uppercase tracking-widest mb-1.5 print:mb-0.5 text-center">Qty</p>
+                              <p className="font-black text-xl sm:text-2xl text-neutral-900 bg-neutral-50 print:bg-transparent border border-neutral-200 print:border-none rounded-xl px-3 sm:px-4 py-2 print:p-0 min-w-[3rem] print:min-w-0 text-center inline-block">{packedItem.qty}</p>
                            </div>
                          </div>
                        )}) : (
