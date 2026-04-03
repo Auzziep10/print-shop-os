@@ -20,7 +20,7 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
   const [selectedSheetLabels, setSelectedSheetLabels] = useState<string[]>([]);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isItemLabelsModalOpen, setIsItemLabelsModalOpen] = useState(false);
-  const [itemLabelOverrides, setItemLabelOverrides] = useState<Record<string, { brand: string, style: string, color: string }>>({});
+  const [labelFormat, setLabelFormat] = useState({ line1: 'brand', line2: 'style', line3: 'color_size' });
   
   const [shippingLabelBox, setShippingLabelBox] = useState<any>(null);
   const [isBuyingLabel, setIsBuyingLabel] = useState(false);
@@ -344,17 +344,8 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
           <PillButton 
             variant="outline" 
             onClick={() => {
-               const overrides: any = {};
-               order.items?.forEach((item: any) => {
-                   overrides[item.id] = {
-                       brand: item.brand || shopSettings?.company || order.companyName || 'Brand',
-                       style: item.style || 'Custom Garment',
-                       color: item.color || ''
-                   };
-               });
-               setItemLabelOverrides(overrides);
                setIsItemLabelsModalOpen(true);
-            }} 
+            }}  
             className="gap-2 shrink-0 px-4 py-2 text-xs bg-white text-brand-secondary hover:text-brand-primary"
           >
             <Printer size={14} /> Item Labels
@@ -382,61 +373,52 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
 
       {isItemLabelsModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-6 overflow-y-auto">
-          <div className="bg-white max-w-2xl w-full rounded-2xl overflow-hidden shadow-2xl flex flex-col border border-brand-border my-auto max-h-[90vh]">
+          <div className="bg-white max-w-lg w-full rounded-2xl overflow-hidden shadow-2xl flex flex-col border border-brand-border my-auto">
             <div className="p-6 border-b border-brand-border flex justify-between items-center bg-brand-bg">
-              <h3 className="font-serif text-2xl text-brand-primary">Configure Item Labels</h3>
+              <h3 className="font-serif text-2xl text-brand-primary">Format Item Labels</h3>
               <button onClick={() => setIsItemLabelsModalOpen(false)} className="text-brand-secondary hover:text-brand-primary p-1">
                 <X size={20} />
               </button>
             </div>
-            <div className="p-6 overflow-y-auto flex-1 flex flex-col gap-6">
-              <p className="text-xs text-brand-secondary leading-relaxed">
-                Edit the text below to customize exactly what prints on your Avery 5160 labels. Sizes will automatically be appended to the color line.
+            <div className="p-6 flex flex-col gap-6">
+              <p className="text-sm text-brand-secondary leading-relaxed">
+                Choose what information should be printed on each line of the labels. This format will automatically generate labels for all items using the 30-up Avery template.
               </p>
               
-              {order.items?.map((item: any) => {
-                 const ov = itemLabelOverrides[item.id] || { brand: '', style: '', color: '' };
-                 return (
-                   <div key={item.id} className="border border-brand-border rounded-xl p-4 bg-brand-bg/30">
-                     <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-3">
-                           {item.image ? (
-                             <img src={item.image} alt={item.style} className="w-8 h-8 object-contain rounded-md bg-white border border-brand-border p-0.5" />
-                           ) : <Box size={14} className="text-neutral-400" />}
-                           <span className="font-bold text-sm">{item.style}</span>
-                        </div>
-                        <span className="text-[10px] font-bold uppercase tracking-widest bg-neutral-100 px-2 py-1 rounded-md text-brand-secondary border border-brand-border/50">
-                           {item.qty} Items
-                        </span>
-                     </div>
-                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        <div>
-                           <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1">Brand</label>
-                           <input type="text" value={ov.brand} onChange={e => setItemLabelOverrides({...itemLabelOverrides, [item.id]: {...ov, brand: e.target.value}})} className="w-full border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary outline-none" />
-                        </div>
-                        <div>
-                           <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1">Style</label>
-                           <input type="text" value={ov.style} onChange={e => setItemLabelOverrides({...itemLabelOverrides, [item.id]: {...ov, style: e.target.value}})} className="w-full border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary outline-none font-semibold text-brand-primary" />
-                        </div>
-                        <div>
-                           <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1">Color Line</label>
-                           <input type="text" value={ov.color} onChange={e => setItemLabelOverrides({...itemLabelOverrides, [item.id]: {...ov, color: e.target.value}})} className="w-full border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary outline-none" />
-                        </div>
-                     </div>
+              <div className="space-y-4">
+                 {[1, 2, 3].map((lineNum) => (
+                   <div key={lineNum}>
+                     <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Line {lineNum}</label>
+                     <select 
+                       value={(labelFormat as any)[`line${lineNum}`]}
+                       onChange={(e) => setLabelFormat({...labelFormat, [`line${lineNum}`]: e.target.value})}
+                       className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary outline-none"
+                     >
+                        <option value="none">-- Blank / None --</option>
+                        <option value="brand">Brand</option>
+                        <option value="customer">Customer Company</option>
+                        <option value="style">Garment Style Name</option>
+                        <option value="itemNum">Item # (SKU)</option>
+                        <option value="gender">Gender</option>
+                        <option value="color">Garment Color</option>
+                        <option value="size">Garment Size</option>
+                        <option value="color_size">Color & Size (ex. Black - XL)</option>
+                     </select>
                    </div>
-                 )
-              })}
+                 ))}
+              </div>
+
             </div>
             <div className="p-6 border-t border-brand-border flex justify-end gap-3 bg-neutral-50">
                <button onClick={() => setIsItemLabelsModalOpen(false)} className="px-5 py-2.5 text-sm font-bold text-brand-secondary hover:text-black transition-colors rounded-xl border border-transparent">
                  Cancel
                </button>
                <button onClick={() => {
-                 sessionStorage.setItem('itemLabelOverrides', JSON.stringify(itemLabelOverrides));
+                 sessionStorage.setItem('itemLabelFormatTemplate', JSON.stringify(labelFormat));
                  window.open(`/print/item-labels/${order.id}`, '_blank');
                  setIsItemLabelsModalOpen(false);
                }} className="px-5 py-2.5 text-sm font-bold bg-black text-white hover:bg-neutral-800 transition-colors rounded-xl shadow-sm flex items-center gap-2">
-                 <Printer size={16} /> Print Configuration
+                 <Printer size={16} /> Print 30-up Avery Labels
                </button>
             </div>
           </div>

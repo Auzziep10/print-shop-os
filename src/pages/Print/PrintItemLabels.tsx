@@ -59,31 +59,26 @@ export function PrintItemLabels() {
   // Flatten items into individual labels
   const allLabels: any[] = [];
   try {
-     const savedOverridesStr = sessionStorage.getItem('itemLabelOverrides');
-     const overrides = savedOverridesStr ? JSON.parse(savedOverridesStr) : {};
+     const savedTemplateStr = sessionStorage.getItem('itemLabelFormatTemplate');
+     const template = savedTemplateStr ? JSON.parse(savedTemplateStr) : { line1: 'brand', line2: 'style', line3: 'color_size' };
      
      order.items?.forEach((item: any) => {
-        const itemOverride = overrides[item.id] || {};
-        const brand = itemOverride.brand ?? (item.brand || cust.companyName || cust.company || 'Unknown Brand');
-        const style = itemOverride.style ?? (item.style || 'Custom Garment');
-        const color = itemOverride.color ?? (item.color || '');
-        
         if (item.sizes && Object.keys(item.sizes).length > 0) {
            Object.entries(item.sizes).forEach(([size, qty]) => {
               const count = parseInt(qty as string) || 0;
               for (let i = 0; i < count; i++) {
-                 allLabels.push({ brand, style, color, size });
+                 allLabels.push({ item, size, template, cust });
               }
            });
         } else {
            const count = parseInt(item.qty || 1);
            for (let i = 0; i < count; i++) {
-              allLabels.push({ brand, style, color, size: '' });
+              allLabels.push({ item, size: '', template, cust });
            }
         }
      });
   } catch (err) {
-     console.error("Failed parsing label overrides", err);
+     console.error("Failed parsing label template", err);
   }
 
   // Break labels into pages of 30 (Avery 5160 layout)
@@ -134,6 +129,28 @@ export function PrintItemLabels() {
           rowGap: '0in'
         }}>
           {pageLabels.map((lbl: any, i: number) => {
+             const getLineValue = (type: string) => {
+                switch (type) {
+                   case 'brand': return lbl.item.brand || 'Unknown Brand';
+                   case 'customer': return lbl.cust.companyName || lbl.cust.company || 'Unknown Customer';
+                   case 'style': return lbl.item.style || 'Custom Garment';
+                   case 'itemNum': return lbl.item.itemNum || '';
+                   case 'gender': return lbl.item.gender && lbl.item.gender !== 'Unisex' ? lbl.item.gender : '';
+                   case 'color': return lbl.item.color || '';
+                   case 'size': return lbl.size || '';
+                   case 'color_size': {
+                       const c = lbl.item.color || '';
+                       const s = lbl.size || '';
+                       return `${c}${c && s ? ' - ' : ''}${s}`;
+                   }
+                   default: return '';
+                }
+             };
+
+             const line1 = getLineValue(lbl.template.line1);
+             const line2 = getLineValue(lbl.template.line2);
+             const line3 = getLineValue(lbl.template.line3);
+
              return (
                <div key={i} className="relative w-full h-full box-border">
                  <div 
@@ -145,11 +162,9 @@ export function PrintItemLabels() {
                    }}
                    className="bg-black text-white p-3 flex flex-col justify-center items-start box-border font-serif overflow-hidden z-10"
                  >
-                   <span className="text-[14px] leading-tight font-normal">{lbl.brand}</span>
-                   <span className="text-[16px] leading-tight font-semibold mt-1 max-w-full truncate">{lbl.style}</span>
-                   <span className="text-[15px] leading-tight font-normal mt-1">
-                     {lbl.color}{lbl.color && lbl.size ? ' - ' : ''}{lbl.size}
-                   </span>
+                   {line1 && <span className="text-[14px] leading-tight font-normal truncate max-w-full block">{line1}</span>}
+                   {line2 && <span className="text-[16px] leading-tight font-semibold mt-1 truncate max-w-full block">{line2}</span>}
+                   {line3 && <span className="text-[15px] leading-tight font-normal mt-1 truncate max-w-full block">{line3}</span>}
                  </div>
                </div>
              );
