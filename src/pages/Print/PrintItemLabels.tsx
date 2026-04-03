@@ -120,14 +120,14 @@ export function PrintItemLabels() {
           boxSizing: 'border-box',
           boxShadow: '0 0 10px rgba(0,0,0,0.1)',
           display: 'grid',
-          gridTemplateColumns: '2.625in 2.625in 2.625in',
-          gridAutoRows: '1in',
+          gridTemplateColumns: 'repeat(3, 2.625in)',
+          gridTemplateRows: 'repeat(10, 1in)',
           columnGap: '0.125in',
           rowGap: '0in'
         }}>
           {pageLabels.map((lbl: any, i: number) => {
              return (
-               <div key={i} className="relative w-full h-full box-border flex flex-col justify-center items-start p-[0.05in]">
+               <div key={i} className="relative w-full h-full box-border">
                  <div 
                    style={{ 
                      width: '100%', 
