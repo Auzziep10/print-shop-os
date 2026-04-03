@@ -19,6 +19,8 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
   const [workingBoxes, setWorkingBoxes] = useState<DraftBox[]>([]);
   const [selectedSheetLabels, setSelectedSheetLabels] = useState<string[]>([]);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isItemLabelsModalOpen, setIsItemLabelsModalOpen] = useState(false);
+  const [itemLabelOverrides, setItemLabelOverrides] = useState<Record<string, { brand: string, style: string, color: string }>>({});
   
   const [shippingLabelBox, setShippingLabelBox] = useState<any>(null);
   const [isBuyingLabel, setIsBuyingLabel] = useState(false);
@@ -341,7 +343,18 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
         <div className="flex items-center gap-3">
           <PillButton 
             variant="outline" 
-            onClick={() => window.open(`/print/item-labels/${order.id}`, '_blank')} 
+            onClick={() => {
+               const overrides: any = {};
+               order.items?.forEach((item: any) => {
+                   overrides[item.id] = {
+                       brand: item.brand || shopSettings?.company || order.companyName || 'Brand',
+                       style: item.style || 'Custom Garment',
+                       color: item.color || ''
+                   };
+               });
+               setItemLabelOverrides(overrides);
+               setIsItemLabelsModalOpen(true);
+            }} 
             className="gap-2 shrink-0 px-4 py-2 text-xs bg-white text-brand-secondary hover:text-brand-primary"
           >
             <Printer size={14} /> Item Labels
@@ -366,6 +379,69 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
           </PillButton>
         </div>
       </div>
+
+      {isItemLabelsModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-6 overflow-y-auto">
+          <div className="bg-white max-w-2xl w-full rounded-2xl overflow-hidden shadow-2xl flex flex-col border border-brand-border my-auto max-h-[90vh]">
+            <div className="p-6 border-b border-brand-border flex justify-between items-center bg-brand-bg">
+              <h3 className="font-serif text-2xl text-brand-primary">Configure Item Labels</h3>
+              <button onClick={() => setIsItemLabelsModalOpen(false)} className="text-brand-secondary hover:text-brand-primary p-1">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto flex-1 flex flex-col gap-6">
+              <p className="text-xs text-brand-secondary leading-relaxed">
+                Edit the text below to customize exactly what prints on your Avery 5160 labels. Sizes will automatically be appended to the color line.
+              </p>
+              
+              {order.items?.map((item: any) => {
+                 const ov = itemLabelOverrides[item.id] || { brand: '', style: '', color: '' };
+                 return (
+                   <div key={item.id} className="border border-brand-border rounded-xl p-4 bg-brand-bg/30">
+                     <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                           {item.image ? (
+                             <img src={item.image} alt={item.style} className="w-8 h-8 object-contain rounded-md bg-white border border-brand-border p-0.5" />
+                           ) : <Box size={14} className="text-neutral-400" />}
+                           <span className="font-bold text-sm">{item.style}</span>
+                        </div>
+                        <span className="text-[10px] font-bold uppercase tracking-widest bg-neutral-100 px-2 py-1 rounded-md text-brand-secondary border border-brand-border/50">
+                           {item.qty} Items
+                        </span>
+                     </div>
+                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div>
+                           <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1">Brand</label>
+                           <input type="text" value={ov.brand} onChange={e => setItemLabelOverrides({...itemLabelOverrides, [item.id]: {...ov, brand: e.target.value}})} className="w-full border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary outline-none" />
+                        </div>
+                        <div>
+                           <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1">Style</label>
+                           <input type="text" value={ov.style} onChange={e => setItemLabelOverrides({...itemLabelOverrides, [item.id]: {...ov, style: e.target.value}})} className="w-full border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary outline-none font-semibold text-brand-primary" />
+                        </div>
+                        <div>
+                           <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1">Color Line</label>
+                           <input type="text" value={ov.color} onChange={e => setItemLabelOverrides({...itemLabelOverrides, [item.id]: {...ov, color: e.target.value}})} className="w-full border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary outline-none" />
+                        </div>
+                     </div>
+                   </div>
+                 )
+              })}
+            </div>
+            <div className="p-6 border-t border-brand-border flex justify-end gap-3 bg-neutral-50">
+               <button onClick={() => setIsItemLabelsModalOpen(false)} className="px-5 py-2.5 text-sm font-bold text-brand-secondary hover:text-black transition-colors rounded-xl border border-transparent">
+                 Cancel
+               </button>
+               <button onClick={() => {
+                 sessionStorage.setItem('itemLabelOverrides', JSON.stringify(itemLabelOverrides));
+                 window.open(`/print/item-labels/${order.id}`, '_blank');
+                 setIsItemLabelsModalOpen(false);
+               }} className="px-5 py-2.5 text-sm font-bold bg-black text-white hover:bg-neutral-800 transition-colors rounded-xl shadow-sm flex items-center gap-2">
+                 <Printer size={16} /> Print Configuration
+               </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isAddingBox && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-6 overflow-y-auto">

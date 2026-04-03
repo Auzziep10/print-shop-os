@@ -58,25 +58,33 @@ export function PrintItemLabels() {
   
   // Flatten items into individual labels
   const allLabels: any[] = [];
-  order.items.forEach((item: any) => {
-     const brand = item.brand || cust.companyName || cust.company || 'Unknown Brand';
-     const style = item.style || 'Custom Garment';
-     const color = item.color || '';
+  try {
+     const savedOverridesStr = sessionStorage.getItem('itemLabelOverrides');
+     const overrides = savedOverridesStr ? JSON.parse(savedOverridesStr) : {};
      
-     if (item.sizes && Object.keys(item.sizes).length > 0) {
-        Object.entries(item.sizes).forEach(([size, qty]) => {
-           const count = parseInt(qty as string) || 0;
+     order.items?.forEach((item: any) => {
+        const itemOverride = overrides[item.id] || {};
+        const brand = itemOverride.brand ?? (item.brand || cust.companyName || cust.company || 'Unknown Brand');
+        const style = itemOverride.style ?? (item.style || 'Custom Garment');
+        const color = itemOverride.color ?? (item.color || '');
+        
+        if (item.sizes && Object.keys(item.sizes).length > 0) {
+           Object.entries(item.sizes).forEach(([size, qty]) => {
+              const count = parseInt(qty as string) || 0;
+              for (let i = 0; i < count; i++) {
+                 allLabels.push({ brand, style, color, size });
+              }
+           });
+        } else {
+           const count = parseInt(item.qty || 1);
            for (let i = 0; i < count; i++) {
-              allLabels.push({ brand, style, color, size });
+              allLabels.push({ brand, style, color, size: '' });
            }
-        });
-     } else {
-        const count = parseInt(item.qty || 1);
-        for (let i = 0; i < count; i++) {
-           allLabels.push({ brand, style, color, size: '' });
         }
-     }
-  });
+     });
+  } catch (err) {
+     console.error("Failed parsing label overrides", err);
+  }
 
   // Break labels into pages of 30 (Avery 5160 layout)
   const pages = [];
@@ -132,9 +140,10 @@ export function PrintItemLabels() {
                    style={{ 
                      width: '100%', 
                      height: '100%',
-                     borderRadius: '0.125in'
+                     borderRadius: '0.125in',
+                     outline: '0.05in solid black'
                    }}
-                   className="bg-black text-white p-3 flex flex-col justify-center items-start box-border font-serif overflow-hidden"
+                   className="bg-black text-white p-3 flex flex-col justify-center items-start box-border font-serif overflow-hidden z-10"
                  >
                    <span className="text-[14px] leading-tight font-normal">{lbl.brand}</span>
                    <span className="text-[16px] leading-tight font-semibold mt-1 max-w-full truncate">{lbl.style}</span>
