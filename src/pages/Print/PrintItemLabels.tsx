@@ -60,7 +60,7 @@ export function PrintItemLabels() {
   const allLabels: any[] = [];
   try {
      const savedTemplateStr = sessionStorage.getItem('itemLabelFormatTemplate');
-     const template = savedTemplateStr ? JSON.parse(savedTemplateStr) : { fontFamily: 'serif', line1: 'brand', line2: 'style', line3: 'color_size' };
+     const template = savedTemplateStr ? JSON.parse(savedTemplateStr) : { fontFamily: 'times', line1: 'brand', line2: 'style', line3: 'color_size' };
      
      order.items?.forEach((item: any) => {
         if (item.sizes && Object.keys(item.sizes).length > 0) {
@@ -165,6 +165,7 @@ export function PrintItemLabels() {
                  switch (fontType) {
                      case 'sans': return 'font-sans tracking-tight';
                      case 'mono': return 'font-mono tracking-tight';
+                     case 'times': return '[font-family:"Times_New_Roman",Times,serif] tracking-normal';
                      case 'serif': default: return 'font-serif tracking-normal';
                  }
              };

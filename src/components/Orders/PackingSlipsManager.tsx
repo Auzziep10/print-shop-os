@@ -397,8 +397,9 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
                    onChange={(e) => setLabelFormat({...labelFormat, fontFamily: e.target.value})}
                    className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary outline-none"
                  >
-                    <option value="serif">Serif (Classic & Elegant)</option>
-                    <option value="sans">Sans-Serif (Clean & Modern)</option>
+                    <option value="times">Times New Roman</option>
+                    <option value="serif">Serif (Modern)</option>
+                    <option value="sans">Sans-Serif (Clean)</option>
                     <option value="mono">Monospace (Typewriter)</option>
                  </select>
               </div>
