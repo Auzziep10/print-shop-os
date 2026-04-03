@@ -82,7 +82,7 @@ export function PackingSlipView() {
   return (
     <div className="bg-[#FDFCF9] print:bg-white font-sans text-neutral-900 overflow-x-hidden min-h-screen pb-12">
        {boxes.map((box, idx) => {
-         const isCondensed = box.items?.length > 1;
+         const isCondensed = box.items?.length > 4;
          return (
          <div key={box.id} className={`py-6 md:py-12 px-4 print:p-0 ${idx < boxes.length - 1 ? 'print:break-after-page mb-8 border-b-2 border-dashed border-neutral-300 print:border-none print:mb-0' : ''}`}>
            {isCondensed ? (
