@@ -339,6 +339,13 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
       <div className="flex justify-between items-center mb-6 pb-2 border-b border-brand-border">
         <h2 className={tokens.typography.h2}>Packing Slips & Labels</h2>
         <div className="flex items-center gap-3">
+          <PillButton 
+            variant="outline" 
+            onClick={() => window.open(`/print/item-labels/${order.id}`, '_blank')} 
+            className="gap-2 shrink-0 px-4 py-2 text-xs bg-white text-brand-secondary hover:text-brand-primary"
+          >
+            <Printer size={14} /> Item Labels
+          </PillButton>
           {(order.boxes && order.boxes.length > 0) && (
             <PillButton 
               variant="outline" 
