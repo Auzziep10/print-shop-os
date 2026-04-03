@@ -152,6 +152,15 @@ export function PrintItemLabels() {
                 }
              };
 
+             const getStyle = (styleType: string) => {
+                switch (styleType) {
+                   case 'bold': return 'font-bold not-italic';
+                   case 'italic': return 'font-normal italic';
+                   case 'bold-italic': return 'font-bold italic';
+                   default: return 'font-normal not-italic';
+                }
+             };
+
              const line1 = getLineValue(lbl.template.line1);
              const line2 = getLineValue(lbl.template.line2);
              const line3 = getLineValue(lbl.template.line3);
@@ -167,9 +176,9 @@ export function PrintItemLabels() {
                    }}
                    className="bg-black text-white p-3 flex flex-col justify-center items-start box-border font-serif overflow-hidden z-10"
                  >
-                   {line1 && <span className="text-[14px] leading-tight font-normal truncate max-w-full block">{line1}</span>}
-                   {line2 && <span className="text-[16px] leading-tight font-semibold mt-1 truncate max-w-full block">{line2}</span>}
-                   {line3 && <span className="text-[15px] leading-tight font-normal mt-1 truncate max-w-full block">{line3}</span>}
+                   {line1 && <span className={`text-[17px] leading-[1.2] truncate max-w-full block ${getStyle(lbl.template.line1Style || 'regular')}`}>{line1}</span>}
+                   {line2 && <span className={`text-[17px] leading-[1.2] mt-1 truncate max-w-full block ${getStyle(lbl.template.line2Style || 'regular')}`}>{line2}</span>}
+                   {line3 && <span className={`text-[17px] leading-[1.2] mt-1 truncate max-w-full block ${getStyle(lbl.template.line3Style || 'regular')}`}>{line3}</span>}
                  </div>
                </div>
              );

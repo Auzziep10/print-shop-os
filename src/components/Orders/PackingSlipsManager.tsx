@@ -20,7 +20,11 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
   const [selectedSheetLabels, setSelectedSheetLabels] = useState<string[]>([]);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isItemLabelsModalOpen, setIsItemLabelsModalOpen] = useState(false);
-  const [labelFormat, setLabelFormat] = useState({ line1: 'brand', line2: 'style', line3: 'color_size' });
+  const [labelFormat, setLabelFormat] = useState({ 
+    line1: 'style_before', line1Style: 'regular', 
+    line2: 'style_after', line2Style: 'regular', 
+    line3: 'color_size', line3Style: 'regular' 
+  });
   
   const [shippingLabelBox, setShippingLabelBox] = useState<any>(null);
   const [isBuyingLabel, setIsBuyingLabel] = useState(false);
@@ -389,23 +393,35 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
                  {[1, 2, 3].map((lineNum) => (
                    <div key={lineNum}>
                      <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Line {lineNum}</label>
-                     <select 
-                       value={(labelFormat as any)[`line${lineNum}`]}
-                       onChange={(e) => setLabelFormat({...labelFormat, [`line${lineNum}`]: e.target.value})}
-                       className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary outline-none"
-                     >
-                        <option value="none">-- Blank / None --</option>
-                        <option value="brand">Brand</option>
-                        <option value="customer">Customer Company</option>
-                        <option value="style">Garment Style Name (Full)</option>
-                        <option value="style_before">Garment Style Name (Before '-')</option>
-                        <option value="style_after">Garment Style Name (After '-')</option>
-                        <option value="itemNum">Item # (SKU)</option>
-                        <option value="gender">Gender</option>
-                        <option value="color">Garment Color</option>
-                        <option value="size">Garment Size</option>
-                        <option value="color_size">Color & Size (ex. Black - XL)</option>
-                     </select>
+                     <div className="flex gap-2">
+                       <select 
+                         value={(labelFormat as any)[`line${lineNum}`] || 'none'}
+                         onChange={(e) => setLabelFormat({...labelFormat, [`line${lineNum}`]: e.target.value})}
+                         className="flex-1 bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary outline-none"
+                       >
+                          <option value="none">-- Blank / None --</option>
+                          <option value="brand">Brand</option>
+                          <option value="customer">Customer Company</option>
+                          <option value="style">Garment Style Name (Full)</option>
+                          <option value="style_before">Garment Style Name (Before '-')</option>
+                          <option value="style_after">Garment Style Name (After '-')</option>
+                          <option value="itemNum">Item # (SKU)</option>
+                          <option value="gender">Gender</option>
+                          <option value="color">Garment Color</option>
+                          <option value="size">Garment Size</option>
+                          <option value="color_size">Color & Size (ex. Black - XL)</option>
+                       </select>
+                       <select 
+                         value={(labelFormat as any)[`line${lineNum}Style`] || 'regular'}
+                         onChange={(e) => setLabelFormat({...labelFormat, [`line${lineNum}Style`]: e.target.value})}
+                         className="w-1/3 bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary outline-none"
+                       >
+                          <option value="regular">Regular</option>
+                          <option value="bold">Bold</option>
+                          <option value="italic">Italic</option>
+                          <option value="bold-italic">Bold Italic</option>
+                       </select>
+                     </div>
                    </div>
                  ))}
               </div>
