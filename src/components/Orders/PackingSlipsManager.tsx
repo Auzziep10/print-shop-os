@@ -21,6 +21,7 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
   const [isExpanded, setIsExpanded] = useState(false);
   const [isItemLabelsModalOpen, setIsItemLabelsModalOpen] = useState(false);
   const [labelFormat, setLabelFormat] = useState({ 
+    fontFamily: 'serif',
     line1: 'style_before', line1Style: 'regular', 
     line2: 'style_after', line2Style: 'regular', 
     line3: 'color_size', line3Style: 'regular' 
@@ -388,6 +389,19 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
               <p className="text-sm text-brand-secondary leading-relaxed">
                 Choose what information should be printed on each line of the labels. This format will automatically generate labels for all items using the 30-up Avery template.
               </p>
+
+              <div>
+                 <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Global Font Style</label>
+                 <select 
+                   value={(labelFormat as any).fontFamily || 'serif'}
+                   onChange={(e) => setLabelFormat({...labelFormat, fontFamily: e.target.value})}
+                   className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary outline-none"
+                 >
+                    <option value="serif">Serif (Classic & Elegant)</option>
+                    <option value="sans">Sans-Serif (Clean & Modern)</option>
+                    <option value="mono">Monospace (Typewriter)</option>
+                 </select>
+              </div>
               
               <div className="space-y-4">
                  {[1, 2, 3].map((lineNum) => (

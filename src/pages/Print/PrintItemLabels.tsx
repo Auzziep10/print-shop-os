@@ -60,7 +60,7 @@ export function PrintItemLabels() {
   const allLabels: any[] = [];
   try {
      const savedTemplateStr = sessionStorage.getItem('itemLabelFormatTemplate');
-     const template = savedTemplateStr ? JSON.parse(savedTemplateStr) : { line1: 'brand', line2: 'style', line3: 'color_size' };
+     const template = savedTemplateStr ? JSON.parse(savedTemplateStr) : { fontFamily: 'serif', line1: 'brand', line2: 'style', line3: 'color_size' };
      
      order.items?.forEach((item: any) => {
         if (item.sizes && Object.keys(item.sizes).length > 0) {
@@ -161,6 +161,14 @@ export function PrintItemLabels() {
                 }
              };
 
+             const getFontFamily = (fontType: string) => {
+                 switch (fontType) {
+                     case 'sans': return 'font-sans tracking-tight';
+                     case 'mono': return 'font-mono tracking-tight';
+                     case 'serif': default: return 'font-serif tracking-normal';
+                 }
+             };
+
              const line1 = getLineValue(lbl.template.line1);
              const line2 = getLineValue(lbl.template.line2);
              const line3 = getLineValue(lbl.template.line3);
@@ -174,7 +182,7 @@ export function PrintItemLabels() {
                      borderRadius: '0.125in',
                      outline: '0.05in solid black'
                    }}
-                   className="bg-black text-white p-3 flex flex-col justify-center items-start box-border font-serif overflow-hidden z-10"
+                   className={`bg-black text-white p-3 flex flex-col justify-center items-start box-border overflow-hidden z-10 ${getFontFamily(lbl.template.fontFamily)}`}
                  >
                    {line1 && <span className={`text-[17px] leading-[1.2] truncate max-w-full block ${getStyle(lbl.template.line1Style || 'regular')}`}>{line1}</span>}
                    {line2 && <span className={`text-[17px] leading-[1.2] mt-1 truncate max-w-full block ${getStyle(lbl.template.line2Style || 'regular')}`}>{line2}</span>}
