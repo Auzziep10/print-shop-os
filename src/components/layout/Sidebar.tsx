@@ -8,7 +8,6 @@ import {
   UsersRound, 
   Settings, 
   FileBox,
-  FileText,
   X
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
@@ -22,8 +21,7 @@ export function Sidebar({ onClose }: SidebarProps) {
 
   const navItems = [
     { label: 'Dashboard', icon: LayoutDashboard, path: '/' },
-    { label: 'Orders', icon: Layers, path: '/orders' },
-    { label: 'Quotes', icon: FileText, path: '/orders?tab=quotes' },
+    { label: 'Orders/Quotes', icon: Layers, path: '/orders' },
     { label: 'Customers', icon: Users, path: '/customers' },
     { label: 'Production', icon: Scissors, path: '/production' },
     { label: 'Artwork', icon: ImageIcon, path: '/artwork' },
