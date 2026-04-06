@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ArrowLeft, ChevronDown, Upload, Plus, Trash2 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { db } from '../../lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 
 export function PortalRequestQuote() {
   const navigate = useNavigate();
@@ -9,6 +11,69 @@ export function PortalRequestQuote() {
   const [products, setProducts] = useState([
     { id: 1 }
   ]);
+
+  const [contactName, setContactName] = useState('');
+  const [emailAddress, setEmailAddress] = useState('');
+  const [phone, setPhone] = useState('');
+  
+  const [shippingAddress, setShippingAddress] = useState({
+    line1: '',
+    line2: '',
+    city: '',
+    state: '',
+    zip: '',
+    country: ''
+  });
+
+  const [orderOnBehalf, setOrderOnBehalf] = useState({
+    department: '',
+    contactPerson: ''
+  });
+
+  const [inHandsDate, setInHandsDate] = useState('');
+  const [notes, setNotes] = useState('');
+  const [budgetTier, setBudgetTier] = useState('');
+
+  useEffect(() => {
+    const fetchCustomer = async () => {
+      if (!customerId) return;
+      try {
+        const docRef = doc(db, 'customers', customerId);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          
+          if (data.name) setContactName(data.name);
+          if (data.email) setEmailAddress(data.email);
+          if (data.phone) setPhone(data.phone);
+
+          // Try to auto-populate shipping address if it exists
+          if (data.shippingAddress) {
+            setShippingAddress({
+              line1: data.shippingAddress.line1 || data.shippingAddress.street || '',
+              line2: data.shippingAddress.line2 || data.shippingAddress.street2 || '',
+              city: data.shippingAddress.city || '',
+              state: data.shippingAddress.state || '',
+              zip: data.shippingAddress.zip || '',
+              country: data.shippingAddress.country || ''
+            });
+          } else if (data.billingAddress) {
+             setShippingAddress({
+              line1: data.billingAddress.line1 || data.billingAddress.street || '',
+              line2: data.billingAddress.line2 || data.billingAddress.street2 || '',
+              city: data.billingAddress.city || '',
+              state: data.billingAddress.state || '',
+              zip: data.billingAddress.zip || '',
+              country: data.billingAddress.country || ''
+            });
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching customer", err);
+      }
+    };
+    fetchCustomer();
+  }, [customerId]);
 
   const handleBack = () => {
     navigate(customerId ? `/portal/${customerId}` : '/portal');
@@ -56,15 +121,15 @@ export function PortalRequestQuote() {
             <div className="grid grid-cols-1 gap-6">
                 <div className="flex flex-col gap-2">
                     <label className="text-sm font-bold text-neutral-900">Contact Name</label>
-                    <input type="text" className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-3 text-sm text-neutral-900 focus:outline-none focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400 placeholder:text-neutral-400 transition-all" />
+                    <input type="text" value={contactName} onChange={e => setContactName(e.target.value)} className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-3 text-sm text-neutral-900 focus:outline-none focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400 placeholder:text-neutral-400 transition-all" />
                 </div>
                 <div className="flex flex-col gap-2">
                     <label className="text-sm font-bold text-neutral-900">Email Address</label>
-                    <input type="email" className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-3 text-sm text-neutral-900 focus:outline-none focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400 placeholder:text-neutral-400 transition-all" />
+                    <input type="email" value={emailAddress} onChange={e => setEmailAddress(e.target.value)} className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-3 text-sm text-neutral-900 focus:outline-none focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400 placeholder:text-neutral-400 transition-all" />
                 </div>
                 <div className="flex flex-col gap-2">
                     <label className="text-sm font-bold text-neutral-900">Phone Number (Optional)</label>
-                    <input type="tel" className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-3 text-sm text-neutral-900 focus:outline-none focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400 placeholder:text-neutral-400 transition-all" />
+                    <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-3 text-sm text-neutral-900 focus:outline-none focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400 placeholder:text-neutral-400 transition-all" />
                 </div>
             </div>
         </div>
@@ -96,29 +161,29 @@ export function PortalRequestQuote() {
                     <label className="text-sm font-bold text-neutral-900 border-t border-neutral-100 pt-6">Shipping Address (Optional)</label>
                     <div className="flex flex-col gap-2">
                         <label className="text-xs font-bold text-neutral-700">Address Line 1</label>
-                        <input type="text" placeholder="Street address" className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-3 text-sm text-neutral-900 focus:outline-none focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400 placeholder:text-neutral-400 transition-all" />
+                        <input type="text" value={shippingAddress.line1} onChange={e => setShippingAddress(prev => ({...prev, line1: e.target.value}))} placeholder="Street address" className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-3 text-sm text-neutral-900 focus:outline-none focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400 placeholder:text-neutral-400 transition-all" />
                     </div>
                     <div className="flex flex-col gap-2">
                         <label className="text-xs font-bold text-neutral-700">Address Line 2 (Optional)</label>
-                        <input type="text" placeholder="Apt, suite, unit, etc." className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-3 text-sm text-neutral-900 focus:outline-none focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400 placeholder:text-neutral-400 transition-all" />
+                        <input type="text" value={shippingAddress.line2} onChange={e => setShippingAddress(prev => ({...prev, line2: e.target.value}))} placeholder="Apt, suite, unit, etc." className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-3 text-sm text-neutral-900 focus:outline-none focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400 placeholder:text-neutral-400 transition-all" />
                     </div>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="flex flex-col gap-2">
                             <label className="text-xs font-bold text-neutral-700">City</label>
-                            <input type="text" placeholder="City" className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-3 text-sm text-neutral-900 focus:outline-none focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400 placeholder:text-neutral-400 transition-all" />
+                            <input type="text" value={shippingAddress.city} onChange={e => setShippingAddress(prev => ({...prev, city: e.target.value}))} placeholder="City" className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-3 text-sm text-neutral-900 focus:outline-none focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400 placeholder:text-neutral-400 transition-all" />
                         </div>
                         <div className="flex flex-col gap-2">
                             <label className="text-xs font-bold text-neutral-700">State/Province</label>
-                            <input type="text" placeholder="State or Province" className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-3 text-sm text-neutral-900 focus:outline-none focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400 placeholder:text-neutral-400 transition-all" />
+                            <input type="text" value={shippingAddress.state} onChange={e => setShippingAddress(prev => ({...prev, state: e.target.value}))} placeholder="State or Province" className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-3 text-sm text-neutral-900 focus:outline-none focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400 placeholder:text-neutral-400 transition-all" />
                         </div>
                         <div className="flex flex-col gap-2">
                             <label className="text-xs font-bold text-neutral-700">ZIP/Postal Code</label>
-                            <input type="text" placeholder="ZIP or Postal Code" className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-3 text-sm text-neutral-900 focus:outline-none focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400 placeholder:text-neutral-400 transition-all" />
+                            <input type="text" value={shippingAddress.zip} onChange={e => setShippingAddress(prev => ({...prev, zip: e.target.value}))} placeholder="ZIP or Postal Code" className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-3 text-sm text-neutral-900 focus:outline-none focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400 placeholder:text-neutral-400 transition-all" />
                         </div>
                         <div className="flex flex-col gap-2">
                             <label className="text-xs font-bold text-neutral-700">Country</label>
-                            <input type="text" placeholder="Country" className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-3 text-sm text-neutral-900 focus:outline-none focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400 placeholder:text-neutral-400 transition-all" />
+                            <input type="text" value={shippingAddress.country} onChange={e => setShippingAddress(prev => ({...prev, country: e.target.value}))} placeholder="Country" className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-3 text-sm text-neutral-900 focus:outline-none focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400 placeholder:text-neutral-400 transition-all" />
                         </div>
                     </div>
                 </div>
