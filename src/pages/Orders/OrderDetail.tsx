@@ -743,13 +743,24 @@ export function OrderDetail() {
     }
   };
 
-  // Update edit form when order loads or changes
+  // Safe date parser for native <input type="date" />
+  const formatForDateInput = (dateStr: string) => {
+    if (!dateStr) return '';
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return '';
+      return d.toISOString().split('T')[0];
+    } catch (e) {
+      return '';
+    }
+  };
+
   useEffect(() => {
     const order = orders.find(o => o.id === id);
     if (order) {
       setEditForm({
         title: order.title || '',
-        date: order.date || '',
+        date: formatForDateInput(order.targetCompletionDate || order.date || ''),
         statusIndex: order.statusIndex || 0,
         trackingCarrier: order.trackingCarrier || '',
         trackingNumber: order.trackingNumber || '',
@@ -767,6 +778,7 @@ export function OrderDetail() {
       await setDoc(doc(db, 'orders', id), {
         title: editForm.title,
         date: editForm.date,
+        targetCompletionDate: editForm.date,
         statusIndex: editForm.statusIndex,
         trackingCarrier: editForm.trackingCarrier,
         trackingNumber: editForm.trackingNumber,
@@ -1959,11 +1971,10 @@ export function OrderDetail() {
                     <div>
                       <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-2">Due Date</label>
                       <input 
-                        type="text" 
+                        type="date" 
                         value={editForm.date}
                         onChange={(e) => setEditForm(prev => ({ ...prev, date: e.target.value }))}
                         className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
-                        placeholder="e.g. 3/29/26"
                       />
                     </div>
                   </div>
