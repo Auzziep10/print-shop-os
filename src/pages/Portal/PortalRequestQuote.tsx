@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { ArrowLeft, ChevronDown, Upload, Plus, Trash2 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { db, storage } from '../../lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 export function PortalRequestQuote() {
@@ -34,6 +34,7 @@ export function PortalRequestQuote() {
   const [inHandsDate, setInHandsDate] = useState('');
   const [notes, setNotes] = useState('');
   const [budgetTier, setBudgetTier] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     const fetchCustomer = async () => {
@@ -98,6 +99,69 @@ export function PortalRequestQuote() {
     } catch (err) {
       console.error("Upload failed", err);
       setProducts(prev => prev.map((p: any) => p.id === productId ? { ...p, isUploading: false } : p));
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!customerId) return;
+    
+    if (!contactName || !emailAddress) {
+       alert("Please provide at least a contact name and email.");
+       return;
+    }
+    
+    setIsSubmitting(true);
+    try {
+      const payload = {
+        id: `quote-${Date.now()}`,
+        portalId: Math.floor(Math.random() * 100000).toString(),
+        customerId: customerId,
+        title: `Quote Request from ${contactName}`,
+        statusIndex: 0, // 0 = Request Created (Quote)
+        date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric'}),
+        createdAt: new Date().toISOString(),
+        items: products.map(p => ({
+           id: p.id || Date.now(),
+           style: p.garmentName || 'Custom Garment',
+           color: p.color || '',
+           qty: p.qty ? parseInt(p.qty) : 0,
+           image: p.artworkUrl || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200',
+           notes: '',
+           sizes: {}
+        })),
+        shippingAddress: {
+           street1: shippingAddress.line1,
+           city: shippingAddress.city,
+           state: shippingAddress.state,
+           zip: shippingAddress.zip,
+           country: shippingAddress.country,
+           name: orderOnBehalf.contactPerson || contactName
+        },
+        contactDetails: {
+           name: contactName,
+           email: emailAddress,
+           phone: phone
+        },
+        inHandsDate: inHandsDate,
+        notes: notes,
+        budgetTier: budgetTier,
+        activities: [{
+          id: `act-${Date.now()}`,
+          type: 'system',
+          message: `Quote request submitted by ${contactName}`,
+          user: emailAddress,
+          timestamp: new Date().toISOString()
+        }]
+      };
+
+      await setDoc(doc(db, 'orders', payload.id), payload);
+      alert("Quote Request Successfully Submitted!");
+      navigate(`/portal/${customerId}`);
+    } catch (err) {
+      console.error("Error submitting quote:", err);
+      alert("There was an error submitting your quote request. Please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -377,11 +441,15 @@ export function PortalRequestQuote() {
 
         {/* Actions */}
         <div className="flex items-center gap-4 mt-4">
-            <button className="flex-1 bg-black text-white py-4 rounded-xl text-sm font-bold tracking-wide hover:bg-neutral-800 transition-all shadow-md flex justify-center items-center gap-2">
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                Submit Quote Request
+            <button disabled={isSubmitting} onClick={handleSubmit} className="flex-1 bg-black text-white py-4 rounded-xl text-sm font-bold tracking-wide hover:bg-neutral-800 transition-all shadow-md flex justify-center items-center gap-2">
+                {isSubmitting ? (
+                   <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div>
+                ) : (
+                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                   </svg>
+                )}
+                {isSubmitting ? "Submitting Request..." : "Submit Quote Request"}
             </button>
             <button 
                 onClick={handleBack}

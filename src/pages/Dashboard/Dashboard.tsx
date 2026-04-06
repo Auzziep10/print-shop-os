@@ -176,8 +176,9 @@ export function Dashboard() {
   const teamMetricUsers = Object.keys(statsByUser).sort((a,b) => statsByUser[b].garmentsCompleted - statsByUser[a].garmentsCompleted);
   const teamKittingMetricUsers = Object.keys(kittingStatsByUser).sort((a,b) => kittingStatsByUser[b].garmentsKitted - kittingStatsByUser[a].garmentsKitted);
 
-  const awaitingArtworkOrders = orders.filter(o => o.statusIndex === 0 && !o.isProjectGroup);
+  const newQuoteRequests = orders.filter(o => o.statusIndex === 0 && !o.isProjectGroup);
   const pendingApprovalOrders = orders.filter(o => o.statusIndex === 1 && !o.isProjectGroup);
+  const newApprovedOrders = orders.filter(o => o.statusIndex === 3 && !o.isProjectGroup);
   
   const todayDateStr = new Date().toISOString().split('T')[0];
   const completedTodayOrders = orders.filter(o => {
@@ -188,8 +189,9 @@ export function Dashboard() {
 
   const getBreakdownOrders = () => {
     switch (activeStat) {
-      case 'Awaiting Artwork': return awaitingArtworkOrders;
+      case 'New Quotes': return newQuoteRequests;
       case 'Pending Approval': return pendingApprovalOrders;
+      case 'New Orders': return newApprovedOrders;
       case 'In Production': return productionOrders;
       case 'Completed Today': return completedTodayOrders;
       default: return [];
@@ -197,8 +199,9 @@ export function Dashboard() {
   };
 
   const statCards = [
-    { label: 'Awaiting Artwork', value: awaitingArtworkOrders.length.toString(), trend: awaitingArtworkOrders.length > 0 ? 'Requires attention' : 'All clear' },
+    { label: 'New Quotes', value: newQuoteRequests.length.toString(), trend: newQuoteRequests.length > 0 ? 'Requires attention' : 'All clear' },
     { label: 'Pending Approval', value: pendingApprovalOrders.length.toString(), trend: pendingApprovalOrders.length > 0 ? 'Urgent' : 'All clear' },
+    { label: 'New Orders', value: newApprovedOrders.length.toString(), trend: newApprovedOrders.length > 0 ? 'Assign to floor' : 'All clear' },
     { label: 'In Production', value: productionOrders.length.toString(), trend: 'On schedule' },
     { label: 'Completed Today', value: completedTodayOrders.length.toString(), trend: 'Great work' }
   ];
@@ -308,13 +311,17 @@ export function Dashboard() {
                  <p className="text-white/60 text-sm mb-6">Tools requiring immediate attention.</p>
                  
                  <div className="space-y-3 mb-6">
+                    <div onClick={() => setActiveStat('New Quotes')} className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-colors cursor-pointer group">
+                      <span className="text-sm font-medium text-white/90 group-hover:text-white transition-colors">Review New Quotes</span>
+                      <span className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs shadow-sm ${newQuoteRequests.length > 0 ? 'bg-amber-500 text-brand-primary' : 'bg-white/20 text-white/50'}`}>{newQuoteRequests.length}</span>
+                    </div>
                     <div onClick={() => setActiveStat('Pending Approval')} className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-colors cursor-pointer group">
                       <span className="text-sm font-medium text-white/90 group-hover:text-white transition-colors">Review Client Proofs</span>
                       <span className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs shadow-sm ${pendingApprovalOrders.length > 0 ? 'bg-red-500 text-white' : 'bg-white/20 text-white/50'}`}>{pendingApprovalOrders.length}</span>
                     </div>
-                    <div onClick={() => setActiveStat('Awaiting Artwork')} className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-colors cursor-pointer group">
+                    <div onClick={() => setActiveStat('New Orders')} className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-colors cursor-pointer group">
                       <span className="text-sm font-medium text-white/90 group-hover:text-white transition-colors">Assign New Orders</span>
-                      <span className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs shadow-sm ${awaitingArtworkOrders.length > 0 ? 'bg-amber-500 text-brand-primary' : 'bg-white/20 text-white/50'}`}>{awaitingArtworkOrders.length}</span>
+                      <span className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs shadow-sm ${newApprovedOrders.length > 0 ? 'bg-blue-500 text-white' : 'bg-white/20 text-white/50'}`}>{newApprovedOrders.length}</span>
                     </div>
                  </div>
                </div>
