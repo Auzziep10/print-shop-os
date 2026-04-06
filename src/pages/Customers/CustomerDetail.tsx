@@ -654,14 +654,14 @@ export function CustomerDetail() {
                         </div>
                       </button>
                       <button 
-                         className="flex items-center gap-3 px-4 py-3 text-sm font-semibold text-brand-primary hover:bg-neutral-50 transition-colors/50 cursor-not-allowed opacity-50 relative group text-left"
-                         title="Coming soon"
+                        className="flex items-center gap-3 px-4 py-3 text-sm font-semibold text-brand-primary hover:bg-neutral-50 transition-colors border-t border-brand-border/40 text-left"
+                        onClick={() => { setIsShopifyMenuOpen(false); setIsShopifyImportOpen(true); }}
                       >
                          <div className="bg-brand-bg p-1.5 rounded-md text-brand-secondary">
                            <ShoppingBag size={16} />
                          </div>
                          <div>
-                          <p className="font-bold flex items-center gap-2">Import Shopify <span className="text-[9px] bg-brand-primary text-white px-1.5 py-0.5 rounded uppercase tracking-wider font-bold">Pro</span></p>
+                          <p className="font-bold flex items-center gap-2">Import Shopify</p>
                           <p className="text-[10px] text-brand-secondary uppercase tracking-widest mt-0.5">Sync cart items</p>
                          </div>
                       </button>
