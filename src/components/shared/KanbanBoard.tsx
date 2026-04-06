@@ -6,13 +6,13 @@ import { collection, getDocs } from 'firebase/firestore';
 import { useState, useEffect } from 'react';
 
 const COLUMNS = [
-  { id: 0, title: 'Quote' },
-  { id: 1, title: 'Approved' },
-  { id: 2, title: 'Shopping' },
-  { id: 3, title: 'Ordered' },
-  { id: 4, title: 'Processing' },
-  { id: 5, title: 'Shipped / Inventory' },
-  { id: 6, title: 'Received / Live' }
+  { id: 'quote', title: 'Quote', matchStatuses: [0, 1, 2] },
+  { id: 'approved', title: 'Approved', matchStatuses: [3] },
+  { id: 'shopping', title: 'Shopping', matchStatuses: [4] },
+  { id: 'ordered', title: 'Ordered', matchStatuses: [5] },
+  { id: 'processing', title: 'Processing', matchStatuses: [6] },
+  { id: 'shipped', title: 'Shipped / Inventory', matchStatuses: [7] },
+  { id: 'received', title: 'Received / Live', matchStatuses: [8] }
 ];
 
 export function KanbanBoard() {
@@ -38,7 +38,7 @@ export function KanbanBoard() {
 
   const activeColumns = COLUMNS.map(col => ({
     ...col,
-    columnOrders: orders.filter(o => (o.statusIndex || 0) === col.id)
+    columnOrders: orders.filter(o => col.matchStatuses.includes(o.statusIndex || 0))
   })).filter(col => col.columnOrders.length > 0);
 
   if (activeColumns.length === 0) {
