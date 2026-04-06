@@ -77,10 +77,17 @@ export function ProductionCalendar({ orders }: ProductionCalendarProps) {
     orders.forEach(o => {
        if (o.isMetricsArchived || o.isProjectGroup) return; // Skip metrics archived and groups to prevent duplicates
        
-       let targetDateStr = o.targetCompletionDate;
+       let targetDateStr = o.targetCompletionDate || o.date;
        if (targetDateStr) {
            try {
-             targetDateStr = new Date(targetDateStr).toISOString().split('T')[0];
+             // To perfectly handle strings that are MM/DD/YY (which lack timezone context)
+             // we avoid .toISOString() shifting if it's already a clean date string.
+             const d = new Date(targetDateStr);
+             if (!isNaN(d.getTime())) {
+                targetDateStr = d.toISOString().split('T')[0];
+             } else {
+                targetDateStr = null;
+             }
            } catch(e) {
              targetDateStr = null;
            }
