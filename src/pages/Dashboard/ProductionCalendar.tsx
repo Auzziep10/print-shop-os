@@ -49,8 +49,9 @@ export function ProductionCalendar({ orders }: ProductionCalendarProps) {
     const days = [];
     
     // Add padding for first week
+    const prevMonthDays = new Date(year, month, 0).getDate();
     for (let i = 0; i < firstDayOfWeek; i++) {
-       days.push(null);
+       days.push(new Date(year, month - 1, prevMonthDays - firstDayOfWeek + i + 1));
     }
     
     // Add days of month
@@ -116,7 +117,14 @@ export function ProductionCalendar({ orders }: ProductionCalendarProps) {
   // Calculate grid rows accurately to maintain solid structure
   const totalSlots = calendarData.days.length;
   const trailingEmpty = totalSlots % 7 === 0 ? 0 : 7 - (totalSlots % 7);
-  const paddedDays = [...calendarData.days, ...Array(trailingEmpty).fill(null)];
+  
+  const paddedDays = useMemo(() => {
+    const arr = [...calendarData.days];
+    for (let i = 0; i < trailingEmpty; i++) {
+      arr.push(new Date(calendarData.year, calendarData.month + 1, i + 1));
+    }
+    return arr;
+  }, [calendarData, trailingEmpty]);
 
   const handleDragStart = (e: React.DragEvent, order: any) => {
      setDraggedOrder(order);
@@ -154,6 +162,12 @@ export function ProductionCalendar({ orders }: ProductionCalendarProps) {
      }
      
      if (targetDateStr === dateStr) return; // Dropped on the same date
+
+     // If dropped on a padding day, optionally switch to that month
+     const dropDate = new Date(dateStr + "T00:00:00");
+     if (dropDate.getMonth() !== calendarData.month) {
+        setCurrentDate(new Date(dropDate.getFullYear(), dropDate.getMonth(), 1));
+     }
 
      try {
        await updateDoc(doc(db, 'orders', draggedOrder.id), { 
@@ -243,24 +257,33 @@ export function ProductionCalendar({ orders }: ProductionCalendarProps) {
           ))}
 
           {paddedDays.map((date, i) => {
-             const dtStr = date ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}` : null;
-             const events = dtStr ? (eventsByDate[dtStr] || []) : [];
+             const dtStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+             const events = eventsByDate[dtStr] || [];
              const isToday = dtStr === new Date().toISOString().split('T')[0];
              const isDragOver = dragOverDate === dtStr;
+             const isCurrentMonth = date.getMonth() === calendarData.month;
 
              return (
                 <div 
                   key={i} 
-                  className={`min-h-[100px] border-r border-b border-brand-border/60 p-1.5 flex flex-col gap-1 transition-colors relative ${date ? 'bg-white hover:bg-brand-bg/20' : 'bg-neutral-50/50'} ${isDragOver ? 'bg-brand-primary/5 border-brand-primary/30 ring-2 ring-inset ring-brand-primary/20 z-10' : ''}`}
-                  onDragOver={(e) => { if (date) handleDragOver(e, dtStr); }}
+                  className={`min-h-[100px] border-r border-b border-brand-border/60 p-1.5 flex flex-col gap-1 transition-colors relative ${isCurrentMonth ? 'bg-white hover:bg-brand-bg/20' : 'bg-neutral-50/50 hover:bg-neutral-100'} ${isDragOver ? 'bg-brand-primary/5 border-brand-primary/30 ring-2 ring-inset ring-brand-primary/20 z-10' : ''}`}
+                  onDragOver={(e) => handleDragOver(e, dtStr)}
                   onDragLeave={handleDragLeave}
-                  onDrop={(e) => { if (date) handleDrop(e, dtStr); }}
+                  onDrop={(e) => handleDrop(e, dtStr)}
+                  onDragEnter={(e) => {
+                      if (!isCurrentMonth) {
+                          e.preventDefault();
+                          if (date.getTime() < new Date(calendarData.year, calendarData.month, 1).getTime()) {
+                             prevMonth();
+                          } else {
+                             nextMonth();
+                          }
+                      }
+                  }}
                 >
-                   {date && (
-                      <div className={`text-xs ml-1 mt-0.5 mb-1 font-bold w-6 h-6 flex items-center justify-center rounded-full ${isToday ? 'bg-brand-primary text-white shadow-sm' : 'text-neutral-400'}`}>
-                         {date.getDate()}
-                      </div>
-                   )}
+                   <div className={`text-xs ml-1 mt-0.5 mb-1 font-bold w-6 h-6 flex items-center justify-center rounded-full ${isToday ? 'bg-brand-primary text-white shadow-sm' : isCurrentMonth ? 'text-neutral-400' : 'text-neutral-300'}`}>
+                      {date.getDate()}
+                   </div>
                    <div className="flex flex-col gap-1 overflow-y-auto custom-scrollbar flex-1 max-h-[80px]">
                       {events.map((ev, idx) => (
                          <div 
