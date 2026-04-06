@@ -127,12 +127,19 @@ export function PortalCreateOrder() {
                 </p>
               </div>
               
-              <button 
-                onClick={() => setIsDrawerOpen(true)}
-                className="mt-4 bg-black text-white px-8 py-3.5 rounded-full text-[13px] font-bold tracking-wide hover:bg-neutral-800 hover:scale-[1.02] transition-all shadow-md"
-              >
-                + Add Garment
-              </button>
+              <div className="mt-4 flex items-center justify-center gap-4">
+                <button 
+                  onClick={() => setIsDrawerOpen(true)}
+                  className="bg-black text-white px-8 py-3.5 rounded-full text-[13px] font-bold tracking-wide hover:bg-neutral-800 hover:scale-[1.02] transition-all shadow-md"
+                >
+                  + Add Garment
+                </button>
+                <button 
+                  className="bg-white text-neutral-900 border border-neutral-200 px-8 py-3.5 rounded-full text-[13px] font-bold tracking-wide hover:bg-neutral-50 hover:border-neutral-300 hover:scale-[1.02] transition-all shadow-sm"
+                >
+                  Request Quote
+                </button>
+              </div>
             </div>
           ) : (
             <>
