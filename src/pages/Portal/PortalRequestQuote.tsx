@@ -47,26 +47,15 @@ export function PortalRequestQuote() {
           if (data.email) setEmailAddress(data.email);
           if (data.phone) setPhone(data.phone);
 
-          // Try to auto-populate shipping address if it exists
-          if (data.shippingAddress) {
-            setShippingAddress({
-              line1: data.shippingAddress.line1 || data.shippingAddress.street || '',
-              line2: data.shippingAddress.line2 || data.shippingAddress.street2 || '',
-              city: data.shippingAddress.city || '',
-              state: data.shippingAddress.state || '',
-              zip: data.shippingAddress.zip || '',
-              country: data.shippingAddress.country || ''
-            });
-          } else if (data.billingAddress) {
-             setShippingAddress({
-              line1: data.billingAddress.line1 || data.billingAddress.street || '',
-              line2: data.billingAddress.line2 || data.billingAddress.street2 || '',
-              city: data.billingAddress.city || '',
-              state: data.billingAddress.state || '',
-              zip: data.billingAddress.zip || '',
-              country: data.billingAddress.country || ''
-            });
-          }
+          // Auto-populate shipping address using top-level properties
+          setShippingAddress({
+            line1: data.shippingStreet || data.billingStreet || '',
+            line2: '', // no line 2 in original schema, leave blank
+            city: data.shippingCity || data.billingCity || '',
+            state: data.shippingState || data.billingState || '',
+            zip: data.shippingZip || data.billingZip || '',
+            country: data.shippingCountry || data.billingCountry || 'US' // default to US if none exists
+          });
         }
       } catch (err) {
         console.error("Error fetching customer", err);
