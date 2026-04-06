@@ -625,17 +625,17 @@ export function CustomerDetail() {
           </div>
         )}
 
-        {/* Order History using Portal Component */}
+        {/* Quotes using Portal Component */}
         <div className="mt-4">
            <div className="flex items-center justify-between mb-8">
               <div>
-                 <h2 className={tokens.typography.h2}>Active Quotes & Orders</h2>
-                 <p className="text-sm text-brand-secondary mt-1">Current pipeline and history for this company.</p>
+                 <h2 className={tokens.typography.h2}>Active Quotes</h2>
+                 <p className="text-sm text-brand-secondary mt-1">Estimates and requests pending approval.</p>
               </div>
               <div className="relative">
                 <PillButton variant="filled" className="gap-2" onClick={() => setIsShopifyMenuOpen(!isShopifyMenuOpen)}>
                   <Plus size={16} />
-                  New Order
+                  New Quote
                 </PillButton>
                 {isShopifyMenuOpen && (
                   <>
@@ -648,29 +648,45 @@ export function CustomerDetail() {
                         <div className="bg-brand-bg p-1.5 rounded-md text-brand-secondary">
                           <Plus size={16} />
                         </div>
-                        Create Blank Order
+                        <div>
+                          <p className="font-bold">Blank Quote</p>
+                          <p className="text-[10px] text-brand-secondary uppercase tracking-widest mt-0.5">Start from scratch</p>
+                        </div>
                       </button>
                       <button 
-                        className="flex items-center gap-3 px-4 py-3 text-sm font-semibold text-brand-primary hover:bg-neutral-50 transition-colors border-t border-brand-border/40 text-left"
-                        onClick={() => { setIsShopifyMenuOpen(false); setIsShopifyImportOpen(true); }}
+                         className="flex items-center gap-3 px-4 py-3 text-sm font-semibold text-brand-primary hover:bg-neutral-50 transition-colors/50 cursor-not-allowed opacity-50 relative group text-left"
+                         title="Coming soon"
                       >
-                        <div className="bg-blue-50 text-blue-500 p-1.5 rounded-md border border-blue-100">
-                          <ShoppingBag size={16} />
-                        </div>
-                        <div>
-                          Import from Shopify
-                          <p className="text-[10px] text-brand-secondary">Pull tags into Print Shop OS</p>
-                        </div>
+                         <div className="bg-brand-bg p-1.5 rounded-md text-brand-secondary">
+                           <ShoppingBag size={16} />
+                         </div>
+                         <div>
+                          <p className="font-bold flex items-center gap-2">Import Shopify <span className="text-[9px] bg-brand-primary text-white px-1.5 py-0.5 rounded uppercase tracking-wider font-bold">Pro</span></p>
+                          <p className="text-[10px] text-brand-secondary uppercase tracking-widest mt-0.5">Sync cart items</p>
+                         </div>
                       </button>
                     </div>
                   </>
                 )}
               </div>
            </div>
-
            {/* Injecting the exact visual component the customer sees! */}
            <div className="w-full">
-             <PortalOrders overrideCustomerId={id} hideHeader={true} />
+             <PortalOrders overrideCustomerId={id} hideHeader={true} filterType="quotes" />
+           </div>
+        </div>
+
+        {/* Active Orders using Portal Component */}
+        <div className="mt-8 border-t border-brand-border pt-12">
+           <div className="flex items-center justify-between mb-8">
+              <div>
+                 <h2 className={tokens.typography.h2}>Active Orders</h2>
+                 <p className="text-sm text-brand-secondary mt-1">Approved pipeline and history for this company.</p>
+              </div>
+           </div>
+           {/* Injecting the exact visual component the customer sees! */}
+           <div className="w-full">
+             <PortalOrders overrideCustomerId={id} hideHeader={true} filterType="orders" />
            </div>
         </div>
       </div>

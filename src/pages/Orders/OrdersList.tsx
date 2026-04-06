@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
 import { Search, Filter, Plus, FileDown, MoreHorizontal, Loader2 } from 'lucide-react';
@@ -12,6 +12,8 @@ export function OrdersList() {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const { orders, loading } = useOrders();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const currentTab = searchParams.get('tab') || 'orders';
   const [liveCustomers, setLiveCustomers] = useState<Record<string, any>>({});
 
   useEffect(() => {
@@ -49,7 +51,7 @@ export function OrdersList() {
       {/* Page Header */}
       <div className={tokens.layout.pageHeader}>
         <div>
-          <h1 className={tokens.typography.h1}>Orders</h1>
+          <h1 className={tokens.typography.h1}>Orders & Quotes</h1>
           <p className={tokens.typography.bodyMuted + " mt-2"}>
             Manage all shop orders across the pipeline.
           </p>
@@ -65,6 +67,23 @@ export function OrdersList() {
             New Order
           </PillButton>
         </div>
+      </div>
+
+      <div className="flex items-center gap-6 mb-8 border-b border-brand-border">
+          <button 
+             onClick={() => setSearchParams({ tab: 'orders' })}
+             className={`pb-4 text-sm font-bold uppercase tracking-wider transition-all relative ${currentTab === 'orders' ? 'text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}
+          >
+             All Orders
+             {currentTab === 'orders' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-primary rounded-t-full" />}
+          </button>
+          <button 
+             onClick={() => setSearchParams({ tab: 'quotes' })}
+             className={`pb-4 text-sm font-bold uppercase tracking-wider transition-all relative ${currentTab === 'quotes' ? 'text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}
+          >
+             Quotes
+             {currentTab === 'quotes' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-primary rounded-t-full" />}
+          </button>
       </div>
 
       {/* Filters and Search Bar */}
@@ -108,7 +127,12 @@ export function OrdersList() {
           
           {/* Table Body */}
           <div className="divide-y divide-brand-border/60">
-            {orders.map((order) => {
+            {orders.filter(order => {
+                const isQuote = order.statusIndex <= 2;
+                if (currentTab === 'quotes') return isQuote;
+                // Currently, 'orders' shows ALL, including Quotes? Let's just show all.
+                return true;
+            }).map((order) => {
               
               // Calculate dynamic sums from the line items array
               const totalItems = order.items?.reduce((acc: number, i: any) => acc + (i.qty || 0), 0) || 0;

@@ -843,13 +843,20 @@ export function OrderDetail() {
           <ArrowLeft size={16} />
           Back
         </button>
-        <div className="flex items-center gap-3">
-          <PillButton variant="outline" className="gap-2">
-            <Download size={16} />
-            Invoice
+        <div className="flex items-center gap-4">
+          {order.statusIndex < 3 && (
+            <PillButton variant="filled" className="gap-2 bg-green-600 hover:bg-green-700 text-white border-transparent" onClick={() => handleStatusChange(3)}>
+               <Check size={16} />
+               Approve & Convert to Order
+            </PillButton>
+          )}
+          <PillButton variant="outline" className="gap-2" onClick={() => setIsTeamModalOpen(true)}>
+            <Users size={16} />
+            Team
           </PillButton>
-          <PillButton variant="filled" onClick={() => setIsEditDialogOpen(true)}>
-            Edit Order
+          <PillButton variant="filled" className="gap-2" onClick={() => setIsEditDialogOpen(true)}>
+            <Edit3 size={16} />
+            Edit Profile
           </PillButton>
         </div>
       </div>

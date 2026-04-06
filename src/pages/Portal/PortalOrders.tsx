@@ -28,7 +28,7 @@ const DataPill = ({ label, value }: { label: string, value: string }) => (
   </div>
 );
 
-export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overrideCustomerId?: string, hideHeader?: boolean }) {
+export function PortalOrders({ overrideCustomerId, hideHeader = false, filterType = 'all' }: { overrideCustomerId?: string, hideHeader?: boolean, filterType?: 'quotes' | 'orders' | 'all' }) {
   const { customerId } = useParams();
   const navigate = useNavigate();
   const currentCustomerId = overrideCustomerId || customerId || 'CUS-001';
@@ -65,7 +65,15 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
 
   useEffect(() => {
     if (orders) {
-      const sorted = [...orders].sort((a, b) => {
+      let filtered = orders;
+      if (filterType === 'quotes') {
+          filtered = filtered.filter(o => o.statusIndex <= 2);
+      } else if (filterType === 'orders') {
+          // Both active orders and completed orders can go here, or we can filter out quotes
+          filtered = filtered.filter(o => o.statusIndex > 2);
+      }
+      
+      const sorted = [...filtered].sort((a, b) => {
         if (typeof a.orderIndex === 'number' && typeof b.orderIndex === 'number') {
           return a.orderIndex - b.orderIndex;
         }
@@ -73,7 +81,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false }: { overr
       });
       setLocalOrders(sorted);
     }
-  }, [orders]);
+  }, [orders, filterType]);
 
   const handleDragStartOrder = (e: React.DragEvent, id: string) => {
     e.stopPropagation();
