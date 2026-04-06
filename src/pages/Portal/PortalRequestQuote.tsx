@@ -1,15 +1,16 @@
 import { useState, useEffect } from 'react';
 import { ArrowLeft, ChevronDown, Upload, Plus, Trash2 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { db } from '../../lib/firebase';
+import { db, storage } from '../../lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 export function PortalRequestQuote() {
   const navigate = useNavigate();
   const { customerId } = useParams();
   
-  const [products, setProducts] = useState([
-    { id: 1 }
+  const [products, setProducts] = useState<any[]>([
+    { id: 1, artworkUrl: null, artworkName: null, isUploading: false }
   ]);
 
   const [contactName, setContactName] = useState('');
@@ -69,11 +70,35 @@ export function PortalRequestQuote() {
   };
 
   const handleAddProduct = () => {
-    setProducts(prev => [...prev, { id: Date.now() }]);
+    setProducts(prev => [...prev, { id: Date.now(), artworkUrl: null, artworkName: null, isUploading: false }]);
   };
 
   const handleRemoveProduct = (id: number) => {
-    setProducts(prev => prev.filter(p => p.id !== id));
+    setProducts(prev => prev.filter((p: any) => p.id !== id));
+  };
+
+  const handleFileUpload = async (productId: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !customerId) return;
+    
+    // Set uploading state
+    setProducts(prev => prev.map((p: any) => p.id === productId ? { ...p, isUploading: true } : p));
+    
+    try {
+      const storageRef = ref(storage, `portal/${customerId}/quote_artwork/${Date.now()}_${file.name}`);
+      await uploadBytes(storageRef, file);
+      const url = await getDownloadURL(storageRef);
+      
+      setProducts(prev => prev.map((p: any) => p.id === productId ? { 
+        ...p, 
+        isUploading: false, 
+        artworkUrl: url,
+        artworkName: file.name
+      } : p));
+    } catch (err) {
+      console.error("Upload failed", err);
+      setProducts(prev => prev.map((p: any) => p.id === productId ? { ...p, isUploading: false } : p));
+    }
   };
 
   return (
@@ -288,19 +313,39 @@ export function PortalRequestQuote() {
                                 <span className="text-xs text-neutral-500">Upload design files specific to this product</span>
                             </div>
                             <label className="text-xs font-bold text-neutral-900 mt-2">Artwork File</label>
-                            <div className="border-2 border-dashed border-neutral-200 rounded-2xl p-10 flex flex-col items-center justify-center text-center gap-3 hover:bg-neutral-50 hover:border-neutral-300 transition-all cursor-pointer group">
-                                <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
-                                    <Upload size={20} className="text-neutral-500" strokeWidth={2} />
-                                </div>
-                                <div>
-                                    <p className="text-sm font-bold text-neutral-900">Upload artwork file</p>
-                                    <p className="text-xs text-neutral-500 mt-1">Drag and drop your file here, or click to browse</p>
-                                    <p className="text-xs text-neutral-400 mt-1">Supports: JPEG, PNG, GIF, WebP, PDF, Adobe Illustrator (.ai) (Max 10MB)</p>
-                                </div>
-                                <button className="mt-2 bg-white border border-neutral-200 hover:bg-neutral-50 px-6 py-2 rounded-xl text-sm font-bold text-neutral-900 shadow-sm transition-all flex items-center gap-2">
-                                    <Upload size={14} /> Choose File
-                                </button>
-                            </div>
+                            {product.isUploading ? (
+                              <div className="border-2 border-dashed border-neutral-200 rounded-2xl p-10 flex flex-col items-center justify-center text-center gap-3">
+                                  <div className="animate-spin w-8 h-8 border-4 border-black border-t-transparent rounded-full mb-2"></div>
+                                  <p className="text-sm font-bold text-neutral-900">Uploading artwork...</p>
+                              </div>
+                            ) : product.artworkUrl ? (
+                              <div className="border border-neutral-200 rounded-2xl p-6 flex flex-col items-center justify-center text-center gap-3 bg-neutral-50 relative group">
+                                  <div className="w-16 h-16 rounded-xl overflow-hidden bg-white border border-neutral-200 shadow-sm flex items-center justify-center p-2">
+                                     {product.artworkUrl.match(/\.(jpeg|jpg|gif|png|webp)(\?.*)?$/i) ? (
+                                        <img src={product.artworkUrl} alt={product.artworkName || 'Artwork'} className="max-w-full max-h-full object-contain" />
+                                     ) : (
+                                        <div className="text-[10px] font-bold text-neutral-400">FILE</div>
+                                     )}
+                                  </div>
+                                  <p className="text-sm font-bold text-neutral-900 truncate max-w-full px-4">{product.artworkName}</p>
+                                  <button onClick={() => setProducts(prev => prev.map((p: any) => p.id === product.id ? {...p, artworkUrl: null, artworkName: null} : p))} className="text-xs font-bold text-red-500 hover:text-red-700 transition-colors cursor-pointer">Remove File</button>
+                              </div>
+                            ) : (
+                              <label className="border-2 border-dashed border-neutral-200 rounded-2xl p-10 flex flex-col items-center justify-center text-center gap-3 hover:bg-neutral-50 hover:border-neutral-300 transition-all cursor-pointer group">
+                                  <input type="file" className="hidden" onChange={(e) => handleFileUpload(product.id, e)} accept="image/*,application/pdf,.ai" />
+                                  <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
+                                      <Upload size={20} className="text-neutral-500" strokeWidth={2} />
+                                  </div>
+                                  <div>
+                                      <p className="text-sm font-bold text-neutral-900">Upload artwork file</p>
+                                      <p className="text-xs text-neutral-500 mt-1">Drag and drop your file here, or click to browse</p>
+                                      <p className="text-xs text-neutral-400 mt-1">Supports: JPEG, PNG, GIF, WebP, PDF, Adobe Illustrator (.ai) (Max 10MB)</p>
+                                  </div>
+                                  <div className="mt-2 bg-white border border-neutral-200 hover:bg-neutral-50 px-6 py-2 rounded-xl text-sm font-bold text-neutral-900 shadow-sm transition-all flex items-center gap-2 pointer-events-none">
+                                      <Upload size={14} /> Choose File
+                                  </div>
+                              </label>
+                            )}
                         </div>
 
                     </div>
