@@ -370,8 +370,8 @@ export function PortalRequestQuote() {
                                 <label className="text-sm font-bold text-neutral-900">Quantities by Size</label>
                                 <span className="text-xs text-neutral-500">Enter the number needed for each size</span>
                             </div>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                {['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'].map((size) => (
+                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                                {['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'OSFA'].map((size) => (
                                     <div key={size} className="flex flex-col gap-2">
                                         <label className="text-xs font-bold text-neutral-700">{size}</label>
                                         <input type="number" min="0" placeholder="0" className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-3 text-sm text-neutral-900 focus:outline-none focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400 placeholder:text-neutral-400 transition-all" />
