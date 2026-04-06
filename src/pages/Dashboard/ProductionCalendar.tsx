@@ -77,10 +77,9 @@ export function ProductionCalendar({ orders }: ProductionCalendarProps) {
        if (o.isMetricsArchived || o.isProjectGroup) return; // Skip metrics archived and groups to prevent duplicates
        
        let targetDateStr = o.targetCompletionDate;
-       if (!targetDateStr && o.createdAt) {
-           try {
-             targetDateStr = new Date(o.createdAt).toISOString().split('T')[0];
-           } catch(e) {}
+       if (!targetDateStr) {
+           // If there is no target due date, float it on Today so the team can see it and schedule it.
+           targetDateStr = new Date().toISOString().split('T')[0];
        }
        
        if (targetDateStr) {
@@ -150,8 +149,8 @@ export function ProductionCalendar({ orders }: ProductionCalendarProps) {
      
      // Prevent unnecessary writes
      let targetDateStr = draggedOrder.targetCompletionDate;
-     if (!targetDateStr && draggedOrder.createdAt) {
-         try { targetDateStr = new Date(draggedOrder.createdAt).toISOString().split('T')[0]; } catch(err){}
+     if (!targetDateStr) {
+         targetDateStr = new Date().toISOString().split('T')[0];
      }
      
      if (targetDateStr === dateStr) return; // Dropped on the same date
