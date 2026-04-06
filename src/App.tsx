@@ -12,6 +12,7 @@ import { Navigate } from 'react-router-dom';
 import { PortalLayout } from './components/layout/PortalLayout';
 import { PortalOrders } from './pages/Portal/PortalOrders';
 import { PortalCreateOrder } from './pages/Portal/PortalCreateOrder';
+import { PortalRequestQuote } from './pages/Portal/PortalRequestQuote';
 import { SeedData } from './pages/Seed';
 import { Settings } from './pages/Settings/Settings';
 import { WaitingRoom } from './pages/Auth/WaitingRoom';
@@ -91,8 +92,10 @@ function App() {
         {/* Public Client Portal Routes */}
         <Route path="/portal" element={<PortalLayout />}>
           <Route index element={<PortalOrders />} />
+          <Route path="quote" element={<PortalRequestQuote />} />
           <Route path=":customerId" element={<PortalOrders />} />
           <Route path=":customerId/create" element={<PortalCreateOrder />} />
+          <Route path=":customerId/quote" element={<PortalRequestQuote />} />
         </Route>
 
         {/* Protected Application Routes */}

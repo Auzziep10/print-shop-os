@@ -135,6 +135,7 @@ export function PortalCreateOrder() {
                   + Add Garment
                 </button>
                 <button 
+                  onClick={() => navigate(customerId ? `/portal/${customerId}/quote` : '/portal/quote')}
                   className="bg-white text-neutral-900 border border-neutral-200 px-8 py-3.5 rounded-full text-[13px] font-bold tracking-wide hover:bg-neutral-50 hover:border-neutral-300 hover:scale-[1.02] transition-all shadow-sm"
                 >
                   Request Quote
