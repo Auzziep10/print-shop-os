@@ -75,7 +75,8 @@ export function ProductionCalendar({ orders }: ProductionCalendarProps) {
     const map: Record<string, any[]> = {};
     
     orders.forEach(o => {
-       if (o.isMetricsArchived || o.isProjectGroup) return; // Skip metrics archived and groups to prevent duplicates
+       // The user requested to keep archived orders on the calendar
+       if (o.isProjectGroup) return; // Skip groups to prevent duplicates
        
        let targetDateStr = o.targetCompletionDate || o.date;
        if (targetDateStr) {
