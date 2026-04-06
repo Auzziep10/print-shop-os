@@ -104,6 +104,16 @@ export function ProductionCalendar({ orders }: ProductionCalendarProps) {
        }
     });
     
+    // DEBUG DUMP FOR CALENDAR
+    map['DEBUG_ALL'] = orders.map(o => ({
+       title: o.title,
+       targetCompletionDate: o.targetCompletionDate,
+       date: o.date,
+       createdAt: o.createdAt,
+       isMetricsArchived: o.isMetricsArchived,
+       isProjectGroup: o.isProjectGroup
+    }));
+    
     return map;
   }, [orders]);
 
@@ -322,6 +332,12 @@ export function ProductionCalendar({ orders }: ProductionCalendarProps) {
                 </div>
              );
           })}
+       </div>
+
+       {/* DEBUG OVERLAY */}
+       <div className="mt-4 p-4 bg-gray-100 text-xs text-black overflow-auto max-h-64 rounded">
+          <strong>DEBUG ORDERS ({orders.length}):</strong>
+          <pre>{JSON.stringify((eventsByDate['DEBUG_ALL'] || []).map((o: any) => `${o.title} | tCD: ${o.targetCompletionDate} | date: ${o.date} | pg: ${o.isProjectGroup} | arch: ${o.isMetricsArchived}`), null, 2)}</pre>
        </div>
     </div>
   );
