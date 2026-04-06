@@ -148,11 +148,11 @@ export function PortalRequestQuote() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
                         <div className="flex flex-col gap-2">
                             <label className="text-xs font-bold text-neutral-700">Department/Team</label>
-                            <input type="text" placeholder="e.g., Marketing, Sales, HR" className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-3 text-sm text-neutral-900 focus:outline-none focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400 placeholder:text-neutral-400 transition-all" />
+                            <input type="text" value={orderOnBehalf.department} onChange={e => setOrderOnBehalf(prev => ({...prev, department: e.target.value}))} placeholder="e.g., Marketing, Sales, HR" className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-3 text-sm text-neutral-900 focus:outline-none focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400 placeholder:text-neutral-400 transition-all" />
                         </div>
                         <div className="flex flex-col gap-2">
                             <label className="text-xs font-bold text-neutral-700">Contact Person</label>
-                            <input type="text" placeholder="Person you're ordering for" className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-3 text-sm text-neutral-900 focus:outline-none focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400 placeholder:text-neutral-400 transition-all" />
+                            <input type="text" value={orderOnBehalf.contactPerson} onChange={e => setOrderOnBehalf(prev => ({...prev, contactPerson: e.target.value}))} placeholder="Person you're ordering for" className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-3 text-sm text-neutral-900 focus:outline-none focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400 placeholder:text-neutral-400 transition-all" />
                         </div>
                     </div>
                 </div>
@@ -190,13 +190,15 @@ export function PortalRequestQuote() {
 
                 <div className="flex flex-col gap-2 border-t border-neutral-100 pt-6">
                     <label className="text-sm font-bold text-neutral-900">In-Hands Date</label>
-                    <input type="date" className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-3 text-sm text-neutral-900 focus:outline-none focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400 transition-all" />
+                    <input type="date" value={inHandsDate} onChange={e => setInHandsDate(e.target.value)} className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-3 text-sm text-neutral-900 focus:outline-none focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400 transition-all" />
                 </div>
 
                 <div className="flex flex-col gap-2 border-t border-neutral-100 pt-6">
                     <label className="text-sm font-bold text-neutral-900">Additional Notes (Optional)</label>
                     <textarea 
                         rows={4}
+                        value={notes}
+                        onChange={e => setNotes(e.target.value)}
                         placeholder="Any special requirements, color preferences, or additional details..." 
                         className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-3 text-sm text-neutral-900 focus:outline-none focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400 placeholder:text-neutral-400 transition-all resize-none" 
                     />
@@ -327,7 +329,7 @@ export function PortalRequestQuote() {
             <div className="flex flex-col gap-2">
                 <label className="text-sm font-bold text-neutral-900">Select Your Budget Tier</label>
                 <div className="relative">
-                    <select className="w-full appearance-none bg-white border border-neutral-200 rounded-xl px-4 py-3 text-sm text-neutral-900 focus:outline-none focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400 cursor-pointer">
+                    <select value={budgetTier} onChange={e => setBudgetTier(e.target.value)} className="w-full appearance-none bg-white border border-neutral-200 rounded-xl px-4 py-3 text-sm text-neutral-900 focus:outline-none focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400 cursor-pointer">
                         <option value="">Choose a pricing tier</option>
                         <option value="economy">Economy / Promo</option>
                         <option value="standard">Standard / Retail</option>
