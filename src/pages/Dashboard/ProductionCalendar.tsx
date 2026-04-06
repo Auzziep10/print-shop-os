@@ -209,6 +209,8 @@ export function ProductionCalendar({ orders }: ProductionCalendarProps) {
           <div className="flex items-center gap-1 bg-brand-bg/50 p-1.5 rounded-xl border border-brand-border/60">
              <button 
                onClick={prevMonth}
+               onDragEnter={(e) => { e.preventDefault(); prevMonth(); }}
+               onDragOver={(e) => e.preventDefault()}
                className="p-1.5 rounded-md hover:bg-white hover:shadow-sm text-brand-secondary hover:text-brand-primary transition-all"
              >
                <ChevronLeft size={18} />
@@ -225,6 +227,8 @@ export function ProductionCalendar({ orders }: ProductionCalendarProps) {
              </button>
              <button 
                onClick={nextMonth}
+               onDragEnter={(e) => { e.preventDefault(); nextMonth(); }}
+               onDragOver={(e) => e.preventDefault()}
                className="p-1.5 rounded-md hover:bg-white hover:shadow-sm text-brand-secondary hover:text-brand-primary transition-all"
              >
                <ChevronRight size={18} />
