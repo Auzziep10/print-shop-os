@@ -1,6 +1,8 @@
 import { useState, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, FileText, CheckCircle2, Factory, Flag } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { db } from '../../lib/firebase';
+import { doc, updateDoc } from 'firebase/firestore';
 
 interface ProductionCalendarProps {
   orders: any[];
@@ -13,6 +15,9 @@ export function ProductionCalendar({ orders }: ProductionCalendarProps) {
     d.setDate(1);
     return d;
   });
+
+  const [draggedOrder, setDraggedOrder] = useState<any>(null);
+  const [dragOverDate, setDragOverDate] = useState<string | null>(null);
 
   const calendarData = useMemo(() => {
     const year = currentDate.getFullYear();
@@ -97,6 +102,53 @@ export function ProductionCalendar({ orders }: ProductionCalendarProps) {
   const trailingEmpty = totalSlots % 7 === 0 ? 0 : 7 - (totalSlots % 7);
   const paddedDays = [...calendarData.days, ...Array(trailingEmpty).fill(null)];
 
+  const handleDragStart = (e: React.DragEvent, order: any) => {
+     setDraggedOrder(order);
+     e.dataTransfer.effectAllowed = 'move';
+     // Optional: store id if needed, but we have state
+     e.dataTransfer.setData('text/plain', order.id);
+     
+     // Hack for making the drag image look cleaner (optional)
+     const rect = (e.target as HTMLElement).getBoundingClientRect();
+     e.dataTransfer.setDragImage(e.target as HTMLElement, rect.width / 2, rect.height / 2);
+  };
+
+  const handleDragOver = (e: React.DragEvent, dateStr: string | null) => {
+     if (!dateStr) return;
+     e.preventDefault();
+     if (dragOverDate !== dateStr) {
+        setDragOverDate(dateStr);
+     }
+  };
+
+  const handleDragLeave = () => {
+     setDragOverDate(null);
+  };
+
+  const handleDrop = async (e: React.DragEvent, dateStr: string | null) => {
+     e.preventDefault();
+     setDragOverDate(null);
+     
+     if (!dateStr || !draggedOrder) return;
+     
+     // Prevent unnecessary writes
+     let targetDateStr = draggedOrder.targetCompletionDate;
+     if (!targetDateStr && draggedOrder.createdAt) {
+         try { targetDateStr = new Date(draggedOrder.createdAt).toISOString().split('T')[0]; } catch(err){}
+     }
+     
+     if (targetDateStr === dateStr) return; // Dropped on the same date
+
+     try {
+       await updateDoc(doc(db, 'orders', draggedOrder.id), { 
+         targetCompletionDate: dateStr 
+       });
+     } catch(err) {
+       console.error("Failed to update date:", err);
+     }
+     setDraggedOrder(null);
+  };
+
   return (
     <div className="bg-white rounded-card border border-brand-border p-6 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.02)] flex flex-col h-full min-h-[600px]">
        <div className="flex items-center justify-between mb-6">
@@ -141,9 +193,16 @@ export function ProductionCalendar({ orders }: ProductionCalendarProps) {
              const dtStr = date ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}` : null;
              const events = dtStr ? (eventsByDate[dtStr] || []) : [];
              const isToday = dtStr === new Date().toISOString().split('T')[0];
+             const isDragOver = dragOverDate === dtStr;
 
              return (
-                <div key={i} className={`min-h-[100px] border-r border-b border-brand-border/60 p-1.5 flex flex-col gap-1 transition-colors ${date ? 'bg-white hover:bg-brand-bg/20' : 'bg-neutral-50/50'}`}>
+                <div 
+                  key={i} 
+                  className={`min-h-[100px] border-r border-b border-brand-border/60 p-1.5 flex flex-col gap-1 transition-colors relative ${date ? 'bg-white hover:bg-brand-bg/20' : 'bg-neutral-50/50'} ${isDragOver ? 'bg-brand-primary/5 border-brand-primary/30 ring-2 ring-inset ring-brand-primary/20 z-10' : ''}`}
+                  onDragOver={(e) => { if (date) handleDragOver(e, dtStr); }}
+                  onDragLeave={handleDragLeave}
+                  onDrop={(e) => { if (date) handleDrop(e, dtStr); }}
+                >
                    {date && (
                       <div className={`text-xs ml-1 mt-0.5 mb-1 font-bold w-6 h-6 flex items-center justify-center rounded-full ${isToday ? 'bg-brand-primary text-white shadow-sm' : 'text-neutral-400'}`}>
                          {date.getDate()}
@@ -153,8 +212,10 @@ export function ProductionCalendar({ orders }: ProductionCalendarProps) {
                       {events.map((ev, idx) => (
                          <div 
                            key={idx}
+                           draggable
+                           onDragStart={(e) => handleDragStart(e, ev)}
                            onClick={() => navigate(`/orders/${ev.id}`)}
-                           className={`px-1.5 py-1 text-[10px] sm:text-[11px] font-medium border rounded-[4px] cursor-pointer truncate flex items-center gap-1.5 transition-all shadow-sm ${getEventStyles(ev.statusIndex || 0)}`}
+                           className={`px-1.5 py-1 text-[10px] sm:text-[11px] font-medium border rounded-[4px] cursor-pointer truncate flex items-center gap-1.5 transition-all shadow-sm ${getEventStyles(ev.statusIndex || 0)} ${draggedOrder?.id === ev.id ? 'opacity-30' : 'opacity-100'}`}
                            title={ev.title}
                          >
                             {getEventIcon(ev.statusIndex || 0)}
