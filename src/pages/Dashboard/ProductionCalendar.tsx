@@ -78,6 +78,13 @@ export function ProductionCalendar({ orders }: ProductionCalendarProps) {
        if (o.isMetricsArchived || o.isProjectGroup) return; // Skip metrics archived and groups to prevent duplicates
        
        let targetDateStr = o.targetCompletionDate;
+       if (targetDateStr) {
+           try {
+             targetDateStr = new Date(targetDateStr).toISOString().split('T')[0];
+           } catch(e) {
+             targetDateStr = null;
+           }
+       }
        if (!targetDateStr && o.createdAt) {
            try {
              targetDateStr = new Date(o.createdAt).toISOString().split('T')[0];
