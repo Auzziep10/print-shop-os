@@ -18,6 +18,23 @@ export function ProductionCalendar({ orders }: ProductionCalendarProps) {
 
   const [draggedOrder, setDraggedOrder] = useState<any>(null);
   const [dragOverDate, setDragOverDate] = useState<string | null>(null);
+  const [hoveredOrder, setHoveredOrder] = useState<{ order: any, x: number, y: number } | null>(null);
+
+  const formatStatus = (index: number) => {
+    const statuses = ['Quote Created', 'Under Review', 'Quote Prepared', 'Approved', 'Sourcing', 'Ordered', 'In Production', 'Shipped / Inventory', 'Received / Live'];
+    return statuses[index] || 'Open';
+  };
+
+  const getOrderSummary = (order: any) => {
+    let total = 0;
+    const styles: string[] = [];
+    (order.items || []).forEach((item: any) => {
+       const qty = parseInt(item.qty as string) || Object.values(item.sizes || {}).reduce((a: any, b: any) => a + (parseInt(b) || 0), 0) as number;
+       total += qty;
+       styles.push(`${qty}x ${item.style}`);
+    });
+    return { total, styles };
+  };
 
   const calendarData = useMemo(() => {
     const year = currentDate.getFullYear();
@@ -150,7 +167,40 @@ export function ProductionCalendar({ orders }: ProductionCalendarProps) {
   };
 
   return (
-    <div className="bg-white rounded-card border border-brand-border p-6 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.02)] flex flex-col h-full min-h-[600px]">
+    <div className="bg-white rounded-card border border-brand-border p-6 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.02)] flex flex-col h-full min-h-[600px] relative">
+       
+       {/* Hover Popover */}
+       {hoveredOrder && (
+          <div 
+            className="fixed z-50 w-72 bg-white border border-brand-border shadow-xl rounded-xl p-4 pointer-events-none transform -translate-y-full -translate-x-1/2"
+            style={{ top: hoveredOrder.y - 12, left: hoveredOrder.x }}
+          >
+             <div className="flex items-center gap-2 mb-2">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-white px-2 py-0.5 rounded-md shadow-sm" style={{ backgroundColor: hoveredOrder.order.statusIndex >= 7 ? '#10B981' : hoveredOrder.order.statusIndex === 6 ? '#6366F1' : '#3B82F6' }}>
+                   {formatStatus(hoveredOrder.order.statusIndex || 0)}
+                </span>
+                <span className="text-[11px] font-bold text-brand-secondary ml-auto">{hoveredOrder.order.targetCompletionDate || 'No Due Date'}</span>
+             </div>
+             <h4 className="font-serif text-lg text-brand-primary leading-tight mb-2 line-clamp-2">{hoveredOrder.order.title || 'Untitled'}</h4>
+             
+             {(() => {
+                const { total, styles } = getOrderSummary(hoveredOrder.order);
+                return (
+                  <div>
+                    <div className="text-xs font-semibold text-brand-primary mb-1">{total} Garment{total !== 1 ? 's' : ''}</div>
+                    <ul className="text-[11px] text-brand-secondary list-disc pl-4 space-y-0.5 max-h-24 overflow-hidden relative">
+                       {styles.slice(0, 4).map((s, i) => <li key={i} className="truncate">{s}</li>)}
+                       {styles.length > 4 && <li className="text-[10px] italic">+{styles.length - 4} more items</li>}
+                    </ul>
+                  </div>
+                );
+             })()}
+             
+             {/* Caret */}
+             <div className="absolute top-full left-1/2 -translate-x-1/2 border-8 border-transparent border-t-white relative z-10"></div>
+             <div className="absolute top-[calc(100%+1px)] left-1/2 -translate-x-1/2 border-8 border-transparent border-t-brand-border z-0"></div>
+          </div>
+       )}
        <div className="flex items-center justify-between mb-6">
           <div>
             <h2 className="font-serif text-2xl text-brand-primary">{monthNames[calendarData.month]} {calendarData.year}</h2>
@@ -213,7 +263,12 @@ export function ProductionCalendar({ orders }: ProductionCalendarProps) {
                          <div 
                            key={idx}
                            draggable
-                           onDragStart={(e) => handleDragStart(e, ev)}
+                           onDragStart={(e) => { handleDragStart(e, ev); setHoveredOrder(null); }}
+                           onMouseEnter={(e) => {
+                               const rect = e.currentTarget.getBoundingClientRect();
+                               setHoveredOrder({ order: ev, x: rect.left + rect.width / 2, y: rect.top });
+                           }}
+                           onMouseLeave={() => setHoveredOrder(null)}
                            onClick={() => navigate(`/orders/${ev.id}`)}
                            className={`px-1.5 py-1 text-[10px] sm:text-[11px] font-medium border rounded-[4px] cursor-pointer truncate flex items-center gap-1.5 transition-all shadow-sm ${getEventStyles(ev.statusIndex || 0)} ${draggedOrder?.id === ev.id ? 'opacity-30' : 'opacity-100'}`}
                            title={ev.title}
