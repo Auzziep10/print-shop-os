@@ -314,31 +314,55 @@ export function PortalRequestQuote() {
                         <div className="flex flex-col gap-2">
                             <label className="text-sm font-bold text-neutral-900">Product Type</label>
                             <div className="relative">
-                                <select className="w-full appearance-none bg-white border border-neutral-200 rounded-xl px-4 py-3 text-sm text-neutral-900 focus:outline-none focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400 cursor-pointer">
+                                <select 
+                                    value={product.garmentName || ''}
+                                    onChange={(e) => setProducts(prev => prev.map((p: any) => p.id === product.id ? { ...p, garmentName: e.target.value } : p))}
+                                    className="w-full appearance-none bg-white border border-neutral-200 rounded-xl px-4 py-3 text-sm text-neutral-900 focus:outline-none focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400 cursor-pointer"
+                                >
                                     <option value="">Select product type</option>
-                                    <option value="tshirt">T-Shirt</option>
-                                    <option value="hoodie">Hoodie</option>
-                                    <option value="longsleeve">Long Sleeve</option>
-                                    <option value="hat">Hat</option>
-                                    <option value="other">Other</option>
+                                    <option value="Tops">Tops</option>
+                                    <option value="Bottom">Bottom</option>
+                                    <option value="Headwear">Headwear</option>
+                                    <option value="Bags">Bags</option>
+                                    <option value="Tumblers">Tumblers</option>
+                                    <option value="Other">Other</option>
+                                    <option value="T-Shirt">T-Shirt</option>
+                                    <option value="Hoodie">Hoodie</option>
+                                    <option value="Polo">Polo</option>
+                                    <option value="Pants">Pants</option>
+                                    <option value="Outerwear">Outerwear</option>
+                                    <option value="Swim">Swim</option>
+                                    <option value="Quarter Zip">Quarter Zip</option>
+                                    <option value="Long Sleeve">Long Sleeve</option>
                                 </select>
                                 <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" size={16} />
                             </div>
                         </div>
 
                         <div className="flex flex-col gap-2">
-                            <label className="text-sm font-bold text-neutral-900">Garment Color</label>
-                            <div className="relative">
-                                <select className="w-full appearance-none bg-white border border-neutral-200 rounded-xl pl-12 pr-4 py-3 text-sm text-neutral-900 focus:outline-none focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400 cursor-pointer">
-                                    <option value="white">White</option>
-                                    <option value="black">Black</option>
-                                    <option value="navy">Navy</option>
-                                    <option value="heather">Heather Grey</option>
-                                    <option value="custom">Custom Color</option>
-                                </select>
-                                <div className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 rounded bg-white border border-neutral-200 pointer-events-none" />
-                                <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" size={16} />
-                            </div>
+                            <label className="text-sm font-bold text-neutral-900">Garment Color(s)</label>
+                            <input 
+                                type="text"
+                                value={product.color || ''}
+                                onChange={(e) => {
+                                    setProducts(prev => prev.map((p: any) => p.id === product.id ? { ...p, color: e.target.value } : p));
+                                }}
+                                placeholder="e.g. Red, #00FF00, Navy Blue"
+                                className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-3 text-sm text-neutral-900 focus:outline-none focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400 transition-all"
+                            />
+                            {product.color && product.color.trim().length > 0 && (
+                                <div className="flex flex-wrap items-center gap-2 mt-1 px-1">
+                                    {product.color.split(',').map((c: string) => c.trim()).filter(Boolean).map((c: string, i: number) => (
+                                        <div key={i} className="flex items-center gap-1.5 bg-neutral-50 px-2 py-1 rounded-md border border-neutral-200 shadow-sm">
+                                            <div 
+                                                className="w-4 h-4 rounded-full shadow-inner" 
+                                                style={{ backgroundColor: c, border: c.toLowerCase() === 'white' || c.toLowerCase() === '#fff' || c.toLowerCase() === '#ffffff' ? '1px solid #e5e5e5' : '1px solid rgba(0,0,0,0.1)' }} 
+                                            />
+                                            <span className="text-[10px] uppercase font-bold tracking-widest text-neutral-600">{c}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
 
                         <div className="flex flex-col gap-3">
