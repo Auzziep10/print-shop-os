@@ -206,9 +206,26 @@ export function ProductionCalendar({ orders }: ProductionCalendarProps) {
      
      if (resizingOrder) {
          try {
-            let newStart = resizingOrder.order.startDate || resizingOrder.order.targetCompletionDate;
-            let newEnd = resizingOrder.order.targetCompletionDate;
-            if (!newStart && resizingOrder.order.createdAt) newStart = new Date(resizingOrder.order.createdAt).toISOString().split('T')[0];
+            // Retrieve current boundaries
+            let currentStartStr = resizingOrder.order.startDate;
+            let currentEndStr = resizingOrder.order.targetCompletionDate || resizingOrder.order.date;
+            
+            // Normalize strings to strict YYYY-MM-DD to avoid timezone / NaN issues
+            const normalize = (val: string | undefined | null) => {
+                if (!val) return null;
+                try {
+                    const d = new Date(val);
+                    if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
+                } catch(err) {}
+                return null;
+            };
+
+            let newStart = normalize(currentStartStr) || normalize(currentEndStr);
+            let newEnd = normalize(currentEndStr);
+
+            if (!newStart && resizingOrder.order.createdAt) {
+                newStart = normalize(resizingOrder.order.createdAt) || newStart;
+            }
             if (!newEnd) newEnd = newStart;
 
             const droppedDate = new Date(dateStr + "T00:00:00");
@@ -218,14 +235,14 @@ export function ProductionCalendar({ orders }: ProductionCalendarProps) {
                 if (droppedDate > existingEnd) {
                     await updateDoc(doc(db, 'orders', resizingOrder.order.id), { startDate: newEnd, targetCompletionDate: dateStr });
                 } else {
-                    await updateDoc(doc(db, 'orders', resizingOrder.order.id), { startDate: dateStr });
+                    await updateDoc(doc(db, 'orders', resizingOrder.order.id), { startDate: dateStr, targetCompletionDate: newEnd });
                 }
             } else {
                 const existingStart = new Date((newStart || dateStr) + "T00:00:00");
                 if (droppedDate < existingStart) {
                     await updateDoc(doc(db, 'orders', resizingOrder.order.id), { startDate: dateStr, targetCompletionDate: newStart });
                 } else {
-                    await updateDoc(doc(db, 'orders', resizingOrder.order.id), { targetCompletionDate: dateStr });
+                    await updateDoc(doc(db, 'orders', resizingOrder.order.id), { startDate: newStart, targetCompletionDate: dateStr });
                 }
             }
          } catch(err) {
@@ -238,12 +255,23 @@ export function ProductionCalendar({ orders }: ProductionCalendarProps) {
      if (!draggedOrder) return;
 
      // Prevent unnecessary writes
-     let targetDateStr = draggedOrder.targetCompletionDate;
+     const normalize = (val: string | undefined | null) => {
+         if (!val) return null;
+         try {
+             const d = new Date(val);
+             if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
+         } catch(err) {}
+         return null;
+     };
+
+     let targetDateStr = normalize(draggedOrder.targetCompletionDate) || normalize(draggedOrder.date);
      if (!targetDateStr && draggedOrder.createdAt) {
-         try { targetDateStr = new Date(draggedOrder.createdAt).toISOString().split('T')[0]; } catch(err){}
+         targetDateStr = normalize(draggedOrder.createdAt);
      }
      
-     if (targetDateStr === dateStr && (!draggedOrder.startDate || draggedOrder.startDate === dateStr)) return;
+     const dragStartDt = normalize(draggedOrder.startDate);
+     
+     if (targetDateStr === dateStr && (!dragStartDt || dragStartDt === dateStr)) return;
 
      // If dropped on a padding day, optionally switch to that month
      const dropDate = new Date(dateStr + "T00:00:00");
@@ -253,11 +281,14 @@ export function ProductionCalendar({ orders }: ProductionCalendarProps) {
 
      // Shift both start and end if it's a move
      const updates: any = { targetCompletionDate: dateStr };
-     if (draggedOrder.startDate) {
-         const oldEnd = new Date((targetDateStr || draggedOrder.startDate) + "T00:00:00");
+     if (dragStartDt && targetDateStr) {
+         const oldEnd = new Date(targetDateStr + "T00:00:00");
          const diffTime = dropDate.getTime() - oldEnd.getTime();
-         const newStart = new Date(new Date(draggedOrder.startDate + "T00:00:00").getTime() + diffTime);
-         updates.startDate = newStart.toISOString().split('T')[0];
+         const oldStart = new Date(dragStartDt + "T00:00:00");
+         updates.startDate = new Date(oldStart.getTime() + diffTime).toISOString().split('T')[0];
+     } else if (!dragStartDt) {
+         // Moving a single day event explicitly wipes any corrupt startDate
+         updates.startDate = null;
      }
 
      try {
