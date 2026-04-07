@@ -638,9 +638,9 @@ export function TimelinePlanner({ activeRange = 'Day' }: TimelinePlannerProps) {
                       return (
                         <div 
                           key={task.id}
-                          onClick={(e) => { 
+                          onDoubleClick={(e) => { 
                              e.stopPropagation(); 
-                             if (!isDraggingRef.current) handleEditTask(task); 
+                             handleEditTask(task); 
                           }}
                           onMouseDown={(e) => {
                              // Default drag (move) action unless they precisely click the resize handle
