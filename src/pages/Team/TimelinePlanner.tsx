@@ -188,8 +188,11 @@ export function TimelinePlanner({ activeRange = 'Day' }: TimelinePlannerProps) {
          newStart = Math.max(startOffset, Math.min(startOffset + columns.length - currentDrag.currentDuration, newStart));
          
          let newMemberId = currentDrag.currentMemberId;
-         // Detect which member row is underneath the cursor for vertical draggability
+         const draggedEl = document.querySelector(`[data-task-id="${currentDrag.taskId}"]`) as HTMLElement;
+         if (draggedEl) draggedEl.style.pointerEvents = 'none';
          const el = document.elementFromPoint(e.clientX, e.clientY);
+         if (draggedEl) draggedEl.style.pointerEvents = '';
+         
          const rowEl = el?.closest('[data-member-id]');
          if (rowEl) {
            newMemberId = rowEl.getAttribute('data-member-id') || currentDrag.currentMemberId;
@@ -653,6 +656,7 @@ export function TimelinePlanner({ activeRange = 'Day' }: TimelinePlannerProps) {
                       return (
                         <div 
                           key={task.id}
+                          data-task-id={task.id}
                           onClick={(e) => e.stopPropagation()}
                           onDoubleClick={(e) => { 
                              e.stopPropagation(); 
@@ -668,7 +672,7 @@ export function TimelinePlanner({ activeRange = 'Day' }: TimelinePlannerProps) {
                                currentStart: task.start, currentDuration: task.duration, currentMemberId: task.memberId
                              });
                           }}
-                          className={`absolute h-[42px] rounded-lg text-white px-3 flex flex-col justify-center shadow-sm cursor-grab active:cursor-grabbing hover:shadow-md hover:scale-[1.01] hover:-translate-y-0.5 transition-all overflow-hidden border border-black/10 ${task.color} ${isDragging ? 'opacity-80 shadow-2xl scale-[1.02] z-50 pointer-events-none' : 'z-20'}`}
+                          className={`absolute h-[42px] rounded-lg text-white px-3 flex flex-col justify-center shadow-sm cursor-grab active:cursor-grabbing hover:shadow-md hover:scale-[1.01] hover:-translate-y-0.5 transition-all overflow-hidden border border-black/10 ${task.color} ${isDragging ? 'opacity-80 shadow-2xl scale-[1.02] z-50 cursor-grabbing' : 'z-20'}`}
                           style={{ 
                             left: `${Math.max(0, left)}%`, 
                             width: `calc(${width}% - 6px)`, 
