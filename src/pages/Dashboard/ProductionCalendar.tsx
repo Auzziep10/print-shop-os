@@ -278,9 +278,6 @@ export function ProductionCalendar({ orders }: ProductionCalendarProps) {
      }
   };
 
-  const handleDragLeave = () => {
-     setDragOverDate(null);
-  };
 
   const handleDrop = async (e: React.DragEvent, dateStr: string | null) => {
      e.preventDefault();
@@ -387,7 +384,7 @@ export function ProductionCalendar({ orders }: ProductionCalendarProps) {
     <div className="bg-white rounded-card border border-brand-border p-6 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.02)] flex flex-col h-full min-h-[600px] relative">
        
        {/* Hover Popover */}
-       {hoveredOrder && (
+       {hoveredOrder && !draggedOrder && !resizingOrder && (
           <div 
             className="fixed z-50 w-72 bg-white border border-brand-border shadow-xl rounded-xl p-4 pointer-events-none transform -translate-y-full -translate-x-1/2"
             style={{ top: hoveredOrder.y - 12, left: hoveredOrder.x }}
@@ -472,7 +469,6 @@ export function ProductionCalendar({ orders }: ProductionCalendarProps) {
                   key={i} 
                   className={`min-h-[100px] border-r border-b border-brand-border/60 flex flex-col gap-1 transition-colors relative ${isCurrentMonth ? 'bg-white hover:bg-brand-bg/20' : 'bg-neutral-50/50 hover:bg-neutral-100'} ${isDragOver ? 'bg-brand-primary/5 border-brand-primary/30 ring-2 ring-inset ring-brand-primary/20 z-10' : ''}`}
                   onDragOver={(e) => handleDragOver(e, dtStr)}
-                  onDragLeave={handleDragLeave}
                   onDrop={(e) => handleDrop(e, dtStr)}
                   onDragEnter={(e) => {
                       if (!isCurrentMonth) {
@@ -530,6 +526,12 @@ export function ProductionCalendar({ orders }: ProductionCalendarProps) {
                                        setHoveredOrder(null); 
                                    }
                                }}
+                               onDragEnd={() => {
+                                   setHoveredOrder(null);
+                                   setDraggedOrder(null);
+                                   setDragOverDate(null);
+                                   setResizingOrder(null);
+                               }}
                                onMouseEnter={(e) => {
                                    if (ev._isOptimisticFake) return;
                                    const rect = e.currentTarget.getBoundingClientRect();
@@ -552,7 +554,11 @@ export function ProductionCalendar({ orders }: ProductionCalendarProps) {
                                         img.src = 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
                                         e.dataTransfer.setDragImage(img, 0, 0);
                                      }}
-                                     onDragEnd={() => setResizingOrder(null)}
+                                     onDragEnd={(e) => {
+                                        e.stopPropagation();
+                                        setResizingOrder(null);
+                                        setDragOverDate(null);
+                                     }}
                                      className="absolute left-0 top-0 bottom-0 w-2.5 cursor-col-resize opacity-0 group-hover:opacity-100 hover:bg-black/10 z-20"
                                      onClick={(e) => e.stopPropagation()}
                                    />
@@ -569,7 +575,11 @@ export function ProductionCalendar({ orders }: ProductionCalendarProps) {
                                         img.src = 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
                                         e.dataTransfer.setDragImage(img, 0, 0);
                                      }}
-                                     onDragEnd={() => setResizingOrder(null)}
+                                     onDragEnd={(e) => {
+                                        e.stopPropagation();
+                                        setResizingOrder(null);
+                                        setDragOverDate(null);
+                                     }}
                                      className="absolute right-0 top-0 bottom-0 w-2.5 cursor-col-resize opacity-0 group-hover:opacity-100 hover:bg-black/10 z-20"
                                      onClick={(e) => e.stopPropagation()}
                                    />
