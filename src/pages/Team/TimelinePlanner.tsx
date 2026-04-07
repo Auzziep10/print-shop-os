@@ -583,7 +583,7 @@ export function TimelinePlanner({ activeRange = 'Day' }: TimelinePlannerProps) {
             </div>
             <div className="flex relative">
               {columns.map((col) => (
-                <div key={col.id} className="flex-1 border-l border-brand-border/50 p-4 text-[10px] font-bold text-brand-secondary/70 uppercase tracking-widest text-center">
+                <div key={col.id} className="flex-1 text-left pl-2 py-4 border-l border-brand-border/50 text-[10px] font-bold text-brand-secondary/70 uppercase tracking-widest relative overflow-hidden group">
                   {col.label}
                 </div>
               ))}

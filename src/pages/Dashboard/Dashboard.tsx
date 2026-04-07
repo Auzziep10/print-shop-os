@@ -8,7 +8,7 @@ import { ProductionCalendar } from './ProductionCalendar';
 import { useAuth } from '../../contexts/AuthContext';
 import { useOrders } from '../../hooks/useOrders';
 import { db } from '../../lib/firebase';
-import { collection, query, where, getDocs, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, getDocs, onSnapshot, updateDoc, doc } from 'firebase/firestore';
 import { normalizeUser } from '../../lib/utils';
 
 export function Dashboard() {
@@ -541,12 +541,31 @@ export function Dashboard() {
                     <div className="md:col-span-2 text-sm text-brand-secondary italic p-4 bg-brand-bg/50 rounded-xl border border-brand-border">No tasks immediately assigned to you right now.</div>
                   ) : (
                     myTasks.map((task) => (
-                     <div key={task.id} className="bg-white p-5 rounded-card border border-brand-border flex items-start gap-4 shadow-sm hover:shadow-md transition-shadow">
-                       <div className={`w-3 h-3 rounded-sm mt-1 shrink-0 ${task.color || 'bg-blue-500'}`}></div>
-                       <div>
-                         <h4 className="font-semibold text-brand-primary mb-1 leading-tight">{task.title}</h4>
-                         <span className="text-xs text-brand-secondary font-bold tracking-wider uppercase">{formatTaskTime(task.start, task.duration)}</span>
+                     <div key={task.id} className="bg-white p-5 rounded-card border border-brand-border flex items-center justify-between shadow-sm hover:shadow-md transition-shadow">
+                       <div className="flex items-start gap-4">
+                         <div className={`w-3 h-3 rounded-sm mt-1 shrink-0 ${task.color || 'bg-blue-500'}`}></div>
+                         <div>
+                           <h4 className="font-semibold text-brand-primary mb-1 leading-tight">{task.title}</h4>
+                           <span className="text-xs text-brand-secondary font-bold tracking-wider uppercase">{formatTaskTime(task.start, task.duration)}</span>
+                         </div>
                        </div>
+                       
+                       <select 
+                         value={task.color || 'bg-blue-500'} 
+                         onChange={async (e) => {
+                            try {
+                              await updateDoc(doc(db, 'timelineTasks', task.id), { color: e.target.value });
+                            } catch (err) {
+                              console.error("Error updating status:", err);
+                            }
+                         }}
+                         className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary bg-brand-bg border border-brand-border/60 rounded-md px-2 py-1.5 outline-none cursor-pointer hover:border-brand-primary/50 hover:text-brand-primary transition-colors max-w-[120px]"
+                       >
+                         <option value="bg-yellow-500">Not Started</option>
+                         <option value="bg-blue-500">Active</option>
+                         <option value="bg-green-500">Complete</option>
+                         <option value="bg-red-500">Delayed</option>
+                       </select>
                      </div>
                     ))
                   )}
