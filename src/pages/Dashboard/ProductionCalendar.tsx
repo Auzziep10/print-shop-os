@@ -384,9 +384,9 @@ export function ProductionCalendar({ orders }: ProductionCalendarProps) {
              const isCurrentMonth = date.getMonth() === calendarData.month;
 
              return (
-                <div 
+                 <div 
                   key={i} 
-                  className={`min-h-[100px] border-r border-b border-brand-border/60 p-1.5 flex flex-col gap-1 transition-colors relative ${isCurrentMonth ? 'bg-white hover:bg-brand-bg/20' : 'bg-neutral-50/50 hover:bg-neutral-100'} ${isDragOver ? 'bg-brand-primary/5 border-brand-primary/30 ring-2 ring-inset ring-brand-primary/20 z-10' : ''}`}
+                  className={`min-h-[100px] border-r border-b border-brand-border/60 flex flex-col gap-1 transition-colors relative ${isCurrentMonth ? 'bg-white hover:bg-brand-bg/20' : 'bg-neutral-50/50 hover:bg-neutral-100'} ${isDragOver ? 'bg-brand-primary/5 border-brand-primary/30 ring-2 ring-inset ring-brand-primary/20 z-10' : ''}`}
                   onDragOver={(e) => handleDragOver(e, dtStr)}
                   onDragLeave={handleDragLeave}
                   onDrop={(e) => handleDrop(e, dtStr)}
@@ -401,20 +401,28 @@ export function ProductionCalendar({ orders }: ProductionCalendarProps) {
                       }
                   }}
                 >
-                   <div className={`text-xs ml-1 mt-0.5 mb-1 font-bold w-6 h-6 flex items-center justify-center rounded-full ${isToday ? 'bg-brand-primary text-white shadow-sm' : isCurrentMonth ? 'text-neutral-400' : 'text-neutral-300'}`}>
+                   <div className={`text-xs ml-2 mt-1.5 mb-1 font-bold w-6 h-6 flex items-center justify-center rounded-full ${isToday ? 'bg-brand-primary text-white shadow-sm' : isCurrentMonth ? 'text-neutral-400' : 'text-neutral-300'}`}>
                       {date.getDate()}
                    </div>
-                   <div className="flex flex-col gap-1 overflow-y-auto custom-scrollbar flex-1 max-h-[80px]">
+                   <div className="flex flex-col gap-1 overflow-y-auto custom-scrollbar flex-1 max-h-[80px] pb-1.5">
                        {events.map((ev, idx) => {
                           const isStretching = ev._isSpan;
                           const isStart = ev._isStart;
                           const isEnd = ev._isEnd;
 
+                          let margin = 'mx-1.5';
                           let rounding = 'rounded-[4px]';
                           if (isStretching) {
-                              if (isStart) rounding = 'rounded-l-[4px] rounded-r-none border-r-0';
-                              else if (isEnd) rounding = 'rounded-r-[4px] rounded-l-none border-l-0';
-                              else rounding = 'rounded-none border-l-0 border-r-0';
+                              if (isStart) {
+                                 margin = 'ml-1.5 mr-0';
+                                 rounding = 'rounded-l-[4px] rounded-r-none border-r-0';
+                              } else if (isEnd) {
+                                 margin = 'mr-1.5 ml-0';
+                                 rounding = 'rounded-r-[4px] rounded-l-none border-l-0';
+                              } else {
+                                 margin = 'mx-0';
+                                 rounding = 'rounded-none border-l-0 border-r-0';
+                              }
                           }
 
                           return (
@@ -433,7 +441,7 @@ export function ProductionCalendar({ orders }: ProductionCalendarProps) {
                                }}
                                onMouseLeave={() => setHoveredOrder(null)}
                                onClick={() => navigate(`/orders/${ev.id}`)}
-                               className={`group relative px-1.5 py-1 text-[10px] sm:text-[11px] font-medium border cursor-pointer flex items-center gap-1.5 transition-all shadow-sm z-10 ${rounding} ${getEventStyles(ev.statusIndex || 0)} ${draggedOrder?.id === ev.id ? 'opacity-30' : 'opacity-100'} ${isStretching && !isStart && !isEnd ? 'border-dashed border-t-brand-border/40 border-b-brand-border/40' : ''}`}
+                               className={`group relative px-1.5 py-1 text-[10px] sm:text-[11px] font-medium border cursor-pointer flex items-center gap-1.5 transition-all shadow-sm z-10 ${margin} ${rounding} ${getEventStyles(ev.statusIndex || 0)} ${draggedOrder?.id === ev.id ? 'opacity-30' : 'opacity-100'}`}
                                title={ev.title}
                              >
                                 {/* Drag Handles for resizing */}
@@ -471,9 +479,9 @@ export function ProductionCalendar({ orders }: ProductionCalendarProps) {
                                    />
                                 )}
 
-                                <div className={`flex items-center gap-1.5 truncate ${!isStart && isStretching ? 'opacity-40' : ''}`}>
+                                <div className={`flex items-center gap-1.5 truncate`}>
                                    {isStart || !isStretching ? getEventIcon(ev.statusIndex || 0) : <div className="w-[10px] shrink-0" />}
-                                   <span className="truncate">{ev.title || 'Untitled'}</span>
+                                   <span className={`truncate ${isStretching && !isStart && !isEnd ? 'opacity-0' : ''}`}>{ev.title || 'Untitled'}</span>
                                 </div>
                              </div>
                           );
