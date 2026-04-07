@@ -648,6 +648,7 @@ export function TimelinePlanner({ activeRange = 'Day' }: TimelinePlannerProps) {
                       return (
                         <div 
                           key={task.id}
+                          onClick={(e) => e.stopPropagation()}
                           onDoubleClick={(e) => { 
                              e.stopPropagation(); 
                              handleEditTask(task); 
