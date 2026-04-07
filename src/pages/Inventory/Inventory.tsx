@@ -68,7 +68,7 @@ function WarehouseMap({ activeRack, setActiveRack }: any) {
          <p className="text-sm font-semibold text-brand-primary font-serif">South Camera View</p>
       </div>
 
-      <Canvas camera={{ position: [0, 24, 32], fov: 40 }} shadows>
+      <Canvas camera={{ position: [0, 20, 26], fov: 42 }} shadows>
         <ambientLight intensity={0.6} />
         <directionalLight position={[10, 20, 10]} intensity={1.5} castShadow />
         <Environment preset="city" />
@@ -81,62 +81,62 @@ function WarehouseMap({ activeRack, setActiveRack }: any) {
 
         {/* Complete True-Scale Concrete Floor */}
         <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-          <planeGeometry args={[32, 40]} />
+          <planeGeometry args={[26, 30]} />
           <meshStandardMaterial color="#f0f2f5" />
         </mesh>
         
-        {/* ======== PERIMETER WALLS ======== */}
+        {/* ======== PERIMETER COMPRESSED WALLS ======== */}
         {/* South Wall (Bottom) */}
-        <mesh position={[0, 4, 18]} receiveShadow>
-           <boxGeometry args={[30, 8, 0.4]} />
+        <mesh position={[0, 4, 14]} receiveShadow>
+           <boxGeometry args={[25, 8, 0.4]} />
            <meshStandardMaterial color="#d1d5db" />
         </mesh>
         {/* North Wall (Top) */}
-        <mesh position={[0, 4, -18]} receiveShadow>
-           <boxGeometry args={[30, 8, 0.4]} />
+        <mesh position={[0, 4, -14]} receiveShadow>
+           <boxGeometry args={[25, 8, 0.4]} />
            <meshStandardMaterial color="#d1d5db" />
         </mesh>
         
         {/* West Wall (Left) */}
-        <mesh position={[-15, 4, 0]} rotation={[0, Math.PI/2, 0]} receiveShadow>
-           <boxGeometry args={[36, 8, 0.4]} />
+        <mesh position={[-12.5, 4, 0]} rotation={[0, Math.PI/2, 0]} receiveShadow>
+           <boxGeometry args={[28, 8, 0.4]} />
            <meshStandardMaterial color="#d1d5db" />
         </mesh>
 
         {/* East Wall (Right) - Rendered transparently so camera can pan through it */}
-        <mesh position={[15, 4, 0]} rotation={[0, Math.PI/2, 0]} receiveShadow>
-           <boxGeometry args={[36, 8, 0.4]} />
+        <mesh position={[12.5, 4, 0]} rotation={[0, Math.PI/2, 0]} receiveShadow>
+           <boxGeometry args={[28, 8, 0.4]} />
            <meshStandardMaterial color="#e5e7eb" transparent opacity={0.3} />
         </mesh>
 
         {/* ======== DOCK DOORS ======== */}
-        <mesh position={[0, 1.5, 17.6]}>
+        <mesh position={[0, 1.5, 13.6]}>
            <boxGeometry args={[3, 3, 0.5]} />
            <meshStandardMaterial color="#9ca3af" />
         </mesh>
-        <Text position={[0, 3.5, 17.4]} fontSize={0.8} color="#000" rotation={[0, 0, 0]}>SOUTH DOCK</Text>
+        <Text position={[0, 3.5, 13.4]} fontSize={0.8} color="#000" rotation={[0, 0, 0]}>SOUTH DOCK</Text>
 
-        <mesh position={[0, 1.5, -17.6]}>
+        <mesh position={[0, 1.5, -13.6]}>
            <boxGeometry args={[3, 3, 0.5]} />
            <meshStandardMaterial color="#9ca3af" />
         </mesh>
-        <Text position={[0, 3.5, -17.4]} fontSize={0.8} color="#000" rotation={[0, Math.PI, 0]}>NORTH DOOR</Text>
+        <Text position={[0, 3.5, -13.4]} fontSize={0.8} color="#000" rotation={[0, Math.PI, 0]}>NORTH DOOR</Text>
 
 
 
-        {/* ======== 3D RACKS (Mapped from Top-Down Blueprint) ======== */}
+        {/* ======== COMPRESSED 3D RACKS ======== */}
         
         {/* South Wall Racks (Bottom wall flanking the door) */}
-        <Rack position={[-8, 0, 16.5]} bays={3} label="Aisle S-Left" onClick={setActiveRack} isActive={activeRack === 'Aisle S-Left'} />
-        <Rack position={[8, 0, 16.5]} bays={3} label="Aisle S-Right" onClick={setActiveRack} isActive={activeRack === 'Aisle S-Right'} />
+        <Rack position={[-6.5, 0, 12.5]} bays={3} label="Aisle S-Left" onClick={setActiveRack} isActive={activeRack === 'Aisle S-Left'} />
+        <Rack position={[6.5, 0, 12.5]} bays={3} label="Aisle S-Right" onClick={setActiveRack} isActive={activeRack === 'Aisle S-Right'} />
 
-        {/* West Wall Long Rack (Top left, hugging wall) */}
-        <Rack position={[-14, 0, -9.5]} rotation={[0, Math.PI/2, 0]} bays={5} label="Aisle West-Main" onClick={setActiveRack} isActive={activeRack === 'Aisle West-Main'} />
+        {/* West Wall Long Rack (Compact hugging wall) */}
+        <Rack position={[-11.5, 0, -4.5]} rotation={[0, Math.PI/2, 0]} bays={5} label="Aisle West-Main" onClick={setActiveRack} isActive={activeRack === 'Aisle West-Main'} />
 
-        {/* East Zone (Top right parallel rows & bottom right) */}
-        <Rack position={[14, 0, -10]} rotation={[0, -Math.PI/2, 0]} bays={4} label="Aisle East-Wall" onClick={setActiveRack} isActive={activeRack === 'Aisle East-Wall'} />
-        <Rack position={[10, 0, -10]} rotation={[0, -Math.PI/2, 0]} bays={4} label="Aisle East-Inner" onClick={setActiveRack} isActive={activeRack === 'Aisle East-Inner'} />
-        <Rack position={[14, 0, 10]} rotation={[0, -Math.PI/2, 0]} bays={2} label="Aisle East-Lower" onClick={setActiveRack} isActive={activeRack === 'Aisle East-Lower'} />
+        {/* East Zone (Tight parallel forklift aisles & bottom right) */}
+        <Rack position={[11.5, 0, -6]} rotation={[0, -Math.PI/2, 0]} bays={4} label="Aisle East-Wall" onClick={setActiveRack} isActive={activeRack === 'Aisle East-Wall'} />
+        <Rack position={[8.5, 0, -6]} rotation={[0, -Math.PI/2, 0]} bays={4} label="Aisle East-Inner" onClick={setActiveRack} isActive={activeRack === 'Aisle East-Inner'} />
+        <Rack position={[11.5, 0, 6]} rotation={[0, -Math.PI/2, 0]} bays={2} label="Aisle East-Lower" onClick={setActiveRack} isActive={activeRack === 'Aisle East-Lower'} />
 
       </Canvas>
     </div>
