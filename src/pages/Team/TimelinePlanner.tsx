@@ -88,6 +88,7 @@ export function TimelinePlanner({ activeRange = 'Day' }: TimelinePlannerProps) {
   
   const gridRef = useRef<HTMLDivElement>(null);
   const isDraggingRef = useRef(false);
+  const taskInteractionRef = useRef(false);
   const [dragState, setDragState] = useState<{ 
     taskId: string, 
     type: 'move' | 'resize', 
@@ -216,6 +217,7 @@ export function TimelinePlanner({ activeRange = 'Day' }: TimelinePlannerProps) {
       setDragState(null);
       setTimeout(() => {
          isDraggingRef.current = false;
+         taskInteractionRef.current = false;
       }, 50);
     };
 
@@ -622,11 +624,14 @@ export function TimelinePlanner({ activeRange = 'Day' }: TimelinePlannerProps) {
                 </div>
                 
                 {/* Timeline Track */}
-                <div className="relative min-h-[70px] py-3 cursor-crosshair" onClick={() => handleOpenModal(member.id)}>
+                <div className="relative min-h-[70px] py-3 cursor-crosshair" onClick={() => { if (!taskInteractionRef.current && !isDraggingRef.current) handleOpenModal(member.id); }}>
                   {/* Background grid lines */}
                   <div className="absolute inset-0 flex">
                      {columns.map((col) => (
-                       <div key={col.id} className="flex-1 border-l border-brand-border/50 border-dashed hover:bg-brand-primary/5 transition-colors group-hover:border-brand-border" onClick={(e) => { e.stopPropagation(); handleOpenModal(member.id, col.startVal); }}></div>
+                       <div key={col.id} className="flex-1 border-l border-brand-border/50 border-dashed hover:bg-brand-primary/5 transition-colors group-hover:border-brand-border" onClick={(e) => { 
+                          e.stopPropagation(); 
+                          if (!taskInteractionRef.current && !isDraggingRef.current) handleOpenModal(member.id, col.startVal); 
+                       }}></div>
                      ))}
                   </div>
 
@@ -654,6 +659,7 @@ export function TimelinePlanner({ activeRange = 'Day' }: TimelinePlannerProps) {
                              handleEditTask(task); 
                           }}
                           onMouseDown={(e) => {
+                             taskInteractionRef.current = true;
                              // Default drag (move) action unless they precisely click the resize handle
                              if ((e.target as HTMLElement).getAttribute('data-resize-handle')) return;
                              setDragState({
@@ -680,6 +686,7 @@ export function TimelinePlanner({ activeRange = 'Day' }: TimelinePlannerProps) {
                              className="absolute right-0 top-0 bottom-0 w-3 cursor-ew-resize hover:bg-white/30 transition-colors flex flex-col justify-center items-center opacity-0 hover:opacity-100 group-hover:opacity-100"
                              onMouseDown={(e) => {
                                 e.stopPropagation();
+                                taskInteractionRef.current = true;
                                 setDragState({
                                   taskId: task.id, type: 'resize', startX: e.clientX, startY: e.clientY,
                                   initialStart: task.start, initialDuration: task.duration, initialMemberId: task.memberId,
