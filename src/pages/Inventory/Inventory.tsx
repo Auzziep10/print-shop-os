@@ -1,15 +1,17 @@
-import React, { useState, Suspense } from 'react';
+import { useState, Suspense } from 'react';
 import { tokens } from '../../lib/tokens';
 import { PackageOpen, Printer, Boxes, Map, QrCode } from 'lucide-react';
 import QRCode from 'react-qr-code';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Text, Environment } from '@react-three/drei';
 
-function Rack({ position, rotation = [0,0,0], bays = 2, levels = 5, color = '#2b4478', label = "Rack", onClick }: any) {
+function Rack({ position, rotation = [0,0,0], bays = 2, levels = 5, color = '#2b4478', label = "Rack", onClick, isActive }: any) {
   const width = 2.6; // Width per bay
   const depth = 1.0;
   const height = 4.0;
   const totalWidth = width * bays;
+  
+  const upColor = isActive ? '#10b981' : color;
 
   const uprights = [];
   const beams = [];
@@ -17,12 +19,12 @@ function Rack({ position, rotation = [0,0,0], bays = 2, levels = 5, color = '#2b
   for (let i = 0; i <= bays; i++) {
     const xPos = (i * width) - (totalWidth / 2);
     // front-left upright
-    uprights.push(<mesh key={`ul_${i}`} position={[xPos, height/2, depth/2 - 0.05]}><boxGeometry args={[0.1, height, 0.1]} /><meshStandardMaterial color={color} /></mesh>);
+    uprights.push(<mesh key={`ul_${i}`} position={[xPos, height/2, depth/2 - 0.05]}><boxGeometry args={[0.1, height, 0.1]} /><meshStandardMaterial color={upColor} /></mesh>);
     // back-left upright
-    uprights.push(<mesh key={`ub_${i}`} position={[xPos, height/2, -depth/2 + 0.05]}><boxGeometry args={[0.1, height, 0.1]} /><meshStandardMaterial color={color} /></mesh>);
+    uprights.push(<mesh key={`ub_${i}`} position={[xPos, height/2, -depth/2 + 0.05]}><boxGeometry args={[0.1, height, 0.1]} /><meshStandardMaterial color={upColor} /></mesh>);
     // cross braces
     for (let h = 0.5; h < height; h += 0.8) {
-       uprights.push(<mesh key={`uc_${i}_${h}`} position={[xPos, h, 0]} rotation={[0.45, 0, 0]}><boxGeometry args={[0.04, depth, 0.04]} /><meshStandardMaterial color={color} /></mesh>);
+       uprights.push(<mesh key={`uc_${i}_${h}`} position={[xPos, h, 0]} rotation={[0.45, 0, 0]}><boxGeometry args={[0.04, depth, 0.04]} /><meshStandardMaterial color={upColor} /></mesh>);
     }
   }
 
@@ -111,18 +113,18 @@ function WarehouseMap({ activeRack, setActiveRack }: any) {
         {/* ====== 3D RACKS (Mapped from SketchUp Layout) ====== */}
         
         {/* South Wall Racks */}
-        <Rack position={[-5, 0, -10.5]} bays={2} label="Aisle S-Left" onClick={setActiveRack} />
-        <Rack position={[5, 0, -10.5]} bays={2} label="Aisle S-Right" onClick={setActiveRack} />
+        <Rack position={[-5, 0, -10.5]} bays={2} label="Aisle S-Left" onClick={setActiveRack} isActive={activeRack === 'Aisle S-Left'} />
+        <Rack position={[5, 0, -10.5]} bays={2} label="Aisle S-Right" onClick={setActiveRack} isActive={activeRack === 'Aisle S-Right'} />
 
         {/* East Wall Continuous Racks */}
-        <Rack position={[13.5, 0, 0]} rotation={[0, -Math.PI/2, 0]} bays={5} label="Aisle East" onClick={setActiveRack} />
+        <Rack position={[13.5, 0, 0]} rotation={[0, -Math.PI/2, 0]} bays={5} label="Aisle East" onClick={setActiveRack} isActive={activeRack === 'Aisle East'} />
 
         {/* Center / West Side Parallel Rows */}
-        <Rack position={[-3, 0, 2]} rotation={[0, -Math.PI/2, 0]} bays={3} label="Aisle B" onClick={setActiveRack} />
-        <Rack position={[-7, 0, 2]} rotation={[0, -Math.PI/2, 0]} bays={3} label="Aisle A" onClick={setActiveRack} />
+        <Rack position={[-3, 0, 2]} rotation={[0, -Math.PI/2, 0]} bays={3} label="Aisle B" onClick={setActiveRack} isActive={activeRack === 'Aisle B'} />
+        <Rack position={[-7, 0, 2]} rotation={[0, -Math.PI/2, 0]} bays={3} label="Aisle A" onClick={setActiveRack} isActive={activeRack === 'Aisle A'} />
 
         {/* Far West Small Rack */}
-        <Rack position={[-13.5, 0, -4]} rotation={[0, -Math.PI/2, 0]} bays={2} label="Aisle W-Deep" onClick={setActiveRack} />
+        <Rack position={[-13.5, 0, -4]} rotation={[0, -Math.PI/2, 0]} bays={2} label="Aisle W-Deep" onClick={setActiveRack} isActive={activeRack === 'Aisle W-Deep'} />
 
       </Canvas>
     </div>
