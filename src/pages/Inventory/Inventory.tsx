@@ -122,17 +122,7 @@ function WarehouseMap({ activeRack, setActiveRack }: any) {
         </mesh>
         <Text position={[0, 3.5, -17.4]} fontSize={0.8} color="#000" rotation={[0, Math.PI, 0]}>NORTH DOOR</Text>
 
-        {/* ======== STRUCTURAL PILLAR GRID (From SketchUp pink markers) ======== */}
-        {[
-          [-7.5, -10],  [0, -10],  [7.5, -10],
-          [-7.5,   0],  [0,   0],  [7.5,   0],
-          [-7.5,  10],  [0,  10],  [7.5,  10]
-        ].map((pos, i) => (
-          <mesh key={`pillar-${i}`} position={[pos[0], 4, pos[1]]} receiveShadow castShadow>
-            <cylinderGeometry args={[0.25, 0.25, 8, 16]} />
-            <meshStandardMaterial color="#fecaca" roughness={0.9} />
-          </mesh>
-        ))}
+
 
         {/* ======== 3D RACKS (Mapped from Top-Down Blueprint) ======== */}
         
