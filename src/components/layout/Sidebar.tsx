@@ -5,6 +5,7 @@ import {
   Users, 
   Scissors, 
   Image as ImageIcon, 
+  Package,
   UsersRound, 
   Settings, 
   FileBox,
@@ -25,6 +26,7 @@ export function Sidebar({ onClose }: SidebarProps) {
     { label: 'Customers', icon: Users, path: '/customers' },
     { label: 'Production', icon: Scissors, path: '/production' },
     { label: 'Artwork', icon: ImageIcon, path: '/artwork' },
+    { label: 'Inventory', icon: Package, path: '/inventory' },
     { label: 'Team', icon: UsersRound, path: '/team' },
     { label: 'Reports', icon: FileBox, path: '/reports' },
   ];
