@@ -393,38 +393,13 @@ export function TimelinePlanner({ activeRange = 'Day' }: TimelinePlannerProps) {
     e.preventDefault();
     if (!smartInput.trim()) return;
     
-    let matchedMemberId = null;
     let titleStr = smartInput;
-    
-    const sortedMembers = [...members].sort((a,b) => b.name.length - a.name.length);
-    
-    for (const m of sortedMembers) {
-      const firstName = m.name.split(' ')[0].toLowerCase();
-      const fnMatchResult = titleStr.toLowerCase().indexOf(firstName);
-      
-      if (fnMatchResult !== -1) {
-         matchedMemberId = m.id;
-         const regex = new RegExp(`^${firstName}\\s+(to\\s+)?`, 'i');
-         if (regex.test(titleStr)) {
-            titleStr = titleStr.replace(regex, '');
-         } else {
-            titleStr = titleStr.replace(new RegExp(`\\b${firstName}\\b`, 'ig'), '').replace(/\s+/g, ' ').trim();
-            titleStr = titleStr.replace(/^to\s+/i, '');
-         }
-         break;
-      }
-    }
-    
-    if (!matchedMemberId && members.length > 0) {
-       matchedMemberId = members[0].id;
-    }
+    let startVal = startOffset;
+    let durationVal = 1;
 
     const rangeMatch = titleStr.match(/\s+(?:from\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\s*(?:to|-)\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/i);
     const timeMatch = titleStr.match(/\s+(?:at|@)\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/i);
     
-    let startVal = startOffset;
-    let durationVal = 1;
-
     if (rangeMatch) {
        titleStr = titleStr.substring(0, rangeMatch.index).trim();
        let h1 = parseInt(rangeMatch[1]);
@@ -461,26 +436,48 @@ export function TimelinePlanner({ activeRange = 'Day' }: TimelinePlannerProps) {
        
        startVal = h + (m / 60);
     }
+
+    const matchedMemberIds: string[] = [];
+    const sortedMembers = [...members].sort((a,b) => b.name.length - a.name.length);
     
+    for (const m of sortedMembers) {
+      const firstName = m.name.split(' ')[0];
+      const regex = new RegExp(`\\b${firstName}\\b`, 'i');
+      if (regex.test(titleStr)) {
+         matchedMemberIds.push(m.id);
+         titleStr = titleStr.replace(regex, '');
+      }
+    }
+    
+    if (matchedMemberIds.length === 0 && members.length > 0) {
+       matchedMemberIds.push(members[0].id);
+    }
+    
+    titleStr = titleStr.replace(/^(?:and\s+)?(?:to\s+)?/ig, '').replace(/\s+/g, ' ').trim();
+    if (titleStr.toLowerCase().startsWith('and ')) titleStr = titleStr.substring(4).trim();
+    if (titleStr.toLowerCase().startsWith('to ')) titleStr = titleStr.substring(3).trim();
     if (!titleStr) titleStr = "Assigned Task";
     titleStr = titleStr.charAt(0).toUpperCase() + titleStr.slice(1);
     
     const savedDate = new Date(activeDateStr + "T00:00:00");
     
     try {
-        await addDoc(collection(db, 'timelineTasks'), {
-          memberId: matchedMemberId,
-          title: titleStr,
-          start: startVal,
-          duration: durationVal,
-          color: 'bg-blue-500',
-          range: activeRange,
-          date: activeDateStr,
-          week: getWeekString(savedDate),
-          month: `${savedDate.getFullYear()}-${String(savedDate.getMonth()+1).padStart(2,'0')}`,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp()
-        });
+        const promises = matchedMemberIds.map(memId => 
+          addDoc(collection(db, 'timelineTasks'), {
+            memberId: memId,
+            title: titleStr,
+            start: startVal,
+            duration: durationVal,
+            color: 'bg-blue-500',
+            range: activeRange,
+            date: activeDateStr,
+            week: getWeekString(savedDate),
+            month: `${savedDate.getFullYear()}-${String(savedDate.getMonth()+1).padStart(2,'0')}`,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+          })
+        );
+        await Promise.all(promises);
         setSmartInput('');
     } catch(err) {
         console.error("Smart Assign Failed:", err);
@@ -781,12 +778,26 @@ export function TimelinePlanner({ activeRange = 'Day' }: TimelinePlannerProps) {
             <div className="p-6 space-y-5">
               <div>
                 <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1.5 flex items-center gap-1.5"><Clock size={12}/> Task Description</label>
-                <input 
-                  type="text" 
-                  value={formData.title}
-                  onChange={e => setFormData({...formData, title: e.target.value})}
+                <input
+                  type="text"
+                  value={formData.title || ''}
                   placeholder="e.g. Calibrate Printers"
-                  className="w-full border border-brand-border rounded-lg p-3 text-sm focus:outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary transition-all placeholder:text-brand-muted"
+                  onChange={(e) => {
+                     const val = e.target.value;
+                     let newMemberIds = [...(formData.memberIds || [])];
+                     
+                     // Run native NLP auto-association
+                     members.forEach(m => {
+                        const firstName = m.name.split(' ')[0];
+                        const regex = new RegExp(`\\b${firstName}\\b`, 'i');
+                        if (regex.test(val) && !newMemberIds.includes(m.id)) {
+                           newMemberIds.push(m.id);
+                        }
+                     });
+
+                     setFormData({...formData, title: val, memberIds: newMemberIds});
+                  }}
+                  className="w-full text-sm font-semibold border border-brand-border rounded-lg p-3 outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary"
                   autoFocus
                 />
               </div>
