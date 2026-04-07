@@ -31,11 +31,11 @@ function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, color = '#2b
   for (let bay = 0; bay < bays; bay++) {
     const xCenter = (bay * width) + (width / 2) - (totalWidth / 2);
     for (let l = 1; l <= levels; l++) {
-      const yPos = l * (height / (levels + 1));
-      // front and back orange beams
+      // Space beams properly: bottom floor is level 0, then middle, then exactly at the top.
+      const yPos = (l * (height / levels)) - 0.06; // minus 0.06 so the top beam is flush with the top of the blue upright
+      // front and back orange beams (no wire decking)
       beams.push(<mesh key={`bf_${bay}_${l}`} position={[xCenter, yPos, depth/2]}><boxGeometry args={[width, 0.12, 0.05]} /><meshStandardMaterial color="#eb7023" /></mesh>);
-      // wood/wire deck
-      beams.push(<mesh key={`sh_${bay}_${l}`} position={[xCenter, yPos + 0.05, 0]}><boxGeometry args={[width - 0.1, 0.02, depth - 0.1]} /><meshStandardMaterial color="#cdb492" transparent opacity={0.8} /></mesh>);
+      beams.push(<mesh key={`bb_${bay}_${l}`} position={[xCenter, yPos, -depth/2]}><boxGeometry args={[width, 0.12, 0.05]} /><meshStandardMaterial color="#eb7023" /></mesh>);
     }
   }
 
