@@ -1,9 +1,19 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { tokens } from '../../lib/tokens';
 import { collection, query, onSnapshot, addDoc, updateDoc, doc, deleteDoc, serverTimestamp, getDocs } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useOrders } from '../../hooks/useOrders';
-import { Plus, X, Loader2, Clock, Trash2 } from 'lucide-react';
+import { Plus, X, Loader2, Clock, Trash2, ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react';
+
+const getWeekString = (d: Date) => {
+    const copy = new Date(d);
+    copy.setHours(0,0,0,0);
+    const dayNum = copy.getUTCDay() || 7;
+    copy.setUTCDate(copy.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(copy.getUTCFullYear(),0,1));
+    const weekNo = Math.ceil((((copy.getTime() - yearStart.getTime()) / 86400000) + 1)/7);
+    return `${copy.getUTCFullYear()}-W${weekNo}`;
+};
 
 const getColumns = (range: string) => {
   if (range === 'Week') return ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map((name, i) => ({ id: `wk-${i}`, label: name, startVal: i, snapMode: 0.5 })); 
@@ -50,6 +60,9 @@ interface TimelineTask {
   rowOffset?: number;
   orderId?: string;
   range?: string;
+  date?: string;
+  week?: string;
+  month?: string;
 }
 
 const STATUS_COLORS = [
@@ -100,8 +113,23 @@ export function TimelinePlanner({ activeRange = 'Day' }: TimelinePlannerProps) {
     duration: '1',
     color: 'bg-blue-500',
     orderId: '',
-    range: activeRange
+    range: activeRange,
+    date: ''
   });
+
+  const [currentDate, setCurrentDate] = useState(() => new Date());
+
+  const activeDateStr = currentDate.toISOString().split('T')[0];
+  const activeWeekStr = useMemo(() => getWeekString(currentDate), [currentDate]);
+  const activeMonthStr = useMemo(() => `${currentDate.getFullYear()}-${String(currentDate.getMonth()+1).padStart(2,'0')}`, [currentDate]);
+
+  const adjustDate = (days: number) => {
+      setCurrentDate(prev => {
+          const next = new Date(prev);
+          next.setDate(next.getDate() + days);
+          return next;
+      });
+  };
 
   const columns = getColumns(activeRange);
   const startOffset = columns[0].startVal;
@@ -232,6 +260,10 @@ export function TimelinePlanner({ activeRange = 'Day' }: TimelinePlannerProps) {
       const liveTasks: TimelineTask[] = [];
       snap.forEach(doc => {
         const data = doc.data();
+        let taskDate = data.date;
+        if (!taskDate && data.createdAt) {
+             taskDate = new Date(data.createdAt.toMillis ? data.createdAt.toMillis() : Date.now()).toISOString().split('T')[0];
+        }
         liveTasks.push({
           id: doc.id,
           memberId: data.memberId,
@@ -240,10 +272,21 @@ export function TimelinePlanner({ activeRange = 'Day' }: TimelinePlannerProps) {
           duration: data.duration,
           color: data.color || 'bg-blue-500',
           rowOffset: data.rowOffset || 0,
-          range: data.range || 'Day'
+          range: data.range || 'Day',
+          date: taskDate,
+          week: data.week || getWeekString(new Date(taskDate || Date.now())),
+          month: data.month || (taskDate ? taskDate.substring(0, 7) : '')
         });
       });
-      setTasks(liveTasks.filter(t => t.range === activeRange || (!t.range && activeRange === 'Day')));
+      
+      setTasks(liveTasks.filter(t => {
+         if (t.range && t.range !== activeRange) return false;
+         if (!t.range && activeRange !== 'Day') return false;
+         if (activeRange === 'Day') return t.date === activeDateStr;
+         if (activeRange === 'Week') return t.week === activeWeekStr;
+         if (activeRange === 'Month') return t.month === activeMonthStr;
+         return true;
+      }));
       setLoading(false);
     });
 
@@ -261,7 +304,8 @@ export function TimelinePlanner({ activeRange = 'Day' }: TimelinePlannerProps) {
       duration: activeRange === 'Day' ? '1' : activeRange === 'Week' ? '1' : '1',
       color: 'bg-blue-500',
       orderId: '',
-      range: activeRange
+      range: activeRange,
+      date: activeDateStr
     });
     setEditingTask(null);
     setIsModalOpen(true);
@@ -281,7 +325,8 @@ export function TimelinePlanner({ activeRange = 'Day' }: TimelinePlannerProps) {
       duration: task.duration.toString(),
       color: task.color,
       orderId: task.orderId || '',
-      range: task.range || 'Day'
+      range: task.range || 'Day',
+      date: task.date || activeDateStr
     });
     setEditingTask(task);
     setIsModalOpen(true);
@@ -290,6 +335,8 @@ export function TimelinePlanner({ activeRange = 'Day' }: TimelinePlannerProps) {
   const handleSave = async () => {
     if (formData.memberIds.length === 0 || !formData.title.trim()) return;
 
+    const savedDate = new Date((formData.date || activeDateStr) + "T00:00:00");
+
     const baseTaskData = {
       title: formData.title,
       start: parseFloat(formData.start),
@@ -297,6 +344,9 @@ export function TimelinePlanner({ activeRange = 'Day' }: TimelinePlannerProps) {
       color: formData.color,
       orderId: formData.orderId || null,
       range: activeRange,
+      date: formData.date || activeDateStr,
+      week: getWeekString(savedDate),
+      month: `${savedDate.getFullYear()}-${String(savedDate.getMonth()+1).padStart(2,'0')}`,
       updatedAt: serverTimestamp()
     };
 
@@ -347,12 +397,23 @@ export function TimelinePlanner({ activeRange = 'Day' }: TimelinePlannerProps) {
           <h2 className={tokens.typography.h3}>Team Timeline</h2>
           <p className="text-xs text-brand-secondary mt-1 tracking-wide">Organize staff schedules and dictate daily tasks.</p>
         </div>
-        <button 
-          onClick={() => handleOpenModal()}
-          className="bg-brand-primary text-white text-xs font-semibold px-4 py-2 rounded-pill uppercase tracking-wider flex items-center gap-2 hover:bg-black transition-colors shadow-sm"
-        >
-          <Plus size={14} /> Assign Task
-        </button>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center bg-white border border-brand-border rounded-lg p-1 shadow-sm shrink-0">
+             <button onClick={() => adjustDate(activeRange === 'Day' ? -1 : (activeRange === 'Week' ? -7 : -30))} className="p-1 hover:bg-brand-bg rounded"><ChevronLeft size={16}/></button>
+             <span className="text-xs font-bold px-4 text-brand-primary min-w-[130px] text-center uppercase tracking-wider">
+               {activeRange === 'Day' ? currentDate.toLocaleDateString([], {weekday: 'short', month: 'short', day: 'numeric'}) : 
+                activeRange === 'Week' ? `Week of ${currentDate.toLocaleDateString([], {month: 'short', day: 'numeric'})}` : 
+                currentDate.toLocaleDateString([], {month: 'long', year: 'numeric'})}
+             </span>
+             <button onClick={() => adjustDate(activeRange === 'Day' ? 1 : (activeRange === 'Week' ? 7 : 30))} className="p-1 hover:bg-brand-bg rounded"><ChevronRight size={16}/></button>
+          </div>
+          <button 
+            onClick={() => handleOpenModal()}
+            className="bg-brand-primary text-white text-xs font-semibold px-4 py-2 rounded-pill uppercase tracking-wider flex items-center gap-2 hover:bg-black transition-colors shadow-sm shrink-0"
+          >
+            <Plus size={14} /> Assign Task
+          </button>
+        </div>
       </div>
 
       <div className="overflow-x-auto custom-scrollbar" ref={gridRef}>
@@ -407,7 +468,7 @@ export function TimelinePlanner({ activeRange = 'Day' }: TimelinePlannerProps) {
                 </div>
               ))}
               {/* Current Time Indicator line (Only for Day) */}
-              {activeRange === 'Day' && currentTimeLeft > 0 && currentTimeLeft < 100 && (
+              {activeRange === 'Day' && currentTimeLeft > 0 && currentTimeLeft < 100 && activeDateStr === new Date().toISOString().split('T')[0] && (
                 <div 
                   className="absolute top-0 bottom-0 w-0.5 bg-red-400 z-10 flex flex-col items-center shadow-[0_0_8px_rgba(248,113,113,0.5)] transition-all duration-1000"
                   style={{ left: `${currentTimeLeft}%` }}
@@ -546,7 +607,8 @@ export function TimelinePlanner({ activeRange = 'Day' }: TimelinePlannerProps) {
                        duration: activeRange === 'Day' ? '1' : activeRange === 'Week' ? '1' : '1',
                        color: 'bg-blue-500',
                        orderId: order.id,
-                       range: activeRange
+                       range: activeRange,
+                       date: activeDateStr
                      });
                      setEditingTask(null);
                      setIsModalOpen(true);
@@ -623,7 +685,18 @@ export function TimelinePlanner({ activeRange = 'Day' }: TimelinePlannerProps) {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {activeRange === 'Day' && (
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1.5">Date</label>
+                    <input 
+                      type="date"
+                      value={formData.date || activeDateStr}
+                      onChange={e => setFormData({...formData, date: e.target.value})}
+                      className="w-full border border-brand-border rounded-lg p-3 text-sm font-semibold focus:outline-none focus:border-brand-primary appearance-none bg-brand-bg/30 text-brand-secondary"
+                    />
+                  </div>
+                )}
                 <div>
                   <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1.5">Start Time</label>
                   <select 
