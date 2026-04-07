@@ -3,7 +3,7 @@ import { tokens } from '../../lib/tokens';
 import { collection, query, onSnapshot, addDoc, updateDoc, doc, deleteDoc, serverTimestamp, getDocs } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useOrders } from '../../hooks/useOrders';
-import { Plus, X, Loader2, Clock, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, X, Loader2, Clock, Trash2, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
 
 const getWeekString = (d: Date) => {
     const copy = new Date(d);
@@ -382,6 +382,79 @@ export function TimelinePlanner({ activeRange = 'Day' }: TimelinePlannerProps) {
     }
   };
 
+  const [smartInput, setSmartInput] = useState('');
+  
+  const handleSmartAssign = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!smartInput.trim()) return;
+    
+    let matchedMemberId = null;
+    let titleStr = smartInput;
+    
+    const sortedMembers = [...members].sort((a,b) => b.name.length - a.name.length);
+    
+    for (const m of sortedMembers) {
+      const firstName = m.name.split(' ')[0].toLowerCase();
+      const fnMatchResult = titleStr.toLowerCase().indexOf(firstName);
+      
+      if (fnMatchResult !== -1) {
+         matchedMemberId = m.id;
+         const regex = new RegExp(`^${firstName}\\s+(to\\s+)?`, 'i');
+         if (regex.test(titleStr)) {
+            titleStr = titleStr.replace(regex, '');
+         } else {
+            titleStr = titleStr.replace(new RegExp(`\\b${firstName}\\b`, 'ig'), '').replace(/\s+/g, ' ').trim();
+            titleStr = titleStr.replace(/^to\s+/i, '');
+         }
+         break;
+      }
+    }
+    
+    if (!matchedMemberId && members.length > 0) {
+       matchedMemberId = members[0].id;
+    }
+
+    const timeMatch = titleStr.match(/\s+at\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/i);
+    let startVal = startOffset;
+    
+    if (timeMatch) {
+       titleStr = titleStr.substring(0, timeMatch.index).trim();
+       let h = parseInt(timeMatch[1]);
+       const m = timeMatch[2] ? parseInt(timeMatch[2]) : 0;
+       const ampm = timeMatch[3]?.toLowerCase();
+       
+       if (ampm === 'pm' && h < 12) h += 12;
+       if (ampm === 'am' && h === 12) h = 0;
+       if (!ampm && h > 0 && h <= 5) h += 12;
+       
+       startVal = h + (m / 60);
+    }
+    
+    if (!titleStr) titleStr = "Assigned Task";
+    titleStr = titleStr.charAt(0).toUpperCase() + titleStr.slice(1);
+    
+    const savedDate = new Date(activeDateStr + "T00:00:00");
+    
+    try {
+        await addDoc(collection(db, 'timelineTasks'), {
+          memberId: matchedMemberId,
+          title: titleStr,
+          start: startVal,
+          duration: 1,
+          color: 'bg-blue-500',
+          range: activeRange,
+          date: activeDateStr,
+          week: getWeekString(savedDate),
+          month: `${savedDate.getFullYear()}-${String(savedDate.getMonth()+1).padStart(2,'0')}`,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+        setSmartInput('');
+    } catch(err) {
+        console.error("Smart Assign Failed:", err);
+    }
+  };
+
   if (loading) {
      return (
         <div className="bg-white border border-brand-border rounded-card h-64 flex flex-col items-center justify-center text-brand-secondary gap-3">
@@ -392,12 +465,27 @@ export function TimelinePlanner({ activeRange = 'Day' }: TimelinePlannerProps) {
 
   return (
     <div className="bg-white border border-brand-border rounded-card overflow-hidden">
-      <div className="p-6 border-b border-brand-border flex justify-between items-center bg-brand-bg/50">
-        <div>
+      <div className="p-6 border-b border-brand-border flex flex-col xl:flex-row xl:justify-between items-start xl:items-center bg-brand-bg/50 gap-4">
+        <div className="shrink-0">
           <h2 className={tokens.typography.h3}>Team Timeline</h2>
           <p className="text-xs text-brand-secondary mt-1 tracking-wide">Organize staff schedules and dictate daily tasks.</p>
         </div>
-        <div className="flex items-center gap-3">
+        
+        <form onSubmit={handleSmartAssign} className="relative flex-1 w-full max-w-lg xl:mx-4 shrink-0 transition-opacity">
+           <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-brand-primary">
+              <Sparkles size={14} />
+           </div>
+           <input
+             type="text"
+             value={smartInput}
+             onChange={e => setSmartInput(e.target.value)}
+             placeholder="Smart assign... e.g. 'Austin to wash floor'"
+             className="block w-full pl-9 pr-3 py-2 border border-brand-border rounded-pill text-xs font-semibold placeholder-brand-secondary/60 focus:outline-none focus:ring-1 focus:ring-brand-primary focus:border-brand-primary transition-all shadow-sm bg-white"
+           />
+           <button type="submit" className="hidden"></button>
+        </form>
+
+        <div className="flex items-center gap-3 w-full xl:w-auto xl:justify-end">
           <div className="flex items-center bg-white border border-brand-border rounded-lg p-1 shadow-sm shrink-0">
              <button onClick={() => adjustDate(activeRange === 'Day' ? -1 : (activeRange === 'Week' ? -7 : -30))} className="p-1 hover:bg-brand-bg rounded"><ChevronLeft size={16}/></button>
              <span className="text-xs font-bold px-4 text-brand-primary min-w-[130px] text-center uppercase tracking-wider">
