@@ -597,18 +597,28 @@ export function TimelinePlanner({ activeRange = 'Day' }: TimelinePlannerProps) {
           </div>
 
           {/* Member Rows */}
-          {members.length === 0 ? (
-            <div className="p-8 text-center text-brand-secondary text-sm">
-              No staff members found. Add production staff in the team settings.
-            </div>
-          ) : (
-            members.map((member) => (
+          {(() => {
+             const activeMembers = members.filter(m => tasks.some(t => t.memberId === m.id && (t.range === activeRange || (!t.range && activeRange === 'Day'))));
+             
+             if (activeMembers.length === 0) {
+                return (
+                  <div className="p-12 text-center flex flex-col items-center justify-center border-b border-brand-border/50">
+                    <div className="w-16 h-16 bg-brand-bg rounded-full flex items-center justify-center text-brand-secondary/50 mb-3">
+                       <Clock size={24} />
+                    </div>
+                    <h3 className="text-sm font-bold text-brand-primary mb-1">Clear Schedule</h3>
+                    <p className="text-xs text-brand-secondary">No tasks assigned for this timeframe.<br/>Use the **Smart Assign** bar above to instantly direct your team!</p>
+                  </div>
+                );
+             }
+
+             return activeMembers.map((member) => (
               <div key={member.id} data-member-id={member.id} className="grid grid-cols-[200px_1fr] border-b border-brand-border/50 group transition-colors hover:bg-brand-bg/30">
                 <div className="p-4 flex items-center gap-3 border-r border-brand-border/50 bg-white group-hover:bg-brand-bg/50 transition-colors relative z-20">
                   <span className="w-8 h-8 rounded-full bg-brand-bg border border-brand-border flex items-center justify-center text-[11px] font-bold tracking-wider text-brand-primary shadow-sm">
                     {member.initials}
                   </span>
-                  <span className="text-sm font-semibold text-brand-primary">{member.name}</span>
+                  <span className="text-sm font-semibold text-brand-primary truncate">{member.name}</span>
                 </div>
                 
                 {/* Timeline Track */}
@@ -684,8 +694,8 @@ export function TimelinePlanner({ activeRange = 'Day' }: TimelinePlannerProps) {
                   })()}
                 </div>
               </div>
-            ))
-          )}
+             ));
+          })()}
         </div>
         )}
       </div>
