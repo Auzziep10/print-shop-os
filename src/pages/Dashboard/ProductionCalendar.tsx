@@ -425,7 +425,7 @@ export function ProductionCalendar({ orders }: ProductionCalendarProps) {
                    <div className={`text-xs ml-2 mt-1.5 mb-1 font-bold w-6 h-6 flex items-center justify-center rounded-full ${isToday ? 'bg-brand-primary text-white shadow-sm' : isCurrentMonth ? 'text-neutral-400' : 'text-neutral-300'}`}>
                       {date.getDate()}
                    </div>
-                   <div className="flex flex-col gap-1 overflow-y-auto custom-scrollbar flex-1 max-h-[80px] pb-1.5">
+                   <div className="flex flex-col gap-1 flex-1 pb-1.5 min-h-[40px]">
                         {events.map((ev, idx) => {
                           if (!ev) {
                               return <div key={`empty-${dtStr}-${idx}`} className="h-[26px] min-h-[26px] w-full" />;
