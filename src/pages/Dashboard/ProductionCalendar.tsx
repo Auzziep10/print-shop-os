@@ -71,18 +71,15 @@ export function ProductionCalendar({ orders }: ProductionCalendarProps) {
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
   };
 
-  // Group events by YYYY-MM-DD
+  // Group events by YYYY-MM-DD AND assign row slots
   const eventsByDate = useMemo(() => {
-    const map: Record<string, any[]> = {};
-    
-    orders.forEach(o => {
-       // The user requested to keep archived orders on the calendar
-       if (o.isProjectGroup) return; // Skip groups to prevent duplicates
+    // Phase 1: Clean and determine exact boundaries
+    const processedOrders = orders.map(o => {
+       if (o.isProjectGroup) return null;
        
        let startStr = o.startDate;
        let endStr = o.targetCompletionDate || o.date;
 
-       // normalize end
        if (endStr) {
            try {
              const d = new Date(endStr);
@@ -94,7 +91,6 @@ export function ProductionCalendar({ orders }: ProductionCalendarProps) {
            try { endStr = new Date(o.createdAt).toISOString().split('T')[0]; } catch(e) {}
        }
        
-       // normalize start
        if (startStr) {
            try {
              const d = new Date(startStr);
@@ -103,42 +99,71 @@ export function ProductionCalendar({ orders }: ProductionCalendarProps) {
            } catch(e) { startStr = null; }
        }
        
-       if (endStr) {
-           const start = startStr ? new Date(startStr + "T00:00:00") : new Date(endStr + "T00:00:00");
-           const end = new Date(endStr + "T00:00:00");
-           
-           // Ensure start <= end
-           const actualStart = start.getTime() <= end.getTime() ? start : end;
-           const actualEnd = start.getTime() <= end.getTime() ? end : start;
-           
-           const curr = new Date(actualStart);
-           while (curr <= actualEnd) {
-               const dayStr = curr.toISOString().split('T')[0];
-               if (!map[dayStr]) map[dayStr] = [];
-               
-               // Create a decorated instance for this day
-               map[dayStr].push({ 
-                   ...o, 
-                   _isSpan: actualStart.getTime() !== actualEnd.getTime(), 
-                   _isStart: curr.getTime() === actualStart.getTime(), 
-                   _isEnd: curr.getTime() === actualEnd.getTime() 
-               });
-               
-               curr.setDate(curr.getDate() + 1);
-           }
-       }
+       if (!endStr) return null;
+
+       const start = startStr ? new Date(startStr + "T00:00:00") : new Date(endStr + "T00:00:00");
+       const end = new Date(endStr + "T00:00:00");
+       
+       const actualStart = start.getTime() <= end.getTime() ? start : end;
+       const actualEnd = start.getTime() <= end.getTime() ? end : start;
+       const duration = actualEnd.getTime() - actualStart.getTime();
+
+       return { ...o, actualStart, actualEnd, duration };
+    }).filter(Boolean);
+
+    // Sort primarily by start date, then longest duration first to cleanly pack rows
+    processedOrders.sort((a,b) => {
+        const timeDiff = a.actualStart.getTime() - b.actualStart.getTime();
+        if (timeDiff !== 0) return timeDiff;
+        return b.duration - a.duration;
     });
 
-    // Sort heavily to keep spanned elements vertically aligned across days
-    const sortedMap: Record<string, any[]> = {};
-    Object.keys(map).forEach(key => {
-        sortedMap[key] = map[key].sort((a,b) => {
-            // Sort by order creation date or title to assure stable grid position
-            return (a.createdAt || a.title || '').localeCompare(b.createdAt || b.title || '');
+    const map: Record<string, any[]> = {};
+    const slots: Record<string, string[]> = {}; // dayStr -> array of order IDs representing occupied rows
+
+    processedOrders.forEach((o) => {
+        const curr = new Date(o.actualStart);
+        const dayStrs = [];
+        
+        while (curr <= o.actualEnd) {
+            dayStrs.push(curr.toISOString().split('T')[0]);
+            curr.setDate(curr.getDate() + 1);
+        }
+
+        // Find the lowest available row index perfectly open across all requested days
+        let rowIndex = 0;
+        while (true) {
+            let available = true;
+            for (let ds of dayStrs) {
+                if (slots[ds] && slots[ds][rowIndex]) {
+                    available = false;
+                    break;
+                }
+            }
+            if (available) break;
+            rowIndex++;
+        }
+
+        // Fill those slots across the span safely leaving nulls underneath
+        dayStrs.forEach((ds, i) => {
+            if (!map[ds]) map[ds] = [];
+            if (!slots[ds]) slots[ds] = [];
+            
+            while (map[ds].length <= rowIndex) {
+                map[ds].push(null);
+            }
+            
+            map[ds][rowIndex] = {
+                ...o,
+                _isSpan: o.actualStart.getTime() !== o.actualEnd.getTime(),
+                _isStart: i === 0,
+                _isEnd: i === dayStrs.length - 1,
+            };
+            slots[ds][rowIndex] = o.id;
         });
     });
     
-    return sortedMap;
+    return map;
   }, [orders]);
 
   const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -406,9 +431,16 @@ export function ProductionCalendar({ orders }: ProductionCalendarProps) {
                    </div>
                    <div className="flex flex-col gap-1 overflow-y-auto custom-scrollbar flex-1 max-h-[80px] pb-1.5">
                        {events.map((ev, idx) => {
+                          if (!ev) {
+                              return <div key={`empty-${idx}`} className="h-[26px] min-h-[26px] w-full" />;
+                          }
+
                           const isStretching = ev._isSpan;
                           const isStart = ev._isStart;
                           const isEnd = ev._isEnd;
+                          const isSunday = date.getDay() === 0;
+                          
+                          const showText = isStart || (isStretching && isSunday);
 
                           let margin = 'mx-1.5';
                           let rounding = 'rounded-[4px]';
@@ -427,7 +459,7 @@ export function ProductionCalendar({ orders }: ProductionCalendarProps) {
 
                           return (
                              <div 
-                               key={idx}
+                               key={ev.id + '-' + idx}
                                draggable={!resizingOrder}
                                onDragStart={(e) => { 
                                    if (!resizingOrder) {
@@ -441,7 +473,7 @@ export function ProductionCalendar({ orders }: ProductionCalendarProps) {
                                }}
                                onMouseLeave={() => setHoveredOrder(null)}
                                onClick={() => navigate(`/orders/${ev.id}`)}
-                               className={`group relative px-1.5 py-1 text-[10px] sm:text-[11px] font-medium border cursor-pointer flex items-center gap-1.5 transition-all shadow-sm z-10 ${margin} ${rounding} ${getEventStyles(ev.statusIndex || 0)} ${draggedOrder?.id === ev.id ? 'opacity-30' : 'opacity-100'}`}
+                               className={`group relative h-[26px] min-h-[26px] px-1.5 py-1 text-[10px] sm:text-[11px] font-medium border cursor-pointer flex items-center gap-1.5 transition-all shadow-sm z-10 ${margin} ${rounding} ${getEventStyles(ev.statusIndex || 0)} ${draggedOrder?.id === ev.id ? 'opacity-30' : 'opacity-100'}`}
                                title={ev.title}
                              >
                                 {/* Drag Handles for resizing */}
@@ -479,9 +511,9 @@ export function ProductionCalendar({ orders }: ProductionCalendarProps) {
                                    />
                                 )}
 
-                                <div className={`flex items-center gap-1.5 truncate`}>
-                                   {isStart || !isStretching ? getEventIcon(ev.statusIndex || 0) : <div className="w-[10px] shrink-0" />}
-                                   <span className={`truncate ${isStretching && !isStart && !isEnd ? 'opacity-0' : ''}`}>{ev.title || 'Untitled'}</span>
+                                <div className={`flex items-center gap-1.5 w-full truncate`}>
+                                   {showText ? getEventIcon(ev.statusIndex || 0) : <div className="w-[10px] shrink-0" />}
+                                   <span className={`truncate ${!showText ? 'opacity-0' : 'opacity-100'}`}>{ev.title || 'Untitled'}</span>
                                 </div>
                              </div>
                           );
