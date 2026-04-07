@@ -17,6 +17,7 @@ export function ProductionCalendar({ orders }: ProductionCalendarProps) {
   });
 
   const [draggedOrder, setDraggedOrder] = useState<any>(null);
+  const [resizingOrder, setResizingOrder] = useState<{ order: any, type: 'start' | 'end' } | null>(null);
   const [dragOverDate, setDragOverDate] = useState<string | null>(null);
   const [hoveredOrder, setHoveredOrder] = useState<{ order: any, x: number, y: number } | null>(null);
 
@@ -78,34 +79,66 @@ export function ProductionCalendar({ orders }: ProductionCalendarProps) {
        // The user requested to keep archived orders on the calendar
        if (o.isProjectGroup) return; // Skip groups to prevent duplicates
        
-       let targetDateStr = o.targetCompletionDate || o.date;
-       if (targetDateStr) {
+       let startStr = o.startDate;
+       let endStr = o.targetCompletionDate || o.date;
+
+       // normalize end
+       if (endStr) {
            try {
-             // To perfectly handle strings that are MM/DD/YY (which lack timezone context)
-             // we avoid .toISOString() shifting if it's already a clean date string.
-             const d = new Date(targetDateStr);
-             if (!isNaN(d.getTime())) {
-                targetDateStr = d.toISOString().split('T')[0];
-             } else {
-                targetDateStr = null;
-             }
-           } catch(e) {
-             targetDateStr = null;
-           }
+             const d = new Date(endStr);
+             if (!isNaN(d.getTime())) endStr = d.toISOString().split('T')[0];
+             else endStr = null;
+           } catch(e) { endStr = null; }
        }
-       if (!targetDateStr && o.createdAt) {
-           try {
-             targetDateStr = new Date(o.createdAt).toISOString().split('T')[0];
-           } catch(e) {}
+       if (!endStr && o.createdAt) {
+           try { endStr = new Date(o.createdAt).toISOString().split('T')[0]; } catch(e) {}
        }
        
-       if (targetDateStr) {
-           if (!map[targetDateStr]) map[targetDateStr] = [];
-           map[targetDateStr].push(o);
+       // normalize start
+       if (startStr) {
+           try {
+             const d = new Date(startStr);
+             if (!isNaN(d.getTime())) startStr = d.toISOString().split('T')[0];
+             else startStr = null;
+           } catch(e) { startStr = null; }
+       }
+       
+       if (endStr) {
+           const start = startStr ? new Date(startStr + "T00:00:00") : new Date(endStr + "T00:00:00");
+           const end = new Date(endStr + "T00:00:00");
+           
+           // Ensure start <= end
+           const actualStart = start.getTime() <= end.getTime() ? start : end;
+           const actualEnd = start.getTime() <= end.getTime() ? end : start;
+           
+           const curr = new Date(actualStart);
+           while (curr <= actualEnd) {
+               const dayStr = curr.toISOString().split('T')[0];
+               if (!map[dayStr]) map[dayStr] = [];
+               
+               // Create a decorated instance for this day
+               map[dayStr].push({ 
+                   ...o, 
+                   _isSpan: actualStart.getTime() !== actualEnd.getTime(), 
+                   _isStart: curr.getTime() === actualStart.getTime(), 
+                   _isEnd: curr.getTime() === actualEnd.getTime() 
+               });
+               
+               curr.setDate(curr.getDate() + 1);
+           }
        }
     });
+
+    // Sort heavily to keep spanned elements vertically aligned across days
+    const sortedMap: Record<string, any[]> = {};
+    Object.keys(map).forEach(key => {
+        sortedMap[key] = map[key].sort((a,b) => {
+            // Sort by order creation date or title to assure stable grid position
+            return (a.createdAt || a.title || '').localeCompare(b.createdAt || b.title || '');
+        });
+    });
     
-    return map;
+    return sortedMap;
   }, [orders]);
 
   const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -169,15 +202,48 @@ export function ProductionCalendar({ orders }: ProductionCalendarProps) {
      e.preventDefault();
      setDragOverDate(null);
      
-     if (!dateStr || !draggedOrder) return;
+     if (!dateStr) return;
      
+     if (resizingOrder) {
+         try {
+            let newStart = resizingOrder.order.startDate || resizingOrder.order.targetCompletionDate;
+            let newEnd = resizingOrder.order.targetCompletionDate;
+            if (!newStart && resizingOrder.order.createdAt) newStart = new Date(resizingOrder.order.createdAt).toISOString().split('T')[0];
+            if (!newEnd) newEnd = newStart;
+
+            const droppedDate = new Date(dateStr + "T00:00:00");
+
+            if (resizingOrder.type === 'start') {
+                const existingEnd = new Date((newEnd || dateStr) + "T00:00:00");
+                if (droppedDate > existingEnd) {
+                    await updateDoc(doc(db, 'orders', resizingOrder.order.id), { startDate: newEnd, targetCompletionDate: dateStr });
+                } else {
+                    await updateDoc(doc(db, 'orders', resizingOrder.order.id), { startDate: dateStr });
+                }
+            } else {
+                const existingStart = new Date((newStart || dateStr) + "T00:00:00");
+                if (droppedDate < existingStart) {
+                    await updateDoc(doc(db, 'orders', resizingOrder.order.id), { startDate: dateStr, targetCompletionDate: newStart });
+                } else {
+                    await updateDoc(doc(db, 'orders', resizingOrder.order.id), { targetCompletionDate: dateStr });
+                }
+            }
+         } catch(err) {
+            console.error("Failed to resize event:", err);
+         }
+         setResizingOrder(null);
+         return;
+     }
+
+     if (!draggedOrder) return;
+
      // Prevent unnecessary writes
      let targetDateStr = draggedOrder.targetCompletionDate;
      if (!targetDateStr && draggedOrder.createdAt) {
          try { targetDateStr = new Date(draggedOrder.createdAt).toISOString().split('T')[0]; } catch(err){}
      }
      
-     if (targetDateStr === dateStr) return; // Dropped on the same date
+     if (targetDateStr === dateStr && (!draggedOrder.startDate || draggedOrder.startDate === dateStr)) return;
 
      // If dropped on a padding day, optionally switch to that month
      const dropDate = new Date(dateStr + "T00:00:00");
@@ -185,10 +251,17 @@ export function ProductionCalendar({ orders }: ProductionCalendarProps) {
         setCurrentDate(new Date(dropDate.getFullYear(), dropDate.getMonth(), 1));
      }
 
+     // Shift both start and end if it's a move
+     const updates: any = { targetCompletionDate: dateStr };
+     if (draggedOrder.startDate) {
+         const oldEnd = new Date((targetDateStr || draggedOrder.startDate) + "T00:00:00");
+         const diffTime = dropDate.getTime() - oldEnd.getTime();
+         const newStart = new Date(new Date(draggedOrder.startDate + "T00:00:00").getTime() + diffTime);
+         updates.startDate = newStart.toISOString().split('T')[0];
+     }
+
      try {
-       await updateDoc(doc(db, 'orders', draggedOrder.id), { 
-         targetCompletionDate: dateStr 
-       });
+       await updateDoc(doc(db, 'orders', draggedOrder.id), updates);
      } catch(err) {
        console.error("Failed to update date:", err);
      }
@@ -301,24 +374,79 @@ export function ProductionCalendar({ orders }: ProductionCalendarProps) {
                       {date.getDate()}
                    </div>
                    <div className="flex flex-col gap-1 overflow-y-auto custom-scrollbar flex-1 max-h-[80px]">
-                      {events.map((ev, idx) => (
-                         <div 
-                           key={idx}
-                           draggable
-                           onDragStart={(e) => { handleDragStart(e, ev); setHoveredOrder(null); }}
-                           onMouseEnter={(e) => {
-                               const rect = e.currentTarget.getBoundingClientRect();
-                               setHoveredOrder({ order: ev, x: rect.left + rect.width / 2, y: rect.top });
-                           }}
-                           onMouseLeave={() => setHoveredOrder(null)}
-                           onClick={() => navigate(`/orders/${ev.id}`)}
-                           className={`px-1.5 py-1 text-[10px] sm:text-[11px] font-medium border rounded-[4px] cursor-pointer truncate flex items-center gap-1.5 transition-all shadow-sm ${getEventStyles(ev.statusIndex || 0)} ${draggedOrder?.id === ev.id ? 'opacity-30' : 'opacity-100'}`}
-                           title={ev.title}
-                         >
-                            {getEventIcon(ev.statusIndex || 0)}
-                            <span className="truncate">{ev.title || 'Untitled'}</span>
-                         </div>
-                      ))}
+                       {events.map((ev, idx) => {
+                          const isStretching = ev._isSpan;
+                          const isStart = ev._isStart;
+                          const isEnd = ev._isEnd;
+
+                          let rounding = 'rounded-[4px]';
+                          if (isStretching) {
+                              if (isStart) rounding = 'rounded-l-[4px] rounded-r-none border-r-0';
+                              else if (isEnd) rounding = 'rounded-r-[4px] rounded-l-none border-l-0';
+                              else rounding = 'rounded-none border-l-0 border-r-0';
+                          }
+
+                          return (
+                             <div 
+                               key={idx}
+                               draggable={!resizingOrder}
+                               onDragStart={(e) => { 
+                                   if (!resizingOrder) {
+                                       handleDragStart(e, ev); 
+                                       setHoveredOrder(null); 
+                                   }
+                               }}
+                               onMouseEnter={(e) => {
+                                   const rect = e.currentTarget.getBoundingClientRect();
+                                   setHoveredOrder({ order: ev, x: rect.left + rect.width / 2, y: rect.top });
+                               }}
+                               onMouseLeave={() => setHoveredOrder(null)}
+                               onClick={() => navigate(`/orders/${ev.id}`)}
+                               className={`group relative px-1.5 py-1 text-[10px] sm:text-[11px] font-medium border cursor-pointer flex items-center gap-1.5 transition-all shadow-sm z-10 ${rounding} ${getEventStyles(ev.statusIndex || 0)} ${draggedOrder?.id === ev.id ? 'opacity-30' : 'opacity-100'} ${isStretching && !isStart && !isEnd ? 'border-dashed border-t-brand-border/40 border-b-brand-border/40' : ''}`}
+                               title={ev.title}
+                             >
+                                {/* Drag Handles for resizing */}
+                                {(isStart || !isStretching) && (
+                                   <div 
+                                     draggable
+                                     onDragStart={(e) => {
+                                        e.stopPropagation();
+                                        setResizingOrder({ order: ev, type: 'start' });
+                                        // Invisible drag image
+                                        const img = new Image();
+                                        img.src = 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
+                                        e.dataTransfer.setDragImage(img, 0, 0);
+                                     }}
+                                     onDragEnd={() => setResizingOrder(null)}
+                                     className="absolute left-0 top-0 bottom-0 w-2.5 cursor-col-resize opacity-0 group-hover:opacity-100 hover:bg-black/10 z-20"
+                                     onClick={(e) => e.stopPropagation()}
+                                   />
+                                )}
+
+                                {(isEnd || !isStretching) && (
+                                   <div 
+                                     draggable
+                                     onDragStart={(e) => {
+                                        e.stopPropagation();
+                                        setResizingOrder({ order: ev, type: 'end' });
+                                        // Invisible drag image
+                                        const img = new Image();
+                                        img.src = 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
+                                        e.dataTransfer.setDragImage(img, 0, 0);
+                                     }}
+                                     onDragEnd={() => setResizingOrder(null)}
+                                     className="absolute right-0 top-0 bottom-0 w-2.5 cursor-col-resize opacity-0 group-hover:opacity-100 hover:bg-black/10 z-20"
+                                     onClick={(e) => e.stopPropagation()}
+                                   />
+                                )}
+
+                                <div className={`flex items-center gap-1.5 truncate ${!isStart && isStretching ? 'opacity-40' : ''}`}>
+                                   {isStart || !isStretching ? getEventIcon(ev.statusIndex || 0) : <div className="w-[10px] shrink-0" />}
+                                   <span className="truncate">{ev.title || 'Untitled'}</span>
+                                </div>
+                             </div>
+                          );
+                       })}
                    </div>
                 </div>
              );
