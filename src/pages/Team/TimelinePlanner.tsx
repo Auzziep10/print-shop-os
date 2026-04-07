@@ -3,7 +3,7 @@ import { tokens } from '../../lib/tokens';
 import { collection, query, onSnapshot, addDoc, updateDoc, doc, deleteDoc, serverTimestamp, getDocs } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useOrders } from '../../hooks/useOrders';
-import { Plus, X, Loader2, Clock, Trash2, ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react';
+import { Plus, X, Loader2, Clock, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const getWeekString = (d: Date) => {
     const copy = new Date(d);
