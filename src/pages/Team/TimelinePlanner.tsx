@@ -414,10 +414,37 @@ export function TimelinePlanner({ activeRange = 'Day' }: TimelinePlannerProps) {
        matchedMemberId = members[0].id;
     }
 
-    const timeMatch = titleStr.match(/\s+at\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/i);
-    let startVal = startOffset;
+    const rangeMatch = titleStr.match(/\s+(?:from\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\s*(?:to|-)\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/i);
+    const timeMatch = titleStr.match(/\s+(?:at|@)\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/i);
     
-    if (timeMatch) {
+    let startVal = startOffset;
+    let durationVal = 1;
+
+    if (rangeMatch) {
+       titleStr = titleStr.substring(0, rangeMatch.index).trim();
+       let h1 = parseInt(rangeMatch[1]);
+       const m1 = rangeMatch[2] ? parseInt(rangeMatch[2]) : 0;
+       const ampm1 = rangeMatch[3]?.toLowerCase();
+       
+       let h2 = parseInt(rangeMatch[4]);
+       const m2 = rangeMatch[5] ? parseInt(rangeMatch[5]) : 0;
+       const ampm2 = rangeMatch[6]?.toLowerCase();
+       
+       if (ampm1 === 'pm' && h1 < 12) h1 += 12;
+       if (ampm1 === 'am' && h1 === 12) h1 = 0;
+       if (!ampm1 && h1 > 0 && h1 <= 5) h1 += 12; 
+
+       if (ampm2 === 'pm' && h2 < 12) h2 += 12;
+       if (ampm2 === 'am' && h2 === 12) h2 = 0;
+       if (!ampm2 && h2 < h1 && h2 <= 11) h2 += 12; 
+       if (!ampm2 && h1 > 12 && h2 < 12) h2 += 12; 
+       if (!ampm2 && !ampm1 && h2 <= 8) h2 += 12;
+       
+       startVal = h1 + (m1 / 60);
+       durationVal = (h2 + (m2 / 60)) - startVal;
+       if (durationVal <= 0) durationVal = 1;
+       
+    } else if (timeMatch) {
        titleStr = titleStr.substring(0, timeMatch.index).trim();
        let h = parseInt(timeMatch[1]);
        const m = timeMatch[2] ? parseInt(timeMatch[2]) : 0;
@@ -440,7 +467,7 @@ export function TimelinePlanner({ activeRange = 'Day' }: TimelinePlannerProps) {
           memberId: matchedMemberId,
           title: titleStr,
           start: startVal,
-          duration: 1,
+          duration: durationVal,
           color: 'bg-blue-500',
           range: activeRange,
           date: activeDateStr,
