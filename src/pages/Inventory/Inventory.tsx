@@ -5,10 +5,10 @@ import QRCode from 'react-qr-code';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Text, Environment } from '@react-three/drei';
 
-function Rack({ position, rotation = [0,0,0], bays = 2, levels = 5, color = '#2b4478', label = "Rack", onClick, isActive }: any) {
+function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, color = '#2b4478', label = "Rack", onClick, isActive }: any) {
   const width = 2.6; // Width per bay
   const depth = 1.0;
-  const height = 4.0;
+  const height = 2.4; // Shorter vertical uprights for 2-level pallets
   const totalWidth = width * bays;
   
   const upColor = isActive ? '#10b981' : color;
