@@ -73,45 +73,88 @@ export function ProductionCalendar({ orders }: ProductionCalendarProps) {
 
   // Group events by YYYY-MM-DD AND assign row slots
   const eventsByDate = useMemo(() => {
-    // Phase 1: Clean and determine exact boundaries
-    const processedOrders = orders.map(o => {
-       if (o.isProjectGroup) return null;
+    const processedOrders: any[] = [];
+    
+    orders.forEach(o => {
+       if (o.isProjectGroup) return;
        
        let startStr = o.startDate;
        let endStr = o.targetCompletionDate || o.date;
 
-       if (endStr) {
+       const normalize = (val: string | undefined | null) => {
+           if (!val) return null;
            try {
-             const d = new Date(endStr);
-             if (!isNaN(d.getTime())) endStr = d.toISOString().split('T')[0];
-             else endStr = null;
-           } catch(e) { endStr = null; }
-       }
-       if (!endStr && o.createdAt) {
-           try { endStr = new Date(o.createdAt).toISOString().split('T')[0]; } catch(e) {}
-       }
-       
-       if (startStr) {
-           try {
-             const d = new Date(startStr);
-             if (!isNaN(d.getTime())) startStr = d.toISOString().split('T')[0];
-             else startStr = null;
-           } catch(e) { startStr = null; }
-       }
-       
-       if (!endStr) return null;
+               const d = new Date(val);
+               if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
+           } catch(e) {}
+           return null;
+       };
 
-       const start = startStr ? new Date(startStr + "T00:00:00") : new Date(endStr + "T00:00:00");
-       const end = new Date(endStr + "T00:00:00");
+       endStr = normalize(endStr);
+       if (!endStr && o.createdAt) endStr = normalize(o.createdAt);
+       startStr = normalize(startStr);
        
-       const actualStart = start.getTime() <= end.getTime() ? start : end;
-       const actualEnd = start.getTime() <= end.getTime() ? end : start;
-       const duration = actualEnd.getTime() - actualStart.getTime();
+       if (!endStr) return;
 
-       return { ...o, actualStart, actualEnd, duration };
-    }).filter(Boolean);
+       let optStart = startStr;
+       let optEnd = endStr;
+       let isModified = false;
 
-    // Sort primarily by start date, then longest duration first to cleanly pack rows
+       if (resizingOrder && resizingOrder.order.id === o.id && dragOverDate) {
+           isModified = true;
+           const newStart = startStr || endStr;
+           const newEnd = endStr;
+           const droppedDate = new Date(dragOverDate + "T00:00:00");
+           
+           if (resizingOrder.type === 'start') {
+                const existingEnd = new Date((newEnd || dragOverDate) + "T00:00:00");
+                if (droppedDate > existingEnd) { optStart = newEnd; optEnd = dragOverDate; } 
+                else { optStart = dragOverDate; optEnd = newEnd; }
+           } else {
+                const existingStart = new Date((newStart || dragOverDate) + "T00:00:00");
+                if (droppedDate < existingStart) { optStart = dragOverDate; optEnd = newStart; } 
+                else { optStart = newStart; optEnd = dragOverDate; }
+           }
+       } else if (draggedOrder && draggedOrder.id === o.id && dragOverDate && !resizingOrder) {
+           isModified = true;
+           let targetDateStr = endStr;
+           const dragStartDt = startStr;
+           
+           optStart = dragStartDt;
+           optEnd = dragOverDate;
+           
+           if (dragStartDt && targetDateStr) {
+               const dropDate = new Date(dragOverDate + "T00:00:00");
+               const oldEnd = new Date(targetDateStr + "T00:00:00");
+               const diffTime = dropDate.getTime() - oldEnd.getTime();
+               const oldStart = new Date(dragStartDt + "T00:00:00");
+               optStart = new Date(oldStart.getTime() + diffTime).toISOString().split('T')[0];
+           } else if (!dragStartDt) {
+               optStart = null;
+           }
+       }
+
+       const buildActual = (s: string | null, e: string) => {
+           const start = s ? new Date(s + "T00:00:00") : new Date(e + "T00:00:00");
+           const end = new Date(e + "T00:00:00");
+           const actualStart = start.getTime() <= end.getTime() ? start : end;
+           const actualEnd = start.getTime() <= end.getTime() ? end : start;
+           const duration = actualEnd.getTime() - actualStart.getTime();
+           return { actualStart, actualEnd, duration };
+       };
+
+       if (isModified) {
+           const ghost = buildActual(startStr, endStr);
+           processedOrders.push({ ...o, ...ghost, _isHiddenGhost: true });
+           
+           const opt = buildActual(optStart, optEnd);
+           processedOrders.push({ ...o, ...opt, _isOptimisticFake: true });
+       } else {
+           const actual = buildActual(startStr, endStr);
+           processedOrders.push({ ...o, ...actual });
+       }
+    });
+
     processedOrders.sort((a,b) => {
         const timeDiff = a.actualStart.getTime() - b.actualStart.getTime();
         if (timeDiff !== 0) return timeDiff;
@@ -119,18 +162,30 @@ export function ProductionCalendar({ orders }: ProductionCalendarProps) {
     });
 
     const map: Record<string, any[]> = {};
-    const slots: Record<string, string[]> = {}; // dayStr -> array of order IDs representing occupied rows
+    const slots: Record<string, string[]> = {};
+    const ghosts: Record<string, any[]> = {};
 
     processedOrders.forEach((o) => {
         const curr = new Date(o.actualStart);
         const dayStrs = [];
-        
         while (curr <= o.actualEnd) {
             dayStrs.push(curr.toISOString().split('T')[0]);
             curr.setDate(curr.getDate() + 1);
         }
 
-        // Find the lowest available row index perfectly open across all requested days
+        if (o._isHiddenGhost) {
+            dayStrs.forEach((ds, i) => {
+                if (!ghosts[ds]) ghosts[ds] = [];
+                ghosts[ds].push({
+                    ...o,
+                    _isSpan: o.actualStart.getTime() !== o.actualEnd.getTime(),
+                    _isStart: i === 0,
+                    _isEnd: i === dayStrs.length - 1,
+                });
+            });
+            return;
+        }
+
         let rowIndex = 0;
         while (true) {
             let available = true;
@@ -144,7 +199,6 @@ export function ProductionCalendar({ orders }: ProductionCalendarProps) {
             rowIndex++;
         }
 
-        // Fill those slots across the span safely leaving nulls underneath
         dayStrs.forEach((ds, i) => {
             if (!map[ds]) map[ds] = [];
             if (!slots[ds]) slots[ds] = [];
@@ -162,9 +216,14 @@ export function ProductionCalendar({ orders }: ProductionCalendarProps) {
             slots[ds][rowIndex] = o.id;
         });
     });
+
+    Object.keys(ghosts).forEach(ds => {
+        if (!map[ds]) map[ds] = [];
+        ghosts[ds].forEach(g => map[ds].push(g));
+    });
     
     return map;
-  }, [orders]);
+  }, [orders, dragOverDate, resizingOrder, draggedOrder]);
 
   const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -430,9 +489,13 @@ export function ProductionCalendar({ orders }: ProductionCalendarProps) {
                       {date.getDate()}
                    </div>
                    <div className="flex flex-col gap-1 overflow-y-auto custom-scrollbar flex-1 max-h-[80px] pb-1.5">
-                       {events.map((ev, idx) => {
+                        {events.map((ev, idx) => {
                           if (!ev) {
-                              return <div key={`empty-${idx}`} className="h-[26px] min-h-[26px] w-full" />;
+                              return <div key={`empty-${dtStr}-${idx}`} className="h-[26px] min-h-[26px] w-full" />;
+                          }
+
+                          if (ev._isHiddenGhost) {
+                              return <div key={`ev-${dtStr}-${ev.id}`} draggable={false} className="opacity-0 pointer-events-none h-0 min-h-0 border-0 m-0 p-0 overflow-hidden relative z-[-1]" />;
                           }
 
                           const isStretching = ev._isSpan;
@@ -459,8 +522,8 @@ export function ProductionCalendar({ orders }: ProductionCalendarProps) {
 
                           return (
                              <div 
-                               key={ev.id + '-' + idx}
-                               draggable={!resizingOrder}
+                               key={`${ev._isOptimisticFake ? 'fake-' : 'ev-'}${dtStr}-${ev.id}`}
+                               draggable={!resizingOrder && !ev._isOptimisticFake}
                                onDragStart={(e) => { 
                                    if (!resizingOrder) {
                                        handleDragStart(e, ev); 
@@ -468,12 +531,13 @@ export function ProductionCalendar({ orders }: ProductionCalendarProps) {
                                    }
                                }}
                                onMouseEnter={(e) => {
+                                   if (ev._isOptimisticFake) return;
                                    const rect = e.currentTarget.getBoundingClientRect();
                                    setHoveredOrder({ order: ev, x: rect.left + rect.width / 2, y: rect.top });
                                }}
                                onMouseLeave={() => setHoveredOrder(null)}
                                onClick={() => navigate(`/orders/${ev.id}`)}
-                               className={`group relative h-[26px] min-h-[26px] px-1.5 py-1 text-[10px] sm:text-[11px] font-medium border cursor-pointer flex items-center gap-1.5 transition-all shadow-sm z-10 ${margin} ${rounding} ${getEventStyles(ev.statusIndex || 0)} ${draggedOrder?.id === ev.id ? 'opacity-30' : 'opacity-100'}`}
+                               className={`group relative h-[26px] min-h-[26px] px-1.5 py-1 text-[10px] sm:text-[11px] font-medium border cursor-pointer flex items-center gap-1.5 transition-all shadow-sm z-10 ${margin} ${rounding} ${getEventStyles(ev.statusIndex || 0)} ${ev._isOptimisticFake ? 'opacity-80 ring-2 ring-brand-primary/40 z-30' : draggedOrder?.id === ev.id ? 'opacity-30' : 'opacity-100'}`}
                                title={ev.title}
                              >
                                 {/* Drag Handles for resizing */}
