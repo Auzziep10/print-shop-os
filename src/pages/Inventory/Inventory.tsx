@@ -1,6 +1,6 @@
 import { useState, useEffect, Suspense } from 'react';
 import { tokens } from '../../lib/tokens';
-import { PackageOpen, Printer, Boxes, Map, QrCode } from 'lucide-react';
+import { PackageOpen, Printer, Boxes, Map, QrCode, Settings } from 'lucide-react';
 import QRCode from 'react-qr-code';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Text, Environment, DragControls } from '@react-three/drei';
@@ -451,22 +451,28 @@ export function Inventory() {
            <div className="flex bg-brand-bg p-1.5 rounded-xl border border-brand-border shrink-0">
              <button 
                onClick={() => setActiveTab('Map')}
-               className={`flex items-center gap-2 px-6 py-2.5 rounded-lg text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'Map' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}
+               className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'Map' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}
              >
-                <Map size={16} /> 3D Overview
+                <Map size={16} /> 3D Map
              </button>
              <button 
                onClick={() => setActiveTab('Labels')}
-               className={`flex items-center gap-2 px-6 py-2.5 rounded-lg text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'Labels' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}
+               className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'Labels' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}
              >
                 <QrCode size={16} /> Print Labels
+             </button>
+             <button 
+               onClick={() => setActiveTab('Builder')}
+               className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'Builder' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}
+             >
+                <Settings size={16} /> Admin Builder
              </button>
            </div>
         </div>
       </div>
       
       <div className="mt-8 flex-1 min-h-[600px] relative pb-8">
-        {activeTab === 'Map' && (
+        {(activeTab === 'Map' || activeTab === 'Builder') && (
            <div className="w-full h-full flex gap-6">
               <div className="flex-1 h-full shadow-[0_4px_24px_-8px_rgba(0,0,0,0.1)] rounded-2xl bg-brand-bg relative cursor-move">
                  <Suspense fallback={<div className="absolute inset-0 flex items-center justify-center font-serif text-brand-secondary text-2xl animate-pulse">Initializing WebGL Engine...</div>}>
@@ -487,12 +493,54 @@ export function Inventory() {
               </div>
               
               <div className="w-80 h-full bg-white rounded-card border border-brand-border shadow-sm flex flex-col shrink-0 overflow-hidden relative">
-                 <div className="p-6 pb-4 border-b border-brand-border/50 shrink-0">
-                    <h2 className={tokens.typography.h2}>Zone Inspector</h2>
-                    <p className="text-[10px] uppercase font-bold text-brand-secondary mt-1 tracking-widest">Select a rack payload</p>
-                 </div>
-                 
-                 <div className="flex-1 overflow-y-auto w-full p-6 custom-scrollbar">
+                 {activeTab === 'Builder' ? (
+                     <div className="flex flex-col h-full animate-in fade-in slide-in-from-right-4">
+                         <div className="p-6 pb-4 border-b border-brand-border/50 shrink-0 bg-brand-bg relative">
+                            <h2 className={tokens.typography.h2}>Layout Builder</h2>
+                            <p className="text-[10px] uppercase font-bold text-brand-secondary mt-1 tracking-widest">{currentWarehouse?.name || "Loading..."}</p>
+                         </div>
+                         
+                         <div className="flex-1 overflow-y-auto w-full p-6 custom-scrollbar">
+                             <div className="space-y-6">
+                                <div>
+                                    <h3 className="font-serif font-bold text-brand-primary text-xl mb-4">Floor Plan</h3>
+                                    
+                                    <div className="space-y-4">
+                                        <div>
+                                           <label className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1 block">Warehouse Name</label>
+                                           <input type="text" value={currentWarehouse?.name || ''} readOnly className="w-full bg-brand-bg border border-brand-border rounded-lg px-3 py-2 text-sm font-medium focus:outline-none" />
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                               <label className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1 block">Width (X)</label>
+                                               <input type="number" readOnly value={currentWarehouse?.dimensions?.width || 0} className="w-full bg-brand-bg border border-brand-border rounded-lg px-3 py-2 text-sm font-medium focus:outline-none" />
+                                            </div>
+                                            <div>
+                                               <label className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1 block">Depth (Z)</label>
+                                               <input type="number" readOnly value={currentWarehouse?.dimensions?.depth || 0} className="w-full bg-brand-bg border border-brand-border rounded-lg px-3 py-2 text-sm font-medium focus:outline-none" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <hr className="border-brand-border" />
+                                
+                                <button className="w-full bg-brand-primary text-white py-3 rounded-lg font-bold uppercase tracking-widest text-xs shadow hover:bg-brand-primary/90 transition-colors">
+                                    + Add Storage Rack
+                                </button>
+                                
+                                <p className="text-xs text-brand-secondary italic text-center">Select a physical rack on the map to modify its properties.</p>
+                             </div>
+                         </div>
+                     </div>
+                 ) : (
+                     <>
+                         <div className="p-6 pb-4 border-b border-brand-border/50 shrink-0">
+                            <h2 className={tokens.typography.h2}>Zone Inspector</h2>
+                            <p className="text-[10px] uppercase font-bold text-brand-secondary mt-1 tracking-widest">Select a rack payload</p>
+                         </div>
+                         
+                         <div className="flex-1 overflow-y-auto w-full p-6 custom-scrollbar">
                     {activePallet ? (
                       <div className="animate-in fade-in slide-in-from-right-4">
                          <div className="bg-brand-primary text-white p-5 rounded-2xl mb-6 shadow-lg">
@@ -636,8 +684,9 @@ export function Inventory() {
                             + Stage Payload to Floor
                          </button>
                       </div>
-                    )}
+                     )}
                  </div>
+                 </>)}
               </div>
            </div>
         )}
