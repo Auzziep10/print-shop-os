@@ -137,7 +137,7 @@ function FloorPallet({ pallet, onClick, onPalletClick, activePallet }: any) {
   );
 }
 
-function WarehouseMap({ activeRack, setActiveRack, activePallet, setActivePallet, inventory, isAddingPallet, addForm, setAddForm }: any) {
+function WarehouseMap({ activeRack, setActiveRack, activePallet, setActivePallet, inventory, warehouse, isAddingPallet, addForm, setAddForm }: any) {
   const rackProps = {
      onClick: setActiveRack,
      activeRack,
@@ -195,14 +195,14 @@ function WarehouseMap({ activeRack, setActiveRack, activePallet, setActivePallet
               onPointerOver={(e) => { if (isAddingPallet) { e.stopPropagation(); document.body.style.cursor = 'crosshair'; } }}
               onPointerOut={() => { document.body.style.cursor = 'auto'; }}
         >
-          <planeGeometry args={[100, 100]} />
+          <planeGeometry args={[warehouse?.dimensions?.width || 100, warehouse?.dimensions?.depth || 100]} />
           <meshStandardMaterial color={isAddingPallet ? "#e2e8f0" : "#f0f2f5"} />
         </mesh>
         
         {/* Dynamic Interactive Snapping Grid shown when placing */}
         {isAddingPallet && (
             <group>
-               <gridHelper args={[40, 40, '#a1a1aa', '#d4d4d8']} position={[0, 0.02, 0]} />
+               <gridHelper args={[Math.max(warehouse?.dimensions?.width || 40, warehouse?.dimensions?.depth || 40), Math.max(warehouse?.dimensions?.width || 40, warehouse?.dimensions?.depth || 40), '#a1a1aa', '#d4d4d8']} position={[0, 0.02, 0]} />
                {addForm?.zoneType === 'Floor' && (
                   <mesh position={[addForm.x || 0, 0.4, addForm.z || 0]}>
                       <boxGeometry args={[1, 0.8, 1]} />
@@ -213,25 +213,27 @@ function WarehouseMap({ activeRack, setActiveRack, activePallet, setActivePallet
         )}
         
         {/* ======== PERIMETER COMPRESSED WALLS ======== */}
-        <mesh position={[0, 4, 14]} receiveShadow onClick={() => { setActiveRack(null); setActivePallet(null); }}><boxGeometry args={[25, 8, 0.4]} /><meshStandardMaterial color="#d1d5db" transparent opacity={0.3} /></mesh>
-        <mesh position={[0, 4, -14]} receiveShadow onClick={() => { setActiveRack(null); setActivePallet(null); }}><boxGeometry args={[25, 8, 0.4]} /><meshStandardMaterial color="#d1d5db" transparent opacity={0.3} /></mesh>
-        <mesh position={[-12.5, 4, 0]} rotation={[0, Math.PI/2, 0]} receiveShadow onClick={() => { setActiveRack(null); setActivePallet(null); }}><boxGeometry args={[28, 8, 0.4]} /><meshStandardMaterial color="#d1d5db" transparent opacity={0.3} /></mesh>
-        <mesh position={[12.5, 4, 0]} rotation={[0, Math.PI/2, 0]} receiveShadow onClick={() => { setActiveRack(null); setActivePallet(null); }}><boxGeometry args={[28, 8, 0.4]} /><meshStandardMaterial color="#e5e7eb" transparent opacity={0.3} /></mesh>
+        {warehouse?.dimensions && (
+            <group>
+                <mesh position={[0, 4, warehouse.dimensions.depth / 2]} receiveShadow onClick={() => { setActiveRack(null); setActivePallet(null); }}><boxGeometry args={[warehouse.dimensions.width, 8, 0.4]} /><meshStandardMaterial color="#d1d5db" transparent opacity={0.3} /></mesh>
+                <mesh position={[0, 4, -warehouse.dimensions.depth / 2]} receiveShadow onClick={() => { setActiveRack(null); setActivePallet(null); }}><boxGeometry args={[warehouse.dimensions.width, 8, 0.4]} /><meshStandardMaterial color="#d1d5db" transparent opacity={0.3} /></mesh>
+                <mesh position={[-warehouse.dimensions.width / 2, 4, 0]} rotation={[0, Math.PI/2, 0]} receiveShadow onClick={() => { setActiveRack(null); setActivePallet(null); }}><boxGeometry args={[warehouse.dimensions.depth + 0.4, 8, 0.4]} /><meshStandardMaterial color="#d1d5db" transparent opacity={0.3} /></mesh>
+                <mesh position={[warehouse.dimensions.width / 2, 4, 0]} rotation={[0, Math.PI/2, 0]} receiveShadow onClick={() => { setActiveRack(null); setActivePallet(null); }}><boxGeometry args={[warehouse.dimensions.depth + 0.4, 8, 0.4]} /><meshStandardMaterial color="#e5e7eb" transparent opacity={0.3} /></mesh>
+            </group>
+        )}
 
         {/* ======== DOCK DOORS ======== */}
-        <mesh position={[0, 1.5, 13.6]}><boxGeometry args={[3, 3, 0.5]} /><meshStandardMaterial color="#9ca3af" /></mesh>
-        <Text position={[0, 3.5, 13.4]} fontSize={0.8} color="#000" rotation={[0, 0, 0]}>SOUTH DOCK</Text>
-        <mesh position={[0, 1.5, -13.6]}><boxGeometry args={[3, 3, 0.5]} /><meshStandardMaterial color="#9ca3af" /></mesh>
-        <Text position={[0, 3.5, -13.4]} fontSize={0.8} color="#000" rotation={[0, Math.PI, 0]}>NORTH DOOR</Text>
+        {warehouse?.doors?.map((door: any, idx: number) => (
+            <group key={`door-${idx}`}>
+                <mesh position={door.position} rotation={door.rotation}><boxGeometry args={[3, 3, 0.5]} /><meshStandardMaterial color="#9ca3af" /></mesh>
+                <Text position={[door.position[0], door.position[1] + 2, door.position[2] > 0 ? door.position[2] - 0.2 : door.position[2] + 0.2]} fontSize={0.8} color="#000" rotation={door.rotation}>{door.label}</Text>
+            </group>
+        ))}
 
-        {/* ======== COMPRESSED 3D RACKS ======== */}
-        <Rack position={[-6.5, 0, 12.5]} bays={2} label="Aisle S-Left" inventory={getRackInventory('Aisle S-Left')} isActive={isRackHighlighted('Aisle S-Left')} {...rackProps} />
-        <Rack position={[6.5, 0, 12.5]} bays={2} label="Aisle S-Right" inventory={getRackInventory('Aisle S-Right')} isActive={isRackHighlighted('Aisle S-Right')} {...rackProps} />
-        <Rack position={[-11.5, 0, -4.5]} rotation={[0, Math.PI/2, 0]} bays={5} label="Aisle West-Main" inventory={getRackInventory('Aisle West-Main')} isActive={isRackHighlighted('Aisle West-Main')} {...rackProps} />
-
-        <Rack position={[11.5, 0, -8.5]} rotation={[0, -Math.PI/2, 0]} bays={4} label="Aisle East-Wall" inventory={getRackInventory('Aisle East-Wall')} isActive={isRackHighlighted('Aisle East-Wall')} {...rackProps} />
-        <Rack position={[7.5, 0, -8.5]} rotation={[0, -Math.PI/2, 0]} bays={4} label="Aisle East-Inner" inventory={getRackInventory('Aisle East-Inner')} isActive={isRackHighlighted('Aisle East-Inner')} {...rackProps} />
-        <Rack position={[11.5, 0, 6]} rotation={[0, -Math.PI/2, 0]} bays={2} label="Aisle East-Lower" inventory={getRackInventory('Aisle East-Lower')} isActive={isRackHighlighted('Aisle East-Lower')} {...rackProps} />
+        {/* ======== DYNAMIC RACKS ======== */}
+        {warehouse?.racks?.map((rack: any) => (
+            <Rack key={rack.id} position={rack.position} rotation={rack.rotation || [0,0,0]} bays={rack.bays} levels={rack.levels} label={rack.label} inventory={getRackInventory(rack.label)} isActive={isRackHighlighted(rack.label)} {...rackProps} />
+        ))}
 
         {/* ======== LOOSE FLOOR PALLETS ======== */}
         {floorInventory.map((p: any) => (
@@ -248,6 +250,24 @@ function WarehouseMap({ activeRack, setActiveRack, activePallet, setActivePallet
     </div>
   );
 }
+
+export const defaultWarehouseBlueprint = {
+    id: "wh_default_01",
+    name: "Main HQ Warehouse",
+    dimensions: { width: 25, depth: 28 },
+    doors: [
+        { label: "SOUTH DOCK", position: [0, 1.5, 13.6], rotation: [0, 0, 0] },
+        { label: "NORTH DOOR", position: [0, 1.5, -13.6], rotation: [0, Math.PI, 0] }
+    ],
+    racks: [
+        { id: "rack_01", label: 'Aisle S-Left', position: [-6.5, 0, 12.5], rotation: [0,0,0], bays: 2, levels: 2 },
+        { id: "rack_02", label: 'Aisle S-Right', position: [6.5, 0, 12.5], rotation: [0,0,0], bays: 2, levels: 2 },
+        { id: "rack_03", label: 'Aisle West-Main', position: [-11.5, 0, -4.5], rotation: [0, Math.PI/2, 0], bays: 5, levels: 2 },
+        { id: "rack_04", label: 'Aisle East-Wall', position: [11.5, 0, -8.5], rotation: [0, -Math.PI/2, 0], bays: 4, levels: 2 },
+        { id: "rack_05", label: 'Aisle East-Inner', position: [7.5, 0, -8.5], rotation: [0, -Math.PI/2, 0], bays: 4, levels: 2 },
+        { id: "rack_06", label: 'Aisle East-Lower', position: [11.5, 0, 6], rotation: [0, -Math.PI/2, 0], bays: 2, levels: 2 }
+    ]
+};
 
 const generateInitialInventory = () => {
     const db: any[] = [];
@@ -275,19 +295,13 @@ const generateInitialInventory = () => {
            height: 0.6 + Math.random() * 0.4,
            position: conf.position,
            rotation: conf.rotation || [0,0,0],
-           location: 'Open Floor Zone'
+           location: 'Open Floor Zone',
+           warehouseId: "wh_default_01"
         });
     });
 
     // 2. Populate rack pallets (bays/levels/slots) simulating database rows
-    const racksToFill = [
-       { label: 'Aisle S-Left', bays: 2, levels: 2 },
-       { label: 'Aisle S-Right', bays: 2, levels: 2 },
-       { label: 'Aisle West-Main', bays: 5, levels: 2 },
-       { label: 'Aisle East-Wall', bays: 4, levels: 2 },
-       { label: 'Aisle East-Inner', bays: 4, levels: 2 },
-       { label: 'Aisle East-Lower', bays: 2, levels: 2 }
-    ];
+    const racksToFill = defaultWarehouseBlueprint.racks;
 
     racksToFill.forEach(rack => {
         for (let bay=0; bay<rack.bays; bay++) {
@@ -303,7 +317,8 @@ const generateInitialInventory = () => {
                         color: cRand > 0.8 ? '#3b82f6' : (cRand > 0.5 ? '#e5e7eb' : '#d4a373'),
                         height: 0.6 + Math.random() * 0.4,
                         rackSpecs: { bay, level, slot },
-                        location: `${rack.label} | Bay ${bay+1} | Level ${level}`
+                        location: `${rack.label} | Bay ${bay+1} | Level ${level}`,
+                        warehouseId: "wh_default_01"
                      });
                   }
                }
@@ -321,8 +336,26 @@ export function Inventory() {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   const [inventoryDB, setInventoryDB] = useState<any[]>([]);
+  const [currentWarehouse, setCurrentWarehouse] = useState<any>(null);
 
   useEffect(() => {
+     // Fetch schemas
+     const qSchemas = query(collection(db, 'warehouses'));
+     const unsubSchemas = onSnapshot(qSchemas, (snapshot) => {
+         if (snapshot.empty) {
+             setDoc(doc(db, 'warehouses', defaultWarehouseBlueprint.id), defaultWarehouseBlueprint);
+             setCurrentWarehouse(defaultWarehouseBlueprint);
+         } else {
+             const data = snapshot.docs.map(d => d.data());
+             setCurrentWarehouse(data.find((w: any) => w.id === "wh_default_01") || data[0]);
+         }
+     });
+
+     return () => unsubSchemas();
+  }, []);
+
+  useEffect(() => {
+     if (!currentWarehouse) return;
      const q = query(collection(db, 'inventory'));
      const unsubscribe = onSnapshot(q, (snapshot) => {
          if (snapshot.empty) {
@@ -334,13 +367,14 @@ export function Inventory() {
              });
              batch.commit();
          } else {
-             const data = snapshot.docs.map(d => d.data());
+             const data = snapshot.docs.map(d => d.data())
+                                       .filter((d: any) => d.warehouseId === currentWarehouse.id);
              setInventoryDB(data);
          }
      });
      
      return () => unsubscribe();
-  }, []);
+  }, [currentWarehouse]);
 
   const [isAddingPallet, setIsAddingPallet] = useState(false);
   const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false);
@@ -373,6 +407,7 @@ export function Inventory() {
     const newPallet = {
         id: `PAL-${Math.floor(Math.random() * 9000) + 1000}`,
         type: 'Pallet',
+        warehouseId: currentWarehouse?.id || "wh_default_01",
         zone: isFloor ? 'Floor' : addForm.rackLabel,
         client: addForm.client,
         color: addForm.color,
@@ -435,7 +470,19 @@ export function Inventory() {
            <div className="w-full h-full flex gap-6">
               <div className="flex-1 h-full shadow-[0_4px_24px_-8px_rgba(0,0,0,0.1)] rounded-2xl bg-brand-bg relative cursor-move">
                  <Suspense fallback={<div className="absolute inset-0 flex items-center justify-center font-serif text-brand-secondary text-2xl animate-pulse">Initializing WebGL Engine...</div>}>
-                    <WarehouseMap activeRack={activeRack} setActiveRack={setActiveRack} activePallet={activePallet} setActivePallet={setActivePallet} inventory={inventoryDB} isAddingPallet={isAddingPallet} addForm={addForm} setAddForm={setAddForm} />
+                    {currentWarehouse && (
+                        <WarehouseMap 
+                            activeRack={activeRack} 
+                            setActiveRack={setActiveRack} 
+                            activePallet={activePallet} 
+                            setActivePallet={setActivePallet} 
+                            inventory={inventoryDB} 
+                            warehouse={currentWarehouse}
+                            isAddingPallet={isAddingPallet} 
+                            addForm={addForm} 
+                            setAddForm={setAddForm} 
+                        />
+                    )}
                  </Suspense>
               </div>
               
