@@ -49,7 +49,7 @@ function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, color = '#2b
     }
 
     // Insert pseudo-random pallets onto the beams (and floor)
-    for (let l = 0; l <= levels; l++) {
+    for (let l = 0; l < levels; l++) {
       const isFloor = (l === 0);
       const beamY = isFloor ? 0 : (l * (height / levels)) - 0.06; 
       const restY = isFloor ? 0 : beamY + 0.06;
@@ -103,12 +103,7 @@ function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, color = '#2b
       {uprights}
       {beams}
       {pallets}
-      {/* Invisible bounding box for click target / raycasting absorption */}
-      <mesh position={[0, height/2, 0]} visible={false}>
-         <boxGeometry args={[totalWidth, height, depth + 1]} />
-         <meshBasicMaterial transparent opacity={0} />
-      </mesh>
-      
+
       <Text position={[0, height + 0.4, 0]} fontSize={0.6} color="black" outlineWidth={0.03} outlineColor="white" fontWeight="bold">
          {label}
       </Text>
