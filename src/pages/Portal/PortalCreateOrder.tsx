@@ -328,11 +328,19 @@ export function PortalCreateOrder() {
                         
                         // Parse colors from various possible catalog structures
                         let colors = ['Custom Color']; 
-                        if (item.customizationOptions?.availableColors) {
+                        if (Array.isArray(item.customizationOptions)) {
+                            const foundColors = item.customizationOptions
+                                .map((opt: any) => opt.availableColors || opt.color || opt.colors || opt.AvailableColors)
+                                .flatMap((c: any) => Array.isArray(c) ? c : (typeof c === 'string' ? c.split(',').map(s => s.trim()) : []))
+                                .filter(Boolean);
+                            if (foundColors.length > 0) {
+                                colors = Array.from(new Set(foundColors));
+                            }
+                        } else if (item.customizationOptions?.availableColors) {
                           colors = Array.isArray(item.customizationOptions.availableColors) ? item.customizationOptions.availableColors : [String(item.customizationOptions.availableColors)];
                         } else if (Array.isArray(item.colors) && item.colors.length > 0) {
                           colors = item.colors;
-                        } else if (Array.isArray(item.availableColors)) {
+                        } else if (Array.isArray(item.availableColors) && item.availableColors.length > 0) {
                           colors = item.availableColors;
                         } else if (typeof item.availableColors === 'string') {
                           colors = [item.availableColors];
@@ -355,7 +363,10 @@ export function PortalCreateOrder() {
                         const image = item.mockup_image || item.mock_image || item.original_image || item.image || item.imageUrl || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
                         
                         // Rush fee markup logic (15% markup typical on Wovn)
-                        const isRush = deck.isRush || deck.rush || deck.rushFee || deck.presentationConfig?.rushFee || deck.settings?.rushFee || false;
+                        // Safely traverse stringified schema to detect nested booleans regardless of parent structure
+                        const deckStr = JSON.stringify(deck).toLowerCase();
+                        const isRush = deckStr.includes('"rush":true') || deckStr.includes('"isrush":true') || deckStr.includes('"rushfee":true') || deckStr.includes('"rush_fee":true');
+                        
                         const basePrice = parseFloat(item.msrp || item.price || item.unit_cost || 0);
                         const price = isRush ? basePrice * 1.15 : basePrice;
 
