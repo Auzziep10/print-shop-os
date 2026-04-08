@@ -5,7 +5,7 @@ import QRCode from 'react-qr-code';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Text, Environment, DragControls } from '@react-three/drei';
 
-function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, color = '#2b4478', label = "Rack", onClick, isActive, onPalletClick, activePallet, inventory = [] }: any) {
+function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, color = '#2b4478', label = "Rack", onClick, isActive, onPalletClick, activePallet, inventory = [], isAddingPallet, addForm }: any) {
   const width = 2.6; // Width per bay
   const depth = 1.0;
   const height = 2.4; // Shorter vertical uprights for 2-level pallets
@@ -75,6 +75,27 @@ function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, color = '#2b
     );
   });
 
+  if (isAddingPallet && addForm?.zoneType === 'Rack' && addForm?.rackLabel === label) {
+      const bay = parseInt(addForm.bay) || 0;
+      const level = parseInt(addForm.level) || 0;
+      const slot = parseInt(addForm.slot) || -1;
+      
+      const xCenter = (bay * width) + (width / 2) - (totalWidth / 2);
+      const isFloor = (level === 0);
+      const beamY = isFloor ? 0 : (level * (height / levels)) - 0.06; 
+      const restY = isFloor ? 0 : beamY + 0.06;
+      
+      const pY = restY + 0.4; // Assuming standard new pallet is height 0.8
+      const pX = xCenter + (slot * width / 4);
+      
+      pallets.push(
+        <mesh key="ghost-staging" position={[pX, pY, 0]}>
+            <boxGeometry args={[1, 0.8, 1]} />
+            <meshStandardMaterial color={addForm.color || "#10b981"} transparent opacity={0.6} emissive={addForm.color || "#10b981"} emissiveIntensity={0.6} depthWrite={false} />
+        </mesh>
+      );
+  }
+
   return (
     <group position={position} rotation={rotation} 
       onClick={(e) => { e.stopPropagation(); onClick?.(label); onPalletClick?.(null); }} 
@@ -119,7 +140,9 @@ function WarehouseMap({ activeRack, setActiveRack, activePallet, setActivePallet
      onClick: setActiveRack,
      activeRack,
      onPalletClick: setActivePallet,
-     activePallet
+     activePallet,
+     isAddingPallet,
+     addForm
   };
   
   const [isOrbitEnabled, setIsOrbitEnabled] = useState(true);
