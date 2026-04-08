@@ -76,17 +76,21 @@ export function PortalCreateOrder() {
         statusIndex: 0, 
         date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric'}),
         createdAt: new Date().toISOString(),
-        totalAmount: orderItems.reduce((sum, item) => {
+        totalAmount: Math.round(orderItems.reduce((sum, item) => {
            const totalQty = Object.values(item.quantities as Record<string, number>).reduce((q, val) => q + val, 0);
            return sum + (totalQty * (parseFloat(item.price) || 0));
-        }, 0),
+        }, 0) * 100) / 100,
         items: orderItems.map(item => {
            const totalQty = Object.values(item.quantities as Record<string, number>).reduce((q, val) => q + val, 0);
+           const p = parseFloat(item.price) || 0;
            return {
              id: item.instanceId || Date.now().toString(),
              style: item.style || 'Custom Garment',
              color: item.selectedColor || '',
-             price: parseFloat(item.price) || 0,
+             price: Math.round(p * 100) / 100,
+             total: Math.round(p * totalQty * 100) / 100,
+             itemNum: item.itemNum || '',
+             gender: item.gender || 'Unisex',
              qty: totalQty,
              image: item.image || '',
              notes: '',

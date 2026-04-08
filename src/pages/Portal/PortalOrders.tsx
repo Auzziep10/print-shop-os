@@ -497,8 +497,8 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                              <div className="flex flex-col justify-center">
                                <h4 className="font-bold text-gray-900 text-[15px]">{item.style}</h4>
                                <p className="text-xs font-semibold text-gray-500 mt-0.5">
-                                  {item.gender !== 'Unisex' ? `${item.gender} ` : ''} 
-                                  {item.color ? `- ${item.color}` : ''}
+                                  {item.gender && item.gender !== 'Unisex' ? `${item.gender} ` : ''} 
+                                  {item.color ? `${item.gender && item.gender !== 'Unisex' ? '- ' : ''}${item.color}` : ''}
                                </p>
                              </div>
                              
@@ -563,11 +563,11 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                           </div>
                           <div className="w-16 text-center flex flex-col">
                             <div className="bg-neutral-300 text-neutral-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">Price</div>
-                            <div className="bg-neutral-50 text-neutral-800 text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center">{item.price}</div>
+                            <div className="bg-neutral-50 text-neutral-800 text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center">{typeof item.price === 'number' ? `$${item.price.toFixed(2)}` : (item.price || '-')}</div>
                           </div>
                           <div className="w-20 text-center flex flex-col">
                             <div className="bg-neutral-300 text-neutral-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">Total</div>
-                            <div className="bg-neutral-50 text-neutral-800 text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center">{item.total}</div>
+                            <div className="bg-neutral-50 text-neutral-800 text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center">{typeof item.total === 'number' ? `$${item.total.toFixed(2)}` : (item.total || (item.qty && item.price ? `$${(item.qty * parseFloat(item.price)).toFixed(2)}` : '-'))}</div>
                           </div>
                         </div>
                       </div>
