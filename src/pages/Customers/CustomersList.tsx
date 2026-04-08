@@ -42,7 +42,7 @@ export function CustomersList() {
       
       const ltvValue = customerOrders.reduce((acc, order) => {
         const orderTotal = order.items?.reduce((sum: number, item: any) => {
-          const priceStr = (item.total || '$0').replace(/[^0-9.]/g, '');
+          const priceStr = (item.total || '$0').toString().replace(/[^0-9.]/g, '');
           return sum + (parseFloat(priceStr) || 0);
         }, 0) || 0;
         return acc + orderTotal;
