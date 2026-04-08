@@ -3,7 +3,7 @@ import { tokens } from '../../lib/tokens';
 import { PackageOpen, Printer, Boxes, Map, QrCode } from 'lucide-react';
 import QRCode from 'react-qr-code';
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls, Text, Environment } from '@react-three/drei';
+import { OrbitControls, Text, Environment, DragControls } from '@react-three/drei';
 
 function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, color = '#2b4478', label = "Rack", onClick, isActive, onPalletClick, activePallet, inventory = [] }: any) {
   const width = 2.6; // Width per bay
@@ -114,7 +114,7 @@ function FloorPallet({ pallet, onClick, onPalletClick, activePallet }: any) {
   );
 }
 
-function WarehouseMap({ activeRack, setActiveRack, activePallet, setActivePallet, inventory }: any) {
+function WarehouseMap({ activeRack, setActiveRack, activePallet, setActivePallet, inventory, isAddingPallet, setAddForm }: any) {
   const rackProps = {
      onClick: setActiveRack,
      activeRack,
@@ -122,8 +122,23 @@ function WarehouseMap({ activeRack, setActiveRack, activePallet, setActivePallet
      activePallet
   };
   
+  const [isOrbitEnabled, setIsOrbitEnabled] = useState(true);
+  
   const getRackInventory = (zone: string) => inventory.filter((p: any) => p.zone === zone);
   const floorInventory = inventory.filter((p: any) => p.zone === 'Floor');
+
+  const handleFloorClick = (e: any) => {
+     e.stopPropagation();
+     if (isAddingPallet) {
+         // Snap to nearest 0.5 coordinate for grid alignment
+         const snapX = Math.round(e.point.x * 2) / 2;
+         const snapZ = Math.round(e.point.z * 2) / 2;
+         setAddForm((prev: any) => ({ ...prev, x: snapX, z: snapZ }));
+     } else {
+         setActiveRack(null); 
+         setActivePallet(null); 
+     }
+  };
 
   return (
     <div className="w-full h-full bg-brand-bg rounded-2xl overflow-hidden relative border border-brand-border/50 shadow-inner">
@@ -140,14 +155,23 @@ function WarehouseMap({ activeRack, setActiveRack, activePallet, setActivePallet
           enablePan={true} 
           enableZoom={true} 
           enableRotate={true}
+          enabled={isOrbitEnabled}
           maxPolarAngle={Math.PI / 2 - 0.05} // lock angle to prevent dipping below the concrete floor
         />
 
         {/* Complete True-Scale Concrete Floor */}
-        <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow onClick={() => { setActiveRack(null); setActivePallet(null); }}>
+        <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow onClick={handleFloorClick} 
+              onPointerOver={(e) => { if (isAddingPallet) { e.stopPropagation(); document.body.style.cursor = 'crosshair'; } }}
+              onPointerOut={() => { document.body.style.cursor = 'auto'; }}
+        >
           <planeGeometry args={[100, 100]} />
-          <meshStandardMaterial color="#f0f2f5" />
+          <meshStandardMaterial color={isAddingPallet ? "#e2e8f0" : "#f0f2f5"} />
         </mesh>
+        
+        {/* Dynamic Interactive Snapping Grid shown when placing */}
+        {isAddingPallet && (
+            <gridHelper args={[40, 40, '#a1a1aa', '#d4d4d8']} position={[0, 0.02, 0]} />
+        )}
         
         {/* ======== PERIMETER COMPRESSED WALLS ======== */}
         <mesh position={[0, 4, 14]} receiveShadow onClick={() => { setActiveRack(null); setActivePallet(null); }}><boxGeometry args={[25, 8, 0.4]} /><meshStandardMaterial color="#d1d5db" transparent opacity={0.3} /></mesh>
@@ -171,7 +195,16 @@ function WarehouseMap({ activeRack, setActiveRack, activePallet, setActivePallet
         <Rack position={[11.5, 0, 6]} rotation={[0, -Math.PI/2, 0]} bays={2} label="Aisle East-Lower" inventory={getRackInventory('Aisle East-Lower')} isActive={activeRack === 'Aisle East-Lower'} {...rackProps} />
 
         {/* ======== LOOSE FLOOR PALLETS ======== */}
-        {floorInventory.map((p: any) => <FloorPallet key={p.id} pallet={p} activePallet={activePallet} onPalletClick={setActivePallet} onClick={setActiveRack} />)}
+        {floorInventory.map((p: any) => (
+            <DragControls 
+               key={p.id} 
+               axisLock="y" 
+               onDragStart={() => setIsOrbitEnabled(false)} 
+               onDragEnd={() => setIsOrbitEnabled(true)}
+            >
+               <FloorPallet pallet={p} activePallet={activePallet} onPalletClick={setActivePallet} onClick={setActiveRack} />
+            </DragControls>
+        ))}
       </Canvas>
     </div>
   );
@@ -306,7 +339,7 @@ export function Inventory() {
            <div className="w-full h-full flex gap-6">
               <div className="flex-1 h-full shadow-[0_4px_24px_-8px_rgba(0,0,0,0.1)] rounded-2xl bg-brand-bg relative cursor-move">
                  <Suspense fallback={<div className="absolute inset-0 flex items-center justify-center font-serif text-brand-secondary text-2xl animate-pulse">Initializing WebGL Engine...</div>}>
-                    <WarehouseMap activeRack={activeRack} setActiveRack={setActiveRack} activePallet={activePallet} setActivePallet={setActivePallet} inventory={inventoryDB} />
+                    <WarehouseMap activeRack={activeRack} setActiveRack={setActiveRack} activePallet={activePallet} setActivePallet={setActivePallet} inventory={inventoryDB} isAddingPallet={isAddingPallet} setAddForm={setAddForm} />
                  </Suspense>
               </div>
               
