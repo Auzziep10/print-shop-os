@@ -4,6 +4,8 @@ import { PackageOpen, Printer, Boxes, Map, QrCode } from 'lucide-react';
 import QRCode from 'react-qr-code';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Text, Environment, DragControls } from '@react-three/drei';
+import { db } from '../../lib/firebase';
+import { collection, query, onSnapshot, setDoc, deleteDoc, doc, writeBatch } from 'firebase/firestore';
 
 function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, color = '#2b4478', label = "Rack", onClick, isActive, onPalletClick, activePallet, inventory = [], isAddingPallet, addForm }: any) {
   const width = 2.6; // Width per bay
@@ -318,25 +320,40 @@ export function Inventory() {
   const [activePallet, setActivePallet] = useState<any>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
-  const [inventoryDB, setInventoryDB] = useState<any[]>(() => {
-     const saved = localStorage.getItem('wovn_inventoryDB_v1');
-     if (saved) {
-        try { return JSON.parse(saved); } catch (e) { console.error('Failed to parse saved inventory', e); }
-     }
-     return generateInitialInventory();
-  });
-  
+  const [inventoryDB, setInventoryDB] = useState<any[]>([]);
+
   useEffect(() => {
-     localStorage.setItem('wovn_inventoryDB_v1', JSON.stringify(inventoryDB));
-  }, [inventoryDB]);
+     const q = query(collection(db, 'inventory'));
+     const unsubscribe = onSnapshot(q, (snapshot) => {
+         if (snapshot.empty) {
+             console.log("Empty DB detected, seeding initial mockup data...");
+             const initial = generateInitialInventory();
+             const batch = writeBatch(db);
+             initial.forEach(p => {
+                 batch.set(doc(db, 'inventory', p.id), p);
+             });
+             batch.commit();
+         } else {
+             const data = snapshot.docs.map(d => d.data());
+             setInventoryDB(data);
+         }
+     });
+     
+     return () => unsubscribe();
+  }, []);
 
   const [isAddingPallet, setIsAddingPallet] = useState(false);
   const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false);
   
-  const handleDeletePallet = (id: string) => {
+  const handleDeletePallet = async (id: string) => {
     setInventoryDB(prevList => prevList.filter(p => p.id !== id));
     setActivePallet(null);
     setDeleteConfirmId(null);
+    try {
+        await deleteDoc(doc(db, 'inventory', id));
+    } catch (err) {
+        console.error("Failed to delete from remote DB", err);
+    }
   };
 
   const racksList = [
@@ -350,7 +367,7 @@ export function Inventory() {
 
   const [addForm, setAddForm] = useState({ client: 'New Client', color: '#10b981', zoneType: 'Floor', x: 0, z: 0, rackLabel: 'Aisle S-Left', bay: 0, level: 0, slot: -1 });
 
-  const handleAddPallet = (e: any) => {
+  const handleAddPallet = async (e: any) => {
     e.preventDefault();
     const isFloor = addForm.zoneType === 'Floor';
     const newPallet = {
@@ -369,7 +386,14 @@ export function Inventory() {
             location: `${addForm.rackLabel} | Bay ${parseInt(addForm.bay as any)+1} | Level ${addForm.level}`
         })
     };
-    setInventoryDB([...inventoryDB, newPallet]);
+    
+    setInventoryDB(prevList => [...prevList, newPallet]);
+    try {
+        await setDoc(doc(db, 'inventory', newPallet.id), newPallet);
+    } catch (err) {
+        console.error("Failed to write to remote DB", err);
+    }
+    
     setIsAddingPallet(false);
   };
 
