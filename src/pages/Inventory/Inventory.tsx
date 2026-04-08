@@ -5,7 +5,7 @@ import QRCode from 'react-qr-code';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Text, Environment } from '@react-three/drei';
 
-function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, color = '#2b4478', label = "Rack", onClick, isActive }: any) {
+function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, color = '#2b4478', label = "Rack", onClick, isActive, onPalletClick, activePallet }: any) {
   const width = 2.6; // Width per bay
   const depth = 1.0;
   const height = 2.4; // Shorter vertical uprights for 2-level pallets
@@ -63,15 +63,29 @@ function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, color = '#2b
           const colorRand = pseudoRandom();
           const pColor = colorRand > 0.8 ? '#3b82f6' : (colorRand > 0.5 ? '#e5e7eb' : '#d4a373');
 
+          const palletId = `PAL-${Math.floor(pseudoRandom() * 9000) + 1000}`;
+          const isBox = colorRand < 0.5;
+          const type = isBox ? 'Loose Box' : 'Pallet';
+          const location = `${label} | Bay ${bay + 1} | Level ${l}`;
+          const clients = ['McEvoy Ranch', 'AION', 'Verizon', 'MGM Resorts', 'WOVN Studio', 'Alo Yoga', 'Nike', 'Tesla'];
+          const client = clients[Math.floor(pseudoRandom() * clients.length)];
+          
+          const palletData = { id: palletId, type, location, client, color: pColor, ...position };
+          const isThisPalletActive = activePallet?.id === palletData.id;
+
           pallets.push(
-            <group key={`pallet_${bay}_${l}_${slot}`} position={[pX, pY, 0]}>
+            <group 
+              key={`pallet_${bay}_${l}_${slot}`} 
+              position={[pX, pY, 0]}
+              onClick={(e) => { e.stopPropagation(); onPalletClick?.(palletData); }}
+            >
               <mesh position={[0, -palletHeight/2 + 0.07, 0]}>
                 <boxGeometry args={[1.0, 0.14, 1.0]} />
-                <meshStandardMaterial color="#8b5a2b" />
+                <meshStandardMaterial color="#8b5a2b" emissive={isThisPalletActive ? "#fff" : "#000"} emissiveIntensity={isThisPalletActive ? 0.3 : 0} />
               </mesh>
               <mesh position={[0, 0.07, 0]}>
                 <boxGeometry args={[0.95, palletHeight - 0.14, 0.95]} />
-                <meshStandardMaterial color={pColor} />
+                <meshStandardMaterial color={pColor} emissive={isThisPalletActive ? "#fff" : "#000"} emissiveIntensity={isThisPalletActive ? 0.2 : 0} />
               </mesh>
             </group>
           );
@@ -82,7 +96,7 @@ function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, color = '#2b
 
   return (
     <group position={position} rotation={rotation} 
-      onClick={(e) => { e.stopPropagation(); onClick?.(label); }} 
+      onClick={(e) => { e.stopPropagation(); onClick?.(label); onPalletClick?.(null); }} 
       onPointerOver={(e) => { e.stopPropagation(); document.body.style.cursor='pointer'; }} 
       onPointerOut={() => document.body.style.cursor='auto'}
     >
@@ -102,7 +116,14 @@ function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, color = '#2b
   );
 }
 
-function WarehouseMap({ activeRack, setActiveRack }: any) {
+function WarehouseMap({ activeRack, setActiveRack, activePallet, setActivePallet }: any) {
+  const rackProps = {
+     onClick: setActiveRack,
+     activeRack,
+     onPalletClick: setActivePallet,
+     activePallet
+  };
+
   return (
     <div className="w-full h-full bg-brand-bg rounded-2xl overflow-hidden relative border border-brand-border/50 shadow-inner">
       <div className="absolute top-4 left-4 z-10 bg-white/90 backdrop-blur-sm p-4 rounded-xl border border-brand-border/50 shadow-sm pointer-events-none">
@@ -122,31 +143,31 @@ function WarehouseMap({ activeRack, setActiveRack }: any) {
         />
 
         {/* Complete True-Scale Concrete Floor */}
-        <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-          <planeGeometry args={[26, 30]} />
+        <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow onClick={() => { setActiveRack(null); setActivePallet(null); }}>
+          <planeGeometry args={[100, 100]} />
           <meshStandardMaterial color="#f0f2f5" />
         </mesh>
         
         {/* ======== PERIMETER COMPRESSED WALLS ======== */}
         {/* South Wall (Bottom) */}
-        <mesh position={[0, 4, 14]} receiveShadow>
+        <mesh position={[0, 4, 14]} receiveShadow onClick={() => { setActiveRack(null); setActivePallet(null); }}>
            <boxGeometry args={[25, 8, 0.4]} />
            <meshStandardMaterial color="#d1d5db" transparent opacity={0.3} />
         </mesh>
         {/* North Wall (Top) */}
-        <mesh position={[0, 4, -14]} receiveShadow>
+        <mesh position={[0, 4, -14]} receiveShadow onClick={() => { setActiveRack(null); setActivePallet(null); }}>
            <boxGeometry args={[25, 8, 0.4]} />
            <meshStandardMaterial color="#d1d5db" transparent opacity={0.3} />
         </mesh>
         
         {/* West Wall (Left) */}
-        <mesh position={[-12.5, 4, 0]} rotation={[0, Math.PI/2, 0]} receiveShadow>
+        <mesh position={[-12.5, 4, 0]} rotation={[0, Math.PI/2, 0]} receiveShadow onClick={() => { setActiveRack(null); setActivePallet(null); }}>
            <boxGeometry args={[28, 8, 0.4]} />
            <meshStandardMaterial color="#d1d5db" transparent opacity={0.3} />
         </mesh>
 
         {/* East Wall (Right) - Rendered transparently so camera can pan through it */}
-        <mesh position={[12.5, 4, 0]} rotation={[0, Math.PI/2, 0]} receiveShadow>
+        <mesh position={[12.5, 4, 0]} rotation={[0, Math.PI/2, 0]} receiveShadow onClick={() => { setActiveRack(null); setActivePallet(null); }}>
            <boxGeometry args={[28, 8, 0.4]} />
            <meshStandardMaterial color="#e5e7eb" transparent opacity={0.3} />
         </mesh>
@@ -169,16 +190,16 @@ function WarehouseMap({ activeRack, setActiveRack }: any) {
         {/* ======== COMPRESSED 3D RACKS ======== */}
         
         {/* South Wall Racks (Bottom wall flanking the door) */}
-        <Rack position={[-6.5, 0, 12.5]} bays={3} label="Aisle S-Left" onClick={setActiveRack} isActive={activeRack === 'Aisle S-Left'} />
-        <Rack position={[6.5, 0, 12.5]} bays={3} label="Aisle S-Right" onClick={setActiveRack} isActive={activeRack === 'Aisle S-Right'} />
+        <Rack position={[-6.5, 0, 12.5]} bays={3} label="Aisle S-Left" isActive={activeRack === 'Aisle S-Left'} {...rackProps} />
+        <Rack position={[6.5, 0, 12.5]} bays={3} label="Aisle S-Right" isActive={activeRack === 'Aisle S-Right'} {...rackProps} />
 
         {/* West Wall Long Rack (Compact hugging wall) */}
-        <Rack position={[-11.5, 0, -4.5]} rotation={[0, Math.PI/2, 0]} bays={5} label="Aisle West-Main" onClick={setActiveRack} isActive={activeRack === 'Aisle West-Main'} />
+        <Rack position={[-11.5, 0, -4.5]} rotation={[0, Math.PI/2, 0]} bays={5} label="Aisle West-Main" isActive={activeRack === 'Aisle West-Main'} {...rackProps} />
 
         {/* East Zone (Tight parallel forklift aisles & bottom right) */}
-        <Rack position={[11.5, 0, -6]} rotation={[0, -Math.PI/2, 0]} bays={4} label="Aisle East-Wall" onClick={setActiveRack} isActive={activeRack === 'Aisle East-Wall'} />
-        <Rack position={[8.5, 0, -6]} rotation={[0, -Math.PI/2, 0]} bays={4} label="Aisle East-Inner" onClick={setActiveRack} isActive={activeRack === 'Aisle East-Inner'} />
-        <Rack position={[11.5, 0, 6]} rotation={[0, -Math.PI/2, 0]} bays={2} label="Aisle East-Lower" onClick={setActiveRack} isActive={activeRack === 'Aisle East-Lower'} />
+        <Rack position={[11.5, 0, -6]} rotation={[0, -Math.PI/2, 0]} bays={4} label="Aisle East-Wall" isActive={activeRack === 'Aisle East-Wall'} {...rackProps} />
+        <Rack position={[8.5, 0, -6]} rotation={[0, -Math.PI/2, 0]} bays={4} label="Aisle East-Inner" isActive={activeRack === 'Aisle East-Inner'} {...rackProps} />
+        <Rack position={[11.5, 0, 6]} rotation={[0, -Math.PI/2, 0]} bays={2} label="Aisle East-Lower" isActive={activeRack === 'Aisle East-Lower'} {...rackProps} />
 
       </Canvas>
     </div>
@@ -188,6 +209,7 @@ function WarehouseMap({ activeRack, setActiveRack }: any) {
 export function Inventory() {
   const [activeTab, setActiveTab] = useState('Map');
   const [activeRack, setActiveRack] = useState<string | null>(null);
+  const [activePallet, setActivePallet] = useState<any>(null);
 
   const dummyPallets = [
     { id: 'PAL-9812', client: 'McEvoy Ranch', type: 'Pallet', location: 'Aisle B - Level 1' },
@@ -233,43 +255,81 @@ export function Inventory() {
            <div className="w-full h-full flex gap-6">
               <div className="flex-1 h-full shadow-[0_4px_24px_-8px_rgba(0,0,0,0.1)] rounded-2xl bg-brand-bg relative cursor-move">
                  <Suspense fallback={<div className="absolute inset-0 flex items-center justify-center font-serif text-brand-secondary text-2xl animate-pulse">Initializing WebGL Engine...</div>}>
-                    <WarehouseMap activeRack={activeRack} setActiveRack={setActiveRack} />
+                    <WarehouseMap activeRack={activeRack} setActiveRack={setActiveRack} activePallet={activePallet} setActivePallet={setActivePallet} />
                  </Suspense>
               </div>
               
-              <div className="w-80 h-full bg-white rounded-card border border-brand-border p-6 shadow-sm flex flex-col shrink-0">
-                 <h2 className={tokens.typography.h2}>Zone Inspector</h2>
-                 <p className="text-[10px] uppercase font-bold text-brand-secondary mt-1 tracking-widest mb-6">Select a rack payload</p>
+              <div className="w-80 h-full bg-white rounded-card border border-brand-border shadow-sm flex flex-col shrink-0 overflow-hidden relative">
+                 <div className="p-6 pb-4 border-b border-brand-border/50 shrink-0">
+                    <h2 className={tokens.typography.h2}>Zone Inspector</h2>
+                    <p className="text-[10px] uppercase font-bold text-brand-secondary mt-1 tracking-widest">Select a rack payload</p>
+                 </div>
                  
-                 {activeRack ? (
-                   <div className="flex-1 animate-in fade-in slide-in-from-right-4">
-                      <div className="bg-brand-primary text-white p-5 rounded-2xl mb-6 shadow-lg">
-                         <span className="text-[10px] font-bold uppercase tracking-widest opacity-70">Current Location</span>
-                         <h3 className="font-serif text-2xl border-b border-white/20 pb-3 mb-3 mt-1 tracking-tight">{activeRack}</h3>
-                         <div className="flex items-center gap-2 text-sm font-medium"><Boxes size={16} className="opacity-80"/> 12 Active Pallets</div>
-                         <div className="flex items-center gap-2 text-sm font-medium mt-2"><PackageOpen size={16} className="opacity-80"/> 48 Loose Boxes</div>
-                      </div>
-                      
-                      <h4 className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-3">Manifest Log</h4>
-                      <div className="space-y-3">
-                         {dummyPallets.map(p => (
-                            <div key={p.id} className="border border-brand-border rounded-xl p-4 hover:bg-brand-bg/50 transition-all cursor-pointer group">
-                               <div className="flex justify-between items-center mb-2">
-                                  <span className="text-xs font-bold text-brand-primary group-hover:underline uppercase tracking-wider">{p.id}</span>
-                                  <span className="text-[9px] font-bold uppercase tracking-widest bg-brand-bg border border-brand-border px-2 py-0.5 rounded text-brand-secondary">{p.type}</span>
-                               </div>
-                               <p className="font-serif text-[15px] leading-tight text-brand-primary">{p.client}</p>
+                 <div className="flex-1 overflow-y-auto w-full p-6 custom-scrollbar">
+                    {activePallet ? (
+                      <div className="animate-in fade-in slide-in-from-right-4">
+                         <div className="bg-brand-primary text-white p-5 rounded-2xl mb-6 shadow-lg">
+                            <div className="flex justify-between items-start mb-2">
+                               <span className="text-[10px] font-bold uppercase tracking-widest border border-white/30 px-2 py-0.5 rounded text-white/90">
+                                  {activePallet.type}
+                               </span>
                             </div>
-                         ))}
+                            <h3 className="font-serif text-3xl font-bold tracking-tight mb-1">{activePallet.id}</h3>
+                            <p className="text-white/80 text-xs font-medium uppercase tracking-widest mb-1">{activePallet.client}</p>
+                         </div>
+                         
+                         <div className="space-y-4">
+                            <div>
+                              <p className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1">Exact Location</p>
+                              <div className="bg-brand-bg p-3 flex flex-col rounded-lg border border-brand-border/50 text-xs font-semibold text-brand-primary break-words">
+                                 {activePallet.location}
+                              </div>
+                            </div>
+                            <div>
+                              <p className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1">Status</p>
+                              <div className="bg-emerald-50 text-emerald-700 p-3 rounded-lg border border-emerald-200 text-sm font-bold flex gap-2 items-center">
+                                 <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div> Secure & Scanned
+                              </div>
+                            </div>
+                            
+                            <button className="w-full mt-4 bg-black text-white px-4 py-3 rounded-lg font-bold uppercase tracking-widest text-xs flex justify-center items-center gap-2 shadow-sm hover:scale-[1.02] transition-transform">
+                               <QrCode size={16} /> Print Route Info
+                            </button>
+                            <button className="w-full bg-white text-black border border-brand-border px-4 py-3 rounded-lg font-bold uppercase tracking-widest text-xs flex justify-center items-center gap-2 hover:bg-neutral-50 shadow-sm transition-colors mt-2">
+                               <PackageOpen size={16} /> Open Inventory View
+                            </button>
+                         </div>
                       </div>
-                   </div>
-                 ) : (
-                   <div className="flex-1 flex flex-col items-center justify-center text-center opacity-50 px-4">
-                      <Map size={48} className="mb-4 text-brand-secondary stroke-1" />
-                      <p className="font-serif text-xl tracking-tight text-brand-primary">No Zone Selected</p>
-                      <p className="text-sm text-brand-secondary mt-2">Click an aisle rack on the interactive floor map to instantly inspect its real-time payload contents.</p>
-                   </div>
-                 )}
+                    ) : activeRack ? (
+                      <div className="animate-in fade-in slide-in-from-right-4">
+                         <div className="bg-brand-primary text-white p-5 rounded-2xl mb-6 shadow-lg">
+                            <span className="text-[10px] font-bold uppercase tracking-widest opacity-70">Current Location</span>
+                            <h3 className="font-serif text-2xl border-b border-white/20 pb-3 mb-3 mt-1 tracking-tight">{activeRack}</h3>
+                            <div className="flex items-center gap-2 text-sm font-medium"><Boxes size={16} className="opacity-80"/> 12 Active Pallets</div>
+                            <div className="flex items-center gap-2 text-sm font-medium mt-2"><PackageOpen size={16} className="opacity-80"/> 48 Loose Boxes</div>
+                         </div>
+                         
+                         <h4 className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-3">Manifest Log</h4>
+                         <div className="space-y-3 pb-8">
+                            {dummyPallets.map((p: any) => (
+                               <div key={p.id} className="border border-brand-border rounded-xl p-4 hover:bg-brand-bg/50 transition-all cursor-pointer group">
+                                  <div className="flex justify-between items-center mb-2">
+                                     <span className="text-xs font-bold text-brand-primary group-hover:underline uppercase tracking-wider">{p.id}</span>
+                                     <span className="text-[9px] font-bold uppercase tracking-widest bg-brand-bg border border-brand-border px-2 py-0.5 rounded text-brand-secondary">{p.type}</span>
+                                  </div>
+                                  <p className="font-serif text-[15px] leading-tight text-brand-primary">{p.client}</p>
+                               </div>
+                            ))}
+                         </div>
+                      </div>
+                    ) : (
+                      <div className="h-full flex flex-col items-center justify-center text-center opacity-50 px-4 pt-12">
+                         <Map size={48} className="mb-4 text-brand-secondary stroke-1" />
+                         <p className="font-serif text-xl tracking-tight text-brand-primary">No Zone Selected</p>
+                         <p className="text-sm text-brand-secondary mt-2">Click an aisle rack or a block to inspect real-time payload contents.</p>
+                      </div>
+                    )}
+                 </div>
               </div>
            </div>
         )}
