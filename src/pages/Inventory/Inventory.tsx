@@ -404,6 +404,15 @@ export function Inventory() {
   const handleAddPallet = async (e: any) => {
     e.preventDefault();
     const isFloor = addForm.zoneType === 'Floor';
+    const activeRackObj = currentWarehouse?.racks?.find((r: any) => r.label === addForm.rackLabel);
+    
+    // Bounds checking for slotting
+    const maxBays = activeRackObj?.bays ?? 1;
+    const maxLevels = activeRackObj?.levels ?? 1;
+    
+    const bayIndex = Math.min(parseInt(addForm.bay as any), maxBays - 1);
+    const levelIndex = Math.min(parseInt(addForm.level as any), maxLevels - 1);
+    
     const newPallet = {
         id: `PAL-${Math.floor(Math.random() * 9000) + 1000}`,
         type: 'Pallet',
@@ -417,8 +426,8 @@ export function Inventory() {
             rotation: [0, 0, 0],
             location: `Open Floor Zone (${addForm.x}, ${addForm.z})`
         } : {
-            rackSpecs: { bay: parseInt(addForm.bay as any), level: parseInt(addForm.level as any), slot: parseInt(addForm.slot as any) },
-            location: `${addForm.rackLabel} | Bay ${parseInt(addForm.bay as any)+1} | Level ${addForm.level}`
+            rackSpecs: { bay: bayIndex, level: levelIndex, slot: parseInt(addForm.slot as any) },
+            location: `${addForm.rackLabel} | Bay ${bayIndex+1} | Level ${levelIndex}`
         })
     };
     
@@ -428,10 +437,49 @@ export function Inventory() {
     } catch (err) {
         console.error("Failed to write to remote DB", err);
     }
-    
     setIsAddingPallet(false);
   };
 
+  const updateWarehouse = async (updates: any) => {
+     if (!currentWarehouse) return;
+     const fresh = { ...currentWarehouse, ...updates };
+     setCurrentWarehouse(fresh); // optimistic
+     try {
+         await setDoc(doc(db, 'warehouses', fresh.id), fresh);
+     } catch (err) {
+         console.error("Failed to commit warehouse layout", err);
+     }
+  };
+
+  const handleAddRack = () => {
+      const newRack = {
+          id: `rack_${Math.floor(Math.random() * 10000)}`,
+          label: `New Rack ${currentWarehouse.racks.length + 1}`,
+          position: [0, 0, 0],
+          rotation: [0, 0, 0],
+          bays: 1,
+          levels: 1
+      };
+      updateWarehouse({ racks: [...currentWarehouse.racks, newRack] });
+      setActiveRack(newRack.label);
+  };
+
+  const updateActiveRack = (updates: any) => {
+      if (!currentWarehouse || !activeRack) return;
+      const newRacks = currentWarehouse.racks.map((r: any) => r.label === activeRack ? { ...r, ...updates } : r);
+      if (updates.label) {
+          setActiveRack(updates.label); // Sync active context if label strictly changes
+      }
+      updateWarehouse({ racks: newRacks });
+  };
+
+  const handleDeleteRack = () => {
+      if (!currentWarehouse || !activeRack) return;
+      if (window.confirm("Are you sure you want to permanently delete this rack? All inventory staged on it will lose its physical coordinate mapping!")) {
+          updateWarehouse({ racks: currentWarehouse.racks.filter((r: any) => r.label !== activeRack) });
+          setActiveRack(null);
+      }
+  };
 
   const handlePrintLabel = () => {
     window.print();
@@ -501,6 +549,55 @@ export function Inventory() {
                          </div>
                          
                          <div className="flex-1 overflow-y-auto w-full p-6 custom-scrollbar">
+                             {activeRack && currentWarehouse?.racks?.find((r:any) => r.label === activeRack) ? (() => {
+                                 const r = currentWarehouse.racks.find((r:any) => r.label === activeRack);
+                                 return (
+                                    <div className="space-y-6">
+                                       <div className="flex justify-between items-center mb-2">
+                                          <h3 className="font-serif font-bold text-brand-primary text-xl">Rack Editor</h3>
+                                          <button onClick={() => setActiveRack(null)} className="text-[10px] uppercase font-bold text-brand-secondary hover:text-black">Back to Map</button>
+                                       </div>
+                                       
+                                       <div className="space-y-4 border-l-2 border-brand-primary pl-4">
+                                            <div>
+                                               <label className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1 block">Aisle / Label</label>
+                                               <input type="text" value={r.label} onChange={(e) => updateActiveRack({ label: e.target.value })} className="w-full bg-brand-bg border border-brand-border rounded-lg px-3 py-2 text-sm font-medium focus:outline-brand-primary" />
+                                            </div>
+                                            
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <div>
+                                                   <label className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1 block">Num Bays</label>
+                                                   <input type="number" min="1" max="20" value={r.bays} onChange={(e) => updateActiveRack({ bays: parseInt(e.target.value) || 1 })} className="w-full bg-brand-bg border border-brand-border rounded-lg px-3 py-2 text-sm font-medium focus:outline-brand-primary" />
+                                                </div>
+                                                <div>
+                                                   <label className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1 block">Vertical Levels</label>
+                                                   <input type="number" min="1" max="10" value={r.levels} onChange={(e) => updateActiveRack({ levels: parseInt(e.target.value) || 1 })} className="w-full bg-brand-bg border border-brand-border rounded-lg px-3 py-2 text-sm font-medium focus:outline-brand-primary" />
+                                                </div>
+                                            </div>
+                                            
+                                            <div className="grid grid-cols-2 gap-3 pt-2">
+                                                <div>
+                                                   <label className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1 block">Pos X (Lateral)</label>
+                                                   <input type="number" step="0.5" value={r.position[0]} onChange={(e) => updateActiveRack({ position: [parseFloat(e.target.value)||0, r.position[1], r.position[2]] })} className="w-full bg-brand-bg border border-brand-border rounded-lg px-3 py-2 text-sm font-medium focus:outline-brand-primary" />
+                                                </div>
+                                                <div>
+                                                   <label className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1 block">Pos Z (Depth)</label>
+                                                   <input type="number" step="0.5" value={r.position[2]} onChange={(e) => updateActiveRack({ position: [r.position[0], r.position[1], parseFloat(e.target.value)||0] })} className="w-full bg-brand-bg border border-brand-border rounded-lg px-3 py-2 text-sm font-medium focus:outline-brand-primary" />
+                                                </div>
+                                            </div>
+                                            
+                                            <div>
+                                               <label className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1 block">Rotation Y (Degrees)</label>
+                                               <input type="number" step="15" value={Math.round(r.rotation[1] * (180/Math.PI))} onChange={(e) => updateActiveRack({ rotation: [0, (parseFloat(e.target.value)||0) * (Math.PI/180), 0] })} className="w-full bg-brand-bg border border-brand-border rounded-lg px-3 py-2 text-sm font-medium focus:outline-brand-primary" />
+                                            </div>
+                                            
+                                            <button onClick={handleDeleteRack} className="w-full mt-4 bg-red-50 text-red-600 py-3 rounded-lg border border-red-200 font-bold uppercase tracking-widest text-[10px] shadow-sm hover:bg-red-600 hover:text-white transition-colors">
+                                                Delete Rack Forever
+                                            </button>
+                                       </div>
+                                    </div>
+                                 );
+                             })() : (
                              <div className="space-y-6">
                                 <div>
                                     <h3 className="font-serif font-bold text-brand-primary text-xl mb-4">Floor Plan</h3>
@@ -508,16 +605,16 @@ export function Inventory() {
                                     <div className="space-y-4">
                                         <div>
                                            <label className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1 block">Warehouse Name</label>
-                                           <input type="text" value={currentWarehouse?.name || ''} readOnly className="w-full bg-brand-bg border border-brand-border rounded-lg px-3 py-2 text-sm font-medium focus:outline-none" />
+                                           <input type="text" value={currentWarehouse?.name || ''} onChange={(e) => updateWarehouse({ name: e.target.value })} className="w-full bg-brand-bg border border-brand-border rounded-lg px-3 py-2 text-sm font-medium focus:outline-brand-primary" />
                                         </div>
                                         <div className="grid grid-cols-2 gap-4">
                                             <div>
                                                <label className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1 block">Width (X)</label>
-                                               <input type="number" readOnly value={currentWarehouse?.dimensions?.width || 0} className="w-full bg-brand-bg border border-brand-border rounded-lg px-3 py-2 text-sm font-medium focus:outline-none" />
+                                               <input type="number" value={currentWarehouse?.dimensions?.width || 0} onChange={(e) => updateWarehouse({ dimensions: { ...currentWarehouse.dimensions, width: parseInt(e.target.value) || 1 } })} className="w-full bg-brand-bg border border-brand-border rounded-lg px-3 py-2 text-sm font-medium focus:outline-brand-primary" />
                                             </div>
                                             <div>
                                                <label className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1 block">Depth (Z)</label>
-                                               <input type="number" readOnly value={currentWarehouse?.dimensions?.depth || 0} className="w-full bg-brand-bg border border-brand-border rounded-lg px-3 py-2 text-sm font-medium focus:outline-none" />
+                                               <input type="number" value={currentWarehouse?.dimensions?.depth || 0} onChange={(e) => updateWarehouse({ dimensions: { ...currentWarehouse.dimensions, depth: parseInt(e.target.value) || 1 } })} className="w-full bg-brand-bg border border-brand-border rounded-lg px-3 py-2 text-sm font-medium focus:outline-brand-primary" />
                                             </div>
                                         </div>
                                     </div>
@@ -525,12 +622,13 @@ export function Inventory() {
                                 
                                 <hr className="border-brand-border" />
                                 
-                                <button className="w-full bg-brand-primary text-white py-3 rounded-lg font-bold uppercase tracking-widest text-xs shadow hover:bg-brand-primary/90 transition-colors">
+                                <button onClick={handleAddRack} className="w-full bg-brand-primary text-white py-3 rounded-lg font-bold uppercase tracking-widest text-xs shadow hover:bg-brand-primary/90 transition-colors">
                                     + Add Storage Rack
                                 </button>
                                 
                                 <p className="text-xs text-brand-secondary italic text-center">Select a physical rack on the map to modify its properties.</p>
                              </div>
+                             )}
                          </div>
                      </div>
                  ) : (
