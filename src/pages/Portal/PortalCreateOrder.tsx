@@ -60,12 +60,19 @@ export function PortalCreateOrder() {
   };
 
   const handleAddItem = (item: any) => {
-    // Generate a unique ID for this instance of the item in the order
+    // Determine dynamic size run specific to this garment
+    const defaultSizes = ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'];
+    const itemSizes = item.sizes && item.sizes.length > 0 ? item.sizes : defaultSizes;
+    
+    // Create zeroed quantity map strictly from the provided sizes
+    const qtyMap: any = {};
+    itemSizes.forEach((s: string) => qtyMap[s] = 0);
+
     const newItem = {
       ...item,
       instanceId: Math.random().toString(36).substring(7),
-      selectedColor: item.colors[0],
-      quantities: { XS: 0, S: 0, M: 0, L: 0, XL: 0, '2XL': 0, '3XL': 0 }
+      selectedColor: item.colors?.[0] || 'Custom Color',
+      quantities: qtyMap
     };
     setOrderItems(prev => [...prev, newItem]);
     setIsDrawerOpen(false); // smoothly close drawer
@@ -318,18 +325,39 @@ export function PortalCreateOrder() {
                         const style = item.garment_name || item.name || item.style || item.title || 'Unknown Style';
                         const gender = item.gender || 'Unisex';
                         const itemNum = item.itemNum || item.garment_id || item.sku || item.id || `GARMENT-${idx+1}`;
-                        // The other app might return colors as an array of strings, or array of objects, etc.
+                        
+                        // Parse colors from various possible catalog structures
                         let colors = ['Custom Color']; 
-                        if (Array.isArray(item.colors) && item.colors.length > 0) {
+                        if (item.customizationOptions?.availableColors) {
+                          colors = Array.isArray(item.customizationOptions.availableColors) ? item.customizationOptions.availableColors : [String(item.customizationOptions.availableColors)];
+                        } else if (Array.isArray(item.colors) && item.colors.length > 0) {
                           colors = item.colors;
                         } else if (Array.isArray(item.availableColors)) {
                           colors = item.availableColors;
+                        } else if (typeof item.availableColors === 'string') {
+                          colors = [item.availableColors];
                         } else if (Array.isArray(item.variations) && item.variations.length > 0) {
-                          colors = item.variations.map((v:any) => v.color).filter(Boolean);
+                          colors = Array.from(new Set(item.variations.map((v:any) => v.color).filter(Boolean))) as string[];
                         }
                         
+                        // Parse sizes
+                        let sizes: string[] = [];
+                        if (Array.isArray(item.sizes) && item.sizes.length > 0) {
+                            sizes = item.sizes;
+                        } else if (Array.isArray(item.availableSizes) && item.availableSizes.length > 0) {
+                            sizes = item.availableSizes;
+                        } else if (Array.isArray(item.variations) && item.variations[0]?.sizes) {
+                            sizes = item.variations[0].sizes;
+                        } else if (style.toLowerCase().includes('chill') || style.toLowerCase().includes('tumbler') || style.toLowerCase().includes('bag') || style.toLowerCase().includes('hat')) {
+                            sizes = ['OSFA'];
+                        }
+
                         const image = item.mockup_image || item.mock_image || item.original_image || item.image || item.imageUrl || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
-                        const price = parseFloat(item.msrp || item.price || item.unit_cost || 0);
+                        
+                        // Rush fee markup logic (15% markup typical on Wovn)
+                        const isRush = deck.isRush || deck.rush || deck.rushFee || deck.presentationConfig?.rushFee || deck.settings?.rushFee || false;
+                        const basePrice = parseFloat(item.msrp || item.price || item.unit_cost || 0);
+                        const price = isRush ? basePrice * 1.15 : basePrice;
 
                         return (
                           <div key={item.id || idx} className="group flex items-center gap-5 bg-white border border-neutral-200 hover:border-black transition-colors rounded-2xl p-4 cursor-pointer shadow-[0_2px_10px_rgb(0,0,0,0.02)] hover:shadow-md">
@@ -344,11 +372,16 @@ export function PortalCreateOrder() {
                               {itemNum && itemNum.length < 15 && (
                                 <p className="text-xs font-semibold text-neutral-500">{itemNum}</p>
                               )}
-                              {price > 0 && <p className="text-xs font-black text-black mt-1">${price.toFixed(2)}</p>}
+                              {price > 0 && (
+                                  <p className="text-xs font-black text-black mt-1 flex items-center gap-2">
+                                      ${price.toFixed(2)}
+                                      {isRush && <span className="text-[9px] font-bold text-neutral-400 italic">includes rush fee</span>}
+                                  </p>
+                              )}
                               <p className="text-xs text-neutral-400 font-medium mt-1 truncate">{colors.join(' • ')}</p>
                             </div>
                             <button 
-                              onClick={() => handleAddItem({ ...item, style, gender, itemNum, colors, image, price })}
+                              onClick={() => handleAddItem({ ...item, style, gender, itemNum, colors, sizes, image, price })}
                               className="w-8 h-8 rounded-full bg-neutral-100 text-neutral-500 group-hover:bg-black group-hover:text-white flex items-center justify-center transition-colors shrink-0"
                             >
                                <PackagePlus size={16} strokeWidth={2.5} />
