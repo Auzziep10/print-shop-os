@@ -7,6 +7,50 @@ import { OrbitControls, Text, Environment, DragControls } from '@react-three/dre
 import { db } from '../../lib/firebase';
 import { collection, query, onSnapshot, setDoc, deleteDoc, doc, writeBatch } from 'firebase/firestore';
 
+const PayloadMesh = ({ pallet, isThisPalletActive }: any) => {
+    if (pallet.type === 'Pallet') {
+        const boxes = [];
+        const boxSize = 0.28;
+        const spacing = 0.02;
+        const cols = 3;
+        const rows = 3;
+        const stackLevels = Math.max(1, Math.floor((pallet.height - 0.14) / (boxSize + spacing)));
+        const startY = -pallet.height/2 + 0.14 + (boxSize/2);
+        
+        const gridW = cols * boxSize + (cols - 1) * spacing;
+        const gridD = rows * boxSize + (rows - 1) * spacing;
+        
+        for (let l = 0; l < stackLevels; l++) {
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    // Add slight random offset to simulate messy stacking
+                    const rx = (Math.random() - 0.5) * 0.01;
+                    const rz = (Math.random() - 0.5) * 0.01;
+                    const x = (c * boxSize) + (c * spacing) - (gridW/2) + (boxSize/2) + rx;
+                    const z = (r * boxSize) + (r * spacing) - (gridD/2) + (boxSize/2) + rz;
+                    const y = startY + (l * boxSize) + (l * spacing);
+                    
+                    boxes.push(
+                        <mesh key={`${pallet.id}-${l}-${r}-${c}`} position={[x, y, z]}>
+                            <boxGeometry args={[boxSize, boxSize, boxSize]} />
+                            <meshStandardMaterial color={pallet.color} emissive={isThisPalletActive ? "#fff" : "#000"} emissiveIntensity={isThisPalletActive ? 0.2 : 0} />
+                        </mesh>
+                    );
+                }
+            }
+        }
+        return <group>{boxes}</group>;
+    }
+    
+    return (
+       <mesh position={[0, 0.07, 0]}>
+         <boxGeometry args={[0.95, pallet.height - 0.14, 0.95]} />
+         <meshStandardMaterial color={pallet.color} emissive={isThisPalletActive ? "#fff" : "#000"} emissiveIntensity={isThisPalletActive ? 0.2 : 0} />
+       </mesh>
+    );
+};
+
+
 function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, color = '#2b4478', label = "Rack", onClick, isActive, onPalletClick, activePallet, inventory = [], isAddingPallet, addForm }: any) {
   const width = 2.6; // Width per bay
   const depth = 1.0;
@@ -69,10 +113,7 @@ function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, color = '#2b
           <boxGeometry args={[1.0, 0.14, 1.0]} />
           <meshStandardMaterial color="#8b5a2b" emissive={isThisPalletActive ? "#fff" : "#000"} emissiveIntensity={isThisPalletActive ? 0.3 : 0} />
         </mesh>
-        <mesh position={[0, 0.07, 0]}>
-          <boxGeometry args={[0.95, pallet.height - 0.14, 0.95]} />
-          <meshStandardMaterial color={pallet.color} emissive={isThisPalletActive ? "#fff" : "#000"} emissiveIntensity={isThisPalletActive ? 0.2 : 0} />
-        </mesh>
+        <PayloadMesh pallet={pallet} isThisPalletActive={isThisPalletActive} />
       </group>
     );
   });
@@ -129,10 +170,7 @@ function FloorPallet({ pallet, onClick, onPalletClick, activePallet }: any) {
         <boxGeometry args={[1.0, 0.14, 1.0]} />
         <meshStandardMaterial color="#8b5a2b" emissive={isThisPalletActive ? "#fff" : "#000"} emissiveIntensity={isThisPalletActive ? 0.3 : 0} />
       </mesh>
-      <mesh position={[0, 0.07, 0]}>
-        <boxGeometry args={[0.95, pallet.height - 0.14, 0.95]} />
-        <meshStandardMaterial color={pallet.color} emissive={isThisPalletActive ? "#fff" : "#000"} emissiveIntensity={isThisPalletActive ? 0.2 : 0} />
-      </mesh>
+      <PayloadMesh pallet={pallet} isThisPalletActive={isThisPalletActive} />
     </group>
   );
 }
