@@ -158,6 +158,9 @@ export function PortalCreateOrder() {
                           <h3 className="text-lg font-bold text-neutral-900">{item.style}</h3>
                         </div>
                         <p className="text-sm font-semibold text-neutral-500">{item.itemNum}</p>
+                        {item.price > 0 && (
+                            <p className="text-sm font-bold text-black mt-1 bg-neutral-50 inline-block px-2 py-0.5 rounded border border-neutral-200 shadow-sm">${parseFloat(item.price).toFixed(2)} / unit</p>
+                        )}
                       </div>
                     </div>
                     <button 
@@ -233,10 +236,14 @@ export function PortalCreateOrder() {
                 <div className="w-full flex-1 flex flex-col gap-3">
                   {orderItems.map((item, idx) => {
                     const totalQty = Object.values(item.quantities as Record<string, number>).reduce((sum, qty) => sum + qty, 0);
+                    const itemCost = totalQty * (parseFloat(item.price) || 0);
                     return (
-                      <div key={item.instanceId} className="flex items-center justify-between text-sm py-2 border-b border-neutral-100 last:border-0 pointer-events-none">
-                        <span className="font-semibold text-neutral-900 truncate pr-2"><span className="text-neutral-400 mr-2">{idx+1}.</span>{item.style}</span>
-                        <span className={`font-bold ${totalQty > 0 ? 'text-neutral-900' : 'text-neutral-400'}`}>{totalQty} QTY</span>
+                      <div key={item.instanceId} className="flex items-start justify-between text-sm py-2 border-b border-neutral-100 last:border-0 pointer-events-none w-full">
+                        <span className="font-semibold text-neutral-900 truncate pr-2 flex-1"><span className="text-neutral-400 mr-2">{idx+1}.</span>{item.style}</span>
+                        <div className="flex flex-col items-end shrink-0">
+                            <span className={`font-bold ${totalQty > 0 ? 'text-neutral-900' : 'text-neutral-400'}`}>{totalQty} QTY</span>
+                            {itemCost > 0 && <span className="text-[10px] font-bold text-neutral-500 mt-0.5">${itemCost.toFixed(2)}</span>}
+                        </div>
                       </div>
                     );
                   })}
@@ -251,7 +258,10 @@ export function PortalCreateOrder() {
               </div>
               <div className="flex justify-between items-center text-lg font-black text-neutral-900">
                 <span>Estimated Total</span>
-                <span>$0.00</span>
+                <span>${orderItems.reduce((sum, item) => {
+                   const totalQty = Object.values(item.quantities as Record<string, number>).reduce((q, val) => q + val, 0);
+                   return sum + (totalQty * (parseFloat(item.price) || 0));
+                }, 0).toFixed(2)}</span>
               </div>
               
               <button disabled={orderItems.length === 0} className={`w-full mt-4 py-3.5 rounded-xl text-sm font-bold transition-all ${orderItems.length > 0 ? 'bg-black text-white hover:bg-neutral-800 shadow-md transform active:scale-[0.98]' : 'bg-neutral-200 text-neutral-400'}`}>
@@ -319,7 +329,8 @@ export function PortalCreateOrder() {
                         }
                         
                         const image = item.mockup_image || item.mock_image || item.original_image || item.image || item.imageUrl || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
-                        
+                        const price = parseFloat(item.msrp || item.price || item.unit_cost || 0);
+
                         return (
                           <div key={item.id || idx} className="group flex items-center gap-5 bg-white border border-neutral-200 hover:border-black transition-colors rounded-2xl p-4 cursor-pointer shadow-[0_2px_10px_rgb(0,0,0,0.02)] hover:shadow-md">
                             <div className="w-16 h-16 rounded-xl overflow-hidden bg-neutral-50 border border-neutral-100 shrink-0">
@@ -333,10 +344,11 @@ export function PortalCreateOrder() {
                               {itemNum && itemNum.length < 15 && (
                                 <p className="text-xs font-semibold text-neutral-500">{itemNum}</p>
                               )}
+                              {price > 0 && <p className="text-xs font-black text-black mt-1">${price.toFixed(2)}</p>}
                               <p className="text-xs text-neutral-400 font-medium mt-1 truncate">{colors.join(' • ')}</p>
                             </div>
                             <button 
-                              onClick={() => handleAddItem({ ...item, style, gender, itemNum, colors, image })}
+                              onClick={() => handleAddItem({ ...item, style, gender, itemNum, colors, image, price })}
                               className="w-8 h-8 rounded-full bg-neutral-100 text-neutral-500 group-hover:bg-black group-hover:text-white flex items-center justify-center transition-colors shrink-0"
                             >
                                <PackagePlus size={16} strokeWidth={2.5} />
