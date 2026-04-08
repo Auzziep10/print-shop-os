@@ -323,7 +323,7 @@ export function Inventory() {
   const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false);
   
   const handleDeletePallet = (id: string) => {
-    setInventoryDB(inventoryDB.filter(p => p.id !== id));
+    setInventoryDB(prevList => prevList.filter(p => p.id !== id));
     setActivePallet(null);
     setDeleteConfirmId(null);
   };
@@ -445,11 +445,11 @@ export function Inventory() {
                             </button>
 
                             {deleteConfirmId === activePallet.id ? (
-                               <button onClick={() => handleDeletePallet(activePallet.id)} className="w-full mt-2 bg-red-600 text-white px-4 py-3 rounded-lg font-bold uppercase tracking-widest text-xs flex justify-center items-center gap-2 shadow-sm hover:bg-red-700 transition-colors">
+                               <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDeletePallet(activePallet.id); }} className="w-full mt-2 bg-red-600 text-white px-4 py-3 rounded-lg font-bold uppercase tracking-widest text-xs flex justify-center items-center gap-2 shadow-sm hover:bg-red-700 transition-colors">
                                    Confirm Deletion
                                </button>
                             ) : (
-                               <button onClick={() => setDeleteConfirmId(activePallet.id)} className="w-full mt-2 border border-red-200 text-red-600 px-4 py-3 rounded-lg font-bold uppercase tracking-widest text-xs flex justify-center items-center gap-2 shadow-sm hover:bg-red-50 transition-colors">
+                               <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDeleteConfirmId(activePallet.id); }} className="w-full mt-2 border border-red-200 text-red-600 px-4 py-3 rounded-lg font-bold uppercase tracking-widest text-xs flex justify-center items-center gap-2 shadow-sm hover:bg-red-50 transition-colors">
                                    Delete Payload
                                </button>
                             )}
