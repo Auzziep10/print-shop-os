@@ -89,18 +89,18 @@ function WarehouseMap({ activeRack, setActiveRack }: any) {
         {/* South Wall (Bottom) */}
         <mesh position={[0, 4, 14]} receiveShadow>
            <boxGeometry args={[25, 8, 0.4]} />
-           <meshStandardMaterial color="#d1d5db" />
+           <meshStandardMaterial color="#d1d5db" transparent opacity={0.3} />
         </mesh>
         {/* North Wall (Top) */}
         <mesh position={[0, 4, -14]} receiveShadow>
            <boxGeometry args={[25, 8, 0.4]} />
-           <meshStandardMaterial color="#d1d5db" />
+           <meshStandardMaterial color="#d1d5db" transparent opacity={0.3} />
         </mesh>
         
         {/* West Wall (Left) */}
         <mesh position={[-12.5, 4, 0]} rotation={[0, Math.PI/2, 0]} receiveShadow>
            <boxGeometry args={[28, 8, 0.4]} />
-           <meshStandardMaterial color="#d1d5db" />
+           <meshStandardMaterial color="#d1d5db" transparent opacity={0.3} />
         </mesh>
 
         {/* East Wall (Right) - Rendered transparently so camera can pan through it */}
