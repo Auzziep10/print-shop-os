@@ -200,13 +200,13 @@ function WarehouseMap({ activeRack, setActiveRack, activePallet, setActivePallet
         <Text position={[0, 3.5, -13.4]} fontSize={0.8} color="#000" rotation={[0, Math.PI, 0]}>NORTH DOOR</Text>
 
         {/* ======== COMPRESSED 3D RACKS ======== */}
-        <Rack position={[-6.5, 0, 12.5]} bays={3} label="Aisle S-Left" inventory={getRackInventory('Aisle S-Left')} isActive={activeRack === 'Aisle S-Left'} {...rackProps} />
-        <Rack position={[6.5, 0, 12.5]} bays={3} label="Aisle S-Right" inventory={getRackInventory('Aisle S-Right')} isActive={activeRack === 'Aisle S-Right'} {...rackProps} />
-        <Rack position={[-11.5, 0, -4.5]} rotation={[0, Math.PI/2, 0]} bays={5} label="Aisle West-Main" inventory={getRackInventory('Aisle West-Main')} isActive={activeRack === 'Aisle West-Main'} {...rackProps} />
+        <Rack position={[-6.5, 0, 12.5]} bays={2} label="Aisle S-Left" inventory={getRackInventory('Aisle S-Left')} isActive={isRackHighlighted('Aisle S-Left')} {...rackProps} />
+        <Rack position={[6.5, 0, 12.5]} bays={2} label="Aisle S-Right" inventory={getRackInventory('Aisle S-Right')} isActive={isRackHighlighted('Aisle S-Right')} {...rackProps} />
+        <Rack position={[-11.5, 0, -4.5]} rotation={[0, Math.PI/2, 0]} bays={5} label="Aisle West-Main" inventory={getRackInventory('Aisle West-Main')} isActive={isRackHighlighted('Aisle West-Main')} {...rackProps} />
 
-        <Rack position={[11.5, 0, -8.5]} rotation={[0, -Math.PI/2, 0]} bays={4} label="Aisle East-Wall" inventory={getRackInventory('Aisle East-Wall')} isActive={activeRack === 'Aisle East-Wall'} {...rackProps} />
-        <Rack position={[7.5, 0, -8.5]} rotation={[0, -Math.PI/2, 0]} bays={4} label="Aisle East-Inner" inventory={getRackInventory('Aisle East-Inner')} isActive={activeRack === 'Aisle East-Inner'} {...rackProps} />
-        <Rack position={[11.5, 0, 6]} rotation={[0, -Math.PI/2, 0]} bays={2} label="Aisle East-Lower" inventory={getRackInventory('Aisle East-Lower')} isActive={activeRack === 'Aisle East-Lower'} {...rackProps} />
+        <Rack position={[11.5, 0, -8.5]} rotation={[0, -Math.PI/2, 0]} bays={4} label="Aisle East-Wall" inventory={getRackInventory('Aisle East-Wall')} isActive={isRackHighlighted('Aisle East-Wall')} {...rackProps} />
+        <Rack position={[7.5, 0, -8.5]} rotation={[0, -Math.PI/2, 0]} bays={4} label="Aisle East-Inner" inventory={getRackInventory('Aisle East-Inner')} isActive={isRackHighlighted('Aisle East-Inner')} {...rackProps} />
+        <Rack position={[11.5, 0, 6]} rotation={[0, -Math.PI/2, 0]} bays={2} label="Aisle East-Lower" inventory={getRackInventory('Aisle East-Lower')} isActive={isRackHighlighted('Aisle East-Lower')} {...rackProps} />
 
         {/* ======== LOOSE FLOOR PALLETS ======== */}
         {floorInventory.map((p: any) => (
