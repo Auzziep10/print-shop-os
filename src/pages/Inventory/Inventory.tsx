@@ -15,6 +15,15 @@ function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, color = '#2b
 
   const uprights = [];
   const beams = [];
+  const pallets = [];
+  
+  // Deterministic seed based on label so pallets don't change randomly on view
+  let seed = label.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0);
+  const pseudoRandom = () => {
+    let x = Math.sin(seed++) * 10000;
+    return x - Math.floor(x);
+  };
+
   // Build components geometrically
   for (let i = 0; i <= bays; i++) {
     const xPos = (i * width) - (totalWidth / 2);
@@ -30,12 +39,44 @@ function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, color = '#2b
 
   for (let bay = 0; bay < bays; bay++) {
     const xCenter = (bay * width) + (width / 2) - (totalWidth / 2);
+    
     for (let l = 1; l <= levels; l++) {
       // Space beams properly: bottom floor is level 0, then middle, then exactly at the top.
       const yPos = (l * (height / levels)) - 0.06; // minus 0.06 so the top beam is flush with the top of the blue upright
       // front and back orange beams (no wire decking)
       beams.push(<mesh key={`bf_${bay}_${l}`} position={[xCenter, yPos, depth/2]}><boxGeometry args={[width, 0.12, 0.05]} /><meshStandardMaterial color="#eb7023" /></mesh>);
       beams.push(<mesh key={`bb_${bay}_${l}`} position={[xCenter, yPos, -depth/2]}><boxGeometry args={[width, 0.12, 0.05]} /><meshStandardMaterial color="#eb7023" /></mesh>);
+    }
+
+    // Insert pseudo-random pallets onto the beams (and floor)
+    for (let l = 0; l <= levels; l++) {
+      const isFloor = (l === 0);
+      const beamY = isFloor ? 0 : (l * (height / levels)) - 0.06; 
+      const restY = isFloor ? 0 : beamY + 0.06;
+
+      for (let slot = -1; slot <= 1; slot += 2) {
+        if (pseudoRandom() > 0.4) {
+          const palletHeight = 0.6 + pseudoRandom() * 0.4;
+          const pY = restY + palletHeight / 2;
+          const pX = xCenter + (slot * width / 4);
+          
+          const colorRand = pseudoRandom();
+          const pColor = colorRand > 0.8 ? '#3b82f6' : (colorRand > 0.5 ? '#e5e7eb' : '#d4a373');
+
+          pallets.push(
+            <group key={`pallet_${bay}_${l}_${slot}`} position={[pX, pY, 0]}>
+              <mesh position={[0, -palletHeight/2 + 0.07, 0]}>
+                <boxGeometry args={[1.0, 0.14, 1.0]} />
+                <meshStandardMaterial color="#8b5a2b" />
+              </mesh>
+              <mesh position={[0, 0.07, 0]}>
+                <boxGeometry args={[0.95, palletHeight - 0.14, 0.95]} />
+                <meshStandardMaterial color={pColor} />
+              </mesh>
+            </group>
+          );
+        }
+      }
     }
   }
 
@@ -47,6 +88,7 @@ function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, color = '#2b
     >
       {uprights}
       {beams}
+      {pallets}
       {/* Invisible bounding box for click target / raycasting absorption */}
       <mesh position={[0, height/2, 0]} visible={false}>
          <boxGeometry args={[totalWidth, height, depth + 1]} />
