@@ -137,7 +137,7 @@ export function OrdersList() {
               // Calculate dynamic sums from the line items array
               const totalItems = order.items?.reduce((acc: number, i: any) => acc + (i.qty || 0), 0) || 0;
               const totalPriceRaw = order.items?.reduce((acc: number, i: any) => {
-                const priceMatch = (i.total || '$0').replace(/[^0-9.]/g, '');
+                const priceMatch = (i.total || '$0').toString().replace(/[^0-9.]/g, '');
                 return acc + (parseFloat(priceMatch) || 0);
               }, 0) || 0;
 
