@@ -1,4 +1,4 @@
-import { useState, Suspense, useMemo } from 'react';
+import { useState, Suspense } from 'react';
 import { tokens } from '../../lib/tokens';
 import { PackageOpen, Printer, Boxes, Map, QrCode } from 'lucide-react';
 import QRCode from 'react-qr-code';
