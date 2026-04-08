@@ -326,27 +326,35 @@ export function PortalCreateOrder() {
                         const gender = item.gender || 'Unisex';
                         const itemNum = item.itemNum || item.garment_id || item.sku || item.id || `GARMENT-${idx+1}`;
                         
-                        // Parse colors from various possible catalog structures
-                        let colors = ['Custom Color']; 
-                        if (Array.isArray(item.customizationOptions)) {
-                            const foundColors = item.customizationOptions
-                                .map((opt: any) => opt.availableColors || opt.color || opt.colors || opt.AvailableColors)
-                                .flatMap((c: any) => Array.isArray(c) ? c : (typeof c === 'string' ? c.split(',').map(s => s.trim()) : []))
-                                .filter(Boolean);
-                            if (foundColors.length > 0) {
-                                colors = Array.from(new Set(foundColors));
-                            }
-                        } else if (item.customizationOptions?.availableColors) {
-                          colors = Array.isArray(item.customizationOptions.availableColors) ? item.customizationOptions.availableColors : [String(item.customizationOptions.availableColors)];
-                        } else if (Array.isArray(item.colors) && item.colors.length > 0) {
-                          colors = item.colors;
-                        } else if (Array.isArray(item.availableColors) && item.availableColors.length > 0) {
-                          colors = item.availableColors;
-                        } else if (typeof item.availableColors === 'string') {
-                          colors = [item.availableColors];
-                        } else if (Array.isArray(item.variations) && item.variations.length > 0) {
-                          colors = Array.from(new Set(item.variations.map((v:any) => v.color).filter(Boolean))) as string[];
-                        }
+                        // Parse colors from various possible catalog structures using recursive scanning
+                        const findColorsInObj = (obj: any, maxDepth = 4): string[] | null => {
+                           if (!obj || typeof obj !== 'object' || maxDepth === 0) return null;
+                           const colorKeys = ['availableColors', 'available_colors', 'colors', 'Colors', 'color', 'Color', 'AvailableColors'];
+                           for (const k of colorKeys) {
+                               if (obj[k]) {
+                                   const val = obj[k];
+                                   if (Array.isArray(val) && val.length > 0 && typeof val[0] === 'string') return val;
+                                   if (typeof val === 'string' && val.trim().length > 0) return val.split(',').map(s=>s.trim());
+                               }
+                           }
+                           if (Array.isArray(obj)) {
+                               for (const i of obj) {
+                                   const res = findColorsInObj(i, maxDepth - 1);
+                                   if (res) return res;
+                               }
+                           } else {
+                               for (const k of Object.keys(obj)) {
+                                   if (typeof obj[k] === 'object') {
+                                       const res = findColorsInObj(obj[k], maxDepth - 1);
+                                       if (res) return res;
+                                   }
+                               }
+                           }
+                           return null;
+                        };
+                        
+                        let colors = findColorsInObj({ ...item }) || ['Custom Color'];
+                        if (colors.length === 0) colors = ['Custom Color'];
                         
                         // Parse sizes
                         let sizes: string[] = [];
@@ -365,7 +373,8 @@ export function PortalCreateOrder() {
                         // Rush fee markup logic (15% markup typical on Wovn)
                         // Safely traverse stringified schema to detect nested booleans regardless of parent structure
                         const deckStr = JSON.stringify(deck).toLowerCase();
-                        const isRush = deckStr.includes('"rush":true') || deckStr.includes('"isrush":true') || deckStr.includes('"rushfee":true') || deckStr.includes('"rush_fee":true');
+                        const itemStr = JSON.stringify(item).toLowerCase();
+                        const isRush = deckStr.includes('rush') || itemStr.includes('rush') || deckStr.includes('rush_fee') || itemStr.includes('rush_fee');
                         
                         const basePrice = parseFloat(item.msrp || item.price || item.unit_cost || 0);
                         const price = isRush ? basePrice * 1.15 : basePrice;
