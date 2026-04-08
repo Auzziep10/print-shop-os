@@ -1,11 +1,11 @@
-import { useState, Suspense } from 'react';
+import { useState, Suspense, useMemo } from 'react';
 import { tokens } from '../../lib/tokens';
 import { PackageOpen, Printer, Boxes, Map, QrCode } from 'lucide-react';
 import QRCode from 'react-qr-code';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Text, Environment } from '@react-three/drei';
 
-function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, color = '#2b4478', label = "Rack", onClick, isActive, onPalletClick, activePallet }: any) {
+function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, color = '#2b4478', label = "Rack", onClick, isActive, onPalletClick, activePallet, inventory = [] }: any) {
   const width = 2.6; // Width per bay
   const depth = 1.0;
   const height = 2.4; // Shorter vertical uprights for 2-level pallets
@@ -13,16 +13,9 @@ function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, color = '#2b
   
   const upColor = isActive ? '#10b981' : color;
 
-  const uprights = [];
-  const beams = [];
-  const pallets = [];
-  
-  // Deterministic seed based on label so pallets don't change randomly on view
-  let seed = label.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0);
-  const pseudoRandom = () => {
-    let x = Math.sin(seed++) * 10000;
-    return x - Math.floor(x);
-  };
+  const uprights: any[] = [];
+  const beams: any[] = [];
+  const pallets: any[] = [];
 
   // Build components geometrically
   for (let i = 0; i <= bays; i++) {
@@ -43,56 +36,44 @@ function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, color = '#2b
     for (let l = 1; l <= levels; l++) {
       // Space beams properly: bottom floor is level 0, then middle, then exactly at the top.
       const yPos = (l * (height / levels)) - 0.06; // minus 0.06 so the top beam is flush with the top of the blue upright
-      // front and back orange beams (no wire decking)
       beams.push(<mesh key={`bf_${bay}_${l}`} position={[xCenter, yPos, depth/2]}><boxGeometry args={[width, 0.12, 0.05]} /><meshStandardMaterial color="#eb7023" /></mesh>);
       beams.push(<mesh key={`bb_${bay}_${l}`} position={[xCenter, yPos, -depth/2]}><boxGeometry args={[width, 0.12, 0.05]} /><meshStandardMaterial color="#eb7023" /></mesh>);
     }
-
-    // Insert pseudo-random pallets onto the beams (and floor)
-    for (let l = 0; l < levels; l++) {
-      const isFloor = (l === 0);
-      const beamY = isFloor ? 0 : (l * (height / levels)) - 0.06; 
-      const restY = isFloor ? 0 : beamY + 0.06;
-
-      for (let slot = -1; slot <= 1; slot += 2) {
-        if (pseudoRandom() > 0.4) {
-          const palletHeight = 0.6 + pseudoRandom() * 0.4;
-          const pY = restY + palletHeight / 2;
-          const pX = xCenter + (slot * width / 4);
-          
-          const colorRand = pseudoRandom();
-          const pColor = colorRand > 0.8 ? '#3b82f6' : (colorRand > 0.5 ? '#e5e7eb' : '#d4a373');
-
-          const palletId = `PAL-${Math.floor(pseudoRandom() * 9000) + 1000}`;
-          const isBox = colorRand < 0.5;
-          const type = isBox ? 'Loose Box' : 'Pallet';
-          const location = `${label} | Bay ${bay + 1} | Level ${l}`;
-          const clients = ['McEvoy Ranch', 'AION', 'Verizon', 'MGM Resorts', 'WOVN Studio', 'Alo Yoga', 'Nike', 'Tesla'];
-          const client = clients[Math.floor(pseudoRandom() * clients.length)];
-          
-          const palletData = { id: palletId, type, location, client, color: pColor, ...position };
-          const isThisPalletActive = activePallet?.id === palletData.id;
-
-          pallets.push(
-            <group 
-              key={`pallet_${bay}_${l}_${slot}`} 
-              position={[pX, pY, 0]}
-              onClick={(e) => { e.stopPropagation(); onPalletClick?.(palletData); }}
-            >
-              <mesh position={[0, -palletHeight/2 + 0.07, 0]}>
-                <boxGeometry args={[1.0, 0.14, 1.0]} />
-                <meshStandardMaterial color="#8b5a2b" emissive={isThisPalletActive ? "#fff" : "#000"} emissiveIntensity={isThisPalletActive ? 0.3 : 0} />
-              </mesh>
-              <mesh position={[0, 0.07, 0]}>
-                <boxGeometry args={[0.95, palletHeight - 0.14, 0.95]} />
-                <meshStandardMaterial color={pColor} emissive={isThisPalletActive ? "#fff" : "#000"} emissiveIntensity={isThisPalletActive ? 0.2 : 0} />
-              </mesh>
-            </group>
-          );
-        }
-      }
-    }
   }
+
+  // Render pallets dynamically from the provided inventory subset for this rack
+  inventory.forEach((pallet: any) => {
+    if (!pallet.rackSpecs) return;
+    const { bay, level, slot } = pallet.rackSpecs;
+    if (bay >= bays || level >= levels) return; // Prevent out of bounds rendering if data expands
+
+    const xCenter = (bay * width) + (width / 2) - (totalWidth / 2);
+    const isFloor = (level === 0);
+    const beamY = isFloor ? 0 : (level * (height / levels)) - 0.06; 
+    const restY = isFloor ? 0 : beamY + 0.06;
+    
+    const pY = restY + pallet.height / 2;
+    const pX = xCenter + (slot * width / 4);
+    
+    const isThisPalletActive = activePallet?.id === pallet.id;
+
+    pallets.push(
+      <group 
+        key={pallet.id} 
+        position={[pX, pY, 0]}
+        onClick={(e) => { e.stopPropagation(); onPalletClick?.(pallet); }}
+      >
+        <mesh position={[0, -pallet.height/2 + 0.07, 0]}>
+          <boxGeometry args={[1.0, 0.14, 1.0]} />
+          <meshStandardMaterial color="#8b5a2b" emissive={isThisPalletActive ? "#fff" : "#000"} emissiveIntensity={isThisPalletActive ? 0.3 : 0} />
+        </mesh>
+        <mesh position={[0, 0.07, 0]}>
+          <boxGeometry args={[0.95, pallet.height - 0.14, 0.95]} />
+          <meshStandardMaterial color={pallet.color} emissive={isThisPalletActive ? "#fff" : "#000"} emissiveIntensity={isThisPalletActive ? 0.2 : 0} />
+        </mesh>
+      </group>
+    );
+  });
 
   return (
     <group position={position} rotation={rotation} 
@@ -111,40 +92,38 @@ function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, color = '#2b
   );
 }
 
-function FloorPallet({ position, rotation = [0,0,0], pColor = '#d4a373', label, onClick, onPalletClick, activePallet, client }: any) {
-  const seed = label.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0);
-  const pseudoRandom = () => { let x = Math.sin(seed * 10000); return x - Math.floor(x); };
-  
-  const palletHeight = 0.6 + pseudoRandom() * 0.4;
-  const pY = palletHeight / 2;
-  const palletData = { id: label, type: 'Loose Pallet', location: 'Open Floor Zone', client: client || 'General', color: pColor, ...position };
-  const isThisPalletActive = activePallet?.id === palletData.id;
+function FloorPallet({ pallet, onClick, onPalletClick, activePallet }: any) {
+  const isThisPalletActive = activePallet?.id === pallet.id;
+  const pY = pallet.height / 2;
 
   return (
-    <group position={[position[0], position[1] + pY, position[2]]} rotation={rotation} 
-      onClick={(e) => { e.stopPropagation(); onClick?.(null); onPalletClick?.(palletData); }}
+    <group position={[pallet.position[0], pallet.position[1] + pY, pallet.position[2]]} rotation={pallet.rotation || [0,0,0]} 
+      onClick={(e) => { e.stopPropagation(); onClick?.(null); onPalletClick?.(pallet); }}
       onPointerOver={(e) => { e.stopPropagation(); document.body.style.cursor='pointer'; }}
       onPointerOut={() => document.body.style.cursor='auto'}
     >
-      <mesh position={[0, -palletHeight/2 + 0.07, 0]}>
+      <mesh position={[0, -pallet.height/2 + 0.07, 0]}>
         <boxGeometry args={[1.0, 0.14, 1.0]} />
         <meshStandardMaterial color="#8b5a2b" emissive={isThisPalletActive ? "#fff" : "#000"} emissiveIntensity={isThisPalletActive ? 0.3 : 0} />
       </mesh>
       <mesh position={[0, 0.07, 0]}>
-        <boxGeometry args={[0.95, palletHeight - 0.14, 0.95]} />
-        <meshStandardMaterial color={pColor} emissive={isThisPalletActive ? "#fff" : "#000"} emissiveIntensity={isThisPalletActive ? 0.2 : 0} />
+        <boxGeometry args={[0.95, pallet.height - 0.14, 0.95]} />
+        <meshStandardMaterial color={pallet.color} emissive={isThisPalletActive ? "#fff" : "#000"} emissiveIntensity={isThisPalletActive ? 0.2 : 0} />
       </mesh>
     </group>
   );
 }
 
-function WarehouseMap({ activeRack, setActiveRack, activePallet, setActivePallet }: any) {
+function WarehouseMap({ activeRack, setActiveRack, activePallet, setActivePallet, inventory }: any) {
   const rackProps = {
      onClick: setActiveRack,
      activeRack,
      onPalletClick: setActivePallet,
      activePallet
   };
+  
+  const getRackInventory = (zone: string) => inventory.filter((p: any) => p.zone === zone);
+  const floorInventory = inventory.filter((p: any) => p.zone === 'Floor');
 
   return (
     <div className="w-full h-full bg-brand-bg rounded-2xl overflow-hidden relative border border-brand-border/50 shadow-inner">
@@ -171,70 +150,98 @@ function WarehouseMap({ activeRack, setActiveRack, activePallet, setActivePallet
         </mesh>
         
         {/* ======== PERIMETER COMPRESSED WALLS ======== */}
-        {/* South Wall (Bottom) */}
-        <mesh position={[0, 4, 14]} receiveShadow onClick={() => { setActiveRack(null); setActivePallet(null); }}>
-           <boxGeometry args={[25, 8, 0.4]} />
-           <meshStandardMaterial color="#d1d5db" transparent opacity={0.3} />
-        </mesh>
-        {/* North Wall (Top) */}
-        <mesh position={[0, 4, -14]} receiveShadow onClick={() => { setActiveRack(null); setActivePallet(null); }}>
-           <boxGeometry args={[25, 8, 0.4]} />
-           <meshStandardMaterial color="#d1d5db" transparent opacity={0.3} />
-        </mesh>
-        
-        {/* West Wall (Left) */}
-        <mesh position={[-12.5, 4, 0]} rotation={[0, Math.PI/2, 0]} receiveShadow onClick={() => { setActiveRack(null); setActivePallet(null); }}>
-           <boxGeometry args={[28, 8, 0.4]} />
-           <meshStandardMaterial color="#d1d5db" transparent opacity={0.3} />
-        </mesh>
-
-        {/* East Wall (Right) - Rendered transparently so camera can pan through it */}
-        <mesh position={[12.5, 4, 0]} rotation={[0, Math.PI/2, 0]} receiveShadow onClick={() => { setActiveRack(null); setActivePallet(null); }}>
-           <boxGeometry args={[28, 8, 0.4]} />
-           <meshStandardMaterial color="#e5e7eb" transparent opacity={0.3} />
-        </mesh>
+        <mesh position={[0, 4, 14]} receiveShadow onClick={() => { setActiveRack(null); setActivePallet(null); }}><boxGeometry args={[25, 8, 0.4]} /><meshStandardMaterial color="#d1d5db" transparent opacity={0.3} /></mesh>
+        <mesh position={[0, 4, -14]} receiveShadow onClick={() => { setActiveRack(null); setActivePallet(null); }}><boxGeometry args={[25, 8, 0.4]} /><meshStandardMaterial color="#d1d5db" transparent opacity={0.3} /></mesh>
+        <mesh position={[-12.5, 4, 0]} rotation={[0, Math.PI/2, 0]} receiveShadow onClick={() => { setActiveRack(null); setActivePallet(null); }}><boxGeometry args={[28, 8, 0.4]} /><meshStandardMaterial color="#d1d5db" transparent opacity={0.3} /></mesh>
+        <mesh position={[12.5, 4, 0]} rotation={[0, Math.PI/2, 0]} receiveShadow onClick={() => { setActiveRack(null); setActivePallet(null); }}><boxGeometry args={[28, 8, 0.4]} /><meshStandardMaterial color="#e5e7eb" transparent opacity={0.3} /></mesh>
 
         {/* ======== DOCK DOORS ======== */}
-        <mesh position={[0, 1.5, 13.6]}>
-           <boxGeometry args={[3, 3, 0.5]} />
-           <meshStandardMaterial color="#9ca3af" />
-        </mesh>
+        <mesh position={[0, 1.5, 13.6]}><boxGeometry args={[3, 3, 0.5]} /><meshStandardMaterial color="#9ca3af" /></mesh>
         <Text position={[0, 3.5, 13.4]} fontSize={0.8} color="#000" rotation={[0, 0, 0]}>SOUTH DOCK</Text>
-
-        <mesh position={[0, 1.5, -13.6]}>
-           <boxGeometry args={[3, 3, 0.5]} />
-           <meshStandardMaterial color="#9ca3af" />
-        </mesh>
+        <mesh position={[0, 1.5, -13.6]}><boxGeometry args={[3, 3, 0.5]} /><meshStandardMaterial color="#9ca3af" /></mesh>
         <Text position={[0, 3.5, -13.4]} fontSize={0.8} color="#000" rotation={[0, Math.PI, 0]}>NORTH DOOR</Text>
 
-
-
         {/* ======== COMPRESSED 3D RACKS ======== */}
-        
-        {/* South Wall Racks (Bottom wall flanking the door) */}
-        <Rack position={[-6.5, 0, 12.5]} bays={3} label="Aisle S-Left" isActive={activeRack === 'Aisle S-Left'} {...rackProps} />
-        <Rack position={[6.5, 0, 12.5]} bays={3} label="Aisle S-Right" isActive={activeRack === 'Aisle S-Right'} {...rackProps} />
+        <Rack position={[-6.5, 0, 12.5]} bays={3} label="Aisle S-Left" inventory={getRackInventory('Aisle S-Left')} isActive={activeRack === 'Aisle S-Left'} {...rackProps} />
+        <Rack position={[6.5, 0, 12.5]} bays={3} label="Aisle S-Right" inventory={getRackInventory('Aisle S-Right')} isActive={activeRack === 'Aisle S-Right'} {...rackProps} />
+        <Rack position={[-11.5, 0, -4.5]} rotation={[0, Math.PI/2, 0]} bays={5} label="Aisle West-Main" inventory={getRackInventory('Aisle West-Main')} isActive={activeRack === 'Aisle West-Main'} {...rackProps} />
 
-        {/* West Wall Long Rack (Compact hugging wall) */}
-        <Rack position={[-11.5, 0, -4.5]} rotation={[0, Math.PI/2, 0]} bays={5} label="Aisle West-Main" isActive={activeRack === 'Aisle West-Main'} {...rackProps} />
-
-        {/* East Zone (Tight parallel forklift aisles & bottom right) */}
-        <Rack position={[11.5, 0, -8.5]} rotation={[0, -Math.PI/2, 0]} bays={4} label="Aisle East-Wall" isActive={activeRack === 'Aisle East-Wall'} {...rackProps} />
-        <Rack position={[7.5, 0, -8.5]} rotation={[0, -Math.PI/2, 0]} bays={4} label="Aisle East-Inner" isActive={activeRack === 'Aisle East-Inner'} {...rackProps} />
-        <Rack position={[11.5, 0, 6]} rotation={[0, -Math.PI/2, 0]} bays={2} label="Aisle East-Lower" isActive={activeRack === 'Aisle East-Lower'} {...rackProps} />
+        <Rack position={[11.5, 0, -8.5]} rotation={[0, -Math.PI/2, 0]} bays={4} label="Aisle East-Wall" inventory={getRackInventory('Aisle East-Wall')} isActive={activeRack === 'Aisle East-Wall'} {...rackProps} />
+        <Rack position={[7.5, 0, -8.5]} rotation={[0, -Math.PI/2, 0]} bays={4} label="Aisle East-Inner" inventory={getRackInventory('Aisle East-Inner')} isActive={activeRack === 'Aisle East-Inner'} {...rackProps} />
+        <Rack position={[11.5, 0, 6]} rotation={[0, -Math.PI/2, 0]} bays={2} label="Aisle East-Lower" inventory={getRackInventory('Aisle East-Lower')} isActive={activeRack === 'Aisle East-Lower'} {...rackProps} />
 
         {/* ======== LOOSE FLOOR PALLETS ======== */}
-        <FloorPallet position={[0, 0, 0]} label="PAL-9011" client="Nike" pColor="#3b82f6" activePallet={activePallet} onPalletClick={setActivePallet} onClick={setActiveRack} />
-        <FloorPallet position={[1.5, 0, 0]} label="PAL-9012" client="Alo Yoga" pColor="#e5e7eb" activePallet={activePallet} onPalletClick={setActivePallet} onClick={setActiveRack} />
-        <FloorPallet position={[0, 0, 1.5]} label="PAL-9013" client="Tesla" pColor="#d4a373" activePallet={activePallet} onPalletClick={setActivePallet} onClick={setActiveRack} />
-        <FloorPallet position={[-1.5, 0, 0]} label="PAL-9014" client="AION" pColor="#e5e7eb" activePallet={activePallet} onPalletClick={setActivePallet} onClick={setActiveRack} />
-        <FloorPallet position={[0, 0, -1.5]} label="PAL-9015" client="WOVN Studio" pColor="#3b82f6" activePallet={activePallet} onPalletClick={setActivePallet} onClick={setActiveRack} />
-        <FloorPallet position={[-4, 0, -2]} label="PAL-9120" client="McEvoy Ranch" pColor="#d4a373" rotation={[0, Math.PI/6, 0]} activePallet={activePallet} onPalletClick={setActivePallet} onClick={setActiveRack} />
-        <FloorPallet position={[-4.5, 0, -0.8]} label="PAL-9121" client="MGM Resorts" pColor="#d4a373" rotation={[0, Math.PI/4, 0]} activePallet={activePallet} onPalletClick={setActivePallet} onClick={setActiveRack} />
-
+        {floorInventory.map((p: any) => <FloorPallet key={p.id} pallet={p} activePallet={activePallet} onPalletClick={setActivePallet} onClick={setActiveRack} />)}
       </Canvas>
     </div>
   );
+}
+
+const useDynamicInventory = () => {
+  return useMemo(() => {
+    const db: any[] = [];
+    const clients = ['McEvoy Ranch', 'AION', 'Verizon', 'MGM Resorts', 'WOVN Studio', 'Alo Yoga', 'Nike', 'Tesla'];
+    let idCount = 1000;
+    
+    // 1. Populate specific floor pallets simulating a loaded Open Floor
+    const floorConfigs = [
+       { position: [0, 0, 0], pColor: "#3b82f6", client: "Nike" },
+       { position: [1.5, 0, 0], pColor: "#e5e7eb", client: "Alo Yoga" },
+       { position: [0, 0, 1.5], pColor: "#d4a373", client: "Tesla" },
+       { position: [-1.5, 0, 0], pColor: "#e5e7eb", client: "AION" },
+       { position: [0, 0, -1.5], pColor: "#3b82f6", client: "WOVN Studio" },
+       { position: [-4, 0, -2], pColor: "#d4a373", client: "McEvoy Ranch", rotation: [0, Math.PI/6, 0] },
+       { position: [-4.5, 0, -0.8], pColor: "#d4a373", client: "MGM Resorts", rotation: [0, Math.PI/4, 0] }
+    ];
+
+    floorConfigs.forEach(conf => {
+        db.push({
+           id: `PAL-${idCount++}`,
+           type: 'Loose Box',
+           zone: 'Floor',
+           client: conf.client,
+           color: conf.pColor,
+           height: 0.6 + Math.random() * 0.4,
+           position: conf.position,
+           rotation: conf.rotation || [0,0,0],
+           location: 'Open Floor Zone'
+        });
+    });
+
+    // 2. Populate rack pallets (bays/levels/slots) simulating database rows
+    const racksToFill = [
+       { label: 'Aisle S-Left', bays: 3, levels: 2 },
+       { label: 'Aisle S-Right', bays: 3, levels: 2 },
+       { label: 'Aisle West-Main', bays: 5, levels: 2 },
+       { label: 'Aisle East-Wall', bays: 4, levels: 2 },
+       { label: 'Aisle East-Inner', bays: 4, levels: 2 },
+       { label: 'Aisle East-Lower', bays: 2, levels: 2 }
+    ];
+
+    racksToFill.forEach(rack => {
+        for (let bay=0; bay<rack.bays; bay++) {
+            for (let level=0; level<rack.levels; level++) {
+               for (let slot of [-1, 1]) {
+                  if (Math.random() > 0.4) {
+                     const cRand = Math.random();
+                     db.push({
+                        id: `PAL-${idCount++}`,
+                        type: cRand < 0.5 ? 'Loose Box' : 'Pallet',
+                        zone: rack.label,
+                        client: clients[Math.floor(Math.random() * clients.length)],
+                        color: cRand > 0.8 ? '#3b82f6' : (cRand > 0.5 ? '#e5e7eb' : '#d4a373'),
+                        height: 0.6 + Math.random() * 0.4,
+                        rackSpecs: { bay, level, slot },
+                        location: `${rack.label} | Bay ${bay+1} | Level ${level}`
+                     });
+                  }
+               }
+            }
+        }
+    });
+
+    return db;
+  }, []);
 }
 
 export function Inventory() {
@@ -242,12 +249,8 @@ export function Inventory() {
   const [activeRack, setActiveRack] = useState<string | null>(null);
   const [activePallet, setActivePallet] = useState<any>(null);
 
-  const dummyPallets = [
-    { id: 'PAL-9812', client: 'McEvoy Ranch', type: 'Pallet', location: 'Aisle B - Level 1' },
-    { id: 'BOX-2321', client: 'AION', type: 'Loose Box', location: 'Aisle East - Level 3' },
-    { id: 'PAL-8811', client: 'MGM Resorts', type: 'Pallet', location: 'Aisle S-Right - Level 1' },
-    { id: 'BOX-1029', client: 'Verizon', type: 'Loose Box', location: 'Aisle A - Level 2' },
-  ];
+  const inventoryDB = useDynamicInventory();
+
 
   const handlePrintLabel = () => {
     window.print();
@@ -286,7 +289,7 @@ export function Inventory() {
            <div className="w-full h-full flex gap-6">
               <div className="flex-1 h-full shadow-[0_4px_24px_-8px_rgba(0,0,0,0.1)] rounded-2xl bg-brand-bg relative cursor-move">
                  <Suspense fallback={<div className="absolute inset-0 flex items-center justify-center font-serif text-brand-secondary text-2xl animate-pulse">Initializing WebGL Engine...</div>}>
-                    <WarehouseMap activeRack={activeRack} setActiveRack={setActiveRack} activePallet={activePallet} setActivePallet={setActivePallet} />
+                    <WarehouseMap activeRack={activeRack} setActiveRack={setActiveRack} activePallet={activePallet} setActivePallet={setActivePallet} inventory={inventoryDB} />
                  </Suspense>
               </div>
               
@@ -342,8 +345,8 @@ export function Inventory() {
                          
                          <h4 className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-3">Manifest Log</h4>
                          <div className="space-y-3 pb-8">
-                            {dummyPallets.map((p: any) => (
-                               <div key={p.id} className="border border-brand-border rounded-xl p-4 hover:bg-brand-bg/50 transition-all cursor-pointer group">
+                            {inventoryDB.filter((p: any) => p.zone === activeRack).map((p: any) => (
+                               <div key={p.id} onClick={() => setActivePallet(p)} className="border border-brand-border rounded-xl p-4 hover:bg-brand-bg/50 transition-all cursor-pointer group">
                                   <div className="flex justify-between items-center mb-2">
                                      <span className="text-xs font-bold text-brand-primary group-hover:underline uppercase tracking-wider">{p.id}</span>
                                      <span className="text-[9px] font-bold uppercase tracking-widest bg-brand-bg border border-brand-border px-2 py-0.5 rounded text-brand-secondary">{p.type}</span>
@@ -376,7 +379,7 @@ export function Inventory() {
                  </div>
                  
                  <div className="grid grid-cols-2 gap-8 print-grid">
-                    {dummyPallets.map(p => (
+                    {inventoryDB.slice(0, 8).map((p: any) => (
                        <div key={p.id} className="border-[3px] border-black rounded-2xl p-6 bg-white flex print-label shadow-sm transition-shadow h-56">
                           <div className="flex-1 pr-6 flex flex-col justify-between">
                             <div>
