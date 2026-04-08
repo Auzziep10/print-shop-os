@@ -557,17 +557,27 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
 
                         {/* Pricing Summary */}
                         <div className="flex items-stretch gap-[2px] bg-neutral-200 p-[3px] rounded-xl font-sans shrink-0">
-                          <div className="w-12 text-center flex flex-col">
+                          <div className="w-12 text-center flex flex-col overflow-hidden">
                             <div className="bg-neutral-300 text-neutral-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">QTY</div>
                             <div className="bg-neutral-50 text-neutral-800 text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center">{item.qty}</div>
                           </div>
-                          <div className="w-16 text-center flex flex-col">
+                          <div className="w-16 text-center flex flex-col overflow-hidden">
                             <div className="bg-neutral-300 text-neutral-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">Price</div>
-                            <div className="bg-neutral-50 text-neutral-800 text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center">{typeof item.price === 'number' ? `$${item.price.toFixed(2)}` : (item.price || '-')}</div>
+                            <div className="bg-neutral-50 text-neutral-800 text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center truncate px-1">
+                              {item.price && !isNaN(parseFloat(item.price.toString().replace(/[^0-9.]/g, ''))) 
+                                ? `$${parseFloat(item.price.toString().replace(/[^0-9.]/g, '')).toFixed(2)}` 
+                                : (item.price || '-')}
+                            </div>
                           </div>
-                          <div className="w-20 text-center flex flex-col">
+                          <div className="w-20 text-center flex flex-col overflow-hidden">
                             <div className="bg-neutral-300 text-neutral-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">Total</div>
-                            <div className="bg-neutral-50 text-neutral-800 text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center">{typeof item.total === 'number' ? `$${item.total.toFixed(2)}` : (item.total || (item.qty && item.price ? `$${(item.qty * parseFloat(item.price)).toFixed(2)}` : '-'))}</div>
+                            <div className="bg-neutral-50 text-neutral-800 text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center truncate px-1">
+                              {item.total && !isNaN(parseFloat(item.total.toString().replace(/[^0-9.]/g, ''))) 
+                                ? `$${parseFloat(item.total.toString().replace(/[^0-9.]/g, '')).toFixed(2)}` 
+                                : (item.qty && item.price && !isNaN(parseFloat(item.price.toString().replace(/[^0-9.]/g, '')))
+                                   ? `$${(item.qty * parseFloat(item.price.toString().replace(/[^0-9.]/g, ''))).toFixed(2)}` 
+                                   : '-')}
+                            </div>
                           </div>
                         </div>
                       </div>
