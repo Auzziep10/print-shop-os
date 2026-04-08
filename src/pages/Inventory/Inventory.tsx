@@ -282,20 +282,37 @@ export function Inventory() {
 
   const [inventoryDB, setInventoryDB] = useState<any[]>(() => generateInitialInventory());
   const [isAddingPallet, setIsAddingPallet] = useState(false);
-  const [addForm, setAddForm] = useState({ client: 'New Client', x: 0, z: 0, color: '#10b981' });
+  const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false);
+  
+  const racksList = [
+    { label: 'Aisle S-Left', bays: 3, levels: 2 },
+    { label: 'Aisle S-Right', bays: 3, levels: 2 },
+    { label: 'Aisle West-Main', bays: 5, levels: 2 },
+    { label: 'Aisle East-Wall', bays: 4, levels: 2 },
+    { label: 'Aisle East-Inner', bays: 4, levels: 2 },
+    { label: 'Aisle East-Lower', bays: 2, levels: 2 }
+  ];
+
+  const [addForm, setAddForm] = useState({ client: 'New Client', color: '#10b981', zoneType: 'Floor', x: 0, z: 0, rackLabel: 'Aisle S-Left', bay: 0, level: 0, slot: -1 });
 
   const handleAddPallet = (e: any) => {
     e.preventDefault();
+    const isFloor = addForm.zoneType === 'Floor';
     const newPallet = {
         id: `PAL-${Math.floor(Math.random() * 9000) + 1000}`,
         type: 'Pallet',
-        zone: 'Floor',
+        zone: isFloor ? 'Floor' : addForm.rackLabel,
         client: addForm.client,
         color: addForm.color,
         height: 0.8,
-        position: [parseFloat(addForm.x as any) || 0, 0, parseFloat(addForm.z as any) || 0],
-        rotation: [0, 0, 0],
-        location: `Open Floor Zone (${addForm.x}, ${addForm.z})`
+        ...(isFloor ? {
+            position: [parseFloat(addForm.x as any) || 0, 0, parseFloat(addForm.z as any) || 0],
+            rotation: [0, 0, 0],
+            location: `Open Floor Zone (${addForm.x}, ${addForm.z})`
+        } : {
+            rackSpecs: { bay: parseInt(addForm.bay as any), level: parseInt(addForm.level as any), slot: parseInt(addForm.slot as any) },
+            location: `${addForm.rackLabel} | Bay ${parseInt(addForm.bay as any)+1} | Level ${addForm.level}`
+        })
     };
     setInventoryDB([...inventoryDB, newPallet]);
     setIsAddingPallet(false);
@@ -376,10 +393,10 @@ export function Inventory() {
                               </div>
                             </div>
                             
-                            <button className="w-full mt-4 bg-black text-white px-4 py-3 rounded-lg font-bold uppercase tracking-widest text-xs flex justify-center items-center gap-2 shadow-sm hover:scale-[1.02] transition-transform">
+                            <button onClick={() => setActiveTab('Labels')} className="w-full mt-4 bg-black text-white px-4 py-3 rounded-lg font-bold uppercase tracking-widest text-xs flex justify-center items-center gap-2 shadow-sm hover:scale-[1.02] transition-transform">
                                <QrCode size={16} /> Print Route Info
                             </button>
-                            <button className="w-full bg-white text-black border border-brand-border px-4 py-3 rounded-lg font-bold uppercase tracking-widest text-xs flex justify-center items-center gap-2 hover:bg-neutral-50 shadow-sm transition-colors mt-2">
+                            <button onClick={() => setIsInventoryModalOpen(true)} className="w-full bg-white text-black border border-brand-border px-4 py-3 rounded-lg font-bold uppercase tracking-widest text-xs flex justify-center items-center gap-2 hover:bg-neutral-50 shadow-sm transition-colors mt-2">
                                <PackageOpen size={16} /> Open Inventory View
                             </button>
                          </div>
@@ -408,22 +425,61 @@ export function Inventory() {
                       </div>
                     ) : isAddingPallet ? (
                       <div className="animate-in fade-in slide-in-from-right-4">
-                         <h3 className="font-serif text-xl border-b border-brand-border/50 pb-3 mb-4 tracking-tight">Drop New Payload</h3>
+                         <h3 className="font-serif text-xl border-b border-brand-border/50 pb-3 mb-4 tracking-tight flex justify-between items-center">
+                            <span>Drop New Payload</span>
+                            <div className="flex bg-brand-bg rounded-lg border border-brand-border p-1">
+                               <button onClick={(e) => { e.preventDefault(); setAddForm({...addForm, zoneType: 'Floor'}) }} className={`px-2 py-1 text-[9px] uppercase tracking-widest font-bold rounded ${addForm.zoneType === 'Floor' ? 'bg-white shadow-sm' : 'text-brand-secondary'}`}>Floor</button>
+                               <button onClick={(e) => { e.preventDefault(); setAddForm({...addForm, zoneType: 'Rack'}) }} className={`px-2 py-1 text-[9px] uppercase tracking-widest font-bold rounded ${addForm.zoneType === 'Rack' ? 'bg-white shadow-sm' : 'text-brand-secondary'}`}>Rack</button>
+                            </div>
+                         </h3>
                          <form onSubmit={handleAddPallet} className="space-y-4">
                             <div>
                                <label className="text-[10px] uppercase font-bold text-brand-secondary tracking-widest">Client Name</label>
                                <input type="text" value={addForm.client} onChange={e => setAddForm({...addForm, client: e.target.value})} className="w-full mt-1 p-3 rounded-lg border border-brand-border bg-brand-bg text-sm font-semibold focus:outline-brand-primary" />
                             </div>
-                            <div className="grid grid-cols-2 gap-4">
-                               <div>
-                                  <label className="text-[10px] uppercase font-bold text-brand-secondary tracking-widest">X Coordinate</label>
-                                  <input type="number" step="0.5" value={addForm.x} onChange={e => setAddForm({...addForm, x: parseFloat(e.target.value)})} className="w-full mt-1 p-3 rounded-lg border border-brand-border bg-brand-bg text-sm font-semibold focus:outline-brand-primary" />
-                               </div>
-                               <div>
-                                  <label className="text-[10px] uppercase font-bold text-brand-secondary tracking-widest">Z Coordinate</label>
-                                  <input type="number" step="0.5" value={addForm.z} onChange={e => setAddForm({...addForm, z: parseFloat(e.target.value)})} className="w-full mt-1 p-3 rounded-lg border border-brand-border bg-brand-bg text-sm font-semibold focus:outline-brand-primary" />
-                               </div>
-                            </div>
+                            
+                            {addForm.zoneType === 'Floor' ? (
+                                <div className="grid grid-cols-2 gap-4">
+                                   <div>
+                                      <label className="text-[10px] uppercase font-bold text-brand-secondary tracking-widest">X Coordinate</label>
+                                      <input type="number" step="0.5" value={addForm.x} onChange={e => setAddForm({...addForm, x: parseFloat(e.target.value)})} className="w-full mt-1 p-3 rounded-lg border border-brand-border bg-brand-bg text-sm font-semibold focus:outline-brand-primary" />
+                                   </div>
+                                   <div>
+                                      <label className="text-[10px] uppercase font-bold text-brand-secondary tracking-widest">Z Coordinate</label>
+                                      <input type="number" step="0.5" value={addForm.z} onChange={e => setAddForm({...addForm, z: parseFloat(e.target.value)})} className="w-full mt-1 p-3 rounded-lg border border-brand-border bg-brand-bg text-sm font-semibold focus:outline-brand-primary" />
+                                   </div>
+                                </div>
+                            ) : (
+                                <div className="space-y-4">
+                                   <div>
+                                      <label className="text-[10px] uppercase font-bold text-brand-secondary tracking-widest">Target Rack</label>
+                                      <select value={addForm.rackLabel} onChange={e => setAddForm({...addForm, rackLabel: e.target.value})} className="w-full mt-1 p-3 rounded-lg border border-brand-border bg-brand-bg text-sm font-semibold focus:outline-brand-primary">
+                                         {racksList.map(r => <option key={r.label} value={r.label}>{r.label}</option>)}
+                                      </select>
+                                   </div>
+                                   <div className="grid grid-cols-3 gap-2">
+                                      <div>
+                                         <label className="text-[10px] uppercase font-bold text-brand-secondary tracking-widest">Bay</label>
+                                         <input type="number" min="0" value={addForm.bay} onChange={e => setAddForm({...addForm, bay: parseInt(e.target.value)})} className="w-full mt-1 p-3 flex-1 rounded-lg border border-brand-border bg-brand-bg text-sm font-semibold focus:outline-brand-primary" />
+                                      </div>
+                                      <div>
+                                         <label className="text-[10px] uppercase font-bold text-brand-secondary tracking-widest">Level</label>
+                                         <select value={addForm.level} onChange={e => setAddForm({...addForm, level: parseInt(e.target.value)})} className="w-full mt-1 p-3 flex-1 rounded-lg border border-brand-border bg-brand-bg text-sm font-semibold focus:outline-brand-primary">
+                                            <option value={0}>0 (Ground)</option>
+                                            <option value={1}>1 (Beam)</option>
+                                         </select>
+                                      </div>
+                                      <div>
+                                         <label className="text-[10px] uppercase font-bold text-brand-secondary tracking-widest">Slot</label>
+                                         <select value={addForm.slot} onChange={e => setAddForm({...addForm, slot: parseInt(e.target.value)})} className="w-full mt-1 p-3 flex-1 rounded-lg border border-brand-border bg-brand-bg text-sm font-semibold focus:outline-brand-primary">
+                                            <option value={-1}>Left (-1)</option>
+                                            <option value={1}>Right (1)</option>
+                                         </select>
+                                      </div>
+                                   </div>
+                                </div>
+                            )}
+
                             <div>
                                <label className="text-[10px] uppercase font-bold text-brand-secondary tracking-widest">Color Tag</label>
                                <input type="color" value={addForm.color} onChange={e => setAddForm({...addForm, color: e.target.value})} className="w-full h-12 mt-1 rounded-lg border border-brand-border cursor-pointer bg-brand-bg p-1" />
@@ -461,7 +517,7 @@ export function Inventory() {
                  </div>
                  
                  <div className="grid grid-cols-2 gap-8 print-grid">
-                    {inventoryDB.slice(0, 8).map((p: any) => (
+                    {(activePallet ? [activePallet] : inventoryDB.slice(0, 8)).map((p: any) => (
                        <div key={p.id} className="border-[3px] border-black rounded-2xl p-6 bg-white flex print-label shadow-sm transition-shadow h-56">
                           <div className="flex-1 pr-6 flex flex-col justify-between">
                             <div>
@@ -486,6 +542,31 @@ export function Inventory() {
            </div>
         )}
       </div>
+
+      {/* Full Sheet Modals */}
+      {isInventoryModalOpen && activePallet && (
+         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in zoom-in-95 duration-200">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-8 relative">
+               <button onClick={() => setIsInventoryModalOpen(false)} className="absolute top-6 right-6 font-bold text-brand-secondary hover:text-black">✕</button>
+               <h2 className="font-serif text-3xl font-bold tracking-tight border-b pb-4 mb-6">Manifest Array: {activePallet.id}</h2>
+               <p className="text-sm uppercase tracking-widest text-brand-secondary font-bold mb-4 border-l-4 border-brand-primary pl-3 bg-brand-bg py-2 rounded-r">{activePallet.client}</p>
+               
+               <p className="text-xs font-semibold text-brand-secondary mb-2 uppercase tracking-widest">Contents (Scanned)</p>
+               <div className="bg-[#1e1e1e] rounded-lg p-4 font-mono text-[11px] overflow-auto max-h-64 text-green-400 shadow-inner">
+                   <p className="opacity-70 mb-2">Connecting to warehouse terminal...</p>
+                   <p>[{new Date().toLocaleTimeString()}] - SCANNED: Item 1/42 (SKU: WL-BLK-L)</p>
+                   <p>[{new Date().toLocaleTimeString()}] - SCANNED: Item 2/42 (SKU: WL-BLK-M)</p>
+                   <p>[{new Date().toLocaleTimeString()}] - SCANNED: Item 3/42 (SKU: WL-WHT-S)</p>
+                   <p className="mt-4 text-brand-secondary font-sans italic opacity-60">... 39 additional units properly kitted and shrink-wrapped.</p>
+               </div>
+               
+               <div className="flex gap-4 mt-8">
+                   <button onClick={() => setIsInventoryModalOpen(false)} className="flex-1 border border-brand-border text-brand-primary py-3 rounded-lg font-bold uppercase tracking-widest text-[10px] hover:bg-brand-bg transition-colors">Close Log</button>
+                   <button className="flex-1 bg-black text-white py-3 rounded-lg font-bold uppercase tracking-widest text-[10px] hover:bg-neutral-800 transition-colors shadow-md">Export to CSV</button>
+               </div>
+            </div>
+         </div>
+      )}
 
       <style>{`
          @media print {
