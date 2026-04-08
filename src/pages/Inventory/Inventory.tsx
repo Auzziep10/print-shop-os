@@ -1,4 +1,4 @@
-import { useState, Suspense } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { tokens } from '../../lib/tokens';
 import { PackageOpen, Printer, Boxes, Map, QrCode } from 'lucide-react';
 import QRCode from 'react-qr-code';
@@ -318,7 +318,18 @@ export function Inventory() {
   const [activePallet, setActivePallet] = useState<any>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
-  const [inventoryDB, setInventoryDB] = useState<any[]>(() => generateInitialInventory());
+  const [inventoryDB, setInventoryDB] = useState<any[]>(() => {
+     const saved = localStorage.getItem('wovn_inventoryDB_v1');
+     if (saved) {
+        try { return JSON.parse(saved); } catch (e) { console.error('Failed to parse saved inventory', e); }
+     }
+     return generateInitialInventory();
+  });
+  
+  useEffect(() => {
+     localStorage.setItem('wovn_inventoryDB_v1', JSON.stringify(inventoryDB));
+  }, [inventoryDB]);
+
   const [isAddingPallet, setIsAddingPallet] = useState(false);
   const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false);
   
