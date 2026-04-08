@@ -111,6 +111,33 @@ function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, color = '#2b
   );
 }
 
+function FloorPallet({ position, rotation = [0,0,0], pColor = '#d4a373', label, onClick, onPalletClick, activePallet, client }: any) {
+  const seed = label.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0);
+  const pseudoRandom = () => { let x = Math.sin(seed * 10000); return x - Math.floor(x); };
+  
+  const palletHeight = 0.6 + pseudoRandom() * 0.4;
+  const pY = palletHeight / 2;
+  const palletData = { id: label, type: 'Loose Pallet', location: 'Open Floor Zone', client: client || 'General', color: pColor, ...position };
+  const isThisPalletActive = activePallet?.id === palletData.id;
+
+  return (
+    <group position={[position[0], position[1] + pY, position[2]]} rotation={rotation} 
+      onClick={(e) => { e.stopPropagation(); onClick?.(null); onPalletClick?.(palletData); }}
+      onPointerOver={(e) => { e.stopPropagation(); document.body.style.cursor='pointer'; }}
+      onPointerOut={() => document.body.style.cursor='auto'}
+    >
+      <mesh position={[0, -palletHeight/2 + 0.07, 0]}>
+        <boxGeometry args={[1.0, 0.14, 1.0]} />
+        <meshStandardMaterial color="#8b5a2b" emissive={isThisPalletActive ? "#fff" : "#000"} emissiveIntensity={isThisPalletActive ? 0.3 : 0} />
+      </mesh>
+      <mesh position={[0, 0.07, 0]}>
+        <boxGeometry args={[0.95, palletHeight - 0.14, 0.95]} />
+        <meshStandardMaterial color={pColor} emissive={isThisPalletActive ? "#fff" : "#000"} emissiveIntensity={isThisPalletActive ? 0.2 : 0} />
+      </mesh>
+    </group>
+  );
+}
+
 function WarehouseMap({ activeRack, setActiveRack, activePallet, setActivePallet }: any) {
   const rackProps = {
      onClick: setActiveRack,
@@ -192,9 +219,18 @@ function WarehouseMap({ activeRack, setActiveRack, activePallet, setActivePallet
         <Rack position={[-11.5, 0, -4.5]} rotation={[0, Math.PI/2, 0]} bays={5} label="Aisle West-Main" isActive={activeRack === 'Aisle West-Main'} {...rackProps} />
 
         {/* East Zone (Tight parallel forklift aisles & bottom right) */}
-        <Rack position={[11.5, 0, -6]} rotation={[0, -Math.PI/2, 0]} bays={4} label="Aisle East-Wall" isActive={activeRack === 'Aisle East-Wall'} {...rackProps} />
-        <Rack position={[8.5, 0, -6]} rotation={[0, -Math.PI/2, 0]} bays={4} label="Aisle East-Inner" isActive={activeRack === 'Aisle East-Inner'} {...rackProps} />
+        <Rack position={[11.5, 0, -8.5]} rotation={[0, -Math.PI/2, 0]} bays={4} label="Aisle East-Wall" isActive={activeRack === 'Aisle East-Wall'} {...rackProps} />
+        <Rack position={[7.5, 0, -8.5]} rotation={[0, -Math.PI/2, 0]} bays={4} label="Aisle East-Inner" isActive={activeRack === 'Aisle East-Inner'} {...rackProps} />
         <Rack position={[11.5, 0, 6]} rotation={[0, -Math.PI/2, 0]} bays={2} label="Aisle East-Lower" isActive={activeRack === 'Aisle East-Lower'} {...rackProps} />
+
+        {/* ======== LOOSE FLOOR PALLETS ======== */}
+        <FloorPallet position={[0, 0, 0]} label="PAL-9011" client="Nike" pColor="#3b82f6" activePallet={activePallet} onPalletClick={setActivePallet} onClick={setActiveRack} />
+        <FloorPallet position={[1.5, 0, 0]} label="PAL-9012" client="Alo Yoga" pColor="#e5e7eb" activePallet={activePallet} onPalletClick={setActivePallet} onClick={setActiveRack} />
+        <FloorPallet position={[0, 0, 1.5]} label="PAL-9013" client="Tesla" pColor="#d4a373" activePallet={activePallet} onPalletClick={setActivePallet} onClick={setActiveRack} />
+        <FloorPallet position={[-1.5, 0, 0]} label="PAL-9014" client="AION" pColor="#e5e7eb" activePallet={activePallet} onPalletClick={setActivePallet} onClick={setActiveRack} />
+        <FloorPallet position={[0, 0, -1.5]} label="PAL-9015" client="WOVN Studio" pColor="#3b82f6" activePallet={activePallet} onPalletClick={setActivePallet} onClick={setActiveRack} />
+        <FloorPallet position={[-4, 0, -2]} label="PAL-9120" client="McEvoy Ranch" pColor="#d4a373" rotation={[0, Math.PI/6, 0]} activePallet={activePallet} onPalletClick={setActivePallet} onClick={setActiveRack} />
+        <FloorPallet position={[-4.5, 0, -0.8]} label="PAL-9121" client="MGM Resorts" pColor="#d4a373" rotation={[0, Math.PI/4, 0]} activePallet={activePallet} onPalletClick={setActivePallet} onClick={setActiveRack} />
 
       </Canvas>
     </div>
