@@ -557,28 +557,47 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
 
                         {/* Pricing Summary */}
                         <div className="flex items-stretch gap-[2px] bg-neutral-200 p-[3px] rounded-xl font-sans shrink-0">
-                          <div className="w-12 text-center flex flex-col overflow-hidden">
-                            <div className="bg-neutral-300 text-neutral-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">QTY</div>
-                            <div className="bg-neutral-50 text-neutral-800 text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center">{item.qty}</div>
-                          </div>
-                          <div className="w-16 text-center flex flex-col overflow-hidden">
-                            <div className="bg-neutral-300 text-neutral-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">Price</div>
-                            <div className="bg-neutral-50 text-neutral-800 text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center truncate px-1">
-                              {item.price && !isNaN(parseFloat(item.price.toString().replace(/[^0-9.]/g, ''))) 
-                                ? `$${parseFloat(item.price.toString().replace(/[^0-9.]/g, '')).toFixed(2)}` 
-                                : (item.price || '-')}
-                            </div>
-                          </div>
-                          <div className="w-20 text-center flex flex-col overflow-hidden">
-                            <div className="bg-neutral-300 text-neutral-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">Total</div>
-                            <div className="bg-neutral-50 text-neutral-800 text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center truncate px-1">
-                              {item.total && !isNaN(parseFloat(item.total.toString().replace(/[^0-9.]/g, ''))) 
-                                ? `$${parseFloat(item.total.toString().replace(/[^0-9.]/g, '')).toFixed(2)}` 
-                                : (item.qty && item.price && !isNaN(parseFloat(item.price.toString().replace(/[^0-9.]/g, '')))
-                                   ? `$${(item.qty * parseFloat(item.price.toString().replace(/[^0-9.]/g, ''))).toFixed(2)}` 
-                                   : '-')}
-                            </div>
-                          </div>
+                          {(() => {
+                            const sizeQtySum = item.sizes ? Object.values(item.sizes).reduce((acc: number, val: any) => acc + (parseInt(val) || 0), 0) : 0;
+                            const safeQty = item.qty ? parseInt(item.qty.toString().replace(/[^0-9]/g, '')) || 0 : sizeQtySum || 0;
+                            
+                            let safePriceNum = 0;
+                            if (item.price !== undefined && item.price !== null) {
+                                const pString = item.price.toString().replace(/[^0-9.]/g, '');
+                                if (pString !== '') safePriceNum = parseFloat(pString);
+                            }
+
+                            let safeTotalStr = '-';
+                            if (item.total && item.total !== '-') {
+                                let tString = item.total.toString().replace(/[^0-9.]/g, '');
+                                if (tString !== '' && !isNaN(parseFloat(tString))) { safeTotalStr = `$${parseFloat(tString).toFixed(2)}`; }
+                            } else if (safeQty > 0 && safePriceNum > 0) {
+                                safeTotalStr = `$${(safeQty * safePriceNum).toFixed(2)}`;
+                            }
+
+                            return (
+                              <>
+                                <div className="w-12 text-center flex flex-col overflow-hidden">
+                                  <div className="bg-neutral-300 text-neutral-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">QTY</div>
+                                  <div className="bg-neutral-50 text-neutral-800 text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center truncate px-1">
+                                    {safeQty}
+                                  </div>
+                                </div>
+                                <div className="w-16 text-center flex flex-col overflow-hidden">
+                                  <div className="bg-neutral-300 text-neutral-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">Price</div>
+                                  <div className="bg-neutral-50 text-neutral-800 text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center truncate px-1">
+                                    {safePriceNum > 0 ? `$${safePriceNum.toFixed(2)}` : (item.price || '-')}
+                                  </div>
+                                </div>
+                                <div className="w-20 text-center flex flex-col overflow-hidden">
+                                  <div className="bg-neutral-300 text-neutral-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">Total</div>
+                                  <div className="bg-neutral-50 text-neutral-800 text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center truncate px-1">
+                                    {safeTotalStr}
+                                  </div>
+                                </div>
+                              </>
+                            );
+                          })()}
                         </div>
                       </div>
                       </div>
