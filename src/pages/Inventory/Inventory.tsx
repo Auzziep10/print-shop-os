@@ -375,6 +375,7 @@ export function Inventory() {
 
   const [inventoryDB, setInventoryDB] = useState<any[]>([]);
   const [currentWarehouse, setCurrentWarehouse] = useState<any>(null);
+  const [allWarehouses, setAllWarehouses] = useState<any[]>([]);
 
   useEffect(() => {
      // Fetch schemas
@@ -383,9 +384,17 @@ export function Inventory() {
          if (snapshot.empty) {
              setDoc(doc(db, 'warehouses', defaultWarehouseBlueprint.id), defaultWarehouseBlueprint);
              setCurrentWarehouse(defaultWarehouseBlueprint);
+             setAllWarehouses([defaultWarehouseBlueprint]);
          } else {
              const data = snapshot.docs.map(d => d.data());
-             setCurrentWarehouse(data.find((w: any) => w.id === "wh_default_01") || data[0]);
+             setAllWarehouses(data);
+             setCurrentWarehouse((prev: any) => {
+                 if (prev) {
+                     const updated = data.find((w: any) => w.id === prev.id);
+                     if (updated) return updated;
+                 }
+                 return data.find((w: any) => w.id === "wh_default_01") || data[0];
+             });
          }
      });
 
@@ -528,7 +537,45 @@ export function Inventory() {
       <div className={tokens.layout.pageHeader + " border-b border-brand-border pb-6 shrink-0"}>
         <div className="flex justify-between items-end w-full">
            <div>
-             <h1 className={tokens.typography.h1}>Warehouse Inventory</h1>
+             <div className="flex items-center gap-4">
+               <h1 className={tokens.typography.h1}>Warehouse Inventory</h1>
+               <div className="flex items-center bg-brand-bg border border-brand-border rounded-lg overflow-hidden h-10 mt-1 shadow-sm">
+                 <select 
+                   value={currentWarehouse?.id || ''} 
+                   onChange={(e) => {
+                       const wh = allWarehouses.find(w => w.id === e.target.value);
+                       if (wh) {
+                           setCurrentWarehouse(wh);
+                           setActiveRack(null);
+                           setActivePallet(null);
+                           // Reset the add form target rack to match new location
+                           setAddForm(prev => ({ ...prev, rackLabel: wh.racks?.[0]?.label || '' }));
+                       }
+                   }}
+                   className="bg-transparent border-none px-4 py-2 text-sm font-bold text-brand-primary outline-none cursor-pointer pr-8"
+                 >
+                   {allWarehouses.map(w => (
+                      <option key={w.id} value={w.id}>{w.name}</option>
+                   ))}
+                 </select>
+               </div>
+               <button 
+                 onClick={() => {
+                     const newWh = {
+                         id: `wh_${Math.floor(Math.random() * 100000)}`,
+                         name: "New Room",
+                         dimensions: { width: 20, depth: 20 },
+                         doors: [],
+                         racks: []
+                     };
+                     setDoc(doc(db, 'warehouses', newWh.id), newWh);
+                     setCurrentWarehouse(newWh);
+                 }}
+                 className="mt-1 bg-white text-brand-primary border border-brand-border px-3 h-10 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-black hover:text-white transition-colors shadow-sm"
+               >
+                 + Add Room
+               </button>
+             </div>
              <p className={tokens.typography.bodyMuted + " mt-2 max-w-lg"}>
                Explore the 3D Digital Twin floor map to instantly locate pallets, or print QR thermal load labels.
              </p>
@@ -655,6 +702,22 @@ export function Inventory() {
                                                <input type="number" value={currentWarehouse?.dimensions?.depth || 0} onChange={(e) => updateWarehouse({ dimensions: { ...currentWarehouse.dimensions, depth: parseInt(e.target.value) || 1 } })} className="w-full bg-brand-bg border border-brand-border rounded-lg px-3 py-2 text-sm font-medium focus:outline-brand-primary" />
                                             </div>
                                         </div>
+                                        
+                                        {allWarehouses.length > 1 && (
+                                           <button 
+                                              onClick={async () => {
+                                                  if (window.confirm(`Are you sure you want to permanently delete the room "${currentWarehouse.name}"?`)) {
+                                                      const toDeleteId = currentWarehouse.id;
+                                                      const nextWh = allWarehouses.find(w => w.id !== toDeleteId);
+                                                      setCurrentWarehouse(nextWh);
+                                                      await deleteDoc(doc(db, 'warehouses', toDeleteId));
+                                                  }
+                                              }}
+                                              className="w-full mt-4 bg-red-50 text-red-600 py-2.5 rounded-lg border border-red-200 font-bold uppercase tracking-widest text-[10px] shadow-sm hover:bg-red-600 hover:text-white transition-colors"
+                                           >
+                                               Delete Room Entirely
+                                           </button>
+                                        )}
                                     </div>
                                 </div>
                                 
@@ -774,7 +837,7 @@ export function Inventory() {
                                    <div>
                                       <label className="text-[10px] uppercase font-bold text-brand-secondary tracking-widest">Target Rack</label>
                                       <select value={addForm.rackLabel} onChange={e => setAddForm({...addForm, rackLabel: e.target.value})} className="w-full mt-1 p-3 rounded-lg border border-brand-border bg-brand-bg text-sm font-semibold focus:outline-brand-primary">
-                                         {racksList.map(r => <option key={r.label} value={r.label}>{r.label}</option>)}
+                                         {currentWarehouse?.racks?.length ? currentWarehouse.racks.map((r: any) => <option key={r.label} value={r.label}>{r.label}</option>) : <option value="">No Racks</option>}
                                       </select>
                                    </div>
                                    <div className="grid grid-cols-3 gap-2">
