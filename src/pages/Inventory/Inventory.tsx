@@ -177,8 +177,7 @@ function WarehouseMap({ activeRack, setActiveRack, activePallet, setActivePallet
   );
 }
 
-const useDynamicInventory = () => {
-  return useMemo(() => {
+const generateInitialInventory = () => {
     const db: any[] = [];
     const clients = ['McEvoy Ranch', 'AION', 'Verizon', 'MGM Resorts', 'WOVN Studio', 'Alo Yoga', 'Nike', 'Tesla'];
     let idCount = 1000;
@@ -241,7 +240,6 @@ const useDynamicInventory = () => {
     });
 
     return db;
-  }, []);
 }
 
 export function Inventory() {
@@ -249,7 +247,26 @@ export function Inventory() {
   const [activeRack, setActiveRack] = useState<string | null>(null);
   const [activePallet, setActivePallet] = useState<any>(null);
 
-  const inventoryDB = useDynamicInventory();
+  const [inventoryDB, setInventoryDB] = useState<any[]>(() => generateInitialInventory());
+  const [isAddingPallet, setIsAddingPallet] = useState(false);
+  const [addForm, setAddForm] = useState({ client: 'New Client', x: 0, z: 0, color: '#10b981' });
+
+  const handleAddPallet = (e: any) => {
+    e.preventDefault();
+    const newPallet = {
+        id: `PAL-${Math.floor(Math.random() * 9000) + 1000}`,
+        type: 'Pallet',
+        zone: 'Floor',
+        client: addForm.client,
+        color: addForm.color,
+        height: 0.8,
+        position: [parseFloat(addForm.x as any) || 0, 0, parseFloat(addForm.z as any) || 0],
+        rotation: [0, 0, 0],
+        location: `Open Floor Zone (${addForm.x}, ${addForm.z})`
+    };
+    setInventoryDB([...inventoryDB, newPallet]);
+    setIsAddingPallet(false);
+  };
 
 
   const handlePrintLabel = () => {
@@ -356,11 +373,43 @@ export function Inventory() {
                             ))}
                          </div>
                       </div>
+                    ) : isAddingPallet ? (
+                      <div className="animate-in fade-in slide-in-from-right-4">
+                         <h3 className="font-serif text-xl border-b border-brand-border/50 pb-3 mb-4 tracking-tight">Drop New Payload</h3>
+                         <form onSubmit={handleAddPallet} className="space-y-4">
+                            <div>
+                               <label className="text-[10px] uppercase font-bold text-brand-secondary tracking-widest">Client Name</label>
+                               <input type="text" value={addForm.client} onChange={e => setAddForm({...addForm, client: e.target.value})} className="w-full mt-1 p-3 rounded-lg border border-brand-border bg-brand-bg text-sm font-semibold focus:outline-brand-primary" />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                               <div>
+                                  <label className="text-[10px] uppercase font-bold text-brand-secondary tracking-widest">X Coordinate</label>
+                                  <input type="number" step="0.5" value={addForm.x} onChange={e => setAddForm({...addForm, x: parseFloat(e.target.value)})} className="w-full mt-1 p-3 rounded-lg border border-brand-border bg-brand-bg text-sm font-semibold focus:outline-brand-primary" />
+                               </div>
+                               <div>
+                                  <label className="text-[10px] uppercase font-bold text-brand-secondary tracking-widest">Z Coordinate</label>
+                                  <input type="number" step="0.5" value={addForm.z} onChange={e => setAddForm({...addForm, z: parseFloat(e.target.value)})} className="w-full mt-1 p-3 rounded-lg border border-brand-border bg-brand-bg text-sm font-semibold focus:outline-brand-primary" />
+                               </div>
+                            </div>
+                            <div>
+                               <label className="text-[10px] uppercase font-bold text-brand-secondary tracking-widest">Color Tag</label>
+                               <input type="color" value={addForm.color} onChange={e => setAddForm({...addForm, color: e.target.value})} className="w-full h-12 mt-1 rounded-lg border border-brand-border cursor-pointer bg-brand-bg p-1" />
+                            </div>
+                            <div className="pt-4 flex gap-2">
+                               <button type="button" onClick={() => setIsAddingPallet(false)} className="flex-1 bg-brand-bg border border-brand-border text-brand-secondary py-3 rounded-lg font-bold uppercase tracking-widest text-xs hover:bg-white transition-colors">Cancel</button>
+                               <button type="submit" className="flex-1 bg-brand-primary text-white py-3 rounded-lg font-bold uppercase tracking-widest text-xs hover:bg-brand-primary/90 transition-colors shadow-sm">Drop in 3D</button>
+                            </div>
+                         </form>
+                      </div>
                     ) : (
-                      <div className="h-full flex flex-col items-center justify-center text-center opacity-50 px-4 pt-12">
-                         <Map size={48} className="mb-4 text-brand-secondary stroke-1" />
+                      <div className="h-full flex flex-col items-center justify-center text-center opacity-80 px-4 pt-12">
+                         <Map size={48} className="mb-4 text-brand-secondary stroke-1 opacity-50" />
                          <p className="font-serif text-xl tracking-tight text-brand-primary">No Zone Selected</p>
-                         <p className="text-sm text-brand-secondary mt-2">Click an aisle rack or a block to inspect real-time payload contents.</p>
+                         <p className="text-sm text-brand-secondary mt-2 opacity-80">Click an aisle rack or a block to inspect real-time payload contents.</p>
+                         
+                         <button onClick={() => setIsAddingPallet(true)} className="mt-8 bg-brand-primary text-white px-6 py-2.5 rounded-pill font-bold uppercase tracking-widest text-[10px] shadow-sm mx-auto block hover:bg-black transition-all">
+                            + Stage Payload to Floor
+                         </button>
                       </div>
                     )}
                  </div>
