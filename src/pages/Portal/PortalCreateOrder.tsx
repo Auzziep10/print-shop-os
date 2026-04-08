@@ -11,6 +11,7 @@ export function PortalCreateOrder() {
   const [orderItems, setOrderItems] = useState<any[]>([]);
   const [customerDecks, setCustomerDecks] = useState<any[]>([]);
   const [isLoadingDecks, setIsLoadingDecks] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     const fetchDecks = async () => {
@@ -57,6 +58,51 @@ export function PortalCreateOrder() {
 
   const handleBack = () => {
     navigate(customerId ? `/portal/${customerId}` : '/portal');
+  };
+
+  const handleSubmitOrder = async () => {
+    if (!customerId || orderItems.length === 0) return;
+    setIsSubmitting(true);
+    
+    try {
+      const { setDoc } = await import('firebase/firestore');
+      const orderId = `order-${Date.now()}`;
+      
+      const payload = {
+        id: orderId,
+        portalId: Math.floor(Math.random() * 100000).toString(),
+        customerId: customerId,
+        title: `Portal Order - ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric'})}`,
+        statusIndex: 0, 
+        date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric'}),
+        createdAt: new Date().toISOString(),
+        totalAmount: orderItems.reduce((sum, item) => {
+           const totalQty = Object.values(item.quantities as Record<string, number>).reduce((q, val) => q + val, 0);
+           return sum + (totalQty * (parseFloat(item.price) || 0));
+        }, 0),
+        items: orderItems.map(item => {
+           const totalQty = Object.values(item.quantities as Record<string, number>).reduce((q, val) => q + val, 0);
+           return {
+             id: item.instanceId || Date.now().toString(),
+             style: item.style || 'Custom Garment',
+             color: item.selectedColor || '',
+             price: parseFloat(item.price) || 0,
+             qty: totalQty,
+             image: item.image || '',
+             notes: '',
+             sizes: item.quantities
+           }
+        })
+      };
+
+      await setDoc(doc(db, 'orders', orderId), payload);
+      navigate(customerId ? `/portal/${customerId}` : '/portal');
+    } catch (err) {
+      console.error("Failed to submit order", err);
+      alert("Failed to submit order. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleAddItem = (item: any) => {
@@ -271,8 +317,12 @@ export function PortalCreateOrder() {
                 }, 0).toFixed(2)}</span>
               </div>
               
-              <button disabled={orderItems.length === 0} className={`w-full mt-4 py-3.5 rounded-xl text-sm font-bold transition-all ${orderItems.length > 0 ? 'bg-black text-white hover:bg-neutral-800 shadow-md transform active:scale-[0.98]' : 'bg-neutral-200 text-neutral-400'}`}>
-                Submit Order
+              <button 
+                onClick={handleSubmitOrder}
+                disabled={orderItems.length === 0 || isSubmitting} 
+                className={`w-full mt-4 py-3.5 rounded-xl text-sm font-bold transition-all ${orderItems.length > 0 && !isSubmitting ? 'bg-black text-white hover:bg-neutral-800 shadow-md transform active:scale-[0.98]' : 'bg-neutral-200 text-neutral-400 cursor-not-allowed'}`}
+              >
+                {isSubmitting ? 'Submitting...' : 'Submit Order'}
               </button>
             </div>
           </div>
