@@ -360,8 +360,16 @@ export function PortalCreateOrder() {
                         let sizes: string[] = [];
                         if (Array.isArray(item.sizes) && item.sizes.length > 0) {
                             sizes = item.sizes;
+                        } else if (typeof item.sizes === 'string' && item.sizes.trim()) {
+                            sizes = item.sizes.split(',').map((s:string) => s.trim());
                         } else if (Array.isArray(item.availableSizes) && item.availableSizes.length > 0) {
                             sizes = item.availableSizes;
+                        } else if (typeof item.availableSizes === 'string' && item.availableSizes.trim()) {
+                            sizes = item.availableSizes.split(',').map((s:string) => s.trim());
+                        } else if (item.sizeSpread && typeof item.sizeSpread === 'string' && item.sizeSpread.trim()) {
+                            sizes = item.sizeSpread.split(',').map((s:string) => s.trim());
+                        } else if (item.size_spread && typeof item.size_spread === 'string' && item.size_spread.trim()) {
+                            sizes = item.size_spread.split(',').map((s:string) => s.trim());
                         } else if (Array.isArray(item.variations) && item.variations[0]?.sizes) {
                             sizes = item.variations[0].sizes;
                         } else if (style.toLowerCase().includes('chill') || style.toLowerCase().includes('tumbler') || style.toLowerCase().includes('bag') || style.toLowerCase().includes('hat')) {
