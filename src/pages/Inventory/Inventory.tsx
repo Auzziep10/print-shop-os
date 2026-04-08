@@ -114,7 +114,7 @@ function FloorPallet({ pallet, onClick, onPalletClick, activePallet }: any) {
   );
 }
 
-function WarehouseMap({ activeRack, setActiveRack, activePallet, setActivePallet, inventory, isAddingPallet, setAddForm }: any) {
+function WarehouseMap({ activeRack, setActiveRack, activePallet, setActivePallet, inventory, isAddingPallet, addForm, setAddForm }: any) {
   const rackProps = {
      onClick: setActiveRack,
      activeRack,
@@ -126,6 +126,12 @@ function WarehouseMap({ activeRack, setActiveRack, activePallet, setActivePallet
   
   const getRackInventory = (zone: string) => inventory.filter((p: any) => p.zone === zone);
   const floorInventory = inventory.filter((p: any) => p.zone === 'Floor');
+  
+  const isRackHighlighted = (label: string) => {
+     if (activeRack === label) return true;
+     if (isAddingPallet && addForm?.zoneType === 'Rack' && addForm?.rackLabel === label) return true;
+     return false;
+  };
 
   const handleFloorClick = (e: any) => {
      e.stopPropagation();
@@ -170,7 +176,15 @@ function WarehouseMap({ activeRack, setActiveRack, activePallet, setActivePallet
         
         {/* Dynamic Interactive Snapping Grid shown when placing */}
         {isAddingPallet && (
-            <gridHelper args={[40, 40, '#a1a1aa', '#d4d4d8']} position={[0, 0.02, 0]} />
+            <group>
+               <gridHelper args={[40, 40, '#a1a1aa', '#d4d4d8']} position={[0, 0.02, 0]} />
+               {addForm?.zoneType === 'Floor' && (
+                  <mesh position={[addForm.x || 0, 0.4, addForm.z || 0]}>
+                      <boxGeometry args={[1, 0.8, 1]} />
+                      <meshStandardMaterial color={addForm.color || "#10b981"} transparent opacity={0.6} emissive={addForm.color || "#10b981"} emissiveIntensity={0.5} depthWrite={false} />
+                  </mesh>
+               )}
+            </group>
         )}
         
         {/* ======== PERIMETER COMPRESSED WALLS ======== */}
@@ -242,8 +256,8 @@ const generateInitialInventory = () => {
 
     // 2. Populate rack pallets (bays/levels/slots) simulating database rows
     const racksToFill = [
-       { label: 'Aisle S-Left', bays: 3, levels: 2 },
-       { label: 'Aisle S-Right', bays: 3, levels: 2 },
+       { label: 'Aisle S-Left', bays: 2, levels: 2 },
+       { label: 'Aisle S-Right', bays: 2, levels: 2 },
        { label: 'Aisle West-Main', bays: 5, levels: 2 },
        { label: 'Aisle East-Wall', bays: 4, levels: 2 },
        { label: 'Aisle East-Inner', bays: 4, levels: 2 },
@@ -285,8 +299,8 @@ export function Inventory() {
   const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false);
   
   const racksList = [
-    { label: 'Aisle S-Left', bays: 3, levels: 2 },
-    { label: 'Aisle S-Right', bays: 3, levels: 2 },
+    { label: 'Aisle S-Left', bays: 2, levels: 2 },
+    { label: 'Aisle S-Right', bays: 2, levels: 2 },
     { label: 'Aisle West-Main', bays: 5, levels: 2 },
     { label: 'Aisle East-Wall', bays: 4, levels: 2 },
     { label: 'Aisle East-Inner', bays: 4, levels: 2 },
@@ -356,7 +370,7 @@ export function Inventory() {
            <div className="w-full h-full flex gap-6">
               <div className="flex-1 h-full shadow-[0_4px_24px_-8px_rgba(0,0,0,0.1)] rounded-2xl bg-brand-bg relative cursor-move">
                  <Suspense fallback={<div className="absolute inset-0 flex items-center justify-center font-serif text-brand-secondary text-2xl animate-pulse">Initializing WebGL Engine...</div>}>
-                    <WarehouseMap activeRack={activeRack} setActiveRack={setActiveRack} activePallet={activePallet} setActivePallet={setActivePallet} inventory={inventoryDB} isAddingPallet={isAddingPallet} setAddForm={setAddForm} />
+                    <WarehouseMap activeRack={activeRack} setActiveRack={setActiveRack} activePallet={activePallet} setActivePallet={setActivePallet} inventory={inventoryDB} isAddingPallet={isAddingPallet} addForm={addForm} setAddForm={setAddForm} />
                  </Suspense>
               </div>
               
