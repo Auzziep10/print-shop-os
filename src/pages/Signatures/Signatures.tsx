@@ -160,7 +160,7 @@ export function Signatures() {
       const SCALE = 3;
       const canvas = document.createElement('canvas');
       canvas.width = 800 * SCALE;
-      canvas.height = 280 * SCALE; // 200px banner + 80px overlap area underneath
+      canvas.height = 300 * SCALE; // 200px banner + 100px overlap area underneath
       const ctx = canvas.getContext('2d');
       
       if (!ctx) throw new Error("Could not get canvas context");
@@ -170,7 +170,7 @@ export function Signatures() {
       
       // Fill background
       ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, 800, 280);
+      ctx.fillRect(0, 0, 800, 300);
 
       // 1. Draw Banner Image
       const bannerImg = new Image();
@@ -214,32 +214,32 @@ export function Signatures() {
         profileImg.onerror = () => reject(new Error("Failed to load profile for composite"));
       });
 
-      const centerX = 24 + 80; // Left padding 24, radius 80 => 104
+      const centerX = 64 + 100; // Left padding 64 (8%), radius 100 => 164
       const centerY = 200; // Overlapping equally at the 200px banner cutoff
       
       // Draw white stroke circle background
       ctx.save();
       ctx.beginPath();
-      ctx.arc(centerX, centerY, 80, 0, Math.PI * 2);
+      ctx.arc(centerX, centerY, 100, 0, Math.PI * 2);
       ctx.fillStyle = 'white';
       ctx.fill();
       
       // Draw image inside circle
       ctx.beginPath();
-      ctx.arc(centerX, centerY, 75, 0, Math.PI * 2); // 5px border
+      ctx.arc(centerX, centerY, 94, 0, Math.PI * 2); // 6px border
       ctx.clip();
       
       // Calculate cover for profile
-      const pRatio = Math.max(150 / profileImg.width, 150 / profileImg.height);
+      const pRatio = Math.max(188 / profileImg.width, 188 / profileImg.height);
       const pWidth = profileImg.width * pRatio;
       const pHeight = profileImg.height * pRatio;
       let pX = centerX - pWidth / 2;
       let pY = centerY - pHeight / 2;
       
       if (formData.profileImageAlignment === 'top') {
-        pY = centerY - 75;
+        pY = centerY - 94;
       } else if (formData.profileImageAlignment === 'bottom') {
-        pY = centerY + 75 - pHeight;
+        pY = centerY + 94 - pHeight;
       }
       
       ctx.drawImage(profileImg, pX, pY, pWidth, pHeight);
@@ -634,7 +634,7 @@ export function Signatures() {
                       /* Live Preview Row (Only visible until they hit copy) */
                       <tr>
                         <td colSpan={2} style={{ paddingBottom: '0' }}>
-                           <div style={{ position: 'relative', width: '100%', aspectRatio: '800 / 280' }}>
+                           <div style={{ position: 'relative', width: '100%', aspectRatio: '800 / 300' }}>
                              {/* Mock overlap for the browser using modern CSS */}
                               <img 
                                 src={marketingData.bannerImageUrl}
@@ -642,7 +642,7 @@ export function Signatures() {
                                 style={{ 
                                   display: 'block', 
                                   width: '100%', 
-                                  height: '71.42%', // 200/280
+                                  height: '66.66%', // 200/300
                                   objectFit: 'cover',
                                   borderTopLeftRadius: '24px',
                                   borderTopRightRadius: '24px'
@@ -653,12 +653,12 @@ export function Signatures() {
                                 alt="Profile"
                                 style={{
                                   position: 'absolute',
-                                  top: '42.85%', // (200 - 80) / 280
-                                  left: '3%', // 24 / 800
-                                  width: '20%', // 160 / 800
-                                  height: '57.14%', // 160 / 280
+                                  top: '33.33%', // (200 - 100) / 300
+                                  left: '8%', // 64 / 800
+                                  width: '25%', // 200 / 800
+                                  height: '66.66%', // 200 / 300
                                   borderRadius: '50%',
-                                  border: '5px solid white',
+                                  border: '6px solid white',
                                   backgroundColor: 'white',
                                   objectFit: 'cover',
                                   objectPosition: formData.profileImageAlignment === 'top' ? 'center top' : formData.profileImageAlignment === 'bottom' ? 'center bottom' : 'center center',
@@ -672,7 +672,8 @@ export function Signatures() {
 
                     {/* Details Row */}
                     <tr>
-                      <td colSpan={2} valign="top" style={{ paddingLeft: '24px', paddingTop: compositeUrl ? '16px' : '0', textAlign: 'left' }}>
+                      <td width="8%"></td>
+                      <td valign="top" style={{ paddingTop: compositeUrl ? '16px' : '0', textAlign: 'left', width: '92%' }}>
                         <h1 style={{ 
                           margin: '0 0 4px 0', 
                           fontSize: '28px', 
