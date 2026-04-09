@@ -718,6 +718,23 @@ export function Inventory() {
                                                Delete Room Entirely
                                            </button>
                                         )}
+
+                                        <button 
+                                            onClick={() => {
+                                                const newWh = {
+                                                    id: `wh_${Math.floor(Math.random() * 100000)}`,
+                                                    name: "New Warehouse",
+                                                    dimensions: { width: 20, depth: 20 },
+                                                    doors: [],
+                                                    racks: []
+                                                };
+                                                setDoc(doc(db, 'warehouses', newWh.id), newWh);
+                                                setCurrentWarehouse(newWh);
+                                            }}
+                                            className="w-full mt-3 bg-white text-brand-primary py-2.5 rounded-lg border border-brand-border font-bold uppercase tracking-widest text-[10px] shadow-sm hover:bg-brand-primary hover:text-white transition-colors"
+                                        >
+                                            + Create New Warehouse
+                                        </button>
                                     </div>
                                 </div>
                                 
