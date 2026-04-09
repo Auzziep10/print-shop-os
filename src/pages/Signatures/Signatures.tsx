@@ -587,7 +587,7 @@ export function Signatures() {
               {/* Actual Signature HTML Structure */}
               <div 
                 ref={signatureRef} 
-                className="select-all block w-full bg-white relative p-6 shadow-sm transform-gpu"
+                className="select-all block bg-white relative p-6 w-max"
               >
                 {/* Email Clients require tables for structural guarantees */}
                 <table 
@@ -599,7 +599,7 @@ export function Signatures() {
                     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
                     width: '650px',
                     maxWidth: '650px',
-                    margin: '0 auto',
+                    margin: '0',
                     backgroundColor: '#ffffff',
                     textAlign: 'left'
                   }}
