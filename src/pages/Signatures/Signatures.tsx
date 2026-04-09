@@ -15,6 +15,8 @@ export function Signatures() {
   const [uploadingBanner, setUploadingBanner] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [savingPersonal, setSavingPersonal] = useState(false);
+  const [compositeUrl, setCompositeUrl] = useState<string | null>(null);
+  const [generatingComposite, setGeneratingComposite] = useState(false);
   
   // Multiple profiles state
   const [savedSignatures, setSavedSignatures] = useState<any[]>([]);
@@ -91,6 +93,11 @@ export function Signatures() {
     }
   }, [userData?.id]);
 
+  // Clear composite preview when source images change
+  useEffect(() => {
+    setCompositeUrl(null);
+  }, [formData.profileImageUrl, marketingData.bannerImageUrl]);
+
   const handleSavePersonal = async () => {
     if (!userData?.id) return;
     setSavingPersonal(true);
@@ -143,27 +150,129 @@ export function Signatures() {
     }
   };
 
-  const handleCopy = () => {
+  const generateCompositeAndCopy = async () => {
     if (!signatureRef.current) return;
-    
-    // Create a range and select the signature content
-    const range = document.createRange();
-    range.selectNode(signatureRef.current);
-    const windowSelection = window.getSelection();
-    if (windowSelection) {
-      windowSelection.removeAllRanges();
-      windowSelection.addRange(range);
+    setGeneratingComposite(true);
+
+    try {
+      // Create a canvas to merge the banner and profile image
+      const canvas = document.createElement('canvas');
+      canvas.width = 650;
+      canvas.height = 255; // 180px banner + 75px overlap area underneath
+      const ctx = canvas.getContext('2d');
       
-      try {
-        // Execute copy using document.execCommand to preserve rich text (HTML) formatting
-        document.execCommand('copy');
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      } catch (err) {
-        console.error('Failed to copy', err);
-      }
+      if (!ctx) throw new Error("Could not get canvas context");
       
-      windowSelection.removeAllRanges();
+      // Fill background
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, 650, 255);
+
+      // 1. Draw Banner Image
+      const bannerImg = new Image();
+      bannerImg.crossOrigin = "anonymous";
+      bannerImg.src = marketingData.bannerImageUrl;
+      
+      await new Promise((resolve, reject) => {
+        bannerImg.onload = resolve;
+        bannerImg.onerror = () => reject(new Error("Failed to load banner for composite"));
+      });
+      
+      // Calculate banner dimensions to cover 650x180
+      const bRatio = Math.max(650 / bannerImg.width, 180 / bannerImg.height);
+      const bWidth = bannerImg.width * bRatio;
+      const bHeight = bannerImg.height * bRatio;
+      const bX = (650 - bWidth) / 2;
+      const bY = (180 - bHeight) / 2;
+      
+      // Draw banner with border radius approximation manually or just rectangular is fine for composite top
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(24, 0);
+      ctx.lineTo(626, 0);
+      ctx.quadraticCurveTo(650, 0, 650, 24);
+      ctx.lineTo(650, 180);
+      ctx.lineTo(0, 180);
+      ctx.lineTo(0, 24);
+      ctx.quadraticCurveTo(0, 0, 24, 0);
+      ctx.closePath();
+      ctx.clip();
+      ctx.drawImage(bannerImg, bX, bY, bWidth, bHeight);
+      ctx.restore();
+
+      // 2. Draw Profile Image (overlapping)
+      const profileImg = new Image();
+      profileImg.crossOrigin = "anonymous";
+      profileImg.src = formData.profileImageUrl;
+      
+      await new Promise((resolve, reject) => {
+        profileImg.onload = resolve;
+        profileImg.onerror = () => reject(new Error("Failed to load profile for composite"));
+      });
+
+      const centerX = 24 + 75; // Left padding 24, radius 75 => 99
+      const centerY = 180; // Overlapping equally: center is right at the 180px banner cutoff
+      
+      // Draw white stroke circle background
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, 75, 0, Math.PI * 2);
+      ctx.fillStyle = 'white';
+      ctx.fill();
+      
+      // Draw image inside circle
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, 70, 0, Math.PI * 2); // 5px border
+      ctx.clip();
+      
+      // Calculate cover for profile
+      const pRatio = Math.max(140 / profileImg.width, 140 / profileImg.height);
+      const pWidth = profileImg.width * pRatio;
+      const pHeight = profileImg.height * pRatio;
+      const pX = centerX - pWidth / 2;
+      const pY = centerY - pHeight / 2;
+      
+      ctx.drawImage(profileImg, pX, pY, pWidth, pHeight);
+      ctx.restore();
+
+      // Export canvas to blob and upload to Firebase
+      const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png'));
+      if (!blob) throw new Error("Canvas export failed");
+      
+      const fileRef = ref(storage, `signatures/composites/${userData?.id}_${Date.now()}.png`);
+      const uploadTask = uploadBytesResumable(fileRef, blob);
+      
+      await new Promise((resolve, reject) => {
+        uploadTask.on('state_changed', null, reject, resolve);
+      });
+      
+      const downloadURL = await getDownloadURL(fileRef);
+      setCompositeUrl(downloadURL); // Setting this triggers a re-render. We need to wait for it before copying.
+      
+      // Small delay to let React update the DOM with the new image URL before copying
+      setTimeout(() => {
+        const range = document.createRange();
+        range.selectNode(signatureRef.current!);
+        const windowSelection = window.getSelection();
+        if (windowSelection) {
+          windowSelection.removeAllRanges();
+          windowSelection.addRange(range);
+          
+          try {
+            document.execCommand('copy');
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+          } catch (err) {
+            console.error('Failed to copy', err);
+          }
+          windowSelection.removeAllRanges();
+        }
+        setGeneratingComposite(false);
+      }, 500);
+
+    } catch (e) {
+      console.error(e);
+      alert("Failed to composite overlap image. Ensure your Firebase Storage allows CORS origin '*'");
+      setGeneratingComposite(false);
     }
   };
 
@@ -446,11 +555,12 @@ export function Signatures() {
                 <p className="text-xs text-brand-secondary">What you see is what gets copied.</p>
               </div>
               <button 
-                onClick={handleCopy}
-                className="flex items-center justify-center gap-2 px-6 py-2 bg-black text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors shadow-sm"
+                onClick={generateCompositeAndCopy}
+                disabled={generatingComposite}
+                className="flex items-center justify-center gap-2 px-6 py-2 bg-black text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors shadow-sm disabled:opacity-50"
               >
-                {copied ? <CheckCircle size={16} className="text-green-400" /> : <Copy size={16} />}
-                {copied ? 'Copied HTML!' : 'Copy Signature'}
+                {generatingComposite ? <Loader2 size={16} className="animate-spin" /> : copied ? <CheckCircle size={16} className="text-green-400" /> : <Copy size={16} />}
+                {generatingComposite ? 'Generating...' : copied ? 'Copied HTML!' : 'Copy Signature'}
               </button>
             </div>
             
@@ -476,45 +586,74 @@ export function Signatures() {
                   }}
                 >
                   <tbody>
-                    {/* Top Banner Row */}
-                    <tr>
-                      <td colSpan={2} style={{ paddingBottom: '24px' }}>
-                        <img 
-                          src={marketingData.bannerImageUrl}
-                          alt="Banner"
-                          width="650"
-                          style={{ 
-                            display: 'block', 
-                            width: '650px', 
-                            maxWidth: '650px',
-                            height: 'auto',
-                            borderTopLeftRadius: '24px',
-                            borderTopRightRadius: '24px'
-                          }}
-                        />
-                      </td>
-                    </tr>
+                    {/* Top Composite Row - This is only shown if composite exists */}
+                    {compositeUrl ? (
+                      <tr>
+                        <td colSpan={2}>
+                          <img 
+                            src={compositeUrl}
+                            alt="Signature Header"
+                            width="650"
+                            style={{ 
+                              display: 'block', 
+                              width: '650px', 
+                              maxWidth: '650px',
+                              height: 'auto',
+                              borderTopLeftRadius: '24px',
+                              borderTopRightRadius: '24px'
+                            }}
+                          />
+                        </td>
+                      </tr>
+                    ) : (
+                      /* Live Preview Row (Only visible until they hit copy) */
+                      <tr>
+                        <td colSpan={2} style={{ paddingBottom: '0' }}>
+                           <div style={{ position: 'relative', width: '650px', height: '255px' }}>
+                             {/* Mock overlap for the browser using modern CSS */}
+                              <img 
+                                src={marketingData.bannerImageUrl}
+                                alt="Banner"
+                                width="650"
+                                style={{ 
+                                  display: 'block', 
+                                  width: '650px', 
+                                  height: '180px',
+                                  objectFit: 'cover',
+                                  borderTopLeftRadius: '24px',
+                                  borderTopRightRadius: '24px'
+                                }}
+                              />
+                              <img 
+                                src={formData.profileImageUrl}
+                                alt="Profile"
+                                style={{
+                                  position: 'absolute',
+                                  top: '105px',
+                                  left: '24px',
+                                  width: '150px',
+                                  height: '150px',
+                                  borderRadius: '50%',
+                                  border: '5px solid white',
+                                  backgroundColor: 'white',
+                                  objectFit: 'cover',
+                                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                                }}
+                              />
+                           </div>
+                        </td>
+                      </tr>
+                    )}
 
                     {/* Details Row */}
                     <tr>
-                      {/* Left Column: Avatar */}
+                      {/* Left Column (Empty pushing past the avatar area) */}
                       <td width="170" valign="top" style={{ paddingLeft: '8px', paddingRight: '24px' }}>
-                        <img 
-                          src={formData.profileImageUrl}
-                          alt={formData.name}
-                          width="140"
-                          style={{
-                            display: 'block',
-                            width: '140px',
-                            height: 'auto', // Important: using auto so non-square images don't squish in Gmail. User should upload a square!
-                            borderRadius: '50%',
-                            backgroundColor: 'white'
-                          }}
-                        />
+                         {/* Empty spacer since the image is in the row above */}
                       </td>
 
                       {/* Right Column: Info */}
-                      <td valign="top">
+                      <td valign="top" style={{ paddingTop: compositeUrl ? '16px' : '0' }}>
                         <h1 style={{ 
                           margin: '0 0 4px 0', 
                           fontSize: '28px', 
