@@ -2,8 +2,7 @@ import { useState, useEffect } from 'react';
 import { ArrowLeft, PackagePlus, X, Trash2, ChevronDown } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { db } from '../../lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
-
+import { doc, getDoc, collection, query, where, getDocs, setDoc } from 'firebase/firestore';
 export function PortalCreateOrder() {
   const navigate = useNavigate();
   const { customerId } = useParams();
@@ -65,12 +64,41 @@ export function PortalCreateOrder() {
     setIsSubmitting(true);
     
     try {
-      const { setDoc } = await import('firebase/firestore');
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const todayEnd = new Date();
+      todayEnd.setHours(23, 59, 59, 999);
+      
+      const ordersQuery = query(collection(db, 'orders'), where('createdAt', '>=', todayStart.toISOString()), where('createdAt', '<=', todayEnd.toISOString()));
+      const ordersSnapshot = await getDocs(ordersQuery);
+      
+      const yy = String(todayStart.getFullYear()).slice(-2);
+      const mm = String(todayStart.getMonth() + 1).padStart(2, '0');
+      const dd = String(todayStart.getDate()).padStart(2, '0');
+      const prefix = `${yy}${mm}${dd}-`;
+
+      let maxCount = 0;
+      ordersSnapshot.forEach(docSnap => {
+          const data = docSnap.data();
+          if (data.portalId && data.portalId.startsWith(prefix)) {
+             const suffix = data.portalId.split('-')[1];
+             if (suffix) {
+                const numericCount = parseInt(suffix, 10);
+                if (!isNaN(numericCount) && numericCount > maxCount) {
+                   maxCount = numericCount;
+                }
+             }
+          }
+      });
+
+      const count = maxCount + 1;
+      const portalId = `${prefix}${count}`;
+
       const orderId = `order-${Date.now()}`;
       
       const payload = {
         id: orderId,
-        portalId: Math.floor(Math.random() * 100000).toString(),
+        portalId: portalId,
         customerId: customerId,
         title: `Portal Order - ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric'})}`,
         statusIndex: 0, 
