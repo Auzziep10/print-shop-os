@@ -587,7 +587,7 @@ export function Signatures() {
               {/* Actual Signature HTML Structure */}
               <div 
                 ref={signatureRef} 
-                className="select-all block bg-white relative p-6 w-full max-w-[1000px]"
+                className="select-all block bg-white relative p-6 w-full"
               >
                 {/* Email Clients require tables for structural guarantees */}
                 <table 
@@ -598,7 +598,6 @@ export function Signatures() {
                   style={{ 
                     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
                     width: '100%',
-                    maxWidth: '1000px',
                     margin: '0',
                     backgroundColor: '#ffffff',
                     textAlign: 'left'
@@ -612,11 +611,10 @@ export function Signatures() {
                           <img 
                             src={compositeUrl}
                             alt="Signature Header"
-                            width="1000"
+                            width="100%"
                             style={{ 
                               display: 'block', 
                               width: '100%', 
-                              maxWidth: '1000px',
                               height: 'auto',
                               borderTopLeftRadius: '24px',
                               borderTopRightRadius: '24px'
