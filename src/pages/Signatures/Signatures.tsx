@@ -673,110 +673,119 @@ export function Signatures() {
 
                     {/* Details Row */}
                     <tr>
-                      <td colSpan={2} valign="top" style={{ paddingLeft: '8%', paddingTop: compositeUrl ? '16px' : '0', textAlign: 'left' }}>
-                        <h1 style={{ 
-                          margin: '0 0 4px 0', 
-                          fontSize: '28px', 
-                          fontWeight: '700', 
-                          color: '#000000',
-                          letterSpacing: '-0.5px'
-                        }}>
-                          {formData.name}
-                        </h1>
-                        
-                        <p style={{ 
-                          margin: '0 0 2px 0', 
-                          fontSize: '15px', 
-                          color: '#4B5563',
-                          fontWeight: '400'
-                        }}>
-                          {formData.title}
-                        </p>
-                        
-                        <p style={{ 
-                          margin: '0', 
-                          fontSize: '15px', 
-                          color: '#9CA3AF',
-                          fontWeight: '300'
-                        }}>
-                          {formData.location}
-                        </p>
-
-                        {/* Social/Contact Icons Row */}
-                        <table cellPadding="0" cellSpacing="0" border={0} style={{ marginTop: '20px', marginBottom: '24px' }}>
+                      <td colSpan={2} valign="top" style={{ paddingTop: compositeUrl ? '16px' : '0' }}>
+                        <table width="100%" cellPadding="0" cellSpacing="0" border={0} style={{ tableLayout: 'fixed' }}>
                           <tbody>
                             <tr>
-                              {/* Mobile Phone Icon */}
-                              <td style={{ paddingRight: '8px' }}>
-                                <a href={`tel:${formData.phone.replace(/\D/g,'')}`} style={{ textDecoration: 'none' }}>
-                                  <table cellPadding="0" cellSpacing="0" border={0} style={{ backgroundColor: '#c8b693', borderRadius: '50%', width: '36px', height: '36px' }}>
-                                    <tbody>
-                                      <tr>
-                                        <td align="center" valign="middle">
-                                          <img src="https://img.icons8.com/ios-filled/50/ffffff/iphone-x.png" width="18" height="18" style={{ display: 'block', marginTop: '2px' }} alt="Phone" />
-                                        </td>
-                                      </tr>
-                                    </tbody>
-                                  </table>
-                                </a>
-                              </td>
+                              <td width="8%" style={{ width: '8%', padding: 0, margin: 0 }}></td>
+                              <td width="92%" valign="top" style={{ width: '92%', padding: 0, margin: 0, textAlign: 'left' }}>
+                                <h1 style={{ 
+                                  margin: '0 0 4px 0', 
+                                  fontSize: '28px', 
+                                  fontWeight: '700', 
+                                  color: '#000000',
+                                  letterSpacing: '-0.5px'
+                                }}>
+                                  {formData.name}
+                                </h1>
+                                
+                                <p style={{ 
+                                  margin: '0 0 2px 0', 
+                                  fontSize: '15px', 
+                                  color: '#4B5563',
+                                  fontWeight: '400'
+                                }}>
+                                  {formData.title}
+                                </p>
+                                
+                                <p style={{ 
+                                  margin: '0', 
+                                  fontSize: '15px', 
+                                  color: '#9CA3AF',
+                                  fontWeight: '300'
+                                }}>
+                                  {formData.location}
+                                </p>
 
-                              {/* Email/Chat Icon */}
-                              <td style={{ paddingRight: '8px' }}>
-                                <a href={`mailto:${formData.email}`} style={{ textDecoration: 'none' }}>
-                                  <table cellPadding="0" cellSpacing="0" border={0} style={{ backgroundColor: '#c8b693', borderRadius: '50%', width: '36px', height: '36px' }}>
-                                    <tbody>
-                                      <tr>
-                                        <td align="center" valign="middle">
-                                          <img src="https://img.icons8.com/ios-filled/50/ffffff/speech-bubble-with-dots.png" width="18" height="18" style={{ display: 'block', marginTop: '2px' }} alt="Email" />
-                                        </td>
-                                      </tr>
-                                    </tbody>
-                                  </table>
-                                </a>
-                              </td>
+                                {/* Social/Contact Icons Row */}
+                                <table cellPadding="0" cellSpacing="0" border={0} style={{ marginTop: '20px', marginBottom: '24px' }}>
+                                  <tbody>
+                                    <tr>
+                                      {/* Mobile Phone Icon */}
+                                      <td style={{ paddingRight: '8px' }}>
+                                        <a href={`tel:${formData.phone.replace(/\D/g,'')}`} style={{ textDecoration: 'none' }}>
+                                          <table cellPadding="0" cellSpacing="0" border={0} style={{ backgroundColor: '#c8b693', borderRadius: '50%', width: '36px', height: '36px' }}>
+                                            <tbody>
+                                              <tr>
+                                                <td align="center" valign="middle">
+                                                  <img src="https://img.icons8.com/ios-filled/50/ffffff/iphone-x.png" width="18" height="18" style={{ display: 'block', marginTop: '2px' }} alt="Phone" />
+                                                </td>
+                                              </tr>
+                                            </tbody>
+                                          </table>
+                                        </a>
+                                      </td>
 
-                              {/* Website / Globe Icon */}
-                              <td style={{ paddingRight: '8px' }}>
-                                <a href={formData.website} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
-                                  <table cellPadding="0" cellSpacing="0" border={0} style={{ backgroundColor: '#c8b693', borderRadius: '50%', width: '36px', height: '36px' }}>
-                                    <tbody>
-                                      <tr>
-                                        <td align="center" valign="middle">
-                                          <img src="https://img.icons8.com/ios-filled/50/ffffff/globe--v1.png" width="18" height="18" style={{ display: 'block' }} alt="Website" />
-                                        </td>
-                                      </tr>
-                                    </tbody>
-                                  </table>
-                                </a>
-                              </td>
+                                      {/* Email/Chat Icon */}
+                                      <td style={{ paddingRight: '8px' }}>
+                                        <a href={`mailto:${formData.email}`} style={{ textDecoration: 'none' }}>
+                                          <table cellPadding="0" cellSpacing="0" border={0} style={{ backgroundColor: '#c8b693', borderRadius: '50%', width: '36px', height: '36px' }}>
+                                            <tbody>
+                                              <tr>
+                                                <td align="center" valign="middle">
+                                                  <img src="https://img.icons8.com/ios-filled/50/ffffff/speech-bubble-with-dots.png" width="18" height="18" style={{ display: 'block', marginTop: '2px' }} alt="Email" />
+                                                </td>
+                                              </tr>
+                                            </tbody>
+                                          </table>
+                                        </a>
+                                      </td>
 
-                              {/* LinkedIn Icon */}
-                              <td>
-                                <a href={formData.linkedin} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
-                                  <table cellPadding="0" cellSpacing="0" border={0} style={{ backgroundColor: '#c8b693', borderRadius: '50%', width: '36px', height: '36px' }}>
-                                    <tbody>
-                                      <tr>
-                                        <td align="center" valign="middle">
-                                          <img src="https://img.icons8.com/ios-filled/50/ffffff/linkedin.png" width="18" height="18" style={{ display: 'block', marginBottom: '2px' }} alt="LinkedIn" />
-                                        </td>
-                                      </tr>
-                                    </tbody>
-                                  </table>
-                                </a>
+                                      {/* Website / Globe Icon */}
+                                      <td style={{ paddingRight: '8px' }}>
+                                        <a href={formData.website} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
+                                          <table cellPadding="0" cellSpacing="0" border={0} style={{ backgroundColor: '#c8b693', borderRadius: '50%', width: '36px', height: '36px' }}>
+                                            <tbody>
+                                              <tr>
+                                                <td align="center" valign="middle">
+                                                  <img src="https://img.icons8.com/ios-filled/50/ffffff/globe--v1.png" width="18" height="18" style={{ display: 'block' }} alt="Website" />
+                                                </td>
+                                              </tr>
+                                            </tbody>
+                                          </table>
+                                        </a>
+                                      </td>
+
+                                      {/* LinkedIn Icon */}
+                                      <td>
+                                        <a href={formData.linkedin} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
+                                          <table cellPadding="0" cellSpacing="0" border={0} style={{ backgroundColor: '#c8b693', borderRadius: '50%', width: '36px', height: '36px' }}>
+                                            <tbody>
+                                              <tr>
+                                                <td align="center" valign="middle">
+                                                  <img src="https://img.icons8.com/ios-filled/50/ffffff/linkedin.png" width="18" height="18" style={{ display: 'block', marginBottom: '2px' }} alt="LinkedIn" />
+                                                </td>
+                                              </tr>
+                                            </tbody>
+                                          </table>
+                                        </a>
+                                      </td>
+                                    </tr>
+                                  </tbody>
+                                </table>
+
+                                {/* Logo */}
+                                <div style={{ marginBottom: '20px' }}>
+                                  <img 
+                                    src={marketingData.logoUrl} 
+                                    alt="WOVN" 
+                                    style={{ display: 'block', height: '40px', width: 'auto' }} 
+                                  />
+                                </div>
                               </td>
                             </tr>
                           </tbody>
                         </table>
-
-                        {/* Logo */}
-                        <div style={{ marginBottom: '20px' }}>
-                          <img 
-                            src={marketingData.logoUrl} 
-                            alt="WOVN" 
-                            style={{ display: 'block', height: '40px', width: 'auto' }} 
-                          />
-                        </div>
                       </td>
                     </tr>
                     
