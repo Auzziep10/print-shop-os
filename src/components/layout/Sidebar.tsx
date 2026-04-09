@@ -9,7 +9,8 @@ import {
   UsersRound, 
   Settings, 
   FileBox,
-  X
+  X,
+  Mail
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
@@ -29,6 +30,7 @@ export function Sidebar({ onClose }: SidebarProps) {
     { label: 'Inventory', icon: Package, path: '/inventory' },
     { label: 'Team', icon: UsersRound, path: '/team' },
     { label: 'Reports', icon: FileBox, path: '/reports' },
+    { label: 'Signatures', icon: Mail, path: '/signatures' },
   ];
 
   return (

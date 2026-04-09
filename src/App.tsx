@@ -24,6 +24,7 @@ import { PrintCourierLabel } from './pages/Print/PrintCourierLabel';
 import { PrintItemLabels } from './pages/Print/PrintItemLabels';
 import { Production } from './pages/Production/Production';
 import { Inventory } from './pages/Inventory/Inventory';
+import { Signatures } from './pages/Signatures/Signatures';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, userData, loading } = useAuth();
@@ -120,6 +121,7 @@ function App() {
         <Route path="artwork" element={<div className="p-6">Artwork coming soon...</div>} />
         <Route path="inventory" element={<Inventory />} />
         <Route path="team" element={<Team />} />
+        <Route path="signatures" element={<Signatures />} />
           <Route path="reports" element={<div className="p-6">Reports coming soon...</div>} />
           <Route path="settings" element={<Settings />} />
         </Route>
