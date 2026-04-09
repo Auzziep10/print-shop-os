@@ -3,6 +3,7 @@ import { Copy, CheckCircle, User, Globe, Image as ImageIcon, Upload, Loader2, Pl
 import { useAuth } from '../../contexts/AuthContext';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { flushSync } from 'react-dom';
 import { db, storage } from '../../lib/firebase';
 
 export function Signatures() {
@@ -252,28 +253,30 @@ export function Signatures() {
       });
       
       const downloadURL = await getDownloadURL(fileRef);
-      setCompositeUrl(downloadURL); // Setting this triggers a re-render. We need to wait for it before copying.
       
-      // Small delay to let React update the DOM with the new image URL before copying
-      setTimeout(() => {
-        const range = document.createRange();
-        range.selectNode(signatureRef.current!);
-        const windowSelection = window.getSelection();
-        if (windowSelection) {
-          windowSelection.removeAllRanges();
-          windowSelection.addRange(range);
-          
-          try {
-            document.execCommand('copy');
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
-          } catch (err) {
-            console.error('Failed to copy', err);
-          }
-          windowSelection.removeAllRanges();
+      // Force React to synchronously update the DOM with the new composite URL
+      flushSync(() => {
+        setCompositeUrl(downloadURL);
+      });
+      
+      // The DOM is guaranteed to be updated with the final <img> tag now. We can safely copy.
+      const range = document.createRange();
+      range.selectNode(signatureRef.current!);
+      const windowSelection = window.getSelection();
+      if (windowSelection) {
+        windowSelection.removeAllRanges();
+        windowSelection.addRange(range);
+        
+        try {
+          document.execCommand('copy');
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        } catch (err) {
+          console.error('Failed to copy', err);
         }
-        setGeneratingComposite(false);
-      }, 500);
+        windowSelection.removeAllRanges();
+      }
+      setGeneratingComposite(false);
 
     } catch (e) {
       console.error(e);
@@ -587,7 +590,8 @@ export function Signatures() {
               {/* Actual Signature HTML Structure */}
               <div 
                 ref={signatureRef} 
-                className="select-all block bg-white relative p-6 w-full"
+                className="select-all bg-white relative p-6"
+                style={{ width: '100%', minWidth: '100%', display: 'block' }}
               >
                 {/* Email Clients require tables for structural guarantees */}
                 <table 
