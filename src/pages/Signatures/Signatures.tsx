@@ -27,6 +27,7 @@ export function Signatures() {
     title: 'Your Title',
     location: 'Your Location',
     profileImageUrl: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?ixlib=rb-4.0.3&auto=format&fit=crop&w=256&h=256&q=80',
+    profileImageAlignment: 'center',
     phone: '555-019-2093',
     email: userData?.email || 'email@example.com',
     website: 'https://wovn.com',
@@ -318,6 +319,18 @@ export function Signatures() {
                       />
                     </label>
                   </div>
+                  <div className="flex items-center gap-2 mt-2">
+                    <span className="text-xs text-brand-secondary font-medium">Framing:</span>
+                    <select
+                      value={formData.profileImageAlignment || 'center'}
+                      onChange={e => setFormData({ ...formData, profileImageAlignment: e.target.value })}
+                      className="text-xs px-2 py-1 bg-white border border-brand-border rounded outline-none cursor-pointer"
+                    >
+                      <option value="top">Top Aligned</option>
+                      <option value="center">Center</option>
+                      <option value="bottom">Bottom Aligned</option>
+                    </select>
+                  </div>
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium text-brand-secondary">Phone Number</label>
@@ -495,6 +508,7 @@ export function Signatures() {
                         border: '5px solid white',
                         backgroundColor: 'white',
                         objectFit: 'cover',
+                        objectPosition: formData.profileImageAlignment === 'top' ? 'center top' : formData.profileImageAlignment === 'bottom' ? 'center bottom' : 'center center',
                         boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
                       }}
                     />
