@@ -51,13 +51,16 @@ const PayloadMesh = ({ pallet, isThisPalletActive }: any) => {
 };
 
 
-function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, color = '#2b4478', label = "Rack", onClick, isActive, onPalletClick, activePallet, inventory = [], isAddingPallet, addForm }: any) {
-  const width = 2.6; // Width per bay
-  const depth = 1.0;
-  const height = 2.4; // Shorter vertical uprights for 2-level pallets
+function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, color = '#2b4478', label = "Rack", type = "Pallet", onClick, isActive, onPalletClick, activePallet, inventory = [], isAddingPallet, addForm }: any) {
+  const isBoxRack = type === 'Box';
+  const width = isBoxRack ? 1.5 : 2.6; // Width per bay
+  const depth = isBoxRack ? 0.6 : 1.0;
+  const height = isBoxRack ? 1.8 : 2.4; 
   const totalWidth = width * bays;
   
-  const upColor = isActive ? '#10b981' : color;
+  const baseColor = isBoxRack ? '#9ca3af' : color;
+  const upColor = isActive ? '#10b981' : baseColor;
+  const beamColor = isBoxRack ? '#d1d5db' : '#eb7023';
 
   const uprights: any[] = [];
   const beams: any[] = [];
@@ -71,7 +74,7 @@ function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, color = '#2b
     // back-left upright
     uprights.push(<mesh key={`ub_${i}`} position={[xPos, height/2, -depth/2 + 0.05]}><boxGeometry args={[0.1, height, 0.1]} /><meshStandardMaterial color={upColor} /></mesh>);
     // cross braces
-    for (let h = 0.5; h < height; h += 0.8) {
+    for (let h = 0.5; h < height; h += isBoxRack ? 0.5 : 0.8) {
        uprights.push(<mesh key={`uc_${i}_${h}`} position={[xPos, h, 0]} rotation={[0.45, 0, 0]}><boxGeometry args={[0.04, depth, 0.04]} /><meshStandardMaterial color={upColor} /></mesh>);
     }
   }
@@ -80,10 +83,13 @@ function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, color = '#2b
     const xCenter = (bay * width) + (width / 2) - (totalWidth / 2);
     
     for (let l = 1; l <= levels; l++) {
-      // Space beams properly: bottom floor is level 0, then middle, then exactly at the top.
-      const yPos = (l * (height / levels)) - 0.06; // minus 0.06 so the top beam is flush with the top of the blue upright
-      beams.push(<mesh key={`bf_${bay}_${l}`} position={[xCenter, yPos, depth/2]}><boxGeometry args={[width, 0.12, 0.05]} /><meshStandardMaterial color="#eb7023" /></mesh>);
-      beams.push(<mesh key={`bb_${bay}_${l}`} position={[xCenter, yPos, -depth/2]}><boxGeometry args={[width, 0.12, 0.05]} /><meshStandardMaterial color="#eb7023" /></mesh>);
+      const yPos = (l * (height / levels)) - 0.06;
+      beams.push(<mesh key={`bf_${bay}_${l}`} position={[xCenter, yPos, depth/2]}><boxGeometry args={[width, 0.12, 0.05]} /><meshStandardMaterial color={beamColor} /></mesh>);
+      beams.push(<mesh key={`bb_${bay}_${l}`} position={[xCenter, yPos, -depth/2]}><boxGeometry args={[width, 0.12, 0.05]} /><meshStandardMaterial color={beamColor} /></mesh>);
+      // For box racks, add wire shelf plane
+      if (isBoxRack) {
+          beams.push(<mesh key={`bw_${bay}_${l}`} position={[xCenter, yPos + 0.05, 0]}><planeGeometry args={[width, depth]} rotation={[-Math.PI/2, 0, 0]}/><meshStandardMaterial color="#e5e7eb" transparent opacity={0.6} side={2} /></mesh>);
+      }
     }
   }
 
@@ -98,7 +104,9 @@ function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, color = '#2b
     const beamY = isFloor ? 0 : (level * (height / levels)) - 0.06; 
     const restY = isFloor ? 0 : beamY + 0.06;
     
-    const pY = restY + pallet.height / 2;
+    // Scale payload down slightly if on a box rack
+    const scaleFactor = isBoxRack ? 0.6 : 1;
+    const pY = restY + (pallet.height * scaleFactor) / 2;
     const pX = xCenter + (slot * width / 4);
     
     const isThisPalletActive = activePallet?.id === pallet.id;
@@ -107,12 +115,15 @@ function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, color = '#2b
       <group 
         key={pallet.id} 
         position={[pX, pY, 0]}
+        scale={scaleFactor}
         onClick={(e) => { e.stopPropagation(); onPalletClick?.(pallet); }}
       >
-        <mesh position={[0, -pallet.height/2 + 0.07, 0]}>
-          <boxGeometry args={[1.0, 0.14, 1.0]} />
-          <meshStandardMaterial color="#8b5a2b" emissive={isThisPalletActive ? "#fff" : "#000"} emissiveIntensity={isThisPalletActive ? 0.3 : 0} />
-        </mesh>
+        {!isBoxRack && (
+          <mesh position={[0, -pallet.height/2 + 0.07, 0]}>
+            <boxGeometry args={[1.0, 0.14, 1.0]} />
+            <meshStandardMaterial color="#8b5a2b" emissive={isThisPalletActive ? "#fff" : "#000"} emissiveIntensity={isThisPalletActive ? 0.3 : 0} />
+          </mesh>
+        )}
         <PayloadMesh pallet={pallet} isThisPalletActive={isThisPalletActive} />
       </group>
     );
@@ -128,12 +139,14 @@ function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, color = '#2b
       const beamY = isFloor ? 0 : (level * (height / levels)) - 0.06; 
       const restY = isFloor ? 0 : beamY + 0.06;
       
-      const pY = restY + 0.4; // Assuming standard new pallet is height 0.8
+      const scaleFactor = isBoxRack ? 0.6 : 1;
+      const stdHeight = 0.8 * scaleFactor;
+      const pY = restY + stdHeight / 2; 
       const pX = xCenter + (slot * width / 4);
       
       pallets.push(
         <mesh key="ghost-staging" position={[pX, pY, 0]}>
-            <boxGeometry args={[1, 0.8, 1]} />
+            <boxGeometry args={[1 * scaleFactor, stdHeight, 1 * scaleFactor]} />
             <meshStandardMaterial color={addForm.color || "#10b981"} transparent opacity={0.6} emissive={addForm.color || "#10b981"} emissiveIntensity={0.6} depthWrite={false} />
         </mesh>
       );
@@ -251,14 +264,17 @@ function WarehouseMap({ activeRack, setActiveRack, activePallet, setActivePallet
         )}
         
         {/* ======== PERIMETER COMPRESSED WALLS ======== */}
-        {warehouse?.dimensions && (
-            <group>
-                <mesh position={[0, 4, warehouse.dimensions.depth / 2]} receiveShadow onClick={() => { setActiveRack(null); setActivePallet(null); }}><boxGeometry args={[warehouse.dimensions.width, 8, 0.4]} /><meshStandardMaterial color="#d1d5db" transparent opacity={0.3} /></mesh>
-                <mesh position={[0, 4, -warehouse.dimensions.depth / 2]} receiveShadow onClick={() => { setActiveRack(null); setActivePallet(null); }}><boxGeometry args={[warehouse.dimensions.width, 8, 0.4]} /><meshStandardMaterial color="#d1d5db" transparent opacity={0.3} /></mesh>
-                <mesh position={[-warehouse.dimensions.width / 2, 4, 0]} rotation={[0, Math.PI/2, 0]} receiveShadow onClick={() => { setActiveRack(null); setActivePallet(null); }}><boxGeometry args={[warehouse.dimensions.depth + 0.4, 8, 0.4]} /><meshStandardMaterial color="#d1d5db" transparent opacity={0.3} /></mesh>
-                <mesh position={[warehouse.dimensions.width / 2, 4, 0]} rotation={[0, Math.PI/2, 0]} receiveShadow onClick={() => { setActiveRack(null); setActivePallet(null); }}><boxGeometry args={[warehouse.dimensions.depth + 0.4, 8, 0.4]} /><meshStandardMaterial color="#e5e7eb" transparent opacity={0.3} /></mesh>
-            </group>
-        )}
+        {warehouse?.dimensions && (() => {
+            const wallH = warehouse.dimensions.height || 8;
+            return (
+              <group>
+                  <mesh position={[0, wallH/2, warehouse.dimensions.depth / 2]} receiveShadow onClick={() => { setActiveRack(null); setActivePallet(null); }}><boxGeometry args={[warehouse.dimensions.width, wallH, 0.4]} /><meshStandardMaterial color="#d1d5db" transparent opacity={0.3} /></mesh>
+                  <mesh position={[0, wallH/2, -warehouse.dimensions.depth / 2]} receiveShadow onClick={() => { setActiveRack(null); setActivePallet(null); }}><boxGeometry args={[warehouse.dimensions.width, wallH, 0.4]} /><meshStandardMaterial color="#d1d5db" transparent opacity={0.3} /></mesh>
+                  <mesh position={[-warehouse.dimensions.width / 2, wallH/2, 0]} rotation={[0, Math.PI/2, 0]} receiveShadow onClick={() => { setActiveRack(null); setActivePallet(null); }}><boxGeometry args={[warehouse.dimensions.depth + 0.4, wallH, 0.4]} /><meshStandardMaterial color="#d1d5db" transparent opacity={0.3} /></mesh>
+                  <mesh position={[warehouse.dimensions.width / 2, wallH/2, 0]} rotation={[0, Math.PI/2, 0]} receiveShadow onClick={() => { setActiveRack(null); setActivePallet(null); }}><boxGeometry args={[warehouse.dimensions.depth + 0.4, wallH, 0.4]} /><meshStandardMaterial color="#e5e7eb" transparent opacity={0.3} /></mesh>
+              </group>
+            );
+        })()}
 
         {/* ======== DOCK DOORS ======== */}
         {warehouse?.doors?.map((door: any, idx: number) => (
@@ -637,6 +653,14 @@ export function Inventory() {
                                        </div>
                                        
                                        <div className="space-y-4 border-l-2 border-brand-primary pl-4">
+                                            <div className="pb-2">
+                                                <label className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1 block">Rack Variation</label>
+                                                <select value={r.type || 'Pallet'} onChange={(e) => updateActiveRack({ type: e.target.value })} className="w-full bg-brand-bg border border-brand-border rounded-lg px-3 py-2 text-sm font-medium focus:outline-brand-primary">
+                                                   <option value="Pallet">Industrial Pallet Rack</option>
+                                                   <option value="Box">Rolling Box Rack</option>
+                                                </select>
+                                             </div>
+                                             
                                             <div>
                                                <label className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1 block">Aisle / Label</label>
                                                <input type="text" value={r.label} onChange={(e) => updateActiveRack({ label: e.target.value })} className="w-full bg-brand-bg border border-brand-border rounded-lg px-3 py-2 text-sm font-medium focus:outline-brand-primary" />
@@ -685,10 +709,14 @@ export function Inventory() {
                                            <label className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1 block">Warehouse Name</label>
                                            <input type="text" value={currentWarehouse?.name || ''} onChange={(e) => updateWarehouse({ name: e.target.value })} className="w-full bg-brand-bg border border-brand-border rounded-lg px-3 py-2 text-sm font-medium focus:outline-brand-primary" />
                                         </div>
-                                        <div className="grid grid-cols-2 gap-4">
+                                        <div className="grid grid-cols-3 gap-2">
                                             <div>
                                                <label className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1 block">Width (X)</label>
                                                <input type="number" value={currentWarehouse?.dimensions?.width || 0} onChange={(e) => updateWarehouse({ dimensions: { ...currentWarehouse.dimensions, width: parseInt(e.target.value) || 1 } })} className="w-full bg-brand-bg border border-brand-border rounded-lg px-3 py-2 text-sm font-medium focus:outline-brand-primary" />
+                                            </div>
+                                            <div>
+                                               <label className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1 block">Height (Y)</label>
+                                               <input type="number" value={currentWarehouse?.dimensions?.height || 8} onChange={(e) => updateWarehouse({ dimensions: { ...currentWarehouse.dimensions, height: parseInt(e.target.value) || 1 } })} className="w-full bg-brand-bg border border-brand-border rounded-lg px-3 py-2 text-sm font-medium focus:outline-brand-primary" />
                                             </div>
                                             <div>
                                                <label className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1 block">Depth (Z)</label>
@@ -717,7 +745,7 @@ export function Inventory() {
                                                 const newWh = {
                                                     id: `wh_${Math.floor(Math.random() * 100000)}`,
                                                     name: "New Warehouse",
-                                                    dimensions: { width: 20, depth: 20 },
+                                                    dimensions: { width: 20, depth: 20, height: 8 },
                                                     doors: [],
                                                     racks: []
                                                 };
