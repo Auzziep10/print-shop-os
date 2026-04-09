@@ -582,7 +582,8 @@ export function Signatures() {
                     width: '650px',
                     maxWidth: '650px',
                     margin: '0 auto',
-                    backgroundColor: '#ffffff'
+                    backgroundColor: '#ffffff',
+                    textAlign: 'left'
                   }}
                 >
                   <tbody>
@@ -653,7 +654,7 @@ export function Signatures() {
                       </td>
 
                       {/* Right Column: Info */}
-                      <td valign="top" style={{ paddingTop: compositeUrl ? '16px' : '0' }}>
+                      <td valign="top" style={{ paddingTop: compositeUrl ? '16px' : '0', textAlign: 'left' }}>
                         <h1 style={{ 
                           margin: '0 0 4px 0', 
                           fontSize: '28px', 
