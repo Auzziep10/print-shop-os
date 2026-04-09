@@ -241,8 +241,8 @@ export function Signatures() {
       const fileRef = ref(storage, `signatures/composites/${userData?.id}_${Date.now()}.png`);
       const uploadTask = uploadBytesResumable(fileRef, blob);
       
-      await new Promise((resolve, reject) => {
-        uploadTask.on('state_changed', null, reject, resolve);
+      await new Promise<void>((resolve, reject) => {
+        uploadTask.on('state_changed', null, reject, () => resolve());
       });
       
       const downloadURL = await getDownloadURL(fileRef);
