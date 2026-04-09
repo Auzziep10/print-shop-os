@@ -437,14 +437,7 @@ export function Inventory() {
     }
   };
 
-  const racksList = [
-    { label: 'Aisle S-Left', bays: 2, levels: 2 },
-    { label: 'Aisle S-Right', bays: 2, levels: 2 },
-    { label: 'Aisle West-Main', bays: 5, levels: 2 },
-    { label: 'Aisle East-Wall', bays: 4, levels: 2 },
-    { label: 'Aisle East-Inner', bays: 4, levels: 2 },
-    { label: 'Aisle East-Lower', bays: 2, levels: 2 }
-  ];
+
 
   const [addForm, setAddForm] = useState({ client: 'New Client', color: '#10b981', zoneType: 'Floor', x: 0, z: 0, rackLabel: 'Aisle S-Left', bay: 0, level: 0, slot: -1 });
 
