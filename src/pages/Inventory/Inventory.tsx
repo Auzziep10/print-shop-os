@@ -88,7 +88,7 @@ function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, color = '#2b
       beams.push(<mesh key={`bb_${bay}_${l}`} position={[xCenter, yPos, -depth/2]}><boxGeometry args={[width, 0.12, 0.05]} /><meshStandardMaterial color={beamColor} /></mesh>);
       // For box racks, add wire shelf plane
       if (isBoxRack) {
-          beams.push(<mesh key={`bw_${bay}_${l}`} position={[xCenter, yPos + 0.05, 0]}><planeGeometry args={[width, depth]} rotation={[-Math.PI/2, 0, 0]}/><meshStandardMaterial color="#e5e7eb" transparent opacity={0.6} side={2} /></mesh>);
+          beams.push(<mesh key={`bw_${bay}_${l}`} position={[xCenter, yPos + 0.05, 0]} rotation={[-Math.PI/2, 0, 0]}><planeGeometry args={[width, depth]} /><meshStandardMaterial color="#e5e7eb" transparent opacity={0.6} side={2} /></mesh>);
       }
     }
   }
