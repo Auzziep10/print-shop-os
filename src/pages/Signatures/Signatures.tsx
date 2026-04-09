@@ -263,7 +263,7 @@ export function Signatures() {
       if (!signatureRef.current) return;
       const htmlContent = signatureRef.current.outerHTML;
       const htmlBlob = new Blob([htmlContent], { type: 'text/html' });
-      const textBlob = new Blob([`Signature for ${formData.fullName}`], { type: 'text/plain' });
+      const textBlob = new Blob([`Signature for ${formData.name}`], { type: 'text/plain' });
       
       try {
         const clipboardItem = new ClipboardItem({
