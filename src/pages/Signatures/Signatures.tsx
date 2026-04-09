@@ -667,13 +667,7 @@ export function Signatures() {
 
                     {/* Details Row */}
                     <tr>
-                      {/* Left Column (Empty pushing past the avatar area) */}
-                      <td width="170" valign="top" style={{ paddingLeft: '8px', paddingRight: '24px' }}>
-                         {/* Empty spacer since the image is in the row above */}
-                      </td>
-
-                      {/* Right Column: Info */}
-                      <td valign="top" style={{ paddingTop: compositeUrl ? '16px' : '0', textAlign: 'left' }}>
+                      <td colSpan={2} valign="top" style={{ paddingLeft: '24px', paddingTop: compositeUrl ? '16px' : '0', textAlign: 'left' }}>
                         <h1 style={{ 
                           margin: '0 0 4px 0', 
                           fontSize: '28px', 
