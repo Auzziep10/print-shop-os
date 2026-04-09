@@ -156,13 +156,17 @@ export function Signatures() {
     setGeneratingComposite(true);
 
     try {
-      // Create a canvas to merge the banner and profile image
+      // Create a high-density canvas (Retina @3x scale) to prevent upscaling blur on large monitors
+      const SCALE = 3;
       const canvas = document.createElement('canvas');
-      canvas.width = 800;
-      canvas.height = 280; // 200px banner + 80px overlap area underneath
+      canvas.width = 800 * SCALE;
+      canvas.height = 280 * SCALE; // 200px banner + 80px overlap area underneath
       const ctx = canvas.getContext('2d');
       
       if (!ctx) throw new Error("Could not get canvas context");
+      
+      // Auto-scale all canvas math commands to seamlessly draw at the new high-res pixel density
+      ctx.scale(SCALE, SCALE);
       
       // Fill background
       ctx.fillStyle = '#ffffff';
@@ -241,11 +245,11 @@ export function Signatures() {
       ctx.drawImage(profileImg, pX, pY, pWidth, pHeight);
       ctx.restore();
 
-      // Export canvas to blob and upload to Firebase
-      const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png'));
+      // Export high-res canvas natively to compressed JPEG to optimize large dimensions footprint
+      const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.85));
       if (!blob) throw new Error("Canvas export failed");
       
-      const fileRef = ref(storage, `signatures/composites/${userData?.id}_${Date.now()}.png`);
+      const fileRef = ref(storage, `signatures/composites/${userData?.id}_${Date.now()}.jpg`);
       const uploadTask = uploadBytesResumable(fileRef, blob);
       
       await new Promise<void>((resolve, reject) => {
