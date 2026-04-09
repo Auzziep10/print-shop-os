@@ -158,15 +158,15 @@ export function Signatures() {
     try {
       // Create a canvas to merge the banner and profile image
       const canvas = document.createElement('canvas');
-      canvas.width = 1000;
-      canvas.height = 420; // 240px banner + 180px overlap area underneath
+      canvas.width = 800;
+      canvas.height = 360; // 200px banner + 160px overlap area underneath
       const ctx = canvas.getContext('2d');
       
       if (!ctx) throw new Error("Could not get canvas context");
       
       // Fill background
       ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, 1000, 420);
+      ctx.fillRect(0, 0, 800, 360);
 
       // 1. Draw Banner Image
       const bannerImg = new Image();
@@ -178,21 +178,21 @@ export function Signatures() {
         bannerImg.onerror = () => reject(new Error("Failed to load banner for composite"));
       });
       
-      // Calculate banner dimensions to cover 1000x240
-      const bRatio = Math.max(1000 / bannerImg.width, 240 / bannerImg.height);
+      // Calculate banner dimensions to cover 800x200
+      const bRatio = Math.max(800 / bannerImg.width, 200 / bannerImg.height);
       const bWidth = bannerImg.width * bRatio;
       const bHeight = bannerImg.height * bRatio;
-      const bX = (1000 - bWidth) / 2;
-      const bY = (240 - bHeight) / 2;
+      const bX = (800 - bWidth) / 2;
+      const bY = (200 - bHeight) / 2;
       
       // Draw banner with border radius approximation manually or just rectangular is fine for composite top
       ctx.save();
       ctx.beginPath();
       ctx.moveTo(24, 0);
-      ctx.lineTo(976, 0);
-      ctx.quadraticCurveTo(1000, 0, 1000, 24);
-      ctx.lineTo(1000, 240);
-      ctx.lineTo(0, 240);
+      ctx.lineTo(776, 0);
+      ctx.quadraticCurveTo(800, 0, 800, 24);
+      ctx.lineTo(800, 200);
+      ctx.lineTo(0, 200);
       ctx.lineTo(0, 24);
       ctx.quadraticCurveTo(0, 0, 24, 0);
       ctx.closePath();
@@ -210,32 +210,32 @@ export function Signatures() {
         profileImg.onerror = () => reject(new Error("Failed to load profile for composite"));
       });
 
-      const centerX = 24 + 180; // Left padding 24, radius 180 => 204
-      const centerY = 240; // Overlapping equally at the 240px banner cutoff
+      const centerX = 24 + 160; // Left padding 24, radius 160 => 184
+      const centerY = 200; // Overlapping equally at the 200px banner cutoff
       
       // Draw white stroke circle background
       ctx.save();
       ctx.beginPath();
-      ctx.arc(centerX, centerY, 180, 0, Math.PI * 2);
+      ctx.arc(centerX, centerY, 160, 0, Math.PI * 2);
       ctx.fillStyle = 'white';
       ctx.fill();
       
       // Draw image inside circle
       ctx.beginPath();
-      ctx.arc(centerX, centerY, 168, 0, Math.PI * 2); // 12px border
+      ctx.arc(centerX, centerY, 150, 0, Math.PI * 2); // 10px border
       ctx.clip();
       
       // Calculate cover for profile
-      const pRatio = Math.max(336 / profileImg.width, 336 / profileImg.height);
+      const pRatio = Math.max(300 / profileImg.width, 300 / profileImg.height);
       const pWidth = profileImg.width * pRatio;
       const pHeight = profileImg.height * pRatio;
       let pX = centerX - pWidth / 2;
       let pY = centerY - pHeight / 2;
       
       if (formData.profileImageAlignment === 'top') {
-        pY = centerY - 168;
+        pY = centerY - 150;
       } else if (formData.profileImageAlignment === 'bottom') {
-        pY = centerY + 168 - pHeight;
+        pY = centerY + 150 - pHeight;
       }
       
       ctx.drawImage(profileImg, pX, pY, pWidth, pHeight);
@@ -630,16 +630,15 @@ export function Signatures() {
                       /* Live Preview Row (Only visible until they hit copy) */
                       <tr>
                         <td colSpan={2} style={{ paddingBottom: '0' }}>
-                           <div style={{ position: 'relative', width: '100%', height: '420px', maxWidth: '1000px' }}>
+                           <div style={{ position: 'relative', width: '100%', aspectRatio: '800 / 360' }}>
                              {/* Mock overlap for the browser using modern CSS */}
                               <img 
                                 src={marketingData.bannerImageUrl}
                                 alt="Banner"
-                                width="1000"
                                 style={{ 
                                   display: 'block', 
                                   width: '100%', 
-                                  height: '240px',
+                                  height: '55.55%', // 200/360
                                   objectFit: 'cover',
                                   borderTopLeftRadius: '24px',
                                   borderTopRightRadius: '24px'
@@ -650,12 +649,12 @@ export function Signatures() {
                                 alt="Profile"
                                 style={{
                                   position: 'absolute',
-                                  top: '60px',
-                                  left: '24px',
-                                  width: '360px',
-                                  height: '360px',
+                                  top: '11.11%', // (200 - 160) / 360
+                                  left: '3%', // 24 / 800
+                                  width: '40%', // 320 / 800
+                                  height: '88.88%', // 320 / 360
                                   borderRadius: '50%',
-                                  border: '12px solid white',
+                                  border: '10px solid white',
                                   backgroundColor: 'white',
                                   objectFit: 'cover',
                                   objectPosition: formData.profileImageAlignment === 'top' ? 'center top' : formData.profileImageAlignment === 'bottom' ? 'center bottom' : 'center center',
