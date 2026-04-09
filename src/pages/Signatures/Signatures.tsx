@@ -160,7 +160,7 @@ export function Signatures() {
       const SCALE = 3;
       const canvas = document.createElement('canvas');
       canvas.width = 800 * SCALE;
-      canvas.height = 300 * SCALE; // 200px banner + 100px overlap area underneath
+      canvas.height = 240 * SCALE; // 200px banner + 40px overlap area underneath
       const ctx = canvas.getContext('2d');
       
       if (!ctx) throw new Error("Could not get canvas context");
@@ -170,7 +170,7 @@ export function Signatures() {
       
       // Fill background
       ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, 800, 300);
+      ctx.fillRect(0, 0, 800, 240);
 
       // 1. Draw Banner Image
       const bannerImg = new Image();
@@ -215,7 +215,7 @@ export function Signatures() {
       });
 
       const centerX = 64 + 100; // Left padding 64 (8%), radius 100 => 164
-      const centerY = 200; // Overlapping equally at the 200px banner cutoff
+      const centerY = 130; // Elevate center so exactly 85% is in the 200px banner, 15% outside
       
       // Draw white stroke circle background
       ctx.save();
@@ -634,7 +634,7 @@ export function Signatures() {
                       /* Live Preview Row (Only visible until they hit copy) */
                       <tr>
                         <td colSpan={2} style={{ paddingBottom: '0' }}>
-                           <div style={{ position: 'relative', width: '100%', aspectRatio: '800 / 300' }}>
+                           <div style={{ position: 'relative', width: '100%', aspectRatio: '800 / 240' }}>
                              {/* Mock overlap for the browser using modern CSS */}
                               <img 
                                 src={marketingData.bannerImageUrl}
@@ -642,7 +642,7 @@ export function Signatures() {
                                 style={{ 
                                   display: 'block', 
                                   width: '100%', 
-                                  height: '66.66%', // 200/300
+                                  height: '83.33%', // 200/240
                                   objectFit: 'cover',
                                   borderTopLeftRadius: '24px',
                                   borderTopRightRadius: '24px'
@@ -653,10 +653,10 @@ export function Signatures() {
                                 alt="Profile"
                                 style={{
                                   position: 'absolute',
-                                  top: '33.33%', // (200 - 100) / 300
+                                  top: '12.5%', // (130 - 100) = 30 / 240
                                   left: '8%', // 64 / 800
                                   width: '25%', // 200 / 800
-                                  height: '66.66%', // 200 / 300
+                                  height: '83.33%', // 200 / 240
                                   borderRadius: '50%',
                                   border: '6px solid white',
                                   backgroundColor: 'white',
