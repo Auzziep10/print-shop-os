@@ -541,18 +541,26 @@ export function Dashboard() {
                     <div className="md:col-span-2 text-sm text-brand-secondary italic p-4 bg-brand-bg/50 rounded-xl border border-brand-border">No tasks immediately assigned to you right now.</div>
                   ) : (
                     myTasks.map((task) => (
-                     <div key={task.id} className="bg-white p-5 rounded-card border border-brand-border flex items-center justify-between shadow-sm hover:shadow-md transition-shadow">
+                     <div 
+                       key={task.id} 
+                       onClick={() => {
+                          if (task.orderId) navigate(`/orders/${task.orderId}`);
+                       }}
+                       className={`bg-white p-5 rounded-card border border-brand-border flex items-center justify-between shadow-sm hover:shadow-md transition-shadow ${task.orderId ? 'cursor-pointer group' : ''}`}
+                     >
                        <div className="flex items-start gap-4">
                          <div className={`w-3 h-3 rounded-sm mt-1 shrink-0 ${task.color || 'bg-blue-500'}`}></div>
                          <div>
-                           <h4 className="font-semibold text-brand-primary mb-1 leading-tight">{task.title}</h4>
+                           <h4 className={`font-semibold text-brand-primary mb-1 leading-tight ${task.orderId ? 'group-hover:underline' : ''}`}>{task.title}</h4>
                            <span className="text-xs text-brand-secondary font-bold tracking-wider uppercase">{formatTaskTime(task.start, task.duration)}</span>
                          </div>
                        </div>
                        
                        <select 
                          value={task.color || 'bg-blue-500'} 
+                         onClick={(e) => e.stopPropagation()}
                          onChange={async (e) => {
+                            e.stopPropagation();
                             try {
                               await updateDoc(doc(db, 'timelineTasks', task.id), { color: e.target.value });
                             } catch (err) {
