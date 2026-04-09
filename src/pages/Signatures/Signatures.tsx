@@ -259,22 +259,22 @@ export function Signatures() {
         setCompositeUrl(downloadURL);
       });
       
-      // The DOM is guaranteed to be updated with the final <img> tag now. We can safely copy.
-      const range = document.createRange();
-      range.selectNode(signatureRef.current!);
-      const windowSelection = window.getSelection();
-      if (windowSelection) {
-        windowSelection.removeAllRanges();
-        windowSelection.addRange(range);
-        
-        try {
-          document.execCommand('copy');
-          setCopied(true);
-          setTimeout(() => setCopied(false), 2000);
-        } catch (err) {
-          console.error('Failed to copy', err);
-        }
-        windowSelection.removeAllRanges();
+      // Copy raw HTML string to completely bypass Chrome's visual layout engine converting % to fixed px
+      if (!signatureRef.current) return;
+      const htmlContent = signatureRef.current.outerHTML;
+      const htmlBlob = new Blob([htmlContent], { type: 'text/html' });
+      const textBlob = new Blob([`Signature for ${formData.fullName}`], { type: 'text/plain' });
+      
+      try {
+        const clipboardItem = new ClipboardItem({
+          'text/html': htmlBlob,
+          'text/plain': textBlob
+        });
+        await navigator.clipboard.write([clipboardItem]);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch (err) {
+        console.error('Failed to copy natively', err);
       }
       setGeneratingComposite(false);
 
