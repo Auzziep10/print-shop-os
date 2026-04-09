@@ -677,8 +677,8 @@ export function Signatures() {
                         <table width="100%" cellPadding="0" cellSpacing="0" border={0} style={{ tableLayout: 'fixed' }}>
                           <tbody>
                             <tr>
-                              <td width="8%" style={{ width: '8%', padding: 0, margin: 0 }}></td>
-                              <td width="92%" valign="top" style={{ width: '92%', padding: 0, margin: 0, textAlign: 'left' }}>
+                              <td width="3%" style={{ width: '3%', padding: 0, margin: 0 }}></td>
+                              <td width="97%" valign="top" style={{ width: '97%', padding: 0, margin: 0, textAlign: 'left' }}>
                                 <h1 style={{ 
                                   margin: '0 0 4px 0', 
                                   fontSize: '28px', 
