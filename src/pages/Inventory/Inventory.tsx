@@ -512,7 +512,7 @@ export function Inventory() {
   };
 
   const updateActiveRack = (updates: any) => {
-      if (!currentWarehouse || !activeRack) return;
+      if (!currentWarehouse || activeRack === null) return;
       const newRacks = currentWarehouse.racks.map((r: any) => r.label === activeRack ? { ...r, ...updates } : r);
       if (updates.label) {
           setActiveRack(updates.label); // Sync active context if label strictly changes
@@ -521,7 +521,7 @@ export function Inventory() {
   };
 
   const handleDeleteRack = () => {
-      if (!currentWarehouse || !activeRack) return;
+      if (!currentWarehouse || activeRack === null) return;
       if (window.confirm("Are you sure you want to permanently delete this rack? All inventory staged on it will lose its physical coordinate mapping!")) {
           updateWarehouse({ racks: currentWarehouse.racks.filter((r: any) => r.label !== activeRack) });
           setActiveRack(null);
@@ -634,7 +634,7 @@ export function Inventory() {
                          </div>
                          
                          <div className="flex-1 overflow-y-auto w-full p-6 custom-scrollbar">
-                             {activeRack && currentWarehouse?.racks?.find((r:any) => r.label === activeRack) ? (() => {
+                             {activeRack !== null && currentWarehouse?.racks?.find((r:any) => r.label === activeRack) ? (() => {
                                  const r = currentWarehouse.racks.find((r:any) => r.label === activeRack);
                                  return (
                                     <div className="space-y-6">
