@@ -228,8 +228,14 @@ export function Signatures() {
       const pRatio = Math.max(140 / profileImg.width, 140 / profileImg.height);
       const pWidth = profileImg.width * pRatio;
       const pHeight = profileImg.height * pRatio;
-      const pX = centerX - pWidth / 2;
-      const pY = centerY - pHeight / 2;
+      let pX = centerX - pWidth / 2;
+      let pY = centerY - pHeight / 2;
+      
+      if (formData.profileImageAlignment === 'top') {
+        pY = centerY - 70;
+      } else if (formData.profileImageAlignment === 'bottom') {
+        pY = centerY + 70 - pHeight;
+      }
       
       ctx.drawImage(profileImg, pX, pY, pWidth, pHeight);
       ctx.restore();
@@ -427,6 +433,18 @@ export function Signatures() {
                         disabled={uploadingProfile}
                       />
                     </label>
+                  </div>
+                  <div className="flex items-center gap-2 mt-2">
+                    <span className="text-xs text-brand-secondary font-medium">Framing:</span>
+                    <select
+                      value={formData.profileImageAlignment || 'center'}
+                      onChange={e => setFormData({ ...formData, profileImageAlignment: e.target.value })}
+                      className="text-xs px-2 py-1 bg-white border border-brand-border rounded outline-none cursor-pointer"
+                    >
+                      <option value="top">Top Aligned</option>
+                      <option value="center">Center</option>
+                      <option value="bottom">Bottom Aligned</option>
+                    </select>
                   </div>
                 </div>
                 <div className="space-y-1.5">
@@ -638,6 +656,7 @@ export function Signatures() {
                                   border: '5px solid white',
                                   backgroundColor: 'white',
                                   objectFit: 'cover',
+                                  objectPosition: formData.profileImageAlignment === 'top' ? 'center top' : formData.profileImageAlignment === 'bottom' ? 'center bottom' : 'center center',
                                   boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
                                 }}
                               />
