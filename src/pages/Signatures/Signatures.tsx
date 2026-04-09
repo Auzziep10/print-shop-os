@@ -13,6 +13,7 @@ export function Signatures() {
   const [loadingBanner, setLoadingBanner] = useState(true);
   const [uploadingProfile, setUploadingProfile] = useState(false);
   const [uploadingBanner, setUploadingBanner] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   
   // Local state for the generator
   const [formData, setFormData] = useState({
@@ -88,13 +89,14 @@ export function Signatures() {
 
   const handleFileUpload = async (
     e: React.ChangeEvent<HTMLInputElement>,
-    type: 'profile' | 'banner'
+    type: 'profile' | 'banner' | 'logo'
   ) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     if (type === 'profile') setUploadingProfile(true);
-    else setUploadingBanner(true);
+    else if (type === 'banner') setUploadingBanner(true);
+    else setUploadingLogo(true);
 
     try {
       const fileRef = ref(storage, `signatures/${type}/${Date.now()}_${file.name}`);
@@ -105,23 +107,28 @@ export function Signatures() {
         (error) => {
           console.error(`Error uploading ${type}:`, error);
           if (type === 'profile') setUploadingProfile(false);
-          else setUploadingBanner(false);
+          else if (type === 'banner') setUploadingBanner(false);
+          else setUploadingLogo(false);
         },
         async () => {
           const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
           if (type === 'profile') {
             setFormData(prev => ({ ...prev, profileImageUrl: downloadURL }));
             setUploadingProfile(false);
-          } else {
+          } else if (type === 'banner') {
             setMarketingData(prev => ({ ...prev, bannerImageUrl: downloadURL }));
             setUploadingBanner(false);
+          } else {
+            setMarketingData(prev => ({ ...prev, logoUrl: downloadURL }));
+            setUploadingLogo(false);
           }
         }
       );
     } catch (error) {
       console.error("Upload failed", error);
       if (type === 'profile') setUploadingProfile(false);
-      else setUploadingBanner(false);
+      else if (type === 'banner') setUploadingBanner(false);
+      else setUploadingLogo(false);
     }
   };
 
@@ -263,6 +270,31 @@ export function Signatures() {
                         className="hidden" 
                         onChange={(e) => handleFileUpload(e, 'banner')}
                         disabled={loadingBanner || uploadingBanner}
+                      />
+                    </label>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-brand-secondary flex items-center gap-2">
+                    <ImageIcon size={14} /> Global Logo
+                  </label>
+                  <div className="flex gap-2">
+                    <input 
+                      type="text" 
+                      value={marketingData.logoUrl}
+                      onChange={e => setMarketingData({...marketingData, logoUrl: e.target.value})}
+                      className="flex-1 px-3 py-2 bg-white border border-brand-border rounded-lg text-sm focus:ring-2 focus:ring-brand-primary focus:border-transparent transition-all outline-none"
+                      disabled={loadingBanner}
+                    />
+                    <label className="flex items-center justify-center gap-2 px-4 py-2 bg-brand-bg hover:bg-gray-100 border border-brand-border text-brand-primary text-sm font-medium rounded-lg cursor-pointer transition-colors whitespace-nowrap">
+                      {uploadingLogo ? <Loader2 size={16} className="animate-spin text-brand-secondary" /> : <Upload size={16} className="text-brand-secondary" />}
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        className="hidden" 
+                        onChange={(e) => handleFileUpload(e, 'logo')}
+                        disabled={loadingBanner || uploadingLogo}
                       />
                     </label>
                   </div>
