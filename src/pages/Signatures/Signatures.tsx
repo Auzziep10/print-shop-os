@@ -9,7 +9,7 @@ import { db, storage } from '../../lib/firebase';
 export function Signatures() {
   const { userData } = useAuth();
   const [copied, setCopied] = useState(false);
-  const signatureRef = useRef<HTMLDivElement>(null);
+  const signatureRef = useRef<HTMLTableElement>(null);
   const [savingBanner, setSavingBanner] = useState(false);
   const [loadingBanner, setLoadingBanner] = useState(true);
   const [uploadingProfile, setUploadingProfile] = useState(false);
