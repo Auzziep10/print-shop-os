@@ -157,15 +157,15 @@ export function Signatures() {
     try {
       // Create a canvas to merge the banner and profile image
       const canvas = document.createElement('canvas');
-      canvas.width = 650;
-      canvas.height = 255; // 180px banner + 75px overlap area underneath
+      canvas.width = 1000;
+      canvas.height = 360; // 240px banner + 120px overlap area underneath
       const ctx = canvas.getContext('2d');
       
       if (!ctx) throw new Error("Could not get canvas context");
       
       // Fill background
       ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, 650, 255);
+      ctx.fillRect(0, 0, 1000, 360);
 
       // 1. Draw Banner Image
       const bannerImg = new Image();
@@ -177,21 +177,21 @@ export function Signatures() {
         bannerImg.onerror = () => reject(new Error("Failed to load banner for composite"));
       });
       
-      // Calculate banner dimensions to cover 650x180
-      const bRatio = Math.max(650 / bannerImg.width, 180 / bannerImg.height);
+      // Calculate banner dimensions to cover 1000x240
+      const bRatio = Math.max(1000 / bannerImg.width, 240 / bannerImg.height);
       const bWidth = bannerImg.width * bRatio;
       const bHeight = bannerImg.height * bRatio;
-      const bX = (650 - bWidth) / 2;
-      const bY = (180 - bHeight) / 2;
+      const bX = (1000 - bWidth) / 2;
+      const bY = (240 - bHeight) / 2;
       
       // Draw banner with border radius approximation manually or just rectangular is fine for composite top
       ctx.save();
       ctx.beginPath();
       ctx.moveTo(24, 0);
-      ctx.lineTo(626, 0);
-      ctx.quadraticCurveTo(650, 0, 650, 24);
-      ctx.lineTo(650, 180);
-      ctx.lineTo(0, 180);
+      ctx.lineTo(976, 0);
+      ctx.quadraticCurveTo(1000, 0, 1000, 24);
+      ctx.lineTo(1000, 240);
+      ctx.lineTo(0, 240);
       ctx.lineTo(0, 24);
       ctx.quadraticCurveTo(0, 0, 24, 0);
       ctx.closePath();
@@ -209,32 +209,32 @@ export function Signatures() {
         profileImg.onerror = () => reject(new Error("Failed to load profile for composite"));
       });
 
-      const centerX = 24 + 75; // Left padding 24, radius 75 => 99
-      const centerY = 180; // Overlapping equally: center is right at the 180px banner cutoff
+      const centerX = 24 + 120; // Left padding 24, radius 120 => 144
+      const centerY = 240; // Overlapping equally at the 240px banner cutoff
       
       // Draw white stroke circle background
       ctx.save();
       ctx.beginPath();
-      ctx.arc(centerX, centerY, 75, 0, Math.PI * 2);
+      ctx.arc(centerX, centerY, 120, 0, Math.PI * 2);
       ctx.fillStyle = 'white';
       ctx.fill();
       
       // Draw image inside circle
       ctx.beginPath();
-      ctx.arc(centerX, centerY, 70, 0, Math.PI * 2); // 5px border
+      ctx.arc(centerX, centerY, 112, 0, Math.PI * 2); // 8px border
       ctx.clip();
       
       // Calculate cover for profile
-      const pRatio = Math.max(140 / profileImg.width, 140 / profileImg.height);
+      const pRatio = Math.max(224 / profileImg.width, 224 / profileImg.height);
       const pWidth = profileImg.width * pRatio;
       const pHeight = profileImg.height * pRatio;
       let pX = centerX - pWidth / 2;
       let pY = centerY - pHeight / 2;
       
       if (formData.profileImageAlignment === 'top') {
-        pY = centerY - 70;
+        pY = centerY - 112;
       } else if (formData.profileImageAlignment === 'bottom') {
-        pY = centerY + 70 - pHeight;
+        pY = centerY + 112 - pHeight;
       }
       
       ctx.drawImage(profileImg, pX, pY, pWidth, pHeight);
@@ -587,18 +587,18 @@ export function Signatures() {
               {/* Actual Signature HTML Structure */}
               <div 
                 ref={signatureRef} 
-                className="select-all block bg-white relative p-6 w-max"
+                className="select-all block bg-white relative p-6 w-full max-w-[1000px]"
               >
                 {/* Email Clients require tables for structural guarantees */}
                 <table 
                   cellPadding="0" 
                   cellSpacing="0" 
                   border={0} 
-                  width="650"
+                  width="100%"
                   style={{ 
                     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
-                    width: '650px',
-                    maxWidth: '650px',
+                    width: '100%',
+                    maxWidth: '1000px',
                     margin: '0',
                     backgroundColor: '#ffffff',
                     textAlign: 'left'
@@ -612,11 +612,11 @@ export function Signatures() {
                           <img 
                             src={compositeUrl}
                             alt="Signature Header"
-                            width="650"
+                            width="1000"
                             style={{ 
                               display: 'block', 
-                              width: '650px', 
-                              maxWidth: '650px',
+                              width: '100%', 
+                              maxWidth: '1000px',
                               height: 'auto',
                               borderTopLeftRadius: '24px',
                               borderTopRightRadius: '24px'
@@ -628,16 +628,16 @@ export function Signatures() {
                       /* Live Preview Row (Only visible until they hit copy) */
                       <tr>
                         <td colSpan={2} style={{ paddingBottom: '0' }}>
-                           <div style={{ position: 'relative', width: '650px', height: '255px' }}>
+                           <div style={{ position: 'relative', width: '100%', height: '360px', maxWidth: '1000px' }}>
                              {/* Mock overlap for the browser using modern CSS */}
                               <img 
                                 src={marketingData.bannerImageUrl}
                                 alt="Banner"
-                                width="650"
+                                width="1000"
                                 style={{ 
                                   display: 'block', 
-                                  width: '650px', 
-                                  height: '180px',
+                                  width: '100%', 
+                                  height: '240px',
                                   objectFit: 'cover',
                                   borderTopLeftRadius: '24px',
                                   borderTopRightRadius: '24px'
@@ -648,12 +648,12 @@ export function Signatures() {
                                 alt="Profile"
                                 style={{
                                   position: 'absolute',
-                                  top: '105px',
+                                  top: '120px',
                                   left: '24px',
-                                  width: '150px',
-                                  height: '150px',
+                                  width: '240px',
+                                  height: '240px',
                                   borderRadius: '50%',
-                                  border: '5px solid white',
+                                  border: '8px solid white',
                                   backgroundColor: 'white',
                                   objectFit: 'cover',
                                   objectPosition: formData.profileImageAlignment === 'top' ? 'center top' : formData.profileImageAlignment === 'bottom' ? 'center bottom' : 'center center',
