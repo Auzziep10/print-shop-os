@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Copy, CheckCircle, User, Globe, Image as ImageIcon, Upload, Loader2 } from 'lucide-react';
+import { Copy, CheckCircle, User, Globe, Image as ImageIcon, Upload, Loader2, Plus } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
@@ -15,6 +15,11 @@ export function Signatures() {
   const [uploadingBanner, setUploadingBanner] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [savingPersonal, setSavingPersonal] = useState(false);
+  
+  // Multiple profiles state
+  const [savedSignatures, setSavedSignatures] = useState<any[]>([]);
+  const [activeProfileId, setActiveProfileId] = useState<string>('default');
+  const [profileName, setProfileName] = useState('Main Signature');
   
   // Local state for the generator
   const [formData, setFormData] = useState({
@@ -61,8 +66,21 @@ export function Signatures() {
       const fetchPersonalDetails = async () => {
         try {
           const userDoc = await getDoc(doc(db, 'users', userData.id));
-          if (userDoc.exists() && userDoc.data().signatureDetails) {
-            setFormData(prev => ({ ...prev, ...userDoc.data().signatureDetails }));
+          if (userDoc.exists()) {
+            const data = userDoc.data();
+            let sigs = data.savedSignatures || [];
+            
+            // Migrate legacy flat signatureDetails if necessary
+            if (sigs.length === 0 && data.signatureDetails) {
+              sigs = [{ id: 'default', name: 'Main Signature', data: data.signatureDetails }];
+            }
+            
+            if (sigs.length > 0) {
+              setSavedSignatures(sigs);
+              setActiveProfileId(sigs[0].id);
+              setProfileName(sigs[0].name);
+              setFormData(prev => ({ ...prev, ...sigs[0].data }));
+            }
           }
         } catch (error) {
           console.error("Error loading personal signature details:", error);
@@ -75,12 +93,40 @@ export function Signatures() {
   const handleSavePersonal = async () => {
     if (!userData?.id) return;
     setSavingPersonal(true);
+
+    let updatedSigs = [...savedSignatures];
+    const existingIndex = updatedSigs.findIndex(s => s.id === activeProfileId);
+    
+    if (existingIndex >= 0) {
+      updatedSigs[existingIndex] = { ...updatedSigs[existingIndex], name: profileName, data: formData };
+    } else {
+      updatedSigs.push({ id: activeProfileId, name: profileName, data: formData });
+    }
+
     try {
-      await setDoc(doc(db, 'users', userData.id), { signatureDetails: formData }, { merge: true });
+      await setDoc(doc(db, 'users', userData.id), { savedSignatures: updatedSigs }, { merge: true });
+      setSavedSignatures(updatedSigs);
     } catch (error) {
       console.error("Error saving signature details:", error);
     } finally {
       setSavingPersonal(false);
+    }
+  };
+
+  const handleCreateNewProfile = () => {
+    const newId = Date.now().toString();
+    setActiveProfileId(newId);
+    setProfileName('New Profile');
+    // Keeping current formData gives them a starting point instead of wiping it
+  };
+
+  const handleProfileChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const id = e.target.value;
+    setActiveProfileId(id);
+    const sig = savedSignatures.find(s => s.id === id);
+    if (sig) {
+      setProfileName(sig.name);
+      setFormData(prev => ({ ...prev, ...sig.data }));
     }
   };
 
@@ -185,6 +231,45 @@ export function Signatures() {
               </h2>
             </div>
             <div className="p-4 space-y-4">
+              {/* Profile Switcher */}
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-2 pb-6 border-b border-brand-border">
+                <div className="flex-1 space-y-1.5">
+                  <label className="text-xs font-medium text-brand-secondary uppercase tracking-wider">Active Profile</label>
+                  <div className="flex gap-2">
+                    <select 
+                      value={activeProfileId}
+                      onChange={handleProfileChange}
+                      className="flex-1 px-3 py-2 bg-white border border-brand-border rounded-lg text-sm focus:ring-2 focus:ring-brand-primary outline-none"
+                    >
+                      {savedSignatures.map(s => (
+                        <option key={s.id} value={s.id}>{s.name || 'Unnamed Profile'}</option>
+                      ))}
+                      {savedSignatures.length === 0 && <option value="default">Main Signature</option>}
+                      {savedSignatures.length > 0 && !savedSignatures.find(s => s.id === activeProfileId) && (
+                        <option value={activeProfileId}>{profileName}</option>
+                      )}
+                    </select>
+                    <button 
+                      onClick={handleCreateNewProfile}
+                      className="px-3 py-2 bg-brand-bg border border-brand-border rounded-lg text-brand-secondary hover:text-brand-primary hover:bg-brand-muted transition-colors flex items-center justify-center shrink-0"
+                      title="Create New Profile"
+                    >
+                      <Plus size={16} />
+                    </button>
+                  </div>
+                </div>
+                <div className="flex-1 space-y-1.5">
+                  <label className="text-xs font-medium text-brand-secondary uppercase tracking-wider">Profile Name</label>
+                  <input 
+                    type="text" 
+                    value={profileName}
+                    onChange={e => setProfileName(e.target.value)}
+                    className="w-full px-3 py-2 bg-white border border-brand-border rounded-lg text-sm focus:ring-2 focus:ring-brand-primary outline-none"
+                    placeholder="e.g. Internal Comm"
+                  />
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5 col-span-2">
                   <label className="text-sm font-medium text-brand-secondary">Full Name</label>
