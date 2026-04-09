@@ -189,14 +189,14 @@ export function Signatures() {
       const bX = (800 - bWidth) / 2;
       const bY = (140 - bHeight) / 2;
       
-      // Draw banner with border radius approximation manually or just rectangular is fine for composite top
+      // Draw banner cleanly clipped to the strict 140px banner bounding box
       ctx.save();
       ctx.beginPath();
       ctx.moveTo(24, 0);
       ctx.lineTo(776, 0);
       ctx.quadraticCurveTo(800, 0, 800, 24);
-      ctx.lineTo(800, 200);
-      ctx.lineTo(0, 200);
+      ctx.lineTo(800, 140);
+      ctx.lineTo(0, 140);
       ctx.lineTo(0, 24);
       ctx.quadraticCurveTo(0, 0, 24, 0);
       ctx.closePath();
