@@ -14,6 +14,7 @@ export function Signatures() {
   const [uploadingProfile, setUploadingProfile] = useState(false);
   const [uploadingBanner, setUploadingBanner] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [savingPersonal, setSavingPersonal] = useState(false);
   
   // Local state for the generator
   const [formData, setFormData] = useState({
@@ -54,6 +55,34 @@ export function Signatures() {
     };
     fetchGlobalMarketing();
   }, []);
+
+  useEffect(() => {
+    if (userData?.id) {
+      const fetchPersonalDetails = async () => {
+        try {
+          const userDoc = await getDoc(doc(db, 'users', userData.id));
+          if (userDoc.exists() && userDoc.data().signatureDetails) {
+            setFormData(prev => ({ ...prev, ...userDoc.data().signatureDetails }));
+          }
+        } catch (error) {
+          console.error("Error loading personal signature details:", error);
+        }
+      };
+      fetchPersonalDetails();
+    }
+  }, [userData?.id]);
+
+  const handleSavePersonal = async () => {
+    if (!userData?.id) return;
+    setSavingPersonal(true);
+    try {
+      await setDoc(doc(db, 'users', userData.id), { signatureDetails: formData }, { merge: true });
+    } catch (error) {
+      console.error("Error saving signature details:", error);
+    } finally {
+      setSavingPersonal(false);
+    }
+  };
 
   const handleSaveBanner = async () => {
     setSavingBanner(true);
@@ -242,6 +271,13 @@ export function Signatures() {
                   />
                 </div>
               </div>
+              <button 
+                onClick={handleSavePersonal}
+                disabled={savingPersonal}
+                className="w-full mt-4 py-2 bg-black text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50"
+              >
+                {savingPersonal ? 'Saving Details...' : 'Save My Details'}
+              </button>
             </div>
           </div>
 
