@@ -30,7 +30,7 @@ export function Signatures() {
   // Global marketing template state
   const [marketingData, setMarketingData] = useState({
     bannerImageUrl: 'https://images.unsplash.com/photo-1497366216548-37526070297c?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=200&q=80',
-    logoUrl: 'https://printshopos.com/assets/wovn-production-logo.png',
+    logoUrl: window.location.origin + '/wovn-signature-logo.png',
     disclaimer: 'CONFIDENTIALITY NOTICE:\nThe contents of this email message and any attachments are intended solely for the addressee(s) and may contain confidential and/or privileged information and may be legally protected from disclosure. If you are not the intended recipient of this message or their agent, or if this message has been addressed to you in error, please immediately alert the sender by reply email and then delete this message and any attachments. If you are not the intended recipient, you are hereby notified that any use, dissemination, copying, or storage of this message or its attachments is strictly prohibited.'
   });
 
@@ -40,7 +40,11 @@ export function Signatures() {
         const docRef = doc(db, 'settings', 'signatures');
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
-          setMarketingData(prev => ({ ...prev, ...docSnap.data() }));
+          const data = docSnap.data();
+          if (data.logoUrl?.includes('printshopos.com') || !data.logoUrl) {
+            data.logoUrl = window.location.origin + '/wovn-signature-logo.png';
+          }
+          setMarketingData(prev => ({ ...prev, ...data }));
         }
       } catch (error) {
         console.error("Error fetching signature settings:", error);
