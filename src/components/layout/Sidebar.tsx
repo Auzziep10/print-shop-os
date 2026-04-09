@@ -35,8 +35,7 @@ export function Sidebar({ onClose }: SidebarProps) {
     <aside className="w-[280px] lg:w-64 border-r border-brand-border bg-brand-bg flex flex-col h-full lg:h-[100dvh] lg:sticky top-0 bg-white shadow-2xl lg:shadow-none overflow-hidden">
       <div className="p-6 flex justify-between items-start">
         <div>
-          <img src="/logo.png" alt="WOVN Logo" className="h-6 w-auto mb-1" />
-          <p className="text-[10px] uppercase font-semibold tracking-widest text-brand-secondary mt-2">Print Shop OS</p>
+          <img src="/wovn-production-logo.png" alt="WOVN Logo" className="h-10 w-auto mb-1" />
         </div>
         {onClose && (
           <button onClick={onClose} className="lg:hidden p-1 -mr-2 -mt-2 text-brand-secondary hover:text-brand-primary transition-colors hover:bg-black/5 rounded-lg">
