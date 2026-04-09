@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
-import { Copy, CheckCircle, User, Globe, Image as ImageIcon } from 'lucide-react';
+import { Copy, CheckCircle, User, Globe, Image as ImageIcon, Upload, Loader2 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { db } from '../../lib/firebase';
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { db, storage } from '../../lib/firebase';
 
 export function Signatures() {
   const { userData } = useAuth();
@@ -10,6 +11,8 @@ export function Signatures() {
   const signatureRef = useRef<HTMLDivElement>(null);
   const [savingBanner, setSavingBanner] = useState(false);
   const [loadingBanner, setLoadingBanner] = useState(true);
+  const [uploadingProfile, setUploadingProfile] = useState(false);
+  const [uploadingBanner, setUploadingBanner] = useState(false);
   
   // Local state for the generator
   const [formData, setFormData] = useState({
@@ -83,6 +86,45 @@ export function Signatures() {
     }
   };
 
+  const handleFileUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+    type: 'profile' | 'banner'
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (type === 'profile') setUploadingProfile(true);
+    else setUploadingBanner(true);
+
+    try {
+      const fileRef = ref(storage, `signatures/${type}/${Date.now()}_${file.name}`);
+      const uploadTask = uploadBytesResumable(fileRef, file);
+
+      uploadTask.on('state_changed', 
+        null,
+        (error) => {
+          console.error(`Error uploading ${type}:`, error);
+          if (type === 'profile') setUploadingProfile(false);
+          else setUploadingBanner(false);
+        },
+        async () => {
+          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+          if (type === 'profile') {
+            setFormData(prev => ({ ...prev, profileImageUrl: downloadURL }));
+            setUploadingProfile(false);
+          } else {
+            setMarketingData(prev => ({ ...prev, bannerImageUrl: downloadURL }));
+            setUploadingBanner(false);
+          }
+        }
+      );
+    } catch (error) {
+      console.error("Upload failed", error);
+      if (type === 'profile') setUploadingProfile(false);
+      else setUploadingBanner(false);
+    }
+  };
+
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500 w-full">
       <div>
@@ -132,13 +174,25 @@ export function Signatures() {
                   />
                 </div>
                 <div className="space-y-1.5 col-span-2">
-                  <label className="text-sm font-medium text-brand-secondary">Profile Image URL</label>
-                  <input 
-                    type="text" 
-                    value={formData.profileImageUrl}
-                    onChange={e => setFormData({...formData, profileImageUrl: e.target.value})}
-                    className="w-full px-3 py-2 bg-white border border-brand-border rounded-lg text-sm focus:ring-2 focus:ring-brand-primary focus:border-transparent transition-all outline-none"
-                  />
+                  <label className="text-sm font-medium text-brand-secondary">Profile Image</label>
+                  <div className="flex gap-2">
+                    <input 
+                      type="text" 
+                      value={formData.profileImageUrl}
+                      onChange={e => setFormData({...formData, profileImageUrl: e.target.value})}
+                      className="flex-1 px-3 py-2 bg-white border border-brand-border rounded-lg text-sm focus:ring-2 focus:ring-brand-primary focus:border-transparent transition-all outline-none"
+                    />
+                    <label className="flex items-center justify-center gap-2 px-4 py-2 bg-brand-bg hover:bg-gray-100 border border-brand-border text-brand-primary text-sm font-medium rounded-lg cursor-pointer transition-colors whitespace-nowrap">
+                      {uploadingProfile ? <Loader2 size={16} className="animate-spin text-brand-secondary" /> : <Upload size={16} className="text-brand-secondary" />}
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        className="hidden" 
+                        onChange={(e) => handleFileUpload(e, 'profile')}
+                        disabled={uploadingProfile}
+                      />
+                    </label>
+                  </div>
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium text-brand-secondary">Phone Number</label>
@@ -191,15 +245,27 @@ export function Signatures() {
               <div className="p-4 space-y-4">
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium text-brand-secondary flex items-center gap-2">
-                    <ImageIcon size={14} /> Background Banner URL
+                    <ImageIcon size={14} /> Background Banner
                   </label>
-                  <input 
-                    type="text" 
-                    value={marketingData.bannerImageUrl}
-                    onChange={e => setMarketingData({...marketingData, bannerImageUrl: e.target.value})}
-                    className="w-full px-3 py-2 bg-white border border-brand-border rounded-lg text-sm focus:ring-2 focus:ring-brand-primary focus:border-transparent transition-all outline-none"
-                    disabled={loadingBanner}
-                  />
+                  <div className="flex gap-2">
+                    <input 
+                      type="text" 
+                      value={marketingData.bannerImageUrl}
+                      onChange={e => setMarketingData({...marketingData, bannerImageUrl: e.target.value})}
+                      className="flex-1 px-3 py-2 bg-white border border-brand-border rounded-lg text-sm focus:ring-2 focus:ring-brand-primary focus:border-transparent transition-all outline-none"
+                      disabled={loadingBanner}
+                    />
+                    <label className="flex items-center justify-center gap-2 px-4 py-2 bg-brand-bg hover:bg-gray-100 border border-brand-border text-brand-primary text-sm font-medium rounded-lg cursor-pointer transition-colors whitespace-nowrap">
+                      {uploadingBanner ? <Loader2 size={16} className="animate-spin text-brand-secondary" /> : <Upload size={16} className="text-brand-secondary" />}
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        className="hidden" 
+                        onChange={(e) => handleFileUpload(e, 'banner')}
+                        disabled={loadingBanner || uploadingBanner}
+                      />
+                    </label>
+                  </div>
                 </div>
                 <button 
                   onClick={handleSaveBanner}
