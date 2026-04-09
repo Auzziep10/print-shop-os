@@ -672,8 +672,7 @@ export function Signatures() {
 
                     {/* Details Row */}
                     <tr>
-                      <td width="8%"></td>
-                      <td valign="top" style={{ paddingTop: compositeUrl ? '16px' : '0', textAlign: 'left', width: '92%' }}>
+                      <td colSpan={2} valign="top" style={{ paddingLeft: '8%', paddingTop: compositeUrl ? '16px' : '0', textAlign: 'left' }}>
                         <h1 style={{ 
                           margin: '0 0 4px 0', 
                           fontSize: '28px', 
