@@ -265,7 +265,8 @@ export function Signatures() {
       
       // Copy raw HTML string to completely bypass Chrome's visual layout engine converting % to fixed px
       if (!signatureRef.current) return;
-      const htmlContent = signatureRef.current.outerHTML;
+      // aggressively minify HTML output footprint to bypass Gmail signature 10000 char limit string rejections
+      const htmlContent = signatureRef.current.outerHTML.replace(/\n/g, '').replace(/\s+/g, ' ').replace(/>\s+</g, '><').trim();
       const htmlBlob = new Blob([htmlContent], { type: 'text/html' });
       const textBlob = new Blob([`Signature for ${formData.name}`], { type: 'text/plain' });
       
