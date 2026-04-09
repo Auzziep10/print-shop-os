@@ -159,14 +159,14 @@ export function Signatures() {
       // Create a canvas to merge the banner and profile image
       const canvas = document.createElement('canvas');
       canvas.width = 1000;
-      canvas.height = 360; // 240px banner + 120px overlap area underneath
+      canvas.height = 420; // 240px banner + 180px overlap area underneath
       const ctx = canvas.getContext('2d');
       
       if (!ctx) throw new Error("Could not get canvas context");
       
       // Fill background
       ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, 1000, 360);
+      ctx.fillRect(0, 0, 1000, 420);
 
       // 1. Draw Banner Image
       const bannerImg = new Image();
@@ -210,32 +210,32 @@ export function Signatures() {
         profileImg.onerror = () => reject(new Error("Failed to load profile for composite"));
       });
 
-      const centerX = 24 + 120; // Left padding 24, radius 120 => 144
+      const centerX = 24 + 180; // Left padding 24, radius 180 => 204
       const centerY = 240; // Overlapping equally at the 240px banner cutoff
       
       // Draw white stroke circle background
       ctx.save();
       ctx.beginPath();
-      ctx.arc(centerX, centerY, 120, 0, Math.PI * 2);
+      ctx.arc(centerX, centerY, 180, 0, Math.PI * 2);
       ctx.fillStyle = 'white';
       ctx.fill();
       
       // Draw image inside circle
       ctx.beginPath();
-      ctx.arc(centerX, centerY, 112, 0, Math.PI * 2); // 8px border
+      ctx.arc(centerX, centerY, 168, 0, Math.PI * 2); // 12px border
       ctx.clip();
       
       // Calculate cover for profile
-      const pRatio = Math.max(224 / profileImg.width, 224 / profileImg.height);
+      const pRatio = Math.max(336 / profileImg.width, 336 / profileImg.height);
       const pWidth = profileImg.width * pRatio;
       const pHeight = profileImg.height * pRatio;
       let pX = centerX - pWidth / 2;
       let pY = centerY - pHeight / 2;
       
       if (formData.profileImageAlignment === 'top') {
-        pY = centerY - 112;
+        pY = centerY - 168;
       } else if (formData.profileImageAlignment === 'bottom') {
-        pY = centerY + 112 - pHeight;
+        pY = centerY + 168 - pHeight;
       }
       
       ctx.drawImage(profileImg, pX, pY, pWidth, pHeight);
@@ -630,7 +630,7 @@ export function Signatures() {
                       /* Live Preview Row (Only visible until they hit copy) */
                       <tr>
                         <td colSpan={2} style={{ paddingBottom: '0' }}>
-                           <div style={{ position: 'relative', width: '100%', height: '360px', maxWidth: '1000px' }}>
+                           <div style={{ position: 'relative', width: '100%', height: '420px', maxWidth: '1000px' }}>
                              {/* Mock overlap for the browser using modern CSS */}
                               <img 
                                 src={marketingData.bannerImageUrl}
@@ -650,12 +650,12 @@ export function Signatures() {
                                 alt="Profile"
                                 style={{
                                   position: 'absolute',
-                                  top: '120px',
+                                  top: '60px',
                                   left: '24px',
-                                  width: '240px',
-                                  height: '240px',
+                                  width: '360px',
+                                  height: '360px',
                                   borderRadius: '50%',
-                                  border: '8px solid white',
+                                  border: '12px solid white',
                                   backgroundColor: 'white',
                                   objectFit: 'cover',
                                   objectPosition: formData.profileImageAlignment === 'top' ? 'center top' : formData.profileImageAlignment === 'bottom' ? 'center bottom' : 'center center',
