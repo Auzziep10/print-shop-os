@@ -160,7 +160,7 @@ export function Signatures() {
       const SCALE = 3;
       const canvas = document.createElement('canvas');
       canvas.width = 800 * SCALE;
-      canvas.height = 240 * SCALE; // 200px banner + 40px overlap area underneath
+      canvas.height = 170 * SCALE; // 140px banner + 30px overlap area underneath
       const ctx = canvas.getContext('2d');
       
       if (!ctx) throw new Error("Could not get canvas context");
@@ -170,7 +170,7 @@ export function Signatures() {
       
       // Fill background
       ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, 800, 240);
+      ctx.fillRect(0, 0, 800, 170);
 
       // 1. Draw Banner Image
       const bannerImg = new Image();
@@ -182,12 +182,12 @@ export function Signatures() {
         bannerImg.onerror = () => reject(new Error("Failed to load banner for composite"));
       });
       
-      // Calculate banner dimensions to cover 800x200
-      const bRatio = Math.max(800 / bannerImg.width, 200 / bannerImg.height);
+      // Calculate cover for banner explicitly mapped to the new 140px slim banner height
+      const bRatio = Math.max(800 / bannerImg.width, 140 / bannerImg.height);
       const bWidth = bannerImg.width * bRatio;
       const bHeight = bannerImg.height * bRatio;
       const bX = (800 - bWidth) / 2;
-      const bY = (200 - bHeight) / 2;
+      const bY = (140 - bHeight) / 2;
       
       // Draw banner with border radius approximation manually or just rectangular is fine for composite top
       ctx.save();
@@ -214,32 +214,32 @@ export function Signatures() {
         profileImg.onerror = () => reject(new Error("Failed to load profile for composite"));
       });
 
-      const centerX = 64 + 100; // Left padding 64 (8%), radius 100 => 164
-      const centerY = 130; // Elevate center so exactly 85% is in the 200px banner, 15% outside
+      const centerX = 64 + 70; // Left padding 64 (8%), radius 70 => 134
+      const centerY = 91; // Elevate center so exactly 85% is in the 140px banner, 15% outside
       
       // Draw white stroke circle background
       ctx.save();
       ctx.beginPath();
-      ctx.arc(centerX, centerY, 100, 0, Math.PI * 2);
+      ctx.arc(centerX, centerY, 70, 0, Math.PI * 2);
       ctx.fillStyle = 'white';
       ctx.fill();
       
       // Draw image inside circle
       ctx.beginPath();
-      ctx.arc(centerX, centerY, 94, 0, Math.PI * 2); // 6px border
+      ctx.arc(centerX, centerY, 66, 0, Math.PI * 2); // 4px border
       ctx.clip();
       
       // Calculate cover for profile
-      const pRatio = Math.max(188 / profileImg.width, 188 / profileImg.height);
+      const pRatio = Math.max(132 / profileImg.width, 132 / profileImg.height);
       const pWidth = profileImg.width * pRatio;
       const pHeight = profileImg.height * pRatio;
       let pX = centerX - pWidth / 2;
       let pY = centerY - pHeight / 2;
       
       if (formData.profileImageAlignment === 'top') {
-        pY = centerY - 94;
+        pY = centerY - 66;
       } else if (formData.profileImageAlignment === 'bottom') {
-        pY = centerY + 94 - pHeight;
+        pY = centerY + 66 - pHeight;
       }
       
       ctx.drawImage(profileImg, pX, pY, pWidth, pHeight);
@@ -634,7 +634,7 @@ export function Signatures() {
                       /* Live Preview Row (Only visible until they hit copy) */
                       <tr>
                         <td colSpan={2} style={{ paddingBottom: '0' }}>
-                           <div style={{ position: 'relative', width: '100%', aspectRatio: '800 / 240' }}>
+                           <div style={{ position: 'relative', width: '100%', aspectRatio: '800 / 170' }}>
                              {/* Mock overlap for the browser using modern CSS */}
                               <img 
                                 src={marketingData.bannerImageUrl}
@@ -642,7 +642,7 @@ export function Signatures() {
                                 style={{ 
                                   display: 'block', 
                                   width: '100%', 
-                                  height: '83.33%', // 200/240
+                                  height: '82.35%', // 140/170
                                   objectFit: 'cover',
                                   borderTopLeftRadius: '24px',
                                   borderTopRightRadius: '24px'
@@ -653,12 +653,12 @@ export function Signatures() {
                                 alt="Profile"
                                 style={{
                                   position: 'absolute',
-                                  top: '12.5%', // (130 - 100) = 30 / 240
+                                  top: '12.35%', // (91 - 70) = 21 / 170
                                   left: '8%', // 64 / 800
-                                  width: '25%', // 200 / 800
-                                  height: '83.33%', // 200 / 240
+                                  width: '17.5%', // 140 / 800
+                                  height: '82.35%', // 140 / 170
                                   borderRadius: '50%',
-                                  border: '6px solid white',
+                                  border: '4px solid white',
                                   backgroundColor: 'white',
                                   objectFit: 'cover',
                                   objectPosition: formData.profileImageAlignment === 'top' ? 'center top' : formData.profileImageAlignment === 'bottom' ? 'center bottom' : 'center center',
