@@ -589,12 +589,12 @@ export function Signatures() {
               
               {/* Actual Signature HTML Structure */}
               <div 
-                ref={signatureRef} 
                 className="select-all bg-white relative p-6"
                 style={{ width: '100%', minWidth: '100%', display: 'block' }}
               >
                 {/* Email Clients require tables for structural guarantees */}
                 <table 
+                  ref={signatureRef}
                   cellPadding="0" 
                   cellSpacing="0" 
                   border={0} 
