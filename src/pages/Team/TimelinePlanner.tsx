@@ -782,21 +782,7 @@ export function TimelinePlanner({ activeRange = 'Day' }: TimelinePlannerProps) {
                   type="text"
                   value={formData.title || ''}
                   placeholder="e.g. Calibrate Printers"
-                  onChange={(e) => {
-                     const val = e.target.value;
-                     let newMemberIds = [...(formData.memberIds || [])];
-                     
-                     // Run native NLP auto-association
-                     members.forEach(m => {
-                        const firstName = m.name.split(' ')[0];
-                        const regex = new RegExp(`\\b${firstName}\\b`, 'i');
-                        if (regex.test(val) && !newMemberIds.includes(m.id)) {
-                           newMemberIds.push(m.id);
-                        }
-                     });
-
-                     setFormData({...formData, title: val, memberIds: newMemberIds});
-                  }}
+                  onChange={(e) => setFormData({...formData, title: e.target.value})}
                   className="w-full text-sm font-semibold border border-brand-border rounded-lg p-3 outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary"
                   autoFocus
                 />
