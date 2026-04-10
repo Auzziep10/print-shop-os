@@ -168,9 +168,8 @@ export function Signatures() {
       // Auto-scale all canvas math commands to seamlessly draw at the new high-res pixel density
       ctx.scale(SCALE, SCALE);
       
-      // Fill background
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, 800, 170);
+      // Transparent background by default for PNG
+      ctx.clearRect(0, 0, 800, 170);
 
       // 1. Draw Banner Image
       const bannerImg = new Image();
@@ -245,11 +244,11 @@ export function Signatures() {
       ctx.drawImage(profileImg, pX, pY, pWidth, pHeight);
       ctx.restore();
 
-      // Export high-res canvas natively to compressed JPEG to optimize large dimensions footprint
-      const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.85));
+      // Export high-res canvas natively to PNG to support transparent background in Dark Mode
+      const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png'));
       if (!blob) throw new Error("Canvas export failed");
       
-      const fileRef = ref(storage, `signatures/composites/${userData?.id}_${Date.now()}.jpg`);
+      const fileRef = ref(storage, `signatures/composites/${userData?.id}_${Date.now()}.png`);
       const uploadTask = uploadBytesResumable(fileRef, blob);
       
       await new Promise<void>((resolve, reject) => {
