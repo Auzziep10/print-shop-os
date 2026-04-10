@@ -602,7 +602,6 @@ export function Signatures() {
                 {generatingComposite ? 'Generating...' : copied ? 'Copied HTML!' : 'Copy Signature'}
               </button>
             </div>
-            </div>
             
             <div className="p-8 lg:p-12 flex-1 overflow-x-auto bg-gray-50 flex items-start justify-center min-h-[500px]">
               
