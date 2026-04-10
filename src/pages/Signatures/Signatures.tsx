@@ -573,6 +573,20 @@ export function Signatures() {
 
         {/* Right Column: Preview & HTML */}
         <div className="xl:col-span-7 flex flex-col h-full">
+          <div className="bg-blue-50/50 border border-blue-100/50 rounded-xl p-4 flex gap-3 text-sm mb-6">
+            <Info className="shrink-0 text-blue-500 mt-0.5" size={18} />
+            <div>
+              <p className="font-medium text-blue-900 mb-1">How to install your signature:</p>
+              <ol className="list-decimal pl-4 space-y-1 text-blue-800/80 text-xs">
+                <li>Click the <strong>Copy Signature</strong> button below.</li>
+                <li>Open your email client (e.g., Gmail) and go to <strong>Settings</strong> {'>'} <strong>Signatures</strong>.</li>
+                <li>Create a new signature or edit an existing one.</li>
+                <li>Click into the text box and press <strong>Cmd+V</strong> (Mac) or <strong>Ctrl+V</strong> (Windows) to paste. <em>(Note: Do not right-click {"->"} paste, use the keyboard shortcut to maintain formatting)</em></li>
+                <li>Save your changes!</li>
+              </ol>
+            </div>
+          </div>
+
           <div className="bg-white rounded-xl border border-brand-border shadow-sm overflow-hidden flex flex-col h-full">
             <div className="p-4 border-b border-brand-border bg-brand-bg/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
@@ -588,19 +602,6 @@ export function Signatures() {
                 {generatingComposite ? 'Generating...' : copied ? 'Copied HTML!' : 'Copy Signature'}
               </button>
             </div>
-
-            <div className="bg-blue-50/50 border-b border-blue-100/50 p-4 flex gap-3 text-sm">
-              <Info className="shrink-0 text-blue-500 mt-0.5" size={18} />
-              <div>
-                <p className="font-medium text-blue-900 mb-1">How to install your signature:</p>
-                <ol className="list-decimal pl-4 space-y-1 text-blue-800/80 text-xs">
-                  <li>Click the <strong>Copy Signature</strong> button above.</li>
-                  <li>Open your email client (e.g., Gmail) and go to <strong>Settings</strong> {'>'} <strong>Signatures</strong>.</li>
-                  <li>Create a new signature or edit an existing one.</li>
-                  <li>Click into the text box and press <strong>Cmd+V</strong> (Mac) or <strong>Ctrl+V</strong> (Windows) to paste. <em>(Note: Do not right-click {"->"} paste, use the keyboard shortcut to maintain formatting)</em></li>
-                  <li>Save your changes!</li>
-                </ol>
-              </div>
             </div>
             
             <div className="p-8 lg:p-12 flex-1 overflow-x-auto bg-gray-50 flex items-start justify-center min-h-[500px]">
