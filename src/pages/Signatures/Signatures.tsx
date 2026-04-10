@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Copy, CheckCircle, User, Globe, Image as ImageIcon, Upload, Loader2, Plus } from 'lucide-react';
+import { Copy, CheckCircle, User, Globe, Image as ImageIcon, Upload, Loader2, Plus, Info } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
@@ -587,6 +587,20 @@ export function Signatures() {
                 {generatingComposite ? <Loader2 size={16} className="animate-spin" /> : copied ? <CheckCircle size={16} className="text-green-400" /> : <Copy size={16} />}
                 {generatingComposite ? 'Generating...' : copied ? 'Copied HTML!' : 'Copy Signature'}
               </button>
+            </div>
+
+            <div className="bg-blue-50/50 border-b border-blue-100/50 p-4 flex gap-3 text-sm">
+              <Info className="shrink-0 text-blue-500 mt-0.5" size={18} />
+              <div>
+                <p className="font-medium text-blue-900 mb-1">How to install your signature:</p>
+                <ol className="list-decimal pl-4 space-y-1 text-blue-800/80 text-xs">
+                  <li>Click the <strong>Copy Signature</strong> button above.</li>
+                  <li>Open your email client (e.g., Gmail) and go to <strong>Settings</strong> {'>'} <strong>Signatures</strong>.</li>
+                  <li>Create a new signature or edit an existing one.</li>
+                  <li>Click into the text box and press <strong>Cmd+V</strong> (Mac) or <strong>Ctrl+V</strong> (Windows) to paste. <em>(Note: Do not right-click {"->"} paste, use the keyboard shortcut to maintain formatting)</em></li>
+                  <li>Save your changes!</li>
+                </ol>
+              </div>
             </div>
             
             <div className="p-8 lg:p-12 flex-1 overflow-x-auto bg-gray-50 flex items-start justify-center min-h-[500px]">
