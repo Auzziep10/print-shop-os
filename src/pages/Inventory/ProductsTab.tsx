@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { db } from '../../lib/firebase';
+import { db, storage } from '../../lib/firebase';
 import { collection, query, onSnapshot, setDoc, doc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { Search, Plus, Image as ImageIcon, ChevronLeft, Trash2, Save, X, Upload } from 'lucide-react';
 import { tokens } from '../../lib/tokens';
 
@@ -8,6 +9,7 @@ export function ProductsTab() {
   const [products, setProducts] = useState<any[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Form State for editing / creating
@@ -104,6 +106,30 @@ export function ProductsTab() {
 
   const handleRemoveImage = (index: number) => {
     setFormData(prev => ({ ...prev, images: prev.images.filter((_, i) => i !== index) }));
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    const storageRef = ref(storage, `products/${Date.now()}_${file.name}`);
+    const uploadTask = uploadBytesResumable(storageRef, file);
+
+    uploadTask.on(
+      'state_changed',
+      (_snapshot) => {},
+      (error) => {
+        console.error('Upload failed:', error);
+        alert('Failed to upload image.');
+        setIsUploading(false);
+      },
+      async () => {
+        const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+        setFormData(prev => ({ ...prev, images: [...prev.images, downloadURL] }));
+        setIsUploading(false);
+      }
+    );
   };
 
   const filteredProducts = products.filter(p => 
@@ -234,17 +260,23 @@ export function ProductsTab() {
                   {/* Images Section */}
                   <div>
                     <h3 className="font-serif text-lg font-bold text-brand-primary mb-4">Images</h3>
-                    <div className="flex gap-2 mb-4">
+                    <div className="flex gap-2 mb-4 items-center">
                        <input 
                          type="url" 
                          value={imageUrlInput} 
                          onChange={e => setImageUrlInput(e.target.value)} 
                          placeholder="Paste image URL here..." 
-                         className="flex-1 bg-brand-bg border border-brand-border rounded-lg px-3 py-2 text-sm font-medium focus:outline-brand-primary"
+                         className="flex-1 bg-brand-bg border border-brand-border rounded-lg px-3 py-2.5 text-sm font-medium focus:outline-brand-primary"
                        />
-                       <button type="button" onClick={handleAddImage} className="bg-neutral-100 text-brand-primary border border-brand-border px-4 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-neutral-200 transition-colors">
+                       <button type="button" onClick={handleAddImage} className="bg-neutral-100 text-brand-primary border border-brand-border px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-neutral-200 transition-colors">
                           Add URL
                        </button>
+                       <span className="text-brand-secondary text-[10px] font-bold px-2 uppercase tracking-widest">or</span>
+                       <label className={`bg-brand-primary text-white px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-widest cursor-pointer hover:bg-black transition-colors shadow-sm flex items-center gap-2 ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                          <Upload size={14} />
+                          {isUploading ? 'Uploading...' : 'Upload Image'}
+                          <input type="file" accept="image/*" className="hidden" onChange={handleFileUpload} disabled={isUploading} />
+                       </label>
                     </div>
 
                     {formData.images.length === 0 ? (
