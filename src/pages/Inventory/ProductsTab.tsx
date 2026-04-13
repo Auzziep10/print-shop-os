@@ -220,6 +220,15 @@ export function ProductsTab() {
                      <div className="flex-1 min-w-0">
                         <h4 className="font-bold text-brand-primary text-sm truncate">{p.title || 'Untitled Product'}</h4>
                         <p className="text-[10px] uppercase tracking-widest text-brand-secondary mt-0.5 truncate">{p.sku || 'No SKU'}</p>
+                        {p.sizeSpread && Object.keys(p.sizeSpread).length > 0 && (
+                           <div className="flex flex-wrap gap-1 mt-2">
+                              {SIZES.filter(size => p.sizeSpread[size]).map(size => (
+                                 <span key={size} className="text-[9px] bg-white border border-brand-border text-brand-secondary px-1.5 py-0.5 rounded-md font-bold shrink-0 shadow-sm leading-none flex items-center gap-1">
+                                    {size} <span className="text-brand-primary">{p.sizeSpread[size]}</span>
+                                 </span>
+                              ))}
+                           </div>
+                        )}
                      </div>
                   </div>
                ))}
