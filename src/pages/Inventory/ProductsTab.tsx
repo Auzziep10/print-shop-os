@@ -1,0 +1,275 @@
+import { useState, useEffect } from 'react';
+import { db } from '../../lib/firebase';
+import { collection, query, onSnapshot, setDoc, doc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { Search, Plus, Image as ImageIcon, ChevronLeft, Trash2, Save, X, Upload } from 'lucide-react';
+import { tokens } from '../../lib/tokens';
+
+export function ProductsTab() {
+  const [products, setProducts] = useState<any[]>([]);
+  const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Form State for editing / creating
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    sku: '',
+    colors: '',
+    sizeSpread: '',
+    images: [] as string[]
+  });
+  
+  const [imageUrlInput, setImageUrlInput] = useState('');
+
+  useEffect(() => {
+    const q = query(collection(db, 'products'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      setProducts(data);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleCreateNew = () => {
+    setFormData({ title: '', description: '', sku: '', colors: '', sizeSpread: '', images: [] });
+    setImageUrlInput('');
+    setIsCreating(true);
+    setSelectedProduct(null);
+  };
+
+  const handleSelectProduct = (product: any) => {
+    setSelectedProduct(product);
+    setFormData({
+      title: product.title || '',
+      description: product.description || '',
+      sku: product.sku || '',
+      colors: Array.isArray(product.colors) ? product.colors.join(', ') : (product.colors || ''),
+      sizeSpread: Array.isArray(product.sizeSpread) ? product.sizeSpread.join(', ') : (product.sizeSpread || ''),
+      images: product.images || []
+    });
+    setImageUrlInput('');
+    setIsCreating(false);
+  };
+
+  const handleSave = async () => {
+    if (!formData.title) return alert("Title is required");
+
+    const payload = {
+      ...formData,
+      colors: formData.colors.split(',').map(s => s.trim()).filter(Boolean),
+      sizeSpread: formData.sizeSpread.split(',').map(s => s.trim()).filter(Boolean),
+    };
+
+    try {
+      if (isCreating) {
+        const newId = `prod_${Date.now()}`;
+        await setDoc(doc(db, 'products', newId), {
+          ...payload,
+          createdAt: new Date().toISOString()
+        });
+        setIsCreating(false);
+      } else if (selectedProduct) {
+        await updateDoc(doc(db, 'products', selectedProduct.id), {
+          ...payload,
+          updatedAt: new Date().toISOString()
+        });
+      }
+      alert('Saved successfully!');
+    } catch (err) {
+      console.error(err);
+      alert('Failed to save product.');
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this product?')) return;
+    try {
+      await deleteDoc(doc(db, 'products', id));
+      if (selectedProduct && selectedProduct.id === id) {
+        setSelectedProduct(null);
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Failed to delete product.');
+    }
+  };
+
+  const handleAddImage = () => {
+    if (imageUrlInput.trim()) {
+      setFormData(prev => ({ ...prev, images: [...prev.images, imageUrlInput.trim()] }));
+      setImageUrlInput('');
+    }
+  };
+
+  const handleRemoveImage = (index: number) => {
+    setFormData(prev => ({ ...prev, images: prev.images.filter((_, i) => i !== index) }));
+  };
+
+  const filteredProducts = products.filter(p => 
+    (p.title || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
+    (p.sku || '').toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  return (
+    <div className="w-full h-full bg-white rounded-2xl border border-brand-border shadow-sm flex overflow-hidden">
+      
+      {/* Left List Pane (hides on mobile if detail is open, or just flex-shrink) */}
+      <div className={`w-full md:w-1/3 flex flex-col border-r border-brand-border bg-brand-bg transition-all ${(selectedProduct || isCreating) ? 'hidden md:flex' : 'flex'}`}>
+        <div className="p-4 border-b border-brand-border bg-white flex flex-col gap-3 shrink-0">
+           <div className="flex justify-between items-center">
+              <h2 className="font-serif font-bold text-lg text-brand-primary tracking-tight">Product Catalog</h2>
+              <button 
+                onClick={handleCreateNew}
+                className="bg-brand-primary text-white p-1.5 px-3 rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-brand-primary/90 transition-colors shadow-sm flex items-center gap-1"
+              >
+                 <Plus size={14} /> New Item
+              </button>
+           </div>
+           <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-secondary" size={14} />
+              <input 
+                type="text" 
+                placeholder="Search products, SKU..." 
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="w-full bg-brand-bg border border-brand-border rounded-lg pl-9 pr-3 py-2 text-xs font-medium focus:outline-brand-primary"
+              />
+           </div>
+        </div>
+        
+        <div className="flex-1 overflow-y-auto w-full custom-scrollbar">
+           {filteredProducts.length === 0 ? (
+             <div className="p-8 text-center text-brand-secondary text-xs">No products found.</div>
+           ) : (
+             <div className="divide-y divide-brand-border/50">
+               {filteredProducts.map(p => (
+                  <div 
+                    key={p.id} 
+                    onClick={() => handleSelectProduct(p)}
+                    className={`p-4 cursor-pointer hover:bg-neutral-50 transition-colors flex gap-4 items-center ${selectedProduct?.id === p.id ? 'bg-neutral-50 border-l-2 border-brand-primary' : 'border-l-2 border-transparent'}`}
+                  >
+                     <div className="w-12 h-12 rounded-lg bg-neutral-100 border border-brand-border shrink-0 overflow-hidden flex items-center justify-center">
+                        {p.images && p.images.length > 0 ? (
+                           <img src={p.images[0]} alt={p.title} className="w-full h-full object-cover" />
+                        ) : (
+                           <ImageIcon className="text-brand-secondary opacity-50" size={16} />
+                        )}
+                     </div>
+                     <div className="flex-1 min-w-0">
+                        <h4 className="font-bold text-brand-primary text-sm truncate">{p.title || 'Untitled Product'}</h4>
+                        <p className="text-[10px] uppercase tracking-widest text-brand-secondary mt-0.5 truncate">{p.sku || 'No SKU'}</p>
+                     </div>
+                  </div>
+               ))}
+             </div>
+           )}
+        </div>
+      </div>
+
+      {/* Right Detail Pane */}
+      <div className={`flex-1 flex flex-col bg-white overflow-hidden ${(!selectedProduct && !isCreating) ? 'hidden md:flex' : 'flex'}`}>
+         {(!selectedProduct && !isCreating) ? (
+           <div className="flex-1 flex flex-col items-center justify-center text-center opacity-80 px-4">
+              <ImageIcon size={48} className="mb-4 text-brand-secondary stroke-1 opacity-50" />
+              <p className="font-serif text-xl tracking-tight text-brand-primary">No Product Selected</p>
+              <p className="text-sm text-brand-secondary mt-2 opacity-80">Select an item from the list to view its details or create a new one.</p>
+           </div>
+         ) : (
+           <div className="flex flex-col h-full overflow-y-auto animate-in fade-in slide-in-from-right-4">
+              {/* Header */}
+              <div className="p-6 border-b border-brand-border flex justify-between items-start bg-neutral-50 shrink-0 sticky top-0 z-10">
+                 <div className="flex items-center gap-3">
+                    <button onClick={() => { setSelectedProduct(null); setIsCreating(false); }} className="md:hidden text-brand-secondary p-2 -ml-2 hover:text-black">
+                       <ChevronLeft size={20} />
+                    </button>
+                    <div>
+                      <h2 className={tokens.typography.h2}>{isCreating ? 'Create New Product' : (selectedProduct?.title || 'Edit Product')}</h2>
+                      {!isCreating && <p className="text-[10px] uppercase font-bold text-brand-secondary mt-1 tracking-widest">ID: {selectedProduct.id}</p>}
+                    </div>
+                 </div>
+                 <div className="flex gap-2">
+                    {!isCreating && (
+                      <button onClick={() => handleDelete(selectedProduct.id)} className="p-2.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
+                        <Trash2 size={16} />
+                      </button>
+                    )}
+                    <button onClick={handleSave} className="bg-brand-primary text-white px-4 py-2.5 rounded-lg flex items-center gap-2 text-xs font-bold uppercase tracking-widest shadow-sm hover:scale-[1.02] transition-transform">
+                      <Save size={14} /> Save
+                    </button>
+                 </div>
+              </div>
+
+              {/* Form Content */}
+              <div className="p-6 max-w-3xl space-y-6">
+                  <div className="grid grid-cols-2 gap-6">
+                     <div className="col-span-2">
+                        <label className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1 block">Product Title</label>
+                        <input type="text" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} placeholder="e.g. Premium Heavyweight Hoodie" className="w-full bg-brand-bg border border-brand-border rounded-lg px-4 py-3 text-sm font-semibold focus:outline-brand-primary" />
+                     </div>
+                     
+                     <div className="col-span-2 md:col-span-1">
+                        <label className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1 block">SKU (Optional)</label>
+                        <input type="text" value={formData.sku} onChange={e => setFormData({...formData, sku: e.target.value})} placeholder="e.g. WH-1002" className="w-full bg-brand-bg border border-brand-border rounded-lg px-4 py-3 text-sm font-semibold focus:outline-brand-primary" />
+                     </div>
+                     
+                     <div className="col-span-2 md:col-span-1">
+                        <label className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1 block">Colors (Comma separated)</label>
+                        <input type="text" value={formData.colors} onChange={e => setFormData({...formData, colors: e.target.value})} placeholder="e.g. Black, White, Heather Grey" className="w-full bg-brand-bg border border-brand-border rounded-lg px-4 py-3 text-sm font-semibold focus:outline-brand-primary" />
+                     </div>
+                     
+                     <div className="col-span-2">
+                        <label className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1 block">Size Spread (Comma separated)</label>
+                        <input type="text" value={formData.sizeSpread} onChange={e => setFormData({...formData, sizeSpread: e.target.value})} placeholder="e.g. XS, S, M, L, XL, XXL" className="w-full bg-brand-bg border border-brand-border rounded-lg px-4 py-3 text-sm font-semibold focus:outline-brand-primary" />
+                     </div>
+
+                     <div className="col-span-2">
+                        <label className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1 block">Description</label>
+                        <textarea rows={4} value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} placeholder="Describe the product details, materials, and fit..." className="w-full bg-brand-bg border border-brand-border rounded-lg px-4 py-3 text-sm font-medium focus:outline-brand-primary resize-y"></textarea>
+                     </div>
+                  </div>
+
+                  <hr className="border-brand-border/50" />
+
+                  {/* Images Section */}
+                  <div>
+                    <h3 className="font-serif text-lg font-bold text-brand-primary mb-4">Images</h3>
+                    <div className="flex gap-2 mb-4">
+                       <input 
+                         type="url" 
+                         value={imageUrlInput} 
+                         onChange={e => setImageUrlInput(e.target.value)} 
+                         placeholder="Paste image URL here..." 
+                         className="flex-1 bg-brand-bg border border-brand-border rounded-lg px-3 py-2 text-sm font-medium focus:outline-brand-primary"
+                       />
+                       <button type="button" onClick={handleAddImage} className="bg-neutral-100 text-brand-primary border border-brand-border px-4 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-neutral-200 transition-colors">
+                          Add URL
+                       </button>
+                    </div>
+
+                    {formData.images.length === 0 ? (
+                       <div className="w-full border-2 border-dashed border-brand-border rounded-xl p-8 text-center bg-brand-bg/50">
+                          <Upload size={24} className="mx-auto text-brand-secondary/50 mb-2" />
+                          <p className="text-sm font-semibold text-brand-secondary">No images added</p>
+                          <p className="text-[10px] mt-1 text-brand-secondary/70">Paste a URL above to add imagery to this product.</p>
+                       </div>
+                    ) : (
+                       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                          {formData.images.map((img, i) => (
+                             <div key={i} className="aspect-square relative rounded-xl border border-brand-border overflow-hidden group bg-brand-bg">
+                                <img src={img} alt={`Product ${i+1}`} className="w-full h-full object-cover" />
+                                <button type="button" onClick={() => handleRemoveImage(i)} className="absolute top-2 right-2 bg-white/90 text-red-600 p-1.5 rounded-md shadow-sm opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50">
+                                   <X size={14} />
+                                </button>
+                             </div>
+                          ))}
+                       </div>
+                    )}
+                  </div>
+              </div>
+           </div>
+         )}
+      </div>
+    </div>
+  );
+}

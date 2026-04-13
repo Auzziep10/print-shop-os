@@ -6,6 +6,7 @@ import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Text, Environment, DragControls } from '@react-three/drei';
 import { db } from '../../lib/firebase';
 import { collection, query, onSnapshot, setDoc, deleteDoc, doc, writeBatch } from 'firebase/firestore';
+import { ProductsTab } from './ProductsTab';
 
 const PayloadMesh = ({ pallet, isThisPalletActive }: any) => {
     if (pallet.type === 'Pallet') {
@@ -609,6 +610,12 @@ export function Inventory() {
              >
                 <Settings size={16} /> Admin Builder
              </button>
+             <button 
+               onClick={() => setActiveTab('Products')}
+               className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'Products' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}
+             >
+                <Boxes size={16} /> Products
+             </button>
            </div>
         </div>
       </div>
@@ -961,6 +968,12 @@ export function Inventory() {
                     ))}
                  </div>
               </div>
+           </div>
+        )}
+        
+        {activeTab === 'Products' && (
+           <div className="w-full h-full pb-8">
+              <ProductsTab />
            </div>
         )}
       </div>
