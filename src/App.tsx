@@ -25,6 +25,7 @@ import { PrintItemLabels } from './pages/Print/PrintItemLabels';
 import { Production } from './pages/Production/Production';
 import { Inventory } from './pages/Inventory/Inventory';
 import { Signatures } from './pages/Signatures/Signatures';
+import { MobileUpload } from './pages/MobileUpload/MobileUpload';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, userData, loading } = useAuth();
@@ -54,6 +55,9 @@ function App() {
         
         {/* Temp Seed Route */}
         <Route path="/seed" element={<SeedData />} />
+
+        {/* Mobile App Sync */}
+        <Route path="/mobile-upload/:sessionId" element={<MobileUpload />} />
 
         {/* Public Packing Slip Views */}
         <Route path="/order-summary/:orderId" element={<OrderSummaryView />} />

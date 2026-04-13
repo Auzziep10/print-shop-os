@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { db, storage } from '../../lib/firebase';
 import { collection, query, onSnapshot, setDoc, doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { Search, Plus, Image as ImageIcon, ChevronLeft, Trash2, Save, X, Upload } from 'lucide-react';
+import { Search, Plus, Image as ImageIcon, ChevronLeft, Trash2, Save, X, Upload, QrCode, Loader2 } from 'lucide-react';
 import { tokens } from '../../lib/tokens';
 
 const SIZES = ['XXS', 'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL', 'OSFA'];
@@ -12,6 +12,7 @@ export function ProductsTab() {
   const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [qrSessionId, setQrSessionId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Form State for editing / creating
@@ -34,6 +35,26 @@ export function ProductsTab() {
     });
     return () => unsubscribe();
   }, []);
+
+  // Listen for mobile generic uploads via QR code
+  useEffect(() => {
+    if (!qrSessionId) return;
+    
+    const unsubscribe = onSnapshot(doc(db, 'mobile_uploads', qrSessionId), async (docSnap) => {
+       if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (data.status === 'completed' && data.url) {
+             setFormData(prev => ({ ...prev, images: [...prev.images, data.url] }));
+             try {
+                await deleteDoc(docSnap.ref);
+             } catch(e) {}
+             setQrSessionId(null);
+          }
+       }
+    });
+
+    return () => unsubscribe();
+  }, [qrSessionId]);
 
   const handleCreateNew = () => {
     setFormData({ title: '', description: '', sku: '', colors: '', sizeSpread: {}, images: [] });
@@ -313,11 +334,21 @@ export function ProductsTab() {
                           Add URL
                        </button>
                        <span className="text-brand-secondary text-[10px] font-bold px-2 uppercase tracking-widest">or</span>
-                       <label className={`bg-brand-primary text-white px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-widest cursor-pointer hover:bg-black transition-colors shadow-sm flex items-center gap-2 ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                          <Upload size={14} />
-                          {isUploading ? 'Uploading...' : 'Upload Image'}
-                          <input type="file" accept="image/*" className="hidden" onChange={handleFileUpload} disabled={isUploading} />
-                       </label>
+                       <div className="flex gap-2">
+                         <label className={`bg-brand-primary text-white px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-widest cursor-pointer hover:bg-black transition-colors shadow-sm flex items-center gap-2 ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                            <Upload size={14} />
+                            {isUploading ? 'Uploading...' : 'My Device'}
+                            <input type="file" accept="image/*" className="hidden" onChange={handleFileUpload} disabled={isUploading} />
+                         </label>
+                         
+                         <button 
+                           type="button" 
+                           onClick={() => setQrSessionId(`scan_${Date.now()}`)}
+                           className="bg-black text-white px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-neutral-800 transition-colors shadow-sm flex items-center gap-2"
+                         >
+                            <QrCode size={14} /> Scan
+                         </button>
+                       </div>
                     </div>
 
                     {formData.images.length === 0 ? (
@@ -343,6 +374,43 @@ export function ProductsTab() {
            </div>
          )}
       </div>
+
+      {/* QR Code Upload Modal */}
+      {qrSessionId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in zoom-in-95 fill-mode-forwards duration-200">
+           <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-8 text-center relative border border-brand-border">
+              <button 
+                onClick={() => setQrSessionId(null)} 
+                className="absolute top-4 right-4 p-2 text-brand-secondary hover:text-black hover:bg-neutral-100 rounded-full transition-colors"
+                title="Cancel"
+              >
+                 <X size={20} />
+              </button>
+              
+              <div className="w-16 h-16 bg-neutral-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                 <QrCode size={28} className="text-brand-primary" />
+              </div>
+              
+              <h2 className="font-serif text-3xl font-bold tracking-tight text-brand-primary mb-3">Scan to Sync</h2>
+              <p className="text-xs text-brand-secondary mb-8 leading-relaxed px-4">
+                 Point your phone's camera at this code. Any photo you take will magically appear here instantly.
+              </p>
+              
+              <div className="bg-white p-4 rounded-xl shadow-inner border border-brand-border inline-block mb-8 object-cover">
+                 <img 
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(`${window.location.protocol}//${window.location.host}/mobile-upload/${qrSessionId}`)}`} 
+                    alt="Scan to upload via phone"
+                    className="w-48 h-48 opacity-90 mix-blend-multiply rounded-md"
+                 />
+              </div>
+              
+              <div className="flex items-center justify-center gap-3 text-[10px] font-bold uppercase tracking-widest text-brand-primary animate-pulse py-2 bg-neutral-50 rounded-lg">
+                <Loader2 size={14} className="animate-spin" /> Waiting for device...
+              </div>
+           </div>
+        </div>
+      )}
+
     </div>
   );
 }
