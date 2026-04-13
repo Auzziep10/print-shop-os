@@ -544,26 +544,28 @@ export function Inventory() {
   };
 
   return (
-    <div className={tokens.layout.container + " h-[100dvh] flex flex-col pt-8"}>
-      <div className={tokens.layout.pageHeader + " shrink-0"}>
-        <div className="flex justify-between items-start w-full mb-6">
-           <div>
-             <h1 className={tokens.typography.h1}>{mainTab === 'Warehouse' ? 'Warehouse Inventory' : 'Product Catalog'}</h1>
-             <p className={tokens.typography.bodyMuted + " mt-2 max-w-lg"}>
-               {mainTab === 'Warehouse' ? 'Explore the 3D Digital Twin floor map to instantly locate pallets, or print QR thermal load labels.' : 'Manage all available products, SKU details, sizing arrays, and master templates.'}
-             </p>
-           </div>
+    <div className={`${tokens.layout.container} h-[100dvh] flex flex-col ${mainTab === 'Products' ? 'pt-4 md:pt-6' : 'pt-8'}`}>
+      <div className={`${tokens.layout.pageHeader} shrink-0`}>
+        <div className={`flex w-full ${mainTab === 'Warehouse' ? 'justify-between items-start mb-6' : 'justify-end mb-3'}`}>
+           {mainTab === 'Warehouse' && (
+             <div>
+               <h1 className={tokens.typography.h1}>Warehouse Inventory</h1>
+               <p className={tokens.typography.bodyMuted + " mt-2 max-w-lg"}>
+                 Explore the 3D Digital Twin floor map to instantly locate pallets, or print QR thermal load labels.
+               </p>
+             </div>
+           )}
            
-           <div className="flex bg-brand-bg p-1.5 rounded-xl border border-brand-border shrink-0 shadow-sm">
+           <div className={`flex bg-brand-bg p-1 rounded-xl border border-brand-border shrink-0 shadow-sm ${mainTab === 'Products' ? 'w-full max-w-sm' : ''}`}>
              <button 
                 onClick={() => setMainTab('Warehouse')}
-                className={`px-5 py-2.5 rounded-lg font-bold text-xs uppercase tracking-widest transition-all ${mainTab === 'Warehouse' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}
+                className={`flex-1 px-4 py-2 rounded-lg font-bold text-[10px] uppercase tracking-widest transition-all ${mainTab === 'Warehouse' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}
              >
                 Warehouse View
              </button>
              <button 
                 onClick={() => setMainTab('Products')}
-                className={`px-5 py-2.5 rounded-lg font-bold text-xs uppercase tracking-widest transition-all ${mainTab === 'Products' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}
+                className={`flex-1 px-4 py-2 rounded-lg font-bold text-[10px] uppercase tracking-widest transition-all ${mainTab === 'Products' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}
              >
                 Product View
              </button>
