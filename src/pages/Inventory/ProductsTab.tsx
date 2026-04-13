@@ -11,6 +11,7 @@ export function ProductsTab() {
   const [products, setProducts] = useState<any[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [qrSessionId, setQrSessionId] = useState<string | null>(null);
   const [expandedImage, setExpandedImage] = useState<string | null>(null);
@@ -61,6 +62,7 @@ export function ProductsTab() {
     setFormData({ title: '', description: '', sku: '', colors: '', sizeSpread: {}, images: [] });
     setImageUrlInput('');
     setIsCreating(true);
+    setIsEditing(true);
     setSelectedProduct(null);
   };
 
@@ -82,6 +84,7 @@ export function ProductsTab() {
     });
     setImageUrlInput('');
     setIsCreating(false);
+    setIsEditing(false);
   };
 
   const handleSave = async () => {
@@ -99,20 +102,22 @@ export function ProductsTab() {
     };
 
     try {
-      if (isCreating) {
-        const newId = `prod_${Date.now()}`;
-        await setDoc(doc(db, 'products', newId), {
-          ...payload,
-          createdAt: new Date().toISOString()
-        });
-        setIsCreating(false);
-      } else if (selectedProduct) {
-        await updateDoc(doc(db, 'products', selectedProduct.id), {
-          ...payload,
-          updatedAt: new Date().toISOString()
-        });
+      if (selectedProduct && !isCreating) {
+        await updateDoc(doc(db, 'products', selectedProduct.id), payload);
+      } else {
+        await setDoc(doc(db, 'products', `PROD_${Date.now()}`), payload);
       }
-      alert('Saved successfully!');
+      alert('Saved successfully');
+      
+      // Keep selection but exit editing mode
+      if (selectedProduct && !isCreating) {
+          setIsEditing(false);
+          // Wait for backend to send snapshot updates
+      } else {
+          setIsCreating(false);
+          setIsEditing(false);
+          setFormData({ title: '', description: '', sku: '', colors: '', sizeSpread: {}, images: [] });
+      }
     } catch (err) {
       console.error(err);
       alert('Failed to save product.');
@@ -258,15 +263,27 @@ export function ProductsTab() {
                       {!isCreating && <p className="text-[10px] uppercase font-bold text-brand-secondary mt-1 tracking-widest">ID: {selectedProduct.id}</p>}
                     </div>
                  </div>
-                 <div className="flex gap-2">
-                    {!isCreating && (
-                      <button onClick={() => handleDelete(selectedProduct.id)} className="p-2.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
+                  <div className="flex gap-2">
+                    {!isCreating && !isEditing && (
+                      <button onClick={() => setIsEditing(true)} className="bg-neutral-100 text-brand-primary px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-neutral-200 transition-colors shadow-sm">
+                        Edit
+                      </button>
+                    )}
+                    {isEditing && !isCreating && (
+                      <button onClick={() => handleSelectProduct(selectedProduct)} className="text-brand-secondary px-3 py-2 text-xs font-bold uppercase tracking-widest hover:text-black transition-colors">
+                        Cancel
+                      </button>
+                    )}
+                    {!isCreating && isEditing && (
+                      <button onClick={() => handleDelete(selectedProduct.id)} className="p-2.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors ml-2" title="Delete">
                         <Trash2 size={16} />
                       </button>
                     )}
-                    <button onClick={handleSave} className="bg-brand-primary text-white px-4 py-2.5 rounded-lg flex items-center gap-2 text-xs font-bold uppercase tracking-widest shadow-sm hover:scale-[1.02] transition-transform">
-                      <Save size={14} /> Save
-                    </button>
+                    {isEditing && (
+                      <button onClick={handleSave} className="bg-brand-primary text-white px-4 py-2.5 rounded-lg flex items-center gap-2 text-xs font-bold uppercase tracking-widest shadow-sm hover:scale-[1.02] transition-transform">
+                        <Save size={14} /> Save
+                      </button>
+                    )}
                  </div>
               </div>
 
@@ -275,17 +292,17 @@ export function ProductsTab() {
                   <div className="grid grid-cols-2 gap-6">
                      <div className="col-span-2">
                         <label className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1 block">Product Title</label>
-                        <input type="text" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} placeholder="e.g. Premium Heavyweight Hoodie" className="w-full bg-brand-bg border border-brand-border rounded-lg px-4 py-3 text-sm font-semibold focus:outline-brand-primary" />
+                        <input disabled={!isEditing} type="text" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} placeholder="e.g. Premium Heavyweight Hoodie" className="w-full bg-brand-bg border border-brand-border rounded-lg px-4 py-3 text-sm font-semibold focus:outline-brand-primary disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-neutral-50" />
                      </div>
                      
                      <div className="col-span-2 md:col-span-1">
                         <label className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1 block">SKU (Optional)</label>
-                        <input type="text" value={formData.sku} onChange={e => setFormData({...formData, sku: e.target.value})} placeholder="e.g. WH-1002" className="w-full bg-brand-bg border border-brand-border rounded-lg px-4 py-3 text-sm font-semibold focus:outline-brand-primary" />
+                        <input disabled={!isEditing} type="text" value={formData.sku} onChange={e => setFormData({...formData, sku: e.target.value})} placeholder="e.g. WH-1002" className="w-full bg-brand-bg border border-brand-border rounded-lg px-4 py-3 text-sm font-semibold focus:outline-brand-primary disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-neutral-50" />
                      </div>
                      
                      <div className="col-span-2 md:col-span-1">
                         <label className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1 block">Colors (Comma separated)</label>
-                        <input type="text" value={formData.colors} onChange={e => setFormData({...formData, colors: e.target.value})} placeholder="e.g. Black, White, Heather Grey" className="w-full bg-brand-bg border border-brand-border rounded-lg px-4 py-3 text-sm font-semibold focus:outline-brand-primary" />
+                        <input disabled={!isEditing} type="text" value={formData.colors} onChange={e => setFormData({...formData, colors: e.target.value})} placeholder="e.g. Black, White, Heather Grey" className="w-full bg-brand-bg border border-brand-border rounded-lg px-4 py-3 text-sm font-semibold focus:outline-brand-primary disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-neutral-50" />
                      </div>
                      
                      <div className="col-span-2 mt-4 mb-2">
@@ -303,6 +320,7 @@ export function ProductsTab() {
                                     type="number" 
                                     min="0"
                                     placeholder="-"
+                                    disabled={!isEditing}
                                     value={formData.sizeSpread[size] || ''}
                                     onChange={e => {
                                         const val = parseInt(e.target.value);
@@ -314,7 +332,7 @@ export function ProductsTab() {
                                             }
                                         }));
                                     }}
-                                    className="w-full bg-brand-bg border border-brand-border rounded-lg text-center py-2 text-sm font-semibold focus:outline-brand-primary transition-colors focus:bg-white"
+                                    className="w-full bg-brand-bg border border-brand-border rounded-lg text-center py-2 text-sm font-semibold focus:outline-brand-primary transition-colors focus:bg-white disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-neutral-50"
                                  />
                               </div>
                            ))}
@@ -323,7 +341,7 @@ export function ProductsTab() {
 
                      <div className="col-span-2">
                         <label className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1 block">Description</label>
-                        <textarea rows={4} value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} placeholder="Describe the product details, materials, and fit..." className="w-full bg-brand-bg border border-brand-border rounded-lg px-4 py-3 text-sm font-medium focus:outline-brand-primary resize-y"></textarea>
+                        <textarea disabled={!isEditing} rows={4} value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} placeholder="Describe the product details, materials, and fit..." className="w-full bg-brand-bg border border-brand-border rounded-lg px-4 py-3 text-sm font-medium focus:outline-brand-primary resize-y disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-neutral-50"></textarea>
                      </div>
                   </div>
 
@@ -331,35 +349,45 @@ export function ProductsTab() {
 
                   {/* Images Section */}
                   <div>
-                    <h3 className="font-serif text-lg font-bold text-brand-primary mb-4">Images</h3>
-                    <div className="flex gap-2 mb-4 items-center">
-                       <input 
-                         type="url" 
-                         value={imageUrlInput} 
-                         onChange={e => setImageUrlInput(e.target.value)} 
-                         placeholder="Paste image URL here..." 
-                         className="flex-1 bg-brand-bg border border-brand-border rounded-lg px-3 py-2.5 text-sm font-medium focus:outline-brand-primary"
-                       />
-                       <button type="button" onClick={handleAddImage} className="bg-neutral-100 text-brand-primary border border-brand-border px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-neutral-200 transition-colors">
-                          Add URL
-                       </button>
-                       <span className="text-brand-secondary text-[10px] font-bold px-2 uppercase tracking-widest">or</span>
-                       <div className="flex gap-2">
-                         <label className={`bg-brand-primary text-white px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-widest cursor-pointer hover:bg-black transition-colors shadow-sm flex items-center gap-2 ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                            <Upload size={14} />
-                            {isUploading ? 'Uploading...' : 'My Device'}
-                            <input type="file" accept="image/*" className="hidden" onChange={handleFileUpload} disabled={isUploading} />
-                         </label>
-                         
-                         <button 
-                           type="button" 
-                           onClick={() => setQrSessionId(`scan_${Date.now()}`)}
-                           className="bg-black text-white px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-neutral-800 transition-colors shadow-sm flex items-center gap-2"
-                         >
-                            <QrCode size={14} /> Scan
+                    <h3 className="font-serif text-lg font-bold text-brand-primary mb-4 flex justify-between items-center">
+                       Images
+                       {!isEditing && formData.images.length > 0 && (
+                          <span className="text-[10px] bg-neutral-100 text-brand-secondary px-2 py-1 rounded-md tracking-widest uppercase">
+                             {formData.images.length} added
+                          </span>
+                       )}
+                    </h3>
+                    
+                    {isEditing && (
+                      <div className="flex gap-2 mb-4 items-center">
+                         <input 
+                           type="url" 
+                           value={imageUrlInput} 
+                           onChange={e => setImageUrlInput(e.target.value)} 
+                           placeholder="Paste image URL here..." 
+                           className="flex-1 bg-brand-bg border border-brand-border rounded-lg px-3 py-2.5 text-sm font-medium focus:outline-brand-primary"
+                         />
+                         <button type="button" onClick={handleAddImage} className="bg-neutral-100 text-brand-primary border border-brand-border px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-neutral-200 transition-colors">
+                            Add URL
                          </button>
-                       </div>
-                    </div>
+                         <span className="text-brand-secondary text-[10px] font-bold px-2 uppercase tracking-widest">or</span>
+                         <div className="flex gap-2">
+                           <label className={`bg-brand-primary text-white px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-widest cursor-pointer hover:bg-black transition-colors shadow-sm flex items-center gap-2 ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                              <Upload size={14} />
+                              {isUploading ? 'Uploading...' : 'My Device'}
+                              <input type="file" accept="image/*" className="hidden" onChange={handleFileUpload} disabled={isUploading} />
+                           </label>
+                           
+                           <button 
+                             type="button" 
+                             onClick={() => setQrSessionId(`scan_${Date.now()}`)}
+                             className="bg-black text-white px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-neutral-800 transition-colors shadow-sm flex items-center gap-2"
+                           >
+                              <QrCode size={14} /> Scan
+                           </button>
+                         </div>
+                      </div>
+                    )}
 
                     {formData.images.length === 0 ? (
                        <div className="w-full border-2 border-dashed border-brand-border rounded-xl p-8 text-center bg-brand-bg/50">
@@ -372,9 +400,11 @@ export function ProductsTab() {
                           {formData.images.map((img, i) => (
                              <div key={i} className="aspect-square relative rounded-xl border border-brand-border overflow-hidden group bg-brand-bg cursor-pointer" onClick={() => setExpandedImage(img)}>
                                 <img src={img} alt={`Product ${i+1}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                                <button type="button" onClick={(e) => { e.stopPropagation(); handleRemoveImage(i); }} className="absolute top-2 right-2 bg-white/90 text-red-600 p-1.5 rounded-md shadow-sm opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50">
-                                   <X size={14} />
-                                </button>
+                                {isEditing && (
+                                   <button type="button" onClick={(e) => { e.stopPropagation(); handleRemoveImage(i); }} className="absolute top-2 right-2 bg-white/90 text-red-600 p-1.5 rounded-md shadow-sm opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50">
+                                      <X size={14} />
+                                   </button>
+                                )}
                              </div>
                           ))}
                        </div>
