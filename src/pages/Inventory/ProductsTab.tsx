@@ -454,21 +454,32 @@ export function ProductsTab() {
       {/* Expanded Image Lightbox Modal */}
       {expandedImage && (
         <div 
-          className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in zoom-in-95 fill-mode-forwards duration-200"
+          className="fixed inset-0 z-[60] flex items-center justify-center p-4 md:p-6 bg-black/30 backdrop-blur-md animate-in fade-in duration-200"
           onClick={() => setExpandedImage(null)}
         >
            <button 
              onClick={() => setExpandedImage(null)} 
-             className="absolute top-6 right-6 p-3 text-white/70 hover:text-white bg-black/50 hover:bg-black/80 rounded-full transition-colors z-10"
+             className="absolute top-6 right-6 p-2 text-white/70 hover:text-white bg-black/20 hover:bg-black/40 rounded-full transition-colors z-10"
              title="Close"
            >
               <X size={24} />
            </button>
-           <div className="relative max-w-5xl w-full h-full max-h-[90vh] flex items-center justify-center p-4" onClick={(e) => e.stopPropagation()}>
+           <div 
+             className="relative w-full max-w-3xl aspect-[4/3] max-h-[85vh] rounded-[2rem] overflow-hidden cursor-crosshair bg-white shadow-[0_30px_100px_-20px_rgba(0,0,0,0.6)] animate-in zoom-in-95 duration-200 flex items-center justify-center border border-white/20"
+             onClick={(e) => e.stopPropagation()}
+             onMouseMove={(e) => {
+               const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
+               const x = (e.clientX - left) / width;
+               const y = (e.clientY - top) / height;
+               const img = e.currentTarget.querySelector('img');
+               if (img) img.style.transformOrigin = `${x * 100}% ${y * 100}%`;
+             }}
+             title="Hover to zoom"
+           >
               <img 
                  src={expandedImage} 
                  alt="Expanded view"
-                 className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+                 className="w-full h-full object-contain md:object-cover scale-100 hover:scale-[1.8] transition-transform duration-300 ease-out"
               />
            </div>
         </div>
