@@ -215,9 +215,23 @@ export function ProductsTab() {
                     onClick={() => handleSelectProduct(p)}
                     className={`p-4 cursor-pointer hover:bg-neutral-50 transition-colors flex gap-4 items-center ${selectedProduct?.id === p.id ? 'bg-neutral-50 border-l-2 border-brand-primary' : 'border-l-2 border-transparent'}`}
                   >
-                     <div className="w-12 h-12 rounded-lg bg-neutral-100 border border-brand-border shrink-0 overflow-hidden flex items-center justify-center">
+                     <div 
+                        className={`w-12 h-12 rounded-lg bg-neutral-100 border border-brand-border shrink-0 overflow-hidden flex items-center justify-center relative ${p.images && p.images.length > 0 ? 'cursor-pointer group' : ''}`}
+                        onClick={(e) => {
+                           if (p.images && p.images.length > 0) {
+                              e.stopPropagation();
+                              handleSelectProduct(p);
+                              setExpandedImage(p.images[0]);
+                           }
+                        }}
+                     >
                         {p.images && p.images.length > 0 ? (
-                           <img src={p.images[0]} alt={p.title} className="w-full h-full object-cover" />
+                           <>
+                              <img src={p.images[0]} alt={p.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" />
+                              <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                 <ImageIcon size={12} className="text-white fill-white/20" />
+                              </div>
+                           </>
                         ) : (
                            <ImageIcon className="text-brand-secondary opacity-50" size={16} />
                         )}
