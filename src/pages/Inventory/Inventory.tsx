@@ -545,97 +545,91 @@ export function Inventory() {
 
   return (
     <div className={tokens.layout.container + " h-[100dvh] flex flex-col pt-8"}>
-      <div className={tokens.layout.pageHeader + " border-b border-brand-border pb-6 shrink-0"}>
-        <div className="flex bg-brand-bg p-1.5 rounded-xl border border-brand-border w-max mb-6">
-           <button 
-              onClick={() => setMainTab('Warehouse')}
-              className={`px-6 py-2 rounded-lg font-bold text-sm transition-all ${mainTab === 'Warehouse' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}
-           >
-              Warehouse Inventory
-           </button>
-           <button 
-              onClick={() => setMainTab('Products')}
-              className={`px-6 py-2 rounded-lg font-bold text-sm transition-all ${mainTab === 'Products' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}
-           >
-              Product Catalog
-           </button>
-        </div>
-
-        {mainTab === 'Warehouse' ? (
-           <div className="flex justify-between items-end w-full animate-in fade-in">
-              <div>
-                <div className="flex items-center gap-4">
-                  <h1 className={tokens.typography.h1}>Warehouse Map</h1>
-               <div className="flex items-center bg-brand-bg border border-brand-border rounded-lg overflow-hidden h-10 mt-1 shadow-sm">
-                 <select 
-                   value={currentWarehouse?.id || ''} 
-                   onChange={(e) => {
-                       const wh = allWarehouses.find(w => w.id === e.target.value);
-                       if (wh) {
-                           setCurrentWarehouse(wh);
-                           setActiveRack(null);
-                           setActivePallet(null);
-                           // Reset the add form target rack to match new location
-                           setAddForm(prev => ({ ...prev, rackLabel: wh.racks?.[0]?.label || '' }));
-                       }
-                   }}
-                   className="bg-transparent border-none px-4 py-2 text-sm font-bold text-brand-primary outline-none cursor-pointer pr-8"
-                 >
-                   {allWarehouses.map(w => (
-                      <option key={w.id} value={w.id}>{w.name}</option>
-                   ))}
-                 </select>
-               </div>
-               <button 
-                 onClick={() => {
-                     const newWh = {
-                         id: `wh_${Math.floor(Math.random() * 100000)}`,
-                         name: "New Room",
-                         dimensions: { width: 20, depth: 20 },
-                         doors: [],
-                         racks: []
-                     };
-                     setDoc(doc(db, 'warehouses', newWh.id), newWh);
-                     setCurrentWarehouse(newWh);
-                 }}
-                 className="mt-1 bg-white text-brand-primary border border-brand-border px-3 h-10 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-black hover:text-white transition-colors shadow-sm"
-               >
-                 + Add Room
-               </button>
-             </div>
+      <div className={tokens.layout.pageHeader + " shrink-0"}>
+        <div className="flex justify-between items-start w-full mb-6">
+           <div>
+             <h1 className={tokens.typography.h1}>{mainTab === 'Warehouse' ? 'Warehouse Inventory' : 'Product Catalog'}</h1>
              <p className={tokens.typography.bodyMuted + " mt-2 max-w-lg"}>
-               Explore the 3D Digital Twin floor map to instantly locate pallets, or print QR thermal load labels.
+               {mainTab === 'Warehouse' ? 'Explore the 3D Digital Twin floor map to instantly locate pallets, or print QR thermal load labels.' : 'Manage all available products, SKU details, sizing arrays, and master templates.'}
              </p>
            </div>
            
-           <div className="flex bg-brand-bg p-1.5 rounded-xl border border-brand-border shrink-0">
+           <div className="flex bg-brand-bg p-1.5 rounded-xl border border-brand-border shrink-0 shadow-sm">
              <button 
-               onClick={() => setActiveTab('Map')}
-               className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'Map' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}
+                onClick={() => setMainTab('Warehouse')}
+                className={`px-5 py-2.5 rounded-lg font-bold text-xs uppercase tracking-widest transition-all ${mainTab === 'Warehouse' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}
              >
-                <Map size={16} /> 3D Map
+                Warehouse View
              </button>
              <button 
-               onClick={() => setActiveTab('Labels')}
-               className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'Labels' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}
+                onClick={() => setMainTab('Products')}
+                className={`px-5 py-2.5 rounded-lg font-bold text-xs uppercase tracking-widest transition-all ${mainTab === 'Products' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}
              >
-                <QrCode size={16} /> Print Labels
-             </button>
-             <button 
-               onClick={() => setActiveTab('Builder')}
-               className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'Builder' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}
-             >
-                <Settings size={16} /> Admin Builder
+                Product View
              </button>
            </div>
-         </div>
-        ) : (
-           <div className="flex justify-between items-end w-full animate-in fade-in">
-              <div>
-                <h1 className={tokens.typography.h1}>Product Catalog</h1>
-                <p className={tokens.typography.bodyMuted + " mt-2 max-w-lg"}>
-                  Manage all available products, SKU details, sizing arrays, and master templates.
-                </p>
+        </div>
+
+        {mainTab === 'Warehouse' && (
+           <div className="flex justify-between items-center w-full py-4 border-y border-brand-border/50 bg-brand-bg/30 animate-in fade-in mb-2">
+              <div className="flex items-center gap-3">
+                 <span className="text-[10px] uppercase tracking-widest font-bold text-brand-secondary pl-2">Current Room:</span>
+                 <div className="flex items-center bg-white border border-brand-border rounded-lg overflow-hidden h-9 shadow-sm">
+                   <select 
+                     value={currentWarehouse?.id || ''} 
+                     onChange={(e) => {
+                         const wh = allWarehouses.find(w => w.id === e.target.value);
+                         if (wh) {
+                             setCurrentWarehouse(wh);
+                             setActiveRack(null);
+                             setActivePallet(null);
+                             setAddForm(prev => ({ ...prev, rackLabel: wh.racks?.[0]?.label || '' }));
+                         }
+                     }}
+                     className="bg-transparent border-none px-3 py-1 text-sm font-bold text-brand-primary outline-none cursor-pointer pr-8"
+                   >
+                     {allWarehouses.map(w => (
+                        <option key={w.id} value={w.id}>{w.name}</option>
+                     ))}
+                   </select>
+                 </div>
+                 <button 
+                   onClick={() => {
+                       const newWh = {
+                           id: `wh_${Math.floor(Math.random() * 100000)}`,
+                           name: "New Room",
+                           dimensions: { width: 20, depth: 20 },
+                           doors: [],
+                           racks: []
+                       };
+                       setDoc(doc(db, 'warehouses', newWh.id), newWh);
+                       setCurrentWarehouse(newWh);
+                   }}
+                   className="bg-white text-brand-primary border border-brand-border px-3 h-9 rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-black hover:text-white transition-colors shadow-sm"
+                 >
+                   + Add Room
+                 </button>
+              </div>
+
+              <div className="flex bg-white p-1 rounded-xl border border-brand-border shrink-0 shadow-sm mr-2">
+                 <button 
+                   onClick={() => setActiveTab('Map')}
+                   className={`flex items-center gap-2 px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all ${activeTab === 'Map' ? 'bg-brand-bg text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}
+                 >
+                    <Map size={14} /> 3D Map
+                 </button>
+                 <button 
+                   onClick={() => setActiveTab('Labels')}
+                   className={`flex items-center gap-2 px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all ${activeTab === 'Labels' ? 'bg-brand-bg text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}
+                 >
+                    <QrCode size={14} /> Print Labels
+                 </button>
+                 <button 
+                   onClick={() => setActiveTab('Builder')}
+                   className={`flex items-center gap-2 px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all ${activeTab === 'Builder' ? 'bg-brand-bg text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}
+                 >
+                    <Settings size={14} /> Admin Builder
+                 </button>
               </div>
            </div>
         )}
