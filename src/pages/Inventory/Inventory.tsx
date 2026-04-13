@@ -385,7 +385,7 @@ const generateInitialInventory = () => {
 }
 
 export function Inventory() {
-  const [mainTab, setMainTab] = useState<'Warehouse' | 'Products'>('Warehouse');
+  const [mainTab, setMainTab] = useState<'Warehouse' | 'Products'>('Products');
   const [activeTab, setActiveTab] = useState('Map');
   const [activeRack, setActiveRack] = useState<string | null>(null);
   const [activePallet, setActivePallet] = useState<any>(null);
