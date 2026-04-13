@@ -5,6 +5,8 @@ import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { Search, Plus, Image as ImageIcon, ChevronLeft, Trash2, Save, X, Upload } from 'lucide-react';
 import { tokens } from '../../lib/tokens';
 
+const SIZES = ['XXS', 'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL', 'OSFA'];
+
 export function ProductsTab() {
   const [products, setProducts] = useState<any[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
@@ -18,7 +20,7 @@ export function ProductsTab() {
     description: '',
     sku: '',
     colors: '',
-    sizeSpread: '',
+    sizeSpread: {} as Record<string, number>,
     images: [] as string[]
   });
   
@@ -34,7 +36,7 @@ export function ProductsTab() {
   }, []);
 
   const handleCreateNew = () => {
-    setFormData({ title: '', description: '', sku: '', colors: '', sizeSpread: '', images: [] });
+    setFormData({ title: '', description: '', sku: '', colors: '', sizeSpread: {}, images: [] });
     setImageUrlInput('');
     setIsCreating(true);
     setSelectedProduct(null);
@@ -42,12 +44,18 @@ export function ProductsTab() {
 
   const handleSelectProduct = (product: any) => {
     setSelectedProduct(product);
+    
+    let parsedSizeSpread = {};
+    if (product.sizeSpread && typeof product.sizeSpread === 'object' && !Array.isArray(product.sizeSpread)) {
+        parsedSizeSpread = product.sizeSpread;
+    }
+
     setFormData({
       title: product.title || '',
       description: product.description || '',
       sku: product.sku || '',
       colors: Array.isArray(product.colors) ? product.colors.join(', ') : (product.colors || ''),
-      sizeSpread: Array.isArray(product.sizeSpread) ? product.sizeSpread.join(', ') : (product.sizeSpread || ''),
+      sizeSpread: parsedSizeSpread,
       images: product.images || []
     });
     setImageUrlInput('');
@@ -57,10 +65,15 @@ export function ProductsTab() {
   const handleSave = async () => {
     if (!formData.title) return alert("Title is required");
 
+    // Clean size spread to only include numbers > 0
+    const cleanSizeSpread = Object.fromEntries(
+       Object.entries(formData.sizeSpread).filter(([_, v]) => typeof v === 'number' && v > 0)
+    );
+
     const payload = {
       ...formData,
       colors: formData.colors.split(',').map(s => s.trim()).filter(Boolean),
-      sizeSpread: formData.sizeSpread.split(',').map(s => s.trim()).filter(Boolean),
+      sizeSpread: cleanSizeSpread,
     };
 
     try {
@@ -244,9 +257,37 @@ export function ProductsTab() {
                         <input type="text" value={formData.colors} onChange={e => setFormData({...formData, colors: e.target.value})} placeholder="e.g. Black, White, Heather Grey" className="w-full bg-brand-bg border border-brand-border rounded-lg px-4 py-3 text-sm font-semibold focus:outline-brand-primary" />
                      </div>
                      
-                     <div className="col-span-2">
-                        <label className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1 block">Size Spread (Comma separated)</label>
-                        <input type="text" value={formData.sizeSpread} onChange={e => setFormData({...formData, sizeSpread: e.target.value})} placeholder="e.g. XS, S, M, L, XL, XXL" className="w-full bg-brand-bg border border-brand-border rounded-lg px-4 py-3 text-sm font-semibold focus:outline-brand-primary" />
+                     <div className="col-span-2 mt-4 mb-2">
+                        <div className="flex justify-between items-center mb-3">
+                           <label className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary block">Size Spread Matrix</label>
+                           <span className="text-[10px] bg-neutral-200 text-brand-primary px-2.5 py-1 rounded-full font-bold">
+                              {SIZES.reduce((sum, size) => sum + (formData.sizeSpread[size] || 0), 0)} Total Units
+                           </span>
+                        </div>
+                        <div className="bg-white border border-brand-border rounded-xl p-6 flex flex-wrap gap-4 shadow-sm">
+                           {SIZES.map(size => (
+                              <div key={size} className="flex flex-col gap-2 w-16">
+                                 <span className="text-[10px] font-bold text-center text-brand-secondary">{size}</span>
+                                 <input 
+                                    type="number" 
+                                    min="0"
+                                    placeholder="-"
+                                    value={formData.sizeSpread[size] || ''}
+                                    onChange={e => {
+                                        const val = parseInt(e.target.value);
+                                        setFormData(prev => ({
+                                            ...prev,
+                                            sizeSpread: {
+                                                ...prev.sizeSpread,
+                                                [size]: isNaN(val) ? 0 : val
+                                            }
+                                        }));
+                                    }}
+                                    className="w-full bg-brand-bg border border-brand-border rounded-lg text-center py-2 text-sm font-semibold focus:outline-brand-primary transition-colors focus:bg-white"
+                                 />
+                              </div>
+                           ))}
+                        </div>
                      </div>
 
                      <div className="col-span-2">
