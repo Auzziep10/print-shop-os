@@ -13,6 +13,7 @@ export function ProductsTab() {
   const [isCreating, setIsCreating] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [qrSessionId, setQrSessionId] = useState<string | null>(null);
+  const [expandedImage, setExpandedImage] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Form State for editing / creating
@@ -360,9 +361,9 @@ export function ProductsTab() {
                     ) : (
                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                           {formData.images.map((img, i) => (
-                             <div key={i} className="aspect-square relative rounded-xl border border-brand-border overflow-hidden group bg-brand-bg">
-                                <img src={img} alt={`Product ${i+1}`} className="w-full h-full object-cover" />
-                                <button type="button" onClick={() => handleRemoveImage(i)} className="absolute top-2 right-2 bg-white/90 text-red-600 p-1.5 rounded-md shadow-sm opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50">
+                             <div key={i} className="aspect-square relative rounded-xl border border-brand-border overflow-hidden group bg-brand-bg cursor-pointer" onClick={() => setExpandedImage(img)}>
+                                <img src={img} alt={`Product ${i+1}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                                <button type="button" onClick={(e) => { e.stopPropagation(); handleRemoveImage(i); }} className="absolute top-2 right-2 bg-white/90 text-red-600 p-1.5 rounded-md shadow-sm opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50">
                                    <X size={14} />
                                 </button>
                              </div>
@@ -407,6 +408,29 @@ export function ProductsTab() {
               <div className="flex items-center justify-center gap-3 text-[10px] font-bold uppercase tracking-widest text-brand-primary animate-pulse py-2 bg-neutral-50 rounded-lg">
                 <Loader2 size={14} className="animate-spin" /> Waiting for device...
               </div>
+           </div>
+        </div>
+      )}
+
+      {/* Expanded Image Lightbox Modal */}
+      {expandedImage && (
+        <div 
+          className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in zoom-in-95 fill-mode-forwards duration-200"
+          onClick={() => setExpandedImage(null)}
+        >
+           <button 
+             onClick={() => setExpandedImage(null)} 
+             className="absolute top-6 right-6 p-3 text-white/70 hover:text-white bg-black/50 hover:bg-black/80 rounded-full transition-colors z-10"
+             title="Close"
+           >
+              <X size={24} />
+           </button>
+           <div className="relative max-w-5xl w-full h-full max-h-[90vh] flex items-center justify-center p-4" onClick={(e) => e.stopPropagation()}>
+              <img 
+                 src={expandedImage} 
+                 alt="Expanded view"
+                 className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+              />
            </div>
         </div>
       )}
