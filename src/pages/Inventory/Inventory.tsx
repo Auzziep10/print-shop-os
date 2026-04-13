@@ -385,6 +385,7 @@ const generateInitialInventory = () => {
 }
 
 export function Inventory() {
+  const [mainTab, setMainTab] = useState<'Warehouse' | 'Products'>('Warehouse');
   const [activeTab, setActiveTab] = useState('Map');
   const [activeRack, setActiveRack] = useState<string | null>(null);
   const [activePallet, setActivePallet] = useState<any>(null);
@@ -545,10 +546,26 @@ export function Inventory() {
   return (
     <div className={tokens.layout.container + " h-[100dvh] flex flex-col pt-8"}>
       <div className={tokens.layout.pageHeader + " border-b border-brand-border pb-6 shrink-0"}>
-        <div className="flex justify-between items-end w-full">
-           <div>
-             <div className="flex items-center gap-4">
-               <h1 className={tokens.typography.h1}>Warehouse Inventory</h1>
+        <div className="flex bg-brand-bg p-1.5 rounded-xl border border-brand-border w-max mb-6">
+           <button 
+              onClick={() => setMainTab('Warehouse')}
+              className={`px-6 py-2 rounded-lg font-bold text-sm transition-all ${mainTab === 'Warehouse' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}
+           >
+              Warehouse Inventory
+           </button>
+           <button 
+              onClick={() => setMainTab('Products')}
+              className={`px-6 py-2 rounded-lg font-bold text-sm transition-all ${mainTab === 'Products' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}
+           >
+              Product Catalog
+           </button>
+        </div>
+
+        {mainTab === 'Warehouse' ? (
+           <div className="flex justify-between items-end w-full animate-in fade-in">
+              <div>
+                <div className="flex items-center gap-4">
+                  <h1 className={tokens.typography.h1}>Warehouse Map</h1>
                <div className="flex items-center bg-brand-bg border border-brand-border rounded-lg overflow-hidden h-10 mt-1 shadow-sm">
                  <select 
                    value={currentWarehouse?.id || ''} 
@@ -610,18 +627,22 @@ export function Inventory() {
              >
                 <Settings size={16} /> Admin Builder
              </button>
-             <button 
-               onClick={() => setActiveTab('Products')}
-               className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'Products' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}
-             >
-                <Boxes size={16} /> Products
-             </button>
            </div>
-        </div>
+         </div>
+        ) : (
+           <div className="flex justify-between items-end w-full animate-in fade-in">
+              <div>
+                <h1 className={tokens.typography.h1}>Product Catalog</h1>
+                <p className={tokens.typography.bodyMuted + " mt-2 max-w-lg"}>
+                  Manage all available products, SKU details, sizing arrays, and master templates.
+                </p>
+              </div>
+           </div>
+        )}
       </div>
       
       <div className="mt-8 flex-1 min-h-[600px] relative pb-8">
-        {(activeTab === 'Map' || activeTab === 'Builder') && (
+        {mainTab === 'Warehouse' && (activeTab === 'Map' || activeTab === 'Builder') && (
            <div className="w-full h-full flex gap-6">
               <div className="flex-1 h-full shadow-[0_4px_24px_-8px_rgba(0,0,0,0.1)] rounded-2xl bg-brand-bg relative cursor-move">
                  <Suspense fallback={<div className="absolute inset-0 flex items-center justify-center font-serif text-brand-secondary text-2xl animate-pulse">Initializing WebGL Engine...</div>}>
@@ -935,7 +956,7 @@ export function Inventory() {
            </div>
         )}
         
-        {activeTab === 'Labels' && (
+        {mainTab === 'Warehouse' && activeTab === 'Labels' && (
            <div className="w-full h-full bg-white rounded-card border border-brand-border p-8 shadow-sm overflow-y-auto">
               <div className="max-w-4xl mx-auto">
                  <div className="flex justify-between items-center mb-8">
@@ -971,8 +992,8 @@ export function Inventory() {
            </div>
         )}
         
-        {activeTab === 'Products' && (
-           <div className="w-full h-full pb-8">
+        {mainTab === 'Products' && (
+           <div className="w-full h-full pb-8 animate-in fade-in">
               <ProductsTab />
            </div>
         )}
