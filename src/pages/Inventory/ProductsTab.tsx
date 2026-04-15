@@ -179,6 +179,11 @@ export function ProductsTab() {
     (p.sku || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const totalGarmentsAcrossCatalog = products.reduce((total, p) => {
+    if (!p.sizeSpread) return total;
+    return total + Object.values(p.sizeSpread).reduce((sum: any, val: any) => sum + (typeof val === 'number' ? val : 0), 0);
+  }, 0);
+
   return (
     <div className="w-full h-full bg-white rounded-2xl border border-brand-border shadow-sm flex overflow-hidden">
       
@@ -186,7 +191,10 @@ export function ProductsTab() {
       <div className={`w-full md:w-1/3 flex flex-col border-r border-brand-border bg-brand-bg transition-all ${(selectedProduct || isCreating) ? 'hidden md:flex' : 'flex'}`}>
         <div className="p-4 border-b border-brand-border bg-white flex flex-col gap-3 shrink-0">
            <div className="flex justify-between items-center">
-              <h2 className="font-serif font-bold text-lg text-brand-primary tracking-tight">Product Catalog</h2>
+              <div>
+                <h2 className="font-serif font-bold text-lg text-brand-primary tracking-tight leading-tight">Product Catalog</h2>
+                <p className="text-[10px] font-bold text-brand-secondary mt-0.5 uppercase tracking-widest">{totalGarmentsAcrossCatalog.toLocaleString()} Total Units</p>
+              </div>
               <button 
                 onClick={handleCreateNew}
                 className="bg-brand-primary text-white p-1.5 px-3 rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-brand-primary/90 transition-colors shadow-sm flex items-center gap-1"
