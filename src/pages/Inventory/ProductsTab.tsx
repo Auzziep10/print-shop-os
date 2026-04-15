@@ -497,7 +497,7 @@ export function ProductsTab() {
               <X size={24} />
            </button>
            <div 
-             className="relative w-full max-w-3xl aspect-[4/3] max-h-[85vh] rounded-[2rem] overflow-hidden cursor-crosshair bg-white shadow-[0_30px_100px_-20px_rgba(0,0,0,0.6)] animate-in zoom-in-95 duration-200 flex items-center justify-center border border-white/20"
+             className="relative max-w-[95vw] max-h-[85vh] rounded-[1rem] overflow-hidden cursor-crosshair shadow-[0_30px_100px_-20px_rgba(0,0,0,0.6)] animate-in zoom-in-95 duration-200 flex items-center justify-center bg-black/5"
              onClick={(e) => e.stopPropagation()}
              onMouseMove={(e) => {
                const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
@@ -511,7 +511,7 @@ export function ProductsTab() {
               <img 
                  src={expandedImage} 
                  alt="Expanded view"
-                 className="w-full h-full object-contain md:object-cover scale-100 hover:scale-[1.8] transition-transform duration-300 ease-out"
+                 className="max-w-[95vw] max-h-[85vh] object-contain scale-100 hover:scale-[1.8] transition-transform duration-300 ease-out"
               />
            </div>
         </div>
