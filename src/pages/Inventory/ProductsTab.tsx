@@ -22,6 +22,7 @@ export function ProductsTab() {
     title: '',
     description: '',
     sku: '',
+    style: '',
     colors: '',
     sizeSpread: {} as Record<string, number>,
     images: [] as string[]
@@ -59,7 +60,7 @@ export function ProductsTab() {
   }, [qrSessionId]);
 
   const handleCreateNew = () => {
-    setFormData({ title: '', description: '', sku: '', colors: '', sizeSpread: {}, images: [] });
+    setFormData({ title: '', description: '', sku: '', style: '', colors: '', sizeSpread: {}, images: [] });
     setImageUrlInput('');
     setIsCreating(true);
     setIsEditing(true);
@@ -78,6 +79,7 @@ export function ProductsTab() {
       title: product.title || '',
       description: product.description || '',
       sku: product.sku || '',
+      style: product.style || '',
       colors: Array.isArray(product.colors) ? product.colors.join(', ') : (product.colors || ''),
       sizeSpread: parsedSizeSpread,
       images: product.images || []
@@ -116,7 +118,7 @@ export function ProductsTab() {
       } else {
           setIsCreating(false);
           setIsEditing(false);
-          setFormData({ title: '', description: '', sku: '', colors: '', sizeSpread: {}, images: [] });
+          setFormData({ title: '', description: '', sku: '', style: '', colors: '', sizeSpread: {}, images: [] });
       }
     } catch (err) {
       console.error(err);
@@ -238,7 +240,10 @@ export function ProductsTab() {
                      </div>
                      <div className="flex-1 min-w-0">
                         <h4 className="font-bold text-brand-primary text-sm truncate">{p.title || 'Untitled Product'}</h4>
-                        <p className="text-[10px] uppercase tracking-widest text-brand-secondary mt-0.5 truncate">{p.sku || 'No SKU'}</p>
+                        <p className="text-[10px] uppercase tracking-widest text-brand-secondary mt-0.5 truncate">
+                           {p.sku || 'No SKU'}
+                           {p.style && <span className="ml-2 text-brand-primary/60 border-l border-brand-border pl-2">{p.style}</span>}
+                        </p>
                         {p.sizeSpread && Object.keys(p.sizeSpread).length > 0 && (
                            <div className="flex flex-wrap gap-1 mt-2">
                               {SIZES.filter(size => p.sizeSpread[size]).map(size => (
@@ -303,23 +308,28 @@ export function ProductsTab() {
 
               {/* Form Content */}
               <div className="p-6 max-w-3xl space-y-6">
-                  <div className="grid grid-cols-2 gap-6">
-                     <div className="col-span-2">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                     <div className="col-span-1 md:col-span-3">
                         <label className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1 block">Product Title</label>
                         <input disabled={!isEditing} type="text" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} placeholder="e.g. Premium Heavyweight Hoodie" className="w-full bg-brand-bg border border-brand-border rounded-lg px-4 py-3 text-sm font-semibold focus:outline-brand-primary disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-neutral-50" />
                      </div>
                      
-                     <div className="col-span-2 md:col-span-1">
+                     <div className="col-span-1">
                         <label className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1 block">SKU (Optional)</label>
                         <input disabled={!isEditing} type="text" value={formData.sku} onChange={e => setFormData({...formData, sku: e.target.value})} placeholder="e.g. WH-1002" className="w-full bg-brand-bg border border-brand-border rounded-lg px-4 py-3 text-sm font-semibold focus:outline-brand-primary disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-neutral-50" />
                      </div>
                      
-                     <div className="col-span-2 md:col-span-1">
+                     <div className="col-span-1">
+                        <label className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1 block">Style</label>
+                        <input disabled={!isEditing} type="text" value={formData.style} onChange={e => setFormData({...formData, style: e.target.value})} placeholder="e.g. Blank / Hoodie" className="w-full bg-brand-bg border border-brand-border rounded-lg px-4 py-3 text-sm font-semibold focus:outline-brand-primary disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-neutral-50" />
+                     </div>
+                     
+                     <div className="col-span-1">
                         <label className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1 block">Colors (Comma separated)</label>
                         <input disabled={!isEditing} type="text" value={formData.colors} onChange={e => setFormData({...formData, colors: e.target.value})} placeholder="e.g. Black, White, Heather Grey" className="w-full bg-brand-bg border border-brand-border rounded-lg px-4 py-3 text-sm font-semibold focus:outline-brand-primary disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-neutral-50" />
                      </div>
                      
-                     <div className="col-span-2 mt-4 mb-2">
+                     <div className="col-span-1 md:col-span-3 mt-4 mb-2">
                         <div className="flex justify-between items-center mb-3">
                            <label className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary block">Size Spread Matrix</label>
                            <span className="text-[10px] bg-neutral-200 text-brand-primary px-2.5 py-1 rounded-full font-bold">
@@ -353,7 +363,7 @@ export function ProductsTab() {
                         </div>
                      </div>
 
-                     <div className="col-span-2">
+                     <div className="col-span-1 md:col-span-3">
                         <label className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1 block">Description</label>
                         <textarea disabled={!isEditing} rows={4} value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} placeholder="Describe the product details, materials, and fit..." className="w-full bg-brand-bg border border-brand-border rounded-lg px-4 py-3 text-sm font-medium focus:outline-brand-primary resize-y disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-neutral-50"></textarea>
                      </div>
