@@ -4,7 +4,6 @@ import { tokens } from '../../lib/tokens';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { KanbanBoard } from '../../components/shared/KanbanBoard';
 import { TimelinePlanner } from '../Team/TimelinePlanner';
-import { ProductionCalendar } from './ProductionCalendar';
 import { useAuth } from '../../contexts/AuthContext';
 import { useOrders } from '../../hooks/useOrders';
 import { db } from '../../lib/firebase';
@@ -331,11 +330,6 @@ export function Dashboard() {
                  Open Command Center
                </button>
             </div>
-          </div>
-
-          {/* Production Calendar */}
-          <div className="w-full mt-2">
-             <ProductionCalendar orders={orders} />
           </div>
 
           {/* Team Performance Metrics */}

@@ -7,6 +7,7 @@ import { StatusBadge, type StatusType } from '../../components/ui/StatusBadge';
 import { useOrders } from '../../hooks/useOrders';
 import { doc, updateDoc, collection, getDocs } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
+import { ProductionCalendar } from '../Dashboard/ProductionCalendar';
 
 export function OrdersList() {
   const navigate = useNavigate();
@@ -101,13 +102,18 @@ export function OrdersList() {
            </div>
            <button className="px-4 py-2 bg-white border border-brand-border rounded-lg text-brand-secondary hover:text-brand-primary hover:bg-brand-bg transition-colors flex items-center gap-2 text-sm font-medium">
              <Filter size={16} />
-             Filter
+             <span className="hidden sm:inline">Filter</span>
            </button>
         </div>
         
         <div className="text-sm text-brand-secondary">
-          Showing <span className="font-semibold text-brand-primary">7</span> active orders
+          Showing <span className="font-semibold text-brand-primary">{orders.length}</span> active orders
         </div>
+      </div>
+
+      {/* Production Calendar */}
+      <div className="w-full mb-8">
+         <ProductionCalendar orders={orders} />
       </div>
 
       {/* Orders Table */}
