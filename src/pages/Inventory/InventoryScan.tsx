@@ -5,7 +5,7 @@ import { collection, query, onSnapshot, doc, setDoc } from 'firebase/firestore';
 import { Package, Box as BoxIcon, ArrowRight, CheckCircle2, QrCode } from 'lucide-react';
 
 export function InventoryScan() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const palletId = searchParams.get('p') || searchParams.get('id'); // 'id' from older QR format
   const boxId = searchParams.get('b');
@@ -21,6 +21,9 @@ export function InventoryScan() {
 
   const [newBoxName, setNewBoxName] = useState('');
   const [isCreatingBox, setIsCreatingBox] = useState(false);
+
+  const [isAddingItem, setIsAddingItem] = useState(false);
+  const [newItemForm, setNewItemForm] = useState({ sku: '', name: '', size: '', quantity: 1 });
 
   useEffect(() => {
      const q = query(collection(db, 'pallets'));
@@ -67,7 +70,8 @@ export function InventoryScan() {
               await setDoc(doc(db, 'pallets', currentPallet.id), { ...currentPallet, boxes: updatedBoxes });
               setNewBoxName('');
               setIsCreatingBox(false);
-              setSuccessMsg(`Created ${finalName} on ${currentPallet.name}`);
+              // Teleport directly to the newly created Box via URL params!
+              setSearchParams({ p: currentPallet.id, b: newBox.id });
           } catch (err) {
               console.error(err);
               setIsCreatingBox(false);
@@ -192,6 +196,33 @@ export function InventoryScan() {
       }
   };
 
+  const handleCreateLineItem = async () => {
+      if (!newItemForm.name || !currentBox || !currentPallet) return;
+      const newItem = {
+          id: `itm_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+          sku: newItemForm.sku,
+          name: newItemForm.name,
+          size: newItemForm.size,
+          quantity: newItemForm.quantity,
+          photoUrl: ''
+      };
+
+      const updatedBoxes = currentPallet.boxes.map((b:any) => {
+          if (b.id === boxId) {
+              return { ...b, items: [...(b.items || []), newItem] };
+          }
+          return b;
+      });
+
+      try {
+          await setDoc(doc(db, 'pallets', currentPallet.id), { ...currentPallet, boxes: updatedBoxes });
+          setIsAddingItem(false);
+          setNewItemForm({ sku: '', name: '', size: '', quantity: 1 });
+      } catch (err) {
+          console.error(err);
+      }
+  };
+
   const lineItemsCount = currentBox.items?.reduce((s:number, i:any) => s + i.quantity, 0) || 0;
 
   if (successMsg) {
@@ -280,6 +311,50 @@ export function InventoryScan() {
                       </button>
                   </div>
               </div>
+
+              {/* Add Item Registration Flow */}
+              {!isAddingItem ? (
+                  <button 
+                      onClick={() => setIsAddingItem(true)}
+                      className="w-full bg-white border-2 border-brand-primary text-brand-primary h-14 rounded-xl font-bold uppercase tracking-widest text-xs shadow-sm active:bg-brand-bg transition-all"
+                  >
+                      + Register Line Item
+                  </button>
+              ) : (
+                  <div className="bg-brand-primary p-6 rounded-2xl shadow-xl text-white space-y-4 animate-in slide-in-from-top-4">
+                      <h2 className="text-sm font-bold uppercase tracking-widest mb-4">New Item Entry</h2>
+                      
+                      <div>
+                          <label className="block text-[10px] font-bold uppercase tracking-widest opacity-70 mb-1">Garment / Item Name</label>
+                          <input type="text" value={newItemForm.name} onChange={e => setNewItemForm({...newItemForm, name: e.target.value})} className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 placeholder:text-white/30 outline-none focus:bg-white/20" placeholder="e.g. Heavyweight Hoodie" />
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-4">
+                          <div>
+                              <label className="block text-[10px] font-bold uppercase tracking-widest opacity-70 mb-1">SKU (Opt)</label>
+                              <input type="text" value={newItemForm.sku} onChange={e => setNewItemForm({...newItemForm, sku: e.target.value})} className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 placeholder:text-white/30 outline-none focus:bg-white/20" placeholder="TST-HGHT" />
+                          </div>
+                          <div>
+                              <label className="block text-[10px] font-bold uppercase tracking-widest opacity-70 mb-1">Size Option</label>
+                              <input type="text" value={newItemForm.size} onChange={e => setNewItemForm({...newItemForm, size: e.target.value})} className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 placeholder:text-white/30 outline-none focus:bg-white/20" placeholder="XL" />
+                          </div>
+                      </div>
+                      
+                      <div>
+                          <label className="block text-[10px] font-bold uppercase tracking-widest opacity-70 mb-1">Physical Quantity</label>
+                          <div className="flex items-center gap-3 bg-white/10 rounded-xl p-1.5 border border-white/20">
+                              <button onClick={() => setNewItemForm({...newItemForm, quantity: Math.max(1, newItemForm.quantity - 1)})} className="w-12 h-10 rounded-lg bg-black/20 font-black text-xl flex items-center justify-center active:bg-black/40">-</button>
+                              <span className="flex-1 text-center font-black text-xl">{newItemForm.quantity}</span>
+                              <button onClick={() => setNewItemForm({...newItemForm, quantity: newItemForm.quantity + 1})} className="w-12 h-10 rounded-lg bg-white/20 font-black text-xl flex items-center justify-center active:bg-white/40">+</button>
+                          </div>
+                      </div>
+                      
+                      <div className="flex gap-3 pt-4">
+                          <button onClick={() => setIsAddingItem(false)} className="flex-1 py-4 text-[10px] font-bold uppercase tracking-widest bg-black/20 rounded-xl active:bg-black/40">Cancel</button>
+                          <button disabled={!newItemForm.name} onClick={handleCreateLineItem} className="w-[60%] py-4 text-[10px] font-bold uppercase tracking-widest bg-white text-brand-primary rounded-xl active:bg-gray-200 disabled:opacity-50 text-brand-primary">Log Item</button>
+                      </div>
+                  </div>
+              )}
 
               {/* Readonly Line Items List just to verify contents */}
               <div className="bg-white p-6 rounded-2xl shadow-sm border border-brand-border">
