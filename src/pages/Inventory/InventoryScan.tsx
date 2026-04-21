@@ -19,6 +19,9 @@ export function InventoryScan() {
   const [isEditingName, setIsEditingName] = useState(false);
   const [editNameValue, setEditNameValue] = useState('');
 
+  const [newBoxName, setNewBoxName] = useState('');
+  const [isCreatingBox, setIsCreatingBox] = useState(false);
+
   useEffect(() => {
      const q = query(collection(db, 'pallets'));
      const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -36,21 +39,73 @@ export function InventoryScan() {
   const currentPallet = pallets.find(p => p.id === palletId);
   const currentBox = currentPallet?.boxes?.find((b: any) => b.id === boxId);
 
-  // If we only have pallet ID but no box ID (e.g. from the 3D map QR code)
+  // If we only have pallet ID but no box ID (e.g. from the Master Pallet Tag QR code)
   if (!boxId && currentPallet) {
+      const handleCreateBox = async () => {
+          let finalName = newBoxName.trim();
+          if (!finalName) {
+              let maxNum = 0;
+              currentPallet.boxes?.forEach((b: any) => {
+                  const match = b.name.match(/(?:Box\s*)?(\d+)$/i);
+                  if (match) {
+                      const num = parseInt(match[1]);
+                      if (num > maxNum) maxNum = num;
+                  }
+              });
+              finalName = `Box ${maxNum + 1}`;
+          }
+
+          const newBox = {
+              id: `box_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+              name: finalName,
+              items: []
+          };
+
+          try {
+              setIsCreatingBox(true);
+              const updatedBoxes = [...(currentPallet.boxes || []), newBox];
+              await setDoc(doc(db, 'pallets', currentPallet.id), { ...currentPallet, boxes: updatedBoxes });
+              setNewBoxName('');
+              setIsCreatingBox(false);
+              setSuccessMsg(`Created ${finalName} on ${currentPallet.name}`);
+          } catch (err) {
+              console.error(err);
+              setIsCreatingBox(false);
+          }
+      };
+
       return (
           <div className="min-h-screen bg-brand-bg p-4 flex flex-col items-center justify-center">
               <Package size={64} className="mb-6 opacity-80" />
               <h1 className="font-serif text-4xl font-bold tracking-tight mb-2">{currentPallet.name}</h1>
               <p className="text-sm font-bold uppercase tracking-widest text-brand-secondary mb-8">Pallet Record</p>
               
-              <div className="bg-white p-6 rounded-2xl shadow-lg border border-brand-border w-full max-w-md space-y-4">
+              <div className="bg-white p-6 rounded-2xl shadow-lg border border-brand-border w-full max-w-md space-y-4 mb-6">
                   <div className="flex justify-between items-center pb-4 border-b">
                       <span className="text-xs uppercase font-bold tracking-widest text-brand-secondary">Units Logged</span>
                       <span className="font-black text-xl">{currentPallet.boxes?.length || 0} Boxes</span>
                   </div>
-                  <button onClick={() => navigate('/inventory')} className="w-full bg-black text-white py-4 rounded-xl font-bold uppercase tracking-widest text-xs">Return to Dashboard</button>
+                  
+                  <div className="pt-2 space-y-3">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary">Register New Box</p>
+                      <input 
+                          type="text"
+                          placeholder="Box Identifier (Auto-generates if empty)"
+                          value={newBoxName}
+                          onChange={e => setNewBoxName(e.target.value)}
+                          className="w-full h-14 bg-brand-bg border border-brand-border rounded-xl px-4 font-bold text-brand-primary outline-none focus:border-brand-primary"
+                      />
+                      <button 
+                          onClick={handleCreateBox}
+                          disabled={isCreatingBox}
+                          className="w-full bg-brand-primary text-white py-4 rounded-xl font-bold uppercase tracking-widest text-xs flex items-center justify-center gap-2 shadow-md"
+                      >
+                          {isCreatingBox ? 'Registering...' : 'Add Box To Pallet'}
+                      </button>
+                  </div>
               </div>
+              
+              <button onClick={() => navigate('/inventory')} className="text-[10px] uppercase font-bold tracking-widest text-brand-secondary hover:text-black">Return to Dashboard</button>
           </div>
       );
   }
