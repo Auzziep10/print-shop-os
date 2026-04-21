@@ -444,6 +444,11 @@ export function InventoryScan() {
                               <div className="flex-1">
                                   <p className="font-bold text-sm">{item.name}</p>
                                   <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mt-1">{item.sku} • {item.size}</p>
+                                  {item.photoUrl && (
+                                      <div className="mt-3">
+                                          <img src={item.photoUrl} alt="Thumbnail" className="w-16 h-16 rounded-md object-cover border border-brand-border shadow-sm" />
+                                      </div>
+                                  )}
                               </div>
                               <div className="flex items-center gap-3 bg-gray-50 rounded-xl p-1 border border-brand-border/50">
                                   <button onClick={() => handleUpdateItemQuantity(item.id, item.quantity - 1)} className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-brand-primary active:bg-white hover:bg-white transition-colors">-</button>
