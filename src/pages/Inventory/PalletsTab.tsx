@@ -569,29 +569,40 @@ export function PalletsTab() {
                                                )}
                                            </div>
                                            <div className="flex-1">
-                                               <div className="flex items-start justify-between">
-                                                   <div>
-                                                       <h4 className="font-serif text-lg leading-tight text-brand-primary">{item.name}</h4>
-                                                       <div className="flex items-center gap-2 mt-1">
-                                                           {item.sku && <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-widest">{item.sku}</span>}
-                                                           {item.size && <span className="border border-brand-border text-brand-secondary px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-widest">{item.size}</span>}
-                                                       </div>
-                                                   </div>
-                                                   <div className="text-right flex items-center gap-2 pr-4 cursor-auto" onClick={e => e.stopPropagation()}>
-                                                       <button onClick={() => handleUpdateItemQuantity(activePallet.id, activeBox.id, item.id, item.quantity - 1)} className="w-8 h-8 flex items-center justify-center rounded-lg bg-brand-bg border border-brand-border text-brand-primary font-bold hover:bg-white transition-colors">-</button>
-                                                       <div className="text-2xl font-black font-sans tracking-tighter text-brand-primary w-12 text-center">
-                                                           {item.quantity}
-                                                       </div>
-                                                       <button onClick={() => handleUpdateItemQuantity(activePallet.id, activeBox.id, item.id, item.quantity + 1)} className="w-8 h-8 flex items-center justify-center rounded-lg bg-brand-bg border border-brand-border text-brand-primary font-bold hover:bg-white transition-colors">+</button>
-                                                       <button 
-                                                          onClick={() => handleDeleteItem(activePallet.id, activeBox.id, item.id)}
-                                                          className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 bg-red-50 p-2 rounded-lg transition-all ml-2"
-                                                       >
-                                                          <X size={16} />
-                                                       </button>
-                                                   </div>
-                                               </div>
-                                           </div>
+                                                {editingItemId === item.id ? (
+                                                    <div className="flex flex-col gap-2 p-3 bg-brand-bg rounded-lg border border-brand-border">
+                                                        <input type="text" value={editItemForm.name} onChange={e => setEditItemForm({...editItemForm, name: e.target.value})} className="w-full text-xs font-semibold p-2 bg-white border border-brand-border rounded outline-none focus:border-brand-primary" placeholder="Item Name" autoFocus onKeyDown={e => e.key === 'Enter' && handleUpdateItemDetails(activePallet.id, activeBox.id, item.id)} />
+                                                        <div className="flex gap-2">
+                                                            <input type="text" value={editItemForm.sku} onChange={e => setEditItemForm({...editItemForm, sku: e.target.value})} className="w-1/2 text-[10px] p-2 bg-white border border-brand-border rounded outline-none uppercase focus:border-brand-primary" placeholder="SKU (Opt)" onKeyDown={e => e.key === 'Enter' && handleUpdateItemDetails(activePallet.id, activeBox.id, item.id)} />
+                                                            <input type="text" value={editItemForm.size} onChange={e => setEditItemForm({...editItemForm, size: e.target.value})} className="w-1/2 text-[10px] p-2 bg-white border border-brand-border rounded outline-none uppercase focus:border-brand-primary" placeholder="Size (Opt)" onKeyDown={e => e.key === 'Enter' && handleUpdateItemDetails(activePallet.id, activeBox.id, item.id)} />
+                                                        </div>
+                                                        <div className="flex gap-2 justify-end mt-1">
+                                                            <button onClick={() => setEditingItemId(null)} className="text-[10px] font-bold uppercase text-brand-secondary hover:text-black transition-colors px-3">Cancel</button>
+                                                            <button onClick={() => handleUpdateItemDetails(activePallet.id, activeBox.id, item.id)} className="text-[10px] font-bold uppercase bg-brand-primary text-white hover:bg-black transition-colors rounded-lg px-4 py-2">Save</button>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <div className="flex items-start justify-between cursor-pointer group/item" onClick={() => { setEditingItemId(item.id); setEditItemForm({ name: item.name, sku: item.sku || '', size: item.size || '' }); }} title="Click to edit item">
+                                                        <div>
+                                                            <h4 className="font-serif text-lg leading-tight text-brand-primary group-hover/item:opacity-70 transition-opacity">{item.name}</h4>
+                                                            <div className="flex items-center gap-2 mt-1">
+                                                                {item.sku && <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-widest">{item.sku}</span>}
+                                                                {item.size && <span className="border border-brand-border text-brand-secondary px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-widest">{item.size}</span>}
+                                                            </div>
+                                                        </div>
+                                                        <div className="text-right flex items-center gap-2 pr-4 cursor-auto" onClick={e => e.stopPropagation()}>
+                                                            <button onClick={() => handleUpdateItemQuantity(activePallet.id, activeBox.id, item.id, item.quantity - 1)} className="w-8 h-8 flex items-center justify-center rounded-lg bg-brand-bg border border-brand-border text-brand-primary font-bold hover:bg-white transition-colors">-</button>
+                                                            <div className="text-2xl font-black font-sans tracking-tighter text-brand-primary w-12 text-center">
+                                                                {item.quantity}
+                                                            </div>
+                                                            <button onClick={() => handleUpdateItemQuantity(activePallet.id, activeBox.id, item.id, item.quantity + 1)} className="w-8 h-8 flex items-center justify-center rounded-lg bg-brand-bg border border-brand-border text-brand-primary font-bold hover:bg-white transition-colors">+</button>
+                                                            <button onClick={() => handleDeleteItem(activePallet.id, activeBox.id, item.id)} className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 bg-red-50 p-2 rounded-lg transition-all ml-2">
+                                                                <X size={16} />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
                                        </div>
                                    ))}
                                    {activeBox.items.length === 0 && !isAddingItem && (
@@ -781,7 +792,7 @@ export function PalletsTab() {
                                                       height: '100%',
                                                       borderRadius: '0.125in',
                                                     }}
-                                                    className={`bg-white border-2 border-black flex items-stretch box-border overflow-hidden z-10 [font-family:"Times_New_Roman",Times,serif]`}
+                                                    className={`bg-white flex items-stretch box-border overflow-hidden z-10 [font-family:"Times_New_Roman",Times,serif]`}
                                                   >
                                                     <div className="flex-1 flex flex-col justify-center pl-3 pr-1 py-1 truncate">
                                                         <span className="text-[10px] uppercase font-bold tracking-widest leading-none text-gray-500 mb-1">{printingBox.pallet.name}</span>
