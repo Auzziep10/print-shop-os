@@ -104,13 +104,40 @@ export function PalletsTab() {
 
   const handleCreateItem = async (boxId: string) => {
       if (!activePallet) return;
+      
+      let inheritedPhotoUrl = newItemForm.photoUrl || '';
+      if (!inheritedPhotoUrl) {
+          for (const p of pallets) {
+              if (p.boxes) {
+                  for (const b of p.boxes) {
+                      if (b.items) {
+                          for (const i of b.items) {
+                              if (i.photoUrl) {
+                                  if (newItemForm.sku && i.sku && i.sku.toLowerCase() === newItemForm.sku.toLowerCase()) {
+                                      inheritedPhotoUrl = i.photoUrl;
+                                      break;
+                                  }
+                                  if (!newItemForm.sku && newItemForm.name && i.name && i.name.toLowerCase() === newItemForm.name.toLowerCase()) {
+                                      inheritedPhotoUrl = i.photoUrl;
+                                      break;
+                                  }
+                              }
+                          }
+                      }
+                      if (inheritedPhotoUrl) break;
+                  }
+              }
+              if (inheritedPhotoUrl) break;
+          }
+      }
+
       const newItem: Item = {
           id: `itm_${Date.now()}`,
           sku: newItemForm.sku,
           name: newItemForm.name || "Unnamed Item",
           size: newItemForm.size,
           quantity: newItemForm.quantity,
-          photoUrl: newItemForm.photoUrl || ""
+          photoUrl: inheritedPhotoUrl
       };
       
       const updatedBoxes = activePallet.boxes.map(b => {

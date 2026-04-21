@@ -267,13 +267,38 @@ export function InventoryScan() {
 
   const handleCreateLineItem = async () => {
       if (!newItemForm.name || !currentBox || !currentPallet) return;
+      
+      let inheritedPhotoUrl = '';
+      for (const p of pallets) {
+          if (p.boxes) {
+              for (const b of p.boxes) {
+                  if (b.items) {
+                      for (const i of b.items) {
+                          if (i.photoUrl) {
+                              if (newItemForm.sku && i.sku && i.sku.toLowerCase() === newItemForm.sku.toLowerCase()) {
+                                  inheritedPhotoUrl = i.photoUrl;
+                                  break;
+                              }
+                              if (!newItemForm.sku && newItemForm.name && i.name && i.name.toLowerCase() === newItemForm.name.toLowerCase()) {
+                                  inheritedPhotoUrl = i.photoUrl;
+                                  break;
+                              }
+                          }
+                      }
+                  }
+                  if (inheritedPhotoUrl) break;
+              }
+          }
+          if (inheritedPhotoUrl) break;
+      }
+      
       const newItem = {
           id: `itm_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
           sku: newItemForm.sku,
           name: newItemForm.name,
           size: newItemForm.size,
           quantity: newItemForm.quantity,
-          photoUrl: ''
+          photoUrl: inheritedPhotoUrl
       };
 
       const updatedBoxes = currentPallet.boxes.map((b:any) => {
