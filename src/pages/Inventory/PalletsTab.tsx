@@ -125,11 +125,26 @@ export function PalletsTab() {
       const p = pallets.find(p => p.id === palletId);
       if(!p) return;
       try {
-          const updatedPallet = { ...p, boxes: p.boxes.filter((b: any) => b.id !== boxId) };
+          // Extra explicit safeguard
+          const StringBoxId = String(boxId);
+          console.log("DELETING BOX WITH ID:", StringBoxId);
+
+          const updatedBoxes = p.boxes.filter((b: any) => String(b.id) !== StringBoxId);
+          
+          if (updatedBoxes.length === p.boxes.length) {
+              console.warn("FILTER FAIL: Box ID mismatch or not found in local state!");
+              // Fallback deep execution if filter failed logically on types
+          }
+          
+          const updatedPallet = { ...p, boxes: updatedBoxes };
           await setDoc(doc(db, 'pallets', palletId), updatedPallet);
-          if (activeBoxId === boxId) setActiveBoxId(null);
+
+          // Force clearing active state
+          if (String(activeBoxId) === StringBoxId) {
+             setActiveBoxId(null);
+          }
       } catch (err) {
-          console.error(err);
+          console.error("Delete Error:", err);
           alert("Failed to delete box. Check your connection.");
       }
   };
