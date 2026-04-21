@@ -120,12 +120,18 @@ export function PalletsTab() {
   };
   
   const handleDeleteBox = async (palletId: string, boxId: string, boxName: string) => {
-      const term = window.prompt(`Type "${boxName}" to confirm deletion of this box.`);
-      if (term !== boxName) return;
+      const term = window.prompt(`To unequivocally delete "${boxName}" and all its items, type DELETE below:`);
+      if (term?.trim().toUpperCase() !== 'DELETE') return;
       const p = pallets.find(p => p.id === palletId);
       if(!p) return;
-      const updatedPallet = { ...p, boxes: p.boxes.filter(b => b.id !== boxId) };
-      await setDoc(doc(db, 'pallets', palletId), updatedPallet);
+      try {
+          const updatedPallet = { ...p, boxes: p.boxes.filter((b: any) => b.id !== boxId) };
+          await setDoc(doc(db, 'pallets', palletId), updatedPallet);
+          if (activeBoxId === boxId) setActiveBoxId(null);
+      } catch (err) {
+          console.error(err);
+          alert("Failed to delete box. Check your connection.");
+      }
   };
 
   const handleUpdateBoxName = async (palletId: string, boxId: string, newName: string) => {
