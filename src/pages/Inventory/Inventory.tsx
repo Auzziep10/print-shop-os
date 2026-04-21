@@ -1,11 +1,12 @@
 import { useState, useEffect, Suspense } from 'react';
 import { tokens } from '../../lib/tokens';
-import { PackageOpen, Printer, Boxes, Map, QrCode, Settings } from 'lucide-react';
+import { PackageOpen, Printer, Boxes, Map, QrCode, Settings, Upload } from 'lucide-react';
 import QRCode from 'react-qr-code';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Text, Environment, DragControls } from '@react-three/drei';
-import { db } from '../../lib/firebase';
+import { db, storage } from '../../lib/firebase';
 import { collection, query, onSnapshot, setDoc, deleteDoc, doc, writeBatch, getDocs } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { ProductsTab } from './ProductsTab';
 import { PalletsTab } from './PalletsTab';
 
@@ -473,6 +474,7 @@ export function Inventory() {
   const [batchMatchType, setBatchMatchType] = useState<'name' | 'sku'>('name');
   const [batchImageUrl, setBatchImageUrl] = useState('');
   const [isBatchUpdating, setIsBatchUpdating] = useState(false);
+  const [isBatchUploadingImage, setIsBatchUploadingImage] = useState(false);
 
   const handleBatchUpdateImages = async () => {
       if (!batchMatchTerm.trim() || !batchImageUrl.trim()) return;
@@ -1159,7 +1161,29 @@ export function Inventory() {
                       
                       <div>
                           <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1">New Photo URL</label>
-                          <input type="text" value={batchImageUrl} onChange={e => setBatchImageUrl(e.target.value)} className="w-full text-sm font-semibold p-3 bg-brand-bg border border-brand-border rounded-lg outline-none focus:border-brand-primary" placeholder="https://..." />
+                          <div className="flex gap-2">
+                              <input type="text" value={batchImageUrl} onChange={e => setBatchImageUrl(e.target.value)} className="w-full text-sm font-semibold p-3 bg-brand-bg border border-brand-border rounded-lg outline-none focus:border-brand-primary" placeholder="https://..." />
+                              <button disabled={isBatchUploadingImage} onClick={() => document.getElementById('batch-photo-upload')?.click()} className="shrink-0 px-4 flex items-center justify-center bg-brand-bg border border-brand-border rounded-lg hover:border-brand-primary text-brand-secondary hover:text-brand-primary transition-colors disabled:opacity-50">
+                                  {isBatchUploadingImage ? <span className="animate-pulse text-xs font-bold uppercase">...</span> : <Upload size={16} />}
+                              </button>
+                              <input id="batch-photo-upload" type="file" className="hidden" accept="image/*" onChange={async (e) => {
+                                  const file = e.target.files?.[0];
+                                  if (!file) return;
+                                  setIsBatchUploadingImage(true);
+                                  try {
+                                      const storageRef = ref(storage, `inventory/batch/${Date.now()}_${file.name}`);
+                                      await uploadBytes(storageRef, file);
+                                      const url = await getDownloadURL(storageRef);
+                                      setBatchImageUrl(url);
+                                  } catch (err) {
+                                      console.error("Upload failed", err);
+                                      alert("Failed to upload image");
+                                  } finally {
+                                      setIsBatchUploadingImage(false);
+                                      e.target.value = '';
+                                  }
+                              }} />
+                          </div>
                       </div>
                   </div>
                   
