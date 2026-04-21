@@ -290,15 +290,24 @@ export function PalletsTab() {
   const activeBox = activePallet?.boxes.find(b => b.id === activeBoxId);
 
   const filteredPallets = pallets.filter(p => {
-    if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
-    return p.name.toLowerCase().includes(q) || 
-           p.id.toLowerCase().includes(q) ||
-           p.boxes.some(b => 
-               b.name.toLowerCase().includes(q) || 
-               b.id.toLowerCase().includes(q) ||
-               b.items.some(i => i.name.toLowerCase().includes(q) || (i.sku && i.sku.toLowerCase().includes(q)))
-           );
+    if (!searchQuery.trim()) return true;
+    const terms = searchQuery.toLowerCase().split(/\s+/).filter(Boolean);
+    
+    // For each token, it must exist *somewhere* in this pallet's data hierarchy
+    return terms.every(term => {
+        // Check pallet level
+        if (p.name.toLowerCase().includes(term) || p.id.toLowerCase().includes(term)) return true;
+        
+        // Check boxes and items
+        return p.boxes.some(b => {
+            if (b.name.toLowerCase().includes(term) || b.id.toLowerCase().includes(term)) return true;
+            
+            return b.items.some(i => {
+                const searchableItemText = `${i.name} ${i.sku || ''} ${i.size || ''}`.toLowerCase();
+                return searchableItemText.includes(term);
+            });
+        });
+    });
   });
 
   return (
