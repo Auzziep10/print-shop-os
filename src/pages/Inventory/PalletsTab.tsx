@@ -26,6 +26,15 @@ interface Pallet {
     boxes: BoxType[];
 }
 
+const isTermMatched = (text: string, term: string) => {
+    if (!text) return false;
+    const sizeTerms = new Set(['xs', 's', 'm', 'l', 'xl', 'xxl', '2xl', '3xl', '4xl', '5xl']);
+    if (sizeTerms.has(term)) {
+        return new RegExp(`\\b${term}\\b`, 'i').test(text);
+    }
+    return text.includes(term);
+};
+
 export function PalletsTab() {
   const [pallets, setPallets] = useState<Pallet[]>([]);
   const [activePalletId, setActivePalletId] = useState<string | null>(null);
@@ -304,7 +313,7 @@ export function PalletsTab() {
             
             return b.items.some(i => {
                 const searchableItemText = `${i.name} ${i.sku || ''} ${i.size || ''}`.toLowerCase();
-                return searchableItemText.includes(term);
+                return isTermMatched(searchableItemText, term);
             });
         });
     });
@@ -449,7 +458,7 @@ export function PalletsTab() {
                                      // ...or matches an Item inside this box.
                                      return b.items.some(i => {
                                          const searchableItemText = `${i.name} ${i.sku || ''} ${i.size || ''}`.toLowerCase();
-                                         return searchableItemText.includes(term);
+                                         return isTermMatched(searchableItemText, term);
                                      });
                                  });
                              });
