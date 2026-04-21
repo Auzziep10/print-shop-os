@@ -42,6 +42,7 @@ export function PalletsTab() {
   const [isAddingPallet, setIsAddingPallet] = useState(false);
   const [newPalletName, setNewPalletName] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortOption, setSortOption] = useState<'newest' | 'oldest' | 'alpha' | 'boxes'>('newest');
   
   const [printingBox, setPrintingBox] = useState<{pallet: Pallet, box: BoxType | null, type: 'box' | 'items' | 'all_boxes' | 'pallet'} | null>(null);
 
@@ -324,9 +325,21 @@ export function PalletsTab() {
        {/* Sidebar */}
        <div className="w-80 h-full flex flex-col bg-white rounded-card border border-brand-border shadow-sm shrink-0 overflow-hidden">
           <div className="p-4 border-b border-brand-border/60 bg-brand-bg/50">
-             <h2 className="text-sm font-bold uppercase tracking-widest text-brand-primary mb-4 flex items-center gap-2">
-                 <Package size={16} /> Pallet Directory
-             </h2>
+             <div className="flex justify-between items-center mb-4">
+                 <h2 className="text-sm font-bold uppercase tracking-widest text-brand-primary flex items-center gap-2">
+                     <Package size={16} /> Directory
+                 </h2>
+                 <select 
+                     value={sortOption}
+                     onChange={(e) => setSortOption(e.target.value as any)}
+                     className="bg-transparent border border-brand-border rounded px-2 py-1 text-[9px] font-bold uppercase tracking-widest text-brand-secondary outline-none focus:border-brand-primary cursor-pointer hover:bg-white"
+                 >
+                     <option value="newest">Newest</option>
+                     <option value="oldest">Oldest</option>
+                     <option value="alpha">A-Z Name</option>
+                     <option value="boxes">Most Boxes</option>
+                 </select>
+             </div>
              {!isAddingPallet ? (
                  <button 
                      onClick={() => setIsAddingPallet(true)}
@@ -367,7 +380,13 @@ export function PalletsTab() {
           </div>
           
           <div className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar">
-             {filteredPallets.map(p => (
+             {[...filteredPallets].sort((a, b) => {
+                 if (sortOption === 'newest') return b.createdAt - a.createdAt;
+                 if (sortOption === 'oldest') return a.createdAt - b.createdAt;
+                 if (sortOption === 'alpha') return a.name.localeCompare(b.name);
+                 if (sortOption === 'boxes') return b.boxes.length - a.boxes.length;
+                 return 0;
+             }).map(p => (
                  <div 
                      key={p.id}
                      onClick={() => { setActivePalletId(p.id); setActiveBoxId(null); }}
