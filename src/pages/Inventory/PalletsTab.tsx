@@ -92,7 +92,7 @@ export function PalletsTab() {
           name: newItemForm.name || "Unnamed Item",
           size: newItemForm.size,
           quantity: newItemForm.quantity,
-          photoUrl: newItemForm.photoUrl || "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=100&q=80"
+          photoUrl: newItemForm.photoUrl || ""
       };
       
       const updatedBoxes = activePallet.boxes.map(b => {
