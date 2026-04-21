@@ -436,7 +436,33 @@ export function PalletsTab() {
                       </div>
                       
                       <div className="flex-1 overflow-y-auto p-2 space-y-1 custom-scrollbar">
-                         {activePallet.boxes.map(box => {
+                         {(() => {
+                             const displayedBoxes = activePallet.boxes.filter(b => {
+                                 if (!searchQuery.trim()) return true;
+                                 const terms = searchQuery.toLowerCase().split(/\s+/).filter(Boolean);
+                                 
+                                 return terms.every(term => {
+                                     // Term satisfies this box if it matches Pallet metadata...
+                                     if (activePallet.name.toLowerCase().includes(term) || activePallet.id.toLowerCase().includes(term)) return true;
+                                     // ...or matches Box metadata...
+                                     if (b.name.toLowerCase().includes(term) || b.id.toLowerCase().includes(term)) return true;
+                                     // ...or matches an Item inside this box.
+                                     return b.items.some(i => {
+                                         const searchableItemText = `${i.name} ${i.sku || ''} ${i.size || ''}`.toLowerCase();
+                                         return searchableItemText.includes(term);
+                                     });
+                                 });
+                             });
+                             
+                             if (displayedBoxes.length === 0 && searchQuery) {
+                                 return (
+                                     <div className="text-center p-4 opacity-50">
+                                         <p className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary">No matching boxes found</p>
+                                     </div>
+                                 );
+                             }
+
+                             return displayedBoxes.map(box => {
                              const totalItems = box.items.reduce((sum, item) => sum + item.quantity, 0);
                              return (
                              <div 
@@ -455,7 +481,8 @@ export function PalletsTab() {
                                      {totalItems} Units
                                  </span>
                              </div>
-                         )})}
+                         );
+                         })})()}
                          {activePallet.boxes.length === 0 && !isAddingBox && (
                              <p className="text-center text-[10px] uppercase font-bold tracking-widest text-brand-secondary opacity-50 mt-8">No Boxes Added</p>
                          )}
