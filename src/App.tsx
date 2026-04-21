@@ -26,6 +26,7 @@ import { Production } from './pages/Production/Production';
 import { PublicQuoteRequest } from './pages/Public/PublicQuoteRequest';
 
 import { Inventory } from './pages/Inventory/Inventory';
+import { InventoryScan } from './pages/Inventory/InventoryScan';
 import { Signatures } from './pages/Signatures/Signatures';
 import { MobileUpload } from './pages/MobileUpload/MobileUpload';
 
@@ -95,6 +96,13 @@ function App() {
         <Route path="/print/courier/:orderId/item/:itemId" element={
           <PrivateRoute>
             <PrintCourierLabel />
+          </PrivateRoute>
+        } />
+
+        {/* Mobile Inventory Box Scanning */}
+        <Route path="/inventory/scan" element={
+          <PrivateRoute>
+            <InventoryScan />
           </PrivateRoute>
         } />
 
