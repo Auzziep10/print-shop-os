@@ -417,7 +417,6 @@ export function PalletsTab() {
                                                {activeBox.name}
                                            </h2>
                                        )}
-                                       <button onClick={() => handleDeleteBox(activePallet.id, activeBox.id, activeBox.name)} className="text-red-400 hover:text-red-600 p-1 bg-red-50 rounded opacity-0 group-hover:opacity-100 transition-opacity" title="Delete Box"><X size={16} /></button>
                                    </div>
                                 </div>
                                 <div className="flex flex-col gap-2 items-end">
@@ -449,6 +448,12 @@ export function PalletsTab() {
                                            className="bg-brand-primary text-white w-full px-5 py-2 rounded-lg font-bold uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 shadow-sm hover:bg-black transition-all"
                                         >
                                            <QrCode size={14} /> Print Huge Route Label
+                                        </button>
+                                        <button 
+                                           onClick={() => handleDeleteBox(activePallet.id, activeBox.id, activeBox.name)}
+                                           className="bg-red-50 text-red-600 border border-red-200 w-full px-5 py-2 rounded-lg font-bold uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 shadow-sm hover:bg-red-600 hover:text-white transition-all mt-2"
+                                        >
+                                           <X size={14} /> Delete Box
                                         </button>
                                     </div>
                                 </div>
