@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { db } from '../../lib/firebase';
 import { collection, query, onSnapshot, doc, setDoc } from 'firebase/firestore';
-import { Package, Box as BoxIcon, ArrowRight, CheckCircle2, QrCode } from 'lucide-react';
+import { Package, Box as BoxIcon, ArrowRight, CheckCircle2, QrCode, Copy } from 'lucide-react';
 
 export function InventoryScan() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -84,29 +84,98 @@ export function InventoryScan() {
               <h1 className="font-serif text-4xl font-bold tracking-tight mb-2">{currentPallet.name}</h1>
               <p className="text-sm font-bold uppercase tracking-widest text-brand-secondary mb-8">Pallet Record</p>
               
-              <div className="bg-white p-6 rounded-2xl shadow-lg border border-brand-border w-full max-w-md space-y-4 mb-6">
-                  <div className="flex justify-between items-center pb-4 border-b">
-                      <span className="text-xs uppercase font-bold tracking-widest text-brand-secondary">Units Logged</span>
-                      <span className="font-black text-xl">{currentPallet.boxes?.length || 0} Boxes</span>
+              <div className="w-full max-w-md space-y-4 mb-6 relative">
+                  {/* Register New Box Module */}
+                  <div className="bg-white p-6 rounded-2xl shadow-lg border border-brand-border">
+                      <div className="flex justify-between items-center pb-4 border-b">
+                          <span className="text-xs uppercase font-bold tracking-widest text-brand-secondary">Units Logged</span>
+                          <span className="font-black text-xl">{currentPallet.boxes?.length || 0} Boxes</span>
+                      </div>
+                      
+                      <div className="pt-4 space-y-3">
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary">Register New Box</p>
+                          <input 
+                              type="text"
+                              placeholder="Box Identifier (Auto-generates if empty)"
+                              value={newBoxName}
+                              onChange={e => setNewBoxName(e.target.value)}
+                              className="w-full h-14 bg-brand-bg border border-brand-border rounded-xl px-4 font-bold text-brand-primary outline-none focus:border-brand-primary"
+                          />
+                          <button 
+                              onClick={handleCreateBox}
+                              disabled={isCreatingBox}
+                              className="w-full bg-brand-primary text-white py-4 rounded-xl font-bold uppercase tracking-widest text-xs flex items-center justify-center gap-2 shadow-md"
+                          >
+                              {isCreatingBox ? 'Registering...' : 'Add Box To Pallet'}
+                          </button>
+                      </div>
                   </div>
-                  
-                  <div className="pt-2 space-y-3">
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary">Register New Box</p>
-                      <input 
-                          type="text"
-                          placeholder="Box Identifier (Auto-generates if empty)"
-                          value={newBoxName}
-                          onChange={e => setNewBoxName(e.target.value)}
-                          className="w-full h-14 bg-brand-bg border border-brand-border rounded-xl px-4 font-bold text-brand-primary outline-none focus:border-brand-primary"
-                      />
-                      <button 
-                          onClick={handleCreateBox}
-                          disabled={isCreatingBox}
-                          className="w-full bg-brand-primary text-white py-4 rounded-xl font-bold uppercase tracking-widest text-xs flex items-center justify-center gap-2 shadow-md"
-                      >
-                          {isCreatingBox ? 'Registering...' : 'Add Box To Pallet'}
-                      </button>
-                  </div>
+
+                  {/* List of existing boxes */}
+                  {currentPallet.boxes && currentPallet.boxes.length > 0 && (
+                      <div className="bg-white p-6 rounded-2xl shadow-lg border border-brand-border">
+                         <h2 className="text-xs uppercase font-bold tracking-widest text-brand-secondary mb-4">Current Payload Menu</h2>
+                         <div className="space-y-3">
+                             {currentPallet.boxes.map((b: any) => (
+                                 <div key={b.id} className="flex justify-between items-center py-3 border-b border-gray-100 last:border-0 group">
+                                     <div 
+                                        className="flex-1 cursor-pointer pr-4" 
+                                        onClick={() => setSearchParams({ p: currentPallet.id, b: b.id })}
+                                     >
+                                        <p className="font-bold text-brand-primary">{b.name}</p>
+                                        <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mt-1">
+                                            {b.items?.reduce((s:number, i:any) => s + i.quantity, 0) || 0} Units Locked In
+                                        </p>
+                                     </div>
+                                     <div className="flex items-center gap-2 shrink-0">
+                                         <button 
+                                            onClick={async () => {
+                                                let maxNum = 0;
+                                                currentPallet.boxes?.forEach((existingBox: any) => {
+                                                    const match = existingBox.name.match(/(?:Box\s*)?(\d+)$/i);
+                                                    if (match) {
+                                                        const num = parseInt(match[1]);
+                                                        if (num > maxNum) maxNum = num;
+                                                    }
+                                                });
+                                                const prefixMatch = b.name.match(/^(.*?)\s*\d+$/);
+                                                const prefix = prefixMatch ? prefixMatch[1].trim() : 'Box';
+                                                
+                                                const clonedBox = {
+                                                    ...b,
+                                                    id: `box_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+                                                    name: `${prefix} ${maxNum + 1}`,
+                                                    items: b.items?.map((item: any) => ({
+                                                        ...item,
+                                                        id: `itm_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`
+                                                    })) || []
+                                                };
+                                      
+                                                try {
+                                                    const updatedBoxes = [...(currentPallet.boxes || []), clonedBox];
+                                                    await setDoc(doc(db, 'pallets', currentPallet.id), { ...currentPallet, boxes: updatedBoxes });
+                                                } catch (err) {
+                                                    console.error(err);
+                                                }
+                                            }}
+                                            className="w-10 h-10 rounded-xl bg-gray-50 border border-gray-200 flex items-center justify-center text-brand-primary hover:bg-black hover:text-white transition-all active:scale-95 shadow-sm"
+                                            title="Duplicate Box"
+                                         >
+                                             <Copy size={16} />
+                                         </button>
+                                         <button 
+                                            onClick={() => setSearchParams({ p: currentPallet.id, b: b.id })}
+                                            className="w-10 h-10 rounded-xl bg-brand-bg border border-brand-border flex items-center justify-center text-brand-primary hover:bg-brand-primary hover:text-white transition-all active:scale-95 shadow-sm"
+                                            title="Edit/View Box"
+                                         >
+                                             <ArrowRight size={16} />
+                                         </button>
+                                     </div>
+                                 </div>
+                             ))}
+                         </div>
+                      </div>
+                  )}
               </div>
               
               <button onClick={() => navigate('/inventory')} className="text-[10px] uppercase font-bold tracking-widest text-brand-secondary hover:text-black">Return to Dashboard</button>
