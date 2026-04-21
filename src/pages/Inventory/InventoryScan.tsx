@@ -251,7 +251,7 @@ export function InventoryScan() {
   };
 
   const handleUpdateItemQuantity = async (itemId: string, newQuantity: number) => {
-      if (newQuantity < 1 || !currentPallet || !currentBox) return;
+      if (!currentPallet || !currentBox) return;
       const updatedBoxes = currentPallet.boxes.map((b:any) => {
           if (b.id === boxId) {
               return { ...b, items: b.items.map((i:any) => i.id === itemId ? { ...i, quantity: newQuantity } : i) };
@@ -423,7 +423,22 @@ export function InventoryScan() {
                           <label className="block text-[10px] font-bold uppercase tracking-widest opacity-70 mb-1">Physical Quantity</label>
                           <div className="flex items-center gap-3 bg-white/10 rounded-xl p-1.5 border border-white/20">
                               <button onClick={() => setNewItemForm({...newItemForm, quantity: Math.max(1, newItemForm.quantity - 1)})} className="w-12 h-10 rounded-lg bg-black/20 font-black text-xl flex items-center justify-center active:bg-black/40">-</button>
-                              <span className="flex-1 text-center font-black text-xl">{newItemForm.quantity}</span>
+                              <input 
+                                  type="number" 
+                                  inputMode="numeric" 
+                                  pattern="[0-9]*" 
+                                  value={newItemForm.quantity || ''} 
+                                  onChange={(e) => {
+                                      const val = parseInt(e.target.value);
+                                      setNewItemForm({...newItemForm, quantity: isNaN(val) ? 0 : Math.max(0, val)});
+                                  }}
+                                  onBlur={() => {
+                                      if (!newItemForm.quantity || newItemForm.quantity < 1) {
+                                          setNewItemForm({...newItemForm, quantity: 1});
+                                      }
+                                  }}
+                                  className="flex-1 text-center font-black text-xl bg-transparent outline-none w-16" 
+                              />
                               <button onClick={() => setNewItemForm({...newItemForm, quantity: newItemForm.quantity + 1})} className="w-12 h-10 rounded-lg bg-white/20 font-black text-xl flex items-center justify-center active:bg-white/40">+</button>
                           </div>
                       </div>
@@ -452,7 +467,22 @@ export function InventoryScan() {
                               </div>
                               <div className="flex items-center gap-3 bg-gray-50 rounded-xl p-1 border border-brand-border/50">
                                   <button onClick={() => handleUpdateItemQuantity(item.id, item.quantity - 1)} className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-brand-primary active:bg-white hover:bg-white transition-colors">-</button>
-                                  <span className="font-black text-lg w-8 text-center">{item.quantity}</span>
+                                  <input 
+                                      type="number" 
+                                      inputMode="numeric" 
+                                      pattern="[0-9]*" 
+                                      value={item.quantity === 0 ? '' : item.quantity} 
+                                      onChange={(e) => {
+                                          const val = parseInt(e.target.value);
+                                          handleUpdateItemQuantity(item.id, isNaN(val) ? 0 : Math.max(0, val));
+                                      }}
+                                      onBlur={() => {
+                                          if (!item.quantity || item.quantity < 1) {
+                                              handleUpdateItemQuantity(item.id, 1);
+                                          }
+                                      }}
+                                      className="font-black text-lg w-12 text-center bg-transparent outline-none text-black" 
+                                  />
                                   <button onClick={() => handleUpdateItemQuantity(item.id, item.quantity + 1)} className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-brand-primary active:bg-white hover:bg-white transition-colors">+</button>
                               </div>
                           </div>
