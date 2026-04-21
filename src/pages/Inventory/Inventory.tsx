@@ -442,6 +442,29 @@ export function Inventory() {
      return () => unsubscribe();
   }, [currentWarehouse]);
 
+  const [palletStats, setPalletStats] = useState({ pallets: 0, boxes: 0, items: 0 });
+
+  useEffect(() => {
+     const q = query(collection(db, 'pallets'));
+     const unsubscribe = onSnapshot(q, (snapshot) => {
+         let pCount = 0; let bCount = 0; let iCount = 0;
+         snapshot.docs.forEach(d => {
+             const p = d.data();
+             pCount++;
+             if (p.boxes) {
+                 bCount += p.boxes.length;
+                 p.boxes.forEach((b: any) => {
+                     if (b.items) {
+                         iCount += b.items.reduce((acc: number, item: any) => acc + (item.quantity || 1), 0);
+                     }
+                 });
+             }
+         });
+         setPalletStats({ pallets: pCount, boxes: bCount, items: iCount });
+     });
+     return () => unsubscribe();
+  }, []);
+
   const [isAddingPallet, setIsAddingPallet] = useState(false);
   const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false);
   
@@ -548,9 +571,21 @@ export function Inventory() {
     <div className={`${tokens.layout.container} h-[100dvh] flex flex-col pt-4 md:pt-5`}>
       <div className="shrink-0 mb-4">
         <div className="flex justify-between items-center w-full">
-           <h1 className={`${tokens.typography.h1} text-2xl md:text-3xl`}>
-             {mainTab === 'Warehouse' ? 'Warehouse Inventory' : 'Product Catalog'}
-           </h1>
+           <div className="flex items-center gap-4">
+               <h1 className={`${tokens.typography.h1} text-2xl md:text-3xl`}>
+                 {mainTab === 'Warehouse' ? 'Warehouse Inventory' : 'Product Catalog'}
+               </h1>
+               
+               {mainTab === 'Pallets' && (
+                  <div className="hidden md:flex items-center gap-3 ml-2 bg-brand-bg/50 px-3 py-1.5 rounded-lg border border-brand-border/60 shadow-inner">
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary"><b className="text-brand-primary text-[11px]">{palletStats.pallets}</b> Pallets</span>
+                      <span className="text-brand-border">•</span>
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary"><b className="text-brand-primary text-[11px]">{palletStats.boxes}</b> Boxes</span>
+                      <span className="text-brand-border">•</span>
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary"><b className="text-brand-primary text-[11px]">{palletStats.items}</b> Total Items</span>
+                  </div>
+               )}
+           </div>
            
            <div className="flex bg-brand-bg p-1 rounded-lg border border-brand-border shrink-0 shadow-sm w-[400px]">
              <button 
