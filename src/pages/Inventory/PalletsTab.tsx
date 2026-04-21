@@ -45,6 +45,9 @@ export function PalletsTab() {
   const [editingBoxNameMode, setEditingBoxNameMode] = useState(false);
   const [editBoxNameValue, setEditBoxNameValue] = useState('');
   
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [editItemForm, setEditItemForm] = useState({ name: '', sku: '', size: '' });
+  
   useEffect(() => {
      const q = query(collection(db, 'pallets'));
      const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -226,6 +229,19 @@ export function PalletsTab() {
           return b;
       });
       await setDoc(doc(db, 'pallets', palletId), { ...p, boxes: updatedBoxes });
+  };
+
+  const handleUpdateItemDetails = async (palletId: string, boxId: string, itemId: string) => {
+      const p = pallets.find(p => p.id === palletId);
+      if(!p || !editItemForm.name.trim()) return;
+      const updatedBoxes = p.boxes.map(b => {
+          if (b.id === boxId) {
+              return { ...b, items: b.items.map(i => i.id === itemId ? { ...i, name: editItemForm.name, sku: editItemForm.sku, size: editItemForm.size } : i) };
+          }
+          return b;
+      });
+      await setDoc(doc(db, 'pallets', palletId), { ...p, boxes: updatedBoxes });
+      setEditingItemId(null);
   };
 
   const handleMoveBox = async (targetPalletId: string, palletId: string, boxId: string) => {
@@ -561,7 +577,7 @@ export function PalletsTab() {
                                                            {item.size && <span className="border border-brand-border text-brand-secondary px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-widest">{item.size}</span>}
                                                        </div>
                                                    </div>
-                                                   <div className="text-right flex items-center gap-2 pr-4">
+                                                   <div className="text-right flex items-center gap-2 pr-4 cursor-auto" onClick={e => e.stopPropagation()}>
                                                        <button onClick={() => handleUpdateItemQuantity(activePallet.id, activeBox.id, item.id, item.quantity - 1)} className="w-8 h-8 flex items-center justify-center rounded-lg bg-brand-bg border border-brand-border text-brand-primary font-bold hover:bg-white transition-colors">-</button>
                                                        <div className="text-2xl font-black font-sans tracking-tighter text-brand-primary w-12 text-center">
                                                            {item.quantity}
