@@ -980,7 +980,7 @@ export function Inventory() {
                           </div>
                           <div className="shrink-0 flex items-center justify-center border-l-4 border-dotted border-brand-border/60 pl-8">
                             <div className="bg-white p-2 border-4 border-black inline-block rounded-xl">
-                               <QRCode value={`https://app.printshopos.com/inventory/scan?id=${p.id}&loc=${encodeURIComponent(p.location)}`} size={140} />
+                               <QRCode value={`${window.location.origin}/inventory/scan?id=${p.id}&loc=${encodeURIComponent(p.location)}`} size={140} />
                             </div>
                           </div>
                        </div>
