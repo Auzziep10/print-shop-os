@@ -792,7 +792,7 @@ export function PalletsTab() {
                                                       height: '100%',
                                                       borderRadius: '0.125in',
                                                     }}
-                                                    className={`bg-white flex items-stretch box-border overflow-hidden z-10 [font-family:"Times_New_Roman",Times,serif]`}
+                                                    className={`bg-white border-2 border-transparent flex items-stretch box-border overflow-hidden z-10 [font-family:"Times_New_Roman",Times,serif]`}
                                                   >
                                                     <div className="flex-1 flex flex-col justify-center pl-3 pr-1 py-1 truncate">
                                                         <span className="text-[10px] uppercase font-bold tracking-widest leading-none text-gray-500 mb-1">{printingBox.pallet.name}</span>
@@ -836,6 +836,10 @@ export function PalletsTab() {
        )}
 
        <style>{`
+          @page { 
+             margin: 0; 
+             size: ${printingBox?.type === 'items' || printingBox?.type === 'all_boxes' ? 'letter' : '4in 6in'}; 
+          }
           @media print {
              body * { visibility: hidden !important; }
              
