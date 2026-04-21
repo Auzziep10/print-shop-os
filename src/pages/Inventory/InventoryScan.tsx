@@ -405,17 +405,17 @@ export function InventoryScan() {
                       
                       <div>
                           <label className="block text-[10px] font-bold uppercase tracking-widest opacity-70 mb-1">Garment / Item Name</label>
-                          <input list="inventory-names" type="text" value={newItemForm.name} onChange={e => setNewItemForm({...newItemForm, name: e.target.value})} className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 placeholder:text-white/30 outline-none focus:bg-white/20" placeholder="e.g. Heavyweight Hoodie" />
+                          <input list="inventory-names" name="item_garment_name" autoComplete="on" type="text" value={newItemForm.name} onChange={e => setNewItemForm({...newItemForm, name: e.target.value})} className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 placeholder:text-white/30 outline-none focus:bg-white/20" placeholder="e.g. Heavyweight Hoodie" />
                       </div>
                       
                       <div className="grid grid-cols-2 gap-4">
                           <div>
                               <label className="block text-[10px] font-bold uppercase tracking-widest opacity-70 mb-1">SKU (Opt)</label>
-                              <input list="inventory-skus" type="text" value={newItemForm.sku} onChange={e => setNewItemForm({...newItemForm, sku: e.target.value})} className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 placeholder:text-white/30 outline-none focus:bg-white/20" placeholder="TST-HGHT" />
+                              <input list="inventory-skus" name="item_sku" autoComplete="on" type="text" value={newItemForm.sku} onChange={e => setNewItemForm({...newItemForm, sku: e.target.value})} className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 placeholder:text-white/30 outline-none focus:bg-white/20" placeholder="TST-HGHT" />
                           </div>
                           <div>
                               <label className="block text-[10px] font-bold uppercase tracking-widest opacity-70 mb-1">Size Option</label>
-                              <input list="inventory-sizes" type="text" value={newItemForm.size} onChange={e => setNewItemForm({...newItemForm, size: e.target.value})} className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 placeholder:text-white/30 outline-none focus:bg-white/20" placeholder="XL" />
+                              <input list="inventory-sizes" name="item_size" autoComplete="on" type="text" value={newItemForm.size} onChange={e => setNewItemForm({...newItemForm, size: e.target.value})} className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 placeholder:text-white/30 outline-none focus:bg-white/20" placeholder="XL" />
                           </div>
                       </div>
                       

@@ -5,7 +5,7 @@ import QRCode from 'react-qr-code';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Text, Environment, DragControls } from '@react-three/drei';
 import { db } from '../../lib/firebase';
-import { collection, query, onSnapshot, setDoc, deleteDoc, doc, writeBatch } from 'firebase/firestore';
+import { collection, query, onSnapshot, setDoc, deleteDoc, doc, writeBatch, getDocs } from 'firebase/firestore';
 import { ProductsTab } from './ProductsTab';
 import { PalletsTab } from './PalletsTab';
 
@@ -468,6 +468,69 @@ export function Inventory() {
   const [isAddingPallet, setIsAddingPallet] = useState(false);
   const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false);
   
+  const [showBatchImageModal, setShowBatchImageModal] = useState(false);
+  const [batchMatchTerm, setBatchMatchTerm] = useState('');
+  const [batchMatchType, setBatchMatchType] = useState<'name' | 'sku'>('name');
+  const [batchImageUrl, setBatchImageUrl] = useState('');
+  const [isBatchUpdating, setIsBatchUpdating] = useState(false);
+
+  const handleBatchUpdateImages = async () => {
+      if (!batchMatchTerm.trim() || !batchImageUrl.trim()) return;
+      setIsBatchUpdating(true);
+      
+      try {
+          const snapshot = await getDocs(collection(db, 'pallets'));
+          const batchPromises: any[] = [];
+          
+          snapshot.docs.forEach(d => {
+              const pallet = d.data();
+              let changed = false;
+              
+              if (!pallet.boxes) return;
+              
+              const newBoxes = pallet.boxes.map((box: any) => {
+                  let boxChanged = false;
+                  if (!box.items) return box;
+                  
+                  const newItems = box.items.map((item: any) => {
+                      const matches = batchMatchType === 'sku' 
+                          ? (item.sku || '').toLowerCase() === batchMatchTerm.toLowerCase()
+                          : (item.name || '').toLowerCase() === batchMatchTerm.toLowerCase();
+                          
+                      if (matches && item.photoUrl !== batchImageUrl) {
+                          changed = true;
+                          boxChanged = true;
+                          return { ...item, photoUrl: batchImageUrl };
+                      }
+                      return item;
+                  });
+                  
+                  return boxChanged ? { ...box, items: newItems } : box;
+              });
+              
+              if (changed) {
+                  batchPromises.push(setDoc(doc(db, 'pallets', pallet.id), { ...pallet, boxes: newBoxes }));
+              }
+          });
+          
+          if (batchPromises.length > 0) {
+              await Promise.all(batchPromises);
+              alert(`Batch image update complete! Updated ${batchPromises.length} pallets.`);
+          } else {
+              alert('No items matched the given term, or they already had this image.');
+          }
+          
+          setShowBatchImageModal(false);
+          setBatchMatchTerm('');
+          setBatchImageUrl('');
+      } catch (err) {
+          console.error(err);
+          alert('Failed to batch update images.');
+      }
+      
+      setIsBatchUpdating(false);
+  };
+  
   const handleDeletePallet = async (id: string) => {
     setInventoryDB(prevList => prevList.filter(p => p.id !== id));
     setActivePallet(null);
@@ -584,6 +647,14 @@ export function Inventory() {
                       <span className="text-brand-border">•</span>
                       <span className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary"><b className="text-brand-primary text-[11px]">{palletStats.items}</b> Total Items</span>
                   </div>
+               )}
+               {mainTab === 'Pallets' && (
+                  <button 
+                      onClick={() => setShowBatchImageModal(true)}
+                      className="ml-2 hidden md:flex items-center gap-2 px-3 py-1.5 bg-brand-bg border border-brand-border rounded-lg text-[10px] font-bold uppercase tracking-widest text-brand-primary hover:bg-black hover:text-white transition-colors shadow-sm"
+                  >
+                      Batch Set Thumbnails
+                  </button>
                )}
            </div>
            
@@ -1061,6 +1132,45 @@ export function Inventory() {
                </div>
             </div>
          </div>
+      )}
+
+      {/* Batch Image Modal */}
+      {showBatchImageModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in zoom-in-95 duration-200">
+              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 flex flex-col relative border border-brand-border">
+                  <h2 className="text-xl font-serif font-bold text-brand-primary mb-1">Batch Update Thumbnails</h2>
+                  <p className="text-[11px] text-brand-secondary mb-6 leading-relaxed">
+                      Enter an Item Name or SKU, and provide a Photo URL. This tool will scan the entire warehouse (all pallets and boxes) and inject the thumbnail into every matching line item.
+                  </p>
+                  
+                  <div className="space-y-4">
+                      <div>
+                          <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-2">Match By</label>
+                          <div className="flex bg-brand-bg p-1 rounded-lg border border-brand-border">
+                              <button onClick={() => setBatchMatchType('name')} className={`flex-1 py-2 rounded text-[10px] font-bold uppercase transition-colors ${batchMatchType === 'name' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary'}`}>Garment Name</button>
+                              <button onClick={() => setBatchMatchType('sku')} className={`flex-1 py-2 rounded text-[10px] font-bold uppercase transition-colors ${batchMatchType === 'sku' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary'}`}>SKU</button>
+                          </div>
+                      </div>
+                      
+                      <div>
+                          <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1">Target {batchMatchType === 'name' ? 'Name' : 'SKU'}</label>
+                          <input type="text" value={batchMatchTerm} onChange={e => setBatchMatchTerm(e.target.value)} className="w-full text-sm font-semibold p-3 bg-brand-bg border border-brand-border rounded-lg outline-none focus:border-brand-primary" placeholder={batchMatchType === 'name' ? "e.g. Stone Hoodie" : "e.g. STN-HD"} />
+                      </div>
+                      
+                      <div>
+                          <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1">New Photo URL</label>
+                          <input type="text" value={batchImageUrl} onChange={e => setBatchImageUrl(e.target.value)} className="w-full text-sm font-semibold p-3 bg-brand-bg border border-brand-border rounded-lg outline-none focus:border-brand-primary" placeholder="https://..." />
+                      </div>
+                  </div>
+                  
+                  <div className="flex gap-3 justify-end mt-8">
+                      <button onClick={() => setShowBatchImageModal(false)} className="px-5 py-2.5 text-xs font-bold uppercase text-brand-secondary hover:text-black transition-colors rounded-lg">Cancel</button>
+                      <button onClick={handleBatchUpdateImages} disabled={isBatchUpdating} className={`px-6 py-2.5 bg-brand-primary text-white font-bold uppercase tracking-widest text-xs rounded-lg shadow-md transition-all ${isBatchUpdating ? 'opacity-50 cursor-not-allowed' : 'hover:bg-black hover:-translate-y-0.5'}`}>
+                          {isBatchUpdating ? 'Updating...' : 'Update Inventory'}
+                      </button>
+                  </div>
+              </div>
+          </div>
       )}
 
       <style>{`
