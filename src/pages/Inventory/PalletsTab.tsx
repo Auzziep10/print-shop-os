@@ -42,6 +42,9 @@ export function PalletsTab() {
   const [isAddingItem, setIsAddingItem] = useState<{boxId: string} | null>(null);
   const [newItemForm, setNewItemForm] = useState({ sku: '', name: '', size: '', quantity: 1, photoUrl: '' });
   
+  const [editingBoxNameMode, setEditingBoxNameMode] = useState(false);
+  const [editBoxNameValue, setEditBoxNameValue] = useState('');
+  
   useEffect(() => {
      const q = query(collection(db, 'pallets'));
      const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -116,20 +119,47 @@ export function PalletsTab() {
       }
   };
   
-  const handleDeleteBox = async (palletId: string, boxId: string) => {
-      if (!window.confirm("Delete this box?")) return;
+  const handleDeleteBox = async (palletId: string, boxId: string, boxName: string) => {
+      const term = window.prompt(`Type "${boxName}" to confirm deletion of this box.`);
+      if (term !== boxName) return;
       const p = pallets.find(p => p.id === palletId);
       if(!p) return;
       const updatedPallet = { ...p, boxes: p.boxes.filter(b => b.id !== boxId) };
       await setDoc(doc(db, 'pallets', palletId), updatedPallet);
   };
 
+  const handleUpdateBoxName = async (palletId: string, boxId: string, newName: string) => {
+      if (!newName.trim()) return;
+      const p = pallets.find(p => p.id === palletId);
+      if(!p) return;
+      const updatedBoxes = p.boxes.map(b => b.id === boxId ? { ...b, name: newName } : b);
+      await setDoc(doc(db, 'pallets', palletId), { ...p, boxes: updatedBoxes });
+      setEditingBoxNameMode(false);
+  };
+
   const handleDeleteItem = async (palletId: string, boxId: string, itemId: string) => {
+      if (!window.confirm("Delete this line item completely?")) return;
       const p = pallets.find(p => p.id === palletId);
       if(!p) return;
       const updatedBoxes = p.boxes.map(b => {
           if (b.id === boxId) {
               return { ...b, items: b.items.filter(i => i.id !== itemId) };
+          }
+          return b;
+      });
+      await setDoc(doc(db, 'pallets', palletId), { ...p, boxes: updatedBoxes });
+  };
+
+  const handleUpdateItemQuantity = async (palletId: string, boxId: string, itemId: string, newQuantity: number) => {
+      if (newQuantity < 1) {
+          handleDeleteItem(palletId, boxId, itemId);
+          return;
+      }
+      const p = pallets.find(p => p.id === palletId);
+      if(!p) return;
+      const updatedBoxes = p.boxes.map(b => {
+          if (b.id === boxId) {
+              return { ...b, items: b.items.map(i => i.id === itemId ? { ...i, quantity: newQuantity } : i) };
           }
           return b;
       });
@@ -324,10 +354,24 @@ export function PalletsTab() {
                                       </span>
                                       <span className="text-[10px] uppercase font-bold tracking-widest text-brand-secondary">{activeBox.id}</span>
                                    </div>
-                                   <h2 className="font-serif text-3xl tracking-tight text-brand-primary flex items-center gap-3">
-                                       {activeBox.name}
-                                       <button onClick={() => handleDeleteBox(activePallet.id, activeBox.id)} className="text-red-400 hover:text-red-600 p-1 bg-red-50 rounded opacity-0 group-hover:opacity-100 transition-opacity"><X size={16} /></button>
-                                   </h2>
+                                   <div className="flex items-center gap-3">
+                                       {editingBoxNameMode ? (
+                                           <input 
+                                              type="text" 
+                                              autoFocus
+                                              value={editBoxNameValue}
+                                              onChange={e => setEditBoxNameValue(e.target.value)}
+                                              onBlur={() => handleUpdateBoxName(activePallet.id, activeBox.id, editBoxNameValue)}
+                                              onKeyDown={e => e.key === 'Enter' && handleUpdateBoxName(activePallet.id, activeBox.id, editBoxNameValue)}
+                                              className="font-serif text-3xl tracking-tight text-brand-primary bg-brand-bg border border-brand-border rounded outline-none focus:border-brand-primary px-2 py-0.5"
+                                           />
+                                       ) : (
+                                           <h2 className="font-serif text-3xl tracking-tight text-brand-primary cursor-pointer hover:opacity-80 transition-opacity" onClick={() => { setEditBoxNameValue(activeBox.name); setEditingBoxNameMode(true); }} title="Click to rename box">
+                                               {activeBox.name}
+                                           </h2>
+                                       )}
+                                       <button onClick={() => handleDeleteBox(activePallet.id, activeBox.id, activeBox.name)} className="text-red-400 hover:text-red-600 p-1 bg-red-50 rounded opacity-0 group-hover:opacity-100 transition-opacity" title="Delete Box"><X size={16} /></button>
+                                   </div>
                                 </div>
                                 <div className="flex flex-col gap-2 items-end">
                                     <div className="flex gap-2 mb-2">
@@ -428,13 +472,15 @@ export function PalletsTab() {
                                                            {item.size && <span className="border border-brand-border text-brand-secondary px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-widest">{item.size}</span>}
                                                        </div>
                                                    </div>
-                                                   <div className="text-right flex items-center gap-4">
-                                                       <div className="text-2xl font-black font-sans tracking-tighter text-brand-primary">
-                                                           ×{item.quantity}
+                                                   <div className="text-right flex items-center gap-2 pr-4">
+                                                       <button onClick={() => handleUpdateItemQuantity(activePallet.id, activeBox.id, item.id, item.quantity - 1)} className="w-8 h-8 flex items-center justify-center rounded-lg bg-brand-bg border border-brand-border text-brand-primary font-bold hover:bg-white transition-colors">-</button>
+                                                       <div className="text-2xl font-black font-sans tracking-tighter text-brand-primary w-12 text-center">
+                                                           {item.quantity}
                                                        </div>
+                                                       <button onClick={() => handleUpdateItemQuantity(activePallet.id, activeBox.id, item.id, item.quantity + 1)} className="w-8 h-8 flex items-center justify-center rounded-lg bg-brand-bg border border-brand-border text-brand-primary font-bold hover:bg-white transition-colors">+</button>
                                                        <button 
                                                           onClick={() => handleDeleteItem(activePallet.id, activeBox.id, item.id)}
-                                                          className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 bg-red-50 p-2 rounded-lg transition-all"
+                                                          className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 bg-red-50 p-2 rounded-lg transition-all ml-2"
                                                        >
                                                           <X size={16} />
                                                        </button>

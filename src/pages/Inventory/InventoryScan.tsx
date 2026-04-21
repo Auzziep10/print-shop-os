@@ -15,6 +15,9 @@ export function InventoryScan() {
   const [targetPalletId, setTargetPalletId] = useState<string>('');
   const [isMoving, setIsMoving] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
+  
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editNameValue, setEditNameValue] = useState('');
 
   useEffect(() => {
      const q = query(collection(db, 'pallets'));
@@ -108,6 +111,32 @@ export function InventoryScan() {
       setIsMoving(false);
   };
 
+  const handleUpdateBoxName = async (newName: string) => {
+      if (!newName.trim() || !currentPallet || !currentBox) return;
+      const updatedBoxes = currentPallet.boxes.map((b:any) => b.id === boxId ? { ...b, name: newName } : b);
+      try {
+          await setDoc(doc(db, 'pallets', currentPallet.id), { ...currentPallet, boxes: updatedBoxes });
+          setIsEditingName(false);
+      } catch (err) {
+          console.error(err);
+      }
+  };
+
+  const handleUpdateItemQuantity = async (itemId: string, newQuantity: number) => {
+      if (newQuantity < 1 || !currentPallet || !currentBox) return;
+      const updatedBoxes = currentPallet.boxes.map((b:any) => {
+          if (b.id === boxId) {
+              return { ...b, items: b.items.map((i:any) => i.id === itemId ? { ...i, quantity: newQuantity } : i) };
+          }
+          return b;
+      });
+      try {
+          await setDoc(doc(db, 'pallets', currentPallet.id), { ...currentPallet, boxes: updatedBoxes });
+      } catch (err) {
+          console.error(err);
+      }
+  };
+
   const lineItemsCount = currentBox.items?.reduce((s:number, i:any) => s + i.quantity, 0) || 0;
 
   if (successMsg) {
@@ -136,7 +165,26 @@ export function InventoryScan() {
                  <BoxIcon size={160} />
              </div>
              <p className="text-[10px] uppercase font-bold tracking-widest opacity-70 mb-1">Scanned Payload</p>
-             <h1 className="font-serif text-4xl font-bold tracking-tight mb-4 relative z-10">{currentBox.name}</h1>
+             
+             {isEditingName ? (
+                 <input 
+                     type="text" 
+                     autoFocus
+                     value={editNameValue}
+                     onChange={e => setEditNameValue(e.target.value)}
+                     onBlur={() => handleUpdateBoxName(editNameValue)}
+                     onKeyDown={e => e.key === 'Enter' && handleUpdateBoxName(editNameValue)}
+                     className="w-full font-serif text-3xl font-bold tracking-tight mb-4 text-black px-2 py-1 rounded relative z-10 outline-none"
+                 />
+             ) : (
+                 <h1 
+                     className="font-serif text-4xl font-bold tracking-tight mb-4 relative z-10 cursor-pointer hover:opacity-80"
+                     onClick={() => { setEditNameValue(currentBox.name); setIsEditingName(true); }}
+                 >
+                     {currentBox.name}
+                 </h1>
+             )}
+             
              <div className="flex justify-between items-end relative z-10">
                  <div className="bg-white/20 px-3 py-1.5 rounded-lg backdrop-blur-sm border border-white/10">
                      <p className="text-[10px] font-bold uppercase tracking-widest opacity-80 mb-0.5">Origin Node</p>
@@ -184,11 +232,15 @@ export function InventoryScan() {
                   <div className="space-y-3">
                       {currentBox.items?.map((item: any) => (
                           <div key={item.id} className="flex justify-between items-center py-2 border-b border-gray-100 last:border-0">
-                              <div>
+                              <div className="flex-1">
                                   <p className="font-bold text-sm">{item.name}</p>
                                   <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mt-1">{item.sku} • {item.size}</p>
                               </div>
-                              <span className="font-black text-lg bg-gray-100 px-3 py-1 rounded-lg">×{item.quantity}</span>
+                              <div className="flex items-center gap-3 bg-gray-50 rounded-xl p-1 border border-brand-border/50">
+                                  <button onClick={() => handleUpdateItemQuantity(item.id, item.quantity - 1)} className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-brand-primary active:bg-white hover:bg-white transition-colors">-</button>
+                                  <span className="font-black text-lg w-8 text-center">{item.quantity}</span>
+                                  <button onClick={() => handleUpdateItemQuantity(item.id, item.quantity + 1)} className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-brand-primary active:bg-white hover:bg-white transition-colors">+</button>
+                              </div>
                           </div>
                       ))}
                       {(!currentBox.items || currentBox.items.length === 0) && (
