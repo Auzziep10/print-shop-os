@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { db } from '../../lib/firebase';
-import { collection, query, onSnapshot, setDoc, deleteDoc, doc, updateDoc } from 'firebase/firestore';
-import { tokens } from '../../lib/tokens';
-import { Plus, Package, Box, ChevronRight, QrCode, Printer, X, Image as ImageIcon, Search, BarChart3, Layers, Tag } from 'lucide-react';
+import { collection, query, onSnapshot, setDoc, deleteDoc, doc } from 'firebase/firestore';
+import { Plus, Package, Box, ChevronRight, QrCode, Printer, X, Image as ImageIcon, BarChart3, Layers, Tag } from 'lucide-react';
 import QRCode from 'react-qr-code';
 
 interface Item {
