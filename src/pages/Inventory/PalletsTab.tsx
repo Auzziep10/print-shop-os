@@ -519,7 +519,7 @@ export function PalletsTab() {
 
        {/* Print Modal Overlay */}
        {printingBox && (
-          <div className={`fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-8 animate-in fade-in ${printingBox.type === 'items' ? 'print-avery-mode' : ''}`}>
+          <div className={`fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-8 animate-in fade-in ${printingBox.type === 'items' || printingBox.type === 'all_boxes' ? 'print-avery-mode' : 'print-thermal-mode'}`}>
              <div className="bg-brand-bg rounded-2xl shadow-2xl max-w-5xl w-full h-full max-h-[90vh] flex flex-col overflow-hidden relative">
                 <div className="p-6 border-b border-brand-border bg-white flex justify-between items-center shrink-0">
                     <div>
@@ -541,8 +541,8 @@ export function PalletsTab() {
                 <div className="flex-1 p-8 overflow-y-auto flex items-start justify-center bg-gray-200 print:p-0 print:bg-white custom-scrollbar print-viewport">
                     {printingBox.type === 'box' && printingBox.box ? (
                         /* The Actual Thermal Label to Print */
-                        <div className="bg-white w-[600px] shadow-xl p-8 border-4 border-black print-label-container print:shadow-none print:w-full print:border-none print:p-4 my-auto">
-                            <div className="flex justify-between items-start mb-6 border-b-4 border-black pb-4">
+                        <div className="bg-white shadow-xl p-6 border-4 border-black print-label-container my-auto print:shadow-none print:border-none print:m-0 overflow-hidden flex flex-col" style={{ width: '6in', height: '4in', boxSizing: 'border-box' }}>
+                            <div className="flex justify-between items-start mb-4 border-b-4 border-black pb-3 shrink-0">
                                 <div>
                                     <img src="/logo.png" alt="WOVN" className="h-8 w-auto mb-4 grayscale" />
                                     <h1 className="font-sans text-4xl font-black uppercase tracking-tighter leading-none">{printingBox.pallet.name}</h1>
@@ -554,16 +554,16 @@ export function PalletsTab() {
                                 </div>
                             </div>
 
-                            <div className="flex gap-8">
-                                <div className="flex-1">
-                                    <h3 className="text-sm font-black uppercase tracking-widest mb-3 border-b-2 border-black pb-1">Contents Manifest ({printingBox.box.items.reduce((s,i)=>s+i.quantity,0)} Units)</h3>
-                                    <div className="space-y-3">
+                            <div className="flex gap-4 flex-1 min-h-0">
+                                <div className="flex-1 flex flex-col min-h-0">
+                                    <h3 className="text-sm font-black uppercase tracking-widest mb-2 border-b-2 border-black pb-1 shrink-0">Contents Manifest ({printingBox.box.items.reduce((s,i)=>s+i.quantity,0)} Units)</h3>
+                                    <div className="space-y-2 overflow-y-auto pr-2 flex-1 pb-1 custom-scrollbar">
                                         {printingBox.box.items.map((item, idx) => (
-                                            <div key={idx} className="flex gap-3 items-start p-2 border border-black/20 rounded">
-                                                {item.photoUrl && <img src={item.photoUrl} alt="Item" className="w-12 h-12 rounded object-cover grayscale border border-black/20" />}
-                                                <div className="flex-1">
-                                                    <div className="font-bold text-lg leading-tight uppercase font-sans line-clamp-1">{item.name}</div>
-                                                    <div className="text-xs font-bold font-mono">
+                                            <div key={idx} className="flex gap-2 items-center p-1.5 border border-black/20 rounded">
+                                                {item.photoUrl && <img src={item.photoUrl} alt="Item" className="w-8 h-8 rounded object-cover grayscale border border-black/20 shrink-0" />}
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="font-bold text-sm leading-tight uppercase font-sans line-clamp-1">{item.name}</div>
+                                                    <div className="text-[9px] font-bold font-mono">
                                                         {item.sku ? `SKU: ${item.sku}` : ''} {item.size ? `| SIZE: ${item.size}` : ''}
                                                     </div>
                                                 </div>
@@ -578,13 +578,15 @@ export function PalletsTab() {
                                     </div>
                                 </div>
                                 
-                                <div className="shrink-0 flex flex-col items-center justify-start border-l-4 border-black pl-8 w-48">
-                                    <div className="p-2 border-4 border-black bg-white mb-2">
-                                        <QRCode value={`https://app.printshopos.com/inventory/scan?p=${printingBox.pallet.id}&b=${printingBox.box.id}`} size={140} level="H" />
+                                <div className="shrink-0 flex flex-col items-center justify-between border-l-4 border-black pl-4 w-40">
+                                    <div className="flex flex-col items-center">
+                                        <div className="p-1 border-4 border-black bg-white mb-2">
+                                            <QRCode value={`https://app.printshopos.com/inventory/scan?p=${printingBox.pallet.id}&b=${printingBox.box.id}`} size={100} level="L" />
+                                        </div>
+                                        <p className="text-[8px] font-black uppercase tracking-widest text-center mt-1 w-full text-black">Scan to View Info</p>
                                     </div>
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-center mt-2 w-full text-black">Scan to View Route In Dashboard</p>
-                                    <div className="mt-auto pt-6 w-full opacity-60">
-                                        <div className="text-[8px] font-mono leading-tight">
+                                    <div className="w-full opacity-70">
+                                        <div className="text-[7px] font-mono leading-tight">
                                             DATE: {new Date().toLocaleDateString()}<br/>
                                             TIME: {new Date().toLocaleTimeString()}<br/>
                                             SYS_ID: {printingBox.box.id}
@@ -693,28 +695,29 @@ export function PalletsTab() {
           @media print {
              body * { visibility: hidden !important; }
              
-             /* For Box Route Thermal Label */
-             .print-label-container, .print-label-container * { visibility: visible !important; }
-             body:not(.avery-print) .print-label-container {
+             /* For Box Route Thermal Label (6x4 Landscape) */
+             .print-thermal-mode .print-label-container, .print-thermal-mode .print-label-container * { visibility: visible !important; }
+             .print-thermal-mode .print-label-container {
                  position: fixed !important;
                  left: 0 !important;
                  top: 0 !important;
-                 width: 100vw !important;
-                 min-height: 100vh !important;
-                 padding: 0.5in !important;
+                 width: 6in !important;
+                 height: 4in !important;
+                 padding: 0.15in !important;
                  margin: 0 !important;
                  border: none !important;
                  box-shadow: none !important;
+                 page-break-after: always;
              }
 
-             /* For Avery 5160 Item Labels */
+             /* For Avery 5160 Item Labels (8.5x11 Portrait) */
              .print-avery-mode .print-viewport, .print-avery-mode .print-viewport * { visibility: visible !important; }
              .print-avery-mode .print-viewport {
                  position: fixed !important;
                  left: 0 !important;
                  top: 0 !important;
-                 width: 100vw !important;
-                 height: 100vh !important;
+                 width: 8.5in !important;
+                 height: 11in !important;
                  padding: 0 !important;
                  margin: 0 !important;
                  background: white !important;
@@ -724,7 +727,13 @@ export function PalletsTab() {
                  box-shadow: none !important;
                  page-break-after: always;
              }
-             @page { margin: 0; }
+          }
+          
+          .print-thermal-mode {
+             @page { size: 6in 4in landscape; margin: 0; }
+          }
+          .print-avery-mode {
+             @page { size: 8.5in 11in portrait; margin: 0; }
           }
        `}</style>
     </div>
