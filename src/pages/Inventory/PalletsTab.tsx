@@ -781,13 +781,14 @@ export function PalletsTab() {
              .print-thermal-mode .print-label-container, .print-thermal-mode .print-label-container * { visibility: visible !important; }
              .print-thermal-mode .print-label-container {
                  position: fixed !important;
-                 left: 4in !important;
-                 top: 0 !important;
-                 width: 6in !important;
-                 height: 4in !important;
-                 padding: 0.2in !important;
+                 left: 3.9in !important;
+                 top: 0.1in !important;
+                 width: 5.8in !important;
+                 height: 3.8in !important;
+                 padding: 0.3in !important;
                  margin: 0 !important;
                  border: none !important;
+                 box-sizing: border-box !important;
                  box-shadow: none !important;
                  transform: rotate(90deg);
                  transform-origin: top left;
