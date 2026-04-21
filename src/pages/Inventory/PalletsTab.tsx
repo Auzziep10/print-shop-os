@@ -836,11 +836,11 @@ export function PalletsTab() {
        )}
 
        <style>{`
-          @page { 
-             margin: 0; 
-             size: ${printingBox?.type === 'items' || printingBox?.type === 'all_boxes' ? 'letter' : '4in 6in'}; 
-          }
           @media print {
+             @page { 
+                 size: ${printingBox?.type === 'items' || printingBox?.type === 'all_boxes' ? 'letter' : '4in 6in'}; 
+                 margin: ${printingBox?.type === 'items' || printingBox?.type === 'all_boxes' ? 'auto' : '0'};
+             }
              body * { visibility: hidden !important; }
              
              /* For Box Route Thermal Label (6x4 Landscape rotated to 4x6 Portrait) */
@@ -864,17 +864,14 @@ export function PalletsTab() {
              /* For Avery 5160 Item Labels (8.5x11 Portrait) */
              .print-avery-mode .print-viewport, .print-avery-mode .print-viewport * { visibility: visible !important; }
              .print-avery-mode .print-viewport {
-                 position: fixed !important;
+                 position: absolute !important;
                  left: 0 !important;
                  top: 0 !important;
                  width: 8.5in !important;
-                 height: 11in !important;
-                 padding: 0 !important;
-                 margin: 0 !important;
                  background: white !important;
              }
              .avery-sheet {
-                 margin: 0 !important;
+                 margin: 0 auto !important;
                  box-shadow: none !important;
                  page-break-after: always;
              }
