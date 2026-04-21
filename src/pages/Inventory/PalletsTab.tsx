@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { db } from '../../lib/firebase';
 import { collection, query, onSnapshot, setDoc, deleteDoc, doc } from 'firebase/firestore';
-import { Plus, Package, Box, ChevronRight, QrCode, Printer, X, Image as ImageIcon, BarChart3, Layers, Tag } from 'lucide-react';
+import { Plus, Package, Box, ChevronRight, QrCode, Printer, X, Image as ImageIcon, BarChart3, Layers, Tag, Copy } from 'lucide-react';
 import QRCode from 'react-qr-code';
 
 interface Item {
@@ -135,6 +135,47 @@ export function PalletsTab() {
       const updatedBoxes = p.boxes.map(b => b.id === boxId ? { ...b, name: newName } : b);
       await setDoc(doc(db, 'pallets', palletId), { ...p, boxes: updatedBoxes });
       setEditingBoxNameMode(false);
+  };
+
+  const handleDuplicateBox = async (palletId: string, boxId: string) => {
+      const p = pallets.find(p => p.id === palletId);
+      if(!p) return;
+      
+      const sourceBox = p.boxes.find(b => b.id === boxId);
+      if(!sourceBox) return;
+
+      let maxNum = 0;
+      p.boxes.forEach((b: any) => {
+          const match = b.name.match(/(?:Box\s*)?(\d+)$/i);
+          if (match) {
+              const num = parseInt(match[1]);
+              if (num > maxNum) maxNum = num;
+          }
+      });
+      
+      const nextBoxNum = maxNum + 1;
+      let newBoxName = `${sourceBox.name} (Copy)`;
+      const prefixMatch = sourceBox.name.match(/^(.*?)\s*\d+$/);
+      if (prefixMatch) {
+          const prefix = prefixMatch[1].trim();
+          newBoxName = `${prefix} ${nextBoxNum}`;
+      } else if (sourceBox.name.toLowerCase() === 'box' || sourceBox.name.toLowerCase() === 'carton') {
+          newBoxName = `${sourceBox.name} ${nextBoxNum}`;
+      }
+
+      const duplicateBox = {
+          ...sourceBox,
+          id: `box_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+          name: newBoxName,
+          items: sourceBox.items.map(item => ({
+              ...item,
+              id: `itm_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`
+          }))
+      };
+
+      const updatedBoxes = [...p.boxes, duplicateBox];
+      await setDoc(doc(db, 'pallets', palletId), { ...p, boxes: updatedBoxes });
+      setActiveBoxId(duplicateBox.id);
   };
 
   const handleDeleteItem = async (palletId: string, boxId: string, itemId: string) => {
@@ -390,7 +431,13 @@ export function PalletsTab() {
                                             ))}
                                         </select>
                                     </div>
-                                    <div className="flex flex-col gap-2 w-full">
+                                    <div className="flex flex-col gap-2 w-full mt-2">
+                                        <button 
+                                           onClick={() => handleDuplicateBox(activePallet.id, activeBox.id)}
+                                           className="bg-brand-bg text-brand-primary border border-brand-border w-full px-5 py-2 rounded-lg font-bold uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 hover:bg-black hover:text-white transition-all shadow-sm"
+                                        >
+                                           <Copy size={14} /> Duplicate Payload
+                                        </button>
                                         <button 
                                            onClick={() => setPrintingBox({ pallet: activePallet, box: activeBox, type: 'box' })}
                                            className="bg-brand-primary text-white w-full px-5 py-2 rounded-lg font-bold uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 shadow-sm hover:bg-black transition-all"
