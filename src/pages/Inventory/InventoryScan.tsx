@@ -391,21 +391,31 @@ export function InventoryScan() {
                   </button>
               ) : (
                   <div className="bg-brand-primary p-6 rounded-2xl shadow-xl text-white space-y-4 animate-in slide-in-from-top-4">
+                      <datalist id="inventory-skus">
+                          {Array.from(new Set(pallets.flatMap((p:any)=>p.boxes?.flatMap((b:any)=>b.items?.map((i:any)=>i.sku)||[])||[]))).filter(Boolean).map((s:any)=><option key={s} value={s}/>)}
+                      </datalist>
+                      <datalist id="inventory-names">
+                          {Array.from(new Set(pallets.flatMap((p:any)=>p.boxes?.flatMap((b:any)=>b.items?.map((i:any)=>i.name)||[])||[]))).filter(Boolean).map((n:any)=><option key={n} value={n}/>)}
+                      </datalist>
+                      <datalist id="inventory-sizes">
+                          {Array.from(new Set(pallets.flatMap((p:any)=>p.boxes?.flatMap((b:any)=>b.items?.map((i:any)=>i.size)||[])||[]))).filter(Boolean).map((s:any)=><option key={s} value={s}/>)}
+                      </datalist>
+
                       <h2 className="text-sm font-bold uppercase tracking-widest mb-4">New Item Entry</h2>
                       
                       <div>
                           <label className="block text-[10px] font-bold uppercase tracking-widest opacity-70 mb-1">Garment / Item Name</label>
-                          <input type="text" value={newItemForm.name} onChange={e => setNewItemForm({...newItemForm, name: e.target.value})} className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 placeholder:text-white/30 outline-none focus:bg-white/20" placeholder="e.g. Heavyweight Hoodie" />
+                          <input list="inventory-names" type="text" value={newItemForm.name} onChange={e => setNewItemForm({...newItemForm, name: e.target.value})} className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 placeholder:text-white/30 outline-none focus:bg-white/20" placeholder="e.g. Heavyweight Hoodie" />
                       </div>
                       
                       <div className="grid grid-cols-2 gap-4">
                           <div>
                               <label className="block text-[10px] font-bold uppercase tracking-widest opacity-70 mb-1">SKU (Opt)</label>
-                              <input type="text" value={newItemForm.sku} onChange={e => setNewItemForm({...newItemForm, sku: e.target.value})} className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 placeholder:text-white/30 outline-none focus:bg-white/20" placeholder="TST-HGHT" />
+                              <input list="inventory-skus" type="text" value={newItemForm.sku} onChange={e => setNewItemForm({...newItemForm, sku: e.target.value})} className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 placeholder:text-white/30 outline-none focus:bg-white/20" placeholder="TST-HGHT" />
                           </div>
                           <div>
                               <label className="block text-[10px] font-bold uppercase tracking-widest opacity-70 mb-1">Size Option</label>
-                              <input type="text" value={newItemForm.size} onChange={e => setNewItemForm({...newItemForm, size: e.target.value})} className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 placeholder:text-white/30 outline-none focus:bg-white/20" placeholder="XL" />
+                              <input list="inventory-sizes" type="text" value={newItemForm.size} onChange={e => setNewItemForm({...newItemForm, size: e.target.value})} className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 placeholder:text-white/30 outline-none focus:bg-white/20" placeholder="XL" />
                           </div>
                       </div>
                       

@@ -474,21 +474,31 @@ export function PalletsTab() {
                                 
                                 {isAddingItem?.boxId === activeBox.id && (
                                     <div className="bg-white border-2 border-brand-primary p-5 rounded-2xl shadow-lg mb-6 animate-in slide-in-from-top-4">
+                                        <datalist id="inventory-skus">
+                                            {Array.from(new Set(pallets.flatMap(p=>p.boxes?.flatMap((b:any)=>b.items?.map((i:any)=>i.sku)||[])||[]))).filter(Boolean).map((s:any)=><option key={s} value={s}/>)}
+                                        </datalist>
+                                        <datalist id="inventory-names">
+                                            {Array.from(new Set(pallets.flatMap(p=>p.boxes?.flatMap((b:any)=>b.items?.map((i:any)=>i.name)||[])||[]))).filter(Boolean).map((n:any)=><option key={n} value={n}/>)}
+                                        </datalist>
+                                        <datalist id="inventory-sizes">
+                                            {Array.from(new Set(pallets.flatMap(p=>p.boxes?.flatMap((b:any)=>b.items?.map((i:any)=>i.size)||[])||[]))).filter(Boolean).map((s:any)=><option key={s} value={s}/>)}
+                                        </datalist>
+
                                         <h4 className="text-xs font-bold uppercase tracking-widest text-brand-primary mb-4 flex items-center gap-2">
                                             <Tag size={14} /> New Item Record
                                         </h4>
                                         <div className="grid grid-cols-12 gap-4">
                                             <div className="col-span-3">
                                                 <label className="block text-[9px] font-bold uppercase tracking-widest text-brand-secondary mb-1">SKU</label>
-                                                <input type="text" value={newItemForm.sku} onChange={e => setNewItemForm({...newItemForm, sku: e.target.value})} className="w-full text-xs font-semibold p-2.5 bg-brand-bg border border-brand-border rounded-lg outline-none focus:border-brand-primary" placeholder="e.g. TST-BLK" />
+                                                <input list="inventory-skus" type="text" value={newItemForm.sku} onChange={e => setNewItemForm({...newItemForm, sku: e.target.value})} className="w-full text-xs font-semibold p-2.5 bg-brand-bg border border-brand-border rounded-lg outline-none focus:border-brand-primary" placeholder="e.g. TST-BLK" />
                                             </div>
                                             <div className="col-span-4">
                                                 <label className="block text-[9px] font-bold uppercase tracking-widest text-brand-secondary mb-1">Item Name</label>
-                                                <input type="text" value={newItemForm.name} onChange={e => setNewItemForm({...newItemForm, name: e.target.value})} className="w-full text-xs font-semibold p-2.5 bg-brand-bg border border-brand-border rounded-lg outline-none focus:border-brand-primary" placeholder="Black T-Shirt" />
+                                                <input list="inventory-names" type="text" value={newItemForm.name} onChange={e => setNewItemForm({...newItemForm, name: e.target.value})} className="w-full text-xs font-semibold p-2.5 bg-brand-bg border border-brand-border rounded-lg outline-none focus:border-brand-primary" placeholder="Black T-Shirt" />
                                             </div>
                                             <div className="col-span-2">
                                                 <label className="block text-[9px] font-bold uppercase tracking-widest text-brand-secondary mb-1">Size</label>
-                                                <input type="text" value={newItemForm.size} onChange={e => setNewItemForm({...newItemForm, size: e.target.value})} className="w-full text-xs font-semibold p-2.5 bg-brand-bg border border-brand-border rounded-lg outline-none focus:border-brand-primary" placeholder="M" />
+                                                <input list="inventory-sizes" type="text" value={newItemForm.size} onChange={e => setNewItemForm({...newItemForm, size: e.target.value})} className="w-full text-xs font-semibold p-2.5 bg-brand-bg border border-brand-border rounded-lg outline-none focus:border-brand-primary" placeholder="M" />
                                             </div>
                                             <div className="col-span-3">
                                                 <label className="block text-[9px] font-bold uppercase tracking-widest text-brand-secondary mb-1">Quantity</label>
