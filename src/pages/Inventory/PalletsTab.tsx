@@ -120,8 +120,8 @@ export function PalletsTab() {
   };
   
   const handleDeleteBox = async (palletId: string, boxId: string, boxName: string) => {
-      const term = window.prompt(`To unequivocally delete "${boxName}" and all its items, type DELETE below:`);
-      if (term?.trim().toUpperCase() !== 'DELETE') return;
+      if (!window.confirm(`Are you sure you want to completely delete "${boxName}" and all of its contents?`)) return;
+      
       const p = pallets.find(p => p.id === palletId);
       if(!p) return;
       try {
