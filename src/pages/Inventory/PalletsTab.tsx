@@ -639,7 +639,7 @@ export function PalletsTab() {
                                 <div className="shrink-0 flex flex-col items-center justify-between border-l-4 border-black pl-4 w-40">
                                     <div className="flex flex-col items-center">
                                         <div className="p-1 border-4 border-black bg-white mb-2">
-                                            <QRCode value={`${window.location.origin}/inventory/scan?p=${printingBox.pallet.id}&b=${printingBox.box.id}`} size={100} level="L" />
+                                            <QRCode value={`${window.location.hostname === 'localhost' ? 'https://print-shop-os.vercel.app' : window.location.origin}/inventory/scan?p=${printingBox.pallet.id}&b=${printingBox.box.id}`} size={100} level="L" />
                                         </div>
                                         <p className="text-[8px] font-black uppercase tracking-widest text-center mt-1 w-full text-black">Scan to View Info</p>
                                     </div>
@@ -675,7 +675,7 @@ export function PalletsTab() {
                                  
                                  <div className="shrink-0 flex flex-col items-center justify-center border-l-4 border-black pl-6 pr-2">
                                      <div className="p-1.5 border-4 border-black bg-white mb-2">
-                                         <QRCode value={`${window.location.origin}/inventory/scan?p=${printingBox.pallet.id}`} size={110} level="M" />
+                                         <QRCode value={`${window.location.hostname === 'localhost' ? 'https://print-shop-os.vercel.app' : window.location.origin}/inventory/scan?p=${printingBox.pallet.id}`} size={110} level="M" />
                                      </div>
                                      <p className="text-[10px] font-black uppercase tracking-widest text-center w-full text-black leading-tight">Scan To Register<br/>Boxes</p>
                                  </div>
@@ -742,7 +742,7 @@ export function PalletsTab() {
                                                         <span className="text-[9px] uppercase font-bold text-gray-800">{totalUnits} Units</span>
                                                     </div>
                                                     <div className="shrink-0 flex items-center justify-center pr-2">
-                                                        <QRCode value={`${window.location.origin}/inventory/scan?p=${printingBox.pallet.id}&b=${lbl.box.id}`} size={56} level="L" />
+                                                        <QRCode value={`${window.location.hostname === 'localhost' ? 'https://print-shop-os.vercel.app' : window.location.origin}/inventory/scan?p=${printingBox.pallet.id}&b=${lbl.box.id}`} size={56} level="L" />
                                                     </div>
                                                   </div>
                                                 </div>
