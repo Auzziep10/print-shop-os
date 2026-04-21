@@ -23,6 +23,8 @@ import { PrintLabelsSheet } from './pages/Print/PrintLabelsSheet';
 import { PrintCourierLabel } from './pages/Print/PrintCourierLabel';
 import { PrintItemLabels } from './pages/Print/PrintItemLabels';
 import { Production } from './pages/Production/Production';
+import { PublicQuoteRequest } from './pages/Public/PublicQuoteRequest';
+
 import { Inventory } from './pages/Inventory/Inventory';
 import { Signatures } from './pages/Signatures/Signatures';
 import { MobileUpload } from './pages/MobileUpload/MobileUpload';
@@ -52,6 +54,7 @@ function App() {
         {/* Public Routes */}
         <Route path="/login" element={<Login />} />
         <Route path="/waiting" element={<WaitingRoom />} />
+        <Route path="/start" element={<PublicQuoteRequest />} />
         
         {/* Temp Seed Route */}
         <Route path="/seed" element={<SeedData />} />

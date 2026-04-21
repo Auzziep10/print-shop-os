@@ -7,6 +7,7 @@ import { OrbitControls, Text, Environment, DragControls } from '@react-three/dre
 import { db } from '../../lib/firebase';
 import { collection, query, onSnapshot, setDoc, deleteDoc, doc, writeBatch } from 'firebase/firestore';
 import { ProductsTab } from './ProductsTab';
+import { PalletsTab } from './PalletsTab';
 
 const PayloadMesh = ({ pallet, isThisPalletActive }: any) => {
     if (pallet.type === 'Pallet') {
@@ -385,7 +386,7 @@ const generateInitialInventory = () => {
 }
 
 export function Inventory() {
-  const [mainTab, setMainTab] = useState<'Warehouse' | 'Products'>('Products');
+  const [mainTab, setMainTab] = useState<'Warehouse' | 'Pallets' | 'Products'>('Products');
   const [activeTab, setActiveTab] = useState('Map');
   const [activeRack, setActiveRack] = useState<string | null>(null);
   const [activePallet, setActivePallet] = useState<any>(null);
@@ -551,12 +552,18 @@ export function Inventory() {
              {mainTab === 'Warehouse' ? 'Warehouse Inventory' : 'Product Catalog'}
            </h1>
            
-           <div className="flex bg-brand-bg p-1 rounded-lg border border-brand-border shrink-0 shadow-sm w-[280px]">
+           <div className="flex bg-brand-bg p-1 rounded-lg border border-brand-border shrink-0 shadow-sm w-[400px]">
              <button 
                 onClick={() => setMainTab('Warehouse')}
                 className={`flex-1 px-3 py-1.5 rounded-md font-bold text-[10px] uppercase tracking-widest transition-all ${mainTab === 'Warehouse' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}
              >
                 Warehouse
+             </button>
+             <button 
+                onClick={() => setMainTab('Pallets')}
+                className={`flex-1 px-3 py-1.5 rounded-md font-bold text-[10px] uppercase tracking-widest transition-all ${mainTab === 'Pallets' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}
+             >
+                Pallet Inventory
              </button>
              <button 
                 onClick={() => setMainTab('Products')}
@@ -986,6 +993,12 @@ export function Inventory() {
         {mainTab === 'Products' && (
            <div className="w-full h-full pb-8 animate-in fade-in">
               <ProductsTab />
+           </div>
+        )}
+        
+        {mainTab === 'Pallets' && (
+           <div className="w-full h-full pb-8 animate-in fade-in">
+              <PalletsTab />
            </div>
         )}
       </div>
