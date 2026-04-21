@@ -652,33 +652,32 @@ export function PalletsTab() {
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                    ) : printingBox.type === 'pallet' && printingBox.pallet ? (
+                        </div>                     ) : printingBox.type === 'pallet' && printingBox.pallet ? (
                          /* The Master Pallet Thermal Label */
-                         <div className="bg-white shadow-xl p-6 border-4 border-black print-label-container my-auto print:shadow-none print:border-none print:m-0 overflow-hidden flex flex-col" style={{ width: '6in', height: '4in', boxSizing: 'border-box' }}>
-                             <div className="flex justify-between items-start mb-6 border-b-4 border-black pb-4 shrink-0">
+                         <div className="bg-white p-6 border-4 border-black print-label-container my-auto print:shadow-none print:border-none print:m-0 overflow-hidden flex flex-col" style={{ width: '5.8in', height: '3.8in', boxSizing: 'border-box' }}>
+                             <div className="flex justify-between items-start mb-4 border-b-4 border-black pb-3 shrink-0">
                                  <div>
-                                     <img src="/logo.png" alt="WOVN" className="h-10 w-auto mb-6 grayscale" />
-                                     <h1 className="font-sans text-5xl font-black uppercase tracking-tighter leading-none">{printingBox.pallet.name}</h1>
+                                     <img src="/logo.png" alt="WOVN" className="h-8 w-auto mb-3 grayscale" />
+                                     <h1 className="font-sans text-4xl font-black uppercase tracking-tighter leading-none">{printingBox.pallet.name}</h1>
                                  </div>
                                  <div className="text-right">
-                                     <div className="text-4xl font-black font-sans uppercase tracking-widest bg-black text-white px-4 py-2 inline-block">MASTER</div>
-                                     <p className="text-sm font-bold uppercase tracking-widest mt-2">ID: {printingBox.pallet.id}</p>
+                                     <div className="text-3xl font-black font-sans uppercase tracking-widest bg-black text-white px-3 py-1.5 inline-block">MASTER</div>
+                                     <p className="text-xs font-bold uppercase tracking-widest mt-1">ID: {printingBox.pallet.id.replace('pal_', '')}</p>
                                  </div>
                              </div>
 
-                             <div className="flex gap-4 flex-1 items-center justify-between min-h-0 pl-4">
+                             <div className="flex gap-4 flex-1 items-center justify-between min-h-0 pl-2">
                                  <div className="flex-1 shrink-0">
-                                     <div className="text-8xl font-black font-sans tracking-tighter leading-none">{printingBox.pallet.boxes.length}</div>
-                                     <div className="text-2xl font-black font-sans uppercase tracking-widest mt-2 border-t-4 border-black pt-2 max-w-[200px]">Active Boxes Logged</div>
-                                     <p className="text-[10px] font-bold uppercase tracking-widest mt-4 opacity-70">Generated on {new Date().toLocaleDateString()} at {new Date().toLocaleTimeString()}</p>
+                                     <div className="text-6xl font-black font-sans tracking-tighter leading-none">{printingBox.pallet.boxes.length}</div>
+                                     <div className="text-xl font-black font-sans uppercase tracking-widest mt-1 border-t-2 border-black pt-1 max-w-[150px]">Active Boxes Logged</div>
+                                     <p className="text-[9px] font-bold uppercase tracking-widest mt-4 opacity-70">Date: {new Date().toLocaleDateString()} {new Date().toLocaleTimeString()}</p>
                                  </div>
                                  
-                                 <div className="shrink-0 flex flex-col items-center justify-center border-l-4 border-black pl-8 pr-4">
-                                     <div className="p-2 border-4 border-black bg-white mb-4">
-                                         <QRCode value={`${window.location.origin}/inventory/scan?p=${printingBox.pallet.id}`} size={160} level="M" />
+                                 <div className="shrink-0 flex flex-col items-center justify-center border-l-4 border-black pl-6 pr-2">
+                                     <div className="p-1.5 border-4 border-black bg-white mb-2">
+                                         <QRCode value={`${window.location.origin}/inventory/scan?p=${printingBox.pallet.id}`} size={110} level="M" />
                                      </div>
-                                     <p className="text-[12px] font-black uppercase tracking-widest text-center w-full text-black leading-tight">Scan To Register <br/>New Boxes</p>
+                                     <p className="text-[10px] font-black uppercase tracking-widest text-center w-full text-black leading-tight">Scan To Register<br/>Boxes</p>
                                  </div>
                              </div>
                          </div>
