@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { db } from '../../lib/firebase';
 import { collection, query, onSnapshot, setDoc, deleteDoc, doc } from 'firebase/firestore';
-import { Plus, Package, Box, ChevronRight, QrCode, Printer, X, Image as ImageIcon, BarChart3, Layers, Tag, Copy } from 'lucide-react';
+import { Plus, Package, Box, ChevronRight, QrCode, Printer, X, Image as ImageIcon, BarChart3, Layers, Tag, Copy, Search } from 'lucide-react';
 import QRCode from 'react-qr-code';
 
 interface Item {
@@ -32,6 +32,7 @@ export function PalletsTab() {
   const [activeBoxId, setActiveBoxId] = useState<string | null>(null);
   const [isAddingPallet, setIsAddingPallet] = useState(false);
   const [newPalletName, setNewPalletName] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   
   const [printingBox, setPrintingBox] = useState<{pallet: Pallet, box: BoxType | null, type: 'box' | 'items' | 'all_boxes' | 'pallet'} | null>(null);
 
@@ -288,6 +289,18 @@ export function PalletsTab() {
 
   const activeBox = activePallet?.boxes.find(b => b.id === activeBoxId);
 
+  const filteredPallets = pallets.filter(p => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    return p.name.toLowerCase().includes(q) || 
+           p.id.toLowerCase().includes(q) ||
+           p.boxes.some(b => 
+               b.name.toLowerCase().includes(q) || 
+               b.id.toLowerCase().includes(q) ||
+               b.items.some(i => i.name.toLowerCase().includes(q) || (i.sku && i.sku.toLowerCase().includes(q)))
+           );
+  });
+
   return (
     <div className="flex h-full gap-6 w-full relative">
        {/* Sidebar */}
@@ -319,10 +332,24 @@ export function PalletsTab() {
                      </div>
                  </div>
              )}
+             
+             {/* Search */}
+             <div className="mt-4 relative">
+                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                     <Search size={14} className="text-brand-secondary opacity-60" />
+                 </div>
+                 <input 
+                     type="text" 
+                     placeholder="Search Pallets, Boxes, SKUs..." 
+                     value={searchQuery}
+                     onChange={e => setSearchQuery(e.target.value)}
+                     className="w-full pl-9 pr-3 py-2 text-[11px] font-bold bg-white text-brand-primary placeholder:text-brand-secondary border border-brand-border rounded-lg outline-none focus:border-brand-primary transition-all shadow-sm"
+                 />
+             </div>
           </div>
           
           <div className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar">
-             {pallets.map(p => (
+             {filteredPallets.map(p => (
                  <div 
                      key={p.id}
                      onClick={() => { setActivePalletId(p.id); setActiveBoxId(null); }}
@@ -341,7 +368,7 @@ export function PalletsTab() {
                      </div>
                  </div>
              ))}
-             {pallets.length === 0 && !isAddingPallet && (
+             {filteredPallets.length === 0 && !isAddingPallet && (
                  <div className="text-center p-6 text-brand-secondary">
                     <Package size={32} className="mx-auto mb-2 opacity-20" />
                     <p className="text-xs uppercase font-bold tracking-widest opacity-50">No Pallets Exist</p>
