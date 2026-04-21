@@ -300,7 +300,7 @@ export function PalletsTab() {
 
   const filteredPallets = pallets.filter(p => {
     if (!searchQuery.trim()) return true;
-    const terms = searchQuery.toLowerCase().split(/\s+/).filter(Boolean);
+    const terms = searchQuery.toLowerCase().split(',').map(t => t.trim()).filter(Boolean);
     
     // For each token, it must exist *somewhere* in this pallet's data hierarchy
     return terms.every(term => {
@@ -358,7 +358,7 @@ export function PalletsTab() {
                  </div>
                  <input 
                      type="text" 
-                     placeholder="Search Pallets, Boxes, SKUs..." 
+                     placeholder="Search: Stone Hoodie, XL..." 
                      value={searchQuery}
                      onChange={e => setSearchQuery(e.target.value)}
                      className="w-full pl-9 pr-3 py-2 text-[11px] font-bold bg-white text-brand-primary placeholder:text-brand-secondary border border-brand-border rounded-lg outline-none focus:border-brand-primary transition-all shadow-sm"
@@ -448,7 +448,7 @@ export function PalletsTab() {
                          {(() => {
                              const displayedBoxes = activePallet.boxes.filter(b => {
                                  if (!searchQuery.trim()) return true;
-                                 const terms = searchQuery.toLowerCase().split(/\s+/).filter(Boolean);
+                                 const terms = searchQuery.toLowerCase().split(',').map(t => t.trim()).filter(Boolean);
                                  
                                  return terms.every(term => {
                                      // Term satisfies this box if it matches Pallet metadata...
