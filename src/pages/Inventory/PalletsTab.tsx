@@ -43,6 +43,7 @@ export function PalletsTab() {
   const [newPalletName, setNewPalletName] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortOption, setSortOption] = useState<'newest' | 'oldest' | 'alpha' | 'boxes'>('newest');
+  const [mobileQrPallet, setMobileQrPallet] = useState<Pallet | null>(null);
   
   const [printingBox, setPrintingBox] = useState<{pallet: Pallet, box: BoxType | null, type: 'box' | 'items' | 'all_boxes' | 'pallet'} | null>(null);
 
@@ -389,7 +390,13 @@ export function PalletsTab() {
              }).map(p => (
                  <div 
                      key={p.id}
-                     onClick={() => { setActivePalletId(p.id); setActiveBoxId(null); }}
+                     onClick={() => { 
+                         setActivePalletId(p.id); 
+                         setActiveBoxId(null); 
+                         if (window.innerWidth < 768) {
+                             setMobileQrPallet(p);
+                         }
+                     }}
                      className={`p-3 rounded-xl cursor-pointer transition-all border ${activePalletId === p.id ? 'bg-black text-white border-black shadow-md scale-[1.02]' : 'bg-white border-brand-border hover:bg-brand-bg hover:border-brand-primary/30'}`}
                  >
                      <div className="flex justify-between items-start">
@@ -924,6 +931,31 @@ export function PalletsTab() {
                 </div>
              </div>
           </div>
+       )}
+
+       {/* Mobile QR Modal */}
+       {mobileQrPallet && (
+           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm md:hidden animate-in fade-in zoom-in-95 duration-200" onClick={() => setMobileQrPallet(null)}>
+               <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-8 relative flex flex-col items-center" onClick={e => e.stopPropagation()}>
+                   <button onClick={() => setMobileQrPallet(null)} className="absolute top-4 right-4 text-brand-secondary hover:text-black">
+                       <X size={20} />
+                   </button>
+                   <h2 className="font-serif text-2xl font-bold tracking-tight mb-2 text-center text-brand-primary">{mobileQrPallet.name}</h2>
+                   <p className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-6">{mobileQrPallet.id}</p>
+                   
+                   <div className="bg-white p-4 border-4 border-black rounded-xl mb-6 shadow-sm">
+                       <QRCode value={`${window.location.hostname === 'localhost' ? 'https://print-shop-os.vercel.app' : window.location.origin}/inventory/scan?id=${mobileQrPallet.id}`} size={200} />
+                   </div>
+                   
+                   <p className="text-xs text-center text-brand-secondary px-4 font-medium leading-relaxed">
+                       Scan this QR code with a mobile device to immediately locate and modify this pallet's manifest.
+                   </p>
+                   
+                   <button onClick={() => setMobileQrPallet(null)} className="w-full mt-8 bg-black text-white py-3.5 rounded-lg font-bold uppercase tracking-widest text-xs shadow-md">
+                       Close Scanner
+                   </button>
+               </div>
+           </div>
        )}
 
        <style>{`
