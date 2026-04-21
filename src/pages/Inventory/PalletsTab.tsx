@@ -742,18 +742,20 @@ export function PalletsTab() {
           @media print {
              body * { visibility: hidden !important; }
              
-             /* For Box Route Thermal Label (6x4 Landscape) */
+             /* For Box Route Thermal Label (6x4 Landscape rotated to 4x6 Portrait) */
              .print-thermal-mode .print-label-container, .print-thermal-mode .print-label-container * { visibility: visible !important; }
              .print-thermal-mode .print-label-container {
                  position: fixed !important;
-                 left: 0 !important;
+                 left: 4in !important;
                  top: 0 !important;
                  width: 6in !important;
                  height: 4in !important;
-                 padding: 0.15in !important;
+                 padding: 0.2in !important;
                  margin: 0 !important;
                  border: none !important;
                  box-shadow: none !important;
+                 transform: rotate(90deg);
+                 transform-origin: top left;
                  page-break-after: always;
              }
 
@@ -777,7 +779,7 @@ export function PalletsTab() {
           }
           
           .print-thermal-mode {
-             @page { size: 6in 4in landscape; margin: 0; }
+             @page { size: 4in 6in portrait; margin: 0; }
           }
           .print-avery-mode {
              @page { size: 8.5in 11in portrait; margin: 0; }
