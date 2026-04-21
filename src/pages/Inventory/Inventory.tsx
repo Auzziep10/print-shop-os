@@ -443,12 +443,15 @@ export function Inventory() {
      return () => unsubscribe();
   }, [currentWarehouse]);
 
-  const [palletStats, setPalletStats] = useState({ pallets: 0, boxes: 0, items: 0 });
+  const [palletStats, setPalletStats] = useState({ pallets: 0, boxes: 0, items: 0, skus: [] as string[], names: [] as string[] });
 
   useEffect(() => {
      const q = query(collection(db, 'pallets'));
      const unsubscribe = onSnapshot(q, (snapshot) => {
          let pCount = 0; let bCount = 0; let iCount = 0;
+         const skuSet = new Set<string>();
+         const nameSet = new Set<string>();
+         
          snapshot.docs.forEach(d => {
              const p = d.data();
              pCount++;
@@ -457,11 +460,21 @@ export function Inventory() {
                  p.boxes.forEach((b: any) => {
                      if (b.items) {
                          iCount += b.items.reduce((acc: number, item: any) => acc + (item.quantity || 1), 0);
+                         b.items.forEach((item: any) => {
+                             if (item.sku) skuSet.add(item.sku);
+                             if (item.name) nameSet.add(item.name);
+                         });
                      }
                  });
              }
          });
-         setPalletStats({ pallets: pCount, boxes: bCount, items: iCount });
+         setPalletStats({ 
+             pallets: pCount, 
+             boxes: bCount, 
+             items: iCount,
+             skus: Array.from(skuSet).sort(),
+             names: Array.from(nameSet).sort()
+         });
      });
      return () => unsubscribe();
   }, []);
@@ -1156,7 +1169,12 @@ export function Inventory() {
                       
                       <div>
                           <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1">Target {batchMatchType === 'name' ? 'Name' : 'SKU'}</label>
-                          <input type="text" value={batchMatchTerm} onChange={e => setBatchMatchTerm(e.target.value)} className="w-full text-sm font-semibold p-3 bg-brand-bg border border-brand-border rounded-lg outline-none focus:border-brand-primary" placeholder={batchMatchType === 'name' ? "e.g. Stone Hoodie" : "e.g. STN-HD"} />
+                          <select value={batchMatchTerm} onChange={e => setBatchMatchTerm(e.target.value)} className="w-full text-sm font-semibold p-3 bg-brand-bg border border-brand-border rounded-lg outline-none focus:border-brand-primary cursor-pointer hover:bg-white transition-colors">
+                              <option value="">Select {batchMatchType === 'name' ? 'Garment Name' : 'SKU'}...</option>
+                              {(batchMatchType === 'name' ? palletStats.names : palletStats.skus).map(opt => (
+                                  <option key={opt} value={opt}>{opt}</option>
+                              ))}
+                          </select>
                       </div>
                       
                       <div>
