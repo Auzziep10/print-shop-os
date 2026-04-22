@@ -118,11 +118,11 @@ export function InvoiceView() {
 
                 <div className="flex flex-col gap-4 text-[11px] font-bold tracking-widest text-neutral-800 uppercase">
                    <div>
-                     <p className="text-neutral-500">PROGRAM:</p>
+                     <p className="text-neutral-500">ORDER:</p>
                      <p>{order.title}</p>
                    </div>
                    <div>
-                     <p className="text-neutral-500">INTERNAL:</p>
+                     <p className="text-neutral-500">COMPANY:</p>
                      <p>{cust.company}</p>
                    </div>
                    <div>
@@ -158,7 +158,7 @@ export function InvoiceView() {
                 <div className="w-full mb-8">
                   {/* Table Header */}
                   <div className="flex w-full text-[9px] font-bold tracking-widest text-neutral-500 uppercase pb-3 border-b border-neutral-100">
-                    <div className="w-1/2">ACTIVATION</div>
+                    <div className="w-1/2">ITEM</div>
                     <div className="w-1/6 text-center">QTY</div>
                     <div className="w-1/3 text-right">ITEM</div>
                   </div>
