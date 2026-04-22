@@ -1,6 +1,6 @@
 import { useState, useEffect, Suspense } from 'react';
 import { tokens } from '../../lib/tokens';
-import { PackageOpen, Printer, Boxes, Map, QrCode, Settings, Upload } from 'lucide-react';
+import { PackageOpen, Printer, Boxes, Map, QrCode, Settings, Upload, Search } from 'lucide-react';
 import QRCode from 'react-qr-code';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Text, Environment, DragControls } from '@react-three/drei';
@@ -482,6 +482,66 @@ export function Inventory() {
   const [isAddingPallet, setIsAddingPallet] = useState(false);
   const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false);
   
+  const [showFindReplaceModal, setShowFindReplaceModal] = useState(false);
+  const [frTargetField, setFrTargetField] = useState<'name' | 'sku' | 'size'>('name');
+  const [frSearchTerm, setFrSearchTerm] = useState('');
+  const [frReplaceTerm, setFrReplaceTerm] = useState('');
+  const [isFrUpdating, setIsFrUpdating] = useState(false);
+
+  const handleFindReplace = async () => {
+      if (!frSearchTerm.trim() || !frReplaceTerm.trim()) return;
+      setIsFrUpdating(true);
+      
+      try {
+          const snapshot = await getDocs(collection(db, 'pallets'));
+          const batchPromises: any[] = [];
+          
+          snapshot.docs.forEach(d => {
+              const pallet = d.data();
+              let changed = false;
+              
+              if (!pallet.boxes) return;
+              
+              const newBoxes = pallet.boxes.map((box: any) => {
+                  let boxChanged = false;
+                  if (!box.items) return box;
+                  
+                  const newItems = box.items.map((item: any) => {
+                      const currentValue = (item[frTargetField] || '').toLowerCase();
+                      if (currentValue === frSearchTerm.toLowerCase() && item[frTargetField] !== frReplaceTerm) {
+                          changed = true;
+                          boxChanged = true;
+                          return { ...item, [frTargetField]: frReplaceTerm };
+                      }
+                      return item;
+                  });
+                  
+                  return boxChanged ? { ...box, items: newItems } : box;
+              });
+              
+              if (changed) {
+                  batchPromises.push(setDoc(doc(db, 'pallets', pallet.id), { ...pallet, boxes: newBoxes }));
+              }
+          });
+          
+          if (batchPromises.length > 0) {
+              await Promise.all(batchPromises);
+              alert(`Find & Replace complete! Updated ${batchPromises.length} pallets.`);
+          } else {
+              alert('No items matched the given search term.');
+          }
+          
+          setShowFindReplaceModal(false);
+          setFrSearchTerm('');
+          setFrReplaceTerm('');
+      } catch (err) {
+          console.error(err);
+          alert('Failed to execute find and replace.');
+      }
+      
+      setIsFrUpdating(false);
+  };
+  
   const [showBatchImageModal, setShowBatchImageModal] = useState(false);
   const [batchMatchTerm, setBatchMatchTerm] = useState('');
   const [batchMatchType, setBatchMatchType] = useState<'name' | 'sku'>('name');
@@ -664,12 +724,20 @@ export function Inventory() {
                   </div>
                )}
                {mainTab === 'Pallets' && (
-                  <button 
-                      onClick={() => setShowBatchImageModal(true)}
-                      className="ml-2 hidden md:flex items-center gap-2 px-3 py-1.5 bg-brand-bg border border-brand-border rounded-lg text-[10px] font-bold uppercase tracking-widest text-brand-primary hover:bg-black hover:text-white transition-colors shadow-sm"
-                  >
-                      Batch Set Thumbnails
-                  </button>
+                  <>
+                      <button 
+                          onClick={() => setShowBatchImageModal(true)}
+                          className="ml-2 hidden md:flex items-center gap-2 px-3 py-1.5 bg-brand-bg border border-brand-border rounded-lg text-[10px] font-bold uppercase tracking-widest text-brand-primary hover:bg-black hover:text-white transition-colors shadow-sm"
+                      >
+                          Batch Set Thumbnails
+                      </button>
+                      <button 
+                          onClick={() => setShowFindReplaceModal(true)}
+                          className="ml-2 hidden md:flex items-center gap-2 px-3 py-1.5 bg-brand-bg border border-brand-border rounded-lg text-[10px] font-bold uppercase tracking-widest text-brand-primary hover:bg-black hover:text-white transition-colors shadow-sm"
+                      >
+                          <Search size={12} /> Find & Replace
+                      </button>
+                  </>
                )}
            </div>
            
@@ -1209,6 +1277,46 @@ export function Inventory() {
                       <button onClick={() => setShowBatchImageModal(false)} className="px-5 py-2.5 text-xs font-bold uppercase text-brand-secondary hover:text-black transition-colors rounded-lg">Cancel</button>
                       <button onClick={handleBatchUpdateImages} disabled={isBatchUpdating} className={`px-6 py-2.5 bg-brand-primary text-white font-bold uppercase tracking-widest text-xs rounded-lg shadow-md transition-all ${isBatchUpdating ? 'opacity-50 cursor-not-allowed' : 'hover:bg-black hover:-translate-y-0.5'}`}>
                           {isBatchUpdating ? 'Updating...' : 'Update Inventory'}
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {/* Find & Replace Modal */}
+      {showFindReplaceModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in zoom-in-95 duration-200">
+              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 flex flex-col relative border border-brand-border">
+                  <h2 className="text-xl font-serif font-bold text-brand-primary mb-1">Find & Replace</h2>
+                  <p className="text-[11px] text-brand-secondary mb-6 leading-relaxed">
+                      This tool will scan the entire warehouse (all pallets and boxes) and perfectly replace any exact matches of the search term.
+                  </p>
+                  
+                  <div className="space-y-4">
+                      <div>
+                          <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-2">Target Field</label>
+                          <div className="flex bg-brand-bg p-1 rounded-lg border border-brand-border">
+                              <button onClick={() => setFrTargetField('name')} className={`flex-1 py-2 rounded text-[10px] font-bold uppercase transition-colors ${frTargetField === 'name' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary'}`}>Garment Name</button>
+                              <button onClick={() => setFrTargetField('sku')} className={`flex-1 py-2 rounded text-[10px] font-bold uppercase transition-colors ${frTargetField === 'sku' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary'}`}>SKU</button>
+                              <button onClick={() => setFrTargetField('size')} className={`flex-1 py-2 rounded text-[10px] font-bold uppercase transition-colors ${frTargetField === 'size' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary'}`}>Size</button>
+                          </div>
+                      </div>
+                      
+                      <div>
+                          <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1">Search For ({frTargetField})</label>
+                          <input type="text" value={frSearchTerm} onChange={e => setFrSearchTerm(e.target.value)} className="w-full text-sm font-semibold p-3 bg-brand-bg border border-brand-border rounded-lg outline-none focus:border-brand-primary" placeholder="e.g. Old Value" />
+                      </div>
+                      
+                      <div>
+                          <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1">Replace With</label>
+                          <input type="text" value={frReplaceTerm} onChange={e => setFrReplaceTerm(e.target.value)} className="w-full text-sm font-semibold p-3 bg-brand-bg border border-brand-border rounded-lg outline-none focus:border-brand-primary" placeholder="e.g. New Value" />
+                      </div>
+                  </div>
+                  
+                  <div className="flex gap-3 justify-end mt-8">
+                      <button onClick={() => setShowFindReplaceModal(false)} className="px-5 py-2.5 text-xs font-bold uppercase text-brand-secondary hover:text-black transition-colors rounded-lg">Cancel</button>
+                      <button onClick={handleFindReplace} disabled={isFrUpdating} className={`px-6 py-2.5 bg-brand-primary text-white font-bold uppercase tracking-widest text-xs rounded-lg shadow-md transition-all ${isFrUpdating ? 'opacity-50 cursor-not-allowed' : 'hover:bg-black hover:-translate-y-0.5'}`}>
+                          {isFrUpdating ? 'Updating...' : 'Replace All'}
                       </button>
                   </div>
               </div>
