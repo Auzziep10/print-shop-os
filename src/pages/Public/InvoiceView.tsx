@@ -160,7 +160,7 @@ export function InvoiceView() {
                   <div className="flex w-full text-[9px] font-bold tracking-widest text-neutral-500 uppercase pb-3 border-b border-neutral-100">
                     <div className="w-1/2">ITEM</div>
                     <div className="w-1/6 text-center">QTY</div>
-                    <div className="w-1/3 text-right">ITEM</div>
+                    <div className="w-1/3 text-right">PRICE</div>
                   </div>
 
                   {/* Table Rows */}
