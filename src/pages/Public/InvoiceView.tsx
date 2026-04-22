@@ -83,11 +83,8 @@ export function InvoiceView() {
             <span className="text-[10px] font-bold tracking-[0.2em] text-neutral-800 whitespace-nowrap">VCG • ADHOC ORDERS</span>
           </div>
           
-          <div className="flex flex-col items-center justify-end" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>
-            <span className="text-[10px] font-bold tracking-[0.2em] text-neutral-800 mb-6">WOVN</span>
-            <div className="w-12 h-12 bg-black rounded-full flex items-center justify-center text-white font-serif text-2xl" style={{ transform: 'rotate(180deg)' }}>
-              W
-            </div>
+          <div className="flex flex-col items-center justify-end pb-2">
+            <img src="/wovn-production-logo.png" alt="WOVN Logo" className="w-20 object-contain opacity-90" />
           </div>
         </div>
 
