@@ -443,7 +443,7 @@ export function Inventory() {
      return () => unsubscribe();
   }, [currentWarehouse]);
 
-  const [palletStats, setPalletStats] = useState({ pallets: 0, boxes: 0, items: 0, skus: [] as string[], names: [] as string[] });
+  const [palletStats, setPalletStats] = useState({ pallets: 0, boxes: 0, items: 0, skus: [] as string[], names: [] as string[], sizes: [] as string[] });
 
   useEffect(() => {
      const q = query(collection(db, 'pallets'));
@@ -451,6 +451,7 @@ export function Inventory() {
          let pCount = 0; let bCount = 0; let iCount = 0;
          const skuSet = new Set<string>();
          const nameSet = new Set<string>();
+         const sizeSet = new Set<string>();
          
          snapshot.docs.forEach(d => {
              const p = d.data();
@@ -463,6 +464,7 @@ export function Inventory() {
                          b.items.forEach((item: any) => {
                              if (item.sku) skuSet.add(item.sku);
                              if (item.name) nameSet.add(item.name);
+                             if (item.size) sizeSet.add(item.size);
                          });
                      }
                  });
@@ -473,7 +475,8 @@ export function Inventory() {
              boxes: bCount, 
              items: iCount,
              skus: Array.from(skuSet).sort(),
-             names: Array.from(nameSet).sort()
+             names: Array.from(nameSet).sort(),
+             sizes: Array.from(sizeSet).sort()
          });
      });
      return () => unsubscribe();
@@ -1304,7 +1307,12 @@ export function Inventory() {
                       
                       <div>
                           <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1">Search For ({frTargetField})</label>
-                          <input type="text" value={frSearchTerm} onChange={e => setFrSearchTerm(e.target.value)} className="w-full text-sm font-semibold p-3 bg-brand-bg border border-brand-border rounded-lg outline-none focus:border-brand-primary" placeholder="e.g. Old Value" />
+                          <select value={frSearchTerm} onChange={e => setFrSearchTerm(e.target.value)} className="w-full text-sm font-semibold p-3 bg-brand-bg border border-brand-border rounded-lg outline-none focus:border-brand-primary cursor-pointer hover:bg-white transition-colors">
+                              <option value="">Select {frTargetField === 'name' ? 'Garment Name' : frTargetField === 'sku' ? 'SKU' : 'Size'}...</option>
+                              {(frTargetField === 'name' ? palletStats.names : frTargetField === 'sku' ? palletStats.skus : palletStats.sizes).map(opt => (
+                                  <option key={opt} value={opt}>{opt}</option>
+                              ))}
+                          </select>
                       </div>
                       
                       <div>
