@@ -57,6 +57,9 @@ export function PalletsTab() {
   const [editingBoxNameMode, setEditingBoxNameMode] = useState(false);
   const [editBoxNameValue, setEditBoxNameValue] = useState('');
   
+  const [editingPalletNameMode, setEditingPalletNameMode] = useState(false);
+  const [editPalletNameValue, setEditPalletNameValue] = useState('');
+  
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editItemForm, setEditItemForm] = useState({ name: '', sku: '', size: '' });
   
@@ -198,6 +201,14 @@ export function PalletsTab() {
       const updatedBoxes = p.boxes.map(b => b.id === boxId ? { ...b, name: newName } : b);
       await setDoc(doc(db, 'pallets', palletId), { ...p, boxes: updatedBoxes });
       setEditingBoxNameMode(false);
+  };
+
+  const handleUpdatePalletName = async (palletId: string, newName: string) => {
+      if (!newName.trim()) return;
+      const p = pallets.find(p => p.id === palletId);
+      if(!p) return;
+      await setDoc(doc(db, 'pallets', palletId), { ...p, name: newName });
+      setEditingPalletNameMode(false);
   };
 
   const handleDuplicateBox = async (palletId: string, boxId: string) => {
@@ -455,7 +466,25 @@ export function PalletsTab() {
                   {/* Boxes List */}
                   <div className="w-64 border-r border-brand-border/60 bg-brand-bg/30 flex flex-col">
                       <div className="p-4 border-b border-brand-border/60">
-                         <h3 className="font-serif text-xl tracking-tight text-brand-primary mb-1">{activePallet.name}</h3>
+                         {editingPalletNameMode ? (
+                             <input 
+                                type="text" 
+                                autoFocus
+                                value={editPalletNameValue}
+                                onChange={e => setEditPalletNameValue(e.target.value)}
+                                onBlur={() => handleUpdatePalletName(activePallet.id, editPalletNameValue)}
+                                onKeyDown={e => e.key === 'Enter' && handleUpdatePalletName(activePallet.id, editPalletNameValue)}
+                                className="font-serif text-xl tracking-tight text-brand-primary mb-1 bg-brand-bg border border-brand-border rounded outline-none focus:border-brand-primary px-2 py-0.5 w-full"
+                             />
+                         ) : (
+                             <h3 
+                                className="font-serif text-xl tracking-tight text-brand-primary mb-1 cursor-pointer hover:opacity-80 transition-opacity" 
+                                onClick={() => { setEditPalletNameValue(activePallet.name); setEditingPalletNameMode(true); }} 
+                                title="Click to rename pallet"
+                             >
+                                 {activePallet.name}
+                             </h3>
+                         )}
                          <p className="text-[10px] uppercase font-bold tracking-widest text-brand-secondary mb-4 drop-shadow-sm">{activePallet.id}</p>
                          
                          {!isAddingBox ? (
