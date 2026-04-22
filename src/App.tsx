@@ -24,6 +24,7 @@ import { PrintCourierLabel } from './pages/Print/PrintCourierLabel';
 import { PrintItemLabels } from './pages/Print/PrintItemLabels';
 import { Production } from './pages/Production/Production';
 import { PublicQuoteRequest } from './pages/Public/PublicQuoteRequest';
+import { InvoiceView } from './pages/Public/InvoiceView';
 
 import { Inventory } from './pages/Inventory/Inventory';
 import { InventoryScan } from './pages/Inventory/InventoryScan';
@@ -65,6 +66,7 @@ function App() {
 
         {/* Public Packing Slip Views */}
         <Route path="/order-summary/:orderId" element={<OrderSummaryView />} />
+        <Route path="/invoice/:orderId" element={<InvoiceView />} />
         <Route path="/packing-slip/:orderId/:boxId" element={<PackingSlipView />} />
         <Route path="/packing-slip/:orderId/item/:itemId" element={<PackingSlipView />} />
         
