@@ -819,9 +819,9 @@ export function PalletsTab() {
 
        {/* Print Modal Overlay */}
        {printingBox && createPortal(
-          <div className={`fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-8 animate-in fade-in ${printingBox.type === 'items' || printingBox.type === 'all_boxes' ? 'print-avery-mode' : 'print-thermal-mode'}`}>
+          <div className={`fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-8 print:p-0 animate-in fade-in ${printingBox.type === 'items' || printingBox.type === 'all_boxes' ? 'print-avery-mode' : 'print-thermal-mode'}`}>
              <div className="bg-brand-bg rounded-2xl shadow-2xl max-w-5xl w-full h-full max-h-[90vh] flex flex-col overflow-hidden relative">
-                <div className="p-6 border-b border-brand-border bg-white flex justify-between items-center shrink-0">
+                <div className="p-6 border-b border-brand-border bg-white flex justify-between items-center shrink-0 print:hidden">
                     <div>
                         <h2 className="font-serif text-2xl tracking-tight font-bold text-brand-primary">
                              {printingBox.type === 'items' || printingBox.type === 'all_boxes' ? 'Avery Label Preview (30-up)' : 'Thermal Label Preview'}
@@ -841,7 +841,7 @@ export function PalletsTab() {
                 <div className="flex-1 p-8 overflow-y-auto flex items-start justify-center bg-gray-200 print:p-0 print:bg-white custom-scrollbar print-viewport">
                     {(printingBox.type === 'box' && printingBox.box) || (printingBox.type === 'all_boxes_thermal') ? (
                         /* Thermal Label(s) to Print */
-                        <div className={`flex ${printingBox.type === 'all_boxes_thermal' ? 'flex-col gap-8 w-full items-center' : 'w-full h-full items-center justify-center'}`}>
+                        <div className={`flex ${printingBox.type === 'all_boxes_thermal' ? 'flex-col gap-8 print:gap-0 w-full items-center' : 'w-full h-full items-center justify-center'}`}>
                             {(printingBox.type === 'all_boxes_thermal' ? printingBox.pallet.boxes : [printingBox.box!]).map(boxToPrint => (
                                 <div key={boxToPrint.id} className="print-page-wrapper">
                                     <div className="bg-white shadow-xl p-6 border-4 border-black print-label-container my-auto print:shadow-none print:border-none print:m-0 overflow-hidden flex flex-col" style={{ width: '6in', height: '4in', boxSizing: 'border-box' }}>
