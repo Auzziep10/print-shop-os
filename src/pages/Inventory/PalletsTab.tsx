@@ -1062,7 +1062,17 @@ export function PalletsTab() {
              body * { visibility: hidden !important; }
              
              /* UNLOCK MODAL CONSTRAINTS FOR PRINTING */
-             .print-thermal-mode, 
+             .print-thermal-mode {
+                 position: absolute !important;
+                 left: 0 !important;
+                 top: 0 !important;
+                 width: 100% !important;
+                 height: auto !important;
+                 min-height: 100vh !important;
+                 max-height: none !important;
+                 overflow: visible !important;
+                 display: block !important;
+             }
              .print-thermal-mode > div,
              .print-thermal-mode .print-viewport,
              .print-thermal-mode .print-viewport > div {
@@ -1073,16 +1083,14 @@ export function PalletsTab() {
                  display: block !important;
              }
 
-             /* For Box Route Thermal Label (6x4 Landscape natively without CSS rotation) */
+             /* For Box Route Thermal Label (6x4 Landscape rotated to 4x6 Portrait) */
              .print-thermal-mode .print-page-wrapper, .print-thermal-mode .print-page-wrapper * { visibility: visible !important; }
              
              .print-thermal-mode .print-page-wrapper {
-                 display: flex !important;
-                 align-items: center !important;
-                 justify-content: center !important;
+                 display: block !important;
                  position: relative !important;
-                 width: 6in !important;
-                 height: 4in !important;
+                 width: 4in !important;
+                 height: 6in !important;
                  page-break-after: always !important;
                  page-break-inside: avoid !important;
                  margin: 0 !important;
@@ -1090,7 +1098,9 @@ export function PalletsTab() {
                  background: white !important;
              }
              .print-thermal-mode .print-label-container {
-                 position: relative !important;
+                 position: absolute !important;
+                 left: 3.9in !important;
+                 top: 0.1in !important;
                  width: 5.8in !important;
                  height: 3.8in !important;
                  padding: 0.3in !important;
@@ -1098,6 +1108,8 @@ export function PalletsTab() {
                  border: none !important;
                  box-sizing: border-box !important;
                  box-shadow: none !important;
+                 transform: rotate(90deg);
+                 transform-origin: top left;
              }
 
              /* For Avery 5160 Item Labels (8.5x11 Portrait) */
@@ -1120,7 +1132,7 @@ export function PalletsTab() {
           }
           
           .print-thermal-mode {
-             @page { size: 6in 4in landscape; margin: 0; }
+             @page { size: 4in 6in portrait; margin: 0; }
           }
           .print-avery-mode {
              @page { size: 8.5in 11in portrait; margin: 0; }
