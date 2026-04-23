@@ -126,6 +126,18 @@ export function InventoryScan() {
                                         <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mt-1">
                                             {b.items?.reduce((s:number, i:any) => s + i.quantity, 0) || 0} Units Locked In
                                         </p>
+                                        {b.items && b.items.length > 0 && (
+                                            <p className="text-[9px] font-bold text-brand-secondary/70 truncate mt-1 leading-tight max-w-[200px]">
+                                                {Object.entries(b.items.reduce((acc:any, item:any) => {
+                                                    const key = item.name || 'Unknown';
+                                                    if (!acc[key]) acc[key] = [];
+                                                    acc[key].push(item);
+                                                    return acc;
+                                                }, {})).map(([name, items]: [string, any]) => 
+                                                    `${name} [${items.map((i:any) => `${i.size || 'N/A'}:${i.quantity}`).join(' ')}]`
+                                                ).join('  •  ')}
+                                            </p>
+                                        )}
                                      </div>
                                      <div className="flex items-center gap-2 shrink-0">
                                          <button 
