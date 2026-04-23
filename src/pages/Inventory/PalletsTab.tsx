@@ -928,8 +928,9 @@ export function PalletsTab() {
                                      </div>
                                      <p className="text-[10px] font-black uppercase tracking-widest text-center w-full text-black leading-tight">Scan To Register<br/>Boxes</p>
                                  </div>
-                                 </div>
                              </div>
+                         </div>
+                         </div>
                          </div>
                      ) : (() => {
                         // Avery 5160 Label Mode
