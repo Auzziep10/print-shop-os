@@ -1063,11 +1063,21 @@ export function PalletsTab() {
              
              /* For Box Route Thermal Label (6x4 Landscape rotated to 4x6 Portrait) */
              .print-thermal-mode .print-page-wrapper, .print-thermal-mode .print-page-wrapper * { visibility: visible !important; }
+             
+             .print-thermal-mode .print-viewport,
+             .print-thermal-mode .print-viewport > div {
+                 display: block !important;
+                 height: auto !important;
+                 overflow: visible !important;
+             }
+
              .print-thermal-mode .print-page-wrapper {
+                 display: block !important;
                  position: relative !important;
                  width: 4in !important;
                  height: 6in !important;
                  page-break-after: always !important;
+                 page-break-inside: avoid !important;
                  margin: 0 !important;
                  padding: 0 !important;
                  background: white !important;
