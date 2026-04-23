@@ -45,7 +45,8 @@ export function PalletsTab() {
   const [sortOption, setSortOption] = useState<'newest' | 'oldest' | 'alpha' | 'boxes'>('newest');
   const [mobileQrPallet, setMobileQrPallet] = useState<Pallet | null>(null);
   
-  const [printingBox, setPrintingBox] = useState<{pallet: Pallet, box: BoxType | null, type: 'box' | 'items' | 'all_boxes' | 'pallet'} | null>(null);
+  const [printingBox, setPrintingBox] = useState<{pallet: Pallet, box: BoxType | null, type: 'box' | 'items' | 'all_boxes' | 'pallet' | 'all_boxes_thermal'} | null>(null);
+  const [showPrintAllDialog, setShowPrintAllDialog] = useState(false);
 
   // Form states
   const [isAddingBox, setIsAddingBox] = useState(false);
@@ -502,10 +503,10 @@ export function PalletsTab() {
                                      <QrCode size={14} /> Print Master Pallet Tag
                                  </button>
                                  <button 
-                                     onClick={() => setPrintingBox({ pallet: activePallet, box: null, type: 'all_boxes' })}
+                                     onClick={() => setShowPrintAllDialog(true)}
                                      className="w-full bg-black text-white py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-colors shadow-sm flex items-center justify-center gap-2"
                                  >
-                                     <Printer size={14} /> Print All Box Labels (Avery)
+                                     <Printer size={14} /> Print All Box Labels
                                  </button>
                              </div>
                          ) : (
@@ -787,6 +788,34 @@ export function PalletsTab() {
            )}
        </div>
 
+       {/* Print All Box Labels Dialog */}
+       {showPrintAllDialog && activePallet && (
+           <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-in fade-in">
+               <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 relative flex flex-col">
+                   <button onClick={() => setShowPrintAllDialog(false)} className="absolute top-4 right-4 text-brand-secondary hover:text-black">
+                       <X size={20} />
+                   </button>
+                   <h2 className="font-serif text-xl font-bold tracking-tight mb-2 text-brand-primary">Print All Boxes</h2>
+                   <p className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-6">Select Label Format</p>
+                   
+                   <div className="flex flex-col gap-3">
+                       <button 
+                           onClick={() => { setShowPrintAllDialog(false); setPrintingBox({ pallet: activePallet, box: null, type: 'all_boxes' }); }}
+                           className="w-full bg-black text-white py-3 rounded-lg font-bold uppercase tracking-widest text-xs flex items-center justify-center gap-2 shadow-sm hover:bg-gray-800 transition-colors"
+                       >
+                           <Printer size={16} /> Avery Labels (30-up)
+                       </button>
+                       <button 
+                           onClick={() => { setShowPrintAllDialog(false); setPrintingBox({ pallet: activePallet, box: null, type: 'all_boxes_thermal' }); }}
+                           className="w-full bg-brand-bg text-brand-primary border border-brand-border py-3 rounded-lg font-bold uppercase tracking-widest text-xs flex items-center justify-center gap-2 shadow-sm hover:bg-white hover:border-brand-primary transition-colors"
+                       >
+                           <Printer size={16} /> 4x6 Thermal Labels
+                       </button>
+                   </div>
+               </div>
+           </div>
+       )}
+
        {/* Print Modal Overlay */}
        {printingBox && (
           <div className={`fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-8 animate-in fade-in ${printingBox.type === 'items' || printingBox.type === 'all_boxes' ? 'print-avery-mode' : 'print-thermal-mode'}`}>
@@ -794,7 +823,7 @@ export function PalletsTab() {
                 <div className="p-6 border-b border-brand-border bg-white flex justify-between items-center shrink-0">
                     <div>
                         <h2 className="font-serif text-2xl tracking-tight font-bold text-brand-primary">
-                             {printingBox.type === 'items' ? 'Avery Label Preview (30-up)' : 'Thermal Label Preview'}
+                             {printingBox.type === 'items' || printingBox.type === 'all_boxes' ? 'Avery Label Preview (30-up)' : 'Thermal Label Preview'}
                         </h2>
                         <p className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary">Ready for printing</p>
                     </div>
@@ -809,64 +838,72 @@ export function PalletsTab() {
                 </div>
                 
                 <div className="flex-1 p-8 overflow-y-auto flex items-start justify-center bg-gray-200 print:p-0 print:bg-white custom-scrollbar print-viewport">
-                    {printingBox.type === 'box' && printingBox.box ? (
-                        /* The Actual Thermal Label to Print */
-                        <div className="bg-white shadow-xl p-6 border-4 border-black print-label-container my-auto print:shadow-none print:border-none print:m-0 overflow-hidden flex flex-col" style={{ width: '6in', height: '4in', boxSizing: 'border-box' }}>
-                            <div className="flex justify-between items-start mb-4 border-b-4 border-black pb-3 shrink-0">
-                                <div>
-                                    <img src="/logo.png" alt="WOVN" className="h-8 w-auto mb-4 grayscale" />
-                                    <h1 className="font-sans text-4xl font-black uppercase tracking-tighter leading-none">{printingBox.pallet.name}</h1>
-                                    <p className="text-xl font-bold font-sans mt-1">PALLET ID: {printingBox.pallet.id.replace('pal_', '')}</p>
-                                </div>
-                                <div className="text-right">
-                                    <div className="text-6xl font-black font-sans uppercase tracking-tighter leading-none mb-1">{printingBox.box.name}</div>
-                                    <p className="text-sm font-bold uppercase tracking-widest bg-black text-white px-2 py-1 inline-block">BOX ID: {printingBox.box.id.replace('box_', '')}</p>
-                                </div>
-                            </div>
+                    {(printingBox.type === 'box' && printingBox.box) || (printingBox.type === 'all_boxes_thermal') ? (
+                        /* Thermal Label(s) to Print */
+                        <div className={`flex ${printingBox.type === 'all_boxes_thermal' ? 'flex-col gap-8 w-full items-center' : 'w-full h-full items-center justify-center'}`}>
+                            {(printingBox.type === 'all_boxes_thermal' ? printingBox.pallet.boxes : [printingBox.box!]).map(boxToPrint => (
+                                <div key={boxToPrint.id} className="print-page-wrapper">
+                                    <div className="bg-white shadow-xl p-6 border-4 border-black print-label-container my-auto print:shadow-none print:border-none print:m-0 overflow-hidden flex flex-col" style={{ width: '6in', height: '4in', boxSizing: 'border-box' }}>
+                                        <div className="flex justify-between items-start mb-4 border-b-4 border-black pb-3 shrink-0">
+                                            <div>
+                                                <img src="/logo.png" alt="WOVN" className="h-8 w-auto mb-4 grayscale" />
+                                                <h1 className="font-sans text-4xl font-black uppercase tracking-tighter leading-none">{printingBox.pallet.name}</h1>
+                                                <p className="text-xl font-bold font-sans mt-1">PALLET ID: {printingBox.pallet.id.replace('pal_', '')}</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <div className="text-6xl font-black font-sans uppercase tracking-tighter leading-none mb-1">{boxToPrint.name}</div>
+                                                <p className="text-sm font-bold uppercase tracking-widest bg-black text-white px-2 py-1 inline-block">BOX ID: {boxToPrint.id.replace('box_', '')}</p>
+                                            </div>
+                                        </div>
 
-                            <div className="flex gap-4 flex-1 min-h-0">
-                                <div className="flex-1 flex flex-col min-h-0">
-                                    <h3 className="text-sm font-black uppercase tracking-widest mb-2 border-b-2 border-black pb-1 shrink-0">Contents Manifest ({printingBox.box.items.reduce((s,i)=>s+i.quantity,0)} Units)</h3>
-                                    <div className="space-y-2 overflow-y-auto pr-2 flex-1 pb-1 custom-scrollbar">
-                                        {printingBox.box.items.map((item, idx) => (
-                                            <div key={idx} className="flex gap-2 items-center p-1.5 border border-black/20 rounded">
-                                                {item.photoUrl && <img src={item.photoUrl} alt="Item" className="w-8 h-8 rounded object-cover grayscale border border-black/20 shrink-0" />}
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="font-bold text-sm leading-tight uppercase font-sans line-clamp-1">{item.name}</div>
-                                                    <div className="text-[9px] font-bold font-mono">
-                                                        {item.sku ? `SKU: ${item.sku}` : ''} {item.size ? `| SIZE: ${item.size}` : ''}
-                                                    </div>
-                                                </div>
-                                                <div className="font-black text-2xl font-sans shrink-0">
-                                                    ×{item.quantity}
+                                        <div className="flex gap-4 flex-1 min-h-0">
+                                            <div className="flex-1 flex flex-col min-h-0">
+                                                <h3 className="text-sm font-black uppercase tracking-widest mb-2 border-b-2 border-black pb-1 shrink-0">Contents Manifest ({boxToPrint.items.reduce((s,i)=>s+i.quantity,0)} Units)</h3>
+                                                <div className="space-y-2 overflow-y-auto pr-2 flex-1 pb-1 custom-scrollbar">
+                                                    {boxToPrint.items.map((item, idx) => (
+                                                        <div key={idx} className="flex gap-2 items-center p-1.5 border border-black/20 rounded">
+                                                            {item.photoUrl && <img src={item.photoUrl} alt="Item" className="w-8 h-8 rounded object-cover grayscale border border-black/20 shrink-0" />}
+                                                            <div className="flex-1 min-w-0">
+                                                                <div className="font-bold text-sm leading-tight uppercase font-sans line-clamp-1">{item.name}</div>
+                                                                <div className="text-[9px] font-bold font-mono">
+                                                                    {item.sku ? `SKU: ${item.sku}` : ''} {item.size ? `| SIZE: ${item.size}` : ''}
+                                                                </div>
+                                                            </div>
+                                                            <div className="font-black text-2xl font-sans shrink-0">
+                                                                ×{item.quantity}
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                    {boxToPrint.items.length === 0 && (
+                                                        <div className="p-4 border-2 border-dashed border-black/30 text-center font-bold uppercase">Empty Box</div>
+                                                    )}
                                                 </div>
                                             </div>
-                                        ))}
-                                        {printingBox.box.items.length === 0 && (
-                                            <div className="p-4 border-2 border-dashed border-black/30 text-center font-bold uppercase">Empty Box</div>
-                                        )}
-                                    </div>
-                                </div>
-                                
-                                <div className="shrink-0 flex flex-col items-center justify-between border-l-4 border-black pl-4 w-40">
-                                    <div className="flex flex-col items-center">
-                                        <div className="p-1 border-4 border-black bg-white mb-2">
-                                            <QRCode value={`${window.location.hostname === 'localhost' ? 'https://print-shop-os.vercel.app' : window.location.origin}/inventory/scan?p=${printingBox.pallet.id}&b=${printingBox.box.id}`} size={100} level="L" />
-                                        </div>
-                                        <p className="text-[8px] font-black uppercase tracking-widest text-center mt-1 w-full text-black">Scan to View Info</p>
-                                    </div>
-                                    <div className="w-full opacity-70">
-                                        <div className="text-[7px] font-mono leading-tight">
-                                            DATE: {new Date().toLocaleDateString()}<br/>
-                                            TIME: {new Date().toLocaleTimeString()}<br/>
-                                            SYS_ID: {printingBox.box.id}
+                                            
+                                            <div className="shrink-0 flex flex-col items-center justify-between border-l-4 border-black pl-4 w-40">
+                                                <div className="flex flex-col items-center">
+                                                    <div className="p-1 border-4 border-black bg-white mb-2">
+                                                        <QRCode value={`${window.location.hostname === 'localhost' ? 'https://print-shop-os.vercel.app' : window.location.origin}/inventory/scan?p=${printingBox.pallet.id}&b=${boxToPrint.id}`} size={100} level="L" />
+                                                    </div>
+                                                    <p className="text-[8px] font-black uppercase tracking-widest text-center mt-1 w-full text-black">Scan to View Info</p>
+                                                </div>
+                                                <div className="w-full opacity-70">
+                                                    <div className="text-[7px] font-mono leading-tight">
+                                                        DATE: {new Date().toLocaleDateString()}<br/>
+                                                        TIME: {new Date().toLocaleTimeString()}<br/>
+                                                        SYS_ID: {boxToPrint.id}
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
+                            ))}
                         </div>                     ) : printingBox.type === 'pallet' && printingBox.pallet ? (
                          /* The Master Pallet Thermal Label */
-                         <div className="bg-white p-6 border-4 border-black print-label-container my-auto print:shadow-none print:border-none print:m-0 overflow-hidden flex flex-col" style={{ width: '5.8in', height: '3.8in', boxSizing: 'border-box' }}>
+                         <div className="flex w-full h-full items-center justify-center">
+                             <div className="print-page-wrapper">
+                                 <div className="bg-white p-6 border-4 border-black print-label-container my-auto print:shadow-none print:border-none print:m-0 overflow-hidden flex flex-col" style={{ width: '5.8in', height: '3.8in', boxSizing: 'border-box' }}>
                              <div className="flex justify-between items-start mb-4 border-b-4 border-black pb-3 shrink-0">
                                  <div>
                                      <img src="/logo.png" alt="WOVN" className="h-8 w-auto mb-3 grayscale" />
@@ -890,6 +927,7 @@ export function PalletsTab() {
                                          <QRCode value={`${window.location.hostname === 'localhost' ? 'https://print-shop-os.vercel.app' : window.location.origin}/inventory/scan?p=${printingBox.pallet.id}`} size={110} level="M" />
                                      </div>
                                      <p className="text-[10px] font-black uppercase tracking-widest text-center w-full text-black leading-tight">Scan To Register<br/>Boxes</p>
+                                 </div>
                                  </div>
                              </div>
                          </div>
@@ -1023,9 +1061,18 @@ export function PalletsTab() {
              body * { visibility: hidden !important; }
              
              /* For Box Route Thermal Label (6x4 Landscape rotated to 4x6 Portrait) */
-             .print-thermal-mode .print-label-container, .print-thermal-mode .print-label-container * { visibility: visible !important; }
+             .print-thermal-mode .print-page-wrapper, .print-thermal-mode .print-page-wrapper * { visibility: visible !important; }
+             .print-thermal-mode .print-page-wrapper {
+                 position: relative !important;
+                 width: 4in !important;
+                 height: 6in !important;
+                 page-break-after: always !important;
+                 margin: 0 !important;
+                 padding: 0 !important;
+                 background: white !important;
+             }
              .print-thermal-mode .print-label-container {
-                 position: fixed !important;
+                 position: absolute !important;
                  left: 3.9in !important;
                  top: 0.1in !important;
                  width: 5.8in !important;
@@ -1037,7 +1084,6 @@ export function PalletsTab() {
                  box-shadow: none !important;
                  transform: rotate(90deg);
                  transform-origin: top left;
-                 page-break-after: always;
              }
 
              /* For Avery 5160 Item Labels (8.5x11 Portrait) */
