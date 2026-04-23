@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { db } from '../../lib/firebase';
 import { collection, query, onSnapshot, setDoc, deleteDoc, doc } from 'firebase/firestore';
 import { Plus, Package, Box, ChevronRight, QrCode, Printer, X, Image as ImageIcon, BarChart3, Layers, Tag, Copy, Search } from 'lucide-react';
@@ -817,7 +818,7 @@ export function PalletsTab() {
        )}
 
        {/* Print Modal Overlay */}
-       {printingBox && (
+       {printingBox && createPortal(
           <div className={`fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-8 animate-in fade-in ${printingBox.type === 'items' || printingBox.type === 'all_boxes' ? 'print-avery-mode' : 'print-thermal-mode'}`}>
              <div className="bg-brand-bg rounded-2xl shadow-2xl max-w-5xl w-full h-full max-h-[90vh] flex flex-col overflow-hidden relative">
                 <div className="p-6 border-b border-brand-border bg-white flex justify-between items-center shrink-0">
@@ -1025,7 +1026,8 @@ export function PalletsTab() {
                     })()}
                 </div>
              </div>
-          </div>
+          </div>,
+           document.body
        )}
 
        {/* Mobile QR Modal */}
@@ -1060,12 +1062,11 @@ export function PalletsTab() {
           }
           @media print {
              body * { visibility: hidden !important; }
+             #root { display: none !important; }
              
              /* UNLOCK MODAL CONSTRAINTS FOR PRINTING */
              .print-thermal-mode {
-                 position: absolute !important;
-                 left: 0 !important;
-                 top: 0 !important;
+                 position: static !important;
                  width: 100% !important;
                  height: auto !important;
                  min-height: 100vh !important;
