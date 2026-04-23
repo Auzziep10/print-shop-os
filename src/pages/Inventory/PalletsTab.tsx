@@ -570,9 +570,33 @@ export function PalletsTab() {
                                      </span>
                                      <ChevronRight size={14} className={`transition-transform ${activeBoxId === box.id ? 'text-brand-primary translate-x-1' : 'text-transparent group-hover:text-brand-secondary'}`} />
                                  </div>
-                                 <span className="text-[9px] uppercase tracking-widest text-brand-secondary font-bold pl-6">
-                                     {totalItems} Units
-                                 </span>
+                                  <div className="pl-6 flex flex-col gap-2 mt-1">
+                                      <div className="text-[9px] uppercase tracking-widest text-brand-secondary font-bold">
+                                          {totalItems} Units
+                                      </div>
+                                      
+                                      {box.items.length > 0 && (
+                                          <div className="flex flex-col gap-2 border-t border-brand-border/50 pt-2">
+                                              {Object.entries(box.items.reduce((acc, item) => {
+                                                  const key = item.name || 'Unknown Item';
+                                                  if (!acc[key]) acc[key] = [];
+                                                  acc[key].push(item);
+                                                  return acc;
+                                              }, {} as Record<string, typeof box.items>)).map(([name, items]) => (
+                                                  <div key={name} className="flex flex-col">
+                                                      <span className="text-[10px] font-bold text-brand-primary truncate leading-tight mb-0.5" title={name}>{name}</span>
+                                                      <div className="flex flex-wrap gap-1.5">
+                                                          {items.map((i, idx) => (
+                                                              <span key={idx} className="bg-brand-bg border border-brand-border text-brand-secondary px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-widest">
+                                                                  {i.size || 'N/A'}: <span className="text-brand-primary">{i.quantity}</span>
+                                                              </span>
+                                                          ))}
+                                                      </div>
+                                                  </div>
+                                              ))}
+                                          </div>
+                                      )}
+                                  </div>
                              </div>
                          );
                          })})()}
