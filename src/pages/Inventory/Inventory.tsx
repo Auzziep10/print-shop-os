@@ -465,8 +465,32 @@ export function Inventory() {
   const [currentWarehouse, setCurrentWarehouse] = useState<any>(null);
   
   const [inspectPalletId, setInspectPalletId] = useState<string | null>(null);
+  const [printRackLabelRack, setPrintRackLabelRack] = useState<string | null>(null);
 
   const [allWarehouses, setAllWarehouses] = useState<any[]>([]);
+
+  useEffect(() => {
+     const params = new URLSearchParams(window.location.search);
+     if (params.get('action') === 'place_pallet') {
+         const rackLabel = params.get('rack');
+         const bay = params.get('bay');
+         const level = params.get('level');
+         
+         setIsAddingPallet(true);
+         setAddForm(prev => ({
+            ...prev,
+            zoneType: 'Rack',
+            rackLabel: rackLabel || '',
+            bay: parseInt(bay || '0'),
+            level: parseInt(level || '0')
+         }));
+         setMainTab('Warehouse');
+         setActiveTab('Map');
+         
+         // Clean up URL
+         window.history.replaceState({}, document.title, window.location.pathname);
+     }
+  }, []);
 
   useEffect(() => {
      // Fetch schemas
@@ -1114,10 +1138,13 @@ export function Inventory() {
                          <div className="bg-brand-primary text-white p-5 rounded-2xl mb-6 shadow-lg">
                             <span className="text-[10px] font-bold uppercase tracking-widest opacity-70">Current Location</span>
                             <h3 className="font-serif text-2xl border-b border-white/20 pb-3 mb-3 mt-1 tracking-tight">{activeRack}</h3>
-                            <div className="flex items-center gap-2 text-sm font-medium"><Boxes size={16} className="opacity-80"/> 12 Active Pallets</div>
-                            <div className="flex items-center gap-2 text-sm font-medium mt-2"><PackageOpen size={16} className="opacity-80"/> 48 Loose Boxes</div>
+                            <div className="flex items-center gap-2 text-sm font-medium"><Boxes size={16} className="opacity-80"/> {inventoryDB.filter((p: any) => p.zone === activeRack).length} Active Pallets</div>
                          </div>
                          
+                         <button onClick={() => setPrintRackLabelRack(activeRack)} className="w-full mb-6 bg-black text-white px-4 py-3 rounded-lg font-bold uppercase tracking-widest text-xs flex justify-center items-center gap-2 shadow-sm hover:scale-[1.02] transition-transform">
+                             <QrCode size={16} /> Print Rack Barcodes
+                         </button>
+
                          <h4 className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-3">Manifest Log</h4>
                          <div className="space-y-3 pb-8">
                             {inventoryDB.filter((p: any) => p.zone === activeRack).map((p: any) => (
@@ -1273,6 +1300,51 @@ export function Inventory() {
                      setTimeout(() => setActivePallet(allPallets.find((p: any) => p.id === palletId)), 100); 
                  }} 
               />
+           </div>
+        )}
+
+        {/* Rack Label Print Modal */}
+        {printRackLabelRack && (
+           <div className="fixed inset-0 bg-white z-[100] flex flex-col animate-in fade-in">
+              <div className="p-4 border-b border-brand-border flex justify-between items-center print:hidden bg-brand-bg">
+                 <div>
+                    <h2 className="font-serif text-2xl text-brand-primary font-bold">Rack Labels: {printRackLabelRack}</h2>
+                    <p className="text-sm text-brand-secondary">Print this sheet and affix the barcodes to the corresponding rack bays.</p>
+                 </div>
+                 <div className="flex gap-4">
+                    <button onClick={() => setPrintRackLabelRack(null)} className="px-6 py-3 border border-brand-border bg-white text-brand-primary font-bold tracking-widest uppercase text-xs rounded-lg hover:bg-brand-bg transition-colors">Close</button>
+                    <button onClick={() => window.print()} className="px-6 py-3 bg-brand-primary text-white font-bold tracking-widest uppercase text-xs rounded-lg hover:bg-brand-primary/90 flex gap-2 items-center transition-colors shadow-sm"><Printer size={16} /> Print Labels</button>
+                 </div>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto bg-white p-8 print:p-0">
+                 <div className="max-w-5xl mx-auto">
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 print:grid-cols-3 print:gap-4">
+                       {(() => {
+                           const rack = currentWarehouse?.racks?.find((r: any) => r.label === printRackLabelRack);
+                           if (!rack) return null;
+                           const labels = [];
+                           const baseUrl = window.location.origin + window.location.pathname;
+                           for (let b = 0; b < rack.bays; b++) {
+                               for (let l = 0; l < rack.levels; l++) {
+                                   const qrUrl = `${baseUrl}?action=place_pallet&rack=${encodeURIComponent(rack.label)}&bay=${b}&level=${l}`;
+                                   labels.push(
+                                       <div key={`${b}-${l}`} className="border-2 border-dashed border-neutral-300 p-6 flex flex-col items-center text-center rounded-xl bg-white page-break-inside-avoid">
+                                           <p className="text-xs font-bold uppercase tracking-widest text-brand-secondary mb-1">Scan to Target</p>
+                                           <h3 className="font-serif text-xl font-bold text-brand-primary mb-4 leading-tight">{rack.label}<br/><span className="text-sm">Bay {b} &middot; Level {l}</span></h3>
+                                           <div className="bg-white p-3 rounded-lg border border-neutral-200 shadow-sm mb-3">
+                                              <QRCode value={qrUrl} size={140} level="M" />
+                                           </div>
+                                           <p className="text-[9px] text-neutral-400 truncate w-full px-2" title={qrUrl}>{qrUrl}</p>
+                                       </div>
+                                   );
+                               }
+                           }
+                           return labels;
+                       })()}
+                    </div>
+                 </div>
+              </div>
            </div>
         )}
       </div>
