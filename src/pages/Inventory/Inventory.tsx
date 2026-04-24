@@ -1326,6 +1326,12 @@ export function Inventory() {
                       <div>
                           <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1">Replace With</label>
                           <input type="text" value={frReplaceTerm} onChange={e => setFrReplaceTerm(e.target.value)} className="w-full text-sm font-semibold p-3 bg-brand-bg border border-brand-border rounded-lg outline-none focus:border-brand-primary" placeholder="e.g. New Value" />
+                          <div className="flex flex-wrap gap-2 mt-2">
+                              <span className="text-[9px] font-bold uppercase text-brand-secondary py-1 tracking-widest mr-1">Auto-Inject:</span>
+                              <button onClick={() => setFrReplaceTerm(prev => prev + (prev && !prev.endsWith('-') ? '-' : '') + '{size}')} className="px-2 py-1 text-[9px] font-bold uppercase text-brand-primary bg-brand-bg/80 border border-brand-border hover:bg-white hover:border-brand-primary rounded shadow-sm transition-all">+ Size</button>
+                              <button onClick={() => setFrReplaceTerm(prev => prev + (prev && !prev.endsWith('-') ? '-' : '') + '{sku}')} className="px-2 py-1 text-[9px] font-bold uppercase text-brand-primary bg-brand-bg/80 border border-brand-border hover:bg-white hover:border-brand-primary rounded shadow-sm transition-all">+ SKU</button>
+                              <button onClick={() => setFrReplaceTerm(prev => prev + (prev && !prev.endsWith('-') ? '-' : '') + '{name}')} className="px-2 py-1 text-[9px] font-bold uppercase text-brand-primary bg-brand-bg/80 border border-brand-border hover:bg-white hover:border-brand-primary rounded shadow-sm transition-all">+ Name</button>
+                          </div>
                       </div>
                   </div>
                   
