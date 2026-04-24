@@ -1308,8 +1308,8 @@ export function Inventory() {
                                       <div>
                                          <label className="text-[10px] uppercase font-bold text-brand-secondary tracking-widest">Slot</label>
                                          <select value={addForm.slot} onChange={e => setAddForm({...addForm, slot: parseInt(e.target.value)})} className="w-full mt-1 p-3 flex-1 rounded-lg border border-brand-border bg-brand-bg text-sm font-semibold focus:outline-brand-primary">
-                                            <option value={-1}>Left (-1)</option>
-                                            <option value={1}>Right (1)</option>
+                                            <option value={-1}>Slot 1</option>
+                                            <option value={1}>Slot 2</option>
                                          </select>
                                       </div>
                                    </div>
