@@ -65,6 +65,52 @@ function CameraController({ activePallet, activeRack, warehouse }: any) {
   return null;
 }
 
+const PalletLabels = ({ pallet }: any) => {
+    const textProps = {
+        fontSize: 0.18,
+        color: "white",
+        outlineWidth: 0.02,
+        outlineColor: "black",
+        fontWeight: "bold",
+        anchorY: "bottom"
+    };
+    const subTextProps = {
+        fontSize: 0.12,
+        color: "#ddd",
+        outlineWidth: 0.01,
+        outlineColor: "black",
+        anchorY: "top"
+    };
+
+    const name = pallet.name || pallet.client || 'Unknown';
+    const boxes = `${pallet.boxes?.length || 0} Boxes`;
+
+    return (
+        <group>
+            {/* Front */}
+            <group position={[0, 0, 0.52]} rotation={[0, 0, 0]}>
+                <Text position={[0, 0.02, 0]} {...textProps as any}>{name}</Text>
+                <Text position={[0, -0.02, 0]} {...subTextProps as any}>{boxes}</Text>
+            </group>
+            {/* Back */}
+            <group position={[0, 0, -0.52]} rotation={[0, Math.PI, 0]}>
+                <Text position={[0, 0.02, 0]} {...textProps as any}>{name}</Text>
+                <Text position={[0, -0.02, 0]} {...subTextProps as any}>{boxes}</Text>
+            </group>
+            {/* Right */}
+            <group position={[0.52, 0, 0]} rotation={[0, Math.PI / 2, 0]}>
+                <Text position={[0, 0.02, 0]} {...textProps as any}>{name}</Text>
+                <Text position={[0, -0.02, 0]} {...subTextProps as any}>{boxes}</Text>
+            </group>
+            {/* Left */}
+            <group position={[-0.52, 0, 0]} rotation={[0, -Math.PI / 2, 0]}>
+                <Text position={[0, 0.02, 0]} {...textProps as any}>{name}</Text>
+                <Text position={[0, -0.02, 0]} {...subTextProps as any}>{boxes}</Text>
+            </group>
+        </group>
+    );
+};
+
 const PayloadMesh = ({ pallet, isThisPalletActive }: any) => {
     const pHeight = pallet.height || 0.8;
     
@@ -195,12 +241,7 @@ function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, color = '#2b
         scale={scaleFactor}
         onClick={(e) => { if (e.delta > 2) return; e.stopPropagation(); onPalletClick?.(pallet); }}
       >
-        <Text position={[0, 0.1, 0.52]} fontSize={0.18} color="white" outlineWidth={0.02} outlineColor="black" fontWeight="bold">
-            {pallet.name || pallet.client || 'Unknown'}
-        </Text>
-        <Text position={[0, -0.1, 0.52]} fontSize={0.12} color="#ddd" outlineWidth={0.01} outlineColor="black">
-            {pallet.boxes?.length || 0} Boxes
-        </Text>
+        <PalletLabels pallet={pallet} />
         {!isBoxRack && (
           <mesh position={[0, -(pallet.height || 0.8)/2 + 0.07, 0]}>
             <boxGeometry args={[1.0, 0.14, 1.0]} />
@@ -263,12 +304,9 @@ function FloorPallet({ pallet, onClick, onPalletClick, activePallet }: any) {
       onPointerOver={(e) => { e.stopPropagation(); document.body.style.cursor='pointer'; }}
       onPointerOut={() => document.body.style.cursor='auto'}
     >
-      <Text position={[0, 0.1, 0.52]} fontSize={0.25} color="white" outlineWidth={0.02} outlineColor="black" fontWeight="bold">
-          {pallet.name || pallet.client || 'Unknown'}
-      </Text>
-      <Text position={[0, -0.15, 0.52]} fontSize={0.15} color="#ddd" outlineWidth={0.01} outlineColor="black">
-          {pallet.boxes?.length || 0} Boxes
-      </Text>
+      <group scale={[1.3, 1.3, 1.3]}>
+         <PalletLabels pallet={pallet} />
+      </group>
       <mesh position={[0, -pHeight/2 + 0.07, 0]}>
         <boxGeometry args={[1.0, 0.14, 1.0]} />
         <meshStandardMaterial color="#8b5a2b" emissive={isThisPalletActive ? "#fff" : "#000"} emissiveIntensity={isThisPalletActive ? 0.3 : 0} />
