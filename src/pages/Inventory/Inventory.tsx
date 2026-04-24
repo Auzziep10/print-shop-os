@@ -478,6 +478,7 @@ export function Inventory() {
      const params = new URLSearchParams(window.location.search);
      if (params.get('action') === 'place_pallet') {
          setMobilePlacementData({
+             warehouseId: params.get('wh') || null,
              rackLabel: params.get('rack') || '',
              bay: parseInt(params.get('bay') || '0'),
              level: parseInt(params.get('level') || '0'),
@@ -847,7 +848,7 @@ export function Inventory() {
                                  level: mobilePlacementData.level,
                                  slot: mobilePlacementData.slot
                              },
-                             warehouseId: currentWarehouse?.id || defaultWarehouseBlueprint.id
+                             warehouseId: mobilePlacementData.warehouseId || currentWarehouse?.id || defaultWarehouseBlueprint.id
                           }, { merge: true });
                           setMobilePlacementSuccess(true);
                       }} 
@@ -1406,7 +1407,7 @@ export function Inventory() {
                             for (let l = 0; l < rack.levels; l++) {
                                 for (let s of [-1, 1]) {
                                     const slotStr = s === 1 ? 'SLOT 2' : 'SLOT 1';
-                                    const qrUrl = `${baseUrl}?action=place_pallet&rack=${encodeURIComponent(rack.label)}&bay=${b}&level=${l}&slot=${s}`;
+                                    const qrUrl = `${baseUrl}?action=place_pallet&wh=${currentWarehouse?.id || defaultWarehouseBlueprint.id}&rack=${encodeURIComponent(rack.label)}&bay=${b}&level=${l}&slot=${s}`;
                                     labels.push(
                                         <div key={`${b}-${l}-${s}`} className="bg-white border-8 border-black flex flex-col justify-between items-center text-center overflow-hidden shadow-2xl print:shadow-none print:border-none" style={{ width: '4in', height: '6in', pageBreakAfter: 'always', padding: '0.2in', boxSizing: 'border-box' }}>
                                             <div className="w-full shrink-0 border-b-4 border-black pb-2 mb-2">
