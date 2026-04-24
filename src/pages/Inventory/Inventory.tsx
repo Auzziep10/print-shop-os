@@ -1,4 +1,5 @@
 import { useState, useEffect, Suspense, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import * as THREE from 'three';
 import { tokens } from '../../lib/tokens';
 import { PackageOpen, Printer, Boxes, Map, QrCode, Settings, Upload, Search } from 'lucide-react';
@@ -1304,7 +1305,7 @@ export function Inventory() {
         )}
 
         {/* Rack Label Print Modal */}
-        {printRackLabelRack && (
+        {printRackLabelRack && createPortal(
            <div className="fixed inset-0 bg-white z-[100] flex flex-col animate-in fade-in">
               <div className="p-4 border-b border-brand-border flex justify-between items-center print:hidden bg-brand-bg">
                  <div>
@@ -1369,7 +1370,8 @@ export function Inventory() {
                     })()}
                  </div>
               </div>
-           </div>
+           </div>,
+           document.body
         )}
       </div>
 
