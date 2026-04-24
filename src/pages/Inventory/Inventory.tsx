@@ -729,7 +729,7 @@ export function Inventory() {
            </div>
 
            {mainTab === 'Pallets' && (
-              <div className="flex-1 flex items-center justify-center gap-3 px-2 overflow-hidden">
+              <div className="flex-1 flex items-center justify-center gap-3 px-2 shrink-0 min-w-max">
                   <button 
                       onClick={() => setShowBatchImageModal(true)}
                       className="hidden md:flex items-center gap-1.5 px-3.5 py-1.5 bg-brand-bg border border-brand-border rounded-full text-[9px] font-bold uppercase tracking-widest text-brand-primary hover:bg-black hover:text-white transition-colors shadow-sm whitespace-nowrap"
