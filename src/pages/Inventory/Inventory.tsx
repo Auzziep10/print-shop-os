@@ -727,20 +727,20 @@ export function Inventory() {
                   </div>
                )}
                {mainTab === 'Pallets' && (
-                  <>
+                  <div className="flex items-center gap-3 ml-4">
                       <button 
                           onClick={() => setShowBatchImageModal(true)}
-                          className="ml-2 hidden md:flex items-center gap-2 px-3 py-1.5 bg-brand-bg border border-brand-border rounded-lg text-[10px] font-bold uppercase tracking-widest text-brand-primary hover:bg-black hover:text-white transition-colors shadow-sm"
+                          className="hidden md:flex items-center gap-2 px-5 py-2 bg-brand-bg border border-brand-border rounded-full text-[10px] font-bold uppercase tracking-widest text-brand-primary hover:bg-black hover:text-white transition-colors shadow-sm"
                       >
                           Batch Set Thumbnails
                       </button>
                       <button 
                           onClick={() => setShowFindReplaceModal(true)}
-                          className="ml-2 hidden md:flex items-center gap-2 px-3 py-1.5 bg-brand-bg border border-brand-border rounded-lg text-[10px] font-bold uppercase tracking-widest text-brand-primary hover:bg-black hover:text-white transition-colors shadow-sm"
+                          className="hidden md:flex items-center gap-2 px-5 py-2 bg-brand-bg border border-brand-border rounded-full text-[10px] font-bold uppercase tracking-widest text-brand-primary hover:bg-black hover:text-white transition-colors shadow-sm"
                       >
                           <Search size={12} /> Find & Replace
                       </button>
-                  </>
+                  </div>
                )}
            </div>
            
