@@ -840,6 +840,14 @@ export function Inventory() {
                    <button 
                       disabled={!mobileSelectedPalletId}
                       onClick={async () => {
+                          let targetWarehouseId = mobilePlacementData.warehouseId;
+                          if (!targetWarehouseId && allWarehouses.length > 0) {
+                              const foundWh = allWarehouses.find(wh => 
+                                  wh.racks?.some((r: any) => r.label === mobilePlacementData.rackLabel)
+                              );
+                              if (foundWh) targetWarehouseId = foundWh.id;
+                          }
+                          
                           const palletRef = doc(db, 'pallets', mobileSelectedPalletId);
                           await setDoc(palletRef, {
                              zone: mobilePlacementData.rackLabel,
@@ -848,7 +856,7 @@ export function Inventory() {
                                  level: mobilePlacementData.level,
                                  slot: mobilePlacementData.slot
                              },
-                             warehouseId: mobilePlacementData.warehouseId || currentWarehouse?.id || defaultWarehouseBlueprint.id
+                             warehouseId: targetWarehouseId || currentWarehouse?.id || defaultWarehouseBlueprint.id
                           }, { merge: true });
                           setMobilePlacementSuccess(true);
                       }} 
