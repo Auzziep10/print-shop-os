@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { db } from '../../lib/firebase';
 import { collection, query, onSnapshot, setDoc, deleteDoc, doc } from 'firebase/firestore';
-import { Plus, Package, Box, ChevronRight, QrCode, Printer, X, Image as ImageIcon, BarChart3, Layers, Tag, Copy, Search } from 'lucide-react';
+import { Plus, Package, Box, ChevronRight, QrCode, Printer, X, Image as ImageIcon, BarChart3, Layers, Tag, Copy, Search, Map } from 'lucide-react';
 import QRCode from 'react-qr-code';
 
 interface Item {
@@ -25,6 +25,8 @@ interface Pallet {
     name: string;
     createdAt: number;
     boxes: BoxType[];
+    warehouseId?: string;
+    zone?: string;
 }
 
 const isTermMatched = (text: string, term: string) => {
@@ -36,7 +38,7 @@ const isTermMatched = (text: string, term: string) => {
     return text.includes(term);
 };
 
-export function PalletsTab() {
+export function PalletsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (palletId: string, zone: string) => void }) {
   const [pallets, setPallets] = useState<Pallet[]>([]);
   const [activePalletId, setActivePalletId] = useState<string | null>(null);
   const [activeBoxId, setActiveBoxId] = useState<string | null>(null);
@@ -493,10 +495,20 @@ export function PalletsTab() {
                              <div className="flex flex-col gap-2">
                                  <button 
                                      onClick={() => setIsAddingBox(true)}
-                                     className="w-full bg-white border border-brand-border text-brand-primary py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest hover:border-brand-primary transition-colors shadow-sm flex items-center justify-center gap-2"
+                                     className="w-full bg-white border border-brand-border text-brand-primary py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest hover:border-brand-primary transition-colors shadow-sm flex items-center justify-center gap-2 mb-2"
                                  >
                                      <Plus size={14} /> Add Box
                                  </button>
+                                 
+                                 {activePallet.warehouseId && onJumpToWarehouse && (
+                                     <button 
+                                         onClick={() => onJumpToWarehouse(activePallet.id, activePallet.zone || 'Floor')}
+                                         className="w-full bg-brand-primary/10 text-brand-primary border border-brand-primary/20 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-brand-primary hover:text-white hover:border-brand-primary transition-all shadow-sm flex items-center justify-center gap-2 mb-2"
+                                     >
+                                         <Map size={14} /> Locate in Warehouse
+                                     </button>
+                                 )}
+                                 
                                  <button 
                                      onClick={() => setPrintingBox({ pallet: activePallet, box: null, type: 'pallet' })}
                                      className="w-full bg-brand-bg text-brand-primary border border-brand-border py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest hover:border-brand-primary transition-colors shadow-sm flex items-center justify-center gap-2 mb-2"

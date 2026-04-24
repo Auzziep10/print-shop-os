@@ -1134,7 +1134,7 @@ export function Inventory() {
         
         {mainTab === 'Pallets' && (
            <div className="w-full h-full pb-8 animate-in fade-in">
-              <PalletsTab />
+              <PalletsTab onJumpToWarehouse={(palletId: string, zone: string) => { setMainTab('Warehouse'); setActiveTab('Map'); setActiveRack(zone || 'Floor'); setTimeout(() => setActivePallet(allPallets.find((p: any) => p.id === palletId)), 100); }} />
            </div>
         )}
       </div>
