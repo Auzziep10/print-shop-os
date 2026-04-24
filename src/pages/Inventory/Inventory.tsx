@@ -92,20 +92,38 @@ const PayloadMesh = ({ pallet, isThisPalletActive }: any) => {
                     boxes.push(
                         <mesh key={`${pallet.id}-${l}-${r}-${c}`} position={[x, y, z]}>
                             <boxGeometry args={[boxSize, boxSize, boxSize]} />
-                            <meshStandardMaterial color={pallet.color || '#d4a373'} emissive={isThisPalletActive ? "#fff" : "#000"} emissiveIntensity={isThisPalletActive ? 0.2 : 0} />
+                            <meshStandardMaterial color={pallet.color || '#d4a373'} emissive={isThisPalletActive ? pallet.color || '#d4a373' : "#000"} emissiveIntensity={isThisPalletActive ? 0.4 : 0} />
                         </mesh>
                     );
                 }
             }
         }
-        return <group>{boxes}</group>;
+        return (
+            <group>
+                {boxes}
+                {isThisPalletActive && (
+                    <mesh position={[0, pHeight/2 - 0.14, 0]}>
+                        <boxGeometry args={[1.05, pHeight + 0.1, 1.05]} />
+                        <meshStandardMaterial color="#fff" wireframe emissive="#fff" emissiveIntensity={1} transparent opacity={0.8} />
+                    </mesh>
+                )}
+            </group>
+        );
     }
     
     return (
-       <mesh position={[0, 0.07, 0]}>
-         <boxGeometry args={[0.95, pHeight - 0.14, 0.95]} />
-         <meshStandardMaterial color={pallet.color || '#3b82f6'} emissive={isThisPalletActive ? "#fff" : "#000"} emissiveIntensity={isThisPalletActive ? 0.2 : 0} />
-       </mesh>
+       <group>
+           <mesh position={[0, 0.07, 0]}>
+             <boxGeometry args={[0.95, pHeight - 0.14, 0.95]} />
+             <meshStandardMaterial color={pallet.color || '#3b82f6'} emissive={isThisPalletActive ? pallet.color || '#3b82f6' : "#000"} emissiveIntensity={isThisPalletActive ? 0.4 : 0} />
+           </mesh>
+           {isThisPalletActive && (
+               <mesh position={[0, pHeight/2 - 0.14, 0]}>
+                   <boxGeometry args={[1.05, pHeight + 0.1, 1.05]} />
+                   <meshStandardMaterial color="#fff" wireframe emissive="#fff" emissiveIntensity={1} transparent opacity={0.8} />
+               </mesh>
+           )}
+       </group>
     );
 };
 
@@ -1016,8 +1034,8 @@ export function Inventory() {
                                   {activePallet.type}
                                </span>
                             </div>
-                            <h3 className="font-serif text-3xl font-bold tracking-tight mb-1">{activePallet.id}</h3>
-                            <p className="text-white/80 text-xs font-medium uppercase tracking-widest mb-1">{activePallet.client}</p>
+                            <h3 className="font-serif text-3xl font-bold tracking-tight mb-1 truncate">{activePallet.name || activePallet.client || 'Unnamed Pallet'}</h3>
+                            <p className="text-white/80 text-xs font-medium uppercase tracking-widest mb-1">{activePallet.id}</p>
                          </div>
                          
                          <div className="space-y-4">
