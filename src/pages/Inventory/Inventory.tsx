@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { tokens } from '../../lib/tokens';
 import { PackageOpen, Printer, Boxes, Map, QrCode, Settings, Upload, Search } from 'lucide-react';
 import QRCode from 'react-qr-code';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Text, Environment, DragControls } from '@react-three/drei';
 import { db, storage } from '../../lib/firebase';
 import { collection, query, onSnapshot, setDoc, deleteDoc, doc, getDocs } from 'firebase/firestore';
@@ -12,7 +12,6 @@ import { ProductsTab } from './ProductsTab';
 import { PalletsTab } from './PalletsTab';
 
 function CameraController({ activePallet, activeRack, warehouse }: any) {
-  const { controls } = useThree();
   const targetLookAt = useRef<THREE.Vector3 | null>(null);
   const targetCamPos = useRef<THREE.Vector3 | null>(null);
 
@@ -20,34 +19,41 @@ function CameraController({ activePallet, activeRack, warehouse }: any) {
     if (!activePallet && !activeRack) return;
 
     let lookPos = new THREE.Vector3();
+    let hasTarget = false;
 
     if (activePallet) {
       if (activePallet.zone === 'Floor' && activePallet.position) {
          lookPos.set(activePallet.position[0], activePallet.position[1], activePallet.position[2]);
+         hasTarget = true;
       } else if (activePallet.rackSpecs && activePallet.zone !== 'Floor') {
          const rack = warehouse?.racks?.find((r: any) => r.label === activePallet.zone);
          if (rack) {
             // Rough approximation of rack position
             lookPos.set(rack.position[0], rack.position[1] + (activePallet.rackSpecs.level * 1.2), rack.position[2]);
+            hasTarget = true;
          }
       }
     } else if (activeRack) {
       const rack = warehouse?.racks?.find((r: any) => r.label === activeRack);
-      if (rack) lookPos.set(rack.position[0], rack.position[1], rack.position[2]);
+      if (rack) {
+         lookPos.set(rack.position[0], rack.position[1], rack.position[2]);
+         hasTarget = true;
+      }
     }
 
-    if (lookPos.lengthSq() > 0) {
+    if (hasTarget) {
       targetLookAt.current = lookPos;
       // Position camera above and slightly pulled back from the pallet
-      targetCamPos.current = new THREE.Vector3(lookPos.x, lookPos.y + 3, lookPos.z + 6);
+      targetCamPos.current = new THREE.Vector3(lookPos.x, lookPos.y + 4, lookPos.z + 8);
     }
   }, [activePallet, activeRack, warehouse]);
 
   useFrame((state, delta) => {
-    if (targetLookAt.current && targetCamPos.current && controls) {
+    const ctrl = state.controls as any;
+    if (targetLookAt.current && targetCamPos.current && ctrl) {
       state.camera.position.lerp(targetCamPos.current, 5 * delta);
-      (controls as any).target.lerp(targetLookAt.current, 5 * delta);
-      (controls as any).update();
+      ctrl.target.lerp(targetLookAt.current, 5 * delta);
+      ctrl.update();
 
       if (state.camera.position.distanceTo(targetCamPos.current) < 0.1) {
          targetLookAt.current = null;
@@ -400,6 +406,9 @@ export function Inventory() {
 
   const [inventoryDB, setInventoryDB] = useState<any[]>([]);
   const [currentWarehouse, setCurrentWarehouse] = useState<any>(null);
+  
+  const [inspectPalletId, setInspectPalletId] = useState<string | null>(null);
+
   const [allWarehouses, setAllWarehouses] = useState<any[]>([]);
 
   useEffect(() => {
@@ -1028,7 +1037,7 @@ export function Inventory() {
                             <button onClick={() => setActiveTab('Labels')} className="w-full mt-4 bg-black text-white px-4 py-3 rounded-lg font-bold uppercase tracking-widest text-xs flex justify-center items-center gap-2 shadow-sm hover:scale-[1.02] transition-transform">
                                <QrCode size={16} /> Print Route Info
                             </button>
-                            <button onClick={() => setIsInventoryModalOpen(true)} className="w-full bg-white text-black border border-brand-border px-4 py-3 rounded-lg font-bold uppercase tracking-widest text-xs flex justify-center items-center gap-2 hover:bg-neutral-50 shadow-sm transition-colors mt-2">
+                            <button onClick={() => { setInspectPalletId(activePallet.id); setMainTab('Pallets'); }} className="w-full bg-white text-black border border-brand-border px-4 py-3 rounded-lg font-bold uppercase tracking-widest text-xs flex justify-center items-center gap-2 hover:bg-neutral-50 shadow-sm transition-colors mt-2">
                                <PackageOpen size={16} /> Open Inventory View
                             </button>
 
@@ -1198,7 +1207,15 @@ export function Inventory() {
         
         {mainTab === 'Pallets' && (
            <div className="w-full h-full pb-8 animate-in fade-in">
-              <PalletsTab onJumpToWarehouse={(palletId: string, zone: string) => { setMainTab('Warehouse'); setActiveTab('Map'); setActiveRack(zone || 'Floor'); setTimeout(() => setActivePallet(allPallets.find((p: any) => p.id === palletId)), 100); }} />
+              <PalletsTab 
+                 initialActivePalletId={inspectPalletId}
+                 onJumpToWarehouse={(palletId: string, zone: string) => { 
+                     setMainTab('Warehouse'); 
+                     setActiveTab('Map'); 
+                     setActiveRack(zone || 'Floor'); 
+                     setTimeout(() => setActivePallet(allPallets.find((p: any) => p.id === palletId)), 100); 
+                 }} 
+              />
            </div>
         )}
       </div>

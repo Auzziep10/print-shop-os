@@ -38,9 +38,13 @@ const isTermMatched = (text: string, term: string) => {
     return text.includes(term);
 };
 
-export function PalletsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (palletId: string, zone: string) => void }) {
+export function PalletsTab({ onJumpToWarehouse, initialActivePalletId }: { onJumpToWarehouse?: (palletId: string, zone: string) => void, initialActivePalletId?: string | null }) {
   const [pallets, setPallets] = useState<Pallet[]>([]);
-  const [activePalletId, setActivePalletId] = useState<string | null>(null);
+  const [activePalletId, setActivePalletId] = useState<string | null>(initialActivePalletId || null);
+  
+  useEffect(() => {
+     if (initialActivePalletId) setActivePalletId(initialActivePalletId);
+  }, [initialActivePalletId]);
   const [activeBoxId, setActiveBoxId] = useState<string | null>(null);
   const [isAddingPallet, setIsAddingPallet] = useState(false);
   const [newPalletName, setNewPalletName] = useState('');
