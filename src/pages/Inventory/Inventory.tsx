@@ -1313,36 +1313,60 @@ export function Inventory() {
                  </div>
                  <div className="flex gap-4">
                     <button onClick={() => setPrintRackLabelRack(null)} className="px-6 py-3 border border-brand-border bg-white text-brand-primary font-bold tracking-widest uppercase text-xs rounded-lg hover:bg-brand-bg transition-colors">Close</button>
-                    <button onClick={() => window.print()} className="px-6 py-3 bg-brand-primary text-white font-bold tracking-widest uppercase text-xs rounded-lg hover:bg-brand-primary/90 flex gap-2 items-center transition-colors shadow-sm"><Printer size={16} /> Print Labels</button>
+                    <button onClick={() => window.print()} className="px-6 py-3 bg-brand-primary text-white font-bold tracking-widest uppercase text-xs rounded-lg hover:bg-brand-primary/90 flex gap-2 items-center transition-colors shadow-sm"><Printer size={16} /> Print 4x6 Labels</button>
                  </div>
               </div>
               
-              <div className="flex-1 overflow-y-auto bg-white p-8 print:p-0">
-                 <div className="max-w-5xl mx-auto">
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 print:grid-cols-3 print:gap-4">
-                       {(() => {
-                           const rack = currentWarehouse?.racks?.find((r: any) => r.label === printRackLabelRack);
-                           if (!rack) return null;
-                           const labels = [];
-                           const baseUrl = window.location.origin + window.location.pathname;
-                           for (let b = 0; b < rack.bays; b++) {
-                               for (let l = 0; l < rack.levels; l++) {
-                                   const qrUrl = `${baseUrl}?action=place_pallet&rack=${encodeURIComponent(rack.label)}&bay=${b}&level=${l}`;
-                                   labels.push(
-                                       <div key={`${b}-${l}`} className="border-2 border-dashed border-neutral-300 p-6 flex flex-col items-center text-center rounded-xl bg-white page-break-inside-avoid">
-                                           <p className="text-xs font-bold uppercase tracking-widest text-brand-secondary mb-1">Scan to Target</p>
-                                           <h3 className="font-serif text-xl font-bold text-brand-primary mb-4 leading-tight">{rack.label}<br/><span className="text-sm">Bay {b} &middot; Level {l}</span></h3>
-                                           <div className="bg-white p-3 rounded-lg border border-neutral-200 shadow-sm mb-3">
-                                              <QRCode value={qrUrl} size={140} level="M" />
-                                           </div>
-                                           <p className="text-[9px] text-neutral-400 truncate w-full px-2" title={qrUrl}>{qrUrl}</p>
-                                       </div>
-                                   );
-                               }
-                           }
-                           return labels;
-                       })()}
-                    </div>
+              <style>{`
+                 @media print {
+                    body * { visibility: hidden !important; }
+                    #root { display: none !important; }
+                    .rack-print-mode, .rack-print-mode * { visibility: visible !important; }
+                    .rack-print-mode {
+                        position: absolute;
+                        left: 0;
+                        top: 0;
+                        width: 100%;
+                        display: block !important;
+                    }
+                 }
+                 @page { size: 4in 6in; margin: 0; }
+              `}</style>
+              
+              <div className="flex-1 overflow-y-auto bg-neutral-100 p-8 print:p-0 print:bg-white rack-print-mode">
+                 <div className="flex flex-col items-center gap-8 print:gap-0">
+                    {(() => {
+                        const rack = currentWarehouse?.racks?.find((r: any) => r.label === printRackLabelRack);
+                        if (!rack) return null;
+                        const labels = [];
+                        const baseUrl = window.location.origin + window.location.pathname;
+                        for (let b = 0; b < rack.bays; b++) {
+                            for (let l = 0; l < rack.levels; l++) {
+                                const qrUrl = `${baseUrl}?action=place_pallet&rack=${encodeURIComponent(rack.label)}&bay=${b}&level=${l}`;
+                                labels.push(
+                                    <div key={`${b}-${l}`} className="bg-white border-8 border-black flex flex-col justify-between items-center text-center overflow-hidden shadow-2xl print:shadow-none print:border-none" style={{ width: '4in', height: '6in', pageBreakAfter: 'always', padding: '0.25in', boxSizing: 'border-box' }}>
+                                        <div className="w-full shrink-0 border-b-4 border-black pb-3 mb-2">
+                                            <h1 className="font-sans text-[42px] font-black uppercase tracking-tighter leading-none truncate">{rack.label}</h1>
+                                            <p className="text-sm font-bold uppercase tracking-widest mt-1">Rack Placement Barcode</p>
+                                        </div>
+                                        
+                                        <div className="flex-1 w-full flex flex-col justify-center items-center">
+                                            <div className="bg-white p-2 border-4 border-black mb-3">
+                                                <QRCode value={qrUrl} size={180} level="M" />
+                                            </div>
+                                            <h2 className="font-sans text-[46px] font-black leading-none">BAY {b}</h2>
+                                            <h2 className="font-sans text-[36px] font-black leading-none mt-1 text-black/80">LEVEL {l}</h2>
+                                        </div>
+                                        
+                                        <div className="w-full shrink-0 border-t-4 border-black pt-2 mt-2">
+                                            <p className="text-[10px] font-bold font-mono tracking-widest uppercase">SCAN TO DROP &middot; AUTO-LOCATE</p>
+                                        </div>
+                                    </div>
+                                );
+                            }
+                        }
+                        return labels;
+                    })()}
                  </div>
               </div>
            </div>
