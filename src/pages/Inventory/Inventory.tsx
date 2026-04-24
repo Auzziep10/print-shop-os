@@ -230,7 +230,7 @@ function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, color = '#2b
     
     // Scale payload down slightly if on a box rack
     const scaleFactor = isBoxRack ? 0.6 : 1;
-    const pY = restY + (pallet.height * scaleFactor) / 2;
+    const pY = restY + ((pallet.height || 0.8) * scaleFactor) / 2;
     const pX = xCenter + (slot * width / 4);
     
     const isThisPalletActive = activePallet?.id === pallet.id;
@@ -1175,8 +1175,10 @@ export function Inventory() {
                             <div>
                               <p className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1">Exact Location</p>
                               <div className="bg-brand-bg p-3 flex flex-col rounded-lg border border-brand-border/50 text-xs font-semibold text-brand-primary break-words">
-                                 {activePallet.location}
-                                 {activePallet.rackSpecs?.slot ? ` | Slot ${activePallet.rackSpecs.slot === 1 ? '2' : '1'}` : ''}
+                                 {activePallet.zone === 'Floor' 
+                                    ? `Floor Zone (X: ${activePallet.position?.[0] ?? 0}, Z: ${activePallet.position?.[2] ?? 0})`
+                                    : `${activePallet.zone} | Bay ${activePallet.rackSpecs?.bay ?? 0} | Level ${activePallet.rackSpecs?.level ?? 0}${activePallet.rackSpecs?.slot ? ` | Slot ${activePallet.rackSpecs.slot === 1 ? '2' : '1'}` : ''}`
+                                 }
                               </div>
                             </div>
                             <div>
