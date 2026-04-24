@@ -1306,7 +1306,7 @@ export function Inventory() {
 
         {/* Rack Label Print Modal */}
         {printRackLabelRack && createPortal(
-           <div className="fixed inset-0 bg-white z-[100] flex flex-col animate-in fade-in">
+           <div className="fixed inset-0 bg-white z-[100] flex flex-col animate-in fade-in print:static print:h-auto print:overflow-visible print:block">
               <div className="p-4 border-b border-brand-border flex justify-between items-center print:hidden bg-brand-bg">
                  <div>
                     <h2 className="font-serif text-2xl text-brand-primary font-bold">Rack Labels: {printRackLabelRack}</h2>
@@ -1334,8 +1334,8 @@ export function Inventory() {
                  @page { size: 4in 6in; margin: 0; }
               `}</style>
               
-              <div className="flex-1 overflow-y-auto bg-neutral-100 p-8 print:p-0 print:bg-white rack-print-mode">
-                 <div className="flex flex-col items-center gap-8 print:gap-0">
+              <div className="flex-1 overflow-y-auto bg-neutral-100 p-8 print:p-0 print:bg-white rack-print-mode print:static print:h-auto print:overflow-visible print:block">
+                 <div className="flex flex-col items-center gap-8 print:gap-0 print:block">
                     {(() => {
                         const rack = currentWarehouse?.racks?.find((r: any) => r.label === printRackLabelRack);
                         if (!rack) return null;
