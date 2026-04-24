@@ -12,6 +12,11 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { ProductsTab } from './ProductsTab';
 import { PalletsTab } from './PalletsTab';
 
+const PALLET_SWATCHES = [
+  '#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', 
+  '#ec4899', '#06b6d4', '#f97316', '#84cc16', '#64748b'
+];
+
 function CameraController({ activePallet, activeRack, warehouse }: any) {
   const targetLookAt = useRef<THREE.Vector3 | null>(null);
   const targetCamPos = useRef<THREE.Vector3 | null>(null);
@@ -1188,6 +1193,24 @@ export function Inventory() {
                               </div>
                             </div>
                             
+                            <div>
+                               <p className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1">Color Tag</p>
+                               <div className="flex flex-wrap gap-2">
+                                  {PALLET_SWATCHES.map(color => (
+                                     <button 
+                                        key={color} 
+                                        onClick={async () => {
+                                            const palletRef = doc(db, 'pallets', activePallet.id);
+                                            await setDoc(palletRef, { color }, { merge: true });
+                                            setActivePallet({...activePallet, color});
+                                        }}
+                                        className={`w-6 h-6 rounded-full cursor-pointer transition-transform hover:scale-110 shadow-sm ${activePallet.color === color || (!activePallet.color && color === '#10b981') ? 'ring-2 ring-offset-2 ring-brand-primary scale-110' : ''}`}
+                                        style={{ backgroundColor: color }}
+                                     />
+                                  ))}
+                               </div>
+                            </div>
+                            
                             <button onClick={() => setActiveTab('Labels')} className="w-full mt-4 bg-black text-white px-4 py-3 rounded-lg font-bold uppercase tracking-widest text-xs flex justify-center items-center gap-2 shadow-sm hover:scale-[1.02] transition-transform">
                                <QrCode size={16} /> Print Route Info
                             </button>
@@ -1294,8 +1317,18 @@ export function Inventory() {
                             )}
 
                             <div>
-                               <label className="text-[10px] uppercase font-bold text-brand-secondary tracking-widest">Color Tag</label>
-                               <input type="color" value={addForm.color} onChange={e => setAddForm({...addForm, color: e.target.value})} className="w-full h-12 mt-1 rounded-lg border border-brand-border cursor-pointer bg-brand-bg p-1" />
+                               <label className="text-[10px] uppercase font-bold text-brand-secondary tracking-widest block mb-2">Color Tag</label>
+                               <div className="flex flex-wrap gap-2">
+                                  {PALLET_SWATCHES.map(color => (
+                                     <button 
+                                        key={color} 
+                                        type="button"
+                                        onClick={() => setAddForm({...addForm, color})}
+                                        className={`w-8 h-8 rounded-full cursor-pointer transition-transform hover:scale-110 shadow-sm ${addForm.color === color || (!addForm.color && color === '#10b981') ? 'ring-2 ring-offset-2 ring-brand-primary scale-110' : ''}`}
+                                        style={{ backgroundColor: color }}
+                                     />
+                                  ))}
+                               </div>
                             </div>
                             <div className="pt-4 flex gap-2">
                                <button type="button" onClick={() => setIsAddingPallet(false)} className="flex-1 bg-brand-bg border border-brand-border text-brand-secondary py-3 rounded-lg font-bold uppercase tracking-widest text-xs hover:bg-white transition-colors">Cancel</button>
