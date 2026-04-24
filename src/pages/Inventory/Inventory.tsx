@@ -1167,6 +1167,7 @@ export function Inventory() {
                               <p className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1">Exact Location</p>
                               <div className="bg-brand-bg p-3 flex flex-col rounded-lg border border-brand-border/50 text-xs font-semibold text-brand-primary break-words">
                                  {activePallet.location}
+                                 {activePallet.rackSpecs?.slot ? ` | Slot ${activePallet.rackSpecs.slot === 1 ? '2' : '1'}` : ''}
                               </div>
                             </div>
                             <div>
