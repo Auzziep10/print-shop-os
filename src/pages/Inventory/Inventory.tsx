@@ -60,14 +60,16 @@ function CameraController({ activePallet, activeRack, warehouse }: any) {
 }
 
 const PayloadMesh = ({ pallet, isThisPalletActive }: any) => {
-    if (pallet.type === 'Pallet') {
+    const pHeight = pallet.height || 0.8;
+    
+    if (pallet.type === 'Pallet' || pallet.boxes?.length > 0) {
         const boxes = [];
         const boxSize = 0.28;
         const spacing = 0.02;
         const cols = 3;
         const rows = 3;
-        const stackLevels = Math.max(1, Math.floor((pallet.height - 0.14) / (boxSize + spacing)));
-        const startY = -pallet.height/2 + 0.14 + (boxSize/2);
+        const stackLevels = Math.max(1, Math.floor((pHeight - 0.14) / (boxSize + spacing)));
+        const startY = -pHeight/2 + 0.14 + (boxSize/2);
         
         const gridW = cols * boxSize + (cols - 1) * spacing;
         const gridD = rows * boxSize + (rows - 1) * spacing;
@@ -75,7 +77,6 @@ const PayloadMesh = ({ pallet, isThisPalletActive }: any) => {
         for (let l = 0; l < stackLevels; l++) {
             for (let r = 0; r < rows; r++) {
                 for (let c = 0; c < cols; c++) {
-                    // Add slight random offset to simulate messy stacking
                     const rx = (Math.random() - 0.5) * 0.01;
                     const rz = (Math.random() - 0.5) * 0.01;
                     const x = (c * boxSize) + (c * spacing) - (gridW/2) + (boxSize/2) + rx;
@@ -85,7 +86,7 @@ const PayloadMesh = ({ pallet, isThisPalletActive }: any) => {
                     boxes.push(
                         <mesh key={`${pallet.id}-${l}-${r}-${c}`} position={[x, y, z]}>
                             <boxGeometry args={[boxSize, boxSize, boxSize]} />
-                            <meshStandardMaterial color={pallet.color} emissive={isThisPalletActive ? "#fff" : "#000"} emissiveIntensity={isThisPalletActive ? 0.2 : 0} />
+                            <meshStandardMaterial color={pallet.color || '#d4a373'} emissive={isThisPalletActive ? "#fff" : "#000"} emissiveIntensity={isThisPalletActive ? 0.2 : 0} />
                         </mesh>
                     );
                 }
@@ -96,8 +97,8 @@ const PayloadMesh = ({ pallet, isThisPalletActive }: any) => {
     
     return (
        <mesh position={[0, 0.07, 0]}>
-         <boxGeometry args={[0.95, pallet.height - 0.14, 0.95]} />
-         <meshStandardMaterial color={pallet.color} emissive={isThisPalletActive ? "#fff" : "#000"} emissiveIntensity={isThisPalletActive ? 0.2 : 0} />
+         <boxGeometry args={[0.95, pHeight - 0.14, 0.95]} />
+         <meshStandardMaterial color={pallet.color || '#3b82f6'} emissive={isThisPalletActive ? "#fff" : "#000"} emissiveIntensity={isThisPalletActive ? 0.2 : 0} />
        </mesh>
     );
 };
@@ -170,14 +171,14 @@ function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, color = '#2b
         scale={scaleFactor}
         onClick={(e) => { e.stopPropagation(); onPalletClick?.(pallet); }}
       >
-        <Text position={[0, pallet.height + 0.3, 0]} fontSize={0.25} color="black" outlineWidth={0.02} outlineColor="white" fontWeight="bold">
+        <Text position={[0, (pallet.height || 0.8) + 0.3, 0]} fontSize={0.25} color="black" outlineWidth={0.02} outlineColor="white" fontWeight="bold">
             {pallet.name || pallet.client || 'Unknown'}
         </Text>
-        <Text position={[0, pallet.height + 0.08, 0]} fontSize={0.15} color="#333" outlineWidth={0.01} outlineColor="white">
+        <Text position={[0, (pallet.height || 0.8) + 0.08, 0]} fontSize={0.15} color="#333" outlineWidth={0.01} outlineColor="white">
             {pallet.boxes?.length || 0} Boxes
         </Text>
         {!isBoxRack && (
-          <mesh position={[0, -pallet.height/2 + 0.07, 0]}>
+          <mesh position={[0, -(pallet.height || 0.8)/2 + 0.07, 0]}>
             <boxGeometry args={[1.0, 0.14, 1.0]} />
             <meshStandardMaterial color="#8b5a2b" emissive={isThisPalletActive ? "#fff" : "#000"} emissiveIntensity={isThisPalletActive ? 0.3 : 0} />
           </mesh>
@@ -229,7 +230,8 @@ function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, color = '#2b
 
 function FloorPallet({ pallet, onClick, onPalletClick, activePallet }: any) {
   const isThisPalletActive = activePallet?.id === pallet.id;
-  const pY = pallet.height / 2;
+  const pHeight = pallet.height || 0.8;
+  const pY = pHeight / 2;
 
   return (
     <group position={[pallet.position[0], pallet.position[1] + pY, pallet.position[2]]} rotation={pallet.rotation || [0,0,0]} 
@@ -237,13 +239,13 @@ function FloorPallet({ pallet, onClick, onPalletClick, activePallet }: any) {
       onPointerOver={(e) => { e.stopPropagation(); document.body.style.cursor='pointer'; }}
       onPointerOut={() => document.body.style.cursor='auto'}
     >
-      <Text position={[0, pallet.height/2 + 0.4, 0]} fontSize={0.3} color="black" outlineWidth={0.02} outlineColor="white" fontWeight="bold">
+      <Text position={[0, pHeight/2 + 0.4, 0]} fontSize={0.3} color="black" outlineWidth={0.02} outlineColor="white" fontWeight="bold">
           {pallet.name || pallet.client || 'Unknown'}
       </Text>
-      <Text position={[0, pallet.height/2 + 0.1, 0]} fontSize={0.18} color="#333" outlineWidth={0.01} outlineColor="white">
+      <Text position={[0, pHeight/2 + 0.1, 0]} fontSize={0.18} color="#333" outlineWidth={0.01} outlineColor="white">
           {pallet.boxes?.length || 0} Boxes
       </Text>
-      <mesh position={[0, -pallet.height/2 + 0.07, 0]}>
+      <mesh position={[0, -pHeight/2 + 0.07, 0]}>
         <boxGeometry args={[1.0, 0.14, 1.0]} />
         <meshStandardMaterial color="#8b5a2b" emissive={isThisPalletActive ? "#fff" : "#000"} emissiveIntensity={isThisPalletActive ? 0.3 : 0} />
       </mesh>
