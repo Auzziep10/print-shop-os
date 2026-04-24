@@ -811,7 +811,7 @@ export function Inventory() {
                    </div>
                    <div className="bg-neutral-100 px-4 py-2 rounded-lg text-center">
                       <div className="text-[10px] font-bold tracking-widest text-brand-secondary uppercase">Slot</div>
-                      <div className="font-black text-2xl">{isRight ? 'R' : 'L'}</div>
+                      <div className="font-black text-2xl">{isRight ? '2' : '1'}</div>
                    </div>
                 </div>
              </div>
@@ -1404,7 +1404,7 @@ export function Inventory() {
                         for (let b = 0; b < rack.bays; b++) {
                             for (let l = 0; l < rack.levels; l++) {
                                 for (let s of [-1, 1]) {
-                                    const slotStr = s === 1 ? 'RIGHT' : 'LEFT';
+                                    const slotStr = s === 1 ? 'SLOT 2' : 'SLOT 1';
                                     const qrUrl = `${baseUrl}?action=place_pallet&rack=${encodeURIComponent(rack.label)}&bay=${b}&level=${l}&slot=${s}`;
                                     labels.push(
                                         <div key={`${b}-${l}-${s}`} className="bg-white border-8 border-black flex flex-col justify-between items-center text-center overflow-hidden shadow-2xl print:shadow-none print:border-none" style={{ width: '4in', height: '6in', pageBreakAfter: 'always', padding: '0.2in', boxSizing: 'border-box' }}>
