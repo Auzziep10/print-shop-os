@@ -711,8 +711,8 @@ export function Inventory() {
   return (
     <div className={`${tokens.layout.container} h-[100dvh] flex flex-col pt-4 md:pt-5`}>
       <div className="shrink-0 mb-4">
-        <div className="flex justify-between items-center w-full">
-           <div className="flex items-center gap-4">
+        <div className="flex justify-between items-center w-full gap-4">
+           <div className="flex items-center gap-4 shrink-0">
                <h1 className={`${tokens.typography.h1} text-2xl md:text-3xl`}>
                  {mainTab === 'Warehouse' ? 'Warehouse Inventory' : 'Product Catalog'}
                </h1>
@@ -726,25 +726,26 @@ export function Inventory() {
                       <span className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary"><b className="text-brand-primary text-[11px]">{palletStats.items}</b> Total Items</span>
                   </div>
                )}
-               {mainTab === 'Pallets' && (
-                  <div className="flex items-center gap-3 ml-4">
-                      <button 
-                          onClick={() => setShowBatchImageModal(true)}
-                          className="hidden md:flex items-center gap-2 px-5 py-2 bg-brand-bg border border-brand-border rounded-full text-[10px] font-bold uppercase tracking-widest text-brand-primary hover:bg-black hover:text-white transition-colors shadow-sm"
-                      >
-                          Batch Set Thumbnails
-                      </button>
-                      <button 
-                          onClick={() => setShowFindReplaceModal(true)}
-                          className="hidden md:flex items-center gap-2 px-5 py-2 bg-brand-bg border border-brand-border rounded-full text-[10px] font-bold uppercase tracking-widest text-brand-primary hover:bg-black hover:text-white transition-colors shadow-sm"
-                      >
-                          <Search size={12} /> Find & Replace
-                      </button>
-                  </div>
-               )}
            </div>
+
+           {mainTab === 'Pallets' && (
+              <div className="flex-1 flex items-center justify-center gap-3 px-2 overflow-hidden">
+                  <button 
+                      onClick={() => setShowBatchImageModal(true)}
+                      className="hidden md:flex items-center gap-1.5 px-3.5 py-1.5 bg-brand-bg border border-brand-border rounded-full text-[9px] font-bold uppercase tracking-widest text-brand-primary hover:bg-black hover:text-white transition-colors shadow-sm whitespace-nowrap"
+                  >
+                      Batch Set Thumbnails
+                  </button>
+                  <button 
+                      onClick={() => setShowFindReplaceModal(true)}
+                      className="hidden md:flex items-center gap-1.5 px-3.5 py-1.5 bg-brand-bg border border-brand-border rounded-full text-[9px] font-bold uppercase tracking-widest text-brand-primary hover:bg-black hover:text-white transition-colors shadow-sm whitespace-nowrap"
+                  >
+                      <Search size={10} /> Find & Replace
+                  </button>
+              </div>
+           )}
            
-           <div className="flex bg-brand-bg p-1 rounded-lg border border-brand-border shrink-0 shadow-sm w-[400px]">
+           <div className="flex bg-brand-bg p-1 rounded-lg border border-brand-border shrink-0 shadow-sm w-auto min-w-[320px] md:w-[400px]">
              <button 
                 onClick={() => setMainTab('Warehouse')}
                 className={`flex-1 px-3 py-1.5 rounded-md font-bold text-[10px] uppercase tracking-widest transition-all ${mainTab === 'Warehouse' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}
