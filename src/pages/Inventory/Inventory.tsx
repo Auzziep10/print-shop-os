@@ -5,7 +5,7 @@ import QRCode from 'react-qr-code';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Text, Environment, DragControls } from '@react-three/drei';
 import { db, storage } from '../../lib/firebase';
-import { collection, query, onSnapshot, setDoc, deleteDoc, doc, writeBatch, getDocs } from 'firebase/firestore';
+import { collection, query, onSnapshot, setDoc, deleteDoc, doc, getDocs } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { ProductsTab } from './ProductsTab';
 import { PalletsTab } from './PalletsTab';
@@ -326,65 +326,6 @@ export const defaultWarehouseBlueprint = {
     ]
 };
 
-const generateInitialInventory = () => {
-    const db: any[] = [];
-    const clients = ['McEvoy Ranch', 'AION', 'Verizon', 'MGM Resorts', 'WOVN Studio', 'Alo Yoga', 'Nike', 'Tesla'];
-    let idCount = 1000;
-    
-    // 1. Populate specific floor pallets simulating a loaded Open Floor
-    const floorConfigs = [
-       { position: [0, 0, 0], pColor: "#3b82f6", client: "Nike" },
-       { position: [1.5, 0, 0], pColor: "#e5e7eb", client: "Alo Yoga" },
-       { position: [0, 0, 1.5], pColor: "#d4a373", client: "Tesla" },
-       { position: [-1.5, 0, 0], pColor: "#e5e7eb", client: "AION" },
-       { position: [0, 0, -1.5], pColor: "#3b82f6", client: "WOVN Studio" },
-       { position: [-4, 0, -2], pColor: "#d4a373", client: "McEvoy Ranch", rotation: [0, Math.PI/6, 0] },
-       { position: [-4.5, 0, -0.8], pColor: "#d4a373", client: "MGM Resorts", rotation: [0, Math.PI/4, 0] }
-    ];
-
-    floorConfigs.forEach(conf => {
-        db.push({
-           id: `PAL-${idCount++}`,
-           type: 'Loose Box',
-           zone: 'Floor',
-           client: conf.client,
-           color: conf.pColor,
-           height: 0.6 + Math.random() * 0.4,
-           position: conf.position,
-           rotation: conf.rotation || [0,0,0],
-           location: 'Open Floor Zone',
-           warehouseId: "wh_default_01"
-        });
-    });
-
-    // 2. Populate rack pallets (bays/levels/slots) simulating database rows
-    const racksToFill = defaultWarehouseBlueprint.racks;
-
-    racksToFill.forEach(rack => {
-        for (let bay=0; bay<rack.bays; bay++) {
-            for (let level=0; level<rack.levels; level++) {
-               for (let slot of [-1, 1]) {
-                  if (Math.random() > 0.4) {
-                     const cRand = Math.random();
-                     db.push({
-                        id: `PAL-${idCount++}`,
-                        type: cRand < 0.5 ? 'Loose Box' : 'Pallet',
-                        zone: rack.label,
-                        client: clients[Math.floor(Math.random() * clients.length)],
-                        color: cRand > 0.8 ? '#3b82f6' : (cRand > 0.5 ? '#e5e7eb' : '#d4a373'),
-                        height: 0.6 + Math.random() * 0.4,
-                        rackSpecs: { bay, level, slot },
-                        location: `${rack.label} | Bay ${bay+1} | Level ${level}`,
-                        warehouseId: "wh_default_01"
-                     });
-                  }
-               }
-            }
-        }
-    });
-
-    return db;
-}
 
 export function Inventory() {
   const [mainTab, setMainTab] = useState<'Warehouse' | 'Pallets' | 'Products'>('Products');
@@ -421,31 +362,11 @@ export function Inventory() {
      return () => unsubSchemas();
   }, []);
 
-  useEffect(() => {
-     if (!currentWarehouse) return;
-     const q = query(collection(db, 'inventory'));
-     const unsubscribe = onSnapshot(q, (snapshot) => {
-         if (snapshot.empty) {
-             console.log("Empty DB detected, seeding initial mockup data...");
-             const initial = generateInitialInventory();
-             const batch = writeBatch(db);
-             initial.forEach(p => {
-                 batch.set(doc(db, 'inventory', p.id), p);
-             });
-             batch.commit();
-         } else {
-             const data = snapshot.docs.map(d => d.data())
-                                       .filter((d: any) => d.warehouseId === currentWarehouse.id);
-             setInventoryDB(data);
-         }
-     });
-     
-     return () => unsubscribe();
-  }, [currentWarehouse]);
-
+  const [allPallets, setAllPallets] = useState<any[]>([]);
   const [palletStats, setPalletStats] = useState({ pallets: 0, boxes: 0, items: 0, skus: [] as string[], names: [] as string[], sizes: [] as string[] });
 
   useEffect(() => {
+     if (!currentWarehouse) return;
      const q = query(collection(db, 'pallets'));
      const unsubscribe = onSnapshot(q, (snapshot) => {
          let pCount = 0; let bCount = 0; let iCount = 0;
@@ -453,8 +374,13 @@ export function Inventory() {
          const nameSet = new Set<string>();
          const sizeSet = new Set<string>();
          
-         snapshot.docs.forEach(d => {
-             const p = d.data();
+         const rawData = snapshot.docs.map(d => d.data());
+         setAllPallets(rawData);
+         
+         const mappedInventory = rawData.filter((d: any) => d.warehouseId === currentWarehouse.id);
+         setInventoryDB(mappedInventory);
+         
+         rawData.forEach(p => {
              pCount++;
              if (p.boxes) {
                  bCount += p.boxes.length;
@@ -480,7 +406,7 @@ export function Inventory() {
          });
      });
      return () => unsubscribe();
-  }, []);
+  }, [currentWarehouse]);
 
   const [isAddingPallet, setIsAddingPallet] = useState(false);
   const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false);
@@ -617,22 +543,30 @@ export function Inventory() {
   };
   
   const handleDeletePallet = async (id: string) => {
-    setInventoryDB(prevList => prevList.filter(p => p.id !== id));
     setActivePallet(null);
     setDeleteConfirmId(null);
     try {
-        await deleteDoc(doc(db, 'inventory', id));
+        await setDoc(doc(db, 'pallets', id), {
+            warehouseId: null,
+            zone: null,
+            position: null,
+            rotation: null,
+            rackSpecs: null,
+            location: null
+        }, { merge: true });
     } catch (err) {
-        console.error("Failed to delete from remote DB", err);
+        console.error("Failed to unmap from remote DB", err);
     }
   };
 
 
 
-  const [addForm, setAddForm] = useState({ client: 'New Client', color: '#10b981', zoneType: 'Floor', x: 0, z: 0, rackLabel: 'Aisle S-Left', bay: 0, level: 0, slot: -1 });
+  const [addForm, setAddForm] = useState({ palletId: '', color: '#10b981', zoneType: 'Floor', x: 0, z: 0, rackLabel: 'Aisle S-Left', bay: 0, level: 0, slot: -1 });
 
   const handleAddPallet = async (e: any) => {
     e.preventDefault();
+    if (!addForm.palletId) return alert('Please select a pallet to stage.');
+    
     const isFloor = addForm.zoneType === 'Floor';
     const activeRackObj = currentWarehouse?.racks?.find((r: any) => r.label === addForm.rackLabel);
     
@@ -643,12 +577,10 @@ export function Inventory() {
     const bayIndex = Math.min(parseInt(addForm.bay as any), maxBays - 1);
     const levelIndex = Math.min(parseInt(addForm.level as any), maxLevels - 1);
     
-    const newPallet = {
-        id: `PAL-${Math.floor(Math.random() * 9000) + 1000}`,
+    const updates = {
         type: 'Pallet',
         warehouseId: currentWarehouse?.id || "wh_default_01",
         zone: isFloor ? 'Floor' : addForm.rackLabel,
-        client: addForm.client,
         color: addForm.color,
         height: 0.8,
         ...(isFloor ? {
@@ -661,9 +593,8 @@ export function Inventory() {
         })
     };
     
-    setInventoryDB(prevList => [...prevList, newPallet]);
     try {
-        await setDoc(doc(db, 'inventory', newPallet.id), newPallet);
+        await setDoc(doc(db, 'pallets', addForm.palletId), updates, { merge: true });
     } catch (err) {
         console.error("Failed to write to remote DB", err);
     }
@@ -1065,7 +996,7 @@ export function Inventory() {
                                      <span className="text-xs font-bold text-brand-primary group-hover:underline uppercase tracking-wider">{p.id}</span>
                                      <span className="text-[9px] font-bold uppercase tracking-widest bg-brand-bg border border-brand-border px-2 py-0.5 rounded text-brand-secondary">{p.type}</span>
                                   </div>
-                                  <p className="font-serif text-[15px] leading-tight text-brand-primary">{p.client}</p>
+                                  <p className="font-serif text-[15px] leading-tight text-brand-primary">{p.name || p.client}</p>
                                </div>
                             ))}
                          </div>
@@ -1081,8 +1012,13 @@ export function Inventory() {
                          </h3>
                          <form onSubmit={handleAddPallet} className="space-y-4">
                             <div>
-                               <label className="text-[10px] uppercase font-bold text-brand-secondary tracking-widest">Client Name</label>
-                               <input type="text" value={addForm.client} onChange={e => setAddForm({...addForm, client: e.target.value})} className="w-full mt-1 p-3 rounded-lg border border-brand-border bg-brand-bg text-sm font-semibold focus:outline-brand-primary" />
+                               <label className="text-[10px] uppercase font-bold text-brand-secondary tracking-widest">Select Pallet</label>
+                               <select value={addForm.palletId} onChange={e => setAddForm({...addForm, palletId: e.target.value})} className="w-full mt-1 p-3 rounded-lg border border-brand-border bg-brand-bg text-sm font-semibold focus:outline-brand-primary cursor-pointer">
+                                  <option value="">-- Choose Unmapped Pallet --</option>
+                                  {allPallets.filter(p => !p.warehouseId).map(p => (
+                                     <option key={p.id} value={p.id}>{p.name}</option>
+                                  ))}
+                               </select>
                             </div>
                             
                             {addForm.zoneType === 'Floor' ? (
