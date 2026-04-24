@@ -511,10 +511,17 @@ export function Inventory() {
                   
                   const newItems = box.items.map((item: any) => {
                       const currentValue = (item[frTargetField] || '').toLowerCase();
-                      if (currentValue === frSearchTerm.toLowerCase() && item[frTargetField] !== frReplaceTerm) {
-                          changed = true;
-                          boxChanged = true;
-                          return { ...item, [frTargetField]: frReplaceTerm };
+                      if (currentValue === frSearchTerm.toLowerCase()) {
+                          let finalReplacement = frReplaceTerm;
+                          if (finalReplacement.includes('{size}')) finalReplacement = finalReplacement.replace(/\{size\}/ig, item.size || '');
+                          if (finalReplacement.includes('{sku}')) finalReplacement = finalReplacement.replace(/\{sku\}/ig, item.sku || '');
+                          if (finalReplacement.includes('{name}')) finalReplacement = finalReplacement.replace(/\{name\}/ig, item.name || '');
+
+                          if (item[frTargetField] !== finalReplacement) {
+                              changed = true;
+                              boxChanged = true;
+                              return { ...item, [frTargetField]: finalReplacement };
+                          }
                       }
                       return item;
                   });
@@ -1293,7 +1300,7 @@ export function Inventory() {
               <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 flex flex-col relative border border-brand-border">
                   <h2 className="text-xl font-serif font-bold text-brand-primary mb-1">Find & Replace</h2>
                   <p className="text-[11px] text-brand-secondary mb-6 leading-relaxed">
-                      This tool will scan the entire warehouse (all pallets and boxes) and perfectly replace any exact matches of the search term.
+                      This tool will scan the entire warehouse (all pallets and boxes) and perfectly replace any exact matches of the search term. You can use <b className="text-brand-primary">{`{size}`}</b>, <b className="text-brand-primary">{`{sku}`}</b>, or <b className="text-brand-primary">{`{name}`}</b> in the replace field to dynamically inject the item's properties (e.g. <span className="font-mono bg-brand-bg px-1 py-0.5 border border-brand-border rounded">MYSKU-{`{size}`}</span>).
                   </p>
                   
                   <div className="space-y-4">
