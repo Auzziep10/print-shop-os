@@ -470,26 +470,19 @@ export function Inventory() {
 
   const [allWarehouses, setAllWarehouses] = useState<any[]>([]);
 
+  const [mobilePlacementData, setMobilePlacementData] = useState<any>(null);
+  const [mobileSelectedPalletId, setMobileSelectedPalletId] = useState<string>("");
+  const [mobilePlacementSuccess, setMobilePlacementSuccess] = useState(false);
+
   useEffect(() => {
      const params = new URLSearchParams(window.location.search);
      if (params.get('action') === 'place_pallet') {
-         const rackLabel = params.get('rack');
-         const bay = params.get('bay');
-         const level = params.get('level');
-         
-         setIsAddingPallet(true);
-         setAddForm(prev => ({
-            ...prev,
-            zoneType: 'Rack',
-            rackLabel: rackLabel || '',
-            bay: parseInt(bay || '0'),
-            level: parseInt(level || '0')
-         }));
-         setMainTab('Warehouse');
-         setActiveTab('Map');
-         
-         // Clean up URL
-         window.history.replaceState({}, document.title, window.location.pathname);
+         setMobilePlacementData({
+             rackLabel: params.get('rack') || '',
+             bay: parseInt(params.get('bay') || '0'),
+             level: parseInt(params.get('level') || '0'),
+             slot: parseInt(params.get('slot') || '-1')
+         });
      }
   }, []);
 
@@ -800,6 +793,73 @@ export function Inventory() {
   const handlePrintLabel = () => {
     window.print();
   };
+
+  if (mobilePlacementData) {
+      const isRight = mobilePlacementData.slot === 1;
+      return (
+          <div className="fixed inset-0 z-[200] bg-brand-bg flex flex-col p-6 overflow-y-auto">
+             <div className="bg-white rounded-2xl shadow-sm border border-brand-border p-6 mb-6">
+                <h1 className="font-serif text-3xl font-black mb-2 uppercase tracking-tight text-center">{mobilePlacementData.rackLabel}</h1>
+                <div className="flex justify-center gap-4 text-brand-primary">
+                   <div className="bg-neutral-100 px-4 py-2 rounded-lg text-center">
+                      <div className="text-[10px] font-bold tracking-widest text-brand-secondary uppercase">Bay</div>
+                      <div className="font-black text-2xl">{mobilePlacementData.bay}</div>
+                   </div>
+                   <div className="bg-neutral-100 px-4 py-2 rounded-lg text-center">
+                      <div className="text-[10px] font-bold tracking-widest text-brand-secondary uppercase">Level</div>
+                      <div className="font-black text-2xl">{mobilePlacementData.level}</div>
+                   </div>
+                   <div className="bg-neutral-100 px-4 py-2 rounded-lg text-center">
+                      <div className="text-[10px] font-bold tracking-widest text-brand-secondary uppercase">Slot</div>
+                      <div className="font-black text-2xl">{isRight ? 'R' : 'L'}</div>
+                   </div>
+                </div>
+             </div>
+
+             {mobilePlacementSuccess ? (
+                <div className="bg-emerald-50 border-2 border-emerald-500 rounded-2xl p-8 text-center mt-8">
+                   <h2 className="text-2xl font-black text-emerald-700 mb-2">Success!</h2>
+                   <p className="text-emerald-600 font-medium mb-6">Pallet securely docked to location.</p>
+                   <button onClick={() => { setMobilePlacementData(null); window.history.replaceState({}, document.title, window.location.pathname); }} className="w-full bg-emerald-600 text-white font-bold uppercase tracking-widest py-4 rounded-xl shadow-lg">Return to Map</button>
+                </div>
+             ) : (
+                <div className="bg-white rounded-2xl shadow-sm border border-brand-border p-6">
+                   <label className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary block mb-3">Select Pallet to Dock</label>
+                   <select 
+                      value={mobileSelectedPalletId} 
+                      onChange={e => setMobileSelectedPalletId(e.target.value)} 
+                      className="w-full p-4 rounded-xl border-2 border-brand-border bg-neutral-50 font-bold text-lg focus:outline-none focus:border-brand-primary mb-6"
+                   >
+                      <option value="">-- Choose Pallet --</option>
+                      {allPallets.filter((p: any) => !p.warehouseId).map((p: any) => (
+                          <option key={p.id} value={p.id}>{p.name || p.client || p.id}</option>
+                      ))}
+                   </select>
+
+                   <button 
+                      disabled={!mobileSelectedPalletId}
+                      onClick={async () => {
+                          const palletRef = doc(db, 'pallets', mobileSelectedPalletId);
+                          await setDoc(palletRef, {
+                             zone: mobilePlacementData.rackLabel,
+                             rackSpecs: {
+                                 bay: mobilePlacementData.bay,
+                                 level: mobilePlacementData.level,
+                                 slot: mobilePlacementData.slot
+                             },
+                             warehouseId: currentWarehouse?.id || defaultWarehouseBlueprint.id
+                          }, { merge: true });
+                          setMobilePlacementSuccess(true);
+                      }} 
+                      className={`w-full py-5 rounded-xl font-black uppercase tracking-widest text-sm shadow-xl transition-all ${mobileSelectedPalletId ? 'bg-brand-primary text-white hover:scale-[1.02]' : 'bg-neutral-200 text-neutral-400 cursor-not-allowed'}`}
+                   >
+                      Dock Pallet Now
+                   </button>
+                </div>
+             )}
+          </div>
+      );
+  }
 
   return (
     <div className={`${tokens.layout.container} h-[100dvh] flex flex-col pt-4 md:pt-5`}>
@@ -1343,27 +1403,35 @@ export function Inventory() {
                         const baseUrl = window.location.origin + window.location.pathname;
                         for (let b = 0; b < rack.bays; b++) {
                             for (let l = 0; l < rack.levels; l++) {
-                                const qrUrl = `${baseUrl}?action=place_pallet&rack=${encodeURIComponent(rack.label)}&bay=${b}&level=${l}`;
-                                labels.push(
-                                    <div key={`${b}-${l}`} className="bg-white border-8 border-black flex flex-col justify-between items-center text-center overflow-hidden shadow-2xl print:shadow-none print:border-none" style={{ width: '4in', height: '6in', pageBreakAfter: 'always', padding: '0.25in', boxSizing: 'border-box' }}>
-                                        <div className="w-full shrink-0 border-b-4 border-black pb-3 mb-2">
-                                            <h1 className="font-sans text-[42px] font-black uppercase tracking-tighter leading-none truncate">{rack.label}</h1>
-                                            <p className="text-sm font-bold uppercase tracking-widest mt-1">Rack Placement Barcode</p>
-                                        </div>
-                                        
-                                        <div className="flex-1 w-full flex flex-col justify-center items-center">
-                                            <div className="bg-white p-2 border-4 border-black mb-3">
-                                                <QRCode value={qrUrl} size={180} level="M" />
+                                for (let s of [-1, 1]) {
+                                    const slotStr = s === 1 ? 'RIGHT' : 'LEFT';
+                                    const qrUrl = `${baseUrl}?action=place_pallet&rack=${encodeURIComponent(rack.label)}&bay=${b}&level=${l}&slot=${s}`;
+                                    labels.push(
+                                        <div key={`${b}-${l}-${s}`} className="bg-white border-8 border-black flex flex-col justify-between items-center text-center overflow-hidden shadow-2xl print:shadow-none print:border-none" style={{ width: '4in', height: '6in', pageBreakAfter: 'always', padding: '0.2in', boxSizing: 'border-box' }}>
+                                            <div className="w-full shrink-0 border-b-4 border-black pb-2 mb-2">
+                                                <h1 className="font-sans text-[36px] font-black uppercase tracking-tighter leading-none truncate">{rack.label}</h1>
+                                                <p className="text-xs font-bold uppercase tracking-widest mt-1">Rack Placement Barcode</p>
                                             </div>
-                                            <h2 className="font-sans text-[46px] font-black leading-none">BAY {b}</h2>
-                                            <h2 className="font-sans text-[36px] font-black leading-none mt-1 text-black/80">LEVEL {l}</h2>
+                                            
+                                            <div className="flex-1 w-full flex flex-col justify-center items-center">
+                                                <div className="bg-white p-2 border-4 border-black mb-1">
+                                                    <QRCode value={qrUrl} size={150} level="M" />
+                                                </div>
+                                                <div className="flex w-full justify-between items-center px-4 mb-1">
+                                                    <h2 className="font-sans text-[38px] font-black leading-none">BAY {b}</h2>
+                                                    <h2 className="font-sans text-[30px] font-black leading-none text-black/80">LVL {l}</h2>
+                                                </div>
+                                                <div className="w-full bg-black text-white py-1">
+                                                    <h2 className="font-sans text-[36px] font-black leading-none">{slotStr}</h2>
+                                                </div>
+                                            </div>
+                                            
+                                            <div className="w-full shrink-0 border-t-4 border-black pt-2 mt-2">
+                                                <p className="text-[9px] font-bold font-mono tracking-widest uppercase">SCAN TO DROP &middot; AUTO-LOCATE</p>
+                                            </div>
                                         </div>
-                                        
-                                        <div className="w-full shrink-0 border-t-4 border-black pt-2 mt-2">
-                                            <p className="text-[10px] font-bold font-mono tracking-widest uppercase">SCAN TO DROP &middot; AUTO-LOCATE</p>
-                                        </div>
-                                    </div>
-                                );
+                                    );
+                                }
                             }
                         }
                         return labels;
