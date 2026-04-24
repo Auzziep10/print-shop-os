@@ -193,12 +193,12 @@ function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, color = '#2b
         key={pallet.id} 
         position={[pX, pY, 0]}
         scale={scaleFactor}
-        onClick={(e) => { e.stopPropagation(); onPalletClick?.(pallet); }}
+        onClick={(e) => { if (e.delta > 2) return; e.stopPropagation(); onPalletClick?.(pallet); }}
       >
-        <Text position={[0, (pallet.height || 0.8) + 0.3, 0]} fontSize={0.25} color="black" outlineWidth={0.02} outlineColor="white" fontWeight="bold">
+        <Text position={[0, 0.1, 0.52]} fontSize={0.18} color="white" outlineWidth={0.02} outlineColor="black" fontWeight="bold">
             {pallet.name || pallet.client || 'Unknown'}
         </Text>
-        <Text position={[0, (pallet.height || 0.8) + 0.08, 0]} fontSize={0.15} color="#333" outlineWidth={0.01} outlineColor="white">
+        <Text position={[0, -0.1, 0.52]} fontSize={0.12} color="#ddd" outlineWidth={0.01} outlineColor="black">
             {pallet.boxes?.length || 0} Boxes
         </Text>
         {!isBoxRack && (
@@ -237,7 +237,7 @@ function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, color = '#2b
 
   return (
     <group position={position} rotation={rotation} 
-      onClick={(e) => { e.stopPropagation(); onClick?.(label); onPalletClick?.(null); }} 
+      onClick={(e) => { if (e.delta > 2) return; e.stopPropagation(); onClick?.(label); onPalletClick?.(null); }} 
       onPointerOver={(e) => { e.stopPropagation(); document.body.style.cursor='pointer'; }} 
       onPointerOut={() => document.body.style.cursor='auto'}
     >
@@ -259,14 +259,14 @@ function FloorPallet({ pallet, onClick, onPalletClick, activePallet }: any) {
 
   return (
     <group position={[pallet.position[0], pallet.position[1] + pY, pallet.position[2]]} rotation={pallet.rotation || [0,0,0]} 
-      onClick={(e) => { e.stopPropagation(); onClick?.(null); onPalletClick?.(pallet); }}
+      onClick={(e) => { if (e.delta > 2) return; e.stopPropagation(); onClick?.(null); onPalletClick?.(pallet); }}
       onPointerOver={(e) => { e.stopPropagation(); document.body.style.cursor='pointer'; }}
       onPointerOut={() => document.body.style.cursor='auto'}
     >
-      <Text position={[0, pHeight/2 + 0.4, 0]} fontSize={0.3} color="black" outlineWidth={0.02} outlineColor="white" fontWeight="bold">
+      <Text position={[0, 0.1, 0.52]} fontSize={0.25} color="white" outlineWidth={0.02} outlineColor="black" fontWeight="bold">
           {pallet.name || pallet.client || 'Unknown'}
       </Text>
-      <Text position={[0, pHeight/2 + 0.1, 0]} fontSize={0.18} color="#333" outlineWidth={0.01} outlineColor="white">
+      <Text position={[0, -0.15, 0.52]} fontSize={0.15} color="#ddd" outlineWidth={0.01} outlineColor="black">
           {pallet.boxes?.length || 0} Boxes
       </Text>
       <mesh position={[0, -pHeight/2 + 0.07, 0]}>
@@ -300,6 +300,7 @@ function WarehouseMap({ activeRack, setActiveRack, activePallet, setActivePallet
   };
 
   const handleFloorClick = (e: any) => {
+     if (e.delta > 2) return;
      e.stopPropagation();
      if (isAddingPallet) {
          // Snap to nearest 0.5 coordinate for grid alignment
