@@ -117,6 +117,25 @@ const PalletLabels = ({ pallet }: any) => {
     );
 };
 
+const ActiveIndicator = ({ height }: { height: number }) => {
+    const groupRef = useRef<THREE.Group>(null);
+    useFrame((state) => {
+        if (groupRef.current) {
+            groupRef.current.position.y = height + 0.5 + Math.sin(state.clock.elapsedTime * 5) * 0.1;
+            groupRef.current.rotation.y = state.clock.elapsedTime * 2;
+        }
+    });
+
+    return (
+        <group ref={groupRef}>
+            <mesh rotation={[Math.PI, 0, 0]}>
+                <coneGeometry args={[0.25, 0.5, 4]} />
+                <meshStandardMaterial color="#10b981" emissive="#10b981" emissiveIntensity={1} />
+            </mesh>
+        </group>
+    );
+};
+
 const PayloadMesh = ({ pallet, isThisPalletActive }: any) => {
     const pHeight = pallet.height || 0.8;
     
@@ -154,10 +173,13 @@ const PayloadMesh = ({ pallet, isThisPalletActive }: any) => {
             <group>
                 {boxes}
                 {isThisPalletActive && (
-                    <mesh position={[0, pHeight/2 - 0.14, 0]}>
-                        <boxGeometry args={[1.05, pHeight + 0.1, 1.05]} />
-                        <meshStandardMaterial color="#fff" wireframe emissive="#fff" emissiveIntensity={1} transparent opacity={0.8} />
-                    </mesh>
+                    <>
+                        <mesh position={[0, pHeight/2 - 0.14, 0]}>
+                            <boxGeometry args={[1.05, pHeight + 0.1, 1.05]} />
+                            <meshStandardMaterial color="#fff" wireframe emissive="#fff" emissiveIntensity={1.5} transparent opacity={0.8} />
+                        </mesh>
+                        <ActiveIndicator height={pHeight} />
+                    </>
                 )}
             </group>
         );
@@ -170,10 +192,13 @@ const PayloadMesh = ({ pallet, isThisPalletActive }: any) => {
              <meshStandardMaterial color={pallet.color || '#3b82f6'} emissive={isThisPalletActive ? pallet.color || '#3b82f6' : "#000"} emissiveIntensity={isThisPalletActive ? 0.4 : 0} />
            </mesh>
            {isThisPalletActive && (
-               <mesh position={[0, pHeight/2 - 0.14, 0]}>
-                   <boxGeometry args={[1.05, pHeight + 0.1, 1.05]} />
-                   <meshStandardMaterial color="#fff" wireframe emissive="#fff" emissiveIntensity={1} transparent opacity={0.8} />
-               </mesh>
+               <>
+                   <mesh position={[0, pHeight/2 - 0.14, 0]}>
+                       <boxGeometry args={[1.05, pHeight + 0.1, 1.05]} />
+                       <meshStandardMaterial color="#fff" wireframe emissive="#fff" emissiveIntensity={1.5} transparent opacity={0.8} />
+                   </mesh>
+                   <ActiveIndicator height={pHeight} />
+               </>
            )}
        </group>
     );
