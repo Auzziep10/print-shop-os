@@ -1,14 +1,63 @@
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, Suspense, useRef } from 'react';
+import * as THREE from 'three';
 import { tokens } from '../../lib/tokens';
 import { PackageOpen, Printer, Boxes, Map, QrCode, Settings, Upload, Search } from 'lucide-react';
 import QRCode from 'react-qr-code';
-import { Canvas } from '@react-three/fiber';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Text, Environment, DragControls } from '@react-three/drei';
 import { db, storage } from '../../lib/firebase';
 import { collection, query, onSnapshot, setDoc, deleteDoc, doc, getDocs } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { ProductsTab } from './ProductsTab';
 import { PalletsTab } from './PalletsTab';
+
+function CameraController({ activePallet, activeRack, warehouse }: any) {
+  const { controls } = useThree();
+  const targetLookAt = useRef<THREE.Vector3 | null>(null);
+  const targetCamPos = useRef<THREE.Vector3 | null>(null);
+
+  useEffect(() => {
+    if (!activePallet && !activeRack) return;
+
+    let lookPos = new THREE.Vector3();
+
+    if (activePallet) {
+      if (activePallet.zone === 'Floor' && activePallet.position) {
+         lookPos.set(activePallet.position[0], activePallet.position[1], activePallet.position[2]);
+      } else if (activePallet.rackSpecs && activePallet.zone !== 'Floor') {
+         const rack = warehouse?.racks?.find((r: any) => r.label === activePallet.zone);
+         if (rack) {
+            // Rough approximation of rack position
+            lookPos.set(rack.position[0], rack.position[1] + (activePallet.rackSpecs.level * 1.2), rack.position[2]);
+         }
+      }
+    } else if (activeRack) {
+      const rack = warehouse?.racks?.find((r: any) => r.label === activeRack);
+      if (rack) lookPos.set(rack.position[0], rack.position[1], rack.position[2]);
+    }
+
+    if (lookPos.lengthSq() > 0) {
+      targetLookAt.current = lookPos;
+      // Position camera above and slightly pulled back from the pallet
+      targetCamPos.current = new THREE.Vector3(lookPos.x, lookPos.y + 3, lookPos.z + 6);
+    }
+  }, [activePallet, activeRack, warehouse]);
+
+  useFrame((state, delta) => {
+    if (targetLookAt.current && targetCamPos.current && controls) {
+      state.camera.position.lerp(targetCamPos.current, 5 * delta);
+      (controls as any).target.lerp(targetLookAt.current, 5 * delta);
+      (controls as any).update();
+
+      if (state.camera.position.distanceTo(targetCamPos.current) < 0.1) {
+         targetLookAt.current = null;
+         targetCamPos.current = null;
+      }
+    }
+  });
+
+  return null;
+}
 
 const PayloadMesh = ({ pallet, isThisPalletActive }: any) => {
     if (pallet.type === 'Pallet') {
@@ -121,6 +170,12 @@ function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, color = '#2b
         scale={scaleFactor}
         onClick={(e) => { e.stopPropagation(); onPalletClick?.(pallet); }}
       >
+        <Text position={[0, pallet.height + 0.3, 0]} fontSize={0.25} color="black" outlineWidth={0.02} outlineColor="white" fontWeight="bold">
+            {pallet.name || pallet.client || 'Unknown'}
+        </Text>
+        <Text position={[0, pallet.height + 0.08, 0]} fontSize={0.15} color="#333" outlineWidth={0.01} outlineColor="white">
+            {pallet.boxes?.length || 0} Boxes
+        </Text>
         {!isBoxRack && (
           <mesh position={[0, -pallet.height/2 + 0.07, 0]}>
             <boxGeometry args={[1.0, 0.14, 1.0]} />
@@ -182,6 +237,12 @@ function FloorPallet({ pallet, onClick, onPalletClick, activePallet }: any) {
       onPointerOver={(e) => { e.stopPropagation(); document.body.style.cursor='pointer'; }}
       onPointerOut={() => document.body.style.cursor='auto'}
     >
+      <Text position={[0, pallet.height/2 + 0.4, 0]} fontSize={0.3} color="black" outlineWidth={0.02} outlineColor="white" fontWeight="bold">
+          {pallet.name || pallet.client || 'Unknown'}
+      </Text>
+      <Text position={[0, pallet.height/2 + 0.1, 0]} fontSize={0.18} color="#333" outlineWidth={0.01} outlineColor="white">
+          {pallet.boxes?.length || 0} Boxes
+      </Text>
       <mesh position={[0, -pallet.height/2 + 0.07, 0]}>
         <boxGeometry args={[1.0, 0.14, 1.0]} />
         <meshStandardMaterial color="#8b5a2b" emissive={isThisPalletActive ? "#fff" : "#000"} emissiveIntensity={isThisPalletActive ? 0.3 : 0} />
@@ -233,6 +294,7 @@ function WarehouseMap({ activeRack, setActiveRack, activePallet, setActivePallet
       </div>
 
       <Canvas camera={{ position: [0, 20, 26], fov: 42 }} shadows>
+        <CameraController activePallet={activePallet} activeRack={activeRack} warehouse={warehouse} />
         <ambientLight intensity={0.6} />
         <directionalLight position={[10, 20, 10]} intensity={1.5} castShadow />
         <Environment preset="city" />
