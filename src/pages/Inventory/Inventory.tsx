@@ -921,23 +921,23 @@ export function Inventory() {
            </div>
 
            {mainTab === 'Pallets' && (
-              <div className="flex-1 flex items-center justify-center gap-3 px-2 shrink-0 min-w-max">
+              <div className="hidden lg:flex flex-1 items-center justify-center gap-3 px-2 min-w-0">
                   <button 
                       onClick={() => setShowBatchImageModal(true)}
-                      className="hidden md:flex items-center gap-1.5 px-3.5 py-1.5 bg-brand-bg border border-brand-border rounded-full text-[9px] font-bold uppercase tracking-widest text-brand-primary hover:bg-black hover:text-white transition-colors shadow-sm whitespace-nowrap"
+                      className="flex items-center gap-1.5 px-3.5 py-1.5 bg-brand-bg border border-brand-border rounded-full text-[9px] font-bold uppercase tracking-widest text-brand-primary hover:bg-black hover:text-white transition-colors shadow-sm whitespace-nowrap"
                   >
                       Batch Set Thumbnails
                   </button>
                   <button 
                       onClick={() => setShowFindReplaceModal(true)}
-                      className="hidden md:flex items-center gap-1.5 px-3.5 py-1.5 bg-brand-bg border border-brand-border rounded-full text-[9px] font-bold uppercase tracking-widest text-brand-primary hover:bg-black hover:text-white transition-colors shadow-sm whitespace-nowrap"
+                      className="flex items-center gap-1.5 px-3.5 py-1.5 bg-brand-bg border border-brand-border rounded-full text-[9px] font-bold uppercase tracking-widest text-brand-primary hover:bg-black hover:text-white transition-colors shadow-sm whitespace-nowrap"
                   >
                       <Search size={10} /> Find & Replace
                   </button>
               </div>
            )}
            
-           <div className="flex bg-brand-bg p-1 rounded-lg border border-brand-border shrink-0 shadow-sm w-auto min-w-[320px] md:w-[400px]">
+           <div className="flex bg-brand-bg p-1 rounded-lg border border-brand-border shrink-0 shadow-sm w-auto overflow-x-auto max-w-full">
              <button 
                 onClick={() => setMainTab('Warehouse')}
                 className={`flex-1 px-3 py-1.5 rounded-md font-bold text-[10px] uppercase tracking-widest transition-all ${mainTab === 'Warehouse' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}
