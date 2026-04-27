@@ -1321,13 +1321,18 @@ export function Inventory() {
                                    <div className="grid grid-cols-3 gap-2">
                                       <div>
                                          <label className="text-[10px] uppercase font-bold text-brand-secondary tracking-widest">Bay</label>
-                                         <input type="number" min="0" value={addForm.bay} onChange={e => setAddForm({...addForm, bay: parseInt(e.target.value)})} className="w-full mt-1 p-3 flex-1 rounded-lg border border-brand-border bg-brand-bg text-sm font-semibold focus:outline-brand-primary" />
+                                         <select value={addForm.bay} onChange={e => setAddForm({...addForm, bay: parseInt(e.target.value)})} className="w-full mt-1 p-3 flex-1 rounded-lg border border-brand-border bg-brand-bg text-sm font-semibold focus:outline-brand-primary">
+                                             {Array.from({ length: currentWarehouse?.racks?.find((r: any) => r.label === addForm.rackLabel)?.bays || 2 }).map((_, idx) => (
+                                                <option key={idx} value={idx}>Bay {idx}</option>
+                                             ))}
+                                         </select>
                                       </div>
                                       <div>
                                          <label className="text-[10px] uppercase font-bold text-brand-secondary tracking-widest">Level</label>
                                          <select value={addForm.level} onChange={e => setAddForm({...addForm, level: parseInt(e.target.value)})} className="w-full mt-1 p-3 flex-1 rounded-lg border border-brand-border bg-brand-bg text-sm font-semibold focus:outline-brand-primary">
-                                            <option value={0}>0 (Ground)</option>
-                                            <option value={1}>1 (Beam)</option>
+                                            {Array.from({ length: currentWarehouse?.racks?.find((r: any) => r.label === addForm.rackLabel)?.levels || 2 }).map((_, idx) => (
+                                                <option key={idx} value={idx}>{idx} {idx === 0 ? '(Ground)' : '(Beam)'}</option>
+                                             ))}
                                          </select>
                                       </div>
                                       <div>
