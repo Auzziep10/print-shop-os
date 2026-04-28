@@ -261,7 +261,7 @@ function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, color = '#2b
     // Scale payload down slightly if on a box rack
     const scaleFactor = isBoxRack ? 0.6 : 1;
     const pY = restY + ((pallet.height || 0.8) * scaleFactor) / 2;
-    const pX = xCenter + (slot * width / 4);
+    const pX = xCenter + (slot * width / 3);
     
     const isThisPalletActive = activePallet?.id === pallet.id;
 
@@ -297,7 +297,7 @@ function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, color = '#2b
       const scaleFactor = isBoxRack ? 0.6 : 1;
       const stdHeight = 0.8 * scaleFactor;
       const pY = restY + stdHeight / 2; 
-      const pX = xCenter + (slot * width / 4);
+      const pX = xCenter + (slot * width / 3);
       
       pallets.push(
         <mesh key="ghost-staging" position={[pX, pY, 0]}>
@@ -826,7 +826,7 @@ export function Inventory() {
   };
 
   if (mobilePlacementData) {
-      const isRight = mobilePlacementData.slot === 1;
+      const getSlotName = (s: number) => s === -1 ? '1' : s === 0 ? '2' : '3';
       return (
           <div className="fixed inset-0 z-[200] bg-brand-bg flex flex-col p-6 overflow-y-auto">
              <div className="bg-white rounded-2xl shadow-sm border border-brand-border p-6 mb-6">
@@ -842,7 +842,7 @@ export function Inventory() {
                    </div>
                    <div className="bg-neutral-100 px-4 py-2 rounded-lg text-center">
                       <div className="text-[10px] font-bold tracking-widest text-brand-secondary uppercase">Slot</div>
-                      <div className="font-black text-2xl">{isRight ? '2' : '1'}</div>
+                      <div className="font-black text-2xl">{getSlotName(mobilePlacementData.slot)}</div>
                    </div>
                 </div>
              </div>
@@ -1207,7 +1207,7 @@ export function Inventory() {
                               <div className="bg-brand-bg p-3 flex flex-col rounded-lg border border-brand-border/50 text-xs font-semibold text-brand-primary break-words">
                                  {activePallet.zone === 'Floor' 
                                     ? `Floor Zone (X: ${activePallet.position?.[0] ?? 0}, Z: ${activePallet.position?.[2] ?? 0})`
-                                    : `${activePallet.zone} | Bay ${activePallet.rackSpecs?.bay ?? 0} | Level ${activePallet.rackSpecs?.level ?? 0}${activePallet.rackSpecs?.slot ? ` | Slot ${activePallet.rackSpecs.slot === 1 ? '2' : '1'}` : ''}`
+                                    : `${activePallet.zone} | Bay ${activePallet.rackSpecs?.bay ?? 0} | Level ${activePallet.rackSpecs?.level ?? 0}${activePallet.rackSpecs?.slot !== undefined ? ` | Slot ${activePallet.rackSpecs.slot === -1 ? '1' : activePallet.rackSpecs.slot === 0 ? '2' : '3'}` : ''}`
                                  }
                               </div>
                             </div>
@@ -1338,9 +1338,10 @@ export function Inventory() {
                                       <div>
                                          <label className="text-[10px] uppercase font-bold text-brand-secondary tracking-widest">Slot</label>
                                          <select value={addForm.slot} onChange={e => setAddForm({...addForm, slot: parseInt(e.target.value)})} className="w-full mt-1 p-3 flex-1 rounded-lg border border-brand-border bg-brand-bg text-sm font-semibold focus:outline-brand-primary">
-                                            <option value={-1}>Slot 1</option>
-                                            <option value={1}>Slot 2</option>
-                                         </select>
+                                          <option value={-1}>Slot 1</option>
+                                          <option value={0}>Slot 2</option>
+                                          <option value={1}>Slot 3</option>
+                                       </select>
                                       </div>
                                    </div>
                                 </div>
@@ -1478,8 +1479,8 @@ export function Inventory() {
                         const baseUrl = window.location.origin + window.location.pathname;
                         for (let b = 0; b < rack.bays; b++) {
                             for (let l = 0; l < rack.levels; l++) {
-                                for (let s of [-1, 1]) {
-                                    const slotStr = s === 1 ? 'SLOT 2' : 'SLOT 1';
+                                for (let s of [-1, 0, 1]) {
+                                    const slotStr = s === -1 ? 'SLOT 1' : s === 0 ? 'SLOT 2' : 'SLOT 3';
                                     const qrUrl = `${baseUrl}?action=place_pallet&wh=${currentWarehouse?.id || defaultWarehouseBlueprint.id}&rack=${encodeURIComponent(rack.label)}&bay=${b}&level=${l}&slot=${s}`;
                                     labels.push(
                                         <div key={`${b}-${l}-${s}`} className="bg-white border-8 border-black flex flex-col justify-between items-center text-center overflow-hidden shadow-2xl print:shadow-none print:border-none" style={{ width: '4in', height: '6in', pageBreakAfter: 'always', padding: '0.2in', boxSizing: 'border-box' }}>
