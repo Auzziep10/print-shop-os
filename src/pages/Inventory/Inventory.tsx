@@ -1448,7 +1448,11 @@ export function Inventory() {
            <div className="w-full h-full pb-8 animate-in fade-in">
               <PalletsTab 
                  initialActivePalletId={inspectPalletId}
-                 onJumpToWarehouse={(palletId: string, zone: string) => { 
+                 onJumpToWarehouse={(palletId: string, zone: string, warehouseId?: string) => { 
+                     if (warehouseId) {
+                         const targetWarehouse = allWarehouses.find(w => w.id === warehouseId);
+                         if (targetWarehouse) setCurrentWarehouse(targetWarehouse);
+                     }
                      setMainTab('Warehouse'); 
                      setActiveTab('Map'); 
                      setActiveRack(zone || 'Floor'); 

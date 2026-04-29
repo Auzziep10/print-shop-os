@@ -38,7 +38,7 @@ const isTermMatched = (text: string, term: string) => {
     return text.includes(term);
 };
 
-export function PalletsTab({ onJumpToWarehouse, initialActivePalletId }: { onJumpToWarehouse?: (palletId: string, zone: string) => void, initialActivePalletId?: string | null }) {
+export function PalletsTab({ onJumpToWarehouse, initialActivePalletId }: { onJumpToWarehouse?: (palletId: string, zone: string, warehouseId?: string) => void, initialActivePalletId?: string | null }) {
   const [pallets, setPallets] = useState<Pallet[]>([]);
   const [activePalletId, setActivePalletId] = useState<string | null>(initialActivePalletId || null);
   
@@ -506,7 +506,7 @@ export function PalletsTab({ onJumpToWarehouse, initialActivePalletId }: { onJum
                                  
                                  {activePallet.warehouseId && onJumpToWarehouse && (
                                      <button 
-                                         onClick={() => onJumpToWarehouse(activePallet.id, activePallet.zone || 'Floor')}
+                                         onClick={() => onJumpToWarehouse(activePallet.id, activePallet.zone || 'Floor', activePallet.warehouseId)}
                                          className="w-full bg-brand-primary/10 text-brand-primary border border-brand-primary/20 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-brand-primary hover:text-white hover:border-brand-primary transition-all shadow-sm flex items-center justify-center gap-2 mb-2"
                                      >
                                          <Map size={14} /> Locate in Warehouse
