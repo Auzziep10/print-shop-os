@@ -205,9 +205,9 @@ const PayloadMesh = ({ pallet, isThisPalletActive }: any) => {
 };
 
 
-function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, color = '#2b4478', label = "Rack", type = "Pallet", onClick, isActive, onPalletClick, activePallet, inventory = [], isAddingPallet, addForm }: any) {
+function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, slots = 3, color = '#2b4478', label = "Rack", type = "Pallet", onClick, isActive, onPalletClick, activePallet, inventory = [], isAddingPallet, addForm }: any) {
   const isBoxRack = type === 'Box';
-  const width = isBoxRack ? 1.5 : 2.6; // Width per bay
+  const width = isBoxRack ? 1.5 : (slots === 3 ? 3.8 : 2.6); // Width per bay
   const depth = isBoxRack ? 0.6 : 1.0;
   const height = isBoxRack ? 1.8 : 2.4; 
   const totalWidth = width * bays;
@@ -261,7 +261,7 @@ function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, color = '#2b
     // Scale payload down slightly if on a box rack
     const scaleFactor = isBoxRack ? 0.6 : 1;
     const pY = restY + ((pallet.height || 0.8) * scaleFactor) / 2;
-    const pX = xCenter + (slot * width / 3);
+    const pX = xCenter + (slot * width / (slots === 3 ? 3 : 4));
     
     const isThisPalletActive = activePallet?.id === pallet.id;
 
@@ -297,7 +297,7 @@ function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, color = '#2b
       const scaleFactor = isBoxRack ? 0.6 : 1;
       const stdHeight = 0.8 * scaleFactor;
       const pY = restY + stdHeight / 2; 
-      const pX = xCenter + (slot * width / 3);
+      const pX = xCenter + (slot * width / (slots === 3 ? 3 : 4));
       
       pallets.push(
         <mesh key="ghost-staging" position={[pX, pY, 0]}>
@@ -447,7 +447,7 @@ function WarehouseMap({ activeRack, setActiveRack, activePallet, setActivePallet
 
         {/* ======== DYNAMIC RACKS ======== */}
         {warehouse?.racks?.map((rack: any) => (
-            <Rack key={rack.id} position={rack.position} rotation={rack.rotation || [0,0,0]} bays={rack.bays} levels={rack.levels} label={rack.label} inventory={getRackInventory(rack.label)} isActive={isRackHighlighted(rack.label)} {...rackProps} />
+            <Rack key={rack.id} position={rack.position} rotation={rack.rotation || [0,0,0]} bays={rack.bays} levels={rack.levels} slots={rack.slots || 3} label={rack.label} inventory={getRackInventory(rack.label)} isActive={isRackHighlighted(rack.label)} {...rackProps} />
         ))}
 
         {/* ======== LOOSE FLOOR PALLETS ======== */}
@@ -798,7 +798,8 @@ export function Inventory() {
           position: [0, 0, 0],
           rotation: [0, 0, 0],
           bays: 1,
-          levels: 1
+          levels: 1,
+          slots: 3
       };
       updateWarehouse({ racks: [...currentWarehouse.racks, newRack] });
       setActiveRack(newRack.label);
@@ -1077,7 +1078,7 @@ export function Inventory() {
                                                <input type="text" value={r.label} onChange={(e) => updateActiveRack({ label: e.target.value })} className="w-full bg-brand-bg border border-brand-border rounded-lg px-3 py-2 text-sm font-medium focus:outline-brand-primary" />
                                             </div>
                                             
-                                            <div className="grid grid-cols-2 gap-3">
+                                            <div className="grid grid-cols-3 gap-3">
                                                 <div>
                                                    <label className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1 block">Num Bays</label>
                                                    <input type="number" min="1" max="20" value={r.bays} onChange={(e) => updateActiveRack({ bays: parseInt(e.target.value) || 1 })} className="w-full bg-brand-bg border border-brand-border rounded-lg px-3 py-2 text-sm font-medium focus:outline-brand-primary" />
@@ -1085,6 +1086,13 @@ export function Inventory() {
                                                 <div>
                                                    <label className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1 block">Vertical Levels</label>
                                                    <input type="number" min="1" max="10" value={r.levels} onChange={(e) => updateActiveRack({ levels: parseInt(e.target.value) || 1 })} className="w-full bg-brand-bg border border-brand-border rounded-lg px-3 py-2 text-sm font-medium focus:outline-brand-primary" />
+                                                </div>
+                                                <div>
+                                                   <label className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1 block">Slots / Bay</label>
+                                                   <select value={r.slots || 3} onChange={(e) => updateActiveRack({ slots: parseInt(e.target.value) })} className="w-full bg-brand-bg border border-brand-border rounded-lg px-3 py-2 text-sm font-medium focus:outline-brand-primary">
+                                                      <option value={2}>2 Slots</option>
+                                                      <option value={3}>3 Slots</option>
+                                                   </select>
                                                 </div>
                                             </div>
                                             
@@ -1338,9 +1346,18 @@ export function Inventory() {
                                       <div>
                                          <label className="text-[10px] uppercase font-bold text-brand-secondary tracking-widest">Slot</label>
                                          <select value={addForm.slot} onChange={e => setAddForm({...addForm, slot: parseInt(e.target.value)})} className="w-full mt-1 p-3 flex-1 rounded-lg border border-brand-border bg-brand-bg text-sm font-semibold focus:outline-brand-primary">
-                                          <option value={-1}>Slot 1</option>
-                                          <option value={0}>Slot 2</option>
-                                          <option value={1}>Slot 3</option>
+                                          {(currentWarehouse?.racks?.find((r: any) => r.label === addForm.rackLabel)?.slots || 3) === 2 ? (
+                                              <>
+                                                  <option value={-1}>Slot 1</option>
+                                                  <option value={1}>Slot 2</option>
+                                              </>
+                                          ) : (
+                                              <>
+                                                  <option value={-1}>Slot 1</option>
+                                                  <option value={0}>Slot 2</option>
+                                                  <option value={1}>Slot 3</option>
+                                              </>
+                                          )}
                                        </select>
                                       </div>
                                    </div>
