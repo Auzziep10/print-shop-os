@@ -206,8 +206,9 @@ const PayloadMesh = ({ pallet, isThisPalletActive }: any) => {
 
 
 function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, slots = 3, color = '#2b4478', label = "Rack", type = "Pallet", onClick, isActive, onPalletClick, activePallet, inventory = [], isAddingPallet, addForm }: any) {
+  const rackSlots = Number(slots) || 3;
   const isBoxRack = type === 'Box';
-  const width = isBoxRack ? 1.5 : (slots === 3 ? 3.8 : 2.6); // Width per bay
+  const width = isBoxRack ? 1.5 : (rackSlots === 3 ? 3.8 : 2.6); // Width per bay
   const depth = isBoxRack ? 0.6 : 1.0;
   const height = isBoxRack ? 1.8 : 2.4; 
   const totalWidth = width * bays;
@@ -261,7 +262,7 @@ function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, slots = 3, c
     // Scale payload down slightly if on a box rack
     const scaleFactor = isBoxRack ? 0.6 : 1;
     const pY = restY + ((pallet.height || 0.8) * scaleFactor) / 2;
-    const pX = xCenter + (slot * width / (slots === 3 ? 3 : 4));
+    const pX = xCenter + (slot * width / (rackSlots === 3 ? 3 : 4));
     
     const isThisPalletActive = activePallet?.id === pallet.id;
 
@@ -297,7 +298,7 @@ function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, slots = 3, c
       const scaleFactor = isBoxRack ? 0.6 : 1;
       const stdHeight = 0.8 * scaleFactor;
       const pY = restY + stdHeight / 2; 
-      const pX = xCenter + (slot * width / (slots === 3 ? 3 : 4));
+      const pX = xCenter + (slot * width / (rackSlots === 3 ? 3 : 4));
       
       pallets.push(
         <mesh key="ghost-staging" position={[pX, pY, 0]}>
