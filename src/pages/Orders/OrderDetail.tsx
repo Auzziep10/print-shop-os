@@ -2468,7 +2468,7 @@ export function OrderDetail() {
                      <label className="text-xs font-bold uppercase tracking-widest text-brand-secondary">Pricing Strategy</label>
                      <div className="bg-white p-5 rounded-xl border border-brand-border shadow-sm flex flex-col gap-4 h-full">
                        <div className="flex flex-col gap-1.5">
-                           <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Price Per Garment ($)</label>
+                           <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Price Per Item ($)</label>
                            <div className="relative">
                                <DollarSign size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                                <input 
