@@ -658,13 +658,15 @@ export function OrderDetail() {
       if (!orderData) throw new Error("Order not found");
 
       // Calculate new qty 
-      const totalGarments = editItemObj.sizes ? Object.values(editItemObj.sizes).reduce((acc: number, val: any) => acc + (parseInt(val) || 0), 0) : 0;
+      const finalQty = editItemObj.itemType === 'service' 
+        ? (editItemObj.qty || 1) 
+        : (editItemObj.sizes ? Object.values(editItemObj.sizes).reduce((acc: number, val: any) => acc + (parseInt(val) || 0), 0) : 0);
       const numericPrice = parseFloat((editItemObj.price || '0').toString().replace(/[^0-9.]/g, ''));
-      const lineTotal = `$${(totalGarments * numericPrice).toFixed(2)}`;
+      const lineTotal = `$${(finalQty * numericPrice).toFixed(2)}`;
 
       const finalItem = {
         ...editItemObj,
-        qty: totalGarments,
+        qty: finalQty,
         total: lineTotal
       };
 
