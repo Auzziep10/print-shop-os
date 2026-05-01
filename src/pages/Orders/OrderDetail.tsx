@@ -1030,13 +1030,17 @@ export function OrderDetail() {
                          <div className="flex flex-col xl:flex-row xl:items-center gap-6 xl:gap-8 flex-1 min-w-0 pr-4">
                            {/* Product Visual */}
                            <div className="flex items-center gap-4 min-w-[240px] w-auto shrink-0">
-                             <div 
-                               className="w-14 h-14 rounded-[14px] overflow-hidden shrink-0 bg-transparent flex items-center justify-center cursor-pointer hover:scale-[1.05] transition-transform"
-                               onClick={() => setExpandedImage({ src: item.image, alt: item.style })}
-                               title="Click to view full screen"
-                             >
-                               <img src={item.image} alt={item.style} className="w-full h-full object-contain mix-blend-multiply p-1 pointer-events-none" />
-                             </div>
+                              <div 
+                                className={`w-14 h-14 rounded-[14px] overflow-hidden shrink-0 flex items-center justify-center ${item.image ? 'bg-transparent cursor-pointer hover:scale-[1.05] transition-transform' : 'bg-brand-bg/50 border border-brand-border/50'}`}
+                                onClick={() => item.image && setExpandedImage({ src: item.image, alt: item.style })}
+                                title={item.image ? "Click to view full screen" : "No image provided"}
+                              >
+                                {item.image ? (
+                                  <img src={item.image} alt={item.style} className="w-full h-full object-contain mix-blend-multiply p-1 pointer-events-none" />
+                                ) : (
+                                  <Box size={24} className="text-brand-secondary/40" />
+                                )}
+                              </div>
                              <div>
                                 <div className="flex items-center gap-2">
                                   <h4 className="font-bold text-gray-900 text-[15px]">{item.style}</h4>
