@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
-import { Search, Filter, Plus, FileDown, MoreHorizontal, Loader2 } from 'lucide-react';
+import { Search, Filter, Plus, FileDown, MoreHorizontal, Loader2, Check } from 'lucide-react';
 import { StatusBadge, type StatusType } from '../../components/ui/StatusBadge';
 import { useOrders } from '../../hooks/useOrders';
 import { doc, updateDoc, collection, getDocs } from 'firebase/firestore';
@@ -193,7 +193,7 @@ export function OrdersList() {
                   </div>
                   <div className="text-right text-sm font-medium text-brand-primary">{totalItems} qt</div>
                   <div className="text-right text-sm font-serif text-brand-primary flex items-center justify-end gap-1.5">
-                     {order.paymentStatus === 'paid' && <Check size={14} className="text-emerald-500" strokeWidth={3} title="Paid" />}
+                     {order.paymentStatus === 'paid' && <div title="Paid"><Check size={14} className="text-emerald-500" strokeWidth={3} /></div>}
                      {totalFormatted}
                   </div>
                   <div className="text-right pr-4 text-sm font-medium text-brand-secondary group-hover:text-brand-primary transition-colors">{order.date}</div>
