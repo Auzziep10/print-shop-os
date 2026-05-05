@@ -5,7 +5,7 @@ import { X, CreditCard } from 'lucide-react';
 import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 
-const stripePromise = loadStripe('pk_test_TYooMQauvdEDq54NiTphI7jx');
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY || 'pk_test_TYooMQauvdEDq54NiTphI7jx');
 
 const CheckoutForm = ({ order, onSuccess, onCancel }: { order: any, onSuccess: () => void, onCancel: () => void }) => {
   const stripe = useStripe();
@@ -23,13 +23,44 @@ const CheckoutForm = ({ order, onSuccess, onCancel }: { order: any, onSuccess: (
     setIsProcessing(true);
     setError(null);
 
-    // Simulate payment processing
-    setTimeout(async () => {
-      try {
-        // In a real app, you would create a PaymentIntent on your backend
-        // and call stripe.confirmCardPayment with the client_secret.
-        // For this demo, we simulate a successful payment and update Firestore.
-        
+    try {
+      const amount = order.totalFormatted 
+        ? parseFloat(order.totalFormatted.replace(/[^0-9.]/g, ''))
+        : 0;
+
+      if (amount <= 0) {
+        throw new Error("Invalid order amount for payment.");
+      }
+
+      // 1. Fetch Payment Intent from backend
+      const response = await fetch('/api/stripe/create-payment-intent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount, orderId: order.id, currency: 'usd' })
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to initialize payment.');
+      }
+
+      const clientSecret = data.clientSecret;
+      const cardElement = elements.getElement(CardElement);
+      if (!cardElement) throw new Error("Card element not found.");
+
+      // 2. Confirm card payment with Stripe
+      const { error: stripeError, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
+        payment_method: {
+          card: cardElement,
+        }
+      });
+
+      if (stripeError) {
+        throw new Error(stripeError.message || 'Payment failed.');
+      }
+
+      if (paymentIntent && paymentIntent.status === 'succeeded') {
+        // 3. Update Firestore
         const orderRef = doc(db, 'orders', order.id);
         await updateDoc(orderRef, {
           statusIndex: 4, // Move to Sourcing
@@ -44,11 +75,15 @@ const CheckoutForm = ({ order, onSuccess, onCancel }: { order: any, onSuccess: (
 
         setIsProcessing(false);
         onSuccess();
-      } catch (err: any) {
-        setError(err.message || "An error occurred while processing payment.");
-        setIsProcessing(false);
+      } else {
+        throw new Error("Payment could not be verified.");
       }
-    }, 2000);
+
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || "An error occurred while processing payment.");
+      setIsProcessing(false);
+    }
   };
 
   return (
