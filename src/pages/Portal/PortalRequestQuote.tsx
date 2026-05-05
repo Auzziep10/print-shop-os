@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { ArrowLeft, ChevronDown, Upload, Plus, Trash2 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { db, storage } from '../../lib/firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, query, collection, where, getDocs } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 export function PortalRequestQuote() {
@@ -112,9 +112,41 @@ export function PortalRequestQuote() {
     
     setIsSubmitting(true);
     try {
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const todayEnd = new Date();
+      todayEnd.setHours(23, 59, 59, 999);
+      
+      // Need to query all orders to find the max portalId for today
+      // Assuming we have to fetch them, but since we're in a component we can just use getDocs
+      const ordersQuery = query(collection(db, 'orders'), where('createdAt', '>=', todayStart.toISOString()), where('createdAt', '<=', todayEnd.toISOString()));
+      const ordersSnapshot = await getDocs(ordersQuery);
+      
+      const yy = String(todayStart.getFullYear()).slice(-2);
+      const mm = String(todayStart.getMonth() + 1).padStart(2, '0');
+      const dd = String(todayStart.getDate()).padStart(2, '0');
+      const prefix = `${yy}${mm}${dd}-`;
+
+      let maxCount = 0;
+      ordersSnapshot.forEach(docSnap => {
+          const data = docSnap.data();
+          if (data.portalId && data.portalId.startsWith(prefix)) {
+             const suffix = data.portalId.split('-')[1];
+             if (suffix) {
+                const numericCount = parseInt(suffix, 10);
+                if (!isNaN(numericCount) && numericCount > maxCount) {
+                   maxCount = numericCount;
+                }
+             }
+          }
+      });
+
+      const count = maxCount + 1;
+      const portalId = `${prefix}${count}`;
+
       const payload = {
         id: `quote-${Date.now()}`,
-        portalId: Math.floor(Math.random() * 100000).toString(),
+        portalId: portalId,
         customerId: customerId,
         title: `Quote Request from ${contactName}`,
         statusIndex: 0, // 0 = Request Created (Quote)

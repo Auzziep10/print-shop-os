@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ArrowRight, Upload, Plus, Trash2, Camera, Paintbrush, DollarSign, Shirt, CheckCircle, Building2 } from 'lucide-react';
 import { db, storage } from '../../lib/firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, getDocs, collection, query, where } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useNavigate } from 'react-router-dom';
 
@@ -83,10 +83,40 @@ export function PublicQuoteRequest() {
         createdAt: new Date().toISOString()
       });
 
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const todayEnd = new Date();
+      todayEnd.setHours(23, 59, 59, 999);
+      
+      const ordersQuery = query(collection(db, 'orders'), where('createdAt', '>=', todayStart.toISOString()), where('createdAt', '<=', todayEnd.toISOString()));
+      const ordersSnapshot = await getDocs(ordersQuery);
+      
+      const yy = String(todayStart.getFullYear()).slice(-2);
+      const mm = String(todayStart.getMonth() + 1).padStart(2, '0');
+      const dd = String(todayStart.getDate()).padStart(2, '0');
+      const prefix = `${yy}${mm}${dd}-`;
+
+      let maxCount = 0;
+      ordersSnapshot.forEach(docSnap => {
+          const data = docSnap.data();
+          if (data.portalId && data.portalId.startsWith(prefix)) {
+             const suffix = data.portalId.split('-')[1];
+             if (suffix) {
+                const numericCount = parseInt(suffix, 10);
+                if (!isNaN(numericCount) && numericCount > maxCount) {
+                   maxCount = numericCount;
+                }
+             }
+          }
+      });
+
+      const count = maxCount + 1;
+      const portalId = `${prefix}${count}`;
+
       // 2. Create Quote Request (Order)
       const payload = {
         id: orderId,
-        portalId: Math.floor(Math.random() * 100000).toString(),
+        portalId: portalId,
         customerId: customerId,
         title: `Quote Request from ${customerInfo.companyName || customerInfo.contactName}`,
         statusIndex: 0, 
