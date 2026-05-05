@@ -896,6 +896,12 @@ export function OrderDetail() {
                   <div className="flex items-center gap-3">
                       <StatusBadge status={badgeStatus} />
                       
+                      {order.paymentStatus === 'paid' && (
+                        <div className="bg-emerald-100 border border-emerald-200 text-emerald-700 px-3 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
+                          <Check size={12} strokeWidth={3} /> Paid
+                        </div>
+                      )}
+                      
                       <div className="h-6 w-px bg-brand-border hidden sm:block"></div>
                       
                       <div className="relative">
@@ -907,7 +913,7 @@ export function OrderDetail() {
                             <option value="0">0 - Request Created</option>
                             <option value="1">1 - Under Review</option>
                             <option value="2">2 - Quote Prepared</option>
-                            <option value="3">3 - Approved</option>
+                            <option value="3">3 - Awaiting Payment</option>
                             <option value="4">4 - Sourcing</option>
                             <option value="5">5 - Ordered</option>
                             <option value="6">6 - In Production</option>

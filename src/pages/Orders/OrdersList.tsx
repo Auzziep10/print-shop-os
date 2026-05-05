@@ -192,7 +192,10 @@ export function OrdersList() {
                     </div>
                   </div>
                   <div className="text-right text-sm font-medium text-brand-primary">{totalItems} qt</div>
-                  <div className="text-right text-sm font-serif text-brand-primary">{totalFormatted}</div>
+                  <div className="text-right text-sm font-serif text-brand-primary flex items-center justify-end gap-1.5">
+                     {order.paymentStatus === 'paid' && <Check size={14} className="text-emerald-500" strokeWidth={3} title="Paid" />}
+                     {totalFormatted}
+                  </div>
                   <div className="text-right pr-4 text-sm font-medium text-brand-secondary group-hover:text-brand-primary transition-colors">{order.date}</div>
                   <div className="flex justify-end">
                      <button className="p-1.5 text-brand-secondary hover:text-brand-primary rounded-md hover:bg-white transition-colors">

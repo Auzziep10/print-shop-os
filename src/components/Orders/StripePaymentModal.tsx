@@ -64,6 +64,9 @@ const CheckoutForm = ({ order, onSuccess, onCancel }: { order: any, onSuccess: (
         const orderRef = doc(db, 'orders', order.id);
         await updateDoc(orderRef, {
           statusIndex: 4, // Move to Sourcing
+          paymentStatus: 'paid',
+          paymentDate: new Date().toISOString(),
+          paymentRead: false,
           activities: arrayUnion({
             id: `act-${Date.now()}`,
             type: 'system',
