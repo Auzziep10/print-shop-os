@@ -160,7 +160,7 @@ export function OrdersList() {
                  case 0: badgeStatus = 'quote'; break;
                  case 1: badgeStatus = 'notified'; break;
                  case 2: badgeStatus = 'quote_sent'; break;
-                 case 3: badgeStatus = 'approved'; break;
+                 case 3: badgeStatus = 'awaiting_payment'; break;
                  case 4: badgeStatus = 'shopping'; break;
                  case 5: badgeStatus = 'ordered'; break;
                  case 6: badgeStatus = 'processing'; break;

@@ -317,7 +317,7 @@ export function OrderDetail() {
     try {
       const formIsKitting = order.fulfillmentType === 'Kitting' || (!order.fulfillmentType && currentCustomer.fulfillmentType === 'Kitting');
       const newStatusLabel = (() => {
-         const labels = ['Request Created', 'Under Review', 'Quote Prepared', 'Approved', 'Sourcing', 'Ordered', 'In Production', formIsKitting ? 'Inventory' : 'Shipped', formIsKitting ? 'Live' : 'Received'];
+         const labels = ['Request Created', 'Under Review', 'Quote Prepared', 'Awaiting Payment', 'Sourcing', 'Ordered', 'In Production', formIsKitting ? 'Inventory' : 'Shipped', formIsKitting ? 'Live' : 'Received'];
          return labels[newIndex] || 'Unknown';
       })();
 

@@ -1,6 +1,6 @@
 import { cn } from '../../lib/utils';
 
-export type StatusType = 'quote' | 'notified' | 'quote_sent' | 'approved' | 'shopping' | 'ordered' | 'processing' | 'shipped' | 'received' | 'inventory' | 'live';
+export type StatusType = 'quote' | 'notified' | 'quote_sent' | 'approved' | 'awaiting_payment' | 'shopping' | 'ordered' | 'processing' | 'shipped' | 'received' | 'inventory' | 'live';
 
 interface StatusBadgeProps {
   status: StatusType;
@@ -13,6 +13,7 @@ const statusConfig: Record<StatusType, { label: string; bg: string; text: string
   notified: { label: 'Under Review', bg: 'bg-slate-200', text: 'text-slate-800', dot: 'bg-slate-600' },
   quote_sent: { label: 'Quote Prepared', bg: 'bg-cyan-100', text: 'text-cyan-800', dot: 'bg-cyan-500' },
   approved: { label: 'Approved', bg: 'bg-blue-100', text: 'text-blue-700', dot: 'bg-blue-500' },
+  awaiting_payment: { label: 'Awaiting Payment', bg: 'bg-indigo-100', text: 'text-indigo-800', dot: 'bg-indigo-500' },
   shopping: { label: 'Sourcing', bg: 'bg-pink-100', text: 'text-pink-700', dot: 'bg-pink-500' },
   ordered: { label: 'Ordered', bg: 'bg-amber-100', text: 'text-amber-700', dot: 'bg-amber-500' },
   processing: { label: 'In Production', bg: 'bg-purple-100', text: 'text-purple-700', dot: 'bg-purple-500' },

@@ -4,8 +4,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useOrders } from '../../hooks/useOrders';
 import { db } from '../../lib/firebase';
 import QRCode from 'react-qr-code';
-import { doc, getDoc, deleteDoc, writeBatch } from 'firebase/firestore';
+import { doc, getDoc, deleteDoc, writeBatch, updateDoc, arrayUnion } from 'firebase/firestore';
 import { getTrackingLink } from '../../lib/utils';
+import { StripePaymentModal } from '../../components/Orders/StripePaymentModal';
 
 const SIZE_ORDER = ['XXS', 'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL', 'OSFA'];
 
@@ -62,6 +63,26 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
   const [localOrders, setLocalOrders] = useState<any[]>([]);
   const [draggedOrderId, setDraggedOrderId] = useState<string | null>(null);
   const [dragOverOrderId, setDragOverOrderId] = useState<string | null>(null);
+  const [payingOrder, setPayingOrder] = useState<any | null>(null);
+
+  const handleApproveOrder = async (e: React.MouseEvent, orderId: string) => {
+    e.stopPropagation();
+    try {
+      await updateDoc(doc(db, 'orders', orderId), {
+        statusIndex: 3, // Move to Awaiting Payment
+        activities: arrayUnion({
+          id: `act-${Date.now()}`,
+          type: 'system',
+          message: 'Order approved by customer.',
+          user: 'Customer',
+          timestamp: new Date().toISOString()
+        })
+      });
+      alert("Order Approved! Please proceed to payment.");
+    } catch (err) {
+      console.error("Error approving order", err);
+    }
+  };
 
   useEffect(() => {
     if (orders) {
@@ -278,13 +299,15 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
         const isExpanded = expandedId === order.id;
         const isKitting = order.fulfillmentType === 'Kitting' || (!order.fulfillmentType && customer?.fulfillmentType === 'Kitting');
         const timelineSteps = isKitting 
-          ? ['Request', 'Approved', 'Sourcing', 'Ordered', 'Production', 'Inventory', 'Live'] 
-          : ['Request', 'Approved', 'Sourcing', 'Ordered', 'Production', 'Shipped', 'Received'];
+          ? ['Request', 'Approved', 'Awaiting Payment', 'Sourcing', 'Ordered', 'Production', 'Inventory', 'Live'] 
+          : ['Request', 'Approved', 'Awaiting Payment', 'Sourcing', 'Ordered', 'Production', 'Shipped', 'Received'];
 
         let visualIndex = order.statusIndex;
-        if (order.statusIndex === 1) visualIndex = 0.33;
+        if (order.statusIndex === 0) visualIndex = 0;
+        else if (order.statusIndex === 1) visualIndex = 0.33;
         else if (order.statusIndex === 2) visualIndex = 0.66;
-        else if (order.statusIndex >= 3) visualIndex = order.statusIndex - 2;
+        else if (order.statusIndex === 3) visualIndex = 2; // Awaiting Payment
+        else if (order.statusIndex >= 4) visualIndex = order.statusIndex - 1; // 4 -> 3 (Sourcing), 5 -> 4 (Ordered), etc.
 
         let totalGarments = 0;
         let completedGarments = 0;
@@ -818,16 +841,34 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                       Local Pickup
                     </button>
                    );
-                 } else {
-                   return (
-                     <button 
-                       className="flex-1 xl:flex-none bg-white border border-brand-border/50 text-[12px] font-bold text-gray-400 rounded-full py-3 xl:py-4 transition-all tracking-wide cursor-default text-center"
-                       onClick={(e) => e.stopPropagation()}
-                    >
-                      {(!order.trackingCarrier && order.statusIndex >= 4 && order.statusIndex !== 6) ? 'No Tracking' : 'Processing'}
-                    </button>
-                   );
-                 }
+                 } else if (order.statusIndex === 2) {
+                    return (
+                      <button 
+                        className="flex-1 xl:flex-none bg-black border border-black hover:bg-neutral-800 text-white text-[12px] font-bold rounded-full py-3 xl:py-4 transition-all tracking-wide text-center shadow-md"
+                        onClick={(e) => handleApproveOrder(e, order.id)}
+                     >
+                       Approve Order
+                     </button>
+                    );
+                  } else if (order.statusIndex === 3) {
+                    return (
+                      <button 
+                        className="flex-1 xl:flex-none bg-[#635BFF] border border-[#635BFF] hover:bg-[#5249e5] text-white text-[12px] font-bold rounded-full py-3 xl:py-4 transition-all tracking-wide text-center shadow-md"
+                        onClick={(e) => { e.stopPropagation(); setPayingOrder(order); }}
+                     >
+                       Pay Now
+                     </button>
+                    );
+                  } else {
+                    return (
+                      <button 
+                        className="flex-1 xl:flex-none bg-white border border-brand-border/50 text-[12px] font-bold text-gray-400 rounded-full py-3 xl:py-4 transition-all tracking-wide cursor-default text-center"
+                        onClick={(e) => e.stopPropagation()}
+                     >
+                       {(!order.trackingCarrier && order.statusIndex >= 4 && order.statusIndex !== 6) ? 'No Tracking' : 'Processing'}
+                     </button>
+                    );
+                  }
                })()}
               <div className="flex w-full gap-2">
                 <button 
@@ -885,6 +926,17 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
              />
            </div>
         </div>
+      )}
+
+      {payingOrder && (
+        <StripePaymentModal 
+          order={payingOrder} 
+          onClose={() => setPayingOrder(null)} 
+          onSuccess={() => {
+            setPayingOrder(null);
+            alert("Payment Successful! Your order is now in Sourcing.");
+          }} 
+        />
       )}
     </>
   );
