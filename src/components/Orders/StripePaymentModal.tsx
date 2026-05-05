@@ -4,12 +4,14 @@ import { Elements, CardElement, useStripe, useElements } from '@stripe/react-str
 import { X, CreditCard } from 'lucide-react';
 import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
+import { useAuth } from '../../contexts/AuthContext';
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY || 'pk_test_TYooMQauvdEDq54NiTphI7jx');
 
 const CheckoutForm = ({ order, onSuccess, onCancel }: { order: any, onSuccess: () => void, onCancel: () => void }) => {
   const stripe = useStripe();
   const elements = useElements();
+  const { user } = useAuth();
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,7 +38,7 @@ const CheckoutForm = ({ order, onSuccess, onCancel }: { order: any, onSuccess: (
       const response = await fetch('/api/stripe/create-payment-intent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount, orderId: order.id, currency: 'usd' })
+        body: JSON.stringify({ amount, orderId: order.id, currency: 'usd', receiptEmail: user?.email || order.customerEmail })
       });
 
       const data = await response.json();

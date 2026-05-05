@@ -11,7 +11,7 @@ export default async function handler(req: Request) {
 
   try {
     const body = await req.json();
-    const { amount, currency = 'usd', orderId } = body;
+    const { amount, currency = 'usd', orderId, receiptEmail } = body;
 
     const secretKey = process.env.STRIPE_SECRET_KEY?.trim();
     
@@ -23,14 +23,20 @@ export default async function handler(req: Request) {
       apiVersion: '2025-01-27.acacia', // Or your specific version
     });
 
-    // Create a PaymentIntent with the order amount and currency
-    const paymentIntent = await stripe.paymentIntents.create({
+    const paymentIntentConfig: any = {
       amount: Math.round(amount * 100), // Stripe requires the amount in cents
       currency: currency,
       metadata: {
         orderId: orderId,
       },
-    });
+    };
+
+    if (receiptEmail) {
+      paymentIntentConfig.receipt_email = receiptEmail;
+    }
+
+    // Create a PaymentIntent with the order amount and currency
+    const paymentIntent = await stripe.paymentIntents.create(paymentIntentConfig);
 
     return new Response(JSON.stringify({ 
       clientSecret: paymentIntent.client_secret 
