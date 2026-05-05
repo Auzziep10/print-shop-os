@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ChevronRight, Loader2, PackageOpen, Building2, X, Trash2, ChevronDown, Box, Printer, ExternalLink, Truck, Download } from 'lucide-react';
+import { ChevronRight, Loader2, PackageOpen, Building2, X, Trash2, ChevronDown, Box, Printer, ExternalLink, Truck, Download, Check } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useOrders } from '../../hooks/useOrders';
 import { db } from '../../lib/firebase';
@@ -428,6 +428,14 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                          <>
                            <span className="text-gray-300 font-light">|</span>
                            <span>{totalGarments} {totalGarments === 1 ? 'Garment' : 'Garments'}</span>
+                         </>
+                       )}
+                       {order.paymentStatus === 'paid' && (
+                         <>
+                           <span className="text-gray-300 font-light">|</span>
+                           <span className="flex items-center gap-1 text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
+                             <Check size={12} strokeWidth={3} /> PAID
+                           </span>
                          </>
                        )}
                     </p>
