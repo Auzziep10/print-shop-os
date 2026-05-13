@@ -38,3 +38,4 @@ const chronotrackConfig = {
 
 const chronotrackApp = initializeApp(chronotrackConfig, "chronotrack");
 export const chronoDb = getFirestore(chronotrackApp);
+export const chronoAuth = getAuth(chronotrackApp);

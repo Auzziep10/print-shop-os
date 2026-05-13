@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { tokens } from '../../lib/tokens';
 import { collection, query, onSnapshot, addDoc, updateDoc, doc, deleteDoc, serverTimestamp, getDocs } from 'firebase/firestore';
-import { db, chronoDb } from '../../lib/firebase';
+import { signInAnonymously } from 'firebase/auth';
+import { db, chronoDb, chronoAuth } from '../../lib/firebase';
 import { useOrders } from '../../hooks/useOrders';
 import { Plus, X, Loader2, Clock, Trash2, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
 
@@ -253,9 +254,20 @@ export function TimelinePlanner({ activeRange = 'Day' }: TimelinePlannerProps) {
   }, []);
 
   useEffect(() => {
-    // Fetch users from Chronotrack-ai database
-    const qUsers = query(collection(chronoDb, 'users'));
-    const unsubUsers = onSnapshot(qUsers, (snap) => {
+    let unsubUsers: (() => void) | undefined;
+    let unsubTasks: (() => void) | undefined;
+
+    const initData = async () => {
+      try {
+        await signInAnonymously(chronoAuth);
+      } catch (e) {
+        console.error("Error authenticating to Chronotrack-ai:", e);
+        return;
+      }
+
+      // Fetch users from Chronotrack-ai database
+      const qUsers = query(collection(chronoDb, 'users'));
+      unsubUsers = onSnapshot(qUsers, (snap) => {
       const staff: TeamMember[] = [];
       snap.forEach(doc => {
         const data = doc.data();
@@ -272,7 +284,7 @@ export function TimelinePlanner({ activeRange = 'Day' }: TimelinePlannerProps) {
 
     // Fetch daily timeline tasks from Chronotrack-ai
     const qTasks = query(collection(chronoDb, 'shiftSchedules'));
-    const unsubTasks = onSnapshot(qTasks, (snap) => {
+    unsubTasks = onSnapshot(qTasks, (snap) => {
       const liveTasks: TimelineTask[] = [];
       snap.forEach(doc => {
         const data = doc.data();
@@ -324,10 +336,13 @@ export function TimelinePlanner({ activeRange = 'Day' }: TimelinePlannerProps) {
       }));
       setLoading(false);
     });
+    };
+
+    initData();
 
     return () => {
-      unsubUsers();
-      unsubTasks();
+      if (unsubUsers) unsubUsers();
+      if (unsubTasks) unsubTasks();
     };
   }, [activeRange]);
 
