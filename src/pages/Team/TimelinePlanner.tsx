@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { tokens } from '../../lib/tokens';
 import { collection, query, onSnapshot, addDoc, updateDoc, doc, deleteDoc, serverTimestamp, getDocs } from 'firebase/firestore';
-import { db } from '../../lib/firebase';
+import { db, chronoDb } from '../../lib/firebase';
 import { useOrders } from '../../hooks/useOrders';
 import { Plus, X, Loader2, Clock, Trash2, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
 
@@ -209,10 +209,21 @@ export function TimelinePlanner({ activeRange = 'Day' }: TimelinePlannerProps) {
              currentDrag.currentDuration !== currentDrag.initialDuration || 
              currentDrag.currentMemberId !== currentDrag.initialMemberId) {
              
-             updateDoc(doc(db, 'timelineTasks', currentDrag.taskId), {
-               start: currentDrag.currentStart,
-               duration: currentDrag.currentDuration,
-               memberId: currentDrag.currentMemberId,
+             const draggedTask = tasks.find(t => t.id === currentDrag.taskId);
+             const baseDateStr = draggedTask?.date || activeDateStr;
+             const baseDate = new Date(baseDateStr + "T00:00:00");
+             
+             const startDate = new Date(baseDate);
+             startDate.setHours(Math.floor(currentDrag.currentStart), Math.round((currentDrag.currentStart % 1) * 60), 0, 0);
+             
+             const endDate = new Date(baseDate);
+             const endHour = currentDrag.currentStart + currentDrag.currentDuration;
+             endDate.setHours(Math.floor(endHour), Math.round((endHour % 1) * 60), 0, 0);
+
+             updateDoc(doc(chronoDb, 'shiftSchedules', currentDrag.taskId), {
+               startTime: startDate.toISOString(),
+               endTime: endDate.toISOString(),
+               assignedTo: currentDrag.currentMemberId,
                updatedAt: serverTimestamp()
              }).catch(err => console.error(err));
          }
@@ -242,8 +253,8 @@ export function TimelinePlanner({ activeRange = 'Day' }: TimelinePlannerProps) {
   }, []);
 
   useEffect(() => {
-    // Fetch users who are not clients
-    const qUsers = query(collection(db, 'users'));
+    // Fetch users from Chronotrack-ai database
+    const qUsers = query(collection(chronoDb, 'users'));
     const unsubUsers = onSnapshot(qUsers, (snap) => {
       const staff: TeamMember[] = [];
       snap.forEach(doc => {
@@ -259,23 +270,42 @@ export function TimelinePlanner({ activeRange = 'Day' }: TimelinePlannerProps) {
       setMembers(staff);
     });
 
-    // Fetch daily timeline tasks
-    const qTasks = query(collection(db, 'timelineTasks'));
+    // Fetch daily timeline tasks from Chronotrack-ai
+    const qTasks = query(collection(chronoDb, 'shiftSchedules'));
     const unsubTasks = onSnapshot(qTasks, (snap) => {
       const liveTasks: TimelineTask[] = [];
       snap.forEach(doc => {
         const data = doc.data();
+        if (data.title && data.title.startsWith('[SHIFT]')) return; // Ignore shift blocks
+        if (data.isShiftBlock) return; // Ignore shift blocks
+        
+        let startVal = 9;
+        let durationVal = 1;
         let taskDate = data.date;
-        if (!taskDate && data.createdAt) {
+        
+        if (data.startTime && data.endTime) {
+            const startDate = new Date(data.startTime);
+            const endDate = new Date(data.endTime);
+            startVal = startDate.getHours() + (startDate.getMinutes() / 60);
+            durationVal = (endDate.getHours() + (endDate.getMinutes() / 60)) - startVal;
+            if (durationVal <= 0) durationVal = 1;
+            taskDate = startDate.toISOString().split('T')[0];
+        } else if (!taskDate && data.createdAt) {
              taskDate = new Date(data.createdAt.toMillis ? data.createdAt.toMillis() : Date.now()).toISOString().split('T')[0];
         }
+        
+        let color = 'bg-blue-500';
+        if (data.status === 'completed') color = 'bg-green-500';
+        if (data.status === 'delayed') color = 'bg-red-500';
+        if (data.status === 'pending') color = 'bg-amber-500';
+
         liveTasks.push({
           id: doc.id,
-          memberId: data.memberId,
-          title: data.title,
-          start: data.start,
-          duration: data.duration,
-          color: data.color || 'bg-blue-500',
+          memberId: data.assignedTo || data.memberId,
+          title: data.title || 'Untitled Task',
+          start: startVal,
+          duration: durationVal,
+          color: data.color || color,
           rowOffset: data.rowOffset || 0,
           range: data.range || 'Day',
           date: taskDate,
@@ -342,10 +372,28 @@ export function TimelinePlanner({ activeRange = 'Day' }: TimelinePlannerProps) {
 
     const savedDate = new Date((formData.date || activeDateStr) + "T00:00:00");
 
+    const startHour = parseFloat(formData.start);
+    const durationHour = parseFloat(formData.duration);
+    
+    const startDate = new Date(savedDate);
+    startDate.setHours(Math.floor(startHour), Math.round((startHour % 1) * 60), 0, 0);
+    
+    const endDate = new Date(savedDate);
+    const endHour = startHour + durationHour;
+    endDate.setHours(Math.floor(endHour), Math.round((endHour % 1) * 60), 0, 0);
+
+    let status = 'pending';
+    if (formData.color === 'bg-green-500') status = 'completed';
+    if (formData.color === 'bg-red-500') status = 'delayed';
+    if (formData.color === 'bg-blue-500') status = 'in_progress';
+
     const baseTaskData = {
+      scheduleId: 'timeline-planner',
       title: formData.title,
-      start: parseFloat(formData.start),
-      duration: parseFloat(formData.duration),
+      startTime: startDate.toISOString(),
+      endTime: endDate.toISOString(),
+      status: status,
+      priority: 'medium',
       color: formData.color,
       orderId: formData.orderId || null,
       range: activeRange,
@@ -357,16 +405,16 @@ export function TimelinePlanner({ activeRange = 'Day' }: TimelinePlannerProps) {
 
     try {
       if (editingTask) {
-        await updateDoc(doc(db, 'timelineTasks', editingTask.id), {
+        await updateDoc(doc(chronoDb, 'shiftSchedules', editingTask.id), {
           ...baseTaskData,
-          memberId: formData.memberIds[0] // Update single task if editing
+          assignedTo: formData.memberIds[0] // Update single task if editing
         });
       } else {
         // Create duplicate tasks for each selected member when assigning multiple
         for (const mId of formData.memberIds) {
-          await addDoc(collection(db, 'timelineTasks'), {
+          await addDoc(collection(chronoDb, 'shiftSchedules'), {
             ...baseTaskData,
-            memberId: mId,
+            assignedTo: mId,
             createdAt: serverTimestamp()
           });
         }
@@ -380,7 +428,7 @@ export function TimelinePlanner({ activeRange = 'Day' }: TimelinePlannerProps) {
   const handleDelete = async () => {
     if (!editingTask) return;
     try {
-      await deleteDoc(doc(db, 'timelineTasks', editingTask.id));
+      await deleteDoc(doc(chronoDb, 'shiftSchedules', editingTask.id));
       setIsModalOpen(false);
     } catch (error) {
       console.error("Error deleting task:", error);
@@ -462,12 +510,22 @@ export function TimelinePlanner({ activeRange = 'Day' }: TimelinePlannerProps) {
     const savedDate = new Date(activeDateStr + "T00:00:00");
     
     try {
-        const promises = matchedMemberIds.map(memId => 
-          addDoc(collection(db, 'timelineTasks'), {
-            memberId: memId,
+        const promises = matchedMemberIds.map(memId => {
+          const startDate = new Date(savedDate);
+          startDate.setHours(Math.floor(startVal), Math.round((startVal % 1) * 60), 0, 0);
+          
+          const endDate = new Date(savedDate);
+          const endHour = startVal + durationVal;
+          endDate.setHours(Math.floor(endHour), Math.round((endHour % 1) * 60), 0, 0);
+
+          return addDoc(collection(chronoDb, 'shiftSchedules'), {
+            scheduleId: 'timeline-planner',
+            assignedTo: memId,
             title: titleStr,
-            start: startVal,
-            duration: durationVal,
+            startTime: startDate.toISOString(),
+            endTime: endDate.toISOString(),
+            status: 'pending',
+            priority: 'medium',
             color: 'bg-blue-500',
             range: activeRange,
             date: activeDateStr,
@@ -475,8 +533,8 @@ export function TimelinePlanner({ activeRange = 'Day' }: TimelinePlannerProps) {
             month: `${savedDate.getFullYear()}-${String(savedDate.getMonth()+1).padStart(2,'0')}`,
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp()
-          })
-        );
+          });
+        });
         await Promise.all(promises);
         setSmartInput('');
     } catch(err) {
