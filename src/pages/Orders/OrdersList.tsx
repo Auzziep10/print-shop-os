@@ -13,6 +13,7 @@ export function OrdersList() {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const { orders, loading } = useOrders();
+  const nonTempOrders = orders.filter(o => o.customerId !== 'Shopify Temporary');
   const [searchParams, setSearchParams] = useSearchParams();
   const currentTab = searchParams.get('tab') || 'orders';
   const [liveCustomers, setLiveCustomers] = useState<Record<string, any>>({});
@@ -107,13 +108,13 @@ export function OrdersList() {
         </div>
         
         <div className="text-sm text-brand-secondary">
-          Showing <span className="font-semibold text-brand-primary">{orders.length}</span> active orders
+          Showing <span className="font-semibold text-brand-primary">{nonTempOrders.length}</span> active orders
         </div>
       </div>
 
       {/* Production Calendar */}
       <div className="w-full mb-8">
-         <ProductionCalendar orders={orders} />
+         <ProductionCalendar orders={nonTempOrders} />
       </div>
 
       {/* Orders Table */}
@@ -133,7 +134,7 @@ export function OrdersList() {
           
           {/* Table Body */}
           <div className="divide-y divide-brand-border/60">
-            {orders.filter(order => {
+            {nonTempOrders.filter(order => {
                 const isQuote = order.statusIndex <= 2;
                 if (currentTab === 'quotes') return isQuote;
                 // Currently, 'orders' shows ALL, including Quotes? Let's just show all.

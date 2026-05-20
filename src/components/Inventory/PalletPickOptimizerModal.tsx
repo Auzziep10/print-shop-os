@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { X, Layers, Box, MapPin, Check, CheckCircle2, Search, ShoppingBag, Printer, Loader2, ArrowRight, AlertTriangle, Map as MapIcon } from 'lucide-react';
+import { X, Layers, Box, MapPin, Check, CheckCircle2, Search, ShoppingBag, Printer, Loader2, ArrowRight, AlertTriangle, Map as MapIcon, Archive } from 'lucide-react';
 import QRCode from 'react-qr-code';
 import { db } from '../../lib/firebase';
-import { collection, query, onSnapshot, doc, setDoc } from 'firebase/firestore';
+import { collection, query, onSnapshot, doc, setDoc, updateDoc } from 'firebase/firestore';
 
 interface Props {
   isOpen: boolean;
@@ -67,6 +67,7 @@ export function PalletPickOptimizerModal({ isOpen, onClose, preSelectedOrder, on
   const [selectedShopifyOrderIds, setSelectedShopifyOrderIds] = useState<Set<string>>(new Set());
   const [isGeneratingTempOrder, setIsGeneratingTempOrder] = useState(false);
   const [isApplyingPicks, setIsApplyingPicks] = useState(false);
+  const [isArchiving, setIsArchiving] = useState(false);
 
   // Reset states when order changes
   useEffect(() => {
@@ -125,6 +126,15 @@ export function PalletPickOptimizerModal({ isOpen, onClose, preSelectedOrder, on
   useEffect(() => {
     if (!selectedOrder || pallets.length === 0) {
       setOptimizationResult(null);
+      return;
+    }
+
+    if (selectedOrder.isArchivedPick) {
+      setOptimizationResult({
+        route: selectedOrder.pickRoute || [],
+        unresolved: selectedOrder.unresolvedPicks || []
+      });
+      setCheckedPicks(selectedOrder.checkedPicks || {});
       return;
     }
 
@@ -214,7 +224,10 @@ export function PalletPickOptimizerModal({ isOpen, onClose, preSelectedOrder, on
                       size: need.size,
                       sku: need.skusMap?.[need.size] || need.generalSku || invItem.sku || '',
                       qty: pickQty,
-                      photoUrl: invItem.photoUrl || need.image || ''
+                      photoUrl: invItem.photoUrl || need.image || '',
+                      invItemName: invItem.name || '',
+                      invItemSku: invItem.sku || '',
+                      invItemSize: invItem.size || ''
                    });
                 }
              });
@@ -570,12 +583,17 @@ export function PalletPickOptimizerModal({ isOpen, onClose, preSelectedOrder, on
 
         // Calculate remaining items in box after picking
         const remainingItems = (originalBox.items || []).map((item: any) => {
-          const matchingPick = box.picks.find((p: any) => 
-            p.style === item.name && 
-            p.size === item.size && 
-            (p.sku || '').toLowerCase() === (item.sku || '').toLowerCase()
-          );
-          const pickedQty = matchingPick ? matchingPick.qty : 0;
+          const matchingPick = box.picks.find((p: any) => {
+            if (p.invItemName && p.invItemSize && p.invItemSku) {
+              return p.invItemName === item.name &&
+                     p.invItemSize === item.size &&
+                     p.invItemSku.toLowerCase() === (item.sku || '').toLowerCase();
+            }
+            return p.style === item.name && 
+                   p.size === item.size && 
+                   (p.sku || '').toLowerCase() === (item.sku || '').toLowerCase();
+          });
+          const pickedQty = (matchingPick && !selectedOrder.isArchivedPick) ? matchingPick.qty : 0;
           return {
             ...item,
             quantity: item.quantity - pickedQty
@@ -719,6 +737,43 @@ export function PalletPickOptimizerModal({ isOpen, onClose, preSelectedOrder, on
     printWindow.document.close();
   };
 
+  const handleArchivePickRoute = async () => {
+    if (!selectedOrder || !optimizationResult) return;
+    setIsArchiving(true);
+    try {
+      const orderId = selectedOrder.id;
+      const archiveUpdates = {
+        isArchivedPick: true,
+        archivedAt: new Date().toISOString(),
+        pickRoute: optimizationResult.route,
+        unresolvedPicks: optimizationResult.unresolved,
+        checkedPicks: checkedPicks
+      };
+
+      if (selectedOrder.isTemporary) {
+        const orderData = {
+          ...selectedOrder,
+          isTemporary: false,
+          ...archiveUpdates
+        };
+        await setDoc(doc(db, 'orders', orderId), orderData);
+        setSelectedOrder(orderData);
+      } else {
+        await updateDoc(doc(db, 'orders', orderId), archiveUpdates);
+        setSelectedOrder({
+          ...selectedOrder,
+          ...archiveUpdates
+        });
+      }
+      alert("Pick route successfully archived! You can reference and open it later.");
+    } catch (err) {
+      console.error("Failed to archive pick route:", err);
+      alert("Failed to archive pick route: " + (err as Error).message);
+    } finally {
+      setIsArchiving(false);
+    }
+  };
+
   const handleCompletePicking = async () => {
     if (!optimizationResult) return;
     if (stats.checked === 0) {
@@ -771,11 +826,16 @@ export function PalletPickOptimizerModal({ isOpen, onClose, preSelectedOrder, on
           // Update items in this box
           const updatedItems = (b.items || []).map((item: any) => {
             // Find if there is a matching pick
-            const matchingPick = group.picks.find(p => 
-              p.style === item.name && 
-              p.size === item.size && 
-              (p.sku || '').toLowerCase() === (item.sku || '').toLowerCase()
-            );
+            const matchingPick = group.picks.find(p => {
+              if (p.invItemName && p.invItemSize && p.invItemSku) {
+                return p.invItemName === item.name &&
+                       p.invItemSize === item.size &&
+                       p.invItemSku.toLowerCase() === (item.sku || '').toLowerCase();
+              }
+              return p.style === item.name && 
+                     p.size === item.size && 
+                     (p.sku || '').toLowerCase() === (item.sku || '').toLowerCase();
+            });
 
             if (matchingPick) {
               const newQty = item.quantity - matchingPick.qty;
@@ -795,6 +855,25 @@ export function PalletPickOptimizerModal({ isOpen, onClose, preSelectedOrder, on
 
         // Save back to Firestore
         await setDoc(palletDocRef, { ...currentPallet, boxes: updatedBoxes });
+      }
+
+      // Archive pick route to Firestore
+      const archiveUpdates = {
+        isArchivedPick: true,
+        archivedAt: new Date().toISOString(),
+        pickRoute: optimizationResult.route,
+        unresolvedPicks: optimizationResult.unresolved,
+        checkedPicks: checkedPicks
+      };
+
+      if (selectedOrder.isTemporary) {
+        await setDoc(doc(db, 'orders', selectedOrder.id), {
+          ...selectedOrder,
+          isTemporary: false,
+          ...archiveUpdates
+        });
+      } else {
+        await updateDoc(doc(db, 'orders', selectedOrder.id), archiveUpdates);
       }
 
       alert("Successfully completed picking! Inventory quantities have been updated.");
@@ -896,6 +975,11 @@ export function PalletPickOptimizerModal({ isOpen, onClose, preSelectedOrder, on
                                   {isShopify && (
                                     <span className="bg-blue-50 border border-blue-200 text-blue-600 font-bold text-[9px] px-1.5 py-0.5 rounded uppercase tracking-wider">
                                       Shopify
+                                    </span>
+                                  )}
+                                  {order.isArchivedPick && (
+                                    <span className="bg-amber-50 border border-amber-200 text-amber-700 font-bold text-[9px] px-1.5 py-0.5 rounded uppercase tracking-wider flex items-center gap-0.5">
+                                      <Check size={8} strokeWidth={4} /> Archived Pick
                                     </span>
                                   )}
                                 </div>
@@ -1097,8 +1181,9 @@ export function PalletPickOptimizerModal({ isOpen, onClose, preSelectedOrder, on
                             <input 
                               type="checkbox"
                               checked={isFullyPicked}
-                              onChange={(e) => handleTogglePalletPicks(pallet, e.target.checked)}
-                              className="w-5 h-5 rounded border-brand-border text-brand-primary focus:ring-brand-primary cursor-pointer shrink-0"
+                              disabled={selectedOrder.isArchivedPick}
+                              onChange={(e) => !selectedOrder.isArchivedPick && handleTogglePalletPicks(pallet, e.target.checked)}
+                              className={`w-5 h-5 rounded border-brand-border text-brand-primary focus:ring-brand-primary shrink-0 ${selectedOrder.isArchivedPick ? 'cursor-default' : 'cursor-pointer'}`}
                             />
                             <div className="min-w-0">
                               <h4 className="font-serif text-lg font-bold text-brand-primary truncate">
@@ -1142,15 +1227,16 @@ export function PalletPickOptimizerModal({ isOpen, onClose, preSelectedOrder, on
                                   return (
                                     <div 
                                       key={key} 
-                                      onClick={() => handleTogglePick(key)}
-                                      className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all ${isItemPicked ? 'bg-green-50/40 border-green-200 text-neutral-500' : 'bg-neutral-50/50 border-brand-border/60 text-brand-primary hover:border-neutral-400'}`}
+                                      onClick={() => !selectedOrder.isArchivedPick && handleTogglePick(key)}
+                                      className={`flex items-center justify-between p-3 rounded-xl border transition-all ${selectedOrder.isArchivedPick ? 'cursor-default' : 'cursor-pointer'} ${isItemPicked ? 'bg-green-50/40 border-green-200 text-neutral-500' : 'bg-neutral-50/50 border-brand-border/60 text-brand-primary hover:border-neutral-400'}`}
                                     >
                                       <div className="flex items-center gap-4 min-w-0">
                                         <input 
                                           type="checkbox"
                                           checked={isItemPicked}
+                                          disabled={selectedOrder.isArchivedPick}
                                           onChange={() => {}} // toggled on container click
-                                          className="w-4.5 h-4.5 rounded border-brand-border text-brand-primary focus:ring-brand-primary cursor-pointer shrink-0"
+                                          className={`w-4.5 h-4.5 rounded border-brand-border text-brand-primary focus:ring-brand-primary shrink-0 ${selectedOrder.isArchivedPick ? 'cursor-default' : 'cursor-pointer'}`}
                                         />
                                         
                                         {pick.photoUrl && (
@@ -1246,7 +1332,8 @@ export function PalletPickOptimizerModal({ isOpen, onClose, preSelectedOrder, on
             <div className="flex flex-wrap items-center justify-end gap-2 w-full sm:w-auto">
               <button 
                 onClick={() => setCheckedPicks({})}
-                className="px-3.5 py-2 text-[9px] font-bold uppercase tracking-wider text-brand-secondary border border-brand-border hover:bg-neutral-50 hover:text-black rounded-xl transition-all shadow-sm flex-shrink-0"
+                disabled={selectedOrder.isArchivedPick}
+                className="px-3.5 py-2 text-[9px] font-bold uppercase tracking-wider text-brand-secondary border border-brand-border hover:bg-neutral-50 hover:text-black disabled:opacity-50 disabled:hover:bg-white disabled:hover:text-brand-secondary rounded-xl transition-all shadow-sm flex-shrink-0"
               >
                 Reset Route
               </button>
@@ -1262,21 +1349,44 @@ export function PalletPickOptimizerModal({ isOpen, onClose, preSelectedOrder, on
               >
                 <Printer size={13} /> Print QR Stickers
               </button>
-              <button 
-                onClick={handleCompletePicking}
-                disabled={isApplyingPicks}
-                className="px-4 py-2 text-[9px] font-bold uppercase tracking-wider bg-green-600 text-white hover:bg-green-700 disabled:bg-neutral-300 rounded-xl transition-all shadow-md flex items-center justify-center gap-1.5 flex-shrink-0"
-              >
-                {isApplyingPicks ? (
-                  <>
-                    <Loader2 className="animate-spin" size={13} /> Applying...
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle2 size={13} /> Complete Picking
-                  </>
-                )}
-              </button>
+              {selectedOrder.isArchivedPick ? (
+                <div className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-green-700 bg-green-50 border border-green-200 rounded-xl flex items-center gap-1.5 flex-shrink-0">
+                  <CheckCircle2 size={13} className="text-green-600" /> Picking Completed & Archived
+                </div>
+              ) : (
+                <>
+                  <button 
+                    onClick={handleArchivePickRoute}
+                    disabled={isArchiving}
+                    className="px-4 py-2 text-[9px] font-bold uppercase tracking-wider bg-amber-600 text-white hover:bg-amber-700 disabled:bg-neutral-300 rounded-xl transition-all shadow-md flex items-center justify-center gap-1.5 flex-shrink-0"
+                  >
+                    {isArchiving ? (
+                      <>
+                        <Loader2 className="animate-spin" size={13} /> Archiving...
+                      </>
+                    ) : (
+                      <>
+                        <Archive size={13} /> Archive Pick Route
+                      </>
+                    )}
+                  </button>
+                  <button 
+                    onClick={handleCompletePicking}
+                    disabled={isApplyingPicks}
+                    className="px-4 py-2 text-[9px] font-bold uppercase tracking-wider bg-green-600 text-white hover:bg-green-700 disabled:bg-neutral-300 rounded-xl transition-all shadow-md flex items-center justify-center gap-1.5 flex-shrink-0"
+                  >
+                    {isApplyingPicks ? (
+                      <>
+                        <Loader2 className="animate-spin" size={13} /> Applying...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 size={13} /> Complete Picking
+                      </>
+                    )}
+                  </button>
+                </>
+              )}
             </div>
           </div>
         )}

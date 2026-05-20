@@ -38,7 +38,7 @@ export function KanbanBoard() {
 
   const activeColumns = COLUMNS.map(col => ({
     ...col,
-    columnOrders: orders.filter(o => col.matchStatuses.includes(o.statusIndex || 0))
+    columnOrders: orders.filter(o => col.matchStatuses.includes(o.statusIndex || 0) && o.customerId !== 'Shopify Temporary')
   })).filter(col => col.columnOrders.length > 0);
 
   if (activeColumns.length === 0) {

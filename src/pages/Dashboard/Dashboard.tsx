@@ -56,7 +56,7 @@ export function Dashboard() {
     return unsub;
   }, [userData?.id]);
 
-  const productionOrders = orders.filter(o => o.statusIndex === 6 || o.statusIndex === 7);
+  const productionOrders = orders.filter(o => (o.statusIndex === 6 || o.statusIndex === 7) && o.customerId !== 'Shopify Temporary');
   const assignedOrderIds = new Set(myTasks.filter(t => t.orderId).map(t => String(t.orderId)));
   const assignedOrders = productionOrders.filter(o => assignedOrderIds.has(String(o.id)));
 
@@ -75,6 +75,7 @@ export function Dashboard() {
   const bestDisplayNames: Record<string, string> = {};
 
   orders.forEach(order => {
+     if (order.customerId === 'Shopify Temporary') return;
      (order.activities || []).forEach((act: any) => {
          if (act.message?.startsWith('Added ') && act.message?.includes(' to ')) {
              let userName = act.user?.split('@')[0] || 'Unknown';
@@ -176,13 +177,13 @@ export function Dashboard() {
   const teamMetricUsers = Object.keys(statsByUser).sort((a,b) => statsByUser[b].garmentsCompleted - statsByUser[a].garmentsCompleted);
   const teamKittingMetricUsers = Object.keys(kittingStatsByUser).sort((a,b) => kittingStatsByUser[b].garmentsKitted - kittingStatsByUser[a].garmentsKitted);
 
-  const newQuoteRequests = orders.filter(o => o.statusIndex === 0 && !o.isProjectGroup);
-  const pendingApprovalOrders = orders.filter(o => o.statusIndex === 1 && !o.isProjectGroup);
-  const newApprovedOrders = orders.filter(o => o.statusIndex === 3 && !o.isProjectGroup);
+  const newQuoteRequests = orders.filter(o => o.statusIndex === 0 && !o.isProjectGroup && o.customerId !== 'Shopify Temporary');
+  const pendingApprovalOrders = orders.filter(o => o.statusIndex === 1 && !o.isProjectGroup && o.customerId !== 'Shopify Temporary');
+  const newApprovedOrders = orders.filter(o => o.statusIndex === 3 && !o.isProjectGroup && o.customerId !== 'Shopify Temporary');
   
   const todayDateStr = new Date().toISOString().split('T')[0];
   const completedTodayOrders = orders.filter(o => {
-    if (o.statusIndex < 6) return false;
+    if (o.statusIndex < 6 || o.customerId === 'Shopify Temporary') return false;
     const lastAct = o.activities?.[0];
     return lastAct?.timestamp?.startsWith(todayDateStr) && lastAct?.message?.toLowerCase().includes('complete');
   });

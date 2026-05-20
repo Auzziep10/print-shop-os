@@ -143,7 +143,7 @@ export function Production() {
   const groupedProjectsList = (() => {
     // 1. Group all production / post-production orders first
     const groups = orders
-      .filter((o: any) => o.statusIndex >= 6 || o.isMetricsArchived) 
+      .filter((o: any) => (o.statusIndex >= 6 || o.isMetricsArchived) && o.customerId !== 'Shopify Temporary') 
       .reduce((acc: any, order: any) => {
          const projectKey = order.project;
          const cid = order.customerId;
