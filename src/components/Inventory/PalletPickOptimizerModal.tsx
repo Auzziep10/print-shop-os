@@ -583,22 +583,22 @@ export function PalletPickOptimizerModal({ isOpen, onClose, preSelectedOrder, on
         }).filter((item: any) => item.quantity > 0);
 
         const manifestHtml = remainingItems.map((item: any) => `
-          <div style="display: flex; gap: 8px; align-items: center; padding: 6px; border: 1px solid rgba(0,0,0,0.15); border-radius: 4px; margin-bottom: 6px; background: #fff;">
-            ${item.photoUrl ? `<img src="${item.photoUrl}" alt="Item" style="width: 32px; height: 32px; border-radius: 4px; object-fit: cover; border: 1px solid rgba(0,0,0,0.1); flex-shrink: 0;" />` : ''}
+          <div style="display: flex; gap: 8px; align-items: center; padding: 6px; border: 1.5px solid rgba(0,0,0,0.2); border-radius: 4px; margin-bottom: 6px; background: #fff; box-sizing: border-box;">
+            ${item.photoUrl ? `<img src="${item.photoUrl}" alt="Item" style="width: 32px; height: 32px; border-radius: 4px; object-fit: cover; border: 1px solid rgba(0,0,0,0.2); flex-shrink: 0;" />` : ''}
             <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; text-align: left;">
-              <div style="font-weight: bold; font-size: 11px; text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 180px;">${item.name}</div>
-              <div style="font-size: 9px; font-family: monospace; font-weight: bold; color: #475569;">
-                ${item.sku ? `SKU: ${item.sku}` : ''} ${item.size ? `| SIZE: ${item.size}` : ''}
+              <div style="font-family: sans-serif; font-weight: bold; font-size: 13px; line-height: 1.25; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px;">${item.name}</div>
+              <div style="font-size: 9px; font-family: monospace; font-weight: bold; color: #000; margin-top: 2px;">
+                ${item.sku ? `SKU: ${item.sku}` : ''} ${item.size ? ` | SIZE: ${item.size}` : ''}
               </div>
             </div>
-            <div style="font-weight: 900; font-size: 18px; font-family: sans-serif; margin-left: auto; padding-left: 8px; align-self: center;">
+            <div style="font-weight: 900; font-size: 24px; font-family: sans-serif; margin-left: auto; padding-left: 8px; align-self: center; flex-shrink: 0;">
               ×${item.quantity}
             </div>
           </div>
         `).join('');
 
         const emptyBoxHtml = remainingItems.length === 0 
-          ? `<div style="padding: 20px; border: 2px dashed rgba(0,0,0,0.2); text-align: center; font-weight: bold; text-transform: uppercase; border-radius: 6px; font-size: 12px; color: #64748b; font-family: sans-serif;">Empty Box</div>` 
+          ? `<div style="padding: 24px; border: 2px dashed rgba(0,0,0,0.3); text-align: center; font-weight: 900; text-transform: uppercase; border-radius: 6px; font-size: 12px; color: #475569; font-family: sans-serif; margin-top: 10px;">Empty Box</div>` 
           : '';
 
         const totalUnits = remainingItems.reduce((sum: number, item: any) => sum + item.quantity, 0);
@@ -608,42 +608,42 @@ export function PalletPickOptimizerModal({ isOpen, onClose, preSelectedOrder, on
         const qrSvgHtml = qrContainer ? qrContainer.innerHTML : '';
 
         return `
-          <div class="print-page-wrapper" style="width: 6in; height: 4in; box-sizing: border-box; background: white; margin: 0; padding: 0; page-break-after: always; page-break-inside: avoid; position: relative;">
-            <div class="print-label-container" style="width: 5.8in; height: 3.8in; padding: 0.25in; margin: 0; box-sizing: border-box; border: 4px solid black; display: flex; flex-direction: column; position: absolute; left: 0.1in; top: 0.1in; overflow: hidden;">
+          <div class="print-page-wrapper">
+            <div class="print-label-container">
               <!-- Label Header -->
-              <div style="display: flex; justify-content: space-between; align-items: start; border-bottom: 4px solid black; padding-bottom: 8px; margin-bottom: 10px; flex-shrink: 0;">
+              <div style="display: flex; justify-content: space-between; align-items: start; border-bottom: 4px solid black; padding-bottom: 12px; margin-bottom: 16px; flex-shrink: 0; box-sizing: border-box;">
                 <div>
-                  <div style="font-family: sans-serif; font-size: 14px; font-weight: 900; letter-spacing: 1px; margin-bottom: 2px;">WOVN</div>
-                  <h1 style="margin: 0; font-family: sans-serif; font-size: 24px; font-weight: 900; text-transform: uppercase; line-height: 1;">${pallet.name}</h1>
-                  <p style="margin: 2px 0 0 0; font-size: 11px; font-weight: bold; font-family: sans-serif;">PALLET ID: ${pallet.palletId.replace('pal_', '')}</p>
+                  <img src="${window.location.origin}/logo.png" alt="WOVN" style="height: 32px; width: auto; margin-bottom: 12px; filter: grayscale(100%);" />
+                  <h1 style="margin: 0; font-family: sans-serif; font-size: 32px; font-weight: 900; text-transform: uppercase; letter-spacing: -1px; line-height: 1;">${pallet.name}</h1>
+                  <p style="margin: 4px 0 0 0; font-size: 16px; font-weight: bold; font-family: sans-serif; color: #000;">PALLET ID: ${pallet.palletId.replace('pal_', '')}</p>
                 </div>
                 <div style="text-align: right;">
-                  <div style="font-family: sans-serif; font-size: 32px; font-weight: 900; text-transform: uppercase; line-height: 1; margin-bottom: 2px;">${box.boxName}</div>
-                  <p style="margin: 0; font-size: 10px; font-weight: bold; background: black; color: white; padding: 2px 6px; display: inline-block; font-family: sans-serif;">BOX ID: ${box.boxId.replace('box_', '')}</p>
+                  <div style="font-family: sans-serif; font-size: 52px; font-weight: 900; text-transform: uppercase; letter-spacing: -2px; line-height: 1; margin-bottom: 2px;">${box.boxName}</div>
+                  <p style="margin: 0; font-family: sans-serif; font-size: 12px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; background: black; color: white; padding: 3px 8px; display: inline-block;">BOX ID: ${box.boxId.replace('box_', '')}</p>
                 </div>
               </div>
 
               <!-- Label Body -->
-              <div style="display: flex; gap: 12px; flex: 1; min-height: 0;">
+              <div style="display: flex; gap: 16px; flex: 1; min-height: 0; box-sizing: border-box;">
                 <!-- Manifest Column -->
-                <div style="flex: 1; display: flex; flex-direction: column; min-height: 0;">
-                  <h3 style="margin: 0 0 6px 0; font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid black; padding-bottom: 2px; flex-shrink: 0; font-family: sans-serif;">Contents Manifest (${totalUnits} Units)</h3>
-                  <div style="overflow-y: auto; flex: 1; padding-right: 4px;">
+                <div style="flex: 1; display: flex; flex-direction: column; min-height: 0; box-sizing: border-box;">
+                  <h3 style="margin: 0 0 8px 0; font-family: sans-serif; font-size: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; border-bottom: 2px solid black; padding-bottom: 4px; flex-shrink: 0;">Contents Manifest (${totalUnits} Units)</h3>
+                  <div style="overflow-y: auto; flex: 1; padding-right: 8px; box-sizing: border-box;">
                     ${manifestHtml}
                     ${emptyBoxHtml}
                   </div>
                 </div>
 
                 <!-- QR Column -->
-                <div style="width: 110px; display: flex; flex-direction: column; align-items: center; justify-content: space-between; border-left: 2px solid black; padding-left: 12px; flex-shrink: 0;">
-                  <div style="text-align: center;">
-                    <div style="padding: 4px; border: 2px solid black; background: white; display: inline-block; width: 90px; height: 90px; box-sizing: border-box;">
+                <div style="width: 140px; display: flex; flex-direction: column; align-items: center; justify-content: space-between; border-left: 4px solid black; padding-left: 16px; flex-shrink: 0; box-sizing: border-box;">
+                  <div style="text-align: center; display: flex; flex-direction: column; align-items: center; width: 100%;">
+                    <div class="qr-code-box" style="padding: 4px; border: 4px solid black; background: white; margin-bottom: 8px; display: inline-block; width: 100px; height: 100px; box-sizing: border-box;">
                       ${qrSvgHtml}
                     </div>
-                    <p style="font-size: 7px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px; margin: 4px 0 0 0; text-align: center; font-family: sans-serif;">Scan to View Info</p>
+                    <p style="font-family: sans-serif; font-size: 8px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; text-align: center; margin-top: 4px; width: 100%; color: black;">Scan to View Info</p>
                   </div>
-                  <div style="width: 100%; opacity: 0.8; text-align: left;">
-                    <div style="font-size: 7px; font-family: monospace; line-height: 1.2;">
+                  <div style="width: 100%; opacity: 0.7; text-align: left; box-sizing: border-box;">
+                    <div style="font-size: 7.5px; font-family: monospace; line-height: 1.2; color: #000;">
                       DATE: ${new Date().toLocaleDateString()}<br/>
                       TIME: ${new Date().toLocaleTimeString()}<br/>
                       SYS_ID: ${box.boxId}
@@ -680,11 +680,15 @@ export function PalletPickOptimizerModal({ isOpen, onClose, preSelectedOrder, on
                 height: 6in;
               }
               .print-page-wrapper {
+                display: block !important;
+                position: relative !important;
                 width: 4in !important;
                 height: 6in !important;
                 page-break-after: always !important;
                 page-break-inside: avoid !important;
-                position: relative !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                background: white !important;
               }
               .print-label-container {
                 position: absolute !important;
@@ -692,12 +696,17 @@ export function PalletPickOptimizerModal({ isOpen, onClose, preSelectedOrder, on
                 top: 0.1in !important;
                 width: 5.8in !important;
                 height: 3.8in !important;
-                padding: 0.25in !important;
+                padding: 0.3in !important;
                 margin: 0 !important;
-                border: 4px solid black !important;
+                border: none !important;
                 box-sizing: border-box !important;
+                box-shadow: none !important;
                 transform: rotate(90deg) !important;
                 transform-origin: top left !important;
+              }
+              .qr-code-box svg {
+                width: 100% !important;
+                height: 100% !important;
               }
             }
           </style>
@@ -1280,7 +1289,7 @@ export function PalletPickOptimizerModal({ isOpen, onClose, preSelectedOrder, on
             const qrUrl = `${window.location.hostname === 'localhost' ? 'https://print-shop-os.vercel.app' : window.location.origin}/inventory/scan?p=${pallet.palletId}&b=${box.boxId}`;
             return (
               <div key={box.boxId} id={`qr-code-${box.boxId}`}>
-                <QRCode value={qrUrl} size={150} level="M" />
+                <QRCode value={qrUrl} size={100} level="L" />
               </div>
             );
           })
