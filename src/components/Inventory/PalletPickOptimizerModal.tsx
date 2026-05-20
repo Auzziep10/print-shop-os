@@ -445,21 +445,21 @@ export function PalletPickOptimizerModal({ isOpen, onClose, preSelectedOrder, on
           const borderStyle = isLast ? '' : 'border-bottom: 1px solid #e2e8f0;';
           return `
             <tr>
-              <td style="padding: 12px; font-weight: bold; font-size: 13px; color: #0f172a; ${borderStyle} width: 110px;">[ ] Pick ${pick.qty}x</td>
-              <td style="padding: 12px; font-size: 13px; color: #0f172a; ${borderStyle}">
+              <td style="padding: 8px 12px; font-weight: bold; font-size: 13px; color: #0f172a; ${borderStyle} width: 110px;">[ ] Pick ${pick.qty}x</td>
+              <td style="padding: 8px 12px; font-size: 13px; color: #0f172a; ${borderStyle}">
                 <span style="font-weight: 700;">${pick.style}</span>
                 ${pick.color ? `<span style="color: #64748b; font-size: 11px; margin-left: 6px; font-weight: 500;">(${pick.color})</span>` : ''}
               </td>
-              <td style="padding: 12px; text-align: center; font-size: 13px; font-weight: bold; color: #0f172a; ${borderStyle} width: 80px;">${pick.size}</td>
-              <td style="padding: 12px; font-family: monospace; font-size: 12px; font-weight: bold; color: #475569; ${borderStyle} width: 180px;">${pick.sku || '-'}</td>
+              <td style="padding: 8px 12px; text-align: center; font-size: 13px; font-weight: bold; color: #0f172a; ${borderStyle} width: 80px;">${pick.size}</td>
+              <td style="padding: 8px 12px; font-family: monospace; font-size: 12px; font-weight: bold; color: #475569; ${borderStyle} width: 180px;">${pick.sku || '-'}</td>
             </tr>
           `;
         }).join('');
 
         return `
-          <div style="margin-top: 20px; border: 1px solid #cbd5e1; border-radius: 12px; padding: 16px; background: #ffffff; page-break-inside: avoid; overflow: hidden;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
-              <span style="font-size: 12px; font-weight: 800; color: #0f172a; text-transform: uppercase; background: #f1f5f9; padding: 6px 14px; border-radius: 9999px; font-family: sans-serif; letter-spacing: 0.5px;">
+          <div style="margin-top: 12px; border: 1px solid #cbd5e1; border-radius: 12px; padding: 12px; background: #ffffff; page-break-inside: avoid; overflow: hidden;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+              <span style="font-size: 12px; font-weight: 800; color: #0f172a; text-transform: uppercase; background: #f1f5f9; padding: 4px 10px; border-radius: 9999px; font-family: sans-serif; letter-spacing: 0.5px;">
                 Box: ${box.boxName}
               </span>
               <span style="font-size: 11px; color: #64748b; font-weight: 700; font-family: sans-serif; text-transform: uppercase; letter-spacing: 0.5px;">
@@ -470,10 +470,10 @@ export function PalletPickOptimizerModal({ isOpen, onClose, preSelectedOrder, on
             <table style="width: 100%; border-collapse: collapse; text-align: left; font-family: sans-serif;">
               <thead>
                 <tr style="color: #475569; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #cbd5e1;">
-                  <th style="padding: 8px 12px; padding-top: 0;">Check</th>
-                  <th style="padding: 8px 12px; padding-top: 0;">Garment</th>
-                  <th style="padding: 8px 12px; padding-top: 0; text-align: center;">Size</th>
-                  <th style="padding: 8px 12px; padding-top: 0;">SKU</th>
+                  <th style="padding: 6px 12px; padding-top: 0;">Check</th>
+                  <th style="padding: 6px 12px; padding-top: 0;">Garment</th>
+                  <th style="padding: 6px 12px; padding-top: 0; text-align: center;">Size</th>
+                  <th style="padding: 6px 12px; padding-top: 0;">SKU</th>
                 </tr>
               </thead>
               <tbody>
@@ -485,10 +485,10 @@ export function PalletPickOptimizerModal({ isOpen, onClose, preSelectedOrder, on
       }).join('');
 
       return `
-        <div style="page-break-inside: avoid; margin-bottom: 35px; border: 1px solid #cbd5e1; border-radius: 16px; padding: 20px; background: #f8fafc;">
-          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #cbd5e1; padding-bottom: 12px; margin-bottom: 8px;">
+        <div style="margin-bottom: 24px; border: 1px solid #cbd5e1; border-radius: 16px; padding: 16px; background: #f8fafc;">
+          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #cbd5e1; padding-bottom: 8px; margin-bottom: 8px;">
             <h2 style="margin: 0; font-family: sans-serif; font-size: 16px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #0f172a;">Step ${pIdx + 1}: Pallet ${pallet.name}</h2>
-            <span style="font-family: sans-serif; font-size: 11px; font-weight: 800; background: #000000; color: #ffffff; padding: 6px 14px; border-radius: 9999px; text-transform: uppercase; letter-spacing: 0.5px;">${locationStr}</span>
+            <span style="font-family: sans-serif; font-size: 11px; font-weight: 800; background: #000000; color: #ffffff; padding: 4px 12px; border-radius: 9999px; text-transform: uppercase; letter-spacing: 0.5px;">${locationStr}</span>
           </div>
           ${boxesHtml}
         </div>
@@ -496,14 +496,14 @@ export function PalletPickOptimizerModal({ isOpen, onClose, preSelectedOrder, on
     }).join('');
 
     const unresolvedHtml = optimizationResult.unresolved.length > 0 ? `
-      <div style="margin-top: 40px; page-break-inside: avoid; border: 1px solid #fca5a5; border-radius: 16px; padding: 20px; background: #fff5f5;">
-        <h2 style="margin: 0 0 14px 0; color: #991b1b; font-family: sans-serif; font-size: 16px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">Unresolved / Out of Stock Items</h2>
+      <div style="margin-top: 30px; page-break-inside: avoid; border: 1px solid #fca5a5; border-radius: 16px; padding: 16px; background: #fff5f5;">
+        <h2 style="margin: 0 0 10px 0; color: #991b1b; font-family: sans-serif; font-size: 16px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">Unresolved / Out of Stock Items</h2>
         <table style="width: 100%; border-collapse: collapse; text-align: left; font-family: sans-serif; font-size: 13px;">
           <thead>
             <tr style="color: #991b1b; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #fca5a5;">
-              <th style="padding: 8px 12px; padding-top: 0;">Garment</th>
-              <th style="padding: 8px 12px; padding-top: 0; text-align: center; width: 100px;">Size</th>
-              <th style="padding: 8px 12px; padding-top: 0; width: 180px;">Missing Qty</th>
+              <th style="padding: 6px 12px; padding-top: 0;">Garment</th>
+              <th style="padding: 6px 12px; padding-top: 0; text-align: center; width: 100px;">Size</th>
+              <th style="padding: 6px 12px; padding-top: 0; width: 180px;">Missing Qty</th>
             </tr>
           </thead>
           <tbody>
@@ -511,9 +511,9 @@ export function PalletPickOptimizerModal({ isOpen, onClose, preSelectedOrder, on
               const borderStyle = idx === arr.length - 1 ? '' : 'border-bottom: 1px solid #fca5a5;';
               return `
                 <tr>
-                  <td style="padding: 10px 12px; color: #7f1d1d; font-weight: bold; ${borderStyle}">${u.style}</td>
-                  <td style="padding: 10px 12px; color: #7f1d1d; text-align: center; font-weight: bold; ${borderStyle}">${u.size}</td>
-                  <td style="padding: 10px 12px; color: #b91c1c; font-weight: bold; ${borderStyle}">${u.unresolved} of ${u.needed} units</td>
+                  <td style="padding: 8px 12px; color: #7f1d1d; font-weight: bold; ${borderStyle}">${u.style}</td>
+                  <td style="padding: 8px 12px; color: #7f1d1d; text-align: center; font-weight: bold; ${borderStyle}">${u.size}</td>
+                  <td style="padding: 8px 12px; color: #b91c1c; font-weight: bold; ${borderStyle}">${u.unresolved} of ${u.needed} units</td>
                 </tr>
               `;
             }).join('')}
@@ -527,9 +527,9 @@ export function PalletPickOptimizerModal({ isOpen, onClose, preSelectedOrder, on
         <head>
           <title>Pick Sheet - ${selectedOrder.portalId || 'Shopify Picking List'}</title>
           <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 40px; color: #0f172a; line-height: 1.5; background: #ffffff; }
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 20px; color: #0f172a; line-height: 1.4; background: #ffffff; }
             h1 { font-family: sans-serif; margin-bottom: 5px; font-weight: bold; }
-            .header-table { width: 100%; margin-bottom: 40px; border-bottom: 3px double #000000; padding-bottom: 24px; }
+            .header-table { width: 100%; margin-bottom: 20px; border-bottom: 3px double #000000; padding-bottom: 12px; }
           </style>
         </head>
         <body onload="window.print(); window.close();">
