@@ -1234,37 +1234,37 @@ export function PalletPickOptimizerModal({ isOpen, onClose, preSelectedOrder, on
                 <span>CHECKLIST PROGRESS: {stats.checked} / {stats.total}</span>
               )}
             </div>
-            <div className="flex items-center gap-3 w-full sm:w-auto">
+            <div className="flex flex-wrap items-center justify-end gap-2 w-full sm:w-auto">
               <button 
                 onClick={() => setCheckedPicks({})}
-                className="flex-1 sm:flex-none px-5 py-2.5 text-[10px] font-bold uppercase tracking-widest text-brand-secondary border border-brand-border hover:bg-neutral-50 hover:text-black rounded-xl transition-all shadow-sm"
+                className="px-3.5 py-2 text-[9px] font-bold uppercase tracking-wider text-brand-secondary border border-brand-border hover:bg-neutral-50 hover:text-black rounded-xl transition-all shadow-sm flex-shrink-0"
               >
                 Reset Route
               </button>
               <button 
                 onClick={handlePrint}
-                className="flex-1 sm:flex-none px-6 py-2.5 text-[10px] font-bold uppercase tracking-widest bg-black text-white hover:bg-neutral-800 rounded-xl transition-all shadow-md flex items-center justify-center gap-2"
+                className="px-4 py-2 text-[9px] font-bold uppercase tracking-wider bg-black text-white hover:bg-neutral-800 rounded-xl transition-all shadow-md flex items-center justify-center gap-1.5 flex-shrink-0"
               >
-                <Printer size={14} /> Print Pick List
+                <Printer size={13} /> Print Pick List
               </button>
               <button 
                 onClick={handlePrintBoxStickers}
-                className="flex-1 sm:flex-none px-6 py-2.5 text-[10px] font-bold uppercase tracking-widest bg-black text-white hover:bg-neutral-800 rounded-xl transition-all shadow-md flex items-center justify-center gap-2"
+                className="px-4 py-2 text-[9px] font-bold uppercase tracking-wider bg-black text-white hover:bg-neutral-800 rounded-xl transition-all shadow-md flex items-center justify-center gap-1.5 flex-shrink-0"
               >
-                <Printer size={14} /> Print QR Stickers
+                <Printer size={13} /> Print QR Stickers
               </button>
               <button 
                 onClick={handleCompletePicking}
                 disabled={isApplyingPicks}
-                className="flex-1 sm:flex-none px-6 py-2.5 text-[10px] font-bold uppercase tracking-widest bg-green-600 text-white hover:bg-green-700 disabled:bg-neutral-300 rounded-xl transition-all shadow-md flex items-center justify-center gap-2"
+                className="px-4 py-2 text-[9px] font-bold uppercase tracking-wider bg-green-600 text-white hover:bg-green-700 disabled:bg-neutral-300 rounded-xl transition-all shadow-md flex items-center justify-center gap-1.5 flex-shrink-0"
               >
                 {isApplyingPicks ? (
                   <>
-                    <Loader2 className="animate-spin" size={14} /> Applying...
+                    <Loader2 className="animate-spin" size={13} /> Applying...
                   </>
                 ) : (
                   <>
-                    <CheckCircle2 size={14} /> Complete Picking
+                    <CheckCircle2 size={13} /> Complete Picking
                   </>
                 )}
               </button>
