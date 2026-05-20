@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Layers, Box, MapPin, Check, CheckCircle2, Search, ShoppingBag, Printer, Loader2, ArrowRight, AlertTriangle, Map } from 'lucide-react';
+import { X, Layers, Box, MapPin, Check, CheckCircle2, Search, ShoppingBag, Printer, Loader2, ArrowRight, AlertTriangle, Map as MapIcon } from 'lucide-react';
 import { db } from '../../lib/firebase';
 import { collection, query, onSnapshot } from 'firebase/firestore';
 
@@ -63,11 +63,22 @@ export function PalletPickOptimizerModal({ isOpen, onClose, preSelectedOrder, on
   const [optimizationResult, setOptimizationResult] = useState<{ route: any[]; unresolved: UnmetNeed[] } | null>(null);
   const [checkedPicks, setCheckedPicks] = useState<Record<string, boolean>>({});
 
+  const [selectorMode, setSelectorMode] = useState<'local' | 'shopify'>('local');
+  const [shopifySearchTag, setShopifySearchTag] = useState('');
+  const [shopifyOrders, setShopifyOrders] = useState<any[]>([]);
+  const [shopifySearchLoading, setShopifySearchLoading] = useState(false);
+  const [selectedShopifyOrderIds, setSelectedShopifyOrderIds] = useState<Set<string>>(new Set());
+  const [isGeneratingTempOrder, setIsGeneratingTempOrder] = useState(false);
+
   // Reset states when order changes
   useEffect(() => {
     setSelectedOrder(preSelectedOrder || null);
     setOptimizationResult(null);
     setCheckedPicks({});
+    setSelectorMode('local');
+    setShopifySearchTag('');
+    setShopifyOrders([]);
+    setSelectedShopifyOrderIds(new Set());
   }, [preSelectedOrder, isOpen]);
 
   // Load orders if no pre-selected order is provided
@@ -240,6 +251,108 @@ export function PalletPickOptimizerModal({ isOpen, onClose, preSelectedOrder, on
     });
     setCheckedPicks({});
   }, [selectedOrder, pallets]);
+
+  const handleShopifySearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!shopifySearchTag.trim()) return;
+
+    setShopifySearchLoading(true);
+    setShopifyOrders([]);
+    setSelectedShopifyOrderIds(new Set());
+    try {
+      const res = await fetch(`/api/shopify/search?tag=${encodeURIComponent(shopifySearchTag.trim())}`);
+      if (!res.ok) throw new Error('API Error');
+      const data = await res.json();
+      setShopifyOrders(data.orders || []);
+    } catch (err) {
+      console.error('Failed to search shopify orders', err);
+      alert('Could not search Shopify orders. Ensure the local API edge function is reachable.');
+    } finally {
+      setShopifySearchLoading(false);
+    }
+  };
+
+  const handleGenerateTemporaryRoute = () => {
+    if (selectedShopifyOrderIds.size === 0) return;
+    setIsGeneratingTempOrder(true);
+
+    try {
+      const selectedOrders = shopifyOrders.filter(o => selectedShopifyOrderIds.has(o.id));
+      const groupedItems = new Map();
+      let globalIdx = 0;
+
+      for (const order of selectedOrders) {
+        for (const item of order.lineItems || []) {
+          const title = item.title;
+          const fullVariant = item.variantTitle || '';
+
+          let size = 'OS';
+          let color = '';
+
+          if (fullVariant && fullVariant !== 'Default Title') {
+            const parts = fullVariant.split(' / ');
+            size = parts[0];
+            if (parts.length > 1) {
+              color = parts.slice(1).join(' / ');
+            }
+          }
+
+          const key = title + '|' + color + '|' + order.name;
+
+          if (!groupedItems.has(key)) {
+            groupedItems.set(key, {
+              id: 'temp-item-' + (Date.now() + globalIdx++),
+              style: title,
+              shopifyOrder: order.name,
+              gender: color || 'Unisex',
+              color: '',
+              qty: 0,
+              price: item.originalUnitPriceSet?.presentmentMoney?.amount || '0',
+              total: '0',
+              image: item.image?.url || '',
+              logos: [],
+              sizes: {},
+              skus: {}
+            });
+          }
+
+          const existing = groupedItems.get(key);
+          const qty = parseInt(item.quantity) || 0;
+
+          existing.qty += qty;
+          existing.sizes[size] = (existing.sizes[size] || 0) + qty;
+          if (item.sku) {
+            existing.skus[size] = item.sku;
+          }
+
+          existing.total = `$${(existing.qty * parseFloat(existing.price || '0')).toFixed(2)}`;
+        }
+      }
+
+      const combinedItems = Array.from(groupedItems.values());
+      const tempOrder = {
+        id: 'temp-' + Date.now(),
+        customerId: 'Shopify Temporary',
+        title: `Shopify Batch: ${shopifySearchTag.toUpperCase()} (Temporary)`,
+        date: new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' }),
+        statusIndex: 0,
+        portalId: 'TEMP-' + shopifySearchTag.toUpperCase(),
+        createdAt: new Date().toISOString(),
+        fulfillmentType: 'Standard',
+        items: combinedItems,
+        boxes: [],
+        isShopifyOrder: true,
+        isTemporary: true
+      };
+
+      setSelectedOrder(tempOrder);
+    } catch (err) {
+      console.error(err);
+      alert('Failed to generate temporary picking route.');
+    } finally {
+      setIsGeneratingTempOrder(false);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -453,68 +566,187 @@ export function PalletPickOptimizerModal({ isOpen, onClose, preSelectedOrder, on
           {/* Order Selector (if not pre-selected or if user wants to change) */}
           {!preSelectedOrder && !selectedOrder && (
             <div className="flex flex-col gap-4 animate-in fade-in duration-300">
-              <div className="relative">
-                <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-secondary" />
-                <input 
-                  type="text" 
-                  value={searchOrderQuery}
-                  onChange={e => setSearchOrderQuery(e.target.value)}
-                  placeholder="Search orders by customer name, tag, item SKU..." 
-                  className="w-full bg-white border border-brand-border rounded-2xl pl-12 pr-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-all shadow-sm"
-                  autoFocus
-                />
+              
+              {/* Tab Switcher */}
+              <div className="flex bg-neutral-200/60 p-1 rounded-2xl border border-brand-border/60 max-w-md mb-2 shrink-0">
+                <button 
+                  onClick={() => setSelectorMode('local')} 
+                  className={`flex-1 py-2 text-xs font-bold uppercase rounded-xl transition-all ${selectorMode === 'local' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}
+                >
+                  Local Orders
+                </button>
+                <button 
+                  onClick={() => setSelectorMode('shopify')} 
+                  className={`flex-1 py-2 text-xs font-bold uppercase rounded-xl transition-all ${selectorMode === 'shopify' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}
+                >
+                  Shopify Orders (Temp Pick)
+                </button>
               </div>
 
-              {ordersLoading ? (
-                <div className="flex items-center justify-center p-12">
-                  <Loader2 className="animate-spin text-brand-primary" size={32} />
-                </div>
-              ) : filteredOrders.length === 0 ? (
-                <div className="flex flex-col items-center justify-center p-12 text-center text-brand-secondary">
-                  <ShoppingBag size={48} className="mb-4 text-brand-secondary/40 animate-bounce" />
-                  <p className="font-bold text-lg">No orders matched search criteria.</p>
-                  <p className="text-xs mt-2">Make sure orders are imported or tags match Shopify.</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto pr-1">
-                  {filteredOrders.map((order) => {
-                    const lineItemCount = order.items?.reduce((acc: number, item: any) => acc + (item.qty || 0), 0) || 0;
-                    const isShopify = order.items?.some((i: any) => i.shopifyOrder);
-                    
-                    return (
-                      <div 
-                        key={order.id} 
-                        onClick={() => setSelectedOrder(order)}
-                        className="bg-white rounded-2xl p-5 border border-brand-border hover:border-brand-primary cursor-pointer hover:shadow-lg transition-all flex flex-col justify-between gap-4 group"
-                      >
-                        <div className="flex justify-between items-start gap-4">
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                              <span className="font-bold text-brand-primary text-base truncate group-hover:text-brand-primary/80">{order.title}</span>
-                              {isShopify && (
-                                <span className="bg-blue-50 border border-blue-200 text-blue-600 font-bold text-[9px] px-1.5 py-0.5 rounded uppercase tracking-wider">
-                                  Shopify
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-xs text-brand-secondary font-semibold uppercase tracking-wider">
-                              Order ID: <b className="text-brand-primary font-bold">{order.portalId || 'Unassigned'}</b>
-                            </p>
-                          </div>
-                          <div className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-neutral-50 group-hover:bg-brand-primary/10 group-hover:text-brand-primary transition-all">
-                            <ArrowRight size={16} />
-                          </div>
-                        </div>
+              {selectorMode === 'local' ? (
+                <>
+                  <div className="relative">
+                    <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-secondary" />
+                    <input 
+                      type="text" 
+                      value={searchOrderQuery}
+                      onChange={e => setSearchOrderQuery(e.target.value)}
+                      placeholder="Search orders by customer name, tag, item SKU..." 
+                      className="w-full bg-white border border-brand-border rounded-2xl pl-12 pr-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-all shadow-sm"
+                      autoFocus
+                    />
+                  </div>
 
-                        <div className="flex justify-between items-center text-xs border-t border-brand-border/40 pt-3 mt-1 text-brand-secondary font-semibold">
-                          <span>Items: <b className="text-brand-primary">{lineItemCount}</b></span>
-                          <span>Date: <b className="text-brand-primary">{order.date || 'TBD'}</b></span>
-                        </div>
+                  {ordersLoading ? (
+                    <div className="flex items-center justify-center p-12">
+                      <Loader2 className="animate-spin text-brand-primary" size={32} />
+                    </div>
+                  ) : filteredOrders.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center p-12 text-center text-brand-secondary">
+                      <ShoppingBag size={48} className="mb-4 text-brand-secondary/40 animate-bounce" />
+                      <p className="font-bold text-lg">No orders matched search criteria.</p>
+                      <p className="text-xs mt-2">Make sure orders are imported or tags match Shopify.</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto pr-1">
+                      {filteredOrders.map((order) => {
+                        const lineItemCount = order.items?.reduce((acc: number, item: any) => acc + (item.qty || 0), 0) || 0;
+                        const isShopify = order.items?.some((i: any) => i.shopifyOrder);
+                        
+                        return (
+                          <div 
+                            key={order.id} 
+                            onClick={() => setSelectedOrder(order)}
+                            className="bg-white rounded-2xl p-5 border border-brand-border hover:border-brand-primary cursor-pointer hover:shadow-lg transition-all flex flex-col justify-between gap-4 group"
+                          >
+                            <div className="flex justify-between items-start gap-4">
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                                  <span className="font-bold text-brand-primary text-base truncate group-hover:text-brand-primary/80">{order.title}</span>
+                                  {isShopify && (
+                                    <span className="bg-blue-50 border border-blue-200 text-blue-600 font-bold text-[9px] px-1.5 py-0.5 rounded uppercase tracking-wider">
+                                      Shopify
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-xs text-brand-secondary font-semibold uppercase tracking-wider">
+                                  Order ID: <b className="text-brand-primary font-bold">{order.portalId || 'Unassigned'}</b>
+                                </p>
+                              </div>
+                              <div className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-neutral-50 group-hover:bg-brand-primary/10 group-hover:text-brand-primary transition-all">
+                                <ArrowRight size={16} />
+                              </div>
+                            </div>
+
+                            <div className="flex justify-between items-center text-xs border-t border-brand-border/40 pt-3 mt-1 text-brand-secondary font-semibold">
+                              <span>Items: <b className="text-brand-primary">{lineItemCount}</b></span>
+                              <span>Date: <b className="text-brand-primary">{order.date || 'TBD'}</b></span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="flex flex-col gap-4">
+                  <form onSubmit={handleShopifySearch} className="flex gap-2">
+                    <div className="relative flex-1">
+                      <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-secondary" />
+                      <input 
+                        type="text" 
+                        value={shopifySearchTag}
+                        onChange={e => setShopifySearchTag(e.target.value)}
+                        placeholder="Search Shopify by Tag (e.g. MAY26)..." 
+                        className="w-full bg-white border border-brand-border rounded-2xl pl-12 pr-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-all shadow-sm"
+                        autoFocus
+                      />
+                    </div>
+                    <button 
+                      type="submit" 
+                      disabled={shopifySearchLoading}
+                      className="px-6 py-3 bg-brand-primary text-white font-bold uppercase tracking-widest text-xs rounded-2xl shadow-md hover:bg-black transition-all flex items-center justify-center min-w-[100px]"
+                    >
+                      {shopifySearchLoading ? <Loader2 className="animate-spin" size={16} /> : 'Search'}
+                    </button>
+                  </form>
+
+                  {shopifySearchLoading ? (
+                    <div className="flex items-center justify-center p-12">
+                      <Loader2 className="animate-spin text-brand-primary" size={32} />
+                    </div>
+                  ) : shopifyOrders.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center p-12 text-center text-brand-secondary">
+                      <ShoppingBag size={48} className="mb-4 text-brand-secondary/40 animate-bounce" />
+                      <p className="font-bold text-lg">No Shopify orders found matching tag.</p>
+                      <p className="text-xs mt-2">Enter a tag and click Search to fetch new orders directly from Shopify.</p>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[50vh] overflow-y-auto pr-1">
+                        {shopifyOrders.map((order) => {
+                          const isChecked = selectedShopifyOrderIds.has(order.id);
+                          const itemCount = order.lineItems?.reduce((acc: number, item: any) => acc + (parseInt(item.quantity) || 0), 0) || 0;
+                          
+                          return (
+                            <div 
+                              key={order.id} 
+                              onClick={() => {
+                                const newSet = new Set(selectedShopifyOrderIds);
+                                if (newSet.has(order.id)) newSet.delete(order.id);
+                                else newSet.add(order.id);
+                                setSelectedShopifyOrderIds(newSet);
+                              }}
+                              className={`bg-white rounded-2xl p-5 border cursor-pointer hover:shadow-lg transition-all flex items-start gap-4 group ${isChecked ? 'border-green-600 bg-green-50/10' : 'border-brand-border'}`}
+                            >
+                              <input 
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => {}} // toggled by parent click
+                                className="w-5 h-5 rounded border-brand-border text-brand-primary focus:ring-brand-primary cursor-pointer shrink-0 mt-0.5"
+                              />
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="font-bold text-brand-primary text-base truncate group-hover:text-brand-primary/80">{order.name}</span>
+                                  <span className="bg-blue-50 border border-blue-200 text-blue-600 font-bold text-[9px] px-1.5 py-0.5 rounded uppercase tracking-wider">Shopify</span>
+                                </div>
+                                <p className="text-xs text-brand-secondary font-semibold uppercase tracking-wider">
+                                  Customer: <b className="text-brand-primary">{order.customer?.firstName} {order.customer?.lastName || 'Guest'}</b>
+                                </p>
+                                <div className="flex justify-between items-center text-xs border-t border-brand-border/40 pt-3 mt-3 text-brand-secondary font-semibold">
+                                  <span>Items: <b className="text-brand-primary">{itemCount}</b></span>
+                                  <span>Date: <b className="text-brand-primary">{order.createdAt ? new Date(order.createdAt).toLocaleDateString() : 'TBD'}</b></span>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
-                    );
-                  })}
+
+                      {selectedShopifyOrderIds.size > 0 && (
+                        <div className="flex justify-end pt-2 border-t border-brand-border/40">
+                          <button 
+                            onClick={handleGenerateTemporaryRoute}
+                            disabled={isGeneratingTempOrder}
+                            className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-bold uppercase tracking-widest text-xs rounded-xl shadow-md transition-all flex items-center gap-2"
+                          >
+                            {isGeneratingTempOrder ? (
+                              <>
+                                <Loader2 className="animate-spin" size={14} /> Generating...
+                              </>
+                            ) : (
+                              <>
+                                Optimize Pick Route (Temporary In-Memory)
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
+
             </div>
           )}
 
@@ -618,7 +850,7 @@ export function PalletPickOptimizerModal({ isOpen, onClose, preSelectedOrder, on
                                 className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-brand-border rounded-lg text-[10px] font-bold uppercase tracking-widest text-brand-primary hover:bg-black hover:text-white hover:border-black transition-all shadow-sm"
                                 title="Locate pallet on 3D warehouse map"
                               >
-                                <Map size={12} /> Locate
+                                <MapIcon size={12} /> Locate
                               </button>
                             )}
                           </div>
