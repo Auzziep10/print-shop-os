@@ -214,7 +214,7 @@ export function PalletPickOptimizerModal({ isOpen, onClose, preSelectedOrder, on
                       style: need.style,
                       color: need.color,
                       size: need.size,
-                      sku: invItem.sku || need.skusMap?.[need.size] || need.generalSku || '',
+                      sku: need.skusMap?.[need.size] || need.generalSku || invItem.sku || '',
                       qty: pickQty,
                       photoUrl: invItem.photoUrl || need.image || ''
                    });
