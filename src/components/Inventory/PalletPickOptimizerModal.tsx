@@ -25,19 +25,15 @@ interface UnmetNeed {
 const matchPalletItem = (palletItem: any, orderItem: any, size: string) => {
   // 1. Size-specific SKU check
   if (orderItem.skusMap && orderItem.skusMap[size]) {
-     if (palletItem.sku && palletItem.sku.toLowerCase() === orderItem.skusMap[size].toLowerCase()) {
-        return true;
-     }
+     return palletItem.sku && palletItem.sku.toLowerCase() === orderItem.skusMap[size].toLowerCase();
   }
   
   // 2. Generic itemNum check
   if (orderItem.generalSku) {
-     if (palletItem.sku && palletItem.sku.toLowerCase() === orderItem.generalSku.toLowerCase()) {
-        return true;
-     }
+     return palletItem.sku && palletItem.sku.toLowerCase() === orderItem.generalSku.toLowerCase();
   }
   
-  // 3. Fallback: match by style name + size
+  // 3. Fallback: match by style name + size (only if no SKUs are defined in the order)
   const palletItemName = (palletItem.name || '').toLowerCase();
   const orderItemStyle = (orderItem.style || '').toLowerCase();
   const palletItemSize = (palletItem.size || '').toLowerCase();
