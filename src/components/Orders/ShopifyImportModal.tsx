@@ -148,6 +148,7 @@ export function ShopifyImportModal({ isOpen, onClose, customerId }: Props) {
          createdAt: new Date().toISOString(),
          fulfillmentType: 'Standard', // Default
          items: combinedItems,
+         isShopifyOrder: true,
          boxes: [],
          activities: [{
             id: Date.now().toString(),

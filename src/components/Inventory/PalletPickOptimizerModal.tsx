@@ -243,18 +243,26 @@ export function PalletPickOptimizerModal({ isOpen, onClose, preSelectedOrder, on
 
   if (!isOpen) return null;
 
-  // Filter orders by search tag or customer
-  const filteredOrders = orders.filter(o => {
-    if (!searchOrderQuery.trim()) return true;
-    const q = searchOrderQuery.toLowerCase();
-    return (
-      (o.title || '').toLowerCase().includes(q) ||
-      (o.id || '').toLowerCase().includes(q) ||
-      (o.portalId || '').toLowerCase().includes(q) ||
-      (o.customerId || '').toLowerCase().includes(q) ||
-      (o.items?.some((i: any) => (i.style || '').toLowerCase().includes(q) || (i.itemNum || '').toLowerCase().includes(q)))
-    );
-  });
+  // Filter orders by search tag or customer, ensuring they are Shopify orders
+  const filteredOrders = orders
+    .filter(o => {
+      return (
+        o.isShopifyOrder === true ||
+        (o.title || '').toLowerCase().includes('shopify') ||
+        o.items?.some((i: any) => i.shopifyOrder)
+      );
+    })
+    .filter(o => {
+      if (!searchOrderQuery.trim()) return true;
+      const q = searchOrderQuery.toLowerCase();
+      return (
+        (o.title || '').toLowerCase().includes(q) ||
+        (o.id || '').toLowerCase().includes(q) ||
+        (o.portalId || '').toLowerCase().includes(q) ||
+        (o.customerId || '').toLowerCase().includes(q) ||
+        (o.items?.some((i: any) => (i.style || '').toLowerCase().includes(q) || (i.itemNum || '').toLowerCase().includes(q)))
+      );
+    });
 
   const handleTogglePick = (key: string) => {
     setCheckedPicks(prev => ({
