@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, Layers, Box, MapPin, Check, CheckCircle2, Search, ShoppingBag, Printer, Loader2, ArrowRight, AlertTriangle, Map as MapIcon } from 'lucide-react';
 import QRCode from 'react-qr-code';
 import { db } from '../../lib/firebase';
-import { collection, query, onSnapshot } from 'firebase/firestore';
+import { collection, query, onSnapshot, doc, setDoc } from 'firebase/firestore';
 
 interface Props {
   isOpen: boolean;
@@ -66,6 +66,7 @@ export function PalletPickOptimizerModal({ isOpen, onClose, preSelectedOrder, on
   const [shopifySearchLoading, setShopifySearchLoading] = useState(false);
   const [selectedShopifyOrderIds, setSelectedShopifyOrderIds] = useState<Set<string>>(new Set());
   const [isGeneratingTempOrder, setIsGeneratingTempOrder] = useState(false);
+  const [isApplyingPicks, setIsApplyingPicks] = useState(false);
 
   // Reset states when order changes
   useEffect(() => {
@@ -709,6 +710,95 @@ export function PalletPickOptimizerModal({ isOpen, onClose, preSelectedOrder, on
     printWindow.document.close();
   };
 
+  const handleCompletePicking = async () => {
+    if (!optimizationResult) return;
+    if (stats.checked === 0) {
+      alert("Please check at least one item to apply picks.");
+      return;
+    }
+
+    const confirmMessage = `Are you sure you want to complete this picking route and deduct the ${stats.checked} picked items/quantities from the warehouse database?`;
+    if (!window.confirm(confirmMessage)) return;
+
+    setIsApplyingPicks(true);
+    try {
+      // Create a map to group the picks we are applying by palletId
+      const palletUpdates: Record<string, { palletId: string, boxId: string, picks: any[] }[]> = {};
+
+      optimizationResult.route.forEach(pallet => {
+        pallet.boxes.forEach((box: any) => {
+          box.picks.forEach((pick: any) => {
+            const key = `${pallet.palletId}-${box.boxId}-${pick.style}-${pick.size}-${pick.sku}`;
+            if (checkedPicks[key]) {
+              if (!palletUpdates[pallet.palletId]) {
+                palletUpdates[pallet.palletId] = [];
+              }
+              // Find or create group for this box
+              let boxGroup = palletUpdates[pallet.palletId].find(g => g.boxId === box.boxId);
+              if (!boxGroup) {
+                boxGroup = { palletId: pallet.palletId, boxId: box.boxId, picks: [] };
+                palletUpdates[pallet.palletId].push(boxGroup);
+              }
+              boxGroup.picks.push(pick);
+            }
+          });
+        });
+      });
+
+      // Now iterate through each pallet that needs updates
+      for (const palletId of Object.keys(palletUpdates)) {
+        const palletDocRef = doc(db, 'pallets', palletId);
+        // Find the latest pallet data from our local Firestore snapshot sync
+        const currentPallet = pallets.find(p => p.id === palletId);
+        if (!currentPallet) continue;
+
+        const groups = palletUpdates[palletId];
+        
+        // Deep copy and update the boxes array
+        const updatedBoxes = currentPallet.boxes.map((b: any) => {
+          const group = groups.find(g => g.boxId === b.id);
+          if (!group) return b; // No picks in this box
+
+          // Update items in this box
+          const updatedItems = (b.items || []).map((item: any) => {
+            // Find if there is a matching pick
+            const matchingPick = group.picks.find(p => 
+              p.style === item.name && 
+              p.size === item.size && 
+              (p.sku || '').toLowerCase() === (item.sku || '').toLowerCase()
+            );
+
+            if (matchingPick) {
+              const newQty = item.quantity - matchingPick.qty;
+              return {
+                ...item,
+                quantity: newQty
+              };
+            }
+            return item;
+          }).filter((item: any) => item.quantity > 0); // Remove items whose quantity falls to 0 or below
+
+          return {
+            ...b,
+            items: updatedItems
+          };
+        });
+
+        // Save back to Firestore
+        await setDoc(palletDocRef, { ...currentPallet, boxes: updatedBoxes });
+      }
+
+      alert("Successfully completed picking! Inventory quantities have been updated.");
+      setCheckedPicks({});
+      onClose();
+    } catch (error) {
+      console.error("Error applying picks:", error);
+      alert("An error occurred while updating the inventory: " + (error as Error).message);
+    } finally {
+      setIsApplyingPicks(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 md:p-6 overflow-y-auto">
       <div className="bg-white rounded-3xl max-w-4xl w-full flex flex-col shadow-2xl border border-brand-border my-auto overflow-hidden max-h-[90vh]">
@@ -1162,6 +1252,21 @@ export function PalletPickOptimizerModal({ isOpen, onClose, preSelectedOrder, on
                 className="flex-1 sm:flex-none px-6 py-2.5 text-[10px] font-bold uppercase tracking-widest bg-black text-white hover:bg-neutral-800 rounded-xl transition-all shadow-md flex items-center justify-center gap-2"
               >
                 <Printer size={14} /> Print QR Stickers
+              </button>
+              <button 
+                onClick={handleCompletePicking}
+                disabled={isApplyingPicks}
+                className="flex-1 sm:flex-none px-6 py-2.5 text-[10px] font-bold uppercase tracking-widest bg-green-600 text-white hover:bg-green-700 disabled:bg-neutral-300 rounded-xl transition-all shadow-md flex items-center justify-center gap-2"
+              >
+                {isApplyingPicks ? (
+                  <>
+                    <Loader2 className="animate-spin" size={14} /> Applying...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 size={14} /> Complete Picking
+                  </>
+                )}
               </button>
             </div>
           </div>
