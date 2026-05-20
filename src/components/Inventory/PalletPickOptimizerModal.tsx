@@ -60,14 +60,13 @@ export function PalletPickOptimizerModal({ isOpen, onClose, preSelectedOrder, on
   const [optimizationResult, setOptimizationResult] = useState<{ route: any[]; unresolved: UnmetNeed[] } | null>(null);
   const [checkedPicks, setCheckedPicks] = useState<Record<string, boolean>>({});
 
-  const [selectorMode, setSelectorMode] = useState<'local' | 'shopify'>('local');
+  const [selectorMode, setSelectorMode] = useState<'local' | 'shopify' | 'archived'>('local');
   const [shopifySearchTag, setShopifySearchTag] = useState('');
   const [shopifyOrders, setShopifyOrders] = useState<any[]>([]);
   const [shopifySearchLoading, setShopifySearchLoading] = useState(false);
   const [selectedShopifyOrderIds, setSelectedShopifyOrderIds] = useState<Set<string>>(new Set());
   const [isGeneratingTempOrder, setIsGeneratingTempOrder] = useState(false);
   const [isApplyingPicks, setIsApplyingPicks] = useState(false);
-  const [isArchiving, setIsArchiving] = useState(false);
 
   // Reset states when order changes
   useEffect(() => {
@@ -367,26 +366,26 @@ export function PalletPickOptimizerModal({ isOpen, onClose, preSelectedOrder, on
 
   if (!isOpen) return null;
 
-  // Filter orders by search tag or customer, ensuring they are Shopify orders
-  const filteredOrders = orders
-    .filter(o => {
-      return (
-        o.isShopifyOrder === true ||
-        (o.title || '').toLowerCase().includes('shopify') ||
-        o.items?.some((i: any) => i.shopifyOrder)
-      );
-    })
-    .filter(o => {
-      if (!searchOrderQuery.trim()) return true;
-      const q = searchOrderQuery.toLowerCase();
-      return (
-        (o.title || '').toLowerCase().includes(q) ||
-        (o.id || '').toLowerCase().includes(q) ||
-        (o.portalId || '').toLowerCase().includes(q) ||
-        (o.customerId || '').toLowerCase().includes(q) ||
-        (o.items?.some((i: any) => (i.style || '').toLowerCase().includes(q) || (i.itemNum || '').toLowerCase().includes(q)))
-      );
-    });
+  const searchMatchedOrders = orders.filter(o => {
+    if (!searchOrderQuery.trim()) return true;
+    const q = searchOrderQuery.toLowerCase();
+    return (
+      (o.title || '').toLowerCase().includes(q) ||
+      (o.id || '').toLowerCase().includes(q) ||
+      (o.portalId || '').toLowerCase().includes(q) ||
+      (o.customerId || '').toLowerCase().includes(q) ||
+      (o.items?.some((i: any) => (i.style || '').toLowerCase().includes(q) || (i.itemNum || '').toLowerCase().includes(q)))
+    );
+  });
+
+  const filteredLocalOrders = searchMatchedOrders.filter(o => {
+    const isShopify = o.isShopifyOrder === true ||
+      (o.title || '').toLowerCase().includes('shopify') ||
+      o.items?.some((i: any) => i.shopifyOrder);
+    return isShopify && !o.isArchivedPick;
+  });
+
+  const filteredArchivedOrders = searchMatchedOrders.filter(o => o.isArchivedPick === true);
 
   const handleTogglePick = (key: string) => {
     setCheckedPicks(prev => ({
@@ -737,43 +736,6 @@ export function PalletPickOptimizerModal({ isOpen, onClose, preSelectedOrder, on
     printWindow.document.close();
   };
 
-  const handleArchivePickRoute = async () => {
-    if (!selectedOrder || !optimizationResult) return;
-    setIsArchiving(true);
-    try {
-      const orderId = selectedOrder.id;
-      const archiveUpdates = {
-        isArchivedPick: true,
-        archivedAt: new Date().toISOString(),
-        pickRoute: optimizationResult.route,
-        unresolvedPicks: optimizationResult.unresolved,
-        checkedPicks: checkedPicks
-      };
-
-      if (selectedOrder.isTemporary) {
-        const orderData = {
-          ...selectedOrder,
-          isTemporary: false,
-          ...archiveUpdates
-        };
-        await setDoc(doc(db, 'orders', orderId), orderData);
-        setSelectedOrder(orderData);
-      } else {
-        await updateDoc(doc(db, 'orders', orderId), archiveUpdates);
-        setSelectedOrder({
-          ...selectedOrder,
-          ...archiveUpdates
-        });
-      }
-      alert("Pick route successfully archived! You can reference and open it later.");
-    } catch (err) {
-      console.error("Failed to archive pick route:", err);
-      alert("Failed to archive pick route: " + (err as Error).message);
-    } finally {
-      setIsArchiving(false);
-    }
-  };
-
   const handleCompletePicking = async () => {
     if (!optimizationResult) return;
     if (stats.checked === 0) {
@@ -917,7 +879,7 @@ export function PalletPickOptimizerModal({ isOpen, onClose, preSelectedOrder, on
             <div className="flex flex-col gap-4 animate-in fade-in duration-300">
               
               {/* Tab Switcher */}
-              <div className="flex bg-neutral-200/60 p-1 rounded-2xl border border-brand-border/60 max-w-md mb-2 shrink-0">
+              <div className="flex bg-neutral-200/60 p-1 rounded-2xl border border-brand-border/60 max-w-lg mb-2 shrink-0">
                 <button 
                   onClick={() => setSelectorMode('local')} 
                   className={`flex-1 py-2 text-xs font-bold uppercase rounded-xl transition-all ${selectorMode === 'local' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}
@@ -930,6 +892,12 @@ export function PalletPickOptimizerModal({ isOpen, onClose, preSelectedOrder, on
                 >
                   Shopify Orders (Temp Pick)
                 </button>
+                <button 
+                  onClick={() => setSelectorMode('archived')} 
+                  className={`flex-1 py-2 text-xs font-bold uppercase rounded-xl transition-all ${selectorMode === 'archived' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}
+                >
+                  Archived Picks
+                </button>
               </div>
 
               {selectorMode === 'local' ? (
@@ -940,7 +908,7 @@ export function PalletPickOptimizerModal({ isOpen, onClose, preSelectedOrder, on
                       type="text" 
                       value={searchOrderQuery}
                       onChange={e => setSearchOrderQuery(e.target.value)}
-                      placeholder="Search orders by customer name, tag, item SKU..." 
+                      placeholder="Search active orders..." 
                       className="w-full bg-white border border-brand-border rounded-2xl pl-12 pr-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-all shadow-sm"
                       autoFocus
                     />
@@ -950,15 +918,15 @@ export function PalletPickOptimizerModal({ isOpen, onClose, preSelectedOrder, on
                     <div className="flex items-center justify-center p-12">
                       <Loader2 className="animate-spin text-brand-primary" size={32} />
                     </div>
-                  ) : filteredOrders.length === 0 ? (
+                  ) : filteredLocalOrders.length === 0 ? (
                     <div className="flex flex-col items-center justify-center p-12 text-center text-brand-secondary">
                       <ShoppingBag size={48} className="mb-4 text-brand-secondary/40 animate-bounce" />
-                      <p className="font-bold text-lg">No orders matched search criteria.</p>
+                      <p className="font-bold text-lg">No active orders matched search criteria.</p>
                       <p className="text-xs mt-2">Make sure orders are imported or tags match Shopify.</p>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto pr-1">
-                      {filteredOrders.map((order) => {
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto pr-1 animate-in slide-in-from-bottom-2 duration-200">
+                      {filteredLocalOrders.map((order) => {
                         const lineItemCount = order.items?.reduce((acc: number, item: any) => acc + (item.qty || 0), 0) || 0;
                         const isShopify = order.items?.some((i: any) => i.shopifyOrder);
                         
@@ -977,11 +945,74 @@ export function PalletPickOptimizerModal({ isOpen, onClose, preSelectedOrder, on
                                       Shopify
                                     </span>
                                   )}
-                                  {order.isArchivedPick && (
-                                    <span className="bg-amber-50 border border-amber-200 text-amber-700 font-bold text-[9px] px-1.5 py-0.5 rounded uppercase tracking-wider flex items-center gap-0.5">
-                                      <Check size={8} strokeWidth={4} /> Archived Pick
+                                </div>
+                                <p className="text-xs text-brand-secondary font-semibold uppercase tracking-wider">
+                                  Order ID: <b className="text-brand-primary font-bold">{order.portalId || 'Unassigned'}</b>
+                                </p>
+                              </div>
+                              <div className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-neutral-50 group-hover:bg-brand-primary/10 group-hover:text-brand-primary transition-all">
+                                <ArrowRight size={16} />
+                              </div>
+                            </div>
+
+                            <div className="flex justify-between items-center text-xs border-t border-brand-border/40 pt-3 mt-1 text-brand-secondary font-semibold">
+                              <span>Items: <b className="text-brand-primary">{lineItemCount}</b></span>
+                              <span>Date: <b className="text-brand-primary">{order.date || 'TBD'}</b></span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
+              ) : selectorMode === 'archived' ? (
+                <>
+                  <div className="relative">
+                    <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-secondary" />
+                    <input 
+                      type="text" 
+                      value={searchOrderQuery}
+                      onChange={e => setSearchOrderQuery(e.target.value)}
+                      placeholder="Search archived picks by tag, title, item..." 
+                      className="w-full bg-white border border-brand-border rounded-2xl pl-12 pr-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-all shadow-sm"
+                      autoFocus
+                    />
+                  </div>
+
+                  {ordersLoading ? (
+                    <div className="flex items-center justify-center p-12">
+                      <Loader2 className="animate-spin text-brand-primary" size={32} />
+                    </div>
+                  ) : filteredArchivedOrders.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center p-12 text-center text-brand-secondary">
+                      <Archive size={48} className="mb-4 text-brand-secondary/40 animate-bounce" />
+                      <p className="font-bold text-lg">No archived picks found.</p>
+                      <p className="text-xs mt-2">Complete standard or Shopify temporary picking to save routes here.</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto pr-1 animate-in slide-in-from-bottom-2 duration-200">
+                      {filteredArchivedOrders.map((order) => {
+                        const lineItemCount = order.items?.reduce((acc: number, item: any) => acc + (item.qty || 0), 0) || 0;
+                        const isShopify = order.items?.some((i: any) => i.shopifyOrder);
+                        
+                        return (
+                          <div 
+                            key={order.id} 
+                            onClick={() => setSelectedOrder(order)}
+                            className="bg-white rounded-2xl p-5 border border-brand-border hover:border-brand-primary cursor-pointer hover:shadow-lg transition-all flex flex-col justify-between gap-4 group"
+                          >
+                            <div className="flex justify-between items-start gap-4">
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                                  <span className="font-bold text-brand-primary text-base truncate group-hover:text-brand-primary/80">{order.title}</span>
+                                  {isShopify && (
+                                    <span className="bg-blue-50 border border-blue-200 text-blue-600 font-bold text-[9px] px-1.5 py-0.5 rounded uppercase tracking-wider">
+                                      Shopify
                                     </span>
                                   )}
+                                  <span className="bg-amber-50 border border-amber-200 text-amber-700 font-bold text-[9px] px-1.5 py-0.5 rounded uppercase tracking-wider flex items-center gap-0.5">
+                                    <Check size={8} strokeWidth={4} /> Archived Pick
+                                  </span>
                                 </div>
                                 <p className="text-xs text-brand-secondary font-semibold uppercase tracking-wider">
                                   Order ID: <b className="text-brand-primary font-bold">{order.portalId || 'Unassigned'}</b>
@@ -1354,38 +1385,21 @@ export function PalletPickOptimizerModal({ isOpen, onClose, preSelectedOrder, on
                   <CheckCircle2 size={13} className="text-green-600" /> Picking Completed & Archived
                 </div>
               ) : (
-                <>
-                  <button 
-                    onClick={handleArchivePickRoute}
-                    disabled={isArchiving}
-                    className="px-4 py-2 text-[9px] font-bold uppercase tracking-wider bg-amber-600 text-white hover:bg-amber-700 disabled:bg-neutral-300 rounded-xl transition-all shadow-md flex items-center justify-center gap-1.5 flex-shrink-0"
-                  >
-                    {isArchiving ? (
-                      <>
-                        <Loader2 className="animate-spin" size={13} /> Archiving...
-                      </>
-                    ) : (
-                      <>
-                        <Archive size={13} /> Archive Pick Route
-                      </>
-                    )}
-                  </button>
-                  <button 
-                    onClick={handleCompletePicking}
-                    disabled={isApplyingPicks}
-                    className="px-4 py-2 text-[9px] font-bold uppercase tracking-wider bg-green-600 text-white hover:bg-green-700 disabled:bg-neutral-300 rounded-xl transition-all shadow-md flex items-center justify-center gap-1.5 flex-shrink-0"
-                  >
-                    {isApplyingPicks ? (
-                      <>
-                        <Loader2 className="animate-spin" size={13} /> Applying...
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircle2 size={13} /> Complete Picking
-                      </>
-                    )}
-                  </button>
-                </>
+                <button 
+                  onClick={handleCompletePicking}
+                  disabled={isApplyingPicks}
+                  className="px-4 py-2 text-[9px] font-bold uppercase tracking-wider bg-green-600 text-white hover:bg-green-700 disabled:bg-neutral-300 rounded-xl transition-all shadow-md flex items-center justify-center gap-1.5 flex-shrink-0"
+                >
+                  {isApplyingPicks ? (
+                    <>
+                      <Loader2 className="animate-spin" size={13} /> Applying...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 size={13} /> Complete Picking
+                    </>
+                  )}
+                </button>
               )}
             </div>
           </div>
