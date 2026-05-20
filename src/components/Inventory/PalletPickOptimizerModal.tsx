@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, Layers, Box, MapPin, Check, CheckCircle2, Search, ShoppingBag, Printer, Loader2, ArrowRight, AlertTriangle, Map as MapIcon } from 'lucide-react';
+import QRCode from 'react-qr-code';
 import { db } from '../../lib/firebase';
 import { collection, query, onSnapshot } from 'firebase/firestore';
 
@@ -437,27 +438,30 @@ export function PalletPickOptimizerModal({ isOpen, onClose, preSelectedOrder, on
 
       const boxesHtml = pallet.boxes.map((box: any) => {
         const itemsHtml = box.picks.map((pick: any) => `
-          <tr style="border-bottom: 1px solid #e5e7eb;">
-            <td style="padding: 10px 0; font-weight: bold; font-size: 14px;">[ ] Pick ${pick.qty}x</td>
-            <td style="padding: 10px 0; font-size: 14px;">
-              <span style="font-weight: bold; color: #1e293b;">${pick.style}</span>
-              ${pick.color ? `<span style="color: #64748b; font-size: 12px; margin-left: 6px;">(${pick.color})</span>` : ''}
+          <tr style="border-bottom: 1px solid #e2e8f0;">
+            <td style="padding: 12px 16px; font-weight: 800; font-size: 14px; color: #0284c7; width: 120px;">[ ] Pick ${pick.qty}x</td>
+            <td style="padding: 12px 16px; font-size: 14px; color: #1e293b;">
+              <span style="font-weight: 700;">${pick.style}</span>
+              ${pick.color ? `<span style="color: #64748b; font-size: 12px; margin-left: 6px; font-weight: 500;">(${pick.color})</span>` : ''}
             </td>
-            <td style="padding: 10px 0; font-weight: bold; color: #475569; font-size: 14px;">${pick.size}</td>
-            <td style="padding: 10px 0; font-family: monospace; font-size: 12px; color: #64748b;">${pick.sku || '-'}</td>
+            <td style="padding: 12px 16px; font-weight: 700; color: #475569; font-size: 14px; width: 80px; text-align: center;">${pick.size}</td>
+            <td style="padding: 12px 16px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 13px; color: #475569; font-weight: 600; width: 180px;">${pick.sku || '-'}</td>
           </tr>
         `).join('');
 
         return `
-          <div style="margin-top: 15px; margin-left: 20px; border-left: 2px solid #cbd5e1; padding-left: 15px;">
-            <h3 style="margin: 0 0 10px 0; font-size: 15px; color: #334155; font-family: sans-serif;">Box: ${box.boxName}</h3>
-            <table style="width: 100%; border-collapse: collapse; text-align: left;">
+          <div style="margin-top: 24px; border: 2px solid #e2e8f0; background: #f8fafc; border-radius: 12px; padding: 20px; box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05); page-break-inside: avoid;">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">
+              <span style="font-size: 20px;">📦</span>
+              <h3 style="margin: 0; font-size: 16px; font-weight: 800; color: #0f172a; font-family: system-ui, sans-serif; text-transform: uppercase; letter-spacing: 0.5px;">Box: ${box.boxName}</h3>
+            </div>
+            <table style="width: 100%; border-collapse: collapse; text-align: left; background: #ffffff; border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0;">
               <thead>
-                <tr style="border-bottom: 2px solid #e2e8f0; color: #64748b; font-size: 11px; text-transform: uppercase;">
-                  <th style="padding-bottom: 6px; width: 100px;">Check</th>
-                  <th style="padding-bottom: 6px;">Garment</th>
-                  <th style="padding-bottom: 6px; width: 80px;">Size</th>
-                  <th style="padding-bottom: 6px; width: 150px;">SKU</th>
+                <tr style="background: #f1f5f9; border-bottom: 2px solid #e2e8f0; color: #475569; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">
+                  <th style="padding: 10px 16px;">Check</th>
+                  <th style="padding: 10px 16px;">Garment</th>
+                  <th style="padding: 10px 16px; text-align: center;">Size</th>
+                  <th style="padding: 10px 16px;">SKU</th>
                 </tr>
               </thead>
               <tbody>
@@ -469,10 +473,10 @@ export function PalletPickOptimizerModal({ isOpen, onClose, preSelectedOrder, on
       }).join('');
 
       return `
-        <div style="page-break-inside: avoid; margin-bottom: 30px; border: 1px solid #e2e8f0; padding: 20px; border-radius: 8px;">
-          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px; margin-bottom: 15px;">
-            <h2 style="margin: 0; font-family: serif; font-size: 20px; color: #0f172a;">Step ${pIdx + 1}: Pallet ${pallet.name}</h2>
-            <span style="font-size: 12px; font-weight: bold; background: #f1f5f9; color: #475569; padding: 4px 10px; border-radius: 9999px;">${locationStr}</span>
+        <div style="page-break-inside: avoid; margin-bottom: 35px; border: 2px solid #cbd5e1; padding: 24px; border-radius: 16px; background: #ffffff; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #cbd5e1; padding-bottom: 12px; margin-bottom: 20px;">
+            <h2 style="margin: 0; font-family: serif; font-size: 22px; color: #0f172a; font-weight: 900;">Step ${pIdx + 1}: Pallet ${pallet.name}</h2>
+            <span style="font-size: 12px; font-weight: 800; background: #0f172a; color: #ffffff; padding: 6px 14px; border-radius: 9999px; font-family: system-ui, sans-serif; text-transform: uppercase; letter-spacing: 0.5px;">${locationStr}</span>
           </div>
           ${boxesHtml}
         </div>
@@ -480,22 +484,22 @@ export function PalletPickOptimizerModal({ isOpen, onClose, preSelectedOrder, on
     }).join('');
 
     const unresolvedHtml = optimizationResult.unresolved.length > 0 ? `
-      <div style="margin-top: 40px; border: 1px solid #fee2e2; background: #fef2f2; padding: 20px; border-radius: 8px; page-break-inside: avoid;">
-        <h2 style="margin: 0 0 10px 0; color: #991b1b; font-family: sans-serif; font-size: 16px; font-weight: bold;">Unresolved / Out of Stock Items</h2>
-        <table style="width: 100%; border-collapse: collapse; text-align: left;">
+      <div style="margin-top: 40px; border: 2px solid #fee2e2; background: #fef2f2; padding: 24px; border-radius: 16px; page-break-inside: avoid;">
+        <h2 style="margin: 0 0 16px 0; color: #991b1b; font-family: system-ui, sans-serif; font-size: 18px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">Unresolved / Out of Stock Items</h2>
+        <table style="width: 100%; border-collapse: collapse; text-align: left; background: #ffffff; border-radius: 8px; overflow: hidden; border: 1px solid #fee2e2;">
           <thead>
-            <tr style="border-bottom: 1px solid #fca5a5; color: #991b1b; font-size: 11px; text-transform: uppercase;">
-              <th style="padding-bottom: 6px;">Garment</th>
-              <th style="padding-bottom: 6px; width: 80px;">Size</th>
-              <th style="padding-bottom: 6px; width: 120px;">Missing Qty</th>
+            <tr style="background: #fee2e2; border-bottom: 2px solid #fca5a5; color: #991b1b; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">
+              <th style="padding: 10px 16px;">Garment</th>
+              <th style="padding: 10px 16px; text-align: center; width: 100px;">Size</th>
+              <th style="padding: 10px 16px; width: 180px;">Missing Qty</th>
             </tr>
           </thead>
           <tbody>
             ${optimizationResult.unresolved.map(u => `
-              <tr>
-                <td style="padding: 8px 0; color: #7f1d1d; font-weight: bold;">${u.style}</td>
-                <td style="padding: 8px 0; color: #7f1d1d;">${u.size}</td>
-                <td style="padding: 8px 0; color: #b91c1c; font-weight: bold;">${u.unresolved} of ${u.needed} units</td>
+              <tr style="border-bottom: 1px solid #fee2e2;">
+                <td style="padding: 12px 16px; color: #7f1d1d; font-weight: 700; font-size: 14px;">${u.style}</td>
+                <td style="padding: 12px 16px; color: #7f1d1d; font-weight: 700; font-size: 14px; text-align: center;">${u.size}</td>
+                <td style="padding: 12px 16px; color: #b91c1c; font-weight: 800; font-size: 14px;">${u.unresolved} of ${u.needed} units</td>
               </tr>
             `).join('')}
           </tbody>
@@ -508,26 +512,181 @@ export function PalletPickOptimizerModal({ isOpen, onClose, preSelectedOrder, on
         <head>
           <title>Pick Sheet - ${selectedOrder.portalId || 'Shopify Picking List'}</title>
           <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 40px; color: #0f172a; line-height: 1.5; }
-            h1 { font-family: serif; margin-bottom: 5px; }
-            .header-table { width: 100%; margin-bottom: 30px; border-bottom: 3px double #e2e8f0; padding-bottom: 20px; }
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 40px; color: #0f172a; line-height: 1.5; background: #f8fafc; }
+            h1 { font-family: serif; margin-bottom: 5px; font-weight: 900; }
+            .header-table { width: 100%; margin-bottom: 40px; border-bottom: 3px double #cbd5e1; padding-bottom: 24px; }
           </style>
         </head>
         <body onload="window.print(); window.close();">
           <table class="header-table">
             <tr>
               <td>
-                <h1 style="margin:0;">Pallet Picking List</h1>
-                <p style="margin: 5px 0 0 0; font-size: 14px; color: #64748b; font-weight: bold; text-transform: uppercase; tracking-widest: 1px;">Order ID: ${selectedOrder.portalId || 'Uncoded Batch'}</p>
+                <h1 style="margin:0; font-size: 32px; color: #0f172a;">Pallet Picking List</h1>
+                <p style="margin: 8px 0 0 0; font-size: 14px; color: #64748b; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">Order ID: ${selectedOrder.portalId || 'Uncoded Batch'}</p>
               </td>
               <td style="text-align: right; vertical-align: bottom;">
-                <p style="margin: 0; font-size: 14px; font-weight: bold; color: #475569;">Fulfill: ${selectedOrder.title || 'Shopify Order'}</p>
-                <p style="margin: 4px 0 0 0; font-size: 12px; color: #64748b;">Printed on ${new Date().toLocaleString()}</p>
+                <p style="margin: 0; font-size: 16px; font-weight: 900; color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px;">Fulfill: ${selectedOrder.title || 'Shopify Order'}</p>
+                <p style="margin: 6px 0 0 0; font-size: 12px; color: #64748b; font-weight: 500;">Printed on ${new Date().toLocaleString()}</p>
               </td>
             </tr>
           </table>
           ${routeHtml}
           ${unresolvedHtml}
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
+  const handlePrintBoxStickers = () => {
+    if (!optimizationResult || !selectedOrder) return;
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const stickersHtml = optimizationResult.route.flatMap((pallet) => {
+      return pallet.boxes.map((box: any) => {
+        const originalPallet = pallets.find(p => p.id === pallet.palletId);
+        const originalBox = originalPallet?.boxes?.find((b: any) => b.id === box.boxId);
+        
+        if (!originalBox) return '';
+
+        // Calculate remaining items in box after picking
+        const remainingItems = (originalBox.items || []).map((item: any) => {
+          const matchingPick = box.picks.find((p: any) => 
+            p.style === item.name && 
+            p.size === item.size && 
+            (p.sku || '').toLowerCase() === (item.sku || '').toLowerCase()
+          );
+          const pickedQty = matchingPick ? matchingPick.qty : 0;
+          return {
+            ...item,
+            quantity: item.quantity - pickedQty
+          };
+        }).filter((item: any) => item.quantity > 0);
+
+        const manifestHtml = remainingItems.map((item: any) => `
+          <div style="display: flex; gap: 8px; align-items: center; padding: 6px; border: 1px solid rgba(0,0,0,0.15); border-radius: 4px; margin-bottom: 6px; background: #fff;">
+            ${item.photoUrl ? `<img src="${item.photoUrl}" alt="Item" style="width: 32px; height: 32px; border-radius: 4px; object-fit: cover; border: 1px solid rgba(0,0,0,0.1); flex-shrink: 0;" />` : ''}
+            <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; text-align: left;">
+              <div style="font-weight: bold; font-size: 11px; text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 180px;">${item.name}</div>
+              <div style="font-size: 9px; font-family: monospace; font-weight: bold; color: #475569;">
+                ${item.sku ? `SKU: ${item.sku}` : ''} ${item.size ? `| SIZE: ${item.size}` : ''}
+              </div>
+            </div>
+            <div style="font-weight: 900; font-size: 18px; font-family: sans-serif; margin-left: auto; padding-left: 8px; align-self: center;">
+              ×${item.quantity}
+            </div>
+          </div>
+        `).join('');
+
+        const emptyBoxHtml = remainingItems.length === 0 
+          ? `<div style="padding: 20px; border: 2px dashed rgba(0,0,0,0.2); text-align: center; font-weight: bold; text-transform: uppercase; border-radius: 6px; font-size: 12px; color: #64748b; font-family: sans-serif;">Empty Box</div>` 
+          : '';
+
+        const totalUnits = remainingItems.reduce((sum: number, item: any) => sum + item.quantity, 0);
+
+        // Fetch pre-rendered local QR SVG
+        const qrContainer = document.getElementById(`qr-code-${box.boxId}`);
+        const qrSvgHtml = qrContainer ? qrContainer.innerHTML : '';
+
+        return `
+          <div class="print-page-wrapper" style="width: 6in; height: 4in; box-sizing: border-box; background: white; margin: 0; padding: 0; page-break-after: always; page-break-inside: avoid; position: relative;">
+            <div class="print-label-container" style="width: 5.8in; height: 3.8in; padding: 0.25in; margin: 0; box-sizing: border-box; border: 4px solid black; display: flex; flex-direction: column; position: absolute; left: 0.1in; top: 0.1in; overflow: hidden;">
+              <!-- Label Header -->
+              <div style="display: flex; justify-content: space-between; align-items: start; border-bottom: 4px solid black; padding-bottom: 8px; margin-bottom: 10px; flex-shrink: 0;">
+                <div>
+                  <div style="font-family: sans-serif; font-size: 14px; font-weight: 900; letter-spacing: 1px; margin-bottom: 2px;">WOVN</div>
+                  <h1 style="margin: 0; font-family: sans-serif; font-size: 24px; font-weight: 900; text-transform: uppercase; line-height: 1;">${pallet.name}</h1>
+                  <p style="margin: 2px 0 0 0; font-size: 11px; font-weight: bold; font-family: sans-serif;">PALLET ID: ${pallet.palletId.replace('pal_', '')}</p>
+                </div>
+                <div style="text-align: right;">
+                  <div style="font-family: sans-serif; font-size: 32px; font-weight: 900; text-transform: uppercase; line-height: 1; margin-bottom: 2px;">${box.boxName}</div>
+                  <p style="margin: 0; font-size: 10px; font-weight: bold; background: black; color: white; padding: 2px 6px; display: inline-block; font-family: sans-serif;">BOX ID: ${box.boxId.replace('box_', '')}</p>
+                </div>
+              </div>
+
+              <!-- Label Body -->
+              <div style="display: flex; gap: 12px; flex: 1; min-height: 0;">
+                <!-- Manifest Column -->
+                <div style="flex: 1; display: flex; flex-direction: column; min-height: 0;">
+                  <h3 style="margin: 0 0 6px 0; font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid black; padding-bottom: 2px; flex-shrink: 0; font-family: sans-serif;">Contents Manifest (${totalUnits} Units)</h3>
+                  <div style="overflow-y: auto; flex: 1; padding-right: 4px;">
+                    ${manifestHtml}
+                    ${emptyBoxHtml}
+                  </div>
+                </div>
+
+                <!-- QR Column -->
+                <div style="width: 110px; display: flex; flex-direction: column; align-items: center; justify-content: space-between; border-left: 2px solid black; padding-left: 12px; flex-shrink: 0;">
+                  <div style="text-align: center;">
+                    <div style="padding: 4px; border: 2px solid black; background: white; display: inline-block; width: 90px; height: 90px; box-sizing: border-box;">
+                      ${qrSvgHtml}
+                    </div>
+                    <p style="font-size: 7px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px; margin: 4px 0 0 0; text-align: center; font-family: sans-serif;">Scan to View Info</p>
+                  </div>
+                  <div style="width: 100%; opacity: 0.8; text-align: left;">
+                    <div style="font-size: 7px; font-family: monospace; line-height: 1.2;">
+                      DATE: ${new Date().toLocaleDateString()}<br/>
+                      TIME: ${new Date().toLocaleTimeString()}<br/>
+                      SYS_ID: ${box.boxId}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      });
+    }).join('');
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Box QR Stickers - ${selectedOrder.portalId || 'Shopify Picking List'}</title>
+          <style>
+            @page { 
+              margin: 0; 
+              size: 4in 6in; 
+            }
+            body { 
+              margin: 0; 
+              padding: 0; 
+              background: #fff;
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            }
+            
+            /* Print Specific Styles */
+            @media print {
+              body {
+                width: 4in;
+                height: 6in;
+              }
+              .print-page-wrapper {
+                width: 4in !important;
+                height: 6in !important;
+                page-break-after: always !important;
+                page-break-inside: avoid !important;
+                position: relative !important;
+              }
+              .print-label-container {
+                position: absolute !important;
+                left: 3.9in !important;
+                top: 0.1in !important;
+                width: 5.8in !important;
+                height: 3.8in !important;
+                padding: 0.25in !important;
+                margin: 0 !important;
+                border: 4px solid black !important;
+                box-sizing: border-box !important;
+                transform: rotate(90deg) !important;
+                transform-origin: top left !important;
+              }
+            }
+          </style>
+        </head>
+        <body onload="window.print(); window.close();">
+          ${stickersHtml}
         </body>
       </html>
     `);
@@ -982,8 +1141,28 @@ export function PalletPickOptimizerModal({ isOpen, onClose, preSelectedOrder, on
               >
                 <Printer size={14} /> Print Pick List
               </button>
+              <button 
+                onClick={handlePrintBoxStickers}
+                className="flex-1 sm:flex-none px-6 py-2.5 text-[10px] font-bold uppercase tracking-widest bg-black text-white hover:bg-neutral-800 rounded-xl transition-all shadow-md flex items-center justify-center gap-2"
+              >
+                <Printer size={14} /> Print QR Stickers
+              </button>
             </div>
           </div>
+        )}
+      </div>
+
+      {/* Hidden Container for QR Code Pre-Rendering (used by handlePrintBoxStickers) */}
+      <div style={{ display: 'none' }} aria-hidden="true">
+        {optimizationResult?.route.flatMap(pallet => 
+          pallet.boxes.map((box: any) => {
+            const qrUrl = `${window.location.hostname === 'localhost' ? 'https://print-shop-os.vercel.app' : window.location.origin}/inventory/scan?p=${pallet.palletId}&b=${box.boxId}`;
+            return (
+              <div key={box.boxId} id={`qr-code-${box.boxId}`}>
+                <QRCode value={qrUrl} size={150} level="M" />
+              </div>
+            );
+          })
         )}
       </div>
     </div>
