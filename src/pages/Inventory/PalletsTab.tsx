@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { db } from '../../lib/firebase';
 import { collection, query, onSnapshot, setDoc, deleteDoc, doc } from 'firebase/firestore';
-import { Plus, Package, Box, ChevronRight, QrCode, Printer, X, Image as ImageIcon, BarChart3, Layers, Tag, Copy, Search, Map } from 'lucide-react';
+import { Plus, Package, Box, ChevronRight, QrCode, Printer, X, Image as ImageIcon, BarChart3, Layers, Tag, Copy, Search, Map, ShoppingBag } from 'lucide-react';
 import QRCode from 'react-qr-code';
 
 interface Item {
@@ -38,7 +38,7 @@ const isTermMatched = (text: string, term: string) => {
     return text.includes(term);
 };
 
-export function PalletsTab({ onJumpToWarehouse, initialActivePalletId }: { onJumpToWarehouse?: (palletId: string, zone: string, warehouseId?: string) => void, initialActivePalletId?: string | null }) {
+export function PalletsTab({ onJumpToWarehouse, initialActivePalletId, onOpenShopifyPickRoute }: { onJumpToWarehouse?: (palletId: string, zone: string, warehouseId?: string) => void, initialActivePalletId?: string | null, onOpenShopifyPickRoute?: () => void }) {
   const [pallets, setPallets] = useState<Pallet[]>([]);
   const [activePalletId, setActivePalletId] = useState<string | null>(initialActivePalletId || null);
   
@@ -388,12 +388,22 @@ export function PalletsTab({ onJumpToWarehouse, initialActivePalletId }: { onJum
                  </select>
              </div>
              {!isAddingPallet ? (
-                 <button 
-                     onClick={() => setIsAddingPallet(true)}
-                     className="w-full bg-brand-primary text-white py-2.5 rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-black transition-colors shadow-sm flex items-center justify-center gap-2"
-                 >
-                     <Plus size={14} /> Create Pallet
-                 </button>
+                  <div className="flex flex-col gap-2">
+                      <button 
+                          onClick={() => setIsAddingPallet(true)}
+                          className="w-full bg-brand-primary text-white py-2.5 rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-black transition-colors shadow-sm flex items-center justify-center gap-2"
+                      >
+                          <Plus size={14} /> Create Pallet
+                      </button>
+                      {onOpenShopifyPickRoute && (
+                         <button 
+                             onClick={onOpenShopifyPickRoute}
+                             className="w-full bg-green-600 text-white py-2.5 rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-green-700 transition-colors shadow-sm flex items-center justify-center gap-2"
+                         >
+                             <ShoppingBag size={14} /> Shopify Pick Route
+                         </button>
+                      )}
+                  </div>
              ) : (
                  <div className="bg-white p-3 rounded-xl border border-brand-border shadow-sm animate-in zoom-in-95">
                      <input 

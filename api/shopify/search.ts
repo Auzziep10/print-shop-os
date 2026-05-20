@@ -40,6 +40,7 @@ export default async function handler(req: Request) {
                   title
                   variantTitle
                   quantity
+                  sku
                   image {
                     url
                   }

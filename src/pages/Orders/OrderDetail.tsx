@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { PillButton } from '../../components/ui/PillButton';
 import { PackingSlipsManager } from '../../components/Orders/PackingSlipsManager';
 import { TrackingModal } from '../../components/Orders/TrackingModal';
-import { ArrowLeft, MessageSquare, QrCode, Clock, Users, Download, Loader2, X, Edit3, Upload, Trash2, Plus, ChevronDown, Image as ImageIcon, Box, Printer, ExternalLink, ShoppingBag, Search, Check, Truck, GripVertical, Pause, Play, DollarSign, PackagePlus } from 'lucide-react';
+import { ArrowLeft, MessageSquare, QrCode, Clock, Users, Download, Loader2, X, Edit3, Upload, Trash2, Plus, ChevronDown, Image as ImageIcon, Box, Printer, ExternalLink, ShoppingBag, Search, Check, Truck, GripVertical, Pause, Play, DollarSign, PackagePlus, Layers } from 'lucide-react';
 import QRCode from 'react-qr-code';
 import { StatusBadge, type StatusType } from '../../components/ui/StatusBadge';
 import { useAuth } from '../../contexts/AuthContext';
@@ -13,6 +13,7 @@ import { db, storage } from '../../lib/firebase';
 import { doc, setDoc, getDoc, updateDoc, collection, getDocs, query, where, onSnapshot } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { getTrackingLink, normalizeUser } from '../../lib/utils';
+import { PalletPickOptimizerModal } from '../../components/Inventory/PalletPickOptimizerModal';
 
 const SIZE_ORDER = ['XXS', 'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL', 'OSFA'];
 
@@ -145,6 +146,7 @@ export function OrderDetail() {
   const [draggableItemId, setDraggableItemId] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, item: any, size: string, qty: number } | null>(null);
 
+  const [isPalletOptimizerOpen, setIsPalletOptimizerOpen] = useState(false);
   const [isDeckModalOpen, setIsDeckModalOpen] = useState(false);
   const [customerDecks, setCustomerDecks] = useState<any[]>([]);
   const [isLoadingDecks, setIsLoadingDecks] = useState(false);
@@ -281,14 +283,18 @@ export function OrderDetail() {
      const gender = isFemale ? 'Female' : isMale ? 'Male' : 'Unisex';
      const color = variant.selectedOptions?.find((o:any) => o.name.toLowerCase().includes('color'))?.value || variant.title;
 
-     // Build Inventory Map
+     // Build Inventory Map & SKUs Map
      let inventoryMap: Record<string, number> = {};
+     let skusMap: Record<string, string> = {};
      product.variants?.forEach((v: any) => {
         const vColor = v.selectedOptions?.find((o:any) => o.name.toLowerCase().includes('color'))?.value || v.title;
         if (vColor === color || (!product.options.find((o:any) => o.name.toLowerCase().includes('color')))) {
             const vSize = v.selectedOptions?.find((o:any) => o.name.toLowerCase().includes('size'))?.value || v.title;
             if (vSize) {
                inventoryMap[vSize] = v.inventoryQuantity || 0;
+               if (v.sku) {
+                  skusMap[vSize] = v.sku;
+               }
             }
         }
      });
@@ -302,7 +308,8 @@ export function OrderDetail() {
         price: variant.price || '0.00',
         image: variant.image?.url || product.featuredImage?.url || editItemObj.image,
         sizes: Object.keys(newSizes).length > 0 ? newSizes : editItemObj.sizes,
-        shopifyInventoryMap: inventoryMap
+        shopifyInventoryMap: inventoryMap,
+        skus: skusMap
      });
      
      setIsShopifySearchOpen(false);
@@ -867,6 +874,10 @@ export function OrderDetail() {
           <PillButton variant="outline" className="gap-2" onClick={() => window.open(`/invoice/${order.id}`, '_blank')}>
             <DollarSign size={16} />
             Invoice
+          </PillButton>
+          <PillButton variant="outline" className="gap-2 border-green-200 text-green-700 bg-green-50 hover:bg-green-600 hover:text-white hover:border-green-600" onClick={() => setIsPalletOptimizerOpen(true)}>
+            <Layers size={16} />
+            Find in Pallets
           </PillButton>
           <PillButton variant="outline" className="gap-2" onClick={() => setIsTeamModalOpen(true)}>
             <Users size={16} />
@@ -2818,6 +2829,12 @@ export function OrderDetail() {
           onClose={() => setTrackingBoxId(null)}
         />
       )}
+
+      <PalletPickOptimizerModal
+        isOpen={isPalletOptimizerOpen}
+        onClose={() => setIsPalletOptimizerOpen(false)}
+        preSelectedOrder={order}
+      />
 
       {contextMenu && (
         <div 

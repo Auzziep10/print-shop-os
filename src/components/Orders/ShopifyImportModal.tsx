@@ -88,7 +88,8 @@ export function ShopifyImportModal({ isOpen, onClose, customerId }: Props) {
                   total: '0',
                   image: item.image?.url || '',
                   logos: [],
-                  sizes: {}
+                  sizes: {},
+                  skus: {}
                });
             }
 
@@ -97,6 +98,9 @@ export function ShopifyImportModal({ isOpen, onClose, customerId }: Props) {
             
             existing.qty += qty;
             existing.sizes[size] = (existing.sizes[size] || 0) + qty;
+            if (item.sku) {
+               existing.skus[size] = item.sku;
+            }
             
             existing.total = `$${(existing.qty * parseFloat(existing.price || '0')).toFixed(2)}`;
          }

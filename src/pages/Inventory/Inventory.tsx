@@ -11,6 +11,7 @@ import { collection, query, onSnapshot, setDoc, deleteDoc, doc, getDocs } from '
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { ProductsTab } from './ProductsTab';
 import { PalletsTab } from './PalletsTab';
+import { PalletPickOptimizerModal } from '../../components/Inventory/PalletPickOptimizerModal';
 
 const PALLET_SWATCHES = [
   '#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', 
@@ -658,6 +659,7 @@ export function Inventory() {
       setIsFrUpdating(false);
   };
   
+  const [isPalletOptimizerOpen, setIsPalletOptimizerOpen] = useState(false);
   const [showBatchImageModal, setShowBatchImageModal] = useState(false);
   const [batchMatchTerm, setBatchMatchTerm] = useState('');
   const [batchMatchType, setBatchMatchType] = useState<'name' | 'sku'>('name');
@@ -1448,6 +1450,7 @@ export function Inventory() {
            <div className="w-full h-full pb-8 animate-in fade-in">
               <PalletsTab 
                  initialActivePalletId={inspectPalletId}
+                 onOpenShopifyPickRoute={() => setIsPalletOptimizerOpen(true)}
                  onJumpToWarehouse={(palletId: string, zone: string, warehouseId?: string) => { 
                      if (warehouseId) {
                          const targetWarehouse = allWarehouses.find(w => w.id === warehouseId);
@@ -1682,6 +1685,26 @@ export function Inventory() {
               </div>
           </div>
       )}
+
+      <PalletPickOptimizerModal
+        isOpen={isPalletOptimizerOpen}
+        onClose={() => setIsPalletOptimizerOpen(false)}
+        onLocatePallet={(palletId, zone, warehouseId) => {
+            if (warehouseId) {
+                const targetWarehouse = allWarehouses.find(w => w.id === warehouseId);
+                if (targetWarehouse) setCurrentWarehouse(targetWarehouse);
+            }
+            setMainTab('Warehouse');
+            setActiveTab('Map');
+            setActiveRack(zone || 'Floor');
+            setTimeout(() => {
+                const palletObj = allPallets.find((p: any) => p.id === palletId);
+                if (palletObj) {
+                    setActivePallet(palletObj);
+                }
+            }, 100);
+        }}
+      />
 
       <style>{`
          @media print {
