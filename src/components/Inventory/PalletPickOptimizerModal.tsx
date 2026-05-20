@@ -436,70 +436,69 @@ export function PalletPickOptimizerModal({ isOpen, onClose, preSelectedOrder, on
         ? 'Floor Location' 
         : `Rack: ${pallet.zone} • Bay ${pallet.rackSpecs?.bay + 1 || 1} • Level ${pallet.rackSpecs?.level || 0}`;
 
-      const boxesHtml = pallet.boxes.map((box: any) => {
-        const itemsHtml = box.picks.map((pick: any) => `
-          <tr style="border-bottom: 1px solid #e2e8f0;">
-            <td style="padding: 12px 16px; font-weight: 800; font-size: 14px; color: #0284c7; width: 120px;">[ ] Pick ${pick.qty}x</td>
-            <td style="padding: 12px 16px; font-size: 14px; color: #1e293b;">
-              <span style="font-weight: 700;">${pick.style}</span>
-              ${pick.color ? `<span style="color: #64748b; font-size: 12px; margin-left: 6px; font-weight: 500;">(${pick.color})</span>` : ''}
+      const rowsHtml = pallet.boxes.flatMap((box: any) => {
+        const boxHeaderRow = `
+          <tr style="background: #f1f5f9; border-bottom: 1px solid #000000; font-weight: bold;">
+            <td colspan="4" style="padding: 8px 12px; font-size: 12px; letter-spacing: 0.5px; color: #000000; border-right: 1px solid #000000;">BOX: ${box.boxName.toUpperCase()}</td>
+          </tr>
+        `;
+
+        const itemRows = box.picks.map((pick: any) => `
+          <tr style="border-bottom: 1px solid #000000;">
+            <td style="padding: 8px 12px; border-right: 1px solid #000000; font-weight: bold; font-size: 13px; color: #000000;">[ ] Pick ${pick.qty}x</td>
+            <td style="padding: 8px 12px; border-right: 1px solid #000000; font-size: 13px; color: #000000;">
+              <span style="font-weight: bold;">${pick.style}</span>
+              ${pick.color ? `<span style="color: #475569; font-size: 11px; margin-left: 6px;">(${pick.color})</span>` : ''}
             </td>
-            <td style="padding: 12px 16px; font-weight: 700; color: #475569; font-size: 14px; width: 80px; text-align: center;">${pick.size}</td>
-            <td style="padding: 12px 16px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 13px; color: #475569; font-weight: 600; width: 180px;">${pick.sku || '-'}</td>
+            <td style="padding: 8px 12px; border-right: 1px solid #000000; text-align: center; font-size: 13px; font-weight: bold; color: #000000;">${pick.size}</td>
+            <td style="padding: 8px 12px; font-family: monospace; font-size: 12px; font-weight: bold; color: #000000;">${pick.sku || '-'}</td>
           </tr>
         `).join('');
 
-        return `
-          <div style="margin-top: 24px; border: 2px solid #e2e8f0; background: #f8fafc; border-radius: 12px; padding: 20px; box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05); page-break-inside: avoid;">
-            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">
-              <span style="font-size: 20px;">📦</span>
-              <h3 style="margin: 0; font-size: 16px; font-weight: 800; color: #0f172a; font-family: system-ui, sans-serif; text-transform: uppercase; letter-spacing: 0.5px;">Box: ${box.boxName}</h3>
-            </div>
-            <table style="width: 100%; border-collapse: collapse; text-align: left; background: #ffffff; border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0;">
-              <thead>
-                <tr style="background: #f1f5f9; border-bottom: 2px solid #e2e8f0; color: #475569; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">
-                  <th style="padding: 10px 16px;">Check</th>
-                  <th style="padding: 10px 16px;">Garment</th>
-                  <th style="padding: 10px 16px; text-align: center;">Size</th>
-                  <th style="padding: 10px 16px;">SKU</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${itemsHtml}
-              </tbody>
-            </table>
-          </div>
-        `;
+        return [boxHeaderRow, itemRows];
       }).join('');
 
       return `
-        <div style="page-break-inside: avoid; margin-bottom: 35px; border: 2px solid #cbd5e1; padding: 24px; border-radius: 16px; background: #ffffff; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
-          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #cbd5e1; padding-bottom: 12px; margin-bottom: 20px;">
-            <h2 style="margin: 0; font-family: serif; font-size: 22px; color: #0f172a; font-weight: 900;">Step ${pIdx + 1}: Pallet ${pallet.name}</h2>
-            <span style="font-size: 12px; font-weight: 800; background: #0f172a; color: #ffffff; padding: 6px 14px; border-radius: 9999px; font-family: system-ui, sans-serif; text-transform: uppercase; letter-spacing: 0.5px;">${locationStr}</span>
+        <div style="page-break-inside: avoid; margin-bottom: 35px;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 3px solid #000000; padding-bottom: 6px; margin-bottom: 15px;">
+            <h2 style="margin: 0; font-family: sans-serif; font-size: 18px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; color: #000000;">Step ${pIdx + 1}: Pallet ${pallet.name}</h2>
+            <span style="font-family: sans-serif; font-size: 11px; font-weight: bold; text-transform: uppercase; color: #000000; letter-spacing: 0.5px;">${locationStr}</span>
           </div>
-          ${boxesHtml}
+          
+          <table style="width: 100%; border-collapse: collapse; text-align: left; border: 2px solid #000000; font-family: sans-serif;">
+            <thead>
+              <tr style="background: #e2e8f0; border-bottom: 2px solid #000000; font-size: 11px; font-weight: bold; letter-spacing: 0.5px; text-transform: uppercase; color: #000000;">
+                <th style="padding: 8px 12px; border-right: 1px solid #000000; width: 110px;">Check</th>
+                <th style="padding: 8px 12px; border-right: 1px solid #000000;">Garment</th>
+                <th style="padding: 8px 12px; border-right: 1px solid #000000; text-align: center; width: 80px;">Size</th>
+                <th style="padding: 8px 12px; width: 180px;">SKU</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
         </div>
       `;
     }).join('');
 
     const unresolvedHtml = optimizationResult.unresolved.length > 0 ? `
-      <div style="margin-top: 40px; border: 2px solid #fee2e2; background: #fef2f2; padding: 24px; border-radius: 16px; page-break-inside: avoid;">
-        <h2 style="margin: 0 0 16px 0; color: #991b1b; font-family: system-ui, sans-serif; font-size: 18px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">Unresolved / Out of Stock Items</h2>
-        <table style="width: 100%; border-collapse: collapse; text-align: left; background: #ffffff; border-radius: 8px; overflow: hidden; border: 1px solid #fee2e2;">
+      <div style="margin-top: 40px; page-break-inside: avoid;">
+        <h2 style="margin: 0 0 10px 0; color: #000000; font-family: sans-serif; font-size: 16px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">Unresolved / Out of Stock Items</h2>
+        <table style="width: 100%; border-collapse: collapse; text-align: left; border: 2px solid #000000; font-family: sans-serif; font-size: 13px;">
           <thead>
-            <tr style="background: #fee2e2; border-bottom: 2px solid #fca5a5; color: #991b1b; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">
-              <th style="padding: 10px 16px;">Garment</th>
-              <th style="padding: 10px 16px; text-align: center; width: 100px;">Size</th>
-              <th style="padding: 10px 16px; width: 180px;">Missing Qty</th>
+            <tr style="background: #fee2e2; border-bottom: 2px solid #000000; color: #991b1b; font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">
+              <th style="padding: 8px 12px; border-right: 1px solid #000000;">Garment</th>
+              <th style="padding: 8px 12px; border-right: 1px solid #000000; text-align: center; width: 100px;">Size</th>
+              <th style="padding: 8px 12px; width: 180px;">Missing Qty</th>
             </tr>
           </thead>
           <tbody>
             ${optimizationResult.unresolved.map(u => `
-              <tr style="border-bottom: 1px solid #fee2e2;">
-                <td style="padding: 12px 16px; color: #7f1d1d; font-weight: 700; font-size: 14px;">${u.style}</td>
-                <td style="padding: 12px 16px; color: #7f1d1d; font-weight: 700; font-size: 14px; text-align: center;">${u.size}</td>
-                <td style="padding: 12px 16px; color: #b91c1c; font-weight: 800; font-size: 14px;">${u.unresolved} of ${u.needed} units</td>
+              <tr style="border-bottom: 1px solid #000000; background: #fff5f5;">
+                <td style="padding: 8px 12px; border-right: 1px solid #000000; color: #7f1d1d; font-weight: bold;">${u.style}</td>
+                <td style="padding: 8px 12px; border-right: 1px solid #000000; color: #7f1d1d; text-align: center; font-weight: bold;">${u.size}</td>
+                <td style="padding: 8px 12px; color: #b91c1c; font-weight: bold;">${u.unresolved} of ${u.needed} units</td>
               </tr>
             `).join('')}
           </tbody>
@@ -512,21 +511,21 @@ export function PalletPickOptimizerModal({ isOpen, onClose, preSelectedOrder, on
         <head>
           <title>Pick Sheet - ${selectedOrder.portalId || 'Shopify Picking List'}</title>
           <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 40px; color: #0f172a; line-height: 1.5; background: #f8fafc; }
-            h1 { font-family: serif; margin-bottom: 5px; font-weight: 900; }
-            .header-table { width: 100%; margin-bottom: 40px; border-bottom: 3px double #cbd5e1; padding-bottom: 24px; }
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 40px; color: #000000; line-height: 1.5; background: #ffffff; }
+            h1 { font-family: sans-serif; margin-bottom: 5px; font-weight: bold; }
+            .header-table { width: 100%; margin-bottom: 40px; border-bottom: 3px double #000000; padding-bottom: 24px; }
           </style>
         </head>
         <body onload="window.print(); window.close();">
           <table class="header-table">
             <tr>
               <td>
-                <h1 style="margin:0; font-size: 32px; color: #0f172a;">Pallet Picking List</h1>
-                <p style="margin: 8px 0 0 0; font-size: 14px; color: #64748b; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">Order ID: ${selectedOrder.portalId || 'Uncoded Batch'}</p>
+                <h1 style="margin:0; font-size: 28px; color: #000000; text-transform: uppercase; letter-spacing: 0.5px;">Pallet Picking List</h1>
+                <p style="margin: 6px 0 0 0; font-size: 13px; color: #475569; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">Order ID: ${selectedOrder.portalId || 'Uncoded Batch'}</p>
               </td>
               <td style="text-align: right; vertical-align: bottom;">
-                <p style="margin: 0; font-size: 16px; font-weight: 900; color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px;">Fulfill: ${selectedOrder.title || 'Shopify Order'}</p>
-                <p style="margin: 6px 0 0 0; font-size: 12px; color: #64748b; font-weight: 500;">Printed on ${new Date().toLocaleString()}</p>
+                <p style="margin: 0; font-size: 14px; font-weight: bold; color: #000000; text-transform: uppercase; letter-spacing: 0.5px;">Fulfill: ${selectedOrder.title || 'Shopify Order'}</p>
+                <p style="margin: 4px 0 0 0; font-size: 11px; color: #475569;">Printed on ${new Date().toLocaleString()}</p>
               </td>
             </tr>
           </table>
