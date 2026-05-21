@@ -3,6 +3,7 @@ import { tokens } from '../../lib/tokens';
 import { Settings as SettingsIcon } from 'lucide-react';
 import { UsersTab } from './UsersTab';
 import { BusinessTab } from './BusinessTab';
+import { AppsTab } from './AppsTab';
 import { useAuth } from '../../contexts/AuthContext';
 
 export function Settings() {
@@ -59,6 +60,16 @@ export function Settings() {
             >
               Business Profile
             </button>
+            <button
+              onClick={() => setActiveTab('apps')}
+              className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+                activeTab === 'apps' 
+                  ? 'bg-brand-primary text-white' 
+                  : 'text-brand-secondary hover:bg-brand-bg hover:text-brand-primary'
+              }`}
+            >
+              App Links
+            </button>
           </nav>
         </div>
 
@@ -66,6 +77,7 @@ export function Settings() {
         <div className="flex-1 bg-white border border-brand-border rounded-xl p-6 shadow-sm min-w-0">
           {activeTab === 'users' && <UsersTab />}
           {activeTab === 'business' && <BusinessTab />}
+          {activeTab === 'apps' && <AppsTab />}
         </div>
       </div>
     </div>

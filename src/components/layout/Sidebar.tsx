@@ -1,4 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { db } from '../../lib/firebase';
 import { 
   LayoutDashboard, 
   Layers, 
@@ -11,7 +14,18 @@ import {
   FileBox,
   X,
   Mail,
-  Rocket
+  Rocket,
+  ExternalLink,
+  Link2,
+  Calendar,
+  CheckSquare,
+  Mail as MailIcon,
+  Activity,
+  Compass,
+  ShoppingBag,
+  BookOpen,
+  MessageSquare,
+  Globe
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
@@ -19,8 +33,44 @@ interface SidebarProps {
   onClose?: () => void;
 }
 
+const iconMap: Record<string, any> = {
+  link: Link2,
+  globe: Globe,
+  calendar: Calendar,
+  tasks: CheckSquare,
+  mail: MailIcon,
+  activity: Activity,
+  compass: Compass,
+  shopping: ShoppingBag,
+  book: BookOpen,
+  message: MessageSquare
+};
+
+const colorTextMap: Record<string, string> = {
+  neutral: 'text-neutral-500 group-hover:text-neutral-900',
+  blue: 'text-blue-500 group-hover:text-blue-600',
+  emerald: 'text-emerald-500 group-hover:text-emerald-600',
+  purple: 'text-purple-500 group-hover:text-purple-600',
+  rose: 'text-rose-500 group-hover:text-rose-600',
+  amber: 'text-amber-500 group-hover:text-amber-600'
+};
+
 export function Sidebar({ onClose }: SidebarProps) {
   const location = useLocation();
+  const [appLinks, setAppLinks] = useState<any[]>([]);
+
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, 'settings', 'apps'), (docSnap) => {
+      if (docSnap.exists()) {
+        setAppLinks(docSnap.data().links || []);
+      } else {
+        setAppLinks([]);
+      }
+    }, (err) => {
+      console.error("Error listening to app links:", err);
+    });
+    return () => unsub();
+  }, []);
 
   const navItems = [
     { label: 'Dashboard', icon: LayoutDashboard, path: '/' },
@@ -72,6 +122,40 @@ export function Sidebar({ onClose }: SidebarProps) {
             </Link>
           );
         })}
+
+        {appLinks.length > 0 && (
+          <div className="mt-6 pt-6 border-t border-brand-border animate-in fade-in duration-300">
+            <h3 className="px-3 text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-3">
+              Other Apps
+            </h3>
+            <div className="space-y-1">
+              {appLinks.map((app) => {
+                const IconComponent = iconMap[app.icon] || Link2;
+                const colorClass = colorTextMap[app.color] || 'text-brand-secondary';
+
+                return (
+                  <a
+                    key={app.id || app.url}
+                    href={app.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg text-sm text-brand-secondary hover:text-brand-primary hover:bg-brand-muted border border-transparent transition-colors group"
+                  >
+                    <div className="flex items-center gap-3 truncate">
+                      <IconComponent 
+                        size={18} 
+                        strokeWidth={1.5}
+                        className={cn("transition-colors", colorClass)}
+                      />
+                      <span className="truncate">{app.name}</span>
+                    </div>
+                    <ExternalLink size={12} className="opacity-0 group-hover:opacity-100 transition-opacity text-brand-secondary" />
+                  </a>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </nav>
 
       <div className="p-4 border-t border-brand-border">
