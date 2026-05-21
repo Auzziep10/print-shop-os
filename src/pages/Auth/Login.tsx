@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { Loader2 } from 'lucide-react';
 
 export function Login() {
   const { signInWithGoogle, user, userData, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const blobRef = useRef<HTMLDivElement>(null);
@@ -30,10 +31,12 @@ export function Login() {
       } else if (userData.role === 'Pending') {
         navigate('/waiting');
       } else {
-        navigate('/');
+        const from = (location.state as any)?.from;
+        const destination = from ? (from.pathname + from.search + from.hash) : '/';
+        navigate(destination, { replace: true });
       }
     }
-  }, [user, userData, navigate]);
+  }, [user, userData, navigate, location.state]);
 
   useEffect(() => {
     if (!authLoading && !user && isLoading) {

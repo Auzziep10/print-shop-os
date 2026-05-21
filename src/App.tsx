@@ -1,4 +1,4 @@
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AppLayout } from './components/layout/AppLayout';
 import { Dashboard } from './pages/Dashboard/Dashboard';
 import { Team } from './pages/Team/Team';
@@ -8,7 +8,6 @@ import { CustomersList } from './pages/Customers/CustomersList';
 import { CustomerDetail } from './pages/Customers/CustomerDetail';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Login } from './pages/Auth/Login';
-import { Navigate } from 'react-router-dom';
 import { PortalLayout } from './components/layout/PortalLayout';
 import { PortalOrders } from './pages/Portal/PortalOrders';
 import { PortalCreateOrder } from './pages/Portal/PortalCreateOrder';
@@ -33,6 +32,7 @@ import { MobileUpload } from './pages/MobileUpload/MobileUpload';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, userData, loading } = useAuth();
+  const location = useLocation();
   
   if (loading || (user && !userData)) {
     return <div className="min-h-screen flex items-center justify-center bg-brand-bg text-brand-secondary font-serif">Loading...</div>;
@@ -46,7 +46,7 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to={`/portal/${userData.customerId || ''}`} />;
   }
   
-  return user ? <>{children}</> : <Navigate to="/login" />;
+  return user ? <>{children}</> : <Navigate to="/login" state={{ from: location }} replace />;
 }
 
 function App() {
