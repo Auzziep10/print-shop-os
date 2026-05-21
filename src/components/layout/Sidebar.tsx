@@ -25,8 +25,10 @@ import {
   ShoppingBag,
   BookOpen,
   MessageSquare,
-  Globe
+  Globe,
+  ChevronDown
 } from 'lucide-react';
+
 import { cn } from '../../lib/utils';
 
 interface SidebarProps {
@@ -58,6 +60,26 @@ const colorTextMap: Record<string, string> = {
 export function Sidebar({ onClose }: SidebarProps) {
   const location = useLocation();
   const [appLinks, setAppLinks] = useState<any[]>([]);
+  const [isAppsExpanded, setIsAppsExpanded] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('sidebar_apps_expanded');
+      return saved !== null ? JSON.parse(saved) : false;
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleAppsExpanded = () => {
+    setIsAppsExpanded(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem('sidebar_apps_expanded', JSON.stringify(next));
+      } catch (e) {
+        console.error(e);
+      }
+      return next;
+    });
+  };
 
   useEffect(() => {
     const unsub = onSnapshot(doc(db, 'settings', 'apps'), (docSnap) => {
@@ -125,35 +147,48 @@ export function Sidebar({ onClose }: SidebarProps) {
 
         {appLinks.length > 0 && (
           <div className="mt-6 pt-6 border-t border-brand-border animate-in fade-in duration-300">
-            <h3 className="px-3 text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-3">
-              Other Apps
-            </h3>
-            <div className="space-y-1">
-              {appLinks.map((app) => {
-                const IconComponent = iconMap[app.icon] || Link2;
-                const colorClass = colorTextMap[app.color] || 'text-brand-secondary';
+            <button 
+              onClick={toggleAppsExpanded}
+              className="w-full flex items-center justify-between px-3 mb-2 text-[10px] font-bold uppercase tracking-widest text-brand-secondary hover:text-brand-primary transition-colors cursor-pointer group"
+            >
+              <span>Other Apps</span>
+              <ChevronDown 
+                size={12} 
+                className={cn(
+                  "transition-transform duration-200 text-brand-secondary group-hover:text-brand-primary", 
+                  isAppsExpanded ? "rotate-180" : ""
+                )} 
+              />
+            </button>
+            
+            {isAppsExpanded && (
+              <div className="space-y-1 animate-in fade-in slide-in-from-top-1 duration-200">
+                {appLinks.map((app) => {
+                  const IconComponent = iconMap[app.icon] || Link2;
+                  const colorClass = colorTextMap[app.color] || 'text-brand-secondary';
 
-                return (
-                  <a
-                    key={app.id || app.url}
-                    href={app.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg text-sm text-brand-secondary hover:text-brand-primary hover:bg-brand-muted border border-transparent transition-colors group"
-                  >
-                    <div className="flex items-center gap-3 truncate">
-                      <IconComponent 
-                        size={18} 
-                        strokeWidth={1.5}
-                        className={cn("transition-colors", colorClass)}
-                      />
-                      <span className="truncate">{app.name}</span>
-                    </div>
-                    <ExternalLink size={12} className="opacity-0 group-hover:opacity-100 transition-opacity text-brand-secondary" />
-                  </a>
-                );
-              })}
-            </div>
+                  return (
+                    <a
+                      key={app.id || app.url}
+                      href={app.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg text-sm text-brand-secondary hover:text-brand-primary hover:bg-brand-muted border border-transparent transition-colors group"
+                    >
+                      <div className="flex items-center gap-3 truncate">
+                        <IconComponent 
+                          size={18} 
+                          strokeWidth={1.5}
+                          className={cn("transition-colors", colorClass)}
+                        />
+                        <span className="truncate">{app.name}</span>
+                      </div>
+                      <ExternalLink size={12} className="opacity-0 group-hover:opacity-100 transition-opacity text-brand-secondary" />
+                    </a>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
       </nav>
