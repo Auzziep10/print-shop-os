@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, ChevronDown, Upload, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, ChevronDown, Upload, Plus, Trash2, FileText } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { db, storage } from '../../lib/firebase';
 import { doc, getDoc, setDoc, query, collection, where, getDocs } from 'firebase/firestore';
@@ -444,7 +444,12 @@ export function PortalRequestQuote() {
                                      {product.artworkUrl.match(/\.(jpeg|jpg|gif|png|webp)(\?.*)?$/i) ? (
                                         <img src={product.artworkUrl} alt={product.artworkName || 'Artwork'} className="max-w-full max-h-full object-contain" />
                                      ) : (
-                                        <div className="text-[10px] font-bold text-neutral-400">FILE</div>
+                                        <div className="flex flex-col items-center gap-0.5">
+                                          <FileText size={20} className="text-neutral-500" />
+                                          <span className="text-[9px] font-black uppercase text-neutral-500">
+                                            {(product.artworkName || '').split('.').pop() || 'FILE'}
+                                          </span>
+                                        </div>
                                      )}
                                   </div>
                                   <p className="text-sm font-bold text-neutral-900 truncate max-w-full px-4">{product.artworkName}</p>
@@ -452,14 +457,14 @@ export function PortalRequestQuote() {
                               </div>
                             ) : (
                               <label className="border-2 border-dashed border-neutral-200 rounded-2xl p-10 flex flex-col items-center justify-center text-center gap-3 hover:bg-neutral-50 hover:border-neutral-300 transition-all cursor-pointer group">
-                                  <input type="file" className="hidden" onChange={(e) => handleFileUpload(product.id, e)} accept="image/*,application/pdf,.ai" />
+                                  <input type="file" className="hidden" onChange={(e) => handleFileUpload(product.id, e)} accept="image/*,application/pdf,.ai,.eps,.psd,.cdr,.zip" />
                                   <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
                                       <Upload size={20} className="text-neutral-500" strokeWidth={2} />
                                   </div>
                                   <div>
                                       <p className="text-sm font-bold text-neutral-900">Upload artwork file</p>
                                       <p className="text-xs text-neutral-500 mt-1">Drag and drop your file here, or click to browse</p>
-                                      <p className="text-xs text-neutral-400 mt-1">Supports: JPEG, PNG, GIF, WebP, PDF, Adobe Illustrator (.ai) (Max 10MB)</p>
+                                      <p className="text-xs text-neutral-400 mt-1">Supports: JPEG, PNG, GIF, WebP, PDF, AI, EPS, PSD, CorelDRAW (.cdr), ZIP (Max 10MB)</p>
                                   </div>
                                   <div className="mt-2 bg-white border border-neutral-200 hover:bg-neutral-50 px-6 py-2 rounded-xl text-sm font-bold text-neutral-900 shadow-sm transition-all flex items-center gap-2 pointer-events-none">
                                       <Upload size={14} /> Choose File

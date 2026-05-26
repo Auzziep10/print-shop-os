@@ -45,6 +45,13 @@ interface SanMarProduct {
 
 const sanmarCatalog = sanmarCatalogJson as SanMarProduct[];
 
+const isRenderableImage = (fileName: string | null): boolean => {
+  if (!fileName) return true;
+  if (fileName.startsWith('AI Prompt:') || fileName.startsWith('AI Logo')) return true;
+  const ext = fileName.split('.').pop()?.toLowerCase();
+  return ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp'].includes(ext || '');
+};
+
 const baseColors: Record<string, string> = {
   white: "#FFFFFF",
   black: "#1E1E1E",
@@ -669,7 +676,7 @@ export function PublicQuoteRequest() {
 
   // Refs for Step 2 Canvas
   const containerRef = useRef<HTMLDivElement>(null);
-  const logoRef = useRef<HTMLImageElement>(null);
+  const logoRef = useRef<any>(null);
   const dragStartOffset = useRef({ x: 0, y: 0 });
 
   // Get unique brands for Step 1
@@ -965,15 +972,22 @@ export function PublicQuoteRequest() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Extract dominant colors locally from the uploaded file (CORS-safe)
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      if (event.target?.result) {
-        extractDominantColors(event.target.result as string);
-        setOriginalArtworkUrl(event.target.result as string); // Save unmodified source!
-      }
-    };
-    reader.readAsDataURL(file);
+    const isRenderable = isRenderableImage(file.name);
+    if (isRenderable) {
+      // Extract dominant colors locally from the uploaded file (CORS-safe)
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          extractDominantColors(event.target.result as string);
+          setOriginalArtworkUrl(event.target.result as string); // Save unmodified source!
+        }
+      };
+      reader.readAsDataURL(file);
+    } else {
+      // Non-renderable vector/document formats: clear canvas color extraction and background remover cache
+      setExtractedColors([]);
+      setOriginalArtworkUrl(null);
+    }
 
     setIsUploadingLogo(true);
     try {
@@ -1018,6 +1032,9 @@ export function PublicQuoteRequest() {
           ? `/api/sanmar/proxy-image?url=${encodeURIComponent(garmentImgUrl)}`
           : garmentImgUrl;
 
+        const sideArtworkName = side === 'front' ? frontArtworkName : backArtworkName;
+        const isRenderable = isRenderableImage(sideArtworkName);
+
         const loadImage = (src: string): Promise<HTMLImageElement> => {
           return new Promise((res, rej) => {
             const img = new Image();
@@ -1030,10 +1047,19 @@ export function PublicQuoteRequest() {
           });
         };
 
-        const [garmentImg, logoImg] = await Promise.all([
-          loadImage(proxiedGarmentUrl),
-          loadImage(sideLogoUrl)
-        ]);
+        let garmentImg: HTMLImageElement;
+        let logoImg: HTMLImageElement | null = null;
+
+        if (isRenderable) {
+          const [gImg, lImg] = await Promise.all([
+            loadImage(proxiedGarmentUrl),
+            loadImage(sideLogoUrl)
+          ]);
+          garmentImg = gImg;
+          logoImg = lImg;
+        } else {
+          garmentImg = await loadImage(proxiedGarmentUrl);
+        }
 
         const canvas = document.createElement('canvas');
         canvas.width = garmentImg.naturalWidth;
@@ -1050,8 +1076,8 @@ export function PublicQuoteRequest() {
           const containerW = containerRef.current.clientWidth;
           const containerH = containerRef.current.clientHeight;
 
+          const logoAspect = (isRenderable && logoImg) ? (logoImg.naturalHeight / logoImg.naturalWidth) : 1.0;
           const uiLogoW = containerW * sideLogoScale;
-          const logoAspect = logoImg.naturalHeight / logoImg.naturalWidth;
           const uiLogoH = uiLogoW * logoAspect;
 
           const canvasCenterX = (sideLogoPos.x / 100) * canvas.width;
@@ -1062,13 +1088,109 @@ export function PublicQuoteRequest() {
           ctx.save();
           ctx.translate(canvasCenterX, canvasCenterY);
           ctx.rotate((sideLogoRotation * Math.PI) / 180);
-          ctx.drawImage(
-            logoImg,
-            -canvasLogoW / 2,
-            -canvasLogoH / 2,
-            canvasLogoW,
-            canvasLogoH
-          );
+
+          if (isRenderable && logoImg) {
+            ctx.drawImage(
+              logoImg,
+              -canvasLogoW / 2,
+              -canvasLogoH / 2,
+              canvasLogoW,
+              canvasLogoH
+            );
+          } else {
+            // Draw a beautiful vector placeholder badge directly onto the canvas
+            const x = -canvasLogoW / 2;
+            const y = -canvasLogoH / 2;
+            const w = canvasLogoW;
+            const h = canvasLogoH;
+            const radius = Math.min(w, h) * 0.1;
+
+            // Draw rounded rectangle background with card styling
+            ctx.beginPath();
+            ctx.moveTo(x + radius, y);
+            ctx.lineTo(x + w - radius, y);
+            ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
+            ctx.lineTo(x + w, y + h - radius);
+            ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
+            ctx.lineTo(x + radius, y + h);
+            ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
+            ctx.lineTo(x, y + radius);
+            ctx.quadraticCurveTo(x, y, x + radius, y);
+            ctx.closePath();
+
+            ctx.fillStyle = '#FFFFFF';
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.08)';
+            ctx.shadowBlur = 10;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 4;
+            ctx.fill();
+            
+            ctx.shadowColor = 'transparent'; // Reset canvas shadow
+
+            // Draw border
+            ctx.lineWidth = Math.max(1, w * 0.02);
+            ctx.strokeStyle = '#E5E7EB';
+            ctx.stroke();
+
+            // Draw uppercase extension header banner
+            const ext = (sideArtworkName || '').split('.').pop()?.toUpperCase() || 'FILE';
+            ctx.fillStyle = '#171717'; // Brand primary color
+            const bannerHeight = h * 0.28;
+            ctx.beginPath();
+            ctx.moveTo(x + radius, y);
+            ctx.lineTo(x + w - radius, y);
+            ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
+            ctx.lineTo(x + w, y + bannerHeight);
+            ctx.lineTo(x, y + bannerHeight);
+            ctx.lineTo(x, y + radius);
+            ctx.quadraticCurveTo(x, y, x + radius, y);
+            ctx.closePath();
+            ctx.fill();
+
+            // Write extension text
+            ctx.fillStyle = '#FFFFFF';
+            const fontSizeExt = Math.max(10, Math.floor(h * 0.16));
+            ctx.font = `bold ${fontSizeExt}px sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(ext, 0, y + bannerHeight / 2);
+
+            // Draw standard paper outline icon
+            ctx.strokeStyle = '#737373';
+            ctx.lineWidth = Math.max(1, w * 0.02);
+            const iconW = w * 0.25;
+            const iconH = h * 0.3;
+            const iconX = -iconW / 2;
+            const iconY = y + bannerHeight + (h - bannerHeight - iconH) / 2 - h * 0.05;
+            
+            ctx.beginPath();
+            ctx.moveTo(iconX, iconY);
+            ctx.lineTo(iconX + iconW * 0.7, iconY);
+            ctx.lineTo(iconX + iconW, iconY + iconH * 0.3);
+            ctx.lineTo(iconX + iconW, iconY + iconH);
+            ctx.lineTo(iconX, iconY + iconH);
+            ctx.closePath();
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.moveTo(iconX + iconW * 0.7, iconY);
+            ctx.lineTo(iconX + iconW * 0.7, iconY + iconH * 0.3);
+            ctx.lineTo(iconX + iconW, iconY + iconH * 0.3);
+            ctx.stroke();
+
+            // Write truncated file name below the icon
+            ctx.fillStyle = '#404040';
+            const fontSizeName = Math.max(8, Math.floor(h * 0.09));
+            ctx.font = `${fontSizeName}px sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            let displayName = sideArtworkName || 'Uploaded File';
+            if (displayName.length > 15) {
+              displayName = displayName.substring(0, 12) + '...';
+            }
+            ctx.fillText(displayName, 0, y + h - (h - bannerHeight - iconH) / 4);
+          }
           ctx.restore();
         }
 
@@ -1204,8 +1326,8 @@ export function PublicQuoteRequest() {
               ...(backLogoUrl ? [`Back: ${backPrintSize}`] : [])
             ],
             artworks: [
-              ...(frontLogoUrl ? [{ url: frontLogoUrl, name: `Front_${frontPrintSize}_Logo` }] : []),
-              ...(backLogoUrl ? [{ url: backLogoUrl, name: `Back_${backPrintSize}_Logo` }] : [])
+              ...(frontLogoUrl ? [{ url: frontLogoUrl, name: frontArtworkName || `Front_${frontPrintSize}_Logo` }] : []),
+              ...(backLogoUrl ? [{ url: backLogoUrl, name: backArtworkName || `Back_${backPrintSize}_Logo` }] : [])
             ]
           }
         ],
@@ -1774,18 +1896,46 @@ export function PublicQuoteRequest() {
                         className="flex items-center justify-center"
                       >
                         <div className={`relative w-full h-full flex items-center justify-center p-1 transition-all ${isDragging ? 'border-2 border-dashed border-brand-primary' : 'border border-transparent'}`}>
-                          <img
-                            ref={logoRef}
-                            src={logoUrl}
-                            alt="Overlay Artwork"
-                            style={{
-                              transform: `rotate(${logoRotation}deg)`,
-                              width: '100%',
-                              height: 'auto'
-                            }}
-                            className="object-contain select-none pointer-events-none"
-                            draggable="false"
-                          />
+                          {isRenderableImage(artworkName) ? (
+                            <img
+                              ref={logoRef}
+                              src={logoUrl}
+                              alt="Overlay Artwork"
+                              style={{
+                                transform: `rotate(${logoRotation}deg)`,
+                                width: '100%',
+                                height: 'auto'
+                              }}
+                              className="object-contain select-none pointer-events-none"
+                              draggable="false"
+                            />
+                          ) : (
+                            <div
+                              ref={logoRef}
+                              style={{
+                                transform: `rotate(${logoRotation}deg)`,
+                                width: '100%',
+                                aspectRatio: '1',
+                              }}
+                              className="bg-white rounded-xl shadow-md border border-neutral-200 select-none pointer-events-none overflow-hidden flex flex-col justify-between"
+                            >
+                              {/* File Header Banner */}
+                              <div className="bg-brand-primary py-2 px-3 flex items-center justify-center shrink-0">
+                                <span className="text-[11px] font-black uppercase tracking-wider text-white">
+                                  {(artworkName || '').split('.').pop() || 'FILE'}
+                                </span>
+                              </div>
+                              {/* File Icon Symbol */}
+                              <div className="flex-1 flex flex-col items-center justify-center p-2 gap-1.5 bg-neutral-50/50">
+                                <div className="p-2 bg-white rounded-lg border border-neutral-200 shadow-3xs">
+                                  <FileText className="w-6 h-6 text-neutral-500" />
+                                </div>
+                                <span className="text-[9px] font-bold text-neutral-600 truncate max-w-[110px] text-center px-1">
+                                  {artworkName || 'Uploaded File'}
+                                </span>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
                     ) : (
@@ -1895,7 +2045,16 @@ export function PublicQuoteRequest() {
                           ) : logoUrl ? (
                             <div className="flex items-center gap-4 p-4 border border-brand-border rounded-xl bg-neutral-50/50">
                               <div className="w-14 h-14 bg-checkerboard border border-brand-border rounded-lg overflow-hidden flex items-center justify-center shrink-0">
-                                <img src={logoUrl} className="w-full h-full object-contain" alt="Logo preview" />
+                                {isRenderableImage(artworkName) ? (
+                                  <img src={logoUrl} className="w-full h-full object-contain" alt="Logo preview" />
+                                ) : (
+                                  <div className="flex flex-col items-center justify-center gap-0.5 w-full h-full bg-white">
+                                    <FileText size={18} className="text-neutral-500" />
+                                    <span className="text-[8px] font-black uppercase text-neutral-600">
+                                      {(artworkName || '').split('.').pop() || 'FILE'}
+                                    </span>
+                                  </div>
+                                )}
                               </div>
                               <div className="flex-1 min-w-0">
                                 <span className="text-xs font-bold text-brand-primary block truncate">{artworkName || 'Artwork Active'}</span>
@@ -1903,9 +2062,9 @@ export function PublicQuoteRequest() {
                                 <div className="flex gap-4 items-center mt-2">
                                   <label className="text-xs text-brand-primary hover:underline font-bold cursor-pointer inline-block">
                                     Replace File
-                                    <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
+                                    <input type="file" accept="image/*,.pdf,.eps,.ai,.psd,.cdr,.zip" onChange={handleLogoUpload} className="hidden" />
                                   </label>
-                                  {originalArtworkUrl && (
+                                  {originalArtworkUrl && isRenderableImage(artworkName) && (
                                     <button
                                       type="button"
                                       onClick={openColorRemover}
@@ -1920,9 +2079,9 @@ export function PublicQuoteRequest() {
                           ) : (
                             <label className="border-2 border-dashed border-brand-border hover:border-brand-primary/40 rounded-xl p-6 flex flex-col items-center justify-center gap-2 bg-neutral-50/40 hover:bg-neutral-50 transition-all cursor-pointer group text-center">
                               <Upload size={20} className="text-neutral-400 group-hover:text-brand-primary transition-colors" />
-                              <span className="text-xs font-bold text-neutral-700 group-hover:text-brand-primary transition-colors">Select Artwork Image File</span>
-                              <span className="text-[10px] text-neutral-400">Transparent PNG, SVG or JPEG up to 20MB</span>
-                              <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
+                              <span className="text-xs font-bold text-neutral-700 group-hover:text-brand-primary transition-colors">Select Artwork/Logo File</span>
+                              <span className="text-[10px] text-neutral-400">PNG, SVG, JPG, PDF, EPS, AI, PSD, CDR, ZIP up to 20MB</span>
+                              <input type="file" accept="image/*,.pdf,.eps,.ai,.psd,.cdr,.zip" onChange={handleLogoUpload} className="hidden" />
                             </label>
                           )}
                         </div>
@@ -2076,7 +2235,7 @@ export function PublicQuoteRequest() {
                   </div>
 
                   {/* Extracted Logo Colors */}
-                  {logoUrl && extractedColors.length > 0 && (
+                  {logoUrl && isRenderableImage(artworkName) && extractedColors.length > 0 && (
                     <div className="space-y-2.5 pt-3.5 border-t border-brand-border/60 animate-in fade-in duration-300">
                       <div className="flex justify-between items-center">
                         <span className="text-[10px] font-bold text-neutral-450 uppercase tracking-widest block">Extracted Logo Colors</span>
@@ -2101,7 +2260,7 @@ export function PublicQuoteRequest() {
                   {logoUrl && (
                     <div className="space-y-5 pt-4 border-t border-brand-border/60 animate-in fade-in duration-300">
                       <label className="text-[11px] font-bold text-neutral-700 uppercase tracking-wider block">2. Customization Controls</label>
-                      {originalArtworkUrl && (
+                      {originalArtworkUrl && isRenderableImage(artworkName) && (
                         <button
                           type="button"
                           onClick={openColorRemover}
