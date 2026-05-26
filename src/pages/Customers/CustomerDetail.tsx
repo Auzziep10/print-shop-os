@@ -2,11 +2,11 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
-import { ArrowLeft, Mail, Phone, MapPin, Building2, ExternalLink, Plus, Loader2, Upload, X, Check, Edit3, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Mail, Phone, MapPin, Building2, ExternalLink, Plus, Loader2, Upload, X, Check, Edit3, ChevronRight, Trash2 } from 'lucide-react';
 
 import { storage, db } from '../../lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { doc, getDoc, setDoc, addDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, setDoc, addDoc, collection, query, where, getDocs, updateDoc, deleteDoc } from 'firebase/firestore';
 import Cropper from 'react-easy-crop';
 import { getCroppedImg } from '../../lib/cropUtils';
 import { ShoppingBag } from 'lucide-react';
@@ -67,19 +67,42 @@ export function CustomerDetail() {
     fulfillmentType: 'Standard'
   });
   
-  const [contacts, setContacts] = useState([
-    { id: 1, name: 'Bruce Wayne', role: 'Owner / Admin', email: 'bruce@wayne.ent', lastLogin: 'Today', viewAll: true },
-    { id: 2, name: 'Lucius Fox', role: 'Purchasing', email: 'lfox@wayne.ent', lastLogin: '3 days ago', viewAll: true },
-    { id: 3, name: 'Alfred P.', role: 'Accountant', email: 'billing@wayne.ent', lastLogin: 'Jan 12', viewAll: false }
-  ]);
+  const [contacts, setContacts] = useState<any[]>([]);
   const [isAddingContact, setIsAddingContact] = useState(false);
   const [newContact, setNewContact] = useState({ name: '', role: '', email: '', viewAll: false });
 
-  const handleAddContact = () => {
-    if (!newContact.name || !newContact.email) return;
-    setContacts([...contacts, { ...newContact, id: Date.now(), lastLogin: 'Never' }]);
-    setIsAddingContact(false);
-    setNewContact({ name: '', role: '', email: '', viewAll: false });
+  const handleAddContact = async () => {
+    if (!newContact.name || !newContact.email || !id) return;
+    try {
+      const newUserRef = doc(collection(db, 'users'));
+      const newUserObj = {
+        id: newUserRef.id,
+        email: newContact.email.toLowerCase(),
+        name: newContact.name,
+        role: 'Client',
+        roleDescription: newContact.role || 'Client',
+        customerId: id,
+        createdAt: new Date().toISOString(),
+        viewAll: newContact.viewAll,
+        phone: '-',
+        companyName: editCompanyForm.name || '-'
+      };
+      await setDoc(newUserRef, newUserObj);
+      
+      setContacts([...contacts, {
+        id: newUserRef.id,
+        name: newContact.name,
+        role: newContact.role || 'Client',
+        email: newContact.email.toLowerCase(),
+        lastLogin: 'Never Logged In',
+        viewAll: newContact.viewAll
+      }]);
+      
+      setIsAddingContact(false);
+      setNewContact({ name: '', role: '', email: '', viewAll: false });
+    } catch (e) {
+      console.error("Error adding contact user:", e);
+    }
   };
 
   const [wovnCustomers, setWovnCustomers] = useState<any[]>([]);
@@ -227,28 +250,44 @@ export function CustomerDetail() {
             fulfillmentType: data.fulfillmentType ?? 'Standard'
           });
 
-          // Fetch the names for the linked catalogs immediately so they don't say "Linked WOVN Deck"
-          if (fetchedLinks.length > 0) {
-             Promise.all(fetchedLinks.map(async (linkId) => {
-               try {
-                 const res = await fetch(`https://wovn-garment-catalog.vercel.app/api/decks?deckId=${linkId}`);
-                 if (res.ok) {
-                    const deckData = await res.json();
-                    if (Array.isArray(deckData) && deckData.length > 0 && deckData[0].name) {
-                       setAvailableCatalogs(prev => {
-                          const existing = [...prev];
-                          if (!existing.find(d => d.id === linkId)) {
-                             existing.push({ id: linkId, name: deckData[0].name });
-                          }
-                          return existing;
-                       });
-                    }
-                 }
-               } catch (err) {
-                 console.error("Error fetching native deck name", err);
-               }
-             }));
-          }
+           // Fetch the names for the linked catalogs immediately so they don't say "Linked WOVN Deck"
+           if (fetchedLinks.length > 0) {
+              Promise.all(fetchedLinks.map(async (linkId) => {
+                try {
+                  const res = await fetch(`https://wovn-garment-catalog.vercel.app/api/decks?deckId=${linkId}`);
+                  if (res.ok) {
+                     const deckData = await res.json();
+                     if (Array.isArray(deckData) && deckData.length > 0 && deckData[0].name) {
+                        setAvailableCatalogs(prev => {
+                           const existing = [...prev];
+                           if (!existing.find(d => d.id === linkId)) {
+                              existing.push({ id: linkId, name: deckData[0].name });
+                           }
+                           return existing;
+                        });
+                     }
+                  }
+                } catch (err) {
+                  console.error("Error fetching native deck name", err);
+                }
+              }));
+           }
+
+           // Fetch users linked to this customerId
+           const usersQuery = query(collection(db, 'users'), where('customerId', '==', id));
+           const usersSnapshot = await getDocs(usersQuery);
+           const loadedContacts = usersSnapshot.docs.map(docSnap => {
+             const u = docSnap.data();
+             return {
+               id: docSnap.id,
+               name: u.name || 'Unnamed User',
+               role: u.roleDescription || u.role || 'Client',
+               email: u.email || '',
+               lastLogin: u.uid ? 'Yes (Registered)' : 'Never Logged In',
+               viewAll: u.viewAll ?? true
+             };
+           });
+           setContacts(loadedContacts);
 
         }
       } catch (err) {
@@ -910,39 +949,66 @@ export function CustomerDetail() {
                     </div>
                  )}
                  
-                 <div className="space-y-3">
-                   {contacts.map((contact) => (
-                     <div key={contact.id} className="p-3 border border-brand-border/60 rounded-xl bg-brand-bg flex items-center justify-between group cursor-pointer hover:border-brand-primary/30 transition-colors">
-                        <div className="flex items-center gap-3">
-                           <div className="w-8 h-8 rounded-full bg-white border border-brand-border flex items-center justify-center text-xs font-bold text-brand-primary">
-                             {contact.name.charAt(0)}
+                  <div className="space-y-3">
+                    {contacts.length === 0 ? (
+                      <p className="text-sm text-brand-secondary/60 text-center py-4 italic">No portal contacts linked to this company yet.</p>
+                    ) : (
+                      contacts.map((contact) => (
+                        <div key={contact.id} className="p-3 border border-brand-border/60 rounded-xl bg-brand-bg flex items-center justify-between group cursor-pointer hover:border-brand-primary/30 transition-colors">
+                           <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-full bg-white border border-brand-border flex items-center justify-center text-xs font-bold text-brand-primary">
+                                {contact.name.charAt(0)}
+                              </div>
+                              <div>
+                                 <p className="text-sm font-medium text-brand-primary">{contact.name}</p>
+                                 <p className="text-[10px] text-brand-secondary uppercase tracking-wide font-semibold mt-0.5">{contact.role}</p>
+                              </div>
                            </div>
-                           <div>
-                              <p className="text-sm font-medium text-brand-primary">{contact.name}</p>
-                              <p className="text-[10px] text-brand-secondary uppercase tracking-wide font-semibold mt-0.5">{contact.role}</p>
+                           <div className="flex items-center gap-6">
+                             <select 
+                               value={contact.viewAll ? "all" : "own"} 
+                               onChange={async (e) => {
+                                 const viewAllVal = e.target.value === "all";
+                                 setContacts(contacts.map(c => c.id === contact.id ? { ...c, viewAll: viewAllVal } : c));
+                                 try {
+                                   await updateDoc(doc(db, 'users', contact.id), { viewAll: viewAllVal });
+                                 } catch (err) {
+                                   console.error("Error updating user viewAll:", err);
+                                 }
+                               }} 
+                               className="bg-transparent text-xs font-semibold text-brand-secondary focus:outline-none cursor-pointer hover:text-brand-primary"
+                             >
+                               <option value="own">View Own Orders</option>
+                               <option value="all">View All Company Orders</option>
+                             </select>
+                             <div className="text-right w-36">
+                               <p className="text-xs text-brand-secondary truncate">{contact.email}</p>
+                               <p className="text-[10px] text-brand-secondary/60 mt-1">Status: {contact.lastLogin}</p>
+                             </div>
+                             <button 
+                               type="button" 
+                               onClick={async (e) => {
+                                 e.stopPropagation();
+                                 if (!confirm(`Are you sure you want to remove portal access for ${contact.name}?`)) return;
+                                 try {
+                                   await deleteDoc(doc(db, 'users', contact.id));
+                                   setContacts(contacts.filter(c => c.id !== contact.id));
+                                 } catch (err) {
+                                   console.error("Error deleting user:", err);
+                                 }
+                               }}
+                               className="p-1.5 text-brand-secondary hover:text-red-600 rounded transition-colors"
+                               title="Delete Portal User"
+                             >
+                               <Trash2 size={16} />
+                             </button>
                            </div>
                         </div>
-                        <div className="flex items-center gap-6">
-                          <select 
-                            value={contact.viewAll ? "all" : "own"} 
-                            onChange={(e) => {
-                               setContacts(contacts.map(c => c.id === contact.id ? { ...c, viewAll: e.target.value === "all" } : c))
-                            }} 
-                            className="bg-transparent text-xs font-semibold text-brand-secondary focus:outline-none cursor-pointer hover:text-brand-primary"
-                          >
-                            <option value="own">View Own Orders</option>
-                            <option value="all">View All Company Orders</option>
-                          </select>
-                          <div className="text-right w-24">
-                            <p className="text-xs text-brand-secondary truncate">{contact.email}</p>
-                            <p className="text-[10px] text-brand-secondary/60 mt-1">Logged in {contact.lastLogin}</p>
-                          </div>
-                        </div>
-                     </div>
-                   ))}
-                 </div>
-               </div>
-            </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+             </div>
             
             <div className="p-6 border-t border-brand-border bg-white flex justify-end gap-3">
                 <PillButton variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</PillButton>
