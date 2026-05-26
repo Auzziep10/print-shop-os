@@ -26,7 +26,7 @@ import {
   Sliders
 } from 'lucide-react';
 import { db, storage } from '../../lib/firebase';
-import { doc, getDoc, setDoc, getDocs, collection, query, where } from 'firebase/firestore';
+import { doc, getDoc, setDoc, getDocs, collection, query, where, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
@@ -233,7 +233,7 @@ export function getSwatchColor(colorName: string, returnGradient = false): strin
 export function PublicQuoteRequest() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { userData } = useAuth();
+  const { user, userData, signInWithGoogle, signOut } = useAuth();
   const isAdmin = userData?.role === 'Admin' || userData?.role === 'Leadership';
 
   const [step, setStep] = useState(1);
@@ -1510,8 +1510,26 @@ export function PublicQuoteRequest() {
           name: customerInfo.contactName,
           role: 'Client',
           customerId: customerId,
+          phone: customerInfo.phone || '-',
+          companyName: customerInfo.companyName || '-',
+          website: customerInfo.website || '',
           createdAt: new Date().toISOString()
         });
+      } else {
+        // User already exists, update their profile with these details so we can reach out
+        const userDoc = userSnapshot.docs[0];
+        const existingData = userDoc.data();
+        const updatedFields: any = {
+          phone: customerInfo.phone || existingData.phone || '-',
+          companyName: customerInfo.companyName || existingData.companyName || '-',
+          website: customerInfo.website || existingData.website || '',
+          customerId: existingData.customerId || customerId
+        };
+        // Upgrade Pending users who are submitting a quote/order to Client
+        if (existingData.role === 'Pending') {
+          updatedFields.role = 'Client';
+        }
+        await updateDoc(userDoc.ref, updatedFields);
       }
 
       // 3. Determine unique portal Id incremented by day
@@ -1743,6 +1761,50 @@ export function PublicQuoteRequest() {
               >
                 <Settings size={13} className="animate-spin-slow" />
                 <span>Customize Store</span>
+              </button>
+            )}
+
+            {user ? (
+              <div className="flex items-center gap-2">
+                {userData?.role === 'Client' ? (
+                  <button
+                    onClick={() => navigate(userData.customerId ? `/portal/${userData.customerId}` : '/portal')}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-primary text-white rounded-xl text-xs font-bold hover:bg-brand-primary/90 transition-all shadow-xs"
+                  >
+                    <span>View Portal</span>
+                  </button>
+                ) : (userData?.role === 'Admin' || userData?.role === 'Staff' || userData?.role === 'Leadership') ? (
+                  <button
+                    onClick={() => navigate('/orders')}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-primary text-white rounded-xl text-xs font-bold hover:bg-brand-primary/90 transition-all shadow-xs"
+                  >
+                    <span>Admin Panel</span>
+                  </button>
+                ) : (
+                  <span className="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-lg font-bold uppercase tracking-wider">
+                    Pending Approval
+                  </span>
+                )}
+                
+                <button
+                  onClick={signOut}
+                  className="px-3 py-1.5 border border-brand-border rounded-xl text-xs font-bold text-brand-secondary hover:border-red-400 hover:text-red-500 transition-all bg-white shadow-2xs"
+                >
+                  Sign Out
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={async () => {
+                  try {
+                    await signInWithGoogle();
+                  } catch (e) {
+                    console.error("Sign in failed", e);
+                  }
+                }}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 border border-brand-primary/30 hover:border-brand-primary text-brand-primary bg-brand-primary/5 hover:bg-brand-primary/10 rounded-xl text-xs font-bold transition-all shadow-2xs"
+              >
+                <span>Client Login</span>
               </button>
             )}
 

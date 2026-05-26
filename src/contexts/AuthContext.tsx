@@ -13,6 +13,9 @@ export interface UserData {
   role: UserRole;
   customerId?: string; // Only applicable for 'Client' role
   createdAt: string;
+  phone?: string;
+  companyName?: string;
+  website?: string;
 }
 
 interface AuthContextType {

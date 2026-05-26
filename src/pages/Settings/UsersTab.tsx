@@ -24,6 +24,8 @@ export function UsersTab() {
   const [name, setName] = useState('');
   const [role, setRole] = useState<UserRole>('Staff');
   const [customerId, setCustomerId] = useState('');
+  const [phone, setPhone] = useState('');
+  const [companyName, setCompanyName] = useState('');
 
   const ROLES: UserRole[] = ['Staff', 'Manager', 'Leadership', 'Admin', 'Client', 'Pending'];
 
@@ -67,6 +69,8 @@ export function UsersTab() {
     setName('');
     setRole('Staff');
     setCustomerId('');
+    setPhone('');
+    setCompanyName('');
     setIsModalOpen(true);
   };
 
@@ -76,6 +80,8 @@ export function UsersTab() {
     setName(user.name);
     setRole(user.role);
     setCustomerId(user.customerId || '');
+    setPhone(user.phone || '');
+    setCompanyName(user.companyName || '');
     setIsModalOpen(true);
   };
 
@@ -88,9 +94,11 @@ export function UsersTab() {
         email: email.toLowerCase(),
         name,
         role,
+        phone,
+        companyName,
       };
       if (role === 'Client') dbObj.customerId = customerId;
-      else dbObj.customerId = null; // Wait, Firestore doesn't like undefined. Let's send null but cast appropriately or remove it.
+      else dbObj.customerId = null;
 
       if (editingUser) {
         await updateDoc(doc(db, 'users', editingUser.id), dbObj);
@@ -158,8 +166,14 @@ export function UsersTab() {
                   <td className="px-4 py-3">
                     <div className="font-medium text-brand-primary">{user.name || 'Unnamed User'}</div>
                     <div className="text-amber-700/70 text-xs">{user.email}</div>
+                    {user.phone && user.phone !== '-' && (
+                      <div className="text-amber-700/70 text-xs mt-0.5 font-medium">Phone: {user.phone}</div>
+                    )}
+                    {user.companyName && user.companyName !== '-' && (
+                      <div className="text-amber-700/70 text-xs mt-0.5 font-medium">Company: {user.companyName}</div>
+                    )}
                   </td>
-                  <td className="px-4 py-3 flex justify-end gap-2">
+                  <td className="px-4 py-3 flex justify-end gap-2 text-right">
                     <PillButton variant="filled" className="bg-amber-500 border-amber-500 hover:bg-amber-600 px-3 py-1.5 h-auto text-xs" onClick={() => handleOpenEdit(user)}>
                       Assign Role
                     </PillButton>
@@ -190,6 +204,12 @@ export function UsersTab() {
                 <td className="px-4 py-3">
                   <div className="font-medium text-brand-primary">{user.name || 'Pending...'}</div>
                   <div className="text-brand-secondary text-xs">{user.email}</div>
+                  {user.phone && user.phone !== '-' && (
+                    <div className="text-brand-secondary text-xs mt-0.5">Phone: <span className="font-semibold text-brand-primary">{user.phone}</span></div>
+                  )}
+                  {user.companyName && user.companyName !== '-' && (
+                    <div className="text-brand-secondary text-xs mt-0.5">Company: <span className="font-semibold text-brand-primary">{user.companyName}</span></div>
+                  )}
                   {!user.uid && <span className="inline-block mt-1 px-2 py-0.5 bg-yellow-100 text-yellow-800 text-[10px] uppercase font-bold rounded">Never Logged In</span>}
                 </td>
                 <td className="px-4 py-3">
@@ -240,6 +260,14 @@ export function UsersTab() {
               <div>
                 <label className="block text-xs uppercase font-bold text-brand-secondary mb-1">Name (Optional)</label>
                 <input type="text" value={name} onChange={e => setName(e.target.value)} className="w-full px-3 py-2 border border-brand-border rounded-lg text-sm focus:ring-1 focus:ring-brand-primary outline-none" placeholder="John Doe" />
+              </div>
+              <div>
+                <label className="block text-xs uppercase font-bold text-brand-secondary mb-1">Phone Number (Optional)</label>
+                <input type="text" value={phone} onChange={e => setPhone(e.target.value)} className="w-full px-3 py-2 border border-brand-border rounded-lg text-sm focus:ring-1 focus:ring-brand-primary outline-none" placeholder="(555) 555-5555" />
+              </div>
+              <div>
+                <label className="block text-xs uppercase font-bold text-brand-secondary mb-1">Company Name (Optional)</label>
+                <input type="text" value={companyName} onChange={e => setCompanyName(e.target.value)} className="w-full px-3 py-2 border border-brand-border rounded-lg text-sm focus:ring-1 focus:ring-brand-primary outline-none" placeholder="Company Name" />
               </div>
               <div>
                 <label className="block text-xs uppercase font-bold text-brand-secondary mb-1">Role</label>

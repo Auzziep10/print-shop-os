@@ -42,7 +42,7 @@ export function PortalLayout() {
         </div>
 
         {/* Right Nav Options */}
-        <div className="flex items-center gap-10">
+        <div className="flex items-center gap-6">
           <div className="flex flex-col gap-1.5 cursor-pointer group">
             <div className="w-5 h-0.5 bg-black rounded-full group-hover:bg-gray-600 transition-colors"></div>
             <div className="w-5 h-0.5 bg-black rounded-full group-hover:bg-gray-600 transition-colors"></div>
@@ -52,9 +52,9 @@ export function PortalLayout() {
           <button 
             onClick={() => navigate(customerId ? `/portal/${customerId}` : '/portal')}
             className={`text-[13px] font-semibold tracking-wide pb-0.5 border-b-2 transition-all ${
-              location.pathname.endsWith('/create') 
-                ? 'text-gray-400 border-transparent hover:text-black hover:border-black' 
-                : 'text-black border-black'
+              location.pathname.startsWith('/portal') && !location.pathname.endsWith('/create') && !location.pathname.endsWith('/quote')
+                ? 'text-black border-black'
+                : 'text-gray-400 border-transparent hover:text-black hover:border-black'
             }`}
           >
             Orders
@@ -65,14 +65,21 @@ export function PortalLayout() {
               await signOut();
               navigate('/login');
             }}
-            className="text-[13px] font-semibold tracking-wide text-gray-400 hover:text-black transition-colors"
+            className="text-[13px] font-semibold tracking-wide text-gray-400 hover:text-black transition-colors mr-2"
           >
             Log Out
           </button>
           
           <button 
+            onClick={() => navigate('/start')}
+            className="border border-black/20 text-black px-5 py-2.5 rounded-full text-xs font-bold tracking-wide hover:border-black hover:bg-black/5 hover:scale-105 active:scale-95 transition-all shadow-[0_2px_8px_0_rgb(0,0,0,0.02)]"
+          >
+            Design Store
+          </button>
+          
+          <button 
             onClick={handleCreateOrder}
-            className="bg-black text-white px-7 py-3 rounded-full text-xs font-bold tracking-wide hover:bg-black/80 hover:scale-105 active:scale-95 transition-all shadow-[0_4px_14px_0_rgb(0,0,0,0.2)]"
+            className="bg-black text-white px-5 py-2.5 rounded-full text-xs font-bold tracking-wide hover:bg-black/80 hover:scale-105 active:scale-95 transition-all shadow-[0_4px_14px_0_rgb(0,0,0,0.15)]"
           >
             Create Order +
           </button>
