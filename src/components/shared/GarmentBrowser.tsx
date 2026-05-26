@@ -22,51 +22,163 @@ interface GarmentBrowserProps {
 }
 
 const baseColors: Record<string, string> = {
+  // Whites / Light / Greys
   white: "#FFFFFF",
-  black: "#1E1E1E",
-  navy: "#1E2530",
-  royal: "#224CB5",
-  red: "#C7222B",
-  blue: "#3B82F6",
-  grey: "#9CA3AF",
-  gray: "#9CA3AF",
-  green: "#10B981",
-  yellow: "#FBBF24",
-  orange: "#F97316",
-  purple: "#8B5CF6",
-  pink: "#EC4899",
-  brown: "#78350F",
-  khaki: "#D97706",
-  gold: "#D97706",
-  silver: "#D1D5DB",
-  loden: "#3F6212",
-  cream: "#FEF3C7",
-  sand: "#F59E0B",
+  snow: "#FBFBF9",
+  bone: "#E3DAC9",
+  cream: "#FFFDD0",
+  alabaster: "#FAFAFA",
+  marshmallow: "#F8F8F8",
+  oatmeal: "#EAE6DF",
+  cement: "#C5C6C6",
   ash: "#E5E7EB",
-  charcoal: "#4B5563",
-  teal: "#14B8A6",
-  aqua: "#06B6D4",
-  olive: "#84CC16",
-  maroon: "#7F1D1D",
-  cardinal: "#991B1B",
-  kelly: "#047857",
+  silver: "#D1D5DB",
+  heather: "#B0B5BC",
+  athletic: "#B0B5BC",
+  grey: "#808080",
+  gray: "#808080",
+  stone: "#8B8682",
+  pebble: "#8F8E8A",
+  graphite: "#3E424B",
+  charcoal: "#36383E",
+  carbon: "#2F3136",
+  slate: "#708090",
+  steel: "#7D848B",
+  aluminum: "#A9ACB6",
+  alumninum: "#A9ACB6",
+  quarry: "#7A8187",
+  smoke: "#8A95A5",
+
+  // Blacks / Darks
+  black: "#1A1A1A",
+  dark: "#1A1A1A",
+  onyx: "#0F0F0F",
+  coal: "#2A2A2A",
+  obsidian: "#121212",
+
+  // Blues
+  navy: "#0A1128",
+  patriot: "#0D1B2A",
+  royal: "#0F4C81",
+  blue: "#1E3A8A",
+  columbia: "#87B2DA",
+  sky: "#87CEEB",
+  carolina: "#799FCB",
+  cyan: "#00FFFF",
+  aqua: "#00FFFF",
+  turquoise: "#30D5C8",
+  teal: "#008080",
+  ice: "#DDF2FD",
+  denim: "#2F4F4F",
+  indigo: "#4B0082",
+  parcel: "#1E507F",
+
+  // Reds / Pinks
+  red: "#B91C1C",
+  cardinal: "#800020",
+  maroon: "#581845",
+  crimson: "#990000",
+  burgundy: "#800020",
+  berry: "#8A1C14",
+  plum: "#4D002B",
+  cherry: "#D21F3C",
+  flame: "#E2583E",
+  rust: "#B7410E",
+  pink: "#EC4899",
+  rose: "#F43F5E",
+  coral: "#FF7F50",
+  peach: "#FFDAB9",
+  apricot: "#FBCEB1",
+
+  // Greens
+  green: "#15803D",
+  kelly: "#16A34A",
+  emerald: "#047857",
   mint: "#A7F3D0",
+  loden: "#3F6212",
+  olive: "#556B2F",
+  spruce: "#1E3F20",
+  sage: "#9CAF88",
+  hunter: "#355E3B",
+  army: "#4B5320",
+  forest: "#228B22",
+  lime: "#84CC16",
+
+  // Yellows / Golds / Oranges
+  yellow: "#FACC15",
+  gold: "#D97706",
+  vegas: "#C5B358",
+  amber: "#FFBF00",
+  orange: "#F97316",
+  tangerine: "#F28500",
+  copper: "#B87333",
+  bronze: "#CD7F32",
+  mustard: "#FFDB58",
+
+  // Purples
+  purple: "#7C3AED",
   lavender: "#E9D5FF",
-  heather: "#D1D5DB",
-  stone: "#78716C",
-  tan: "#D97706",
-  chocolate: "#451A03"
+  violet: "#8F00FF",
+
+  // Browns / Tans
+  brown: "#451A03",
+  chocolate: "#451A03",
+  tan: "#D2B48C",
+  khaki: "#C3B091",
+  sand: "#C2B280",
+  camel: "#C19A6B",
+  biscuit: "#DEC49E",
+  caramel: "#C68A4C",
+  coffee: "#4B3621",
+  mink: "#8A7F73",
+  duck: "#966036"
 };
 
-export function getSwatchColor(colorName: string): string {
-  if (!colorName) return "#D1D5DB";
-  const primaryPart = colorName.split('/')[0].trim().toLowerCase();
+function resolveSingleColor(part: string): string {
+  const normalized = part.toLowerCase().trim();
+  
+  if (baseColors[normalized]) {
+    return baseColors[normalized];
+  }
+  
+  // Try multi-word keys
   for (const [key, hex] of Object.entries(baseColors)) {
-    if (primaryPart.includes(key)) {
+    if (key.includes(' ') && normalized.includes(key)) {
       return hex;
     }
   }
+  
+  // Try single-word sub-matches
+  for (const [key, hex] of Object.entries(baseColors)) {
+    if (!key.includes(' ') && normalized.includes(key)) {
+      return hex;
+    }
+  }
+  
   return "#D1D5DB";
+}
+
+export function getSwatchColor(colorName: string, returnGradient = false): string {
+  if (!colorName) return "#D1D5DB";
+  
+  const parts = colorName.split('/').map(p => p.trim()).filter(Boolean);
+  if (parts.length === 0) return "#D1D5DB";
+  
+  const colors = parts.map(resolveSingleColor);
+  
+  if (!returnGradient || colors.length === 1) {
+    return colors[0];
+  }
+  
+  if (colors.length === 2) {
+    return `linear-gradient(135deg, ${colors[0]} 50%, ${colors[1]} 50%)`;
+  }
+  
+  if (colors.length === 3) {
+    return `linear-gradient(135deg, ${colors[0]} 33%, ${colors[1]} 33%, ${colors[1]} 66%, ${colors[2]} 66%)`;
+  }
+  
+  return colors[0];
 }
 
 export function GarmentBrowser({ isOpen, onClose, onSelect }: GarmentBrowserProps) {
@@ -230,11 +342,11 @@ export function GarmentBrowser({ isOpen, onClose, onSelect }: GarmentBrowserProp
                           </span>
                           <div className="flex flex-wrap gap-1.5">
                             {product.colors.slice(0, 8).map(color => {
-                              const hex = getSwatchColor(color);
+                              const hex = getSwatchColor(color, true);
                               const swatchData = product.images[color];
                               const swatchImgUrl = swatchData && typeof swatchData === 'object' ? swatchData.swatch : '';
                               const isActive = currentPreviewColor === color;
-                              const isWhite = color === 'White';
+                              const isWhite = color.toLowerCase() === 'white';
                               
                               return (
                                 <button
@@ -254,8 +366,10 @@ export function GarmentBrowser({ isOpen, onClose, onSelect }: GarmentBrowserProp
                                       : 'border-neutral-300 hover:scale-105'
                                   }`}
                                   style={{ 
-                                    backgroundColor: hex,
-                                    backgroundImage: swatchImgUrl ? `url(${swatchImgUrl})` : 'none',
+                                    backgroundColor: hex.startsWith('linear-gradient') ? 'transparent' : hex,
+                                    backgroundImage: swatchImgUrl 
+                                      ? `url(/api/sanmar/proxy-image?url=${encodeURIComponent(swatchImgUrl)})` 
+                                      : (hex.startsWith('linear-gradient') ? hex : 'none'),
                                     backgroundSize: 'cover',
                                     backgroundPosition: 'center',
                                     borderColor: isWhite ? '#D1D5DB' : 'transparent' 
@@ -265,7 +379,7 @@ export function GarmentBrowser({ isOpen, onClose, onSelect }: GarmentBrowserProp
                                     <span className="absolute inset-0 flex items-center justify-center">
                                       <Check 
                                         size={10} 
-                                        className={color === 'White' || color === 'Silver' || color === 'Athletic Heather' ? 'text-black' : 'text-white'} 
+                                        className={color.toLowerCase() === 'white' || color.toLowerCase() === 'silver' || color.toLowerCase() === 'athletic heather' ? 'text-black' : 'text-white'} 
                                       />
                                     </span>
                                   )}
