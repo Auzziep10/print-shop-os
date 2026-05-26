@@ -1,6 +1,9 @@
 import { useState, useMemo } from 'react';
 import { X, Search, Check, DollarSign, Shirt } from 'lucide-react';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
+import colorHexMapJson from '../../data/color-hex-map.json';
+
+const colorHexMap = colorHexMapJson as Record<string, string>;
 
 interface SanMarProduct {
   style: string;
@@ -137,18 +140,33 @@ const baseColors: Record<string, string> = {
 function resolveSingleColor(part: string): string {
   const normalized = part.toLowerCase().trim();
   
+  // 1. Try exact case-insensitive match in generated color-hex-map
+  for (const [key, hex] of Object.entries(colorHexMap)) {
+    if (key.toLowerCase() === normalized) {
+      return hex;
+    }
+  }
+
+  // 2. Try substring match in generated color-hex-map (e.g. if "biscuit" matches "biscuit/ true blue")
+  for (const [key, hex] of Object.entries(colorHexMap)) {
+    const keyLower = key.toLowerCase();
+    if (keyLower.includes(normalized) || normalized.includes(keyLower)) {
+      return hex;
+    }
+  }
+
+  // 3. Fall back to baseColors exact match
   if (baseColors[normalized]) {
     return baseColors[normalized];
   }
   
-  // Try multi-word keys
+  // 4. Fall back to baseColors multi-word and sub-matches
   for (const [key, hex] of Object.entries(baseColors)) {
     if (key.includes(' ') && normalized.includes(key)) {
       return hex;
     }
   }
   
-  // Try single-word sub-matches
   for (const [key, hex] of Object.entries(baseColors)) {
     if (!key.includes(' ') && normalized.includes(key)) {
       return hex;
