@@ -195,13 +195,37 @@ export function MockupCreator({
         const uiLogoW = containerW * logoScale;
         // Keep logo aspect ratio intact
         const logoAspect = logoImg.naturalHeight / logoImg.naturalWidth;
-        const uiLogoH = uiLogoW * logoAspect;
 
-        // Position coordinates in canvas coordinates
-        const canvasCenterX = (logoPos.x / 100) * canvas.width;
-        const canvasCenterY = (logoPos.y / 100) * canvas.height;
-        const canvasLogoW = (uiLogoW / containerW) * canvas.width;
-        const canvasLogoH = (uiLogoH / containerH) * canvas.height;
+        // Calculate exact object-contain dimensions and offsets of the garment image in the UI
+        const garmentAspect = garmentImg.naturalWidth / garmentImg.naturalHeight;
+        const containerAspect = containerW / containerH;
+
+        let renderedW = containerW;
+        let renderedH = containerH;
+        let offsetX = 0;
+        let offsetY = 0;
+
+        if (garmentAspect > containerAspect) {
+          renderedW = containerW;
+          renderedH = containerW / garmentAspect;
+          offsetY = (containerH - renderedH) / 2;
+        } else {
+          renderedH = containerH;
+          renderedW = containerH * garmentAspect;
+          offsetX = (containerW - renderedW) / 2;
+        }
+
+        // Map logo position from container to the actual rendered garment boundaries
+        const logoCenterXInImage = (logoPos.x / 100) * containerW - offsetX;
+        const logoCenterYInImage = (logoPos.y / 100) * containerH - offsetY;
+
+        // Map to canvas dimensions
+        const scaleFactor = canvas.width / renderedW;
+        const canvasCenterX = logoCenterXInImage * scaleFactor;
+        const canvasCenterY = logoCenterYInImage * scaleFactor;
+
+        const canvasLogoW = uiLogoW * scaleFactor;
+        const canvasLogoH = canvasLogoW * logoAspect;
 
         ctx.save();
         // Move origin to logo center

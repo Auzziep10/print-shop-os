@@ -28,7 +28,7 @@ import {
 import { db, storage } from '../../lib/firebase';
 import { doc, getDoc, setDoc, getDocs, collection, query, where } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
 import colorHexMapJson from '../../data/color-hex-map.json';
@@ -232,12 +232,64 @@ export function getSwatchColor(colorName: string, returnGradient = false): strin
 
 export function PublicQuoteRequest() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { userData } = useAuth();
   const isAdmin = userData?.role === 'Admin' || userData?.role === 'Leadership';
 
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [isVerifyingPayment, setIsVerifyingPayment] = useState(false);
+  const [paymentSuccessMsg, setPaymentSuccessMsg] = useState('');
+
+  useEffect(() => {
+    const successParam = searchParams.get('success');
+    const sessionId = searchParams.get('session_id');
+    const orderId = searchParams.get('order_id');
+
+    if (successParam === 'true' && sessionId && orderId) {
+      const verifyPayment = async () => {
+        setIsVerifyingPayment(true);
+        try {
+          const res = await fetch('/api/stripe/verify-session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sessionId })
+          });
+          const data = await res.json();
+          if (res.ok && data.paid) {
+            // Update Firestore Order status to paid and statusIndex to 4 (Sourcing)
+            await setDoc(doc(db, 'orders', orderId), {
+              paymentStatus: 'paid',
+              statusIndex: 4, // 4 = Sourcing
+              stripePaymentIntent: data.payment_intent || '',
+              activities: [
+                {
+                  id: `act-${Date.now()}`,
+                  type: 'system',
+                  message: `Payment of $${((data.amount_total || 0) / 100).toFixed(2)} processed successfully via Stripe Checkout. Order moved to Sourcing.`,
+                  user: 'Stripe Integration',
+                  timestamp: new Date().toISOString()
+                }
+              ]
+            }, { merge: true });
+
+            setPaymentSuccessMsg(`Thank you! Your payment of $${((data.amount_total || 0) / 100).toFixed(2)} was received successfully. Your account has been setup and you can log in using Google Auth at any time with your email to track progress in your Client Portal.`);
+            setSuccess(true);
+          } else {
+            console.error("Payment not verified:", data);
+            alert("Could not verify your payment status. Please contact support.");
+          }
+        } catch (err) {
+          console.error("Verification error:", err);
+          alert("Error verifying payment.");
+        } finally {
+          setIsVerifyingPayment(false);
+        }
+      };
+      verifyPayment();
+    }
+  }, [searchParams]);
 
   // Step 4: Checkout details (moved up for pricing access)
   const [qty, setQty] = useState('50');
@@ -1230,12 +1282,37 @@ export function PublicQuoteRequest() {
 
           const logoAspect = (isRenderable && logoImg) ? (logoImg.naturalHeight / logoImg.naturalWidth) : 1.0;
           const uiLogoW = containerW * sideLogoScale;
-          const uiLogoH = uiLogoW * logoAspect;
 
-          const canvasCenterX = (sideLogoPos.x / 100) * canvas.width;
-          const canvasCenterY = (sideLogoPos.y / 100) * canvas.height;
-          const canvasLogoW = (uiLogoW / containerW) * canvas.width;
-          const canvasLogoH = (uiLogoH / containerH) * canvas.height;
+          // Calculate exact object-contain dimensions and offsets of the garment image in the UI
+          const garmentAspect = garmentImg.naturalWidth / garmentImg.naturalHeight;
+          const containerAspect = containerW / containerH;
+
+          let renderedW = containerW;
+          let renderedH = containerH;
+          let offsetX = 0;
+          let offsetY = 0;
+
+          if (garmentAspect > containerAspect) {
+            renderedW = containerW;
+            renderedH = containerW / garmentAspect;
+            offsetY = (containerH - renderedH) / 2;
+          } else {
+            renderedH = containerH;
+            renderedW = containerH * garmentAspect;
+            offsetX = (containerW - renderedW) / 2;
+          }
+
+          // Map logo position from container to the actual rendered garment boundaries
+          const logoCenterXInImage = (sideLogoPos.x / 100) * containerW - offsetX;
+          const logoCenterYInImage = (sideLogoPos.y / 100) * containerH - offsetY;
+
+          // Map to canvas dimensions
+          const scaleFactor = canvas.width / renderedW;
+          const canvasCenterX = logoCenterXInImage * scaleFactor;
+          const canvasCenterY = logoCenterYInImage * scaleFactor;
+
+          const canvasLogoW = uiLogoW * scaleFactor;
+          const canvasLogoH = canvasLogoW * logoAspect;
 
           ctx.save();
           ctx.translate(canvasCenterX, canvasCenterY);
@@ -1398,8 +1475,8 @@ export function PublicQuoteRequest() {
     }
   };
 
-  // Submit quote request
-  const handleSubmit = async () => {
+  // Submit quote request or start checkout
+  const submitOrderOrCheckout = async (isPayNow: boolean) => {
     if (!customerInfo.contactName || !customerInfo.emailAddress) {
       alert("Please provide at least your Contact Name and Email Address.");
       return;
@@ -1422,7 +1499,22 @@ export function PublicQuoteRequest() {
         createdAt: new Date().toISOString()
       });
 
-      // 2. Determine unique portal Id incremented by day
+      // 2. Pre-create User document for Client Portal mapping
+      const userQuery = query(collection(db, 'users'), where('email', '==', customerInfo.emailAddress.toLowerCase()));
+      const userSnapshot = await getDocs(userQuery);
+      if (userSnapshot.empty) {
+        const newUserRef = doc(collection(db, 'users'));
+        await setDoc(newUserRef, {
+          id: newUserRef.id,
+          email: customerInfo.emailAddress.toLowerCase(),
+          name: customerInfo.contactName,
+          role: 'Client',
+          customerId: customerId,
+          createdAt: new Date().toISOString()
+        });
+      }
+
+      // 3. Determine unique portal Id incremented by day
       const todayStart = new Date();
       todayStart.setHours(0, 0, 0, 0);
       const todayEnd = new Date();
@@ -1453,13 +1545,15 @@ export function PublicQuoteRequest() {
       const count = maxCount + 1;
       const portalId = `${prefix}${count}`;
 
-      // 3. Create Quote Request Order
+      // 4. Create Quote Request Order
+      const estimatedPrice = pricingDetails.total * parseInt(qty || '0');
       const payload = {
         id: orderId,
         portalId: portalId,
         customerId: customerId,
         title: `Quote Request for ${selectedProduct ? `${selectedProduct.brand} ${selectedProduct.style}` : 'Garment'}`,
-        statusIndex: 0, 
+        statusIndex: isPayNow ? 3 : 0, // 3 = Awaiting Payment, 0 = Request Created
+        paymentStatus: isPayNow ? 'pending' : 'unpaid',
         date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric'}),
         createdAt: new Date().toISOString(),
         items: [
@@ -1472,7 +1566,7 @@ export function PublicQuoteRequest() {
             notes: '',
             sizes: {},
             price: pricingDetails.total,
-            total: pricingDetails.total * parseInt(qty || '0'),
+            total: estimatedPrice,
             logos: [
               ...(frontLogoUrl ? [`Front: ${frontPrintSize}`] : []),
               ...(backLogoUrl ? [`Back: ${backPrintSize}`] : [])
@@ -1492,7 +1586,7 @@ export function PublicQuoteRequest() {
         notes: notes,
         budgetTier: budgetTier,
         estimatedPricePerUnit: pricingDetails.total,
-        estimatedTotalPrice: pricingDetails.total * parseInt(qty || '0'),
+        estimatedTotalPrice: estimatedPrice,
         placements: [
           ...(frontLogoUrl ? [{ side: 'front', size: frontPrintSize, logo: frontLogoUrl, mockup: frontMockupUrl }] : []),
           ...(backLogoUrl ? [{ side: 'back', size: backPrintSize, logo: backLogoUrl, mockup: backMockupUrl }] : [])
@@ -1500,21 +1594,65 @@ export function PublicQuoteRequest() {
         activities: [{
           id: `act-${Date.now()}`,
           type: 'system',
-          message: `Web Quote Request submitted by ${customerInfo.contactName}`,
+          message: isPayNow 
+            ? `Order created via online checkout. Initiating Stripe payment Session for $${estimatedPrice.toFixed(2)}.` 
+            : `Web Quote Request submitted by ${customerInfo.contactName}`,
           user: customerInfo.emailAddress,
           timestamp: new Date().toISOString()
         }]
       };
 
       await setDoc(doc(db, 'orders', orderId), payload);
-      setSuccess(true);
+
+      if (isPayNow) {
+        // Stripe Checkout integration
+        const successUrl = `${window.location.origin}${window.location.pathname}?success=true&order_id=${orderId}&session_id={CHECKOUT_SESSION_ID}`;
+        const cancelUrl = `${window.location.origin}${window.location.pathname}?canceled=true&order_id=${orderId}`;
+
+        const res = await fetch('/api/stripe/create-checkout-session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            orderId,
+            customerId,
+            title: payload.title,
+            amount: pricingDetails.total,
+            qty: parseInt(qty || '0'),
+            email: customerInfo.emailAddress,
+            successUrl,
+            cancelUrl
+          })
+        });
+
+        const data = await res.json();
+        if (res.ok && data.url) {
+          window.location.href = data.url; // Redirect to Stripe Checkout page
+        } else {
+          console.error("Stripe Checkout Session error:", data);
+          alert("Failed to initiate secure checkout session. Please try again or submit quote instead.");
+        }
+      } else {
+        setSuccess(true);
+      }
     } catch (err) {
-      console.error("Error submitting quote:", err);
+      console.error("Error submitting quote/order:", err);
       alert("There was an error submitting your request. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  // Payment verification loading view
+  if (isVerifyingPayment) {
+    return (
+      <div className="min-h-screen bg-brand-bg flex items-center justify-center p-6 text-brand-secondary font-sans">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="animate-spin text-brand-primary" size={32} />
+          <p className="text-sm font-semibold">Verifying Secure Payment Status...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Success view
   if (success) {
@@ -1524,9 +1662,11 @@ export function PublicQuoteRequest() {
           <div className="w-20 h-20 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4 border border-emerald-100">
             <CheckCircle size={40} />
           </div>
-          <h1 className="text-3xl font-serif text-brand-primary">Request Submitted</h1>
+          <h1 className="text-3xl font-serif text-brand-primary">
+            {paymentSuccessMsg ? 'Payment Completed!' : 'Request Submitted'}
+          </h1>
           <p className="text-brand-secondary text-sm leading-relaxed">
-            Thank you, {customerInfo.contactName}! We've received your product design and details. Our design team will review your specifications and follow up with you shortly with a personalized quote.
+            {paymentSuccessMsg ? paymentSuccessMsg : `Thank you, ${customerInfo.contactName}! We've received your product design and details. Our design team will review your specifications and follow up with you shortly with a personalized quote.`}
           </p>
           <div className="pt-6">
             <button 
@@ -2814,30 +2954,32 @@ export function PublicQuoteRequest() {
                   </div>
                 </div>
 
-                <div className="pt-6 border-t border-brand-border flex items-center gap-3 justify-between">
+                <div className="pt-6 border-t border-brand-border flex flex-col sm:flex-row items-stretch sm:items-center gap-3 justify-between">
                   <button
                     onClick={() => setStep(3)}
                     disabled={isSubmitting}
-                    className="px-5 py-3.5 bg-neutral-50 hover:bg-neutral-100 border border-brand-border rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 disabled:opacity-50"
+                    className="px-5 py-3.5 bg-neutral-50 hover:bg-neutral-100 border border-brand-border rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
                   >
                     <ArrowLeft size={14} /> Back
                   </button>
-                  <button
-                    onClick={handleSubmit}
-                    disabled={isSubmitting}
-                    className="flex-1 py-4 bg-brand-primary text-white hover:bg-brand-primary/95 rounded-xl text-sm font-bold tracking-wide transition-all shadow-md flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 className="animate-spin" size={16} />
-                        Submitting Project Quote...
-                      </>
-                    ) : (
-                      <>
-                        Submit Quote Request
-                      </>
-                    )}
-                  </button>
+                  <div className="flex-1 flex flex-col sm:flex-row gap-3">
+                    <button
+                      onClick={() => submitOrderOrCheckout(false)}
+                      disabled={isSubmitting}
+                      className="flex-1 py-3.5 bg-white border border-brand-border hover:bg-neutral-50 text-brand-secondary rounded-xl text-xs font-bold tracking-wide transition-all shadow-xs flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isSubmitting ? <Loader2 className="animate-spin" size={14} /> : <FileText size={14} />}
+                      Submit Quote Only
+                    </button>
+                    <button
+                      onClick={() => submitOrderOrCheckout(true)}
+                      disabled={isSubmitting}
+                      className="flex-1 py-3.5 bg-brand-primary text-white hover:bg-brand-primary/95 rounded-xl text-xs font-bold tracking-wide transition-all shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isSubmitting ? <Loader2 className="animate-spin" size={14} /> : <Lock size={14} />}
+                      Checkout & Pay Now
+                    </button>
+                  </div>
                 </div>
               </div>
 
