@@ -456,46 +456,7 @@ export function PublicQuoteRequest() {
     }).join("").toUpperCase();
   };
 
-  // Helper to convert hex to rgb
-  const hexToRgb = (hex: string) => {
-    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-    return result ? {
-      r: parseInt(result[1], 16),
-      g: parseInt(result[2], 16),
-      b: parseInt(result[3], 16)
-    } : null;
-  };
 
-  // Auto-match closest garment color to target hex
-  const matchClosestGarmentColor = (targetHex: string, product: SanMarProduct | null) => {
-    if (!product) return;
-    
-    let closestColor = product.colors[0];
-    let minDistance = Infinity;
-    
-    const targetRgb = hexToRgb(targetHex);
-    if (!targetRgb) return;
-    
-    for (const colorName of product.colors) {
-      const swatchHex = getSwatchColor(colorName);
-      const swatchRgb = hexToRgb(swatchHex);
-      if (!swatchRgb) continue;
-      
-      // Calculate Euclidean distance in RGB space
-      const distance = Math.sqrt(
-        Math.pow(targetRgb.r - swatchRgb.r, 2) +
-        Math.pow(targetRgb.g - swatchRgb.g, 2) +
-        Math.pow(targetRgb.b - swatchRgb.b, 2)
-      );
-      
-      if (distance < minDistance) {
-        minDistance = distance;
-        closestColor = colorName;
-      }
-    }
-    
-    setSelectedColor(closestColor);
-  };
 
   // Extract top 5 dominant colors from logo data url
   const extractDominantColors = (dataUrl: string) => {
@@ -546,10 +507,6 @@ export function PublicQuoteRequest() {
           
         setExtractedColors(sortedColors);
 
-        // Auto-match closest garment color to the dominant logo color!
-        if (sortedColors.length > 0) {
-          matchClosestGarmentColor(sortedColors[0], selectedProduct);
-        }
       } catch (err) {
         console.error("Error extracting colors:", err);
       }
@@ -2371,8 +2328,6 @@ export function PublicQuoteRequest() {
                                   <div className="flex flex-wrap gap-1.5" onClick={e => e.stopPropagation()}>
                                     {product.colors.slice(0, 8).map(color => {
                                       const hex = getSwatchColor(color, true);
-                                      const swatchData = product.images[color];
-                                      const swatchImgUrl = swatchData && typeof swatchData === 'object' ? swatchData.swatch : '';
                                       const isActive = currentPreviewColor === color;
                                       const isWhite = color.toLowerCase() === 'white';
 
@@ -2394,11 +2349,7 @@ export function PublicQuoteRequest() {
                                           }`}
                                           style={{ 
                                             backgroundColor: hex.startsWith('linear-gradient') ? 'transparent' : hex,
-                                            backgroundImage: swatchImgUrl 
-                                              ? `url(/api/sanmar/proxy-image?url=${encodeURIComponent(swatchImgUrl)})` 
-                                              : (hex.startsWith('linear-gradient') ? hex : 'none'),
-                                            backgroundSize: 'cover',
-                                            backgroundPosition: 'center',
+                                            backgroundImage: hex.startsWith('linear-gradient') ? hex : 'none',
                                             borderColor: isWhite ? '#D1D5DB' : 'transparent' 
                                           }}
                                         >
@@ -2571,8 +2522,6 @@ export function PublicQuoteRequest() {
                   <div className="flex flex-wrap gap-2 max-h-[120px] overflow-y-auto p-1.5 border border-brand-border bg-neutral-50/50 rounded-xl scrollbar-thin">
                     {selectedProduct.colors.map(color => {
                       const hex = getSwatchColor(color, true);
-                      const swatchData = selectedProduct.images[color];
-                      const swatchImgUrl = swatchData && typeof swatchData === 'object' ? swatchData.swatch : '';
                       const isActive = selectedColor === color;
                       const isWhite = color.toLowerCase() === 'white';
 
@@ -2589,11 +2538,7 @@ export function PublicQuoteRequest() {
                           }`}
                           style={{ 
                             backgroundColor: hex.startsWith('linear-gradient') ? 'transparent' : hex,
-                            backgroundImage: swatchImgUrl 
-                              ? `url(/api/sanmar/proxy-image?url=${encodeURIComponent(swatchImgUrl)})` 
-                              : (hex.startsWith('linear-gradient') ? hex : 'none'),
-                            backgroundSize: 'cover',
-                            backgroundPosition: 'center',
+                            backgroundImage: hex.startsWith('linear-gradient') ? hex : 'none',
                             borderColor: isWhite ? '#D1D5DB' : 'transparent' 
                           }}
                         >
@@ -2855,17 +2800,14 @@ export function PublicQuoteRequest() {
                   {logoUrl && isRenderableImage(artworkName) && extractedColors.length > 0 && (
                     <div className="space-y-2.5 pt-3.5 border-t border-brand-border/60 animate-in fade-in duration-300">
                       <div className="flex justify-between items-center">
-                        <span className="text-[10px] font-bold text-neutral-450 uppercase tracking-widest block">Extracted Logo Colors</span>
-                        <span className="text-[9px] bg-neutral-100 text-neutral-500 font-bold px-1.5 py-0.25 rounded uppercase">Click to match garment</span>
+                        <span className="text-[10px] font-bold text-neutral-450 uppercase tracking-widest block">Extracted Logo Colors (Reference Only)</span>
                       </div>
                       <div className="flex flex-wrap gap-2">
                         {extractedColors.map((color) => (
-                          <button
+                          <div
                             key={color}
-                            type="button"
-                            title={`Match garment color to ${color}`}
-                            onClick={() => matchClosestGarmentColor(color, selectedProduct)}
-                            className="w-7 h-7 rounded-full border border-neutral-300 transition-all hover:scale-110 active:scale-95 shadow-xs flex items-center justify-center relative hover:ring-2 hover:ring-brand-primary hover:ring-offset-1"
+                            title={`Logo Color: ${color}`}
+                            className="w-7 h-7 rounded-full border border-neutral-300 shadow-xs flex items-center justify-center relative"
                             style={{ backgroundColor: color }}
                           />
                         ))}

@@ -361,8 +361,6 @@ export function GarmentBrowser({ isOpen, onClose, onSelect }: GarmentBrowserProp
                           <div className="flex flex-wrap gap-1.5">
                             {product.colors.slice(0, 8).map(color => {
                               const hex = getSwatchColor(color, true);
-                              const swatchData = product.images[color];
-                              const swatchImgUrl = swatchData && typeof swatchData === 'object' ? swatchData.swatch : '';
                               const isActive = currentPreviewColor === color;
                               const isWhite = color.toLowerCase() === 'white';
                               
@@ -385,11 +383,7 @@ export function GarmentBrowser({ isOpen, onClose, onSelect }: GarmentBrowserProp
                                   }`}
                                   style={{ 
                                     backgroundColor: hex.startsWith('linear-gradient') ? 'transparent' : hex,
-                                    backgroundImage: swatchImgUrl 
-                                      ? `url(/api/sanmar/proxy-image?url=${encodeURIComponent(swatchImgUrl)})` 
-                                      : (hex.startsWith('linear-gradient') ? hex : 'none'),
-                                    backgroundSize: 'cover',
-                                    backgroundPosition: 'center',
+                                    backgroundImage: hex.startsWith('linear-gradient') ? hex : 'none',
                                     borderColor: isWhite ? '#D1D5DB' : 'transparent' 
                                   }}
                                 >
