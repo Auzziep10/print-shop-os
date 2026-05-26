@@ -323,6 +323,8 @@ export function PublicQuoteRequest() {
   const [extractedColors, setExtractedColors] = useState<string[]>([]);
   const [frontOriginalArtworkUrl, setFrontOriginalArtworkUrl] = useState<string | null>(null);
   const [backOriginalArtworkUrl, setBackOriginalArtworkUrl] = useState<string | null>(null);
+  const [frontOriginalFileUrl, setFrontOriginalFileUrl] = useState<string | null>(null);
+  const [backOriginalFileUrl, setBackOriginalFileUrl] = useState<string | null>(null);
   const originalArtworkUrl = viewMode === 'front' ? frontOriginalArtworkUrl : backOriginalArtworkUrl;
   const setOriginalArtworkUrl = (url: string | null) => {
     if (viewMode === 'front') setFrontOriginalArtworkUrl(url);
@@ -922,6 +924,11 @@ export function PublicQuoteRequest() {
       await uploadBytes(storageRef, file);
       const url = await getDownloadURL(storageRef);
       setLogoUrl(url);
+      if (viewMode === 'front') {
+        if (!frontOriginalFileUrl) setFrontOriginalFileUrl(url);
+      } else {
+        if (!backOriginalFileUrl) setBackOriginalFileUrl(url);
+      }
       setArtworkName(friendlyName);
     } catch (err) {
       console.error('Generated logo upload failed', err);
@@ -1061,6 +1068,11 @@ export function PublicQuoteRequest() {
             
             setLogoUrl(url);
             setOriginalArtworkUrl(url);
+            if (viewMode === 'front') {
+              setFrontOriginalFileUrl(url);
+            } else {
+              setBackOriginalFileUrl(url);
+            }
             setArtworkName(`AI Prompt: "${aiPrompt}"`);
             setIsGeneratingAi(false);
             
@@ -1083,6 +1095,11 @@ export function PublicQuoteRequest() {
           alert("AI image completed, but we failed to process it. Displaying raw logo.");
           setLogoUrl(imageUrl);
           setOriginalArtworkUrl(imageUrl);
+          if (viewMode === 'front') {
+            setFrontOriginalFileUrl(imageUrl);
+          } else {
+            setBackOriginalFileUrl(imageUrl);
+          }
           setArtworkName(`AI Prompt: "${aiPrompt}"`);
         }
       };
@@ -1126,6 +1143,11 @@ export function PublicQuoteRequest() {
       await uploadBytes(storageRef, file);
       const url = await getDownloadURL(storageRef);
       setLogoUrl(url);
+      if (viewMode === 'front') {
+        setFrontOriginalFileUrl(url);
+      } else {
+        setBackOriginalFileUrl(url);
+      }
       setArtworkName(file.name);
     } catch (err) {
       console.error('Logo upload failed', err);
@@ -1456,8 +1478,8 @@ export function PublicQuoteRequest() {
               ...(backLogoUrl ? [`Back: ${backPrintSize}`] : [])
             ],
             artworks: [
-              ...(frontLogoUrl ? [{ url: frontLogoUrl, name: frontArtworkName || `Front_${frontPrintSize}_Logo` }] : []),
-              ...(backLogoUrl ? [{ url: backLogoUrl, name: backArtworkName || `Back_${backPrintSize}_Logo` }] : [])
+              ...(frontLogoUrl ? [{ url: frontLogoUrl, originalUrl: frontOriginalFileUrl || frontLogoUrl, name: frontArtworkName || `Front_${frontPrintSize}_Logo` }] : []),
+              ...(backLogoUrl ? [{ url: backLogoUrl, originalUrl: backOriginalFileUrl || backLogoUrl, name: backArtworkName || `Back_${backPrintSize}_Logo` }] : [])
             ]
           }
         ],

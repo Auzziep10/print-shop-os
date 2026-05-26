@@ -159,7 +159,8 @@ export function PortalRequestQuote() {
            qty: p.qty ? parseInt(p.qty) : 0,
            image: p.artworkUrl || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200',
            notes: '',
-           sizes: {}
+           sizes: {},
+           artworks: p.artworkUrl ? [{ url: p.artworkUrl, originalUrl: p.artworkUrl, name: p.artworkName || 'Artwork' }] : []
         })),
         shippingAddress: {
            street1: shippingAddress.line1,

@@ -1148,6 +1148,37 @@ export function OrderDetail() {
                                           </div>
                                         </>
                                       )}
+                                       {item.artworks?.map((art: any, idx: number) => {
+                                         if (!art?.url && !art?.originalUrl) return null;
+                                         const downloadUrl = art.originalUrl || art.url;
+                                         return (
+                                            <a 
+                                              key={`art-dl-${idx}`} 
+                                              href={downloadUrl} 
+                                              target="_blank" 
+                                              rel="noreferrer" 
+                                              onClick={(e) => e.stopPropagation()}
+                                              className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-widest text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 transition-all px-3 py-1.5 rounded-full shadow-sm hover:shadow-md hover:-translate-y-[1px] shrink-0 whitespace-nowrap"
+                                              title={`Download full resolution artwork: ${art.name || 'Artwork'}`}
+                                            >
+                                               <Download size={12} strokeWidth={3} />
+                                               <span>{art.name || `Artwork ${idx + 1}`}</span>
+                                            </a>
+                                         );
+                                       })}
+                                       {(!item.artworks || item.artworks.length === 0) && item.image && (item.image.includes('firebasestorage') || item.image.includes('temp_logo') || item.image.includes('/logos/')) && (
+                                         <a 
+                                           href={item.image} 
+                                           target="_blank" 
+                                           rel="noreferrer" 
+                                           onClick={(e) => e.stopPropagation()}
+                                           className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-widest text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 transition-all px-3 py-1.5 rounded-full shadow-sm hover:shadow-md hover:-translate-y-[1px] shrink-0 whitespace-nowrap"
+                                           title="Download full resolution design file"
+                                         >
+                                            <Download size={12} strokeWidth={3} />
+                                            <span>Download Artwork</span>
+                                         </a>
+                                       )}
                                       <button 
                                         onClick={(e) => {
                                            e.stopPropagation();
@@ -2474,7 +2505,7 @@ export function OrderDetail() {
                                       await uploadBytes(storageRef, file);
                                       const url = await getDownloadURL(storageRef);
                                       const newArtworks = [...(editItemObj.artworks || [])];
-                                      newArtworks[idx] = { name: file.name, url };
+                                      newArtworks[idx] = { name: file.name, url, originalUrl: url };
                                       setEditItemObj((prev: any) => ({...prev, artworks: newArtworks}));
                                   }} />
                                   <div className="absolute right-0 bottom-full mb-2 bg-gray-900 text-white text-[10px] uppercase font-bold px-2 py-1 rounded hidden group-hover:block whitespace-nowrap shadow-xl z-50">
