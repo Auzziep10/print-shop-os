@@ -3080,7 +3080,7 @@ export function PublicQuoteRequest() {
                 </div>
 
                 <div className="pt-6 border-t border-brand-border flex flex-col sm:flex-row items-stretch sm:items-center gap-3 justify-between">
-                  <div className="flex items-center gap-3 flex-1">
+                  <div className="flex items-center gap-3 shrink-0">
                     <button
                       onClick={() => setStep(1)}
                       className="px-5 h-11 bg-neutral-50 hover:bg-neutral-100 border border-brand-border rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shrink-0"
@@ -3102,7 +3102,7 @@ export function PublicQuoteRequest() {
                   <button
                     onClick={handleProceedToStep3}
                     disabled={isCompilingMockup}
-                    className="flex-1 h-11 bg-brand-primary text-white hover:bg-brand-primary/95 rounded-xl font-bold tracking-wide transition-all shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-75 disabled:cursor-not-allowed text-xs"
+                    className="flex-1 sm:flex-none px-6 h-11 bg-brand-primary text-white hover:bg-brand-primary/95 rounded-xl font-bold tracking-wide transition-all shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-75 disabled:cursor-not-allowed text-xs"
                   >
                     {isCompilingMockup ? (
                       <>
