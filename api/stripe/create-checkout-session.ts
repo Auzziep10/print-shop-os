@@ -19,7 +19,8 @@ export default async function handler(req: Request) {
       qty = 1, 
       email,
       successUrl,
-      cancelUrl
+      cancelUrl,
+      lineItems
     } = body;
 
     const secretKey = process.env.STRIPE_SECRET_KEY?.trim();
@@ -32,21 +33,23 @@ export default async function handler(req: Request) {
       apiVersion: '2025-01-27.acacia',
     });
 
+    const sessionLineItems = lineItems || [
+      {
+        price_data: {
+          currency: 'usd',
+          product_data: {
+            name: title || 'Custom Garment Order',
+          },
+          unit_amount: Math.round(amount * 100), // Stripe expects unit price in cents
+        },
+        quantity: qty,
+      },
+    ];
+
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       customer_email: email || undefined,
-      line_items: [
-        {
-          price_data: {
-            currency: 'usd',
-            product_data: {
-              name: title || 'Custom Garment Order',
-            },
-            unit_amount: Math.round(amount * 100), // Stripe expects unit price in cents
-          },
-          quantity: qty,
-        },
-      ],
+      line_items: sessionLineItems,
       mode: 'payment',
       metadata: {
         orderId,

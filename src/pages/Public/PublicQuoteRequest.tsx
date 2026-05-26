@@ -237,6 +237,7 @@ export function PublicQuoteRequest() {
   const isAdmin = userData?.role === 'Admin' || userData?.role === 'Leadership';
 
   const [step, setStep] = useState(1);
+  const [cart, setCart] = useState<any[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [isVerifyingPayment, setIsVerifyingPayment] = useState(false);
@@ -391,7 +392,6 @@ export function PublicQuoteRequest() {
 
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-  const [mockupUrl, setMockupUrl] = useState<string | null>(null);
   const [frontMockupUrl, setFrontMockupUrl] = useState<string | null>(null);
   const [backMockupUrl, setBackMockupUrl] = useState<string | null>(null);
   const [isCompilingMockup, setIsCompilingMockup] = useState(false);
@@ -1443,43 +1443,270 @@ export function PublicQuoteRequest() {
     });
   };
 
-  const handleProceedToStep3 = async () => {
+  const calculateItemPrice = (product: any, quantity: number, hasFront: boolean, frontSize: string, hasBack: boolean, backSize: string) => {
+    if (!product) return { base: 0, front: 0, back: 0, surcharge: 0, total: 0 };
+    
+    const q = quantity || 50;
+    let multiplier = 1.00;
+    
+    if (q < 12) multiplier = 1.50;
+    else if (q < 24) multiplier = 1.20;
+    else if (q < 50) multiplier = 1.00;
+    else if (q < 100) multiplier = 0.85;
+    else if (q < 250) multiplier = 0.75;
+    else if (q < 500) multiplier = 0.65;
+    else multiplier = 0.55;
+
+    const basePrice = product.price * multiplier;
+    let frontCost = 0;
+    let backCost = 0;
+
+    if (hasFront) {
+      if (frontSize === 'Small') frontCost = 2.50;
+      else if (frontSize === 'Medium') frontCost = 4.50;
+      else frontCost = 6.50;
+      frontCost *= multiplier;
+    }
+
+    if (hasBack) {
+      if (backSize === 'Small') backCost = 2.50;
+      else if (backSize === 'Medium') backCost = 4.50;
+      else backCost = 6.50;
+      backCost *= multiplier;
+    }
+
+    const setupSurcharge = ((hasFront && hasBack) ? 2.00 : 0) * multiplier;
+    const unitPrice = basePrice + frontCost + backCost + setupSurcharge;
+
+    return {
+      base: basePrice,
+      front: frontCost,
+      back: backCost,
+      surcharge: setupSurcharge,
+      total: unitPrice
+    };
+  };
+
+  const updateCartItemQty = (itemId: string, newQty: number) => {
+    setCart(prevCart => {
+      return prevCart.map(item => {
+        if (item.id !== itemId) return item;
+        
+        const newPricing = calculateItemPrice(
+          item.product,
+          newQty,
+          !!item.frontLogoUrl,
+          item.frontPrintSize,
+          !!item.backLogoUrl,
+          item.backPrintSize
+        );
+
+        return {
+          ...item,
+          qty: newQty,
+          pricingDetails: { ...item.pricingDetails, ...newPricing }
+        };
+      });
+    });
+  };
+
+  const updateCartItemSize = (itemId: string, size: string, val: number) => {
+    setCart(prevCart => {
+      return prevCart.map(item => {
+        if (item.id !== itemId) return item;
+        
+        const newSizes = { ...item.sizes, [size]: val };
+        const newQty = Object.values(newSizes).reduce((acc: number, v: any) => acc + (v || 0), 0);
+        
+        const newPricing = calculateItemPrice(
+          item.product,
+          newQty,
+          !!item.frontLogoUrl,
+          item.frontPrintSize,
+          !!item.backLogoUrl,
+          item.backPrintSize
+        );
+
+        return {
+          ...item,
+          sizes: newSizes,
+          qty: newQty,
+          pricingDetails: { ...item.pricingDetails, ...newPricing }
+        };
+      });
+    });
+  };
+
+  const handleSaveActiveToCartAndReset = async () => {
+    if (!selectedProduct) return;
     setIsCompilingMockup(true);
     try {
       let fMockup = null;
       let bMockup = null;
 
-      // Compile Front if logo exists
       if (frontLogoUrl) {
         fMockup = await compileMockupSide('front');
         setFrontMockupUrl(fMockup);
       }
-      
-      // Compile Back if logo exists
       if (backLogoUrl) {
         bMockup = await compileMockupSide('back');
         setBackMockupUrl(bMockup);
       }
 
-      // If no mockups compiled, use the current active side's blank image
       const primaryMockup = fMockup || bMockup || currentGarmentImg;
-      setMockupUrl(primaryMockup);
+      
+      const newItem = {
+        id: `item-${Date.now()}`,
+        product: selectedProduct,
+        color: selectedColor,
+        qty: parseInt(qty || '0') || 50,
+        frontLogoUrl,
+        frontOriginalFileUrl,
+        frontArtworkName,
+        frontPrintSize,
+        frontMockupUrl: fMockup || frontMockupUrl,
+        backLogoUrl,
+        backOriginalFileUrl,
+        backArtworkName,
+        backPrintSize,
+        backMockupUrl: bMockup || backMockupUrl,
+        mockupUrl: primaryMockup,
+        pricingDetails: { ...pricingDetails },
+        sizes: { XS: 0, S: 0, M: 0, L: 0, XL: 0, '2XL': 0, '3XL': 0 }
+      };
 
-      setStep(3);
+      setCart(prevCart => [...prevCart, newItem]);
+
+      // Reset active designer state
+      setSelectedProduct(null);
+      setSelectedColor('');
+      setFrontLogoUrl('');
+      setFrontOriginalFileUrl('');
+      setFrontArtworkName('');
+      setFrontMockupUrl('');
+      setBackLogoUrl('');
+      setBackOriginalFileUrl('');
+      setBackArtworkName('');
+      setBackMockupUrl('');
+      setQty('50');
+
+      setStep(1);
     } catch (err) {
-      console.error("Error compilation mockup:", err);
-      alert("Note: Mockup overlay compilation had a minor issue, but we've saved your logo.");
-      setStep(3);
+      console.error("Error adding garment to cart:", err);
+      alert("Failed to add garment. Please try again.");
     } finally {
       setIsCompilingMockup(false);
     }
   };
 
+  const handleProceedToStep3 = async () => {
+    // If there is an active design, save it to the cart
+    if (selectedProduct) {
+      setIsCompilingMockup(true);
+      try {
+        let fMockup = null;
+        let bMockup = null;
+
+        if (frontLogoUrl) {
+          fMockup = await compileMockupSide('front');
+          setFrontMockupUrl(fMockup);
+        }
+        if (backLogoUrl) {
+          bMockup = await compileMockupSide('back');
+          setBackMockupUrl(bMockup);
+        }
+
+        const primaryMockup = fMockup || bMockup || currentGarmentImg;
+        
+        const newItem = {
+          id: `item-${Date.now()}`,
+          product: selectedProduct,
+          color: selectedColor,
+          qty: parseInt(qty || '0') || 50,
+          frontLogoUrl,
+          frontOriginalFileUrl,
+          frontArtworkName,
+          frontPrintSize,
+          frontMockupUrl: fMockup || frontMockupUrl,
+          backLogoUrl,
+          backOriginalFileUrl,
+          backArtworkName,
+          backPrintSize,
+          backMockupUrl: bMockup || backMockupUrl,
+          mockupUrl: primaryMockup,
+          pricingDetails: { ...pricingDetails },
+          sizes: { XS: 0, S: 0, M: 0, L: 0, XL: 0, '2XL': 0, '3XL': 0 }
+        };
+
+        setCart(prevCart => [...prevCart, newItem]);
+
+        // Clear active designer state
+        setSelectedProduct(null);
+        setSelectedColor('');
+        setFrontLogoUrl('');
+        setFrontOriginalFileUrl('');
+        setFrontArtworkName('');
+        setFrontMockupUrl('');
+        setBackLogoUrl('');
+        setBackOriginalFileUrl('');
+        setBackArtworkName('');
+        setBackMockupUrl('');
+        setQty('50');
+      } catch (err) {
+        console.error("Error compiling active design mockup:", err);
+        alert("Failed to compile mockup. Please try again.");
+        setIsCompilingMockup(false);
+        return;
+      } finally {
+        setIsCompilingMockup(false);
+      }
+    }
+    
+    setStep(3);
+  };
+
+  const handleBackToStep2 = () => {
+    if (cart.length > 0) {
+      const lastItem = cart[cart.length - 1];
+      setSelectedProduct(lastItem.product);
+      setSelectedColor(lastItem.color);
+      setQty(lastItem.qty.toString());
+      setFrontLogoUrl(lastItem.frontLogoUrl);
+      setFrontOriginalFileUrl(lastItem.frontOriginalFileUrl);
+      setFrontArtworkName(lastItem.frontArtworkName);
+      setFrontPrintSize(lastItem.frontPrintSize);
+      setFrontMockupUrl(lastItem.frontMockupUrl);
+      setBackLogoUrl(lastItem.backLogoUrl);
+      setBackOriginalFileUrl(lastItem.backOriginalFileUrl);
+      setBackArtworkName(lastItem.backArtworkName);
+      setBackPrintSize(lastItem.backPrintSize);
+      setBackMockupUrl(lastItem.backMockupUrl);
+      
+      setCart(prev => prev.slice(0, -1));
+    }
+    setStep(2);
+  };
+
+  // Submit quote request or start checkout
   // Submit quote request or start checkout
   const submitOrderOrCheckout = async (isPayNow: boolean) => {
     if (!customerInfo.contactName || !customerInfo.emailAddress) {
       alert("Please provide at least your Contact Name and Email Address.");
       return;
+    }
+
+    if (isPayNow) {
+      if (cart.length === 0) {
+        alert("Please add at least one customized style to your cart first.");
+        return;
+      }
+      for (const item of cart) {
+        const sizeSum = Object.values(item.sizes || {}).reduce((acc: number, v: any) => acc + (v || 0), 0);
+        if (sizeSum === 0) {
+          alert(`Please specify a size spread breakdown for "${item.product.brand} ${item.product.style}". Sizing details are required to complete secure checkout.`);
+          return;
+        }
+      }
     }
 
     setIsSubmitting(true);
@@ -1564,37 +1791,39 @@ export function PublicQuoteRequest() {
       const portalId = `${prefix}${count}`;
 
       // 4. Create Quote Request Order
-      const estimatedPrice = pricingDetails.total * parseInt(qty || '0');
+      const totalUnits = cart.reduce((acc, item) => acc + item.qty, 0);
+      const estimatedTotalPrice = cart.reduce((acc, item) => acc + (item.pricingDetails.total * item.qty), 0);
+      const averageEstimatedPricePerUnit = totalUnits > 0 ? (estimatedTotalPrice / totalUnits) : 0;
+      const orderTitle = `Storefront Quote/Order for ${cart.map(item => `${item.product.brand} ${item.product.style}`).join(', ')}`;
+
       const payload = {
         id: orderId,
         portalId: portalId,
         customerId: customerId,
-        title: `Quote Request for ${selectedProduct ? `${selectedProduct.brand} ${selectedProduct.style}` : 'Garment'}`,
+        title: orderTitle.length > 100 ? orderTitle.slice(0, 97) + '...' : orderTitle,
         statusIndex: isPayNow ? 3 : 0, // 3 = Awaiting Payment, 0 = Request Created
         paymentStatus: isPayNow ? 'pending' : 'unpaid',
         date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric'}),
         createdAt: new Date().toISOString(),
-        items: [
-          {
-            id: Date.now(),
-            style: selectedProduct ? `${selectedProduct.brand} ${selectedProduct.style} - ${selectedProduct.title}` : 'Custom Garment',
-            color: selectedColor || '',
-            qty: qty ? parseInt(qty) : 0,
-            image: mockupUrl || (selectedProduct ? (typeof selectedProduct.images[selectedColor] === 'string' ? selectedProduct.images[selectedColor] : selectedProduct.images[selectedColor]?.front) : '') || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200',
-            notes: '',
-            sizes: {},
-            price: pricingDetails.total,
-            total: estimatedPrice,
-            logos: [
-              ...(frontLogoUrl ? [`Front: ${frontPrintSize}`] : []),
-              ...(backLogoUrl ? [`Back: ${backPrintSize}`] : [])
-            ],
-            artworks: [
-              ...(frontLogoUrl ? [{ url: frontLogoUrl, originalUrl: frontOriginalFileUrl || frontLogoUrl, name: frontArtworkName || `Front_${frontPrintSize}_Logo` }] : []),
-              ...(backLogoUrl ? [{ url: backLogoUrl, originalUrl: backOriginalFileUrl || backLogoUrl, name: backArtworkName || `Back_${backPrintSize}_Logo` }] : [])
-            ]
-          }
-        ],
+        items: cart.map((item, idx) => ({
+          id: Date.now() + idx,
+          style: `${item.product.brand} ${item.product.style} - ${item.product.title.replace(/®/g, '').trim()}`,
+          color: item.color || '',
+          qty: item.qty,
+          image: item.mockupUrl || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200',
+          notes: '',
+          sizes: item.sizes || {},
+          price: item.pricingDetails.total,
+          total: item.pricingDetails.total * item.qty,
+          logos: [
+            ...(item.frontLogoUrl ? [`Front: ${item.frontPrintSize}`] : []),
+            ...(item.backLogoUrl ? [`Back: ${item.backPrintSize}`] : [])
+          ],
+          artworks: [
+            ...(item.frontLogoUrl ? [{ url: item.frontLogoUrl, originalUrl: item.frontOriginalFileUrl || item.frontLogoUrl, name: item.frontArtworkName || `Front_${item.frontPrintSize}_Logo` }] : []),
+            ...(item.backLogoUrl ? [{ url: item.backLogoUrl, originalUrl: item.backOriginalFileUrl || item.backLogoUrl, name: item.backArtworkName || `Back_${item.backPrintSize}_Logo` }] : [])
+          ]
+        })),
         contactDetails: {
            name: customerInfo.contactName,
            email: customerInfo.emailAddress,
@@ -1603,17 +1832,17 @@ export function PublicQuoteRequest() {
         inHandsDate: inHandsDate,
         notes: notes,
         budgetTier: budgetTier,
-        estimatedPricePerUnit: pricingDetails.total,
-        estimatedTotalPrice: estimatedPrice,
-        placements: [
-          ...(frontLogoUrl ? [{ side: 'front', size: frontPrintSize, logo: frontLogoUrl, mockup: frontMockupUrl }] : []),
-          ...(backLogoUrl ? [{ side: 'back', size: backPrintSize, logo: backLogoUrl, mockup: backMockupUrl }] : [])
-        ],
+        estimatedPricePerUnit: averageEstimatedPricePerUnit,
+        estimatedTotalPrice: estimatedTotalPrice,
+        placements: cart.flatMap(item => [
+          ...(item.frontLogoUrl ? [{ side: 'front', size: item.frontPrintSize, logo: item.frontLogoUrl, mockup: item.frontMockupUrl }] : []),
+          ...(item.backLogoUrl ? [{ side: 'back', size: item.backPrintSize, logo: item.backLogoUrl, mockup: item.backMockupUrl }] : [])
+        ]),
         activities: [{
           id: `act-${Date.now()}`,
           type: 'system',
           message: isPayNow 
-            ? `Order created via online checkout. Initiating Stripe payment Session for $${estimatedPrice.toFixed(2)}.` 
+            ? `Order created via online checkout. Initiating Stripe payment Session for $${estimatedTotalPrice.toFixed(2)}.` 
             : `Web Quote Request submitted by ${customerInfo.contactName}`,
           user: customerInfo.emailAddress,
           timestamp: new Date().toISOString()
@@ -1627,6 +1856,27 @@ export function PublicQuoteRequest() {
         const successUrl = `${window.location.origin}${window.location.pathname}?success=true&order_id=${orderId}&session_id={CHECKOUT_SESSION_ID}`;
         const cancelUrl = `${window.location.origin}${window.location.pathname}?canceled=true&order_id=${orderId}`;
 
+        // Construct lineItems
+        const lineItems = cart.map(item => {
+          const sizeDescription = Object.entries(item.sizes || {})
+            .filter(([_, v]) => (v as number) > 0)
+            .map(([k, v]) => `${k}: ${v}`)
+            .join(', ');
+          
+          return {
+            price_data: {
+              currency: 'usd',
+              product_data: {
+                name: `${item.product.brand} ${item.product.style} - ${item.product.title.replace(/®/g, '').trim()} (${item.color})`,
+                description: sizeDescription ? `Sizes: ${sizeDescription}` : `Sizes: Quote Pending`,
+                images: item.mockupUrl && item.mockupUrl.startsWith('http') ? [item.mockupUrl] : undefined
+              },
+              unit_amount: Math.round(item.pricingDetails.total * 100)
+            },
+            quantity: item.qty
+          };
+        });
+
         const res = await fetch('/api/stripe/create-checkout-session', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1634,11 +1884,12 @@ export function PublicQuoteRequest() {
             orderId,
             customerId,
             title: payload.title,
-            amount: pricingDetails.total,
-            qty: parseInt(qty || '0'),
+            amount: averageEstimatedPricePerUnit,
+            qty: totalUnits,
             email: customerInfo.emailAddress,
             successUrl,
-            cancelUrl
+            cancelUrl,
+            lineItems
           })
         });
 
@@ -2824,13 +3075,26 @@ export function PublicQuoteRequest() {
                   </div>
                 </div>
 
-                <div className="pt-6 border-t border-brand-border flex items-center gap-3 justify-between">
-                  <button
-                    onClick={() => setStep(1)}
-                    className="px-5 py-3.5 bg-neutral-50 hover:bg-neutral-100 border border-brand-border rounded-xl text-xs font-bold transition-all flex items-center gap-1.5"
-                  >
-                    <ArrowLeft size={14} /> Back
-                  </button>
+                <div className="pt-6 border-t border-brand-border flex flex-col sm:flex-row items-stretch sm:items-center gap-3 justify-between">
+                  <div className="flex items-center gap-3 flex-1">
+                    <button
+                      onClick={() => setStep(1)}
+                      className="px-5 py-3.5 bg-neutral-50 hover:bg-neutral-100 border border-brand-border rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shrink-0"
+                    >
+                      <ArrowLeft size={14} /> Back
+                    </button>
+                    <button
+                      onClick={handleSaveActiveToCartAndReset}
+                      disabled={isCompilingMockup}
+                      className="flex-1 sm:flex-none px-5 py-3.5 bg-white hover:bg-neutral-50 border border-brand-border text-brand-primary rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 disabled:opacity-75 disabled:cursor-not-allowed"
+                    >
+                      {isCompilingMockup ? (
+                        <Loader2 className="animate-spin" size={14} />
+                      ) : (
+                        <>+ Add & Customize Another</>
+                      )}
+                    </button>
+                  </div>
                   <button
                     onClick={handleProceedToStep3}
                     disabled={isCompilingMockup}
@@ -2854,14 +3118,14 @@ export function PublicQuoteRequest() {
           )}
 
           {/* STEP 3: CUSTOMER DETAILS */}
-          {step === 3 && selectedProduct && (
+          {step === 3 && (cart.length > 0 || selectedProduct) && (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start animate-in fade-in duration-300">
               
               {/* Form Input fields */}
               <div className="lg:col-span-8 bg-white rounded-3xl p-8 border border-brand-border shadow-[0_4px_24px_rgb(0,0,0,0.01)] flex flex-col gap-6">
                 <div>
                   <h2 className="text-2xl font-serif text-brand-primary tracking-tight">Step 3: Tell Us About Yourself</h2>
-                  <p className="text-brand-secondary text-xs mt-1">Provide your contact info so we can deliver your custom price quote quote and consult on your project.</p>
+                  <p className="text-brand-secondary text-xs mt-1">Provide your contact info so we can deliver your custom price quote and consult on your project.</p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-2">
@@ -2919,7 +3183,7 @@ export function PublicQuoteRequest() {
 
                 <div className="pt-6 border-t border-brand-border flex items-center gap-3 justify-between">
                   <button
-                    onClick={() => setStep(2)}
+                    onClick={handleBackToStep2}
                     className="px-5 py-3.5 bg-neutral-50 hover:bg-neutral-100 border border-brand-border rounded-xl text-xs font-bold transition-all flex items-center gap-1.5"
                   >
                     <ArrowLeft size={14} /> Back
@@ -2928,6 +3192,9 @@ export function PublicQuoteRequest() {
                     onClick={() => {
                       if (!customerInfo.contactName || !customerInfo.emailAddress) {
                         return alert("Please fill out required fields (Contact Name and Email Address).");
+                      }
+                      if (cart.length === 0) {
+                        return alert("Please add at least one customized style to your cart first.");
                       }
                       setStep(4);
                     }}
@@ -2939,45 +3206,143 @@ export function PublicQuoteRequest() {
               </div>
 
               {/* Designer product preview card (Right Column) */}
-              <div className="lg:col-span-4 bg-white rounded-3xl p-6 border border-brand-border shadow-[0_4px_24px_rgb(0,0,0,0.01)] flex flex-col gap-4">
-                <h4 className="text-xs font-bold text-neutral-400 uppercase tracking-wider border-b border-brand-border/60 pb-3">Your Product Design</h4>
-                <div className="aspect-[4/5] bg-white border border-brand-border rounded-2xl flex items-center justify-center p-6 overflow-hidden relative">
-                  <img src={mockupUrl || currentGarmentImg} alt={selectedProduct.title} className="w-full h-full object-contain filter drop-shadow-xs" />
+              <div className="lg:col-span-4 bg-white rounded-3xl p-6 border border-brand-border shadow-[0_4px_24px_rgb(0,0,0,0.01)] flex flex-col gap-4 max-h-[80vh] overflow-y-auto">
+                <div className="flex justify-between items-center border-b border-brand-border/60 pb-3">
+                  <h4 className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Your Cart ({cart.length} style{cart.length > 1 ? 's' : ''})</h4>
+                  <button
+                    onClick={() => setStep(1)}
+                    className="text-xs text-brand-primary font-bold hover:underline flex items-center gap-1"
+                  >
+                    + Add Another Style
+                  </button>
                 </div>
-                <div className="space-y-1">
-                  <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">{selectedProduct.brand} {selectedProduct.style}</span>
-                  <h5 className="text-sm font-bold text-brand-primary truncate">{selectedProduct.title.replace(/®/g, '').trim()}</h5>
-                  <p className="text-xs text-brand-secondary">Garment Color: <strong className="text-brand-primary">{selectedColor}</strong></p>
-                  <p className="text-xs text-brand-secondary mt-1">Est. Unit Price: <strong className="text-brand-primary">${pricingDetails.total.toFixed(2)}</strong></p>
-                </div>
+                
+                {cart.length === 0 ? (
+                  <p className="text-xs text-brand-secondary py-4 text-center">Your cart is empty.</p>
+                ) : (
+                  <div className="flex flex-col gap-4 divide-y divide-brand-border/40">
+                    {cart.map((item, idx) => {
+                      const itemTotal = item.pricingDetails.total * item.qty;
+                      return (
+                        <div key={item.id} className={`pt-4 ${idx === 0 ? 'pt-0' : ''} flex flex-col gap-3`}>
+                          <div className="flex gap-3">
+                            <div className="w-16 h-20 bg-neutral-50 border border-brand-border rounded-lg flex items-center justify-center p-2 overflow-hidden flex-shrink-0">
+                              <img src={item.mockupUrl} alt={item.product.title} className="w-full h-full object-contain filter drop-shadow-xs" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">{item.product.brand} {item.product.style}</span>
+                              <h5 className="text-xs font-bold text-brand-primary truncate">{item.product.title.replace(/®/g, '').trim()}</h5>
+                              <p className="text-[11px] text-brand-secondary">Color: <strong className="text-brand-primary">{item.color}</strong></p>
+                              <p className="text-[11px] text-brand-secondary font-semibold">Unit Price: <strong className="text-brand-primary">${item.pricingDetails.total.toFixed(2)}</strong></p>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center justify-between mt-1 bg-neutral-50 p-2 rounded-xl border border-brand-border/40 text-xs">
+                            <div className="flex items-center gap-2">
+                              <span className="text-neutral-400 font-semibold">Qty:</span>
+                              <input
+                                type="number"
+                                min="1"
+                                value={item.qty}
+                                onChange={(e) => {
+                                  const val = parseInt(e.target.value) || 0;
+                                  updateCartItemQty(item.id, val);
+                                }}
+                                className="w-16 bg-white border border-brand-border rounded px-1.5 py-0.5 text-center font-bold text-brand-primary"
+                              />
+                            </div>
+                            <div className="text-right">
+                              <span className="text-[10px] text-neutral-400 block">Subtotal</span>
+                              <span className="font-bold text-brand-primary">${itemTotal.toFixed(2)}</span>
+                            </div>
+                          </div>
+
+                          <div className="flex justify-end">
+                            <button
+                              onClick={() => setCart(prev => prev.filter(c => c.id !== item.id))}
+                              className="text-[10px] text-red-500 hover:text-red-600 font-bold flex items-center gap-1"
+                            >
+                              Remove Item
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                
+                {cart.length > 0 && (
+                  <div className="border-t border-brand-border/60 pt-4 mt-2">
+                    <div className="flex justify-between items-center text-sm font-bold text-brand-primary">
+                      <span>Estimated Subtotal</span>
+                      <span>
+                        ${cart.reduce((acc, item) => acc + (item.pricingDetails.total * item.qty), 0).toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
 
             </div>
           )}
 
           {/* STEP 4: REVIEW & CHECKOUT */}
-          {step === 4 && selectedProduct && (
+          {step === 4 && (cart.length > 0 || selectedProduct) && (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start animate-in fade-in duration-300">
               
               {/* Checkout details input (Left Column) */}
               <div className="lg:col-span-7 bg-white rounded-3xl p-8 border border-brand-border shadow-[0_4px_24px_rgb(0,0,0,0.01)] flex flex-col gap-6">
                 <div>
                   <h2 className="text-2xl font-serif text-brand-primary tracking-tight">Step 4: Finalize Project Scope</h2>
-                  <p className="text-brand-secondary text-xs mt-1">Specify estimated quantities, target deadlines, and select your preferred quality tier.</p>
+                  <p className="text-brand-secondary text-xs mt-1">Specify size distributions, target deadlines, and select your preferred quality tier.</p>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="flex flex-col gap-2">
-                    <label className="text-xs font-bold text-brand-primary uppercase tracking-wider">Estimated Quantity</label>
-                    <input 
-                      type="number" 
-                      placeholder="50" 
-                      value={qty} 
-                      onChange={e => setQty(e.target.value)} 
-                      className="w-full bg-white border border-brand-border rounded-xl px-4 py-3.5 text-sm text-brand-primary focus:outline-none focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400 transition-all font-medium" 
-                    />
+                {/* Sizing Spread Grid for each cart item */}
+                <div className="space-y-6">
+                  <div className="border-b border-brand-border/60 pb-3">
+                    <h3 className="text-sm font-bold text-brand-primary uppercase tracking-wider">Sizes & Quantities</h3>
+                    <p className="text-xs text-brand-secondary mt-1">Specify your size breakdown for each custom style. Sizing details are required for Pay Now checkouts.</p>
                   </div>
 
+                  <div className="space-y-6">
+                    {cart.map((item) => (
+                      <div key={item.id} className="p-5 bg-neutral-50 rounded-2xl border border-brand-border/60 space-y-4">
+                        <div className="flex justify-between items-start gap-4">
+                          <div>
+                            <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">{item.product.brand} {item.product.style}</span>
+                            <h4 className="text-xs font-bold text-brand-primary truncate">{item.product.title.replace(/®/g, '').trim()}</h4>
+                            <p className="text-[11px] text-brand-secondary mt-0.5">Color: <span className="font-bold text-brand-primary">{item.color}</span></p>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-[10px] text-neutral-400 block font-semibold uppercase">Total Qty</span>
+                            <span className="text-sm font-bold text-brand-primary bg-white border border-brand-border/60 px-2.5 py-1 rounded-lg inline-block mt-0.5 min-w-[3rem] text-center">{item.qty}</span>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
+                          {['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'].map((size) => (
+                            <div key={size} className="flex flex-col gap-1">
+                              <label className="text-[10px] font-bold text-brand-secondary text-center uppercase tracking-wider">{size}</label>
+                              <input
+                                type="number"
+                                min="0"
+                                placeholder="0"
+                                value={item.sizes?.[size] ?? 0}
+                                onChange={(e) => {
+                                  const val = parseInt(e.target.value) || 0;
+                                  updateCartItemSize(item.id, size, val);
+                                }}
+                                className="w-full bg-white border border-brand-border rounded-lg py-1.5 text-center text-xs font-bold text-brand-primary focus:outline-none focus:border-neutral-400 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4 border-t border-brand-border/60 pt-6">
                   <div className="flex flex-col gap-2">
                     <label className="text-xs font-bold text-brand-primary uppercase tracking-wider flex items-center gap-1.5"><DollarSign size={13}/> Budget Tier</label>
                     <div className="relative">
@@ -2994,7 +3359,7 @@ export function PublicQuoteRequest() {
                     </div>
                   </div>
 
-                  <div className="md:col-span-2 flex flex-col gap-2">
+                  <div className="flex flex-col gap-2">
                     <label className="text-xs font-bold text-brand-primary uppercase tracking-wider">Target In-Hands Date</label>
                     <input 
                       type="date" 
@@ -3051,42 +3416,55 @@ export function PublicQuoteRequest() {
                   <h3 className="text-lg font-serif text-brand-primary border-b border-brand-border pb-3 flex items-center gap-2"><FileText size={18} /> Quote Order Summary</h3>
                 </div>
 
-                <div className="aspect-[4/5] bg-white border border-brand-border rounded-2xl flex items-center justify-center p-6 overflow-hidden relative shadow-inner">
-                  <img src={mockupUrl || currentGarmentImg} alt={selectedProduct.title} className="w-full h-full object-contain filter drop-shadow-md select-none" />
+                {/* List of items in Step 4 Summary */}
+                <div className="space-y-3 max-h-[250px] overflow-y-auto pr-1">
+                  {cart.map((item) => {
+                    const itemTotal = item.pricingDetails.total * item.qty;
+                    return (
+                      <div key={item.id} className="flex items-center gap-3 p-3 bg-neutral-50 border border-brand-border rounded-xl">
+                        <div className="w-12 h-14 bg-white border border-brand-border rounded-md flex items-center justify-center p-1.5 overflow-hidden flex-shrink-0">
+                          <img src={item.mockupUrl} alt={item.product.title} className="w-full h-full object-contain" />
+                        </div>
+                        <div className="flex-1 min-w-0 text-xs">
+                          <h5 className="font-bold text-brand-primary truncate">{item.product.brand} {item.product.style}</h5>
+                          <p className="text-[10px] text-brand-secondary">Color: <strong>{item.color}</strong> | Qty: <strong>{item.qty}</strong></p>
+                          {item.sizes && Object.values(item.sizes).some(v => (v as number) > 0) && (
+                            <p className="text-[9px] text-neutral-400 truncate">
+                              Sizes: {Object.entries(item.sizes)
+                                .filter(([_, v]) => (v as number) > 0)
+                                .map(([k, v]) => `${k}:${v}`)
+                                .join(', ')}
+                            </p>
+                          )}
+                        </div>
+                        <div className="text-right text-xs font-bold text-brand-primary">
+                          ${itemTotal.toFixed(2)}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
 
                 <div className="divide-y divide-brand-border/60 text-xs">
                   <div className="py-3 flex justify-between">
-                    <span className="text-neutral-500 font-semibold">Garment Style</span>
-                    <span className="text-brand-primary font-bold text-right">{selectedProduct.brand} {selectedProduct.style}</span>
+                    <span className="text-neutral-500 font-semibold">Total Styles</span>
+                    <span className="text-brand-primary font-bold">{cart.length} style{cart.length > 1 ? 's' : ''}</span>
                   </div>
                   <div className="py-3 flex justify-between">
-                    <span className="text-neutral-500 font-semibold">Color preference</span>
-                    <span className="text-brand-primary font-bold">{selectedColor}</span>
-                  </div>
-                  <div className="py-3 flex justify-between">
-                    <span className="text-neutral-500 font-semibold">Placements</span>
-                    <span className="text-brand-primary font-bold text-right">
-                      {frontLogoUrl && <span className="block">Front ({frontPrintSize})</span>}
-                      {backLogoUrl && <span className="block">Back ({backPrintSize})</span>}
-                      {!frontLogoUrl && !backLogoUrl && <span className="block">Blank Garment</span>}
+                    <span className="text-neutral-500 font-semibold">Total Units</span>
+                    <span className="text-brand-primary font-bold">
+                      {cart.reduce((acc, item) => acc + item.qty, 0)} units
                     </span>
-                  </div>
-                  <div className="py-3 flex justify-between">
-                    <span className="text-neutral-500 font-semibold">Estimated quantity</span>
-                    <span className="text-brand-primary font-bold">{qty || '0'} units</span>
                   </div>
                   <div className="py-3 flex justify-between">
                     <span className="text-neutral-500 font-semibold">Quality tier</span>
                     <span className="text-brand-primary font-bold">{budgetTier}</span>
                   </div>
-                  <div className="py-3 flex justify-between">
-                    <span className="text-neutral-500 font-semibold">Est. Unit Price</span>
-                    <span className="text-brand-primary font-bold">${pricingDetails.total.toFixed(2)}</span>
-                  </div>
                   <div className="py-3 flex justify-between bg-neutral-50 p-2.5 rounded-lg border border-brand-border/60 my-1">
-                    <span className="text-brand-primary font-bold">Est. Total Price</span>
-                    <span className="text-brand-primary font-extrabold text-sm">${(pricingDetails.total * parseInt(qty || '0')).toFixed(2)}</span>
+                    <span className="text-brand-primary font-bold">Estimated Grand Total</span>
+                    <span className="text-brand-primary font-extrabold text-sm">
+                      ${cart.reduce((acc, item) => acc + (item.pricingDetails.total * item.qty), 0).toFixed(2)}
+                    </span>
                   </div>
                   <div className="py-3 flex justify-between">
                     <span className="text-neutral-500 font-semibold">Customer info</span>
