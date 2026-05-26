@@ -2071,13 +2071,21 @@ export function PublicQuoteRequest() {
                         </div>
                       </div>
                     ) : (
-                      <div className="absolute inset-0 bg-white/30 backdrop-blur-[1px] flex flex-col items-center justify-center p-6 text-center gap-3">
-                        <div className="w-12 h-12 bg-white border border-brand-border text-brand-secondary rounded-full flex items-center justify-center shadow-xs">
-                          <Upload size={18} />
+                      <label className="absolute inset-0 bg-white/30 backdrop-blur-[1px] flex flex-col items-center justify-center p-6 text-center gap-3 cursor-pointer hover:bg-white/40 transition-all group">
+                        <input 
+                          type="file" 
+                          accept="image/*,.pdf,.eps,.ai,.psd,.cdr,.zip" 
+                          onChange={handleLogoUpload} 
+                          className="hidden" 
+                        />
+                        <div className="w-12 h-12 bg-white border border-brand-border text-brand-secondary rounded-full flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
+                          <Upload size={18} className="group-hover:text-brand-primary transition-colors" />
                         </div>
-                        <p className="text-xs font-bold text-brand-primary">No Logo/Artwork Overlay Active</p>
-                        <p className="text-[10px] text-brand-secondary max-w-[200px] leading-relaxed">Select or upload a design file on the right control panel to position it onto this shirt.</p>
-                      </div>
+                        <p className="text-xs font-bold text-brand-primary group-hover:text-brand-primary/80 transition-colors">No Logo/Artwork Overlay Active</p>
+                        <p className="text-[10px] text-brand-secondary max-w-[200px] leading-relaxed">
+                          Click here or upload a design file on the right control panel to position it onto this shirt.
+                        </p>
+                      </label>
                     )}
                   </div>
                 </div>
