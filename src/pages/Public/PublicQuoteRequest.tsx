@@ -1943,9 +1943,6 @@ export function PublicQuoteRequest() {
             <div className="w-10 h-10 bg-brand-primary rounded-xl flex items-center justify-center text-white font-serif font-bold text-xl shadow-xs">
               {storefrontSettings.logoText.slice(0, 1).toUpperCase()}
             </div>
-            <span className="text-lg font-serif font-extrabold tracking-tight text-brand-primary">
-              {storefrontSettings.logoText}
-            </span>
           </div>
           
           <div className="flex items-center gap-4">
@@ -2092,13 +2089,25 @@ export function PublicQuoteRequest() {
                 <div className="space-y-12">
                   
                   {/* Hero Header Area */}
-                  <div className="text-center max-w-3xl mx-auto space-y-4 py-4">
-                    <h2 className="text-4xl md:text-5xl font-serif text-brand-primary tracking-tight leading-tight">
-                      {storefrontSettings.heroTitle}
-                    </h2>
-                    <p className="text-brand-secondary text-sm md:text-base max-w-2xl mx-auto font-medium">
-                      {storefrontSettings.heroSubtitle}
-                    </p>
+                  <div className="relative overflow-hidden rounded-3xl min-h-[340px] sm:min-h-[380px] flex items-center justify-center border border-brand-border shadow-md max-w-5xl mx-auto group">
+                    {/* Background image */}
+                    <img 
+                      src="/images/custom-apparel-hero.png" 
+                      alt="Custom Apparel Hero" 
+                      className="absolute inset-0 w-full h-full object-cover group-hover:scale-102 transition-transform duration-700 ease-out"
+                    />
+                    {/* Dark gradient overlay */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-neutral-950/85 via-neutral-950/55 to-neutral-950/45 backdrop-blur-[0.5px]" />
+                    
+                    {/* Content */}
+                    <div className="relative z-10 text-center px-6 py-12 max-w-2xl space-y-4">
+                      <h2 className="text-3xl sm:text-4xl md:text-5xl font-serif text-white tracking-tight leading-tight drop-shadow-md">
+                        {storefrontSettings.heroTitle}
+                      </h2>
+                      <p className="text-neutral-200 text-xs sm:text-sm md:text-base max-w-xl mx-auto font-medium leading-relaxed drop-shadow-sm">
+                        {storefrontSettings.heroSubtitle}
+                      </p>
+                    </div>
                   </div>
 
                   {/* Trust Badges */}
