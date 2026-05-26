@@ -392,6 +392,7 @@ export function PublicQuoteRequest() {
 
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [isResizing, setIsResizing] = useState(false);
   const [frontMockupUrl, setFrontMockupUrl] = useState<string | null>(null);
   const [backMockupUrl, setBackMockupUrl] = useState<string | null>(null);
   const [isCompilingMockup, setIsCompilingMockup] = useState(false);
@@ -842,10 +843,20 @@ export function PublicQuoteRequest() {
     });
   }, [searchQuery, selectedBrand, selectedCategory]);
 
-  // Pointer dragging event handlers for Step 2 Canvas
+  // Pointer dragging and resizing event handlers for Step 2 Canvas
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!logoUrl || !containerRef.current || !logoRef.current) return;
     
+    const target = e.target as HTMLElement;
+    const isResize = target.closest('.resize-handle');
+    
+    if (isResize) {
+      e.preventDefault();
+      setIsResizing(true);
+      target.setPointerCapture(e.pointerId);
+      return;
+    }
+
     const logoRect = logoRef.current.getBoundingClientRect();
     const clickX = e.clientX;
     const clickY = e.clientY;
@@ -859,7 +870,7 @@ export function PublicQuoteRequest() {
     ) {
       e.preventDefault();
       setIsDragging(true);
-      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+      target.setPointerCapture(e.pointerId);
 
       const logoCenterX = logoRect.left + logoRect.width / 2;
       const logoCenterY = logoRect.top + logoRect.height / 2;
@@ -871,21 +882,37 @@ export function PublicQuoteRequest() {
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!isDragging || !containerRef.current || !logoUrl) return;
+    if (!containerRef.current || !logoUrl) return;
 
     const containerRect = containerRef.current.getBoundingClientRect();
+
+    if (isResizing) {
+      const logoCenterX = containerRect.left + (logoPos.x / 100) * containerRect.width;
+      const dx = Math.abs(e.clientX - logoCenterX);
+      const newScale = (dx * 2) / containerRect.width;
+      setLogoScale(Math.max(0.05, Math.min(1.0, newScale)));
+      return;
+    }
+
+    if (!isDragging) return;
+
     const newCenterX = e.clientX - containerRect.left - dragStartOffset.current.x;
     const newCenterY = e.clientY - containerRect.top - dragStartOffset.current.y;
 
-    const xPct = Math.max(0, Math.min(100, (newCenterX / containerRect.width) * 100));
-    const yPct = Math.max(0, Math.min(100, (newCenterY / containerRect.height) * 100));
+    let xPct = (newCenterX / containerRect.width) * 100;
+    let yPct = (newCenterY / containerRect.height) * 100;
+
+    // Bounding box restriction: clamp logo position within Printable Area
+    xPct = Math.max(22, Math.min(78, xPct));
+    yPct = Math.max(18, Math.min(78, yPct));
 
     setLogoPos({ x: xPct, y: yPct });
   };
 
   const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (isDragging) {
+    if (isDragging || isResizing) {
       setIsDragging(false);
+      setIsResizing(false);
       try {
         (e.target as HTMLElement).releasePointerCapture(e.pointerId);
       } catch {
@@ -2450,6 +2477,23 @@ export function PublicQuoteRequest() {
                       draggable="false"
                     />
 
+                    {/* Printable Area Bounding Box */}
+                    {logoUrl && (
+                      <div 
+                        className="absolute border-2 border-dashed border-brand-primary/20 bg-brand-primary/[0.005] rounded-xl pointer-events-none transition-all duration-300"
+                        style={{
+                          left: '22%',
+                          right: '22%',
+                          top: '18%',
+                          bottom: '22%'
+                        }}
+                      >
+                        <span className="absolute top-2 left-2.5 text-[8px] font-extrabold text-brand-primary/45 uppercase tracking-widest select-none">
+                          Printable Area
+                        </span>
+                      </div>
+                    )}
+
                     {logoUrl ? (
                       <div
                         style={{
@@ -2460,9 +2504,18 @@ export function PublicQuoteRequest() {
                           transform: 'translate(-50%, -50%)',
                           pointerEvents: 'none'
                         }}
-                        className="flex items-center justify-center"
+                        className="flex items-center justify-center animate-in fade-in duration-300"
                       >
-                        <div className={`relative w-full h-full flex items-center justify-center p-1 transition-all ${isDragging ? 'border-2 border-dashed border-brand-primary' : 'border border-transparent'}`}>
+                        <div className={`relative w-full h-full flex items-center justify-center p-1 transition-all ${isDragging || isResizing ? 'border-2 border-dashed border-brand-primary/80 bg-brand-primary/[0.01]' : 'border border-transparent'}`}>
+                          {/* Resize Handle at Bottom-Right Corner */}
+                          <div 
+                            className="resize-handle absolute bottom-0 right-0 w-3.5 h-3.5 bg-white border-2 border-brand-primary rounded-full shadow-md cursor-se-resize hover:scale-115 active:scale-90 transition-transform pointer-events-auto flex items-center justify-center"
+                            style={{
+                              transform: 'translate(50%, 50%)',
+                              zIndex: 30
+                            }}
+                            title="Drag to resize logo"
+                          />
                           {isRenderableImage(artworkName) ? (
                             <img
                               ref={logoRef}
