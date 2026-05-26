@@ -1976,7 +1976,7 @@ export function PublicQuoteRequest() {
             {storefrontSettings.contactPhone && (
               <a 
                 href={`tel:${storefrontSettings.contactPhone}`} 
-                className="hidden md:flex items-center gap-2 text-xs font-bold text-brand-secondary hover:text-brand-primary transition-colors"
+                className="hidden md:flex items-center gap-2 px-3 h-9 rounded-xl text-xs font-bold text-brand-secondary hover:text-brand-primary hover:bg-neutral-50 transition-all duration-200"
               >
                 <Phone size={14} className="text-brand-primary" />
                 <span>{storefrontSettings.contactPhone}</span>
@@ -1989,7 +1989,7 @@ export function PublicQuoteRequest() {
                   setEditSettings({ ...storefrontSettings });
                   setIsEditingStorefront(true);
                 }}
-                className="flex items-center gap-1.5 px-3 py-1.5 border border-brand-border rounded-xl text-xs font-bold text-brand-secondary hover:border-brand-primary hover:text-brand-primary transition-all bg-neutral-50 shadow-2xs"
+                className="flex items-center justify-center gap-1.5 px-4 h-9 border border-brand-border rounded-xl text-xs font-bold text-brand-secondary hover:border-brand-primary hover:text-brand-primary hover:bg-neutral-100 transition-all bg-neutral-50 shadow-2xs"
               >
                 <Settings size={13} className="animate-spin-slow" />
                 <span>Customize Store</span>
@@ -2001,26 +2001,26 @@ export function PublicQuoteRequest() {
                 {userData?.role === 'Client' ? (
                   <button
                     onClick={() => navigate(userData.customerId ? `/portal/${userData.customerId}` : '/portal')}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-primary text-white rounded-xl text-xs font-bold hover:bg-brand-primary/90 transition-all shadow-xs"
+                    className="flex items-center justify-center gap-1.5 px-4 h-9 bg-brand-primary text-white rounded-xl text-xs font-bold hover:bg-brand-primary/90 transition-all shadow-xs"
                   >
                     <span>View Portal</span>
                   </button>
                 ) : (userData?.role === 'Admin' || userData?.role === 'Staff' || userData?.role === 'Leadership') ? (
                   <button
                     onClick={() => navigate('/orders')}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-primary text-white rounded-xl text-xs font-bold hover:bg-brand-primary/90 transition-all shadow-xs"
+                    className="flex items-center justify-center gap-1.5 px-4 h-9 bg-brand-primary text-white rounded-xl text-xs font-bold hover:bg-brand-primary/90 transition-all shadow-xs"
                   >
                     <span>Admin Panel</span>
                   </button>
                 ) : (
-                  <span className="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-lg font-bold uppercase tracking-wider">
+                  <span className="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 px-3 h-9 flex items-center justify-center rounded-xl font-bold uppercase tracking-wider">
                     Pending Approval
                   </span>
                 )}
                 
                 <button
                   onClick={signOut}
-                  className="px-3 py-1.5 border border-brand-border rounded-xl text-xs font-bold text-brand-secondary hover:border-red-400 hover:text-red-500 transition-all bg-white shadow-2xs"
+                  className="px-4 h-9 flex items-center justify-center border border-brand-border rounded-xl text-xs font-bold text-brand-secondary hover:border-red-400 hover:text-red-500 transition-all bg-white shadow-2xs hover:bg-neutral-50"
                 >
                   Sign Out
                 </button>
@@ -2034,13 +2034,13 @@ export function PublicQuoteRequest() {
                     console.error("Sign in failed", e);
                   }
                 }}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 border border-brand-primary/30 hover:border-brand-primary text-brand-primary bg-brand-primary/5 hover:bg-brand-primary/10 rounded-xl text-xs font-bold transition-all shadow-2xs"
+                className="flex items-center justify-center gap-1.5 px-4.5 h-9 bg-brand-primary text-white hover:bg-brand-primary/90 rounded-xl text-xs font-bold transition-all shadow-xs"
               >
                 <span>Client Login</span>
               </button>
             )}
 
-            <div className="flex items-center gap-1.5 bg-neutral-50 px-3 py-1.5 border border-brand-border rounded-xl">
+            <div className="flex items-center justify-center gap-1.5 bg-neutral-50 px-3.5 h-9 border border-brand-border rounded-xl">
               <Lock size={12} className="text-neutral-400" />
               <span className="text-[10px] text-neutral-500 font-extrabold uppercase tracking-wider">Secure</span>
             </div>
@@ -2440,10 +2440,10 @@ export function PublicQuoteRequest() {
                     <span className="text-[10px] font-bold text-brand-primary tracking-wider uppercase">Interactive Designer</span>
                   </div>
 
-                  <div className="absolute top-4 right-4 z-10 bg-neutral-100 p-0.5 rounded-xl border border-brand-border flex gap-1">
+                  <div className="absolute top-4 right-4 z-10 bg-neutral-100 p-1 rounded-xl border border-brand-border flex gap-1">
                     <button
                       onClick={() => setViewMode('front')}
-                      className={`px-3.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all ${
+                      className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
                         viewMode === 'front'
                           ? 'bg-white text-brand-primary shadow-xs'
                           : 'text-brand-secondary hover:text-brand-primary'
@@ -2453,7 +2453,7 @@ export function PublicQuoteRequest() {
                     </button>
                     <button
                       onClick={() => setViewMode('back')}
-                      className={`px-3.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all ${
+                      className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
                         viewMode === 'back'
                           ? 'bg-white text-brand-primary shadow-xs'
                           : 'text-brand-secondary hover:text-brand-primary'
@@ -2957,21 +2957,21 @@ export function PublicQuoteRequest() {
                         <div className="grid grid-cols-3 gap-2">
                           <button
                             onClick={() => applyPreset('center')}
-                            className="px-2 py-2 bg-neutral-50 hover:bg-neutral-100 text-neutral-700 border border-brand-border rounded-lg text-[11px] font-bold transition-all flex items-center justify-center gap-1"
+                            className="px-2 py-2.5 bg-neutral-50 hover:bg-neutral-100 text-neutral-700 border border-brand-border rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5"
                           >
-                            <AlignCenter size={12} /> Center
+                            <AlignCenter size={13} /> Center
                           </button>
                           <button
                             onClick={() => applyPreset('left')}
-                            className="px-2 py-2 bg-neutral-50 hover:bg-neutral-100 text-neutral-700 border border-brand-border rounded-lg text-[11px] font-bold transition-all flex items-center justify-center gap-1"
+                            className="px-2 py-2.5 bg-neutral-50 hover:bg-neutral-100 text-neutral-700 border border-brand-border rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5"
                           >
-                            <AlignLeft size={12} /> Left Chest
+                            <AlignLeft size={13} /> Left Chest
                           </button>
                           <button
                             onClick={() => applyPreset('reset')}
-                            className="px-2 py-2 bg-neutral-50 hover:bg-neutral-100 text-neutral-700 border border-brand-border rounded-lg text-[11px] font-bold transition-all flex items-center justify-center gap-1"
+                            className="px-2 py-2.5 bg-neutral-50 hover:bg-neutral-100 text-neutral-700 border border-brand-border rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5"
                           >
-                            <RefreshCw size={12} /> Reset
+                            <RefreshCw size={13} /> Reset
                           </button>
                         </div>
                       </div>
@@ -3083,14 +3083,14 @@ export function PublicQuoteRequest() {
                   <div className="flex items-center gap-3 flex-1">
                     <button
                       onClick={() => setStep(1)}
-                      className="px-5 py-3.5 bg-neutral-50 hover:bg-neutral-100 border border-brand-border rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shrink-0"
+                      className="px-5 h-11 bg-neutral-50 hover:bg-neutral-100 border border-brand-border rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shrink-0"
                     >
                       <ArrowLeft size={14} /> Back
                     </button>
                     <button
                       onClick={handleSaveActiveToCartAndReset}
                       disabled={isCompilingMockup}
-                      className="flex-1 sm:flex-none px-5 py-3.5 bg-white hover:bg-neutral-50 border border-brand-border text-brand-primary rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 disabled:opacity-75 disabled:cursor-not-allowed"
+                      className="flex-1 sm:flex-none px-5 h-11 bg-white hover:bg-neutral-50 border border-brand-border text-brand-primary rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 disabled:opacity-75 disabled:cursor-not-allowed"
                     >
                       {isCompilingMockup ? (
                         <Loader2 className="animate-spin" size={14} />
@@ -3102,7 +3102,7 @@ export function PublicQuoteRequest() {
                   <button
                     onClick={handleProceedToStep3}
                     disabled={isCompilingMockup}
-                    className="flex-1 py-3.5 bg-brand-primary text-white hover:bg-brand-primary/95 rounded-xl font-bold tracking-wide transition-all shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-75 disabled:cursor-not-allowed text-xs"
+                    className="flex-1 h-11 bg-brand-primary text-white hover:bg-brand-primary/95 rounded-xl font-bold tracking-wide transition-all shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-75 disabled:cursor-not-allowed text-xs"
                   >
                     {isCompilingMockup ? (
                       <>
@@ -3188,7 +3188,7 @@ export function PublicQuoteRequest() {
                 <div className="pt-6 border-t border-brand-border flex items-center gap-3 justify-between">
                   <button
                     onClick={handleBackToStep2}
-                    className="px-5 py-3.5 bg-neutral-50 hover:bg-neutral-100 border border-brand-border rounded-xl text-xs font-bold transition-all flex items-center gap-1.5"
+                    className="px-5 h-11 bg-neutral-50 hover:bg-neutral-100 border border-brand-border rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5"
                   >
                     <ArrowLeft size={14} /> Back
                   </button>
@@ -3202,7 +3202,7 @@ export function PublicQuoteRequest() {
                       }
                       setStep(4);
                     }}
-                    className="px-8 py-3.5 bg-brand-primary text-white hover:bg-brand-primary/95 rounded-xl text-xs font-bold tracking-wide transition-all shadow-sm flex items-center gap-1.5"
+                    className="px-8 h-11 bg-brand-primary text-white hover:bg-brand-primary/95 rounded-xl text-xs font-bold tracking-wide transition-all shadow-sm flex items-center justify-center gap-1.5"
                   >
                     Continue to Review <ArrowRight size={14} />
                   </button>
@@ -3389,7 +3389,7 @@ export function PublicQuoteRequest() {
                   <button
                     onClick={() => setStep(3)}
                     disabled={isSubmitting}
-                    className="px-5 py-3.5 bg-neutral-50 hover:bg-neutral-100 border border-brand-border rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
+                    className="px-5 h-11 bg-neutral-50 hover:bg-neutral-100 border border-brand-border rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
                   >
                     <ArrowLeft size={14} /> Back
                   </button>
@@ -3397,7 +3397,7 @@ export function PublicQuoteRequest() {
                     <button
                       onClick={() => submitOrderOrCheckout(false)}
                       disabled={isSubmitting}
-                      className="flex-1 py-3.5 bg-white border border-brand-border hover:bg-neutral-50 text-brand-secondary rounded-xl text-xs font-bold tracking-wide transition-all shadow-xs flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="flex-1 h-11 bg-white border border-brand-border hover:bg-neutral-50 text-brand-secondary rounded-xl text-xs font-bold tracking-wide transition-all shadow-xs flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {isSubmitting ? <Loader2 className="animate-spin" size={14} /> : <FileText size={14} />}
                       Submit Quote Only
@@ -3405,7 +3405,7 @@ export function PublicQuoteRequest() {
                     <button
                       onClick={() => submitOrderOrCheckout(true)}
                       disabled={isSubmitting}
-                      className="flex-1 py-3.5 bg-brand-primary text-white hover:bg-brand-primary/95 rounded-xl text-xs font-bold tracking-wide transition-all shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="flex-1 h-11 bg-brand-primary text-white hover:bg-brand-primary/95 rounded-xl text-xs font-bold tracking-wide transition-all shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {isSubmitting ? <Loader2 className="animate-spin" size={14} /> : <Lock size={14} />}
                       Checkout & Pay Now
