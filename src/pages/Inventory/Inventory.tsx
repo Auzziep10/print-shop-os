@@ -2,7 +2,7 @@ import { useState, useEffect, Suspense, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import * as THREE from 'three';
 import { tokens } from '../../lib/tokens';
-import { PackageOpen, Printer, Boxes, Map, QrCode, Settings, Upload, Search } from 'lucide-react';
+import { PackageOpen, Printer, Boxes, Map, QrCode, Settings, Upload, Search, Layers } from 'lucide-react';
 import QRCode from 'react-qr-code';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Text, Environment, DragControls } from '@react-three/drei';
@@ -593,6 +593,8 @@ export function Inventory() {
   const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false);
   
   const [showFindReplaceModal, setShowFindReplaceModal] = useState(false);
+  const [showSkuLookupModal, setShowSkuLookupModal] = useState(false);
+  const [selectedSkuForLookup, setSelectedSkuForLookup] = useState('');
   const [frTargetField, setFrTargetField] = useState<'name' | 'sku' | 'size'>('name');
   const [frSearchTerm, setFrSearchTerm] = useState('');
   const [frReplaceTerm, setFrReplaceTerm] = useState('');
@@ -937,6 +939,12 @@ export function Inventory() {
                       className="flex items-center gap-1.5 px-3.5 py-1.5 bg-brand-bg border border-brand-border rounded-full text-[9px] font-bold uppercase tracking-widest text-brand-primary hover:bg-black hover:text-white transition-colors shadow-sm whitespace-nowrap"
                   >
                       <Search size={10} /> Find & Replace
+                  </button>
+                  <button 
+                      onClick={() => { setSelectedSkuForLookup(''); setShowSkuLookupModal(true); }}
+                      className="flex items-center gap-1.5 px-3.5 py-1.5 bg-brand-primary text-white border border-brand-primary rounded-full text-[9px] font-bold uppercase tracking-widest hover:bg-black hover:border-black transition-colors shadow-sm whitespace-nowrap"
+                  >
+                      <Layers size={10} /> SKU Lookup
                   </button>
               </div>
            )}
@@ -1684,6 +1692,154 @@ export function Inventory() {
                   </div>
               </div>
           </div>
+      )}
+
+      {/* SKU Lookup Modal */}
+      {showSkuLookupModal && createPortal(
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in zoom-in-95 duration-200">
+              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-6 flex flex-col relative border border-brand-border max-h-[85vh]">
+                  <button onClick={() => setShowSkuLookupModal(false)} className="absolute top-6 right-6 font-bold text-brand-secondary hover:text-black">✕</button>
+                  <h2 className="text-xl font-serif font-bold text-brand-primary mb-1">SKU Inventory Lookup</h2>
+                  <p className="text-[11px] text-brand-secondary mb-6 leading-relaxed">
+                      Search across all pallets and boxes for real-time item counts and size distributions.
+                  </p>
+
+                  <div className="space-y-4 shrink-0">
+                      <div>
+                          <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1">Select or Type SKU</label>
+                          <input 
+                              list="lookup-skus"
+                              type="text"
+                              placeholder="Type or select a SKU (e.g. WH-1002)..."
+                              value={selectedSkuForLookup}
+                              onChange={e => setSelectedSkuForLookup(e.target.value)}
+                              className="w-full text-sm font-semibold p-3 bg-brand-bg border border-brand-border rounded-lg outline-none focus:border-brand-primary"
+                          />
+                          <datalist id="lookup-skus">
+                              {palletStats.skus.map(sku => (
+                                  <option key={sku} value={sku} />
+                              ))}
+                          </datalist>
+                      </div>
+                  </div>
+
+                  {selectedSkuForLookup.trim() ? (() => {
+                      const sku = selectedSkuForLookup.trim();
+                      let totalQty = 0;
+                      const sizeMap: Record<string, number> = {};
+                      const locations: Array<{
+                          palletId: string;
+                          palletName: string;
+                          boxId: string;
+                          boxName: string;
+                          size: string;
+                          quantity: number;
+                      }> = [];
+
+                      allPallets.forEach(p => {
+                          if (p.boxes) {
+                              p.boxes.forEach((b: any) => {
+                                  if (b.items) {
+                                      b.items.forEach((i: any) => {
+                                          if (i.sku && i.sku.toLowerCase() === sku.toLowerCase()) {
+                                              totalQty += i.quantity || 0;
+                                              const sz = i.size || 'N/A';
+                                              sizeMap[sz] = (sizeMap[sz] || 0) + (i.quantity || 0);
+                                              locations.push({
+                                                  palletId: p.id,
+                                                  palletName: p.name || p.id,
+                                                  boxId: b.id,
+                                                  boxName: b.name,
+                                                  size: i.size || 'N/A',
+                                                  quantity: i.quantity || 0
+                                              });
+                                          }
+                                      });
+                                  }
+                              });
+                          }
+                      });
+
+                      if (totalQty === 0) {
+                          return (
+                              <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-brand-secondary">
+                                  <p className="text-xs font-bold uppercase tracking-widest opacity-60">No inventory found for SKU "{sku}"</p>
+                              </div>
+                          );
+                      }
+
+                      return (
+                          <div className="flex-1 flex flex-col min-h-0 mt-6 overflow-hidden">
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 shrink-0 mb-6">
+                                  <div className="bg-brand-primary text-white rounded-xl p-4 flex flex-col justify-center shadow-md">
+                                      <span className="text-[9px] font-bold uppercase tracking-widest text-white/70">Total Units</span>
+                                      <span className="text-3xl font-black mt-1">{totalQty}</span>
+                                  </div>
+                                  <div className="bg-brand-bg border border-brand-border rounded-xl p-4 md:col-span-2 flex flex-col justify-center">
+                                      <span className="text-[9px] font-bold uppercase tracking-widest text-brand-secondary">Item SKU</span>
+                                      <span className="text-sm font-bold text-brand-primary mt-1 truncate">{sku}</span>
+                                  </div>
+                              </div>
+
+                              <div className="space-y-2 shrink-0 mb-6">
+                                  <span className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary block">Breakdown By Size</span>
+                                  <div className="flex flex-wrap gap-2 animate-in fade-in duration-200">
+                                      {Object.entries(sizeMap).sort((a, b) => a[0].localeCompare(b[0], undefined, { numeric: true, sensitivity: 'base' })).map(([sz, qty]) => (
+                                          <div key={sz} className="bg-brand-bg border border-brand-border rounded-xl px-4 py-2 text-center min-w-[70px]">
+                                              <div className="text-[9px] font-bold uppercase tracking-widest text-brand-secondary">{sz}</div>
+                                              <div className="text-base font-black text-brand-primary mt-0.5">{qty}</div>
+                                          </div>
+                                      ))}
+                                  </div>
+                              </div>
+
+                              <div className="flex-1 flex flex-col min-h-0">
+                                  <span className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary block mb-2">Stored Locations ({locations.length})</span>
+                                  <div className="flex-1 overflow-y-auto border border-brand-border rounded-xl divide-y divide-brand-border/40 custom-scrollbar bg-neutral-50 px-4">
+                                      {locations.map((loc, idx) => (
+                                          <div key={idx} className="py-3 flex justify-between items-center text-xs">
+                                              <div className="min-w-0 pr-4">
+                                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                                      <span className="font-bold text-brand-primary">{loc.palletName}</span>
+                                                      <span className="text-brand-secondary/60">›</span>
+                                                      <span className="font-bold text-neutral-700">{loc.boxName}</span>
+                                                      <span className="bg-white border border-brand-border text-brand-secondary px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-widest">
+                                                          {loc.size}
+                                                      </span>
+                                                  </div>
+                                                  <div className="text-[9px] text-neutral-400 font-mono mt-0.5 uppercase tracking-widest">ID: {loc.palletId}</div>
+                                              </div>
+                                              <div className="flex items-center gap-3 shrink-0">
+                                                  <span className="font-bold text-brand-primary">{loc.quantity} units</span>
+                                                  <button 
+                                                      onClick={() => {
+                                                          setInspectPalletId(null);
+                                                          setTimeout(() => {
+                                                              setInspectPalletId(loc.palletId);
+                                                              setMainTab('Pallets');
+                                                              setShowSkuLookupModal(false);
+                                                          }, 50);
+                                                      }}
+                                                      className="px-3 py-1.5 bg-white border border-brand-border hover:bg-black hover:text-white text-brand-primary hover:border-black text-[9px] font-bold uppercase tracking-widest rounded-lg transition-all shadow-2xs"
+                                                  >
+                                                      Go to Pallet
+                                                  </button>
+                                              </div>
+                                          </div>
+                                      ))}
+                                  </div>
+                              </div>
+                          </div>
+                      );
+                  })() : (
+                      <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-brand-secondary">
+                          <Search size={32} className="mx-auto mb-2 opacity-20" />
+                          <p className="text-xs uppercase font-bold tracking-widest opacity-50">Select a SKU above to view data</p>
+                      </div>
+                  )}
+              </div>
+          </div>,
+          document.body
       )}
 
       <PalletPickOptimizerModal
