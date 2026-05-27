@@ -2089,11 +2089,16 @@ export function PublicQuoteRequest() {
         {selectedCategory !== '' && (
           <div className="max-w-3xl mx-auto mb-12">
             <div className="flex items-center justify-between relative">
-              <div className="absolute left-4 right-4 top-5 -translate-y-1/2 h-[2px] bg-brand-border z-0"></div>
-              <div 
-                className="absolute left-4 top-5 -translate-y-1/2 h-[2px] bg-brand-primary transition-all duration-500 z-0"
-                style={{ width: `${((step - 1) / 3) * 92}%` }}
-              ></div>
+              {/* Progress Line Wrapper */}
+              <div className="absolute left-16 right-16 top-5 -translate-y-1/2 h-[2px] z-0">
+                {/* Background Line */}
+                <div className="absolute inset-0 bg-brand-border"></div>
+                {/* Active Line */}
+                <div 
+                  className="absolute left-0 top-0 bottom-0 bg-brand-primary transition-all duration-500"
+                  style={{ width: `${((step - 1) / 3) * 100}%` }}
+                ></div>
+              </div>
 
               {[
                 { num: 1, label: '1. Select Product' },
@@ -2112,7 +2117,7 @@ export function PublicQuoteRequest() {
                       }
                     }}
                     disabled={s.num > step}
-                    className="flex flex-col items-center gap-2.5 relative z-10 focus:outline-none disabled:cursor-not-allowed group"
+                    className="flex flex-col items-center gap-2.5 relative z-10 focus:outline-none disabled:cursor-not-allowed group w-32"
                   >
                     <div 
                       className={`w-10 h-10 rounded-full border-2 flex items-center justify-center font-bold text-sm transition-all duration-300 ${
