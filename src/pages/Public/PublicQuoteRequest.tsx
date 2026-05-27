@@ -2577,7 +2577,26 @@ export function PublicQuoteRequest() {
 
           {/* STEP 2: DESIGN & CUSTOMIZATION */}
           {step === 2 && selectedProduct && (
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start animate-in fade-in duration-300">
+            <div className="space-y-6 animate-in fade-in duration-300">
+              {/* Step 2 Header */}
+              <div className="w-full bg-white rounded-3xl p-6 border border-brand-border shadow-[0_4px_24px_rgb(0,0,0,0.01)] flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setStep(1)}
+                  className="p-2 border border-brand-border hover:border-neutral-450 text-brand-secondary hover:text-brand-primary bg-neutral-50 rounded-xl transition-all shadow-2xs cursor-pointer"
+                  title="Back to Catalog"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <div>
+                  <span className="text-[10px] font-extrabold uppercase tracking-widest text-brand-secondary">Step 2 of 4</span>
+                  <h3 className="text-2xl font-serif text-brand-primary mt-0.5">
+                    Customize {selectedProduct.title.replace(/®/g, '').trim()}
+                  </h3>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
               
               {/* Designer Canvas Container & Colors (Left Column) */}
               <div className="lg:col-span-7 flex flex-col gap-6">
@@ -3266,18 +3285,38 @@ export function PublicQuoteRequest() {
               </div>
 
             </div>
-          )}
+          </div>
+        )}
 
           {/* STEP 3: CUSTOMER DETAILS */}
           {step === 3 && (cart.length > 0 || selectedProduct) && (
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start animate-in fade-in duration-300">
-              
-              {/* Form Input fields */}
-              <div className="lg:col-span-8 bg-white rounded-3xl p-8 border border-brand-border shadow-[0_4px_24px_rgb(0,0,0,0.01)] flex flex-col gap-6">
+            <div className="space-y-6 animate-in fade-in duration-300">
+              {/* Step 3 Header */}
+              <div className="w-full bg-white rounded-3xl p-6 border border-brand-border shadow-[0_4px_24px_rgb(0,0,0,0.01)] flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleBackToStep2}
+                  className="p-2 border border-brand-border hover:border-neutral-450 text-brand-secondary hover:text-brand-primary bg-neutral-50 rounded-xl transition-all shadow-2xs cursor-pointer"
+                  title="Back to Studio"
+                >
+                  <ChevronLeft size={16} />
+                </button>
                 <div>
-                  <h2 className="text-2xl font-serif text-brand-primary tracking-tight">Step 3: Tell Us About Yourself</h2>
-                  <p className="text-brand-secondary text-xs mt-1">Provide your contact info so we can deliver your custom price quote and consult on your project.</p>
+                  <span className="text-[10px] font-extrabold uppercase tracking-widest text-brand-secondary">Step 3 of 4</span>
+                  <h3 className="text-2xl font-serif text-brand-primary mt-0.5">
+                    Your Contact & Project Details
+                  </h3>
                 </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                
+                {/* Form Input fields */}
+                <div className="lg:col-span-8 bg-white rounded-3xl p-8 border border-brand-border shadow-[0_4px_24px_rgb(0,0,0,0.01)] flex flex-col gap-6">
+                  <div>
+                    <h4 className="text-sm font-bold text-brand-primary uppercase tracking-wider">Contact Information</h4>
+                    <p className="text-brand-secondary text-xs mt-1">Provide your contact info so we can deliver your custom price quote and consult on your project.</p>
+                  </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-2">
                   <div className="flex flex-col gap-2">
@@ -3435,18 +3474,38 @@ export function PublicQuoteRequest() {
               </div>
 
             </div>
-          )}
+          </div>
+        )}
 
           {/* STEP 4: REVIEW & CHECKOUT */}
           {step === 4 && (cart.length > 0 || selectedProduct) && (
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start animate-in fade-in duration-300">
-              
-              {/* Checkout details input (Left Column) */}
-              <div className="lg:col-span-7 bg-white rounded-3xl p-8 border border-brand-border shadow-[0_4px_24px_rgb(0,0,0,0.01)] flex flex-col gap-6">
+            <div className="space-y-6 animate-in fade-in duration-300">
+              {/* Step 4 Header */}
+              <div className="w-full bg-white rounded-3xl p-6 border border-brand-border shadow-[0_4px_24px_rgb(0,0,0,0.01)] flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setStep(3)}
+                  className="p-2 border border-brand-border hover:border-neutral-450 text-brand-secondary hover:text-brand-primary bg-neutral-50 rounded-xl transition-all shadow-2xs cursor-pointer"
+                  title="Back to Contact Info"
+                >
+                  <ChevronLeft size={16} />
+                </button>
                 <div>
-                  <h2 className="text-2xl font-serif text-brand-primary tracking-tight">Step 4: Finalize Project Scope</h2>
-                  <p className="text-brand-secondary text-xs mt-1">Specify size distributions, target deadlines, and select your preferred quality tier.</p>
+                  <span className="text-[10px] font-extrabold uppercase tracking-widest text-brand-secondary">Step 4 of 4</span>
+                  <h3 className="text-2xl font-serif text-brand-primary mt-0.5">
+                    Finalize Project Scope
+                  </h3>
                 </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                
+                {/* Checkout details input (Left Column) */}
+                <div className="lg:col-span-7 bg-white rounded-3xl p-8 border border-brand-border shadow-[0_4px_24px_rgb(0,0,0,0.01)] flex flex-col gap-6">
+                  <div>
+                    <h4 className="text-sm font-bold text-brand-primary uppercase tracking-wider">Sizing & Deadlines</h4>
+                    <p className="text-brand-secondary text-xs mt-1">Specify size distributions, target deadlines, and select your preferred quality tier.</p>
+                  </div>
 
                 {/* Sizing Spread Grid for each cart item */}
                 <div className="space-y-6">
@@ -3628,7 +3687,8 @@ export function PublicQuoteRequest() {
               </div>
 
             </div>
-          )}
+          </div>
+        )}
 
         </div>
       </div>
