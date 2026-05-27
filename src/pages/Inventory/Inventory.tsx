@@ -909,7 +909,7 @@ export function Inventory() {
   return (
     <div className={`${tokens.layout.container} h-[100dvh] flex flex-col pt-4 md:pt-5`}>
       <div className="shrink-0 mb-4">
-        <div className="flex justify-between items-center w-full gap-4">
+        <div className="flex flex-col lg:flex-row lg:flex-wrap justify-between items-stretch lg:items-center w-full gap-4 pb-2">
            <div className="flex items-center gap-4 shrink-0">
                <h1 className={`${tokens.typography.h1} text-2xl md:text-3xl`}>
                  {mainTab === 'Warehouse' ? 'Warehouse Inventory' : 'Product Catalog'}
@@ -926,48 +926,50 @@ export function Inventory() {
                )}
            </div>
 
-           {mainTab === 'Pallets' && (
-              <div className="hidden lg:flex flex-1 items-center justify-center gap-3 px-2 min-w-0">
-                  <button 
-                      onClick={() => setShowBatchImageModal(true)}
-                      className="flex items-center gap-1.5 px-3.5 py-1.5 bg-brand-bg border border-brand-border rounded-full text-[9px] font-bold uppercase tracking-widest text-brand-primary hover:bg-black hover:text-white transition-colors shadow-sm whitespace-nowrap"
-                  >
-                      Batch Set Thumbnails
-                  </button>
-                  <button 
-                      onClick={() => setShowFindReplaceModal(true)}
-                      className="flex items-center gap-1.5 px-3.5 py-1.5 bg-brand-bg border border-brand-border rounded-full text-[9px] font-bold uppercase tracking-widest text-brand-primary hover:bg-black hover:text-white transition-colors shadow-sm whitespace-nowrap"
-                  >
-                      <Search size={10} /> Find & Replace
-                  </button>
-                  <button 
-                      onClick={() => { setSelectedSkuForLookup(''); setShowSkuLookupModal(true); }}
-                      className="flex items-center gap-1.5 px-3.5 py-1.5 bg-brand-primary text-white border border-brand-primary rounded-full text-[9px] font-bold uppercase tracking-widest hover:bg-black hover:border-black transition-colors shadow-sm whitespace-nowrap"
-                  >
-                      <Layers size={10} /> SKU Lookup
-                  </button>
+           <div className="flex flex-wrap items-center gap-3 justify-start lg:justify-end shrink-0">
+              {mainTab === 'Pallets' && (
+                 <div className="flex flex-wrap items-center gap-2">
+                     <button 
+                         onClick={() => setShowBatchImageModal(true)}
+                         className="flex items-center gap-1.5 px-3.5 py-1.5 bg-brand-bg border border-brand-border rounded-full text-[9px] font-bold uppercase tracking-widest text-brand-primary hover:bg-black hover:text-white transition-colors shadow-sm whitespace-nowrap"
+                     >
+                         Batch Set Thumbnails
+                     </button>
+                     <button 
+                         onClick={() => setShowFindReplaceModal(true)}
+                         className="flex items-center gap-1.5 px-3.5 py-1.5 bg-brand-bg border border-brand-border rounded-full text-[9px] font-bold uppercase tracking-widest text-brand-primary hover:bg-black hover:text-white transition-colors shadow-sm whitespace-nowrap"
+                     >
+                         <Search size={10} /> Find & Replace
+                     </button>
+                     <button 
+                         onClick={() => { setSelectedSkuForLookup(''); setShowSkuLookupModal(true); }}
+                         className="flex items-center gap-1.5 px-3.5 py-1.5 bg-brand-primary text-white border border-brand-primary rounded-full text-[9px] font-bold uppercase tracking-widest hover:bg-black hover:border-black transition-colors shadow-sm whitespace-nowrap"
+                     >
+                         <Layers size={10} /> SKU Lookup
+                     </button>
+                 </div>
+              )}
+              
+              <div className="flex bg-brand-bg p-1 rounded-lg border border-brand-border shrink-0 shadow-sm w-auto overflow-x-auto max-w-full">
+                <button 
+                   onClick={() => setMainTab('Warehouse')}
+                   className={`flex-1 px-3 py-1.5 rounded-md font-bold text-[10px] uppercase tracking-widest transition-all ${mainTab === 'Warehouse' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}
+                >
+                   Warehouse
+                </button>
+                <button 
+                   onClick={() => setMainTab('Pallets')}
+                   className={`flex-1 px-3 py-1.5 rounded-md font-bold text-[10px] uppercase tracking-widest transition-all ${mainTab === 'Pallets' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}
+                >
+                   Pallet Inventory
+                </button>
+                <button 
+                   onClick={() => setMainTab('Products')}
+                   className={`flex-1 px-3 py-1.5 rounded-md font-bold text-[10px] uppercase tracking-widest transition-all ${mainTab === 'Products' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}
+                >
+                   Products
+                </button>
               </div>
-           )}
-           
-           <div className="flex bg-brand-bg p-1 rounded-lg border border-brand-border shrink-0 shadow-sm w-auto overflow-x-auto max-w-full">
-             <button 
-                onClick={() => setMainTab('Warehouse')}
-                className={`flex-1 px-3 py-1.5 rounded-md font-bold text-[10px] uppercase tracking-widest transition-all ${mainTab === 'Warehouse' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}
-             >
-                Warehouse
-             </button>
-             <button 
-                onClick={() => setMainTab('Pallets')}
-                className={`flex-1 px-3 py-1.5 rounded-md font-bold text-[10px] uppercase tracking-widest transition-all ${mainTab === 'Pallets' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}
-             >
-                Pallet Inventory
-             </button>
-             <button 
-                onClick={() => setMainTab('Products')}
-                className={`flex-1 px-3 py-1.5 rounded-md font-bold text-[10px] uppercase tracking-widest transition-all ${mainTab === 'Products' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}
-             >
-                Products
-             </button>
            </div>
         </div>
 
