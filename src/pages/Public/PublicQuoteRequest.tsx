@@ -23,7 +23,9 @@ import {
   Phone,
   ChevronLeft,
   X,
-  Sliders
+  Sliders,
+  ShoppingCart,
+  Trash2
 } from 'lucide-react';
 import { db, storage } from '../../lib/firebase';
 import { doc, getDoc, setDoc, getDocs, collection, query, where, updateDoc } from 'firebase/firestore';
@@ -238,6 +240,8 @@ export function PublicQuoteRequest() {
 
   const [step, setStep] = useState(1);
   const [cart, setCart] = useState<any[]>([]);
+  const [isCartDrawerOpen, setIsCartDrawerOpen] = useState(false);
+  const [isFilterExpanded, setIsFilterExpanded] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [isVerifyingPayment, setIsVerifyingPayment] = useState(false);
@@ -842,6 +846,24 @@ export function PublicQuoteRequest() {
       return matchesSearch && matchesBrand && matchesCategory;
     });
   }, [searchQuery, selectedBrand, selectedCategory]);
+
+  const categoriesList = useMemo(() => [
+    { id: 'All', label: 'All Products' },
+    { id: 'T-Shirts', label: 'T-Shirts' },
+    { id: 'Sweatshirts & Hoodies', label: 'Sweatshirts' },
+    { id: 'Polos', label: 'Polos' },
+    { id: 'Hats & Caps', label: 'Hats & Caps' },
+    { id: 'Jackets & Vests', label: 'Jackets & Vests' },
+    { id: 'Bags & Accessories', label: 'Bags & Accessories' }
+  ], []);
+
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = { All: sanmarCatalog.length };
+    sanmarCatalog.forEach(p => {
+      counts[p.category] = (counts[p.category] || 0) + 1;
+    });
+    return counts;
+  }, []);
 
   // Pointer dragging and resizing event handlers for Step 2 Canvas
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -2040,6 +2062,19 @@ export function PublicQuoteRequest() {
               </button>
             )}
 
+            <button
+              onClick={() => setIsCartDrawerOpen(true)}
+              className="relative flex items-center justify-center w-9 h-9 border border-brand-border rounded-xl text-brand-secondary hover:border-brand-primary hover:text-brand-primary hover:bg-neutral-50 transition-all shadow-2xs cursor-pointer"
+              title="View Shopping Cart"
+            >
+              <ShoppingCart size={15} />
+              {cart.length > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[9px] font-extrabold rounded-full min-w-5 h-5 flex items-center justify-center px-1 shadow-sm border border-white animate-scale-in">
+                  {cart.length}
+                </span>
+              )}
+            </button>
+
             <div className="flex items-center justify-center gap-1.5 bg-neutral-50 px-3.5 h-9 border border-brand-border rounded-xl">
               <Lock size={12} className="text-neutral-400" />
               <span className="text-[10px] text-neutral-500 font-extrabold uppercase tracking-wider">Secure</span>
@@ -2228,199 +2263,311 @@ export function PublicQuoteRequest() {
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-brand-border/60 pb-6 gap-4">
                     <div className="flex items-center gap-3">
                       <button
-                        onClick={() => setSelectedCategory('')}
-                        className="p-2 border border-brand-border hover:border-neutral-400 text-brand-secondary hover:text-brand-primary bg-neutral-50 rounded-xl transition-all shadow-2xs"
+                        onClick={() => {
+                          setSelectedCategory('');
+                          setSelectedBrand('All');
+                          setSearchQuery('');
+                        }}
+                        className="p-2 border border-brand-border hover:border-neutral-450 text-brand-secondary hover:text-brand-primary bg-neutral-50 rounded-xl transition-all shadow-2xs cursor-pointer"
                         title="Back to Categories"
                       >
                         <ChevronLeft size={16} />
                       </button>
                       <div>
                         <span className="text-[10px] font-extrabold uppercase tracking-widest text-brand-secondary">Store Catalog</span>
-                        <h3 className="text-2xl font-serif text-brand-primary mt-0.5">
-                          {selectedCategory === 'All' ? 'All Blanks Collection' : selectedCategory}
+                        <h3 className="text-2xl font-serif text-brand-primary mt-0.5 flex items-baseline gap-2">
+                          <span>{selectedCategory === 'All' ? 'All Blanks Collection' : selectedCategory}</span>
+                          <span className="text-xs font-bold text-neutral-400 font-sans">
+                            ({filteredProducts.length} style{filteredProducts.length !== 1 ? 's' : ''} found)
+                          </span>
                         </h3>
                       </div>
                     </div>
-
-                    {/* Category Filter Pills (Inside Catalog) */}
-                    <div className="flex gap-1.5 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
-                      {[
-                        { id: 'All', label: 'All Products' },
-                        { id: 'T-Shirts', label: 'T-Shirts' },
-                        { id: 'Sweatshirts & Hoodies', label: 'Sweatshirts' },
-                        { id: 'Polos', label: 'Polos' },
-                        { id: 'Hats & Caps', label: 'Hats' },
-                        { id: 'Jackets & Vests', label: 'Jackets' },
-                        { id: 'Bags & Accessories', label: 'Bags' }
-                      ].map((catTab) => {
-                        const isTabActive = selectedCategory === catTab.id;
-                        return (
-                          <button
-                            key={catTab.id}
-                            type="button"
-                            onClick={() => setSelectedCategory(catTab.id)}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-bold border whitespace-nowrap transition-all ${
-                              isTabActive
-                                ? 'bg-brand-primary text-white border-brand-primary'
-                                : 'bg-neutral-50 text-brand-secondary border-brand-border hover:bg-neutral-100'
-                            }`}
-                          >
-                            {catTab.label}
-                          </button>
-                        );
-                      })}
-                    </div>
                   </div>
 
-                  {/* Filters search and brand list */}
-                  <div className="flex flex-col md:flex-row gap-4 justify-between items-stretch md:items-center pb-2">
-                    <div className="relative flex-1 max-w-md">
-                      <input 
-                        type="text" 
-                        placeholder="Search style numbers, brands, descriptions..."
-                        value={searchQuery}
-                        onChange={e => setSearchQuery(e.target.value)}
-                        className="w-full bg-neutral-50 border border-brand-border rounded-xl pl-10 pr-4 py-3 text-sm text-brand-primary focus:outline-none focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400 placeholder:text-neutral-400 transition-all font-medium"
-                      />
-                      <Search className="absolute left-3.5 top-3.5 text-neutral-400" size={18} />
-                    </div>
+                  {/* Collapsible Mobile Filters */}
+                  <div className="md:hidden space-y-3">
+                    <button
+                      type="button"
+                      onClick={() => setIsFilterExpanded(!isFilterExpanded)}
+                      className="w-full py-2.5 px-4 bg-neutral-50 border border-brand-border rounded-xl text-xs font-bold text-brand-primary flex items-center justify-between transition-all cursor-pointer"
+                    >
+                      <span className="flex items-center gap-2">
+                        <Sliders size={14} className="text-brand-primary" />
+                        <span>Filter Options</span>
+                      </span>
+                      <span className="text-[10px] bg-brand-primary/5 text-brand-primary px-2 py-0.5 rounded-full font-bold uppercase">
+                        {selectedCategory === 'All' ? 'All Categories' : selectedCategory} • {selectedBrand === 'All' ? 'All Brands' : selectedBrand}
+                      </span>
+                    </button>
 
-                    <div className="flex gap-1.5 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
-                      {brands.map(brand => (
-                        <button
-                          key={brand}
-                          onClick={() => setSelectedBrand(brand)}
-                          className={`px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all border ${
-                            selectedBrand === brand 
-                              ? 'bg-brand-primary text-white border-brand-primary shadow-xs' 
-                              : 'bg-white text-brand-secondary border-brand-border hover:bg-neutral-50 hover:text-brand-primary'
-                          }`}
-                        >
-                          {brand}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Product Grid */}
-                  {filteredProducts.length === 0 ? (
-                    <div className="text-center py-16 bg-neutral-50 border border-brand-border rounded-2xl">
-                      <Shirt className="mx-auto text-neutral-300 mb-3" size={36} />
-                      <h3 className="text-base font-bold text-brand-primary">No Garments Found</h3>
-                      <p className="text-xs text-brand-secondary mt-1">Try adjusting your filters or search keywords.</p>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-                      {filteredProducts.map(product => {
-                        const currentPreviewColor = productPreviewColors[product.style] || product.colors[0];
-                        const imageSet = product.images[currentPreviewColor] || Object.values(product.images)[0];
-                        const previewImgUrl = imageSet ? (typeof imageSet === 'string' ? imageSet : imageSet.front) : '';
-
-                        return (
-                          <div 
-                            key={product.style}
-                            onClick={() => {
-                              setSelectedProduct(product);
-                              setSelectedColor(currentPreviewColor);
-                              setStep(2);
+                    {isFilterExpanded && (
+                      <div className="p-4 border border-brand-border rounded-2xl bg-neutral-50/50 space-y-4 animate-in fade-in duration-200">
+                        {/* Category Select */}
+                        <div className="flex flex-col gap-1.5">
+                          <label className="text-[10px] font-extrabold text-neutral-450 uppercase tracking-widest">Select Category</label>
+                          <select
+                            value={selectedCategory}
+                            onChange={(e) => {
+                              setSelectedCategory(e.target.value);
+                              setSelectedBrand('All'); // Reset brand on category change
                             }}
-                            className="bg-white border border-brand-border rounded-2xl overflow-hidden flex flex-col hover:shadow-[0_12px_32px_rgba(0,0,0,0.04)] hover:-translate-y-1 transition-all duration-300 group cursor-pointer"
+                            className="w-full bg-white border border-brand-border rounded-xl px-3.5 py-2.5 text-xs font-bold text-brand-primary focus:outline-none"
                           >
-                            <div className="aspect-[4/5] bg-white border-b border-brand-border flex items-center justify-center p-6 relative overflow-hidden shrink-0 transition-colors">
-                              {/* Price Tag */}
-                              <div className="absolute top-4 left-4 z-10 bg-white/95 backdrop-blur-xs border border-brand-border text-brand-primary text-[11px] font-extrabold px-3 py-1.5 rounded-full flex items-center gap-0.5 shadow-sm">
-                                <DollarSign size={10} />{product.price.toFixed(2)}
-                              </div>
-                              {/* Category */}
-                              <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-xs border border-brand-border text-brand-secondary text-[9px] uppercase font-bold tracking-wider px-2 py-0.5 rounded">
-                                {product.category}
-                              </div>
-                              {/* Flatlay Image */}
-                              <img 
-                                src={previewImgUrl} 
-                                alt={product.title}
-                                className="max-w-[82%] max-h-[82%] object-contain filter drop-shadow-xs transition-transform duration-500 group-hover:scale-103"
-                              />
-                            </div>
+                            {categoriesList.map(cat => (
+                              <option key={cat.id} value={cat.id}>
+                                {cat.label} ({categoryCounts[cat.id] || 0})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
 
-                            <div className="p-6 flex-1 flex flex-col justify-between gap-5">
-                              <div className="space-y-2">
-                                <div className="flex items-center gap-1.5">
-                                  <span className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest">{product.brand}</span>
-                                  <span className="text-[9px] bg-neutral-100 text-neutral-600 font-bold px-1.5 py-0.25 rounded uppercase">{product.style}</span>
+                        {/* Brand Select */}
+                        <div className="flex flex-col gap-1.5">
+                          <label className="text-[10px] font-extrabold text-neutral-450 uppercase tracking-widest">Select Brand</label>
+                          <select
+                            value={selectedBrand}
+                            onChange={(e) => setSelectedBrand(e.target.value)}
+                            className="w-full bg-white border border-brand-border rounded-xl px-3.5 py-2.5 text-xs font-bold text-brand-primary focus:outline-none"
+                          >
+                            <option value="All">All Brands</option>
+                            {brands.filter(b => b !== 'All').map(brand => {
+                              const brandCount = sanmarCatalog.filter(p => {
+                                const matchesCategory = selectedCategory === 'All' || p.category === selectedCategory;
+                                return matchesCategory && p.brand === brand;
+                              }).length;
+                              if (brandCount === 0) return null;
+                              return (
+                                <option key={brand} value={brand}>
+                                  {brand} ({brandCount})
+                                </option>
+                              );
+                            })}
+                          </select>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Two-Column Desktop Layout */}
+                  <div className="flex flex-col md:flex-row gap-8 items-start w-full">
+                    
+                    {/* Desktop Left Filter Sidebar */}
+                    <aside className="hidden md:flex flex-col w-60 shrink-0 gap-6 border-r border-brand-border/60 pr-6">
+                      
+                      {/* Categories list */}
+                      <div className="space-y-2.5">
+                        <h4 className="text-[10px] font-extrabold text-neutral-400 uppercase tracking-widest block pl-1">
+                          Product Categories
+                        </h4>
+                        <div className="space-y-1">
+                          {categoriesList.map(cat => {
+                            const isActive = selectedCategory === cat.id;
+                            const count = categoryCounts[cat.id] || 0;
+                            return (
+                              <button
+                                key={cat.id}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedCategory(cat.id);
+                                  setSelectedBrand('All'); // Reset brand on category change
+                                }}
+                                className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-between border cursor-pointer ${
+                                  isActive 
+                                    ? 'bg-brand-primary text-white border-brand-primary shadow-xs' 
+                                    : 'bg-white text-brand-secondary border-transparent hover:bg-neutral-50 hover:text-brand-primary'
+                                }`}
+                              >
+                                <span>{cat.label}</span>
+                                <span className={`text-[10px] px-2 py-0.5 rounded-full ${
+                                  isActive ? 'bg-white/20 text-white font-extrabold' : 'bg-neutral-100 text-neutral-500 font-semibold'
+                                }`}>
+                                  {count}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Brand List */}
+                      <div className="space-y-2.5">
+                        <h4 className="text-[10px] font-extrabold text-neutral-400 uppercase tracking-widest block pl-1">
+                          Filter By Brand
+                        </h4>
+                        <div className="space-y-1 max-h-[320px] overflow-y-auto pr-1 scrollbar-thin">
+                          {brands.map(brand => {
+                            const isActive = selectedBrand === brand;
+                            const brandCount = sanmarCatalog.filter(p => {
+                              const matchesCategory = selectedCategory === 'All' || p.category === selectedCategory;
+                              return matchesCategory && p.brand === brand;
+                            }).length;
+
+                            if (brand !== 'All' && brandCount === 0) return null;
+
+                            return (
+                              <button
+                                key={brand}
+                                type="button"
+                                onClick={() => setSelectedBrand(brand)}
+                                className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-between border cursor-pointer ${
+                                  isActive 
+                                    ? 'bg-neutral-100 text-brand-primary border-brand-primary/20 shadow-3xs' 
+                                    : 'bg-white text-brand-secondary border-transparent hover:bg-neutral-50 hover:text-brand-primary'
+                                }`}
+                              >
+                                <span>{brand === 'All' ? 'All Brands' : brand}</span>
+                                <span className="text-[10px] text-neutral-400 bg-neutral-50 border border-brand-border px-1.5 py-0.25 rounded">
+                                  {brand === 'All' 
+                                    ? (selectedCategory === 'All' ? sanmarCatalog.length : sanmarCatalog.filter(p => p.category === selectedCategory).length) 
+                                    : brandCount
+                                  }
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                    </aside>
+
+                    {/* Desktop Right main catalog products */}
+                    <div className="flex-1 w-full space-y-6">
+                      
+                      {/* Search Catalog bar */}
+                      <div className="relative w-full max-w-md">
+                        <input 
+                          type="text" 
+                          placeholder="Search style numbers, brands, descriptions..."
+                          value={searchQuery}
+                          onChange={e => setSearchQuery(e.target.value)}
+                          className="w-full bg-neutral-50 border border-brand-border rounded-xl pl-10 pr-4 py-2.5 text-xs text-brand-primary focus:outline-none focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400 placeholder:text-neutral-400 transition-all font-medium shadow-3xs"
+                        />
+                        <Search className="absolute left-3.5 top-3 text-neutral-400" size={15} />
+                      </div>
+
+                      {/* Product Grid */}
+                      {filteredProducts.length === 0 ? (
+                        <div className="text-center py-16 bg-neutral-50 border border-brand-border rounded-2xl">
+                          <Shirt className="mx-auto text-neutral-300 mb-3" size={36} />
+                          <h3 className="text-base font-bold text-brand-primary">No Garments Found</h3>
+                          <p className="text-xs text-brand-secondary mt-1">Try adjusting your filters or search keywords.</p>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                          {filteredProducts.map(product => {
+                            const currentPreviewColor = productPreviewColors[product.style] || product.colors[0];
+                            const imageSet = product.images[currentPreviewColor] || Object.values(product.images)[0];
+                            const previewImgUrl = imageSet ? (typeof imageSet === 'string' ? imageSet : imageSet.front) : '';
+
+                            return (
+                              <div 
+                                key={product.style}
+                                onClick={() => {
+                                  setSelectedProduct(product);
+                                  setSelectedColor(currentPreviewColor);
+                                  setStep(2);
+                                }}
+                                className="bg-white border border-brand-border rounded-2xl overflow-hidden flex flex-col hover:shadow-[0_12px_32px_rgba(0,0,0,0.04)] hover:-translate-y-1 transition-all duration-300 group cursor-pointer"
+                              >
+                                <div className="aspect-[4/5] bg-white border-b border-brand-border flex items-center justify-center p-6 relative overflow-hidden shrink-0 transition-colors">
+                                  {/* Price Tag */}
+                                  <div className="absolute top-4 left-4 z-10 bg-white/95 backdrop-blur-xs border border-brand-border text-brand-primary text-[11px] font-extrabold px-3 py-1.5 rounded-full flex items-center gap-0.5 shadow-sm">
+                                    <DollarSign size={10} />{product.price.toFixed(2)}
+                                  </div>
+                                  {/* Category */}
+                                  <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-xs border border-brand-border text-brand-secondary text-[9px] uppercase font-bold tracking-wider px-2 py-0.5 rounded">
+                                    {product.category}
+                                  </div>
+                                  {/* Flatlay Image */}
+                                  <img 
+                                    src={previewImgUrl} 
+                                    alt={product.title}
+                                    className="max-w-[82%] max-h-[82%] object-contain filter drop-shadow-xs transition-transform duration-500 group-hover:scale-103"
+                                  />
                                 </div>
-                                <h4 className="text-base font-bold text-brand-primary leading-snug group-hover:text-brand-primary/95 transition-colors">
-                                  {product.title.replace(`${product.brand} `, '').replace(/®/g, '').trim()}
-                                </h4>
-                                <p className="text-xs text-brand-secondary line-clamp-2 leading-relaxed">
-                                  {product.description}
-                                </p>
-                              </div>
 
-                              <div className="space-y-4 pt-3 border-t border-brand-border/60">
-                                {/* Swatches */}
-                                <div className="space-y-2">
-                                  <span className="text-[9px] font-bold text-brand-secondary uppercase tracking-wider block">Available Colors ({product.colors.length})</span>
-                                  <div className="flex flex-wrap gap-1.5" onClick={e => e.stopPropagation()}>
-                                    {product.colors.slice(0, 8).map(color => {
-                                      const hex = getSwatchColor(color, true);
-                                      const isActive = currentPreviewColor === color;
-                                      const isWhite = color.toLowerCase() === 'white';
+                                <div className="p-6 flex-1 flex flex-col justify-between gap-5">
+                                  <div className="space-y-2">
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest">{product.brand}</span>
+                                      <span className="text-[9px] bg-neutral-100 text-neutral-600 font-bold px-1.5 py-0.25 rounded uppercase">{product.style}</span>
+                                    </div>
+                                    <h4 className="text-base font-bold text-brand-primary leading-snug group-hover:text-brand-primary/95 transition-colors">
+                                      {product.title.replace(`${product.brand} `, '').replace(/®/g, '').trim()}
+                                    </h4>
+                                    <p className="text-xs text-brand-secondary line-clamp-2 leading-relaxed">
+                                      {product.description}
+                                    </p>
+                                  </div>
 
-                                      return (
-                                        <button
-                                          key={color}
-                                          type="button"
-                                          title={color}
-                                          onClick={() => {
-                                            setProductPreviewColors(prev => ({
-                                              ...prev,
-                                              [product.style]: color
-                                            }));
-                                          }}
-                                          className={`w-5 h-5 rounded-full border transition-all relative ${
-                                            isActive 
-                                              ? 'ring-2 ring-brand-primary ring-offset-2 scale-110' 
-                                              : 'border-neutral-300 hover:scale-105'
-                                          }`}
-                                          style={{ 
-                                            backgroundColor: hex.startsWith('linear-gradient') ? 'transparent' : hex,
-                                            backgroundImage: hex.startsWith('linear-gradient') ? hex : 'none',
-                                            borderColor: isWhite ? '#D1D5DB' : 'transparent' 
-                                          }}
-                                        >
-                                          {isActive && (
-                                            <span className="absolute inset-0 flex items-center justify-center">
-                                              <Check 
-                                                size={10} 
-                                                className={color.toLowerCase() === 'white' || color.toLowerCase() === 'silver' || color.toLowerCase() === 'athletic heather' ? 'text-black' : 'text-white'} 
-                                              />
-                                            </span>
-                                          )}
-                                        </button>
-                                      );
-                                    })}
-                                    {product.colors.length > 8 && (
-                                      <span className="text-[10px] font-bold text-neutral-400 self-center pl-1 select-none">
-                                        +{product.colors.length - 8}
-                                      </span>
-                                    )}
+                                  <div className="space-y-4 pt-3 border-t border-brand-border/60">
+                                    {/* Swatches */}
+                                    <div className="space-y-2">
+                                      <span className="text-[9px] font-bold text-brand-secondary uppercase tracking-wider block">Available Colors ({product.colors.length})</span>
+                                      <div className="flex flex-wrap gap-1.5" onClick={e => e.stopPropagation()}>
+                                        {product.colors.slice(0, 8).map(color => {
+                                          const hex = getSwatchColor(color, true);
+                                          const isActive = currentPreviewColor === color;
+                                          const isWhite = color.toLowerCase() === 'white';
+
+                                          return (
+                                            <button
+                                              key={color}
+                                              type="button"
+                                              title={color}
+                                              onClick={() => {
+                                                setProductPreviewColors(prev => ({
+                                                  ...prev,
+                                                  [product.style]: color
+                                                }));
+                                              }}
+                                              className={`w-5 h-5 rounded-full border transition-all relative ${
+                                                isActive 
+                                                  ? 'ring-2 ring-brand-primary ring-offset-2 scale-110' 
+                                                  : 'border-neutral-300 hover:scale-105'
+                                              }`}
+                                              style={{ 
+                                                backgroundColor: hex.startsWith('linear-gradient') ? 'transparent' : hex,
+                                                backgroundImage: hex.startsWith('linear-gradient') ? hex : 'none',
+                                                borderColor: isWhite ? '#D1D5DB' : 'transparent' 
+                                              }}
+                                            >
+                                              {isActive && (
+                                                <span className="absolute inset-0 flex items-center justify-center">
+                                                  <Check 
+                                                    size={10} 
+                                                    className={color.toLowerCase() === 'white' || color.toLowerCase() === 'silver' || color.toLowerCase() === 'athletic heather' ? 'text-black' : 'text-white'} 
+                                                  />
+                                                </span>
+                                              )}
+                                            </button>
+                                          );
+                                        })}
+                                        {product.colors.length > 8 && (
+                                          <span className="text-[10px] font-bold text-neutral-400 self-center pl-1 select-none">
+                                            +{product.colors.length - 8}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+
+                                    <button
+                                      type="button"
+                                      className="w-full py-3 bg-brand-primary hover:bg-brand-primary/95 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm"
+                                    >
+                                      Select & Design <ArrowRight size={13} />
+                                    </button>
                                   </div>
                                 </div>
-
-                                <button
-                                  type="button"
-                                  className="w-full py-3 bg-brand-primary hover:bg-brand-primary/95 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm"
-                                >
-                                  Select & Design <ArrowRight size={13} />
-                                </button>
                               </div>
-                            </div>
-                          </div>
-                        );
-                      })}
+                            );
+                          })}
+                        </div>
+                      )}
+
                     </div>
-                  )}
+                  </div>
 
                 </div>
               )}
@@ -3735,6 +3882,234 @@ export function PublicQuoteRequest() {
               </div>
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* Shopping Cart Drawer */}
+      {isCartDrawerOpen && (
+        <div className="fixed inset-0 z-[120] flex justify-end animate-in fade-in duration-200">
+          {/* Backdrop */}
+          <div 
+            onClick={() => setIsCartDrawerOpen(false)}
+            className="fixed inset-0 bg-black/40 backdrop-blur-xs transition-opacity" 
+          />
+
+          {/* Drawer Panel */}
+          <div className="relative w-full max-w-md bg-white h-full shadow-2xl flex flex-col z-10 animate-in slide-in-from-right duration-350">
+            {/* Header */}
+            <div className="p-6 border-b border-brand-border flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2">
+                <ShoppingCart size={18} className="text-brand-primary" />
+                <h3 className="text-lg font-bold text-brand-primary">Your Shopping Cart</h3>
+                <span className="text-[10px] bg-brand-primary/5 border border-brand-primary/10 text-brand-primary px-2 py-0.5 rounded-full font-extrabold uppercase">
+                  {cart.length} Item{cart.length !== 1 ? 's' : ''}
+                </span>
+              </div>
+              <button 
+                onClick={() => setIsCartDrawerOpen(false)}
+                className="p-1.5 hover:bg-neutral-100 text-neutral-400 hover:text-neutral-700 rounded-lg transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Cart Items List */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              {cart.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-center space-y-4">
+                  <div className="w-16 h-16 rounded-full bg-neutral-50 border border-brand-border flex items-center justify-center text-neutral-350 shadow-3xs">
+                    <ShoppingCart size={24} />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-brand-primary">Your cart is empty</h4>
+                    <p className="text-xs text-brand-secondary mt-1">Browse our store and select products to customize.</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setIsCartDrawerOpen(false);
+                      setSelectedCategory('All');
+                      setStep(1);
+                    }}
+                    className="px-5 py-2.5 bg-brand-primary hover:bg-brand-primary/95 text-white text-xs font-bold rounded-xl shadow-sm transition-all cursor-pointer"
+                  >
+                    Start Customizing
+                  </button>
+                </div>
+              ) : (
+                cart.map((item) => {
+                  const unitPrice = item.pricingDetails?.total || item.product.price;
+                  const itemTotal = unitPrice * item.qty;
+                  
+                  return (
+                    <div 
+                      key={item.id}
+                      className="flex gap-4 p-4 border border-brand-border rounded-2xl bg-neutral-50/50 hover:shadow-2xs transition-all relative group"
+                    >
+                      {/* Item Thumbnail */}
+                      <div className="w-20 h-20 bg-white border border-brand-border rounded-xl shrink-0 flex items-center justify-center p-2 relative overflow-hidden">
+                        <img 
+                          src={item.mockupUrl || item.frontMockupUrl || item.backMockupUrl} 
+                          alt={item.product.title} 
+                          className="max-w-full max-h-full object-contain filter drop-shadow-xs"
+                        />
+                      </div>
+
+                      {/* Item Details */}
+                      <div className="flex-1 flex flex-col justify-between min-w-0">
+                        <div className="space-y-0.5 pr-6">
+                          <span className="text-[9px] font-bold text-neutral-450 uppercase tracking-widest block leading-none">
+                            {item.product.brand} ({item.product.style})
+                          </span>
+                          <h4 className="text-xs font-extrabold text-brand-primary truncate">
+                            {item.product.title.replace(`${item.product.brand} `, '').replace(/®/g, '').trim()}
+                          </h4>
+                          <span className="text-[10px] text-neutral-500 font-semibold block">
+                            Color: <span className="text-neutral-700 font-bold">{item.color}</span>
+                          </span>
+                        </div>
+
+                        {/* Quantity and Price Row */}
+                        <div className="flex items-center justify-between mt-2.5">
+                          {/* Quantity Stepper */}
+                          <div className="flex items-center border border-neutral-300 rounded-lg bg-white overflow-hidden shadow-3xs shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newQty = Math.max(12, item.qty - 1);
+                                updateCartItemQty(item.id, newQty);
+                              }}
+                              className="px-2 py-1 text-xs text-neutral-500 hover:bg-neutral-100 transition-colors font-bold cursor-pointer"
+                              title="Decrease Quantity (Min 12)"
+                            >
+                              -
+                            </button>
+                            <input
+                              type="number"
+                              min="12"
+                              value={item.qty}
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value) || 0;
+                                updateCartItemQty(item.id, Math.max(12, val));
+                              }}
+                              className="w-10 text-center text-xs font-bold text-brand-primary border-x border-neutral-200 focus:outline-none py-0.5 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                updateCartItemQty(item.id, item.qty + 1);
+                              }}
+                              className="px-2 py-1 text-xs text-neutral-500 hover:bg-neutral-100 transition-colors font-bold cursor-pointer"
+                            >
+                              +
+                            </button>
+                          </div>
+
+                          {/* Pricing */}
+                          <div className="text-right">
+                            <span className="text-[10px] text-neutral-450 block leading-tight">
+                              ${unitPrice.toFixed(2)}/ea
+                            </span>
+                            <span className="text-xs font-extrabold text-brand-primary">
+                              ${itemTotal.toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Remove Button */}
+                      <button
+                        type="button"
+                        onClick={() => setCart(prev => prev.filter(c => c.id !== item.id))}
+                        className="absolute top-2 right-2 p-1.5 text-neutral-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100 focus:opacity-100 cursor-pointer"
+                        title="Remove Item"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+
+                      {/* Modify Design Button */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          // Load active designer states
+                          setSelectedProduct(item.product);
+                          setSelectedColor(item.color);
+                          setQty(item.qty.toString());
+                          
+                          setFrontLogoUrl(item.frontLogoUrl || '');
+                          setFrontOriginalFileUrl(item.frontOriginalFileUrl || '');
+                          setFrontArtworkName(item.frontArtworkName || '');
+                          setFrontPrintSize(item.frontPrintSize || 'Medium');
+                          setFrontMockupUrl(item.frontMockupUrl || '');
+
+                          setBackLogoUrl(item.backLogoUrl || '');
+                          setBackOriginalFileUrl(item.backOriginalFileUrl || '');
+                          setBackArtworkName(item.backArtworkName || '');
+                          setBackPrintSize(item.backPrintSize || 'Medium');
+                          setBackMockupUrl(item.backMockupUrl || '');
+                          
+                          // Set step to designer canvas
+                          setStep(2);
+                          // Close drawer
+                          setIsCartDrawerOpen(false);
+                          // Remove current item so they can re-save their modifications
+                          setCart(prev => prev.filter(c => c.id !== item.id));
+                        }}
+                        className="absolute bottom-2.5 right-[136px] px-2 py-0.5 text-[9px] font-extrabold text-brand-primary bg-brand-primary/5 hover:bg-brand-primary/10 border border-brand-primary/10 rounded-md transition-all cursor-pointer"
+                        title="Modify artwork and placements"
+                      >
+                        Modify Design
+                      </button>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Footer Summary & Checkout */}
+            {cart.length > 0 && (
+              <div className="p-6 border-t border-brand-border bg-neutral-50 space-y-4 shrink-0">
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-xs font-bold text-brand-secondary">
+                    <span>Total Items:</span>
+                    <span>{cart.reduce((acc, item) => acc + item.qty, 0)} Units</span>
+                  </div>
+                  <div className="flex justify-between text-sm font-extrabold text-brand-primary pt-1 border-t border-brand-border/60">
+                    <span>Estimated Subtotal:</span>
+                    <span className="text-base font-black">
+                      ${cart.reduce((acc, item) => acc + (item.pricingDetails.total * item.qty), 0).toFixed(2)}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-neutral-405 leading-tight">
+                    * Final quote subtotal, setup costs, and tax breakdown will be calculated in checkout details.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsCartDrawerOpen(false);
+                      setSelectedCategory('All');
+                      setStep(1);
+                    }}
+                    className="py-3 px-4 border border-brand-border hover:border-neutral-400 bg-white rounded-xl text-xs font-bold text-brand-secondary transition-all cursor-pointer text-center"
+                  >
+                    Add More Items
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsCartDrawerOpen(false);
+                      setStep(3);
+                    }}
+                    className="py-3 px-4 bg-brand-primary hover:bg-brand-primary/95 text-white rounded-xl text-xs font-bold transition-all shadow-sm text-center cursor-pointer"
+                  >
+                    Checkout Details
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
