@@ -326,7 +326,7 @@ function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, slots = 3, c
   );
 }
 
-function FloorPallet({ pallet, onClick, onPalletClick, activePallet, setIsOrbitEnabled, onUpdatePosition, setIsDragging }: any) {
+function FloorPallet({ pallet, onClick, onPalletClick, activePallet, setIsOrbitEnabled, onUpdatePosition, onLocalUpdatePosition }: any) {
   const isThisPalletActive = activePallet?.id === pallet.id;
   const pHeight = pallet.height || 0.8;
   const pY = pHeight / 2;
@@ -366,18 +366,19 @@ function FloorPallet({ pallet, onClick, onPalletClick, activePallet, setIsOrbitE
           onDragStart={() => {
              isDraggingRef.current = true;
              setIsOrbitEnabled(false);
-             setIsDragging?.(true);
           }} 
           onDrag={() => {
              if (groupRef.current) {
-                groupRef.current.position.x = Math.round(groupRef.current.position.x * 2) / 2;
-                groupRef.current.position.z = Math.round(groupRef.current.position.z * 2) / 2;
+                const newX = Math.round(groupRef.current.position.x * 2) / 2;
+                const newZ = Math.round(groupRef.current.position.z * 2) / 2;
+                if (newX !== pallet.position[0] || newZ !== pallet.position[2]) {
+                   onLocalUpdatePosition?.(pallet.id, newX, newZ);
+                }
              }
           }}
           onDragEnd={() => {
              isDraggingRef.current = false;
              setIsOrbitEnabled(true);
-             setIsDragging?.(false);
              if (groupRef.current) {
                 const newX = Math.round(groupRef.current.position.x * 2) / 2;
                 const newZ = Math.round(groupRef.current.position.z * 2) / 2;
@@ -473,7 +474,7 @@ function FloorMoveArrows({ position, onMove, setIsOrbitEnabled }: { position: [n
   );
 }
 
-function WarehouseMap({ activeRack, setActiveRack, activePallet, setActivePallet, inventory, warehouse, isAddingPallet, addForm, setAddForm, onMovePallet, moveStepSize, onUpdatePalletPosition }: any) {
+function WarehouseMap({ activeRack, setActiveRack, activePallet, setActivePallet, inventory, warehouse, isAddingPallet, addForm, setAddForm, onMovePallet, moveStepSize, onUpdatePalletPosition, onLocalUpdatePalletPosition }: any) {
   const rackProps = {
      onClick: setActiveRack,
      activeRack,
@@ -484,7 +485,6 @@ function WarehouseMap({ activeRack, setActiveRack, activePallet, setActivePallet
   };
   
   const [isOrbitEnabled, setIsOrbitEnabled] = useState(true);
-  const [isDragging, setIsDragging] = useState(false);
   
   const getRackInventory = (zone: string) => inventory.filter((p: any) => p.zone === zone);
   const floorInventory = inventory.filter((p: any) => p.zone === 'Floor');
@@ -587,11 +587,11 @@ function WarehouseMap({ activeRack, setActiveRack, activePallet, setActivePallet
                 onClick={setActiveRack} 
                 setIsOrbitEnabled={setIsOrbitEnabled}
                 onUpdatePosition={onUpdatePalletPosition}
-                setIsDragging={setIsDragging}
+                onLocalUpdatePosition={onLocalUpdatePalletPosition}
              />
         ))}
 
-        {activePallet && activePallet.zone === 'Floor' && activePallet.position && !isDragging && (
+        {activePallet && activePallet.zone === 'Floor' && activePallet.position && (
             <FloorMoveArrows 
                position={activePallet.position}
                onMove={(dir) => onMovePallet(activePallet.id, dir, parseFloat(moveStepSize))}
@@ -880,6 +880,23 @@ export function Inventory() {
         }, { merge: true });
     } catch (err) {
         console.error("Failed to unmap from remote DB", err);
+    }
+  };
+
+  const handleUpdatePalletPositionLocal = (palletId: string, x: number, z: number) => {
+    const pallet = allPallets.find(p => p.id === palletId);
+    if (!pallet) return;
+    
+    const updatedPallet = {
+        ...pallet,
+        position: [x, 0, z],
+        location: `Open Floor Zone (${x.toFixed(1)}, ${z.toFixed(1)})`
+    };
+    
+    // Optimistic local UI updates during dragging
+    setAllPallets(prev => prev.map(p => p.id === palletId ? updatedPallet : p));
+    if (activePallet?.id === palletId) {
+        setActivePallet(updatedPallet);
     }
   };
 
@@ -1312,6 +1329,7 @@ export function Inventory() {
                             onMovePallet={handleMoveFloorPallet}
                             moveStepSize={moveStepSize}
                             onUpdatePalletPosition={handleUpdatePalletPosition}
+                            onLocalUpdatePalletPosition={handleUpdatePalletPositionLocal}
                         />
                     )}
                  </Suspense>
