@@ -895,6 +895,7 @@ export function Inventory() {
     
     // Optimistic local UI updates during dragging
     setAllPallets(prev => prev.map(p => p.id === palletId ? updatedPallet : p));
+    setInventoryDB(prev => prev.map(p => p.id === palletId ? updatedPallet : p));
     if (activePallet?.id === palletId) {
         setActivePallet(updatedPallet);
     }
@@ -912,6 +913,7 @@ export function Inventory() {
     
     // Optimistic UI updates
     setAllPallets(prev => prev.map(p => p.id === palletId ? updatedPallet : p));
+    setInventoryDB(prev => prev.map(p => p.id === palletId ? updatedPallet : p));
     if (activePallet?.id === palletId) {
         setActivePallet(updatedPallet);
     }
