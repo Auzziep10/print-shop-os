@@ -326,26 +326,40 @@ function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, slots = 3, c
   );
 }
 
-function FloorPallet({ pallet, onClick, onPalletClick, activePallet }: any) {
+function FloorPallet({ pallet, onClick, onPalletClick, activePallet, setIsOrbitEnabled, onUpdatePosition }: any) {
   const isThisPalletActive = activePallet?.id === pallet.id;
   const pHeight = pallet.height || 0.8;
   const pY = pHeight / 2;
+  const groupRef = useRef<THREE.Group>(null);
 
   return (
-    <group position={[pallet.position[0], pallet.position[1] + pY, pallet.position[2]]} rotation={pallet.rotation || [0,0,0]} 
-      onClick={(e) => { if (e.delta > 2) return; e.stopPropagation(); onClick?.(null); onPalletClick?.(pallet); }}
-      onPointerOver={(e) => { e.stopPropagation(); document.body.style.cursor='pointer'; }}
-      onPointerOut={() => document.body.style.cursor='auto'}
+    <DragControls 
+       axisLock="y" 
+       onDragStart={() => setIsOrbitEnabled(false)} 
+       onDragEnd={() => {
+          setIsOrbitEnabled(true);
+          if (groupRef.current) {
+             const newX = Math.round(groupRef.current.position.x * 2) / 2;
+             const newZ = Math.round(groupRef.current.position.z * 2) / 2;
+             onUpdatePosition(pallet.id, newX, newZ);
+          }
+       }}
     >
-      <group scale={[1.3, 1.3, 1.3]}>
-         <PalletLabels pallet={pallet} />
+      <group ref={groupRef} position={[pallet.position[0], pallet.position[1] + pY, pallet.position[2]]} rotation={pallet.rotation || [0,0,0]} 
+        onClick={(e) => { if (e.delta > 2) return; e.stopPropagation(); onClick?.(null); onPalletClick?.(pallet); }}
+        onPointerOver={(e) => { e.stopPropagation(); document.body.style.cursor='pointer'; }}
+        onPointerOut={() => document.body.style.cursor='auto'}
+      >
+        <group scale={[1.3, 1.3, 1.3]}>
+           <PalletLabels pallet={pallet} />
+        </group>
+        <mesh position={[0, -pHeight/2 + 0.07, 0]}>
+          <boxGeometry args={[1.0, 0.14, 1.0]} />
+          <meshStandardMaterial color="#8b5a2b" emissive={isThisPalletActive ? "#fff" : "#000"} emissiveIntensity={isThisPalletActive ? 0.3 : 0} />
+        </mesh>
+        <PayloadMesh pallet={pallet} isThisPalletActive={isThisPalletActive} />
       </group>
-      <mesh position={[0, -pHeight/2 + 0.07, 0]}>
-        <boxGeometry args={[1.0, 0.14, 1.0]} />
-        <meshStandardMaterial color="#8b5a2b" emissive={isThisPalletActive ? "#fff" : "#000"} emissiveIntensity={isThisPalletActive ? 0.3 : 0} />
-      </mesh>
-      <PayloadMesh pallet={pallet} isThisPalletActive={isThisPalletActive} />
-    </group>
+    </DragControls>
   );
 }
 
@@ -429,7 +443,7 @@ function FloorMoveArrows({ position, onMove, setIsOrbitEnabled }: { position: [n
   );
 }
 
-function WarehouseMap({ activeRack, setActiveRack, activePallet, setActivePallet, inventory, warehouse, isAddingPallet, addForm, setAddForm, onMovePallet, moveStepSize }: any) {
+function WarehouseMap({ activeRack, setActiveRack, activePallet, setActivePallet, inventory, warehouse, isAddingPallet, addForm, setAddForm, onMovePallet, moveStepSize, onUpdatePalletPosition }: any) {
   const rackProps = {
      onClick: setActiveRack,
      activeRack,
@@ -534,14 +548,15 @@ function WarehouseMap({ activeRack, setActiveRack, activePallet, setActivePallet
 
         {/* ======== LOOSE FLOOR PALLETS ======== */}
         {floorInventory.map((p: any) => (
-            <DragControls 
-               key={p.id} 
-               axisLock="y" 
-               onDragStart={() => setIsOrbitEnabled(false)} 
-               onDragEnd={() => setIsOrbitEnabled(true)}
-            >
-               <FloorPallet pallet={p} activePallet={activePallet} onPalletClick={setActivePallet} onClick={setActiveRack} />
-            </DragControls>
+             <FloorPallet 
+                key={p.id} 
+                pallet={p} 
+                activePallet={activePallet} 
+                onPalletClick={setActivePallet} 
+                onClick={setActiveRack} 
+                setIsOrbitEnabled={setIsOrbitEnabled}
+                onUpdatePosition={onUpdatePalletPosition}
+             />
         ))}
 
         {activePallet && activePallet.zone === 'Floor' && activePallet.position && (
@@ -832,23 +847,13 @@ export function Inventory() {
     }
   };
 
-  const handleMoveFloorPallet = async (palletId: string, direction: 'N' | 'S' | 'E' | 'W', stepSize = 1.0) => {
+  const handleUpdatePalletPosition = async (palletId: string, x: number, z: number) => {
     const pallet = allPallets.find(p => p.id === palletId);
-    if (!pallet || !pallet.position) return;
+    if (!pallet) return;
     
-    let [x, y, z] = pallet.position;
-    if (direction === 'N') z -= stepSize;
-    if (direction === 'S') z += stepSize;
-    if (direction === 'W') x -= stepSize;
-    if (direction === 'E') x += stepSize;
-    
-    // Snap coordinates to 0.5 grid
-    x = Math.round(x * 2) / 2;
-    z = Math.round(z * 2) / 2;
-
     const updatedPallet = {
         ...pallet,
-        position: [x, y, z],
+        position: [x, 0, z],
         location: `Open Floor Zone (${x.toFixed(1)}, ${z.toFixed(1)})`
     };
     
@@ -862,6 +867,23 @@ export function Inventory() {
     } catch (err) {
         console.error("Failed to update floor pallet position", err);
     }
+  };
+
+  const handleMoveFloorPallet = async (palletId: string, direction: 'N' | 'S' | 'E' | 'W', stepSize = 1.0) => {
+    const pallet = allPallets.find(p => p.id === palletId);
+    if (!pallet || !pallet.position) return;
+    
+    let [x, , z] = pallet.position;
+    if (direction === 'N') z -= stepSize;
+    if (direction === 'S') z += stepSize;
+    if (direction === 'W') x -= stepSize;
+    if (direction === 'E') x += stepSize;
+    
+    // Snap coordinates to 0.5 grid
+    x = Math.round(x * 2) / 2;
+    z = Math.round(z * 2) / 2;
+
+    await handleUpdatePalletPosition(palletId, x, z);
   };
 
 
@@ -1252,6 +1274,7 @@ export function Inventory() {
                             setAddForm={setAddForm} 
                             onMovePallet={handleMoveFloorPallet}
                             moveStepSize={moveStepSize}
+                            onUpdatePalletPosition={handleUpdatePalletPosition}
                         />
                     )}
                  </Suspense>
