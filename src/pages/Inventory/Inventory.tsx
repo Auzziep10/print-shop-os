@@ -398,6 +398,13 @@ function FloorPallet({ pallet, onClick, onPalletClick, activePallet, setIsOrbitE
                 groupRef.current.getWorldPosition(worldPos);
                 const newX = Math.round(worldPos.x * 2) / 2;
                 const newZ = Math.round(worldPos.z * 2) / 2;
+                
+                // Reset parent DragControls group position to 0 to prevent double-translation
+                if (groupRef.current.parent) {
+                   groupRef.current.parent.position.set(0, 0, 0);
+                   groupRef.current.parent.updateMatrix();
+                }
+                
                 onUpdatePosition(pallet.id, newX, newZ);
              }
           }}
