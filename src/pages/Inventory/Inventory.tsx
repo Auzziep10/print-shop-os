@@ -341,6 +341,12 @@ function FloorPallet({ pallet, onClick, onPalletClick, activePallet, setIsOrbitE
           setIsOrbitEnabled(false);
           setIsDragging?.(true);
        }} 
+       onDrag={() => {
+          if (groupRef.current) {
+             groupRef.current.position.x = Math.round(groupRef.current.position.x * 2) / 2;
+             groupRef.current.position.z = Math.round(groupRef.current.position.z * 2) / 2;
+          }
+       }}
        onDragEnd={() => {
           isDraggingRef.current = false;
           setIsOrbitEnabled(true);
