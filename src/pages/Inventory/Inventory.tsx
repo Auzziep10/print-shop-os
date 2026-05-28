@@ -349,7 +349,77 @@ function FloorPallet({ pallet, onClick, onPalletClick, activePallet }: any) {
   );
 }
 
-function WarehouseMap({ activeRack, setActiveRack, activePallet, setActivePallet, inventory, warehouse, isAddingPallet, addForm, setAddForm }: any) {
+function FloorMoveArrows({ position, onMove, setIsOrbitEnabled }: { position: [number, number, number], onMove: (dir: 'N' | 'S' | 'E' | 'W') => void, setIsOrbitEnabled: (b: boolean) => void }) {
+  const arrowColor = '#10b981';
+  const hoverColor = '#059669';
+  
+  const Arrow = ({ rotation, direction }: any) => {
+    const [hovered, setHovered] = useState(false);
+    return (
+      <group 
+        rotation={rotation}
+        onClick={(e) => {
+          e.stopPropagation();
+          onMove(direction);
+        }}
+        onPointerOver={(e) => {
+          e.stopPropagation();
+          setHovered(true);
+          setIsOrbitEnabled(false);
+          document.body.style.cursor = 'pointer';
+        }}
+        onPointerOut={() => {
+          setHovered(false);
+          setIsOrbitEnabled(true);
+          document.body.style.cursor = 'auto';
+        }}
+      >
+        {/* Shaft */}
+        <mesh position={[0, 0.02, -0.9]}>
+          <boxGeometry args={[0.15, 0.04, 0.5]} />
+          <meshStandardMaterial 
+            color={hovered ? hoverColor : arrowColor} 
+            emissive={hovered ? hoverColor : arrowColor} 
+            emissiveIntensity={hovered ? 0.8 : 0.3} 
+            transparent 
+            opacity={0.8}
+          />
+        </mesh>
+        {/* Head */}
+        <mesh position={[0, 0.02, -1.25]} rotation={[-Math.PI / 2, 0, 0]}>
+          <coneGeometry args={[0.2, 0.3, 4]} />
+          <meshStandardMaterial 
+            color={hovered ? hoverColor : arrowColor} 
+            emissive={hovered ? hoverColor : arrowColor} 
+            emissiveIntensity={hovered ? 0.8 : 0.3} 
+            transparent 
+            opacity={0.8}
+          />
+        </mesh>
+        {/* Invisible collider box */}
+        <mesh position={[0, 0.02, -1.05]}>
+          <boxGeometry args={[0.4, 0.2, 0.8]} />
+          <meshBasicMaterial visible={false} />
+        </mesh>
+      </group>
+    );
+  };
+
+  return (
+    <group position={[position[0], 0.01, position[2]]}>
+      {/* North Arrow (pointing -Z) */}
+      <Arrow rotation={[0, 0, 0]} direction="N" />
+      {/* South Arrow (pointing +Z) */}
+      <Arrow rotation={[0, Math.PI, 0]} direction="S" />
+      {/* West Arrow (pointing -X) */}
+      <Arrow rotation={[0, Math.PI / 2, 0]} direction="W" />
+      {/* East Arrow (pointing +X) */}
+      <Arrow rotation={[0, -Math.PI / 2, 0]} direction="E" />
+    </group>
+  );
+}
+
+function WarehouseMap({ activeRack, setActiveRack, activePallet, setActivePallet, inventory, warehouse, isAddingPallet, addForm, setAddForm, onMovePallet, moveStepSize }: any) {
   const rackProps = {
      onClick: setActiveRack,
      activeRack,
@@ -463,6 +533,14 @@ function WarehouseMap({ activeRack, setActiveRack, activePallet, setActivePallet
                <FloorPallet pallet={p} activePallet={activePallet} onPalletClick={setActivePallet} onClick={setActiveRack} />
             </DragControls>
         ))}
+
+        {activePallet && activePallet.zone === 'Floor' && activePallet.position && (
+            <FloorMoveArrows 
+               position={activePallet.position}
+               onMove={(dir) => onMovePallet(activePallet.id, dir, parseFloat(moveStepSize))}
+               setIsOrbitEnabled={setIsOrbitEnabled}
+            />
+        )}
       </Canvas>
     </div>
   );
@@ -493,6 +571,7 @@ export function Inventory() {
   const [activeRack, setActiveRack] = useState<string | null>(null);
   const [activePallet, setActivePallet] = useState<any>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [moveStepSize, setMoveStepSize] = useState('1.0');
 
   const [inventoryDB, setInventoryDB] = useState<any[]>([]);
   const [currentWarehouse, setCurrentWarehouse] = useState<any>(null);
@@ -743,6 +822,38 @@ export function Inventory() {
     }
   };
 
+  const handleMoveFloorPallet = async (palletId: string, direction: 'N' | 'S' | 'E' | 'W', stepSize = 1.0) => {
+    const pallet = allPallets.find(p => p.id === palletId);
+    if (!pallet || !pallet.position) return;
+    
+    let [x, y, z] = pallet.position;
+    if (direction === 'N') z -= stepSize;
+    if (direction === 'S') z += stepSize;
+    if (direction === 'W') x -= stepSize;
+    if (direction === 'E') x += stepSize;
+    
+    // Snap coordinates to 0.5 grid
+    x = Math.round(x * 2) / 2;
+    z = Math.round(z * 2) / 2;
+
+    const updatedPallet = {
+        ...pallet,
+        position: [x, y, z],
+        location: `Open Floor Zone (${x.toFixed(1)}, ${z.toFixed(1)})`
+    };
+    
+    // Optimistic UI updates
+    if (activePallet?.id === palletId) {
+        setActivePallet(updatedPallet);
+    }
+    
+    try {
+        await setDoc(doc(db, 'pallets', palletId), updatedPallet, { merge: true });
+    } catch (err) {
+        console.error("Failed to update floor pallet position", err);
+    }
+  };
+
 
 
   const [addForm, setAddForm] = useState({ palletId: '', color: '#10b981', zoneType: 'Floor', x: 0, z: 0, rackLabel: 'Aisle S-Left', bay: 0, level: 0, slot: -1 });
@@ -761,6 +872,38 @@ export function Inventory() {
     const bayIndex = Math.min(parseInt(addForm.bay as any), maxBays - 1);
     const levelIndex = Math.min(parseInt(addForm.level as any), maxLevels - 1);
     
+    // Evict current occupant if slot is already taken
+    if (!isFloor) {
+        const slotNum = parseInt(addForm.slot as any);
+        const occupant = allPallets.find((p: any) => 
+            p.warehouseId === (currentWarehouse?.id || "wh_default_01") &&
+            p.zone === addForm.rackLabel &&
+            p.rackSpecs?.bay === bayIndex &&
+            p.rackSpecs?.level === levelIndex &&
+            p.rackSpecs?.slot === slotNum &&
+            p.id !== addForm.palletId
+        );
+        
+        if (occupant) {
+            const rackPos = activeRackObj?.position || [0, 0, 0];
+            // Displace to concrete floor nearby
+            const floorX = rackPos[0] + (Math.random() - 0.5) * 3;
+            const floorZ = rackPos[2] + 3.0 + (Math.random() - 0.5) * 2;
+            const occupantUpdates = {
+                zone: 'Floor',
+                rackSpecs: null,
+                position: [floorX, 0, floorZ],
+                rotation: [0, 0, 0],
+                location: `Open Floor Zone (${floorX.toFixed(1)}, ${floorZ.toFixed(1)})`
+            };
+            try {
+                await setDoc(doc(db, 'pallets', occupant.id), occupantUpdates, { merge: true });
+            } catch (err) {
+                console.error("Failed to displace occupant to floor", err);
+            }
+        }
+    }
+
     const updates = {
         type: 'Pallet',
         warehouseId: currentWarehouse?.id || "wh_default_01",
@@ -868,9 +1011,21 @@ export function Inventory() {
                       className="w-full p-4 rounded-xl border-2 border-brand-border bg-neutral-50 font-bold text-lg focus:outline-none focus:border-brand-primary mb-6"
                    >
                       <option value="">-- Choose Pallet --</option>
-                      {allPallets.filter((p: any) => !p.warehouseId).map((p: any) => (
-                          <option key={p.id} value={p.id}>{p.name || p.client || p.id}</option>
-                      ))}
+                      <optgroup label="Unmapped / Available Pallets">
+                         {allPallets.filter((p: any) => !p.warehouseId).map((p: any) => (
+                             <option key={p.id} value={p.id}>{p.name || p.client || p.id}</option>
+                         ))}
+                      </optgroup>
+                      <optgroup label="Staged Pallets (Will be relocated)">
+                         {allPallets.filter((p: any) => p.warehouseId).map((p: any) => {
+                            const locStr = p.zone === 'Floor' 
+                               ? `Floor (${p.position?.[0]?.toFixed(1) ?? 0}, ${p.position?.[2]?.toFixed(1) ?? 0})`
+                               : `${p.zone} (Bay ${(p.rackSpecs?.bay ?? 0) + 1} Lvl ${p.rackSpecs?.level ?? 0} Slot ${p.rackSpecs?.slot === -1 ? '1' : p.rackSpecs?.slot === 0 ? '2' : '3'})`;
+                            return (
+                                <option key={p.id} value={p.id}>{p.name || p.client || p.id} - {locStr}</option>
+                            );
+                         })}
+                      </optgroup>
                    </select>
 
                    <button 
@@ -882,6 +1037,37 @@ export function Inventory() {
                                   wh.racks?.some((r: any) => r.label === mobilePlacementData.rackLabel)
                               );
                               if (foundWh) targetWarehouseId = foundWh.id;
+                          }
+                          
+                          // Evict occupant if slot is already taken
+                          const occupant = allPallets.find((p: any) => 
+                              p.warehouseId === (targetWarehouseId || currentWarehouse?.id || defaultWarehouseBlueprint.id) &&
+                              p.zone === mobilePlacementData.rackLabel &&
+                              p.rackSpecs?.bay === mobilePlacementData.bay &&
+                              p.rackSpecs?.level === mobilePlacementData.level &&
+                              p.rackSpecs?.slot === mobilePlacementData.slot &&
+                              p.id !== mobileSelectedPalletId
+                          );
+                          
+                          if (occupant) {
+                              const targetWh = allWarehouses.find(w => w.id === targetWarehouseId) || currentWarehouse;
+                              const targetRack = targetWh?.racks?.find((r: any) => r.label === mobilePlacementData.rackLabel);
+                              const rackPos = targetRack?.position || [0, 0, 0];
+                              // Displace to concrete floor nearby
+                              const floorX = rackPos[0] + (Math.random() - 0.5) * 3;
+                              const floorZ = rackPos[2] + 3.0 + (Math.random() - 0.5) * 2;
+                              const occupantUpdates = {
+                                  zone: 'Floor',
+                                  rackSpecs: null,
+                                  position: [floorX, 0, floorZ],
+                                  rotation: [0, 0, 0],
+                                  location: `Open Floor Zone (${floorX.toFixed(1)}, ${floorZ.toFixed(1)})`
+                              };
+                              try {
+                                  await setDoc(doc(db, 'pallets', occupant.id), occupantUpdates, { merge: true });
+                              } catch (err) {
+                                  console.error("Failed to displace occupant to floor (mobile)", err);
+                              }
                           }
                           
                           const palletRef = doc(db, 'pallets', mobileSelectedPalletId);
@@ -1054,6 +1240,8 @@ export function Inventory() {
                             isAddingPallet={isAddingPallet} 
                             addForm={addForm} 
                             setAddForm={setAddForm} 
+                            onMovePallet={handleMoveFloorPallet}
+                            moveStepSize={moveStepSize}
                         />
                     )}
                  </Suspense>
@@ -1224,14 +1412,67 @@ export function Inventory() {
                          
                          <div className="space-y-4">
                             <div>
-                              <p className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1">Exact Location</p>
-                              <div className="bg-brand-bg p-3 flex flex-col rounded-lg border border-brand-border/50 text-xs font-semibold text-brand-primary break-words">
-                                 {activePallet.zone === 'Floor' 
-                                    ? `Floor Zone (X: ${activePallet.position?.[0] ?? 0}, Z: ${activePallet.position?.[2] ?? 0})`
-                                    : `${activePallet.zone} | Bay ${activePallet.rackSpecs?.bay ?? 0} | Level ${activePallet.rackSpecs?.level ?? 0}${activePallet.rackSpecs?.slot !== undefined ? ` | Slot ${activePallet.rackSpecs.slot === -1 ? '1' : activePallet.rackSpecs.slot === 0 ? '2' : '3'}` : ''}`
-                                 }
-                              </div>
+                               <p className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1">Exact Location</p>
+                               <div className="bg-brand-bg p-3 flex flex-col rounded-lg border border-brand-border/50 text-xs font-semibold text-brand-primary break-words">
+                                  {activePallet.zone === 'Floor' 
+                                     ? `Floor Zone (X: ${activePallet.position?.[0] ?? 0}, Z: ${activePallet.position?.[2] ?? 0})`
+                                     : `${activePallet.zone} | Bay ${activePallet.rackSpecs?.bay ?? 0} | Level ${activePallet.rackSpecs?.level ?? 0}${activePallet.rackSpecs?.slot !== undefined ? ` | Slot ${activePallet.rackSpecs.slot === -1 ? '1' : activePallet.rackSpecs.slot === 0 ? '2' : '3'}` : ''}`
+                                  }
+                               </div>
                             </div>
+
+                            {activePallet.zone === 'Floor' && (
+                                <div className="border border-brand-border/60 rounded-xl p-4 bg-brand-bg/25">
+                                   <p className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-3">Floor Move Controller</p>
+                                   <div className="flex flex-col items-center gap-2">
+                                      <button 
+                                         onClick={() => handleMoveFloorPallet(activePallet.id, 'N', parseFloat(moveStepSize))}
+                                         className="w-10 h-10 bg-white border border-brand-border hover:border-brand-primary rounded-lg flex items-center justify-center font-bold text-lg text-brand-primary shadow-sm hover:scale-105 active:scale-95 transition-all"
+                                         title="Move North (-Z)"
+                                      >
+                                         ↑
+                                      </button>
+                                      <div className="flex gap-4">
+                                         <button 
+                                            onClick={() => handleMoveFloorPallet(activePallet.id, 'W', parseFloat(moveStepSize))}
+                                            className="w-10 h-10 bg-white border border-brand-border hover:border-brand-primary rounded-lg flex items-center justify-center font-bold text-lg text-brand-primary shadow-sm hover:scale-105 active:scale-95 transition-all"
+                                            title="Move West (-X)"
+                                         >
+                                            ←
+                                         </button>
+                                         <button 
+                                            onClick={() => handleMoveFloorPallet(activePallet.id, 'E', parseFloat(moveStepSize))}
+                                            className="w-10 h-10 bg-white border border-brand-border hover:border-brand-primary rounded-lg flex items-center justify-center font-bold text-lg text-brand-primary shadow-sm hover:scale-105 active:scale-95 transition-all"
+                                            title="Move East (+X)"
+                                         >
+                                            →
+                                         </button>
+                                      </div>
+                                      <button 
+                                         onClick={() => handleMoveFloorPallet(activePallet.id, 'S', parseFloat(moveStepSize))}
+                                         className="w-10 h-10 bg-white border border-brand-border hover:border-brand-primary rounded-lg flex items-center justify-center font-bold text-lg text-brand-primary shadow-sm hover:scale-105 active:scale-95 transition-all"
+                                         title="Move South (+Z)"
+                                      >
+                                         ↓
+                                      </button>
+                                      
+                                      <div className="flex items-center gap-2 mt-3 w-full justify-between px-2">
+                                         <span className="text-[9px] uppercase font-bold text-brand-secondary">Step Size:</span>
+                                         <select 
+                                            value={moveStepSize} 
+                                            onChange={e => setMoveStepSize(e.target.value)}
+                                            className="bg-white border border-brand-border rounded-lg px-2 py-1 text-xs font-bold text-brand-primary focus:outline-none focus:border-brand-primary cursor-pointer shadow-sm"
+                                         >
+                                            <option value="0.5">0.5 m</option>
+                                            <option value="1.0">1.0 m</option>
+                                            <option value="2.0">2.0 m</option>
+                                            <option value="5.0">5.0 m</option>
+                                         </select>
+                                      </div>
+                                   </div>
+                                </div>
+                             )}
+
                             <div>
                               <p className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1">Status</p>
                               <div className="bg-emerald-50 text-emerald-700 p-3 rounded-lg border border-emerald-200 text-sm font-bold flex gap-2 items-center">
@@ -1313,10 +1554,22 @@ export function Inventory() {
                             <div>
                                <label className="text-[10px] uppercase font-bold text-brand-secondary tracking-widest">Select Pallet</label>
                                <select value={addForm.palletId} onChange={e => setAddForm({...addForm, palletId: e.target.value})} className="w-full mt-1 p-3 rounded-lg border border-brand-border bg-brand-bg text-sm font-semibold focus:outline-brand-primary cursor-pointer">
-                                  <option value="">-- Choose Unmapped Pallet --</option>
-                                  {allPallets.filter(p => !p.warehouseId).map(p => (
-                                     <option key={p.id} value={p.id}>{p.name}</option>
-                                  ))}
+                                  <option value="">-- Choose Pallet --</option>
+                                  <optgroup label="Unmapped / Available Pallets">
+                                     {allPallets.filter(p => !p.warehouseId).map(p => (
+                                        <option key={p.id} value={p.id}>{p.name || p.id}</option>
+                                     ))}
+                                  </optgroup>
+                                  <optgroup label="Staged Pallets (Will be relocated)">
+                                     {allPallets.filter(p => p.warehouseId).map(p => {
+                                        const locStr = p.zone === 'Floor' 
+                                           ? `Floor (${p.position?.[0]?.toFixed(1) ?? 0}, ${p.position?.[2]?.toFixed(1) ?? 0})`
+                                           : `${p.zone} (Bay ${(p.rackSpecs?.bay ?? 0) + 1} Lvl ${p.rackSpecs?.level ?? 0} Slot ${p.rackSpecs?.slot === -1 ? '1' : p.rackSpecs?.slot === 0 ? '2' : '3'})`;
+                                        return (
+                                           <option key={p.id} value={p.id}>{p.name || p.id} - {locStr}</option>
+                                        );
+                                     })}
+                                  </optgroup>
                                </select>
                             </div>
                             
