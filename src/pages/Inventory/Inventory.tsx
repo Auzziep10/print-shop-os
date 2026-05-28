@@ -1,8 +1,9 @@
 import { useState, useEffect, Suspense, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import * as THREE from 'three';
+import { useSearchParams } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
-import { PackageOpen, Printer, Boxes, Map, QrCode, Settings, Upload, Search, Layers } from 'lucide-react';
+import { PackageOpen, Printer, Boxes, Map, QrCode, Upload, Search, Layers } from 'lucide-react';
 import QRCode from 'react-qr-code';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Text, Environment, DragControls } from '@react-three/drei';
@@ -646,8 +647,31 @@ export const defaultWarehouseBlueprint = {
 
 
 export function Inventory() {
-  const [mainTab, setMainTab] = useState<'Warehouse' | 'Pallets' | 'Products'>('Products');
-  const [activeTab, setActiveTab] = useState('Map');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const mainTab = (searchParams.get('tab') as 'Warehouse' | 'Pallets' | 'Products') || 'Products';
+  const activeTab = searchParams.get('sub') || 'Map';
+
+  const setMainTab = (newMainTab: 'Warehouse' | 'Pallets' | 'Products') => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      next.set('tab', newMainTab);
+      if (newMainTab !== 'Warehouse') {
+        next.delete('sub');
+      } else {
+        next.set('sub', activeTab || 'Map');
+      }
+      return next;
+    }, { replace: true });
+  };
+
+  const setActiveTab = (newActiveTab: string) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      next.set('tab', 'Warehouse');
+      next.set('sub', newActiveTab);
+      return next;
+    }, { replace: true });
+  };
   const [activeRack, setActiveRack] = useState<string | null>(null);
   const [activePalletId, setActivePalletId] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -1209,7 +1233,11 @@ export function Inventory() {
         <div className="flex flex-col lg:flex-row lg:flex-wrap justify-between items-stretch lg:items-center w-full gap-4 pb-2">
            <div className="flex items-center gap-4 shrink-0">
                <h1 className={`${tokens.typography.h1} text-2xl md:text-3xl`}>
-                 {mainTab === 'Warehouse' ? 'Warehouse Inventory' : 'Product Catalog'}
+                  {mainTab === 'Warehouse' 
+                    ? (activeTab === 'Map' ? 'Warehouse 3D Map' : activeTab === 'Labels' ? 'Print Labels' : 'Admin Builder') 
+                    : mainTab === 'Pallets' 
+                    ? 'Pallet Inventory' 
+                    : 'Product Catalog'}
                </h1>
                
                {mainTab === 'Pallets' && (
@@ -1246,31 +1274,11 @@ export function Inventory() {
                      </button>
                  </div>
               )}
-              
-              <div className="flex bg-brand-bg p-1 rounded-lg border border-brand-border shrink-0 shadow-sm w-auto overflow-x-auto max-w-full">
-                <button 
-                   onClick={() => setMainTab('Warehouse')}
-                   className={`flex-1 px-3 py-1.5 rounded-md font-bold text-[10px] uppercase tracking-widest transition-all ${mainTab === 'Warehouse' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}
-                >
-                   Warehouse
-                </button>
-                <button 
-                   onClick={() => setMainTab('Pallets')}
-                   className={`flex-1 px-3 py-1.5 rounded-md font-bold text-[10px] uppercase tracking-widest transition-all ${mainTab === 'Pallets' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}
-                >
-                   Pallet Inventory
-                </button>
-                <button 
-                   onClick={() => setMainTab('Products')}
-                   className={`flex-1 px-3 py-1.5 rounded-md font-bold text-[10px] uppercase tracking-widest transition-all ${mainTab === 'Products' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}
-                >
-                   Products
-                </button>
-              </div>
            </div>
         </div>
+      </div>
 
-        {mainTab === 'Warehouse' && (
+      {mainTab === 'Warehouse' && (activeTab === 'Map' || activeTab === 'Builder') && (
            <div className="flex justify-between items-center w-full py-4 border-y border-brand-border/50 bg-brand-bg/30 animate-in fade-in mb-2">
               <div className="flex items-center gap-3">
                  <span className="text-[10px] uppercase tracking-widest font-bold text-brand-secondary pl-2">Current Room:</span>
@@ -1310,30 +1318,8 @@ export function Inventory() {
                    + Add Room
                  </button>
               </div>
-
-              <div className="flex bg-white p-1 rounded-xl border border-brand-border shrink-0 shadow-sm mr-2">
-                 <button 
-                   onClick={() => setActiveTab('Map')}
-                   className={`flex items-center gap-2 px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all ${activeTab === 'Map' ? 'bg-brand-bg text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}
-                 >
-                    <Map size={14} /> 3D Map
-                 </button>
-                 <button 
-                   onClick={() => setActiveTab('Labels')}
-                   className={`flex items-center gap-2 px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all ${activeTab === 'Labels' ? 'bg-brand-bg text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}
-                 >
-                    <QrCode size={14} /> Print Labels
-                 </button>
-                 <button 
-                   onClick={() => setActiveTab('Builder')}
-                   className={`flex items-center gap-2 px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all ${activeTab === 'Builder' ? 'bg-brand-bg text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}
-                 >
-                    <Settings size={14} /> Admin Builder
-                 </button>
-              </div>
            </div>
-        )}
-      </div>
+      )}
       
       <div className="mt-8 flex-1 min-h-[600px] relative pb-8">
         {mainTab === 'Warehouse' && (activeTab === 'Map' || activeTab === 'Builder') && (

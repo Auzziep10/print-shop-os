@@ -26,7 +26,10 @@ import {
   BookOpen,
   MessageSquare,
   Globe,
-  ChevronDown
+  ChevronDown,
+  Boxes,
+  Map,
+  QrCode
 } from 'lucide-react';
 
 import { cn } from '../../lib/utils';
@@ -94,6 +97,45 @@ export function Sidebar({ onClose }: SidebarProps) {
     return () => unsub();
   }, []);
 
+  const [isInventoryExpanded, setIsInventoryExpanded] = useState<boolean>(() => {
+    return location.pathname.startsWith('/inventory');
+  });
+
+  useEffect(() => {
+    if (location.pathname.startsWith('/inventory')) {
+      setIsInventoryExpanded(true);
+    }
+  }, [location.pathname]);
+
+  const inventorySubItems = [
+    { label: 'Products', path: '/inventory?tab=Products', icon: ShoppingBag },
+    { label: 'Pallet Inventory', path: '/inventory?tab=Pallets', icon: Boxes },
+    { label: 'Warehouse 3D Map', path: '/inventory?tab=Warehouse&sub=Map', icon: Map },
+    { label: 'Print Labels', path: '/inventory?tab=Warehouse&sub=Labels', icon: QrCode },
+    { label: 'Admin Builder', path: '/inventory?tab=Warehouse&sub=Builder', icon: Settings },
+  ];
+
+  const isSubItemActive = (subPath: string) => {
+    const [path, search] = subPath.split('?');
+    if (location.pathname !== path) return false;
+    
+    const params = new URLSearchParams(search || '');
+    const currentParams = new URLSearchParams(location.search);
+    
+    const tab = params.get('tab') || 'Products';
+    const currentTab = currentParams.get('tab') || 'Products';
+    
+    if (tab !== currentTab) return false;
+    
+    if (tab === 'Warehouse') {
+      const sub = params.get('sub') || 'Map';
+      const currentSub = currentParams.get('sub') || 'Map';
+      return sub === currentSub;
+    }
+    
+    return true;
+  };
+
   const navItems = [
     { label: 'Dashboard', icon: LayoutDashboard, path: '/' },
     { label: 'Orders/Quotes', icon: Layers, path: '/orders' },
@@ -124,15 +166,81 @@ export function Sidebar({ onClose }: SidebarProps) {
         {navItems.map((item) => {
           const isActive = location.pathname === item.path || (item.path !== '/' && location.pathname.startsWith(item.path));
           
+          if (item.label === 'Inventory') {
+            return (
+              <div key={item.label} className="space-y-1">
+                <Link
+                  to="/inventory?tab=Products"
+                  onClick={() => {
+                    setIsInventoryExpanded(prev => !prev);
+                  }}
+                  className={cn(
+                    "w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-colors group border border-transparent",
+                    isActive 
+                      ? "bg-white border border-brand-border text-brand-primary shadow-sm font-medium" 
+                      : "text-brand-secondary hover:text-brand-primary hover:bg-brand-muted"
+                  )}
+                >
+                  <div className="flex items-center gap-3">
+                    <item.icon 
+                      size={18} 
+                      strokeWidth={isActive ? 2 : 1.5} 
+                      className={cn(isActive ? "text-brand-primary" : "text-brand-secondary group-hover:text-brand-primary")}
+                    />
+                    <span>{item.label}</span>
+                  </div>
+                  <ChevronDown 
+                    size={14} 
+                    className={cn(
+                      "transition-transform duration-200 text-brand-secondary group-hover:text-brand-primary",
+                      isInventoryExpanded ? "rotate-180" : ""
+                    )}
+                  />
+                </Link>
+                
+                {isInventoryExpanded && (
+                  <div className="space-y-1 pl-4 border-l border-brand-border/60 ml-[22px] mt-1 animate-in fade-in slide-in-from-top-1 duration-200">
+                    {inventorySubItems.map((subItem) => {
+                      const isSubActive = isSubItemActive(subItem.path);
+                      return (
+                        <Link
+                          key={subItem.label}
+                          to={subItem.path}
+                          onClick={() => onClose?.()}
+                          className={cn(
+                            "flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs transition-colors cursor-pointer group border border-transparent",
+                            isSubActive 
+                              ? "bg-white border border-brand-border text-brand-primary shadow-sm font-semibold" 
+                              : "text-brand-secondary hover:text-brand-primary hover:bg-brand-muted/40"
+                          )}
+                        >
+                          <subItem.icon 
+                            size={14} 
+                            strokeWidth={isSubActive ? 2 : 1.5}
+                            className={cn(
+                              isSubActive ? "text-brand-primary" : "text-brand-secondary group-hover:text-brand-primary"
+                            )}
+                          />
+                          <span>{subItem.label}</span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          }
+
           return (
             <Link
               key={item.label}
               to={item.path}
+              onClick={() => onClose?.()}
               className={cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors group",
+                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors group border border-transparent",
                 isActive 
-                  ? "bg-white border border-brand-border text-brand-primary shadow-sm" 
-                  : "text-brand-secondary hover:text-brand-primary hover:bg-brand-muted border border-transparent"
+                  ? "bg-white border border-brand-border text-brand-primary shadow-sm font-medium" 
+                  : "text-brand-secondary hover:text-brand-primary hover:bg-brand-muted"
               )}
             >
               <item.icon 
