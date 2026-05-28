@@ -28,11 +28,11 @@ import {
   Globe,
   ChevronDown,
   Boxes,
-  Map,
-  QrCode
+  Map
 } from 'lucide-react';
 
 import { cn } from '../../lib/utils';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface SidebarProps {
   onClose?: () => void;
@@ -97,6 +97,9 @@ export function Sidebar({ onClose }: SidebarProps) {
     return () => unsub();
   }, []);
 
+  const { userData } = useAuth();
+  const isAdmin = userData?.role === 'Admin';
+
   const [isInventoryExpanded, setIsInventoryExpanded] = useState<boolean>(() => {
     return location.pathname.startsWith('/inventory');
   });
@@ -111,8 +114,7 @@ export function Sidebar({ onClose }: SidebarProps) {
     { label: 'Products', path: '/inventory?tab=Products', icon: ShoppingBag },
     { label: 'Pallet Inventory', path: '/inventory?tab=Pallets', icon: Boxes },
     { label: 'Warehouse 3D Map', path: '/inventory?tab=Warehouse&sub=Map', icon: Map },
-    { label: 'Print Labels', path: '/inventory?tab=Warehouse&sub=Labels', icon: QrCode },
-    { label: 'Admin Builder', path: '/inventory?tab=Warehouse&sub=Builder', icon: Settings },
+    ...(isAdmin ? [{ label: 'Admin Builder', path: '/inventory?tab=Warehouse&sub=Builder', icon: Settings }] : []),
   ];
 
   const isSubItemActive = (subPath: string) => {

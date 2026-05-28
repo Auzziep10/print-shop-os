@@ -2,6 +2,7 @@ import { useState, useEffect, Suspense, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import * as THREE from 'three';
 import { useSearchParams } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
 import { tokens } from '../../lib/tokens';
 import { PackageOpen, Printer, Boxes, Map, QrCode, Upload, Search, Layers } from 'lucide-react';
 import QRCode from 'react-qr-code';
@@ -647,9 +648,24 @@ export const defaultWarehouseBlueprint = {
 
 
 export function Inventory() {
+  const { userData } = useAuth();
+  const isAdmin = userData?.role === 'Admin';
+
   const [searchParams, setSearchParams] = useSearchParams();
   const mainTab = (searchParams.get('tab') as 'Warehouse' | 'Pallets' | 'Products') || 'Products';
-  const activeTab = searchParams.get('sub') || 'Map';
+  
+  const subParam = searchParams.get('sub') || 'Map';
+  const activeTab = (!isAdmin && subParam === 'Builder') ? 'Map' : subParam;
+
+  useEffect(() => {
+    if (!isAdmin && searchParams.get('sub') === 'Builder') {
+      setSearchParams(prev => {
+        const next = new URLSearchParams(prev);
+        next.set('sub', 'Map');
+        return next;
+      }, { replace: true });
+    }
+  }, [isAdmin, searchParams, setSearchParams]);
 
   const setMainTab = (newMainTab: 'Warehouse' | 'Pallets' | 'Products') => {
     setSearchParams(prev => {
@@ -1105,10 +1121,6 @@ export function Inventory() {
       }
   };
 
-  const handlePrintLabel = () => {
-    window.print();
-  };
-
   if (mobilePlacementData) {
       const getSlotName = (s: number) => s === -1 ? '1' : s === 0 ? '2' : '3';
       return (
@@ -1234,7 +1246,7 @@ export function Inventory() {
            <div className="flex items-center gap-4 shrink-0">
                <h1 className={`${tokens.typography.h1} text-2xl md:text-3xl`}>
                   {mainTab === 'Warehouse' 
-                    ? (activeTab === 'Map' ? 'Warehouse 3D Map' : activeTab === 'Labels' ? 'Print Labels' : 'Admin Builder') 
+                    ? (activeTab === 'Map' ? 'Warehouse 3D Map' : 'Admin Builder') 
                     : mainTab === 'Pallets' 
                     ? 'Pallet Inventory' 
                     : 'Product Catalog'}
@@ -1597,10 +1609,7 @@ export function Inventory() {
                                </div>
                             </div>
                             
-                            <button onClick={() => setActiveTab('Labels')} className="w-full mt-4 bg-black text-white px-4 py-3 rounded-lg font-bold uppercase tracking-widest text-xs flex justify-center items-center gap-2 shadow-sm hover:scale-[1.02] transition-transform">
-                               <QrCode size={16} /> Print Route Info
-                            </button>
-                            <button onClick={() => { setInspectPalletId(activePallet.id); setMainTab('Pallets'); }} className="w-full bg-white text-black border border-brand-border px-4 py-3 rounded-lg font-bold uppercase tracking-widest text-xs flex justify-center items-center gap-2 hover:bg-neutral-50 shadow-sm transition-colors mt-2">
+                            <button onClick={() => { setInspectPalletId(activePallet.id); setMainTab('Pallets'); }} className="w-full mt-4 bg-white text-black border border-brand-border px-4 py-3 rounded-lg font-bold uppercase tracking-widest text-xs flex justify-center items-center gap-2 hover:bg-neutral-50 shadow-sm transition-colors">
                                <PackageOpen size={16} /> Open Inventory View
                             </button>
 
@@ -1766,42 +1775,7 @@ export function Inventory() {
            </div>
         )}
         
-        {mainTab === 'Warehouse' && activeTab === 'Labels' && (
-           <div className="w-full h-full bg-white rounded-card border border-brand-border p-8 shadow-sm overflow-y-auto">
-              <div className="max-w-4xl mx-auto">
-                 <div className="flex justify-between items-center mb-8">
-                    <h2 className={tokens.typography.h2}>QR Label Output Engine</h2>
-                    <button onClick={handlePrintLabel} className="bg-brand-primary text-white px-6 py-3 rounded-pill font-bold uppercase tracking-widest text-xs flex items-center gap-2 shadow-md hover:bg-black transition-all hover:scale-[1.02]">
-                       <Printer size={16} /> Print Thermal Sheet
-                    </button>
-                 </div>
-                 
-                 <div className="grid grid-cols-2 gap-8 print-grid">
-                    {(activePallet ? [activePallet] : inventoryDB.slice(0, 8)).map((p: any) => (
-                       <div key={p.id} className="border-[3px] border-black rounded-2xl p-6 bg-white flex print-label shadow-sm transition-shadow h-56">
-                          <div className="flex-1 pr-6 flex flex-col justify-between">
-                            <div>
-                               <img src="/logo.png" alt="WOVN" className="h-6 w-auto mb-5" />
-                               <h3 className="font-serif text-[32px] font-bold tracking-tight leading-none mb-2">{p.client}</h3>
-                               <p className="text-[10px] uppercase tracking-widest font-bold text-brand-secondary">3PL Kitting Cargo</p>
-                            </div>
-                            <div>
-                               <div className="text-4xl font-black font-sans tracking-tighter mt-4 inline-block border-b-4 border-black pb-1 mb-2">{p.id}</div>
-                               <p className="text-sm font-bold uppercase tracking-widest mt-1">LOC: {p.location}</p>
-                            </div>
-                          </div>
-                          <div className="shrink-0 flex items-center justify-center border-l-4 border-dotted border-brand-border/60 pl-8">
-                            <div className="bg-white p-2 border-4 border-black inline-block rounded-xl">
-                               <QRCode value={`${window.location.hostname === 'localhost' ? 'https://print-shop-os.vercel.app' : window.location.origin}/inventory/scan?id=${p.id}&loc=${encodeURIComponent(p.location)}`} size={140} />
-                            </div>
-                          </div>
-                       </div>
-                    ))}
-                 </div>
-              </div>
-           </div>
-        )}
-        
+
         {mainTab === 'Products' && (
            <div className="w-full h-full pb-8 animate-in fade-in">
               <ProductsTab />

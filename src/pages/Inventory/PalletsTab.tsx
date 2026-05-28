@@ -27,6 +27,11 @@ interface Pallet {
     boxes: BoxType[];
     warehouseId?: string;
     zone?: string;
+    rackSpecs?: {
+        bay: number;
+        level: number;
+        slot: number;
+    };
 }
 
 const isTermMatched = (text: string, term: string) => {
@@ -503,9 +508,21 @@ export function PalletsTab({ onJumpToWarehouse, initialActivePalletId, onOpenSho
                                  {activePallet.name}
                              </h3>
                          )}
-                         <p className="text-[10px] uppercase font-bold tracking-widest text-brand-secondary mb-4 drop-shadow-sm">{activePallet.id}</p>
-                         
-                         {!isAddingBox ? (
+                         <p className="text-[10px] uppercase font-bold tracking-widest text-brand-secondary mb-3 drop-shadow-sm">{activePallet.id}</p>
+                          
+                          {activePallet.zone ? (
+                              <div className="mb-4 bg-brand-bg border border-brand-border p-2.5 rounded-lg text-[10px] font-bold uppercase tracking-widest text-brand-primary flex items-center gap-2 shadow-inner">
+                                  <Map size={12} className="text-brand-primary shrink-0" />
+                                  <span className="truncate">staged: {activePallet.zone === 'Floor' ? 'Open Floor' : `${activePallet.zone} (B:${activePallet.rackSpecs?.bay}, L:${activePallet.rackSpecs?.level}, S:${activePallet.rackSpecs?.slot})`}</span>
+                              </div>
+                          ) : (
+                              <div className="mb-4 bg-red-50/50 border border-red-100 p-2.5 rounded-lg text-[10px] font-bold uppercase tracking-widest text-red-700 flex items-center gap-2">
+                                  <Map size={12} className="text-red-500 shrink-0" />
+                                  <span>Unmapped / Available</span>
+                              </div>
+                          )}
+                          
+                          {!isAddingBox ? (
                              <div className="flex flex-col gap-2">
                                  <button 
                                      onClick={() => setIsAddingBox(true)}
@@ -514,12 +531,12 @@ export function PalletsTab({ onJumpToWarehouse, initialActivePalletId, onOpenSho
                                      <Plus size={14} /> Add Box
                                  </button>
                                  
-                                 {activePallet.warehouseId && onJumpToWarehouse && (
+                                 {(activePallet.zone || activePallet.warehouseId) && onJumpToWarehouse && (
                                      <button 
                                          onClick={() => onJumpToWarehouse(activePallet.id, activePallet.zone || 'Floor', activePallet.warehouseId)}
                                          className="w-full bg-brand-primary/10 text-brand-primary border border-brand-primary/20 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-brand-primary hover:text-white hover:border-brand-primary transition-all shadow-sm flex items-center justify-center gap-2 mb-2"
                                      >
-                                         <Map size={14} /> Locate in Warehouse
+                                         <Map size={14} /> Locate in 3D Space
                                      </button>
                                  )}
                                  
