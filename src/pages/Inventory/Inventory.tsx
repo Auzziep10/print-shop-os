@@ -331,15 +331,18 @@ function FloorPallet({ pallet, onClick, onPalletClick, activePallet, setIsOrbitE
   const pHeight = pallet.height || 0.8;
   const pY = pHeight / 2;
   const groupRef = useRef<THREE.Group>(null);
+  const isDraggingRef = useRef(false);
 
   return (
     <DragControls 
        axisLock="y" 
        onDragStart={() => {
+          isDraggingRef.current = true;
           setIsOrbitEnabled(false);
           setIsDragging?.(true);
        }} 
        onDragEnd={() => {
+          isDraggingRef.current = false;
           setIsOrbitEnabled(true);
           setIsDragging?.(false);
           if (groupRef.current) {
@@ -351,8 +354,17 @@ function FloorPallet({ pallet, onClick, onPalletClick, activePallet, setIsOrbitE
     >
       <group ref={groupRef} position={[pallet.position[0], pallet.position[1] + pY, pallet.position[2]]} rotation={pallet.rotation || [0,0,0]} 
         onClick={(e) => { if (e.delta > 2) return; e.stopPropagation(); onClick?.(null); onPalletClick?.(pallet); }}
-        onPointerOver={(e) => { e.stopPropagation(); document.body.style.cursor='pointer'; }}
-        onPointerOut={() => document.body.style.cursor='auto'}
+        onPointerOver={(e) => { 
+           e.stopPropagation(); 
+           setIsOrbitEnabled(false);
+           document.body.style.cursor='pointer'; 
+        }}
+        onPointerOut={() => { 
+           document.body.style.cursor='auto';
+           if (!isDraggingRef.current) {
+              setIsOrbitEnabled(true);
+           }
+        }}
       >
         <group scale={[1.3, 1.3, 1.3]}>
            <PalletLabels pallet={pallet} />
@@ -868,6 +880,7 @@ export function Inventory() {
     };
     
     // Optimistic UI updates
+    setAllPallets(prev => prev.map(p => p.id === palletId ? updatedPallet : p));
     if (activePallet?.id === palletId) {
         setActivePallet(updatedPallet);
     }
