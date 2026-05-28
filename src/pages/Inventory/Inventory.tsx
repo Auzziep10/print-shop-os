@@ -332,9 +332,14 @@ function FloorPallet({ pallet, onClick, onPalletClick, activePallet, setIsOrbitE
   const pY = pHeight / 2;
   const groupRef = useRef<THREE.Group>(null);
   const isDraggingRef = useRef(false);
+  const dragStartPosRef = useRef<number[]>([0, 0, 0]);
+
+  const currentPos = isDraggingRef.current 
+     ? dragStartPosRef.current 
+     : pallet.position;
 
   const palletGroup = (
-    <group ref={groupRef} position={[pallet.position[0], pallet.position[1] + pY, pallet.position[2]]} rotation={pallet.rotation || [0,0,0]} 
+    <group ref={groupRef} position={[currentPos[0], currentPos[1] + pY, currentPos[2]]} rotation={pallet.rotation || [0,0,0]} 
       onClick={(e) => { if (e.delta > 2) return; e.stopPropagation(); onClick?.(null); onPalletClick?.(pallet); }}
       onPointerOver={(e) => { 
          e.stopPropagation(); 
@@ -365,12 +370,21 @@ function FloorPallet({ pallet, onClick, onPalletClick, activePallet, setIsOrbitE
           axisLock="y" 
           onDragStart={() => {
              isDraggingRef.current = true;
+             dragStartPosRef.current = [...pallet.position];
              setIsOrbitEnabled(false);
           }} 
           onDrag={() => {
              if (groupRef.current) {
-                const newX = Math.round(groupRef.current.position.x * 2) / 2;
-                const newZ = Math.round(groupRef.current.position.z * 2) / 2;
+                // Snap parent DragControls group position to 0.5m grid in real-time
+                if (groupRef.current.parent) {
+                   groupRef.current.parent.position.x = Math.round(groupRef.current.parent.position.x * 2) / 2;
+                   groupRef.current.parent.position.z = Math.round(groupRef.current.parent.position.z * 2) / 2;
+                }
+                
+                const worldPos = new THREE.Vector3();
+                groupRef.current.getWorldPosition(worldPos);
+                const newX = Math.round(worldPos.x * 2) / 2;
+                const newZ = Math.round(worldPos.z * 2) / 2;
                 if (newX !== pallet.position[0] || newZ !== pallet.position[2]) {
                    onLocalUpdatePosition?.(pallet.id, newX, newZ);
                 }
@@ -380,8 +394,10 @@ function FloorPallet({ pallet, onClick, onPalletClick, activePallet, setIsOrbitE
              isDraggingRef.current = false;
              setIsOrbitEnabled(true);
              if (groupRef.current) {
-                const newX = Math.round(groupRef.current.position.x * 2) / 2;
-                const newZ = Math.round(groupRef.current.position.z * 2) / 2;
+                const worldPos = new THREE.Vector3();
+                groupRef.current.getWorldPosition(worldPos);
+                const newX = Math.round(worldPos.x * 2) / 2;
+                const newZ = Math.round(worldPos.z * 2) / 2;
                 onUpdatePosition(pallet.id, newX, newZ);
              }
           }}
