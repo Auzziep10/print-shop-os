@@ -333,56 +333,64 @@ function FloorPallet({ pallet, onClick, onPalletClick, activePallet, setIsOrbitE
   const groupRef = useRef<THREE.Group>(null);
   const isDraggingRef = useRef(false);
 
-  return (
-    <DragControls 
-       axisLock="y" 
-       onDragStart={() => {
-          isDraggingRef.current = true;
-          setIsOrbitEnabled(false);
-          setIsDragging?.(true);
-       }} 
-       onDrag={() => {
-          if (groupRef.current) {
-             groupRef.current.position.x = Math.round(groupRef.current.position.x * 2) / 2;
-             groupRef.current.position.z = Math.round(groupRef.current.position.z * 2) / 2;
-          }
-       }}
-       onDragEnd={() => {
-          isDraggingRef.current = false;
-          setIsOrbitEnabled(true);
-          setIsDragging?.(false);
-          if (groupRef.current) {
-             const newX = Math.round(groupRef.current.position.x * 2) / 2;
-             const newZ = Math.round(groupRef.current.position.z * 2) / 2;
-             onUpdatePosition(pallet.id, newX, newZ);
-          }
-       }}
+  const palletGroup = (
+    <group ref={groupRef} position={[pallet.position[0], pallet.position[1] + pY, pallet.position[2]]} rotation={pallet.rotation || [0,0,0]} 
+      onClick={(e) => { if (e.delta > 2) return; e.stopPropagation(); onClick?.(null); onPalletClick?.(pallet); }}
+      onPointerOver={(e) => { 
+         e.stopPropagation(); 
+         setIsOrbitEnabled(false);
+         document.body.style.cursor='pointer'; 
+      }}
+      onPointerOut={() => { 
+         document.body.style.cursor='auto';
+         if (!isDraggingRef.current) {
+            setIsOrbitEnabled(true);
+         }
+      }}
     >
-      <group ref={groupRef} position={[pallet.position[0], pallet.position[1] + pY, pallet.position[2]]} rotation={pallet.rotation || [0,0,0]} 
-        onClick={(e) => { if (e.delta > 2) return; e.stopPropagation(); onClick?.(null); onPalletClick?.(pallet); }}
-        onPointerOver={(e) => { 
-           e.stopPropagation(); 
-           setIsOrbitEnabled(false);
-           document.body.style.cursor='pointer'; 
-        }}
-        onPointerOut={() => { 
-           document.body.style.cursor='auto';
-           if (!isDraggingRef.current) {
-              setIsOrbitEnabled(true);
-           }
-        }}
-      >
-        <group scale={[1.3, 1.3, 1.3]}>
-           <PalletLabels pallet={pallet} />
-        </group>
-        <mesh position={[0, -pHeight/2 + 0.07, 0]}>
-          <boxGeometry args={[1.0, 0.14, 1.0]} />
-          <meshStandardMaterial color="#8b5a2b" emissive={isThisPalletActive ? "#fff" : "#000"} emissiveIntensity={isThisPalletActive ? 0.3 : 0} />
-        </mesh>
-        <PayloadMesh pallet={pallet} isThisPalletActive={isThisPalletActive} />
+      <group scale={[1.3, 1.3, 1.3]}>
+         <PalletLabels pallet={pallet} />
       </group>
-    </DragControls>
+      <mesh position={[0, -pHeight/2 + 0.07, 0]}>
+        <boxGeometry args={[1.0, 0.14, 1.0]} />
+        <meshStandardMaterial color="#8b5a2b" emissive={isThisPalletActive ? "#fff" : "#000"} emissiveIntensity={isThisPalletActive ? 0.3 : 0} />
+      </mesh>
+      <PayloadMesh pallet={pallet} isThisPalletActive={isThisPalletActive} />
+    </group>
   );
+
+  if (isThisPalletActive) {
+     return (
+       <DragControls 
+          axisLock="y" 
+          onDragStart={() => {
+             isDraggingRef.current = true;
+             setIsOrbitEnabled(false);
+             setIsDragging?.(true);
+          }} 
+          onDrag={() => {
+             if (groupRef.current) {
+                groupRef.current.position.x = Math.round(groupRef.current.position.x * 2) / 2;
+                groupRef.current.position.z = Math.round(groupRef.current.position.z * 2) / 2;
+             }
+          }}
+          onDragEnd={() => {
+             isDraggingRef.current = false;
+             setIsOrbitEnabled(true);
+             setIsDragging?.(false);
+             if (groupRef.current) {
+                const newX = Math.round(groupRef.current.position.x * 2) / 2;
+                const newZ = Math.round(groupRef.current.position.z * 2) / 2;
+                onUpdatePosition(pallet.id, newX, newZ);
+             }
+          }}
+       >
+         {palletGroup}
+       </DragControls>
+     );
+  }
+
+  return palletGroup;
 }
 
 function FloorMoveArrows({ position, onMove, setIsOrbitEnabled }: { position: [number, number, number], onMove: (dir: 'N' | 'S' | 'E' | 'W') => void, setIsOrbitEnabled: (b: boolean) => void }) {
