@@ -352,6 +352,14 @@ function FloorPallet({ pallet, onClick, onPalletClick, activePallet }: any) {
 function FloorMoveArrows({ position, onMove, setIsOrbitEnabled }: { position: [number, number, number], onMove: (dir: 'N' | 'S' | 'E' | 'W') => void, setIsOrbitEnabled: (b: boolean) => void }) {
   const arrowColor = '#10b981';
   const hoverColor = '#059669';
+
+  useEffect(() => {
+    // Reset orbit controls on mount and when position changes
+    setIsOrbitEnabled(true);
+    return () => {
+      setIsOrbitEnabled(true);
+    };
+  }, [position, setIsOrbitEnabled]);
   
   const Arrow = ({ rotation, direction }: any) => {
     const [hovered, setHovered] = useState(false);
@@ -361,6 +369,8 @@ function FloorMoveArrows({ position, onMove, setIsOrbitEnabled }: { position: [n
         onClick={(e) => {
           e.stopPropagation();
           onMove(direction);
+          setIsOrbitEnabled(true);
+          document.body.style.cursor = 'auto';
         }}
         onPointerOver={(e) => {
           e.stopPropagation();
