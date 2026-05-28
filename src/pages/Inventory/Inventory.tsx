@@ -326,7 +326,7 @@ function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, slots = 3, c
   );
 }
 
-function FloorPallet({ pallet, onClick, onPalletClick, activePallet, setIsOrbitEnabled, onUpdatePosition }: any) {
+function FloorPallet({ pallet, onClick, onPalletClick, activePallet, setIsOrbitEnabled, onUpdatePosition, setIsDragging }: any) {
   const isThisPalletActive = activePallet?.id === pallet.id;
   const pHeight = pallet.height || 0.8;
   const pY = pHeight / 2;
@@ -335,9 +335,13 @@ function FloorPallet({ pallet, onClick, onPalletClick, activePallet, setIsOrbitE
   return (
     <DragControls 
        axisLock="y" 
-       onDragStart={() => setIsOrbitEnabled(false)} 
+       onDragStart={() => {
+          setIsOrbitEnabled(false);
+          setIsDragging?.(true);
+       }} 
        onDragEnd={() => {
           setIsOrbitEnabled(true);
+          setIsDragging?.(false);
           if (groupRef.current) {
              const newX = Math.round(groupRef.current.position.x * 2) / 2;
              const newZ = Math.round(groupRef.current.position.z * 2) / 2;
@@ -454,6 +458,7 @@ function WarehouseMap({ activeRack, setActiveRack, activePallet, setActivePallet
   };
   
   const [isOrbitEnabled, setIsOrbitEnabled] = useState(true);
+  const [isDragging, setIsDragging] = useState(false);
   
   const getRackInventory = (zone: string) => inventory.filter((p: any) => p.zone === zone);
   const floorInventory = inventory.filter((p: any) => p.zone === 'Floor');
@@ -556,10 +561,11 @@ function WarehouseMap({ activeRack, setActiveRack, activePallet, setActivePallet
                 onClick={setActiveRack} 
                 setIsOrbitEnabled={setIsOrbitEnabled}
                 onUpdatePosition={onUpdatePalletPosition}
+                setIsDragging={setIsDragging}
              />
         ))}
 
-        {activePallet && activePallet.zone === 'Floor' && activePallet.position && (
+        {activePallet && activePallet.zone === 'Floor' && activePallet.position && !isDragging && (
             <FloorMoveArrows 
                position={activePallet.position}
                onMove={(dir) => onMovePallet(activePallet.id, dir, parseFloat(moveStepSize))}
@@ -594,7 +600,7 @@ export function Inventory() {
   const [mainTab, setMainTab] = useState<'Warehouse' | 'Pallets' | 'Products'>('Products');
   const [activeTab, setActiveTab] = useState('Map');
   const [activeRack, setActiveRack] = useState<string | null>(null);
-  const [activePallet, setActivePallet] = useState<any>(null);
+  const [activePalletId, setActivePalletId] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [moveStepSize, setMoveStepSize] = useState('1.0');
 
@@ -648,6 +654,10 @@ export function Inventory() {
   }, []);
 
   const [allPallets, setAllPallets] = useState<any[]>([]);
+  const activePallet = allPallets.find((p: any) => p.id === activePalletId) || null;
+  const setActivePallet = (pallet: any) => {
+     setActivePalletId(pallet ? pallet.id : null);
+  };
   const [palletStats, setPalletStats] = useState({ pallets: 0, boxes: 0, items: 0, skus: [] as string[], names: [] as string[], sizes: [] as string[] });
 
   useEffect(() => {
