@@ -4,6 +4,7 @@ import { Settings as SettingsIcon } from 'lucide-react';
 import { UsersTab } from './UsersTab';
 import { BusinessTab } from './BusinessTab';
 import { AppsTab } from './AppsTab';
+import { StorefrontCatalogTab } from './StorefrontCatalogTab';
 import { useAuth } from '../../contexts/AuthContext';
 
 export function Settings() {
@@ -70,6 +71,16 @@ export function Settings() {
             >
               App Links
             </button>
+            <button
+              onClick={() => setActiveTab('storefront-catalog')}
+              className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+                activeTab === 'storefront-catalog' 
+                  ? 'bg-brand-primary text-white' 
+                  : 'text-brand-secondary hover:bg-brand-bg hover:text-brand-primary'
+              }`}
+            >
+              Storefront Catalog
+            </button>
           </nav>
         </div>
 
@@ -78,6 +89,7 @@ export function Settings() {
           {activeTab === 'users' && <UsersTab />}
           {activeTab === 'business' && <BusinessTab />}
           {activeTab === 'apps' && <AppsTab />}
+          {activeTab === 'storefront-catalog' && <StorefrontCatalogTab />}
         </div>
       </div>
     </div>

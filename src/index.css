@@ -11,6 +11,15 @@
   --radius-card: 1.5rem;
   --radius-pill: 9999px;
   --spacing-card: 2rem;
+  
+  --color-bone-50: #faf9f6;
+  --color-bone-100: #f5f2eb;
+  --color-bone-200: #efece4;
+  --color-bone-300: #e5e0d5;
+  --color-bone-400: #d6cfbf;
+  --color-bone-500: #b8ac97;
+  --color-bone-800: #2c2925;
+  --color-bone-900: #1c1a17;
 }
 
 @layer base {
