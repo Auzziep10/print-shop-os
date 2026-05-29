@@ -1801,12 +1801,16 @@ export function PublicQuoteRequest() {
                           </div>
                         )}
                         <span className="text-[8px] font-bold uppercase tracking-widest text-neutral-400">{item.slot}</span>
-                        <div className="h-16 flex items-center justify-center p-1">
+                        <div className="h-28 flex items-center justify-center p-1 overflow-hidden">
                           {(() => {
                             const imgSet = item.product.images[item.color] || Object.values(item.product.images)[0];
                             const imgSrc = imgSet ? (typeof imgSet === 'string' ? imgSet : (imgSet as any).front) : '';
                             return (
-                              <img src={imgSrc} className="max-h-full max-w-full object-contain filter drop-shadow-xs" alt={item.product.style} />
+                              <img 
+                                src={imgSrc} 
+                                className="max-h-full max-w-full object-contain filter drop-shadow-xs group-hover:scale-105 transition-transform duration-300" 
+                                alt={item.product.style} 
+                              />
                             );
                           })()}
                         </div>
