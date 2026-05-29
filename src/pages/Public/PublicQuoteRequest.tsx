@@ -1479,7 +1479,7 @@ export function PublicQuoteRequest() {
           <main className="flex-grow w-full flex flex-col lg:flex-row gap-0 min-h-0 lg:overflow-hidden relative">
             {/* LEFT SIDE: Design Your Rack Card */}
             <TiltCard 
-              className="flex-grow flex-1 flex flex-col justify-between p-8 relative overflow-hidden group min-h-[300px] lg:h-full border-b lg:border-b-0 lg:border-r border-zinc-200/50"
+              className="flex-grow flex-1 flex flex-col justify-between p-8 relative overflow-hidden group min-h-[300px] lg:h-full border-b lg:border-b-0 lg:border-r border-zinc-200/50 bg-gradient-to-br from-zinc-900 via-neutral-955 to-zinc-900 text-white"
               onMouseEnter={() => setHoveredPlatform('racks')}
               onMouseLeave={() => setHoveredPlatform(null)}
               onClick={() => {
@@ -1487,26 +1487,26 @@ export function PublicQuoteRequest() {
                 setStep(1);
               }}
             >
-              {/* Edge-to-Edge Image Background */}
-              <img 
-                src="/hero_apparel.png" 
-                className="absolute inset-0 w-full h-full object-cover object-center transition-transform duration-[1200ms] scale-100 group-hover:scale-[1.04] [backface-visibility:hidden] [transform:translate3d(0,0,0)]" 
-                alt="Cohesive apparel collections rack" 
-                style={{ 
-                  transform: hoveredPlatform === 'racks' ? 'translateZ(-10px) scale(1.03)' : 'translateZ(0px) scale(1)',
-                  backfaceVisibility: 'hidden',
-                  WebkitBackfaceVisibility: 'hidden',
-                  willChange: 'transform'
-                } as any}
+              {/* Abstract CSS design element in background (glowing orb and blueprint lines) */}
+              <div 
+                className="absolute inset-0 pointer-events-none opacity-20 transition-transform duration-[1200ms] scale-100 group-hover:scale-110"
+                style={{
+                  background: `
+                    radial-gradient(circle at 70% 30%, rgba(229, 224, 213, 0.15) 0%, transparent 60%),
+                    radial-gradient(circle at 20% 80%, rgba(115, 115, 115, 0.1) 0%, transparent 50%)
+                  `,
+                }}
               />
-              <div className="absolute inset-0 bg-checkerboard opacity-[0.03] pointer-events-none" />
-              
-              {/* Moody vignette gradient covering the card */}
-              <div className="absolute inset-0 bg-gradient-to-t from-zinc-955/85 via-zinc-955/30 to-zinc-955/30 pointer-events-none transition-opacity duration-500 group-hover:from-zinc-955/90" />
+              {/* Subtle blueprint grid overlay for lookbook feeling */}
+              <div className="absolute inset-0 opacity-[0.02] bg-checkerboard pointer-events-none" />
+              <div className="absolute inset-x-8 top-1/3 h-px bg-white/5 pointer-events-none" />
+              <div className="absolute inset-x-8 top-2/3 h-px bg-white/5 pointer-events-none" />
+              <div className="absolute inset-y-8 left-1/3 w-px bg-white/5 pointer-events-none" />
+              <div className="absolute inset-y-8 left-2/3 w-px bg-white/5 pointer-events-none" />
 
               {/* Top Badge */}
               <div style={{ transform: hoveredPlatform === 'racks' ? 'translateZ(12px)' : 'none' }} className="flex justify-between items-start z-10 shrink-0">
-                <span className="text-[9px] tracking-widest font-mono text-zinc-300 uppercase font-semibold">01 / DESIGN YOUR RACK</span>
+                <span className="text-[9px] tracking-widest font-mono text-zinc-400 uppercase font-semibold">01 / DESIGN YOUR RACK</span>
                 <span className="text-[8px] border border-white/20 text-zinc-300 px-2 py-0.5 rounded font-mono uppercase tracking-wider bg-white/5 backdrop-blur-xs">
                   Cohesive Collection
                 </span>
@@ -1515,7 +1515,7 @@ export function PublicQuoteRequest() {
               {/* Bottom Card Content */}
               <div style={{ transform: hoveredPlatform === 'racks' ? 'translateZ(18px)' : 'none' }} className="flex flex-col gap-4 z-10 text-white max-w-lg mt-auto">
                 <div className="flex flex-col gap-1.5">
-                  <h2 className="font-serif text-3xl lg:text-4xl font-normal tracking-tight">
+                  <h2 className="font-serif text-3xl lg:text-4xl font-normal tracking-tight text-white">
                     Design Your Rack
                   </h2>
                   <p className="text-[11px] text-zinc-300 leading-relaxed font-light transition-opacity duration-300 opacity-80 group-hover:opacity-100 font-sans">
@@ -1524,17 +1524,17 @@ export function PublicQuoteRequest() {
                 </div>
 
                 <div 
-                  className="w-full flex items-center justify-between px-5 py-3.5 bg-white text-zinc-900 rounded-xl font-bold uppercase tracking-wider text-[10px] transition-all hover:bg-zinc-100 shadow-md z-10 cursor-pointer"
+                  className="w-full flex items-center justify-between px-5 py-3.5 bg-white text-zinc-950 rounded-xl font-bold uppercase tracking-wider text-[10px] transition-all hover:bg-zinc-100 shadow-md z-10 cursor-pointer"
                 >
-                  <span className="text-zinc-900">Design a Cohesive Line</span>
-                  <ArrowRight className="w-4 h-4 text-zinc-900 group-hover:translate-x-1.5 transition-transform" />
+                  <span className="text-zinc-955">Design a Cohesive Line</span>
+                  <ArrowRight className="w-4 h-4 text-zinc-955 group-hover:translate-x-1.5 transition-transform" />
                 </div>
               </div>
             </TiltCard>
 
             {/* RIGHT SIDE: Build From Basics Card */}
             <TiltCard 
-              className="flex-grow flex-1 flex flex-col justify-between p-8 relative overflow-hidden group min-h-[300px] lg:h-full"
+              className="flex-grow flex-1 flex flex-col justify-between p-8 relative overflow-hidden group min-h-[300px] lg:h-full bg-gradient-to-br from-bone-100 via-bone-50 to-[#FAF9F5] text-zinc-900 border-none"
               onMouseEnter={() => setHoveredPlatform('basics')}
               onMouseLeave={() => setHoveredPlatform(null)}
               onClick={() => {
@@ -1542,46 +1542,47 @@ export function PublicQuoteRequest() {
                 setStep(1);
               }}
             >
-              {/* Edge-to-Edge Image Background */}
-              <img 
-                src="/hero_dtf.png" 
-                className="absolute inset-0 w-full h-full object-cover object-center transition-transform duration-[1200ms] scale-100 group-hover:scale-[1.04] [backface-visibility:hidden] [transform:translate3d(0,0,0)]" 
-                alt="Essential blanks catalog" 
-                style={{ 
-                  transform: hoveredPlatform === 'basics' ? 'translateZ(-10px) scale(1.03)' : 'translateZ(0px) scale(1)',
-                  backfaceVisibility: 'hidden',
-                  WebkitBackfaceVisibility: 'hidden',
-                  willChange: 'transform'
-                } as any}
+              {/* Abstract CSS design element in background (glowing warm orb and blueprint lines) */}
+              <div 
+                className="absolute inset-0 pointer-events-none opacity-30 transition-transform duration-[1200ms] scale-100 group-hover:scale-110"
+                style={{
+                  background: `
+                    radial-gradient(circle at 30% 20%, rgba(214, 207, 191, 0.4) 0%, transparent 60%),
+                    radial-gradient(circle at 80% 70%, rgba(229, 224, 213, 0.3) 0%, transparent 50%)
+                  `,
+                }}
               />
-              
-              {/* Moody vignette gradient covering the card */}
-              <div className="absolute inset-0 bg-gradient-to-t from-zinc-955/85 via-zinc-955/30 to-zinc-955/30 pointer-events-none transition-opacity duration-500 group-hover:from-zinc-955/90" />
+              {/* Subtle blueprint grid overlay for lookbook feeling */}
+              <div className="absolute inset-0 opacity-[0.05] bg-checkerboard pointer-events-none" />
+              <div className="absolute inset-x-8 top-1/3 h-px bg-zinc-900/5 pointer-events-none" />
+              <div className="absolute inset-x-8 top-2/3 h-px bg-zinc-900/5 pointer-events-none" />
+              <div className="absolute inset-y-8 left-1/3 w-px bg-zinc-900/5 pointer-events-none" />
+              <div className="absolute inset-y-8 left-2/3 w-px bg-zinc-900/5 pointer-events-none" />
 
               {/* Top Badge */}
               <div style={{ transform: hoveredPlatform === 'basics' ? 'translateZ(12px)' : 'none' }} className="flex justify-between items-start z-10 shrink-0">
-                <span className="text-[9px] tracking-widest font-mono text-zinc-300 uppercase font-semibold">02 / BUILD FROM BASICS</span>
-                <span className="text-[8px] border border-white/20 text-zinc-300 px-2 py-0.5 rounded font-mono uppercase tracking-wider bg-white/5 backdrop-blur-xs">
+                <span className="text-[9px] tracking-widest font-mono text-zinc-500 uppercase font-semibold">02 / BUILD FROM BASICS</span>
+                <span className="text-[8px] border border-zinc-200 text-zinc-650 px-2 py-0.5 rounded font-mono uppercase tracking-wider bg-zinc-900/5 backdrop-blur-xs">
                   Essential Blanks
                 </span>
               </div>
 
               {/* Bottom Card Content */}
-              <div style={{ transform: hoveredPlatform === 'basics' ? 'translateZ(18px)' : 'none' }} className="flex flex-col gap-4 z-10 text-white max-w-lg mt-auto">
+              <div style={{ transform: hoveredPlatform === 'basics' ? 'translateZ(18px)' : 'none' }} className="flex flex-col gap-4 z-10 text-zinc-900 max-w-lg mt-auto">
                 <div className="flex flex-col gap-1.5">
-                  <h2 className="font-serif text-3xl lg:text-4xl font-normal tracking-tight">
+                  <h2 className="font-serif text-3xl lg:text-4xl font-normal tracking-tight text-zinc-950">
                     Build From Basics
                   </h2>
-                  <p className="text-[11px] text-zinc-300 leading-relaxed font-light transition-opacity duration-300 opacity-80 group-hover:opacity-100 font-sans">
+                  <p className="text-[11px] text-zinc-650 leading-relaxed font-light transition-opacity duration-300 opacity-80 group-hover:opacity-100 font-sans">
                     Start from a single essential custom blank (t-shirt, sweatshirt, jacket, caps, etc.). Compare Good, Better, and Best curated options side-by-side.
                   </p>
                 </div>
 
                 <div 
-                  className="w-full flex items-center justify-between px-5 py-3.5 bg-white text-zinc-900 rounded-xl font-bold uppercase tracking-wider text-[10px] transition-all hover:bg-zinc-100 shadow-md z-10 cursor-pointer"
+                  className="w-full flex items-center justify-between px-5 py-3.5 bg-zinc-950 text-white rounded-xl font-bold uppercase tracking-wider text-[10px] transition-all hover:bg-zinc-800 shadow-md z-10 cursor-pointer"
                 >
-                  <span className="text-zinc-900">Explore Premium Blanks</span>
-                  <ArrowRight className="w-4 h-4 text-zinc-900 group-hover:translate-x-1.5 transition-transform" />
+                  <span className="text-white">Explore Premium Blanks</span>
+                  <ArrowRight className="w-4 h-4 text-white group-hover:translate-x-1.5 transition-transform" />
                 </div>
               </div>
             </TiltCard>
