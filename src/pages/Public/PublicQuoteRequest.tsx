@@ -377,9 +377,9 @@ export function PublicQuoteRequest() {
 
   // Storefront Settings from DB
   const [storefrontSettings, setStorefrontSettings] = useState({
-    logoText: 'INK THEORY',
+    logoText: 'Custom Apparel',
     announcement: '🔥 Free Standard Shipping on all orders above 50 units!',
-    heroTitle: 'Ink Theory Custom Lookbook',
+    heroTitle: 'Custom Apparel Lookbook',
     heroSubtitle: 'Choose a themed collection to design a cohesive line, or start from our curated basics.',
     contactPhone: '(888) 896-8607',
     email: 'hello@inktheory.com'
@@ -404,6 +404,12 @@ export function PublicQuoteRequest() {
         const storeSnap = await getDoc(storeRef);
         if (storeSnap.exists()) {
           const sData = storeSnap.data();
+          if (sData.logoText === 'PRINT SHOP OS' || sData.logoText === 'INK THEORY') {
+            sData.logoText = 'Custom Apparel';
+          }
+          if (sData.heroTitle === 'Ink Theory Custom Lookbook' || sData.heroTitle === 'Print Shop OS Custom Lookbook') {
+            sData.heroTitle = 'Custom Apparel Lookbook';
+          }
           setStorefrontSettings(prev => ({ ...prev, ...sData }));
           setEditSettings(prev => ({ ...prev, ...sData }));
         }
@@ -1221,7 +1227,7 @@ export function PublicQuoteRequest() {
       const totalUnits = cart.reduce((acc, item) => acc + item.qty, 0);
       const estimatedTotalPrice = cart.reduce((acc, item) => acc + (item.pricingDetails.total * item.qty), 0);
       const averageEstimatedPricePerUnit = totalUnits > 0 ? (estimatedTotalPrice / totalUnits) : 0;
-      const orderTitle = `Ink Theory Quote for ${cart.map(item => `${item.product.brand} ${item.product.style}`).join(', ')}`;
+      const orderTitle = `${storefrontSettings.logoText} Quote for ${cart.map(item => `${item.product.brand} ${item.product.style}`).join(', ')}`;
 
       const payload = {
         id: orderId,
@@ -1261,7 +1267,7 @@ export function PublicQuoteRequest() {
           type: 'system',
           message: isPayNow 
             ? `Order created via online checkout. Initiating Stripe Checkout Session for $${estimatedTotalPrice.toFixed(2)}.` 
-            : `Ink Theory Web Quote Request submitted by ${customerInfo.contactName}`,
+            : `${storefrontSettings.logoText} Web Quote Request submitted by ${customerInfo.contactName}`,
           user: customerInfo.emailAddress,
           timestamp: new Date().toISOString()
         }]
@@ -1316,7 +1322,7 @@ export function PublicQuoteRequest() {
           alert("Failed to initiate secure checkout session. Please try again or submit quote instead.");
         }
       } else {
-        setPaymentSuccessMsg(`Thank you, ${customerInfo.contactName}! We've received your Ink Theory design selections. Our design team will review your specifications and contact you shortly with a formal price quote.`);
+        setPaymentSuccessMsg(`Thank you, ${customerInfo.contactName}! We've received your ${storefrontSettings.logoText} design selections. Our design team will review your specifications and contact you shortly with a formal price quote.`);
         setSuccess(true);
       }
     } catch (err) {
