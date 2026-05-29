@@ -1475,11 +1475,10 @@ export function PublicQuoteRequest() {
             </div>
           </header>
 
-          {/* Main Container - Full Screen Split Grid (Bannerless) */}
           <main className="flex-grow w-full flex flex-col lg:flex-row gap-0 min-h-0 lg:overflow-hidden relative">
             {/* LEFT SIDE: Design Your Rack Card */}
             <TiltCard 
-              className="flex-grow flex-1 flex flex-col justify-between p-8 relative overflow-hidden group min-h-[300px] lg:h-full border-b lg:border-b-0 lg:border-r border-zinc-200/50 bg-gradient-to-br from-zinc-900 via-neutral-955 to-zinc-900 text-white"
+              className="flex-grow flex-1 flex flex-col justify-between p-8 relative overflow-hidden group min-h-[300px] lg:h-full border-b lg:border-b-0 lg:border-r border-zinc-200/50 bg-gradient-to-br from-zinc-900 via-zinc-950 to-zinc-900 text-white"
               onMouseEnter={() => setHoveredPlatform('racks')}
               onMouseLeave={() => setHoveredPlatform(null)}
               onClick={() => {
@@ -1487,6 +1486,15 @@ export function PublicQuoteRequest() {
                 setStep(1);
               }}
             >
+              {/* Background Image with overlays */}
+              <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                <img 
+                  src="/images/apparel_rack_hero.png" 
+                  alt="Custom Apparel Rack" 
+                  className="w-full h-full object-cover transition-transform duration-[2000ms] ease-out group-hover:scale-105 opacity-35 mix-blend-overlay"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent" />
+              </div>
               {/* Abstract CSS design element in background (glowing orb and blueprint lines) */}
               <div 
                 className="absolute inset-0 pointer-events-none opacity-20 transition-transform duration-[1200ms] scale-100 group-hover:scale-110"
@@ -1542,6 +1550,15 @@ export function PublicQuoteRequest() {
                 setStep(1);
               }}
             >
+              {/* Background Image with overlays */}
+              <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                <img 
+                  src="/images/blank_basics_hero.png" 
+                  alt="Blank Basics" 
+                  className="w-full h-full object-cover transition-transform duration-[2000ms] ease-out group-hover:scale-105 opacity-25 mix-blend-multiply"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#FAF9F5] via-[#FAF9F5]/60 to-transparent" />
+              </div>
               {/* Abstract CSS design element in background (glowing warm orb and blueprint lines) */}
               <div 
                 className="absolute inset-0 pointer-events-none opacity-30 transition-transform duration-[1200ms] scale-100 group-hover:scale-110"
