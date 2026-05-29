@@ -1491,9 +1491,10 @@ export function PublicQuoteRequest() {
                 <img 
                   src="/images/apparel_rack_hero.png" 
                   alt="Custom Apparel Rack" 
-                  className="w-full h-full object-cover transition-transform duration-[2000ms] ease-out group-hover:scale-105 opacity-60"
+                  className="w-full h-full object-cover transition-transform duration-[2000ms] ease-out group-hover:scale-105 opacity-[0.88]"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/75 to-transparent" />
+                <div className="absolute bottom-0 inset-x-0 h-[280px] bg-gradient-to-t from-zinc-950 via-zinc-950/80 to-transparent" />
+                <div className="absolute top-0 inset-x-0 h-[120px] bg-gradient-to-b from-zinc-950/50 to-transparent" />
               </div>
               {/* Abstract CSS design element in background (glowing orb and blueprint lines) */}
               <div 
@@ -1555,9 +1556,10 @@ export function PublicQuoteRequest() {
                 <img 
                   src="/images/blank_basics_hero.png" 
                   alt="Blank Basics" 
-                  className="w-full h-full object-cover transition-transform duration-[2000ms] ease-out group-hover:scale-105 opacity-80"
+                  className="w-full h-full object-cover transition-transform duration-[2000ms] ease-out group-hover:scale-105 opacity-[0.92]"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#FAF9F5] via-[#FAF9F5]/75 to-transparent" />
+                <div className="absolute bottom-0 inset-x-0 h-[280px] bg-gradient-to-t from-[#FAF9F5] via-[#FAF9F5]/85 to-transparent" />
+                <div className="absolute top-0 inset-x-0 h-[120px] bg-gradient-to-b from-[#FAF9F5]/45 to-transparent" />
               </div>
               {/* Abstract CSS design element in background (glowing warm orb and blueprint lines) */}
               <div 
