@@ -7266,6 +7266,132 @@
     }
   },
   {
+    "style": "NL9303",
+    "title": "Next Level Apparel   Adult Santa Barbara Pullover Hoodie. NL9303",
+    "brand": "Next Level Apparel",
+    "description": "7.4-ounce 80/20 cotton/poly 100% cotton face Front pouch pocket 1x1 rib knit cuffs and hem Twill back neck tape Stitched eyelets Jersey-lined hood Natural flat drawcord Locker patch for printable label Side seamed Tear-away label",
+    "category": "Sweatshirts & Hoodies",
+    "price": 29.92,
+    "colors": [
+      "Black",
+      "Desert Pink",
+      "Forest Green",
+      "Graphite Black",
+      "Heavy Metal",
+      "Lead/ Light Gray",
+      "Maroon",
+      "Mauve",
+      "Midnight Navy",
+      "Military Green",
+      "Natural",
+      "Red",
+      "Royal",
+      "White",
+      "Black On Black",
+      "Galaxy Purple",
+      "Shiitake",
+      "Antique Denim",
+      "Oxblood"
+    ],
+    "images": {
+      "Black": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f19/NL9303_black_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL9303_black_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_Black_swatch.gif"
+      },
+      "Desert Pink": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f19/NL9303_desertpink_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL9303_desertpink_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_DesertPink_swatch.gif"
+      },
+      "Forest Green": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f19/NL9303_forestgreen_flat_front_0002.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL9303_forestgreen_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_ForestGreen_swatch.gif"
+      },
+      "Graphite Black": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f19/NL9303_graphiteblack_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL9303_graphiteblack_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_GraphiteBlack_swatch.gif"
+      },
+      "Heavy Metal": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f19/NL9303_heavymetal_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL9303_heavymetal_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_HeavyMetal_swatch.gif"
+      },
+      "Lead/ Light Gray": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2025/f21/NL9303_leadlightgray_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL9303_leadlightgrey_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_LeadLightGray_swatch.gif"
+      },
+      "Maroon": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f19/NL9303_maroon_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL9303_maroon_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_Maroon_swatch.gif"
+      },
+      "Mauve": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f19/NL9303_mauve_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL9303_mauve_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_Mauve_swatch.gif"
+      },
+      "Midnight Navy": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f19/NL9303_midnightnavy_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL9303_midnightnavy_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_MidnightNavy_swatch.gif"
+      },
+      "Military Green": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f19/NL9303_militarygreen_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL9303_militarygreen_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_MilitaryGreen_swatch.gif"
+      },
+      "Natural": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f19/NL9303_natural_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL9303_natural_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_Natural_swatch.gif"
+      },
+      "Red": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f19/NL9303_red_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL9303_red_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_Red_swatch.gif"
+      },
+      "Royal": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f19/NL9303_royal_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL9303_royal_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_Royal_swatch.gif"
+      },
+      "White": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f19/NL9303_white_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL9303_white_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_White_swatch.gif"
+      },
+      "Black On Black": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2022/f15/NL9303_blackonblk_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2022/f15/NL9303_blackonblk_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NextLevel_NL9303_blackonblk_swatch.gif"
+      },
+      "Galaxy Purple": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2022/f15/NL9303_galaxypurple_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2022/f15/NL9303_galaxypurple_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NextLevel_NL9303_galaxypurple_swatch.gif"
+      },
+      "Shiitake": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2022/f15/NL9303_shitake_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2022/f15/NL9303_shitake_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NextLevel_NL9303_shitake_swatch.gif"
+      },
+      "Antique Denim": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2022/f15/NL9303_antiquedenim_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2022/f15/NL9303_antiquedenim_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NextLevel_NL9303_antiquedenim_swatch.gif"
+      },
+      "Oxblood": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2022/f15/NL9303_oxblood_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2022/f15/NL9303_oxblood_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NextLevel_NL9303_oxblood_swatch.gif"
+      }
+    }
+  },
+  {
     "style": "18600",
     "title": "Gildan - Heavy Blend Full-Zip Hooded Sweatshirt. 18600",
     "brand": "Gildan",
@@ -9368,84 +9494,6 @@
         "front": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f18/363LH_white_flat_front.jpg",
         "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f18/363LH_white_flat_back.jpg",
         "swatch": "https://cdnm.sanmar.com/swatches/363LH_White.gif"
-      }
-    }
-  },
-  {
-    "style": "1567",
-    "title": "COMFORT COLORS  Ring Spun Hooded Sweatshirt. 1567",
-    "brand": "Comfort Colors",
-    "description": "9.5-ounce 80/20 ring spun cotton/poly Soft-washed garment-dyed fabric Jersey-lined hood with drawcord Rolled forward shoulder Back patch Twill-taped back neck Twill label Side seamed Pouch pocket 1x1 rib knit on cuffs and hem Double-needle armholes cuffs and hem",
-    "category": "Sweatshirts & Hoodies",
-    "price": 55.26,
-    "colors": [
-      "Pepper",
-      "Crimson",
-      "Blue Jean",
-      "Grey",
-      "Denim",
-      "Flo Blue",
-      "Light Green",
-      "Blue Spruce",
-      "Seafoam",
-      "True Navy",
-      "White"
-    ],
-    "images": {
-      "Pepper": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2018/f12/1567_pepper_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2018/f12/1567_pepper_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/CC_Pepper.gif"
-      },
-      "Crimson": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2018/f12/1567_crimson_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2018/f12/1567_crimson_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/ComfortColors_Crimson_swatch.gif"
-      },
-      "Blue Jean": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2018/f12/1567_bluejean_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2018/f12/1567_bluejean_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/CC_BlueJean.gif"
-      },
-      "Grey": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2018/f12/1567_grey_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2018/f12/1567_grey_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/CC_Grey.gif"
-      },
-      "Denim": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2018/f12/1567_denim_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2018/f12/1567_denim_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/CC_Denim.gif"
-      },
-      "Flo Blue": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2018/f12/1567_floblue_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2018/f12/1567_floblue_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/CC_FloBlue.gif"
-      },
-      "Light Green": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2018/f12/1567_lightgreen_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2018/f12/1567_lightgreen_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/CC_LightGreen.gif"
-      },
-      "Blue Spruce": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2018/f12/1567_bluespruce_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2018/f12/1567_bluespruce_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/CC_BlueSpruce.gif"
-      },
-      "Seafoam": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2018/f12/1567_seafoam_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2018/f12/1567_seafoam_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/CC_Seafoam.gif"
-      },
-      "True Navy": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2023/f1/1567_truenavy_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2023/f1/1567_truenavy_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/CC_TrueNavy.gif"
-      },
-      "White": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2022/f4/1567_white_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2022/f4/1567_white_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/ComfortColors_1567_white_swatch.gif"
       }
     }
   },
@@ -15504,6 +15552,288 @@
     }
   },
   {
+    "style": "NL3600",
+    "title": "Next Level Apparel Adult Cotton Tee. NL3600",
+    "brand": "Next Level Apparel",
+    "description": "4.3-ounce 100% combed ring spun cotton 32 singles 90/10 combed ring spun cotton/poly 32 singles (Heather Grey) 1x1 rib knit neck Shoulder to shoulder taping Tear-away label Side seamedSelect colors up to 6XL: Black Heather Grey Heavy Metal Midnight Navy Red Royal White",
+    "category": "T-Shirts",
+    "price": 8.16,
+    "colors": [
+      "Antique Gold",
+      "Banana Cream",
+      "Black",
+      "Cardinal",
+      "Classic Orange",
+      "Cool Blue",
+      "Cream",
+      "Desert Pink",
+      "Dark Chocolate",
+      "Forest Green",
+      "Gold",
+      "Graphite Black",
+      "Heavy Metal",
+      "Heather Gray",
+      "Indigo",
+      "Kelly Green",
+      "Light Blue",
+      "Light Gray",
+      "Light Olive",
+      "Light Pink",
+      "Maroon",
+      "Mauve",
+      "Midnight Navy",
+      "Military Green",
+      "Natural",
+      "Oatmeal",
+      "Purple Rush",
+      "Red",
+      "Royal",
+      "Royal Pine",
+      "Sand",
+      "Stonewash Denim",
+      "Tahiti Blue",
+      "Teal",
+      "Turquoise",
+      "Warm Gray",
+      "White",
+      "Oxblood",
+      "Watermelon",
+      "Blue Jean",
+      "Tan",
+      "Peri Blue",
+      "Bone",
+      "Clay",
+      "Shiitake"
+    ],
+    "images": {
+      "Antique Gold": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3600_antiquegold_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3600_antiquegold_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_AntiqueGold_swatch.gif"
+      },
+      "Banana Cream": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3600_bananacream_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3600_bananacream_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_BananaCream_swatch.gif"
+      },
+      "Black": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3600_black_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3600_black_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_Black_swatch.gif"
+      },
+      "Cardinal": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3600_cardinal_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3600_cardinal_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_Cardinal_swatch.gif"
+      },
+      "Classic Orange": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3600_classicorange_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3600_classicorange_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_ClassicOrange_swatch.gif"
+      },
+      "Cool Blue": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3600_coolblue_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3600_coolblue_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_CoolBlue_swatch.gif"
+      },
+      "Cream": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3600_cream_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3600_cream_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_Cream_swatch.gif"
+      },
+      "Desert Pink": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3600_desertpink_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3600_desertpink_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_DesertPink_swatch.gif"
+      },
+      "Dark Chocolate": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3600_darkchocolate_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3600_darkchocolate_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_DarkChocolate_swatch.gif"
+      },
+      "Forest Green": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3600_forestgreen_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3600_forestgreen_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_ForestGreen_swatch.gif"
+      },
+      "Gold": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3600_gold_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3600_gold_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_Gold_swatch.gif"
+      },
+      "Graphite Black": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3600_graphiteblack_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3600_graphiteblack_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_GraphiteBlack_swatch.gif"
+      },
+      "Heavy Metal": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3600_heavymetal_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3600_heavymetal_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_HeavyMetal_swatch.gif"
+      },
+      "Heather Gray": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3600_heathergray_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f8/NL3600_heathergray_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_HeatherGray_swatch.gif"
+      },
+      "Indigo": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3600_indigo_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3600_indigo_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_Indigo_swatch.gif"
+      },
+      "Kelly Green": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3600_kellygreen_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3600_kellygreen_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_KellyGreen_swatch.gif"
+      },
+      "Light Blue": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3600_lightblue_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3600_lightblue_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_LightBlue_swatch.gif"
+      },
+      "Light Gray": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3600_lightgray_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3600_lightgray_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_LightGrey_swatch.gif"
+      },
+      "Light Olive": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3600_lightolive_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3600_lightolive_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_LightOlive_swatch.gif"
+      },
+      "Light Pink": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3600_lightpink_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3600_lightpink_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_LightPink_swatch.gif"
+      },
+      "Maroon": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3600_maroon_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3600_maroon_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_Maroon_swatch.gif"
+      },
+      "Mauve": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3600_mauve_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3600_mauve_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_Mauve_swatch.gif"
+      },
+      "Midnight Navy": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3600_midnightnavy_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3600_midnightnavy_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_MidnightNavy_swatch.gif"
+      },
+      "Military Green": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3600_militarygreen_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3600_militarygreen_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_MilitaryGreen_swatch.gif"
+      },
+      "Natural": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3600_natural_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3600_natural_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_Natural_swatch.gif"
+      },
+      "Oatmeal": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3600_oatmeal_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3600_oatmeal_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_Oatmeal_swatch.gif"
+      },
+      "Purple Rush": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3600_purplerush_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3600_purplerush_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_PurpleRush_swatch.gif"
+      },
+      "Red": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3600_red_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3600_red_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_Red_swatch.gif"
+      },
+      "Royal": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3600_royal_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3600_royal_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_Royal_swatch.gif"
+      },
+      "Royal Pine": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3600_royalpine_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3600_royalpine_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_RoyalPine_swatch.gif"
+      },
+      "Sand": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3600_sand_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3600_sand_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_Sand_swatch.gif"
+      },
+      "Stonewash Denim": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3600_stonewashdenim_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3600_stonewashdenim_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_StonewashDenim_swatch.gif"
+      },
+      "Tahiti Blue": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3600_tahitiblue_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3600_tahitiblue_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_TahitiBlue_swatch.gif"
+      },
+      "Teal": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3600_teal_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3600_teal_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_Teal_swatch.gif"
+      },
+      "Turquoise": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3600_turquoise_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3600_turquoise_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_Turquoise_swatch.gif"
+      },
+      "Warm Gray": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3600_warmgray_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3600_warmgray_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_WarmGray_swatch.gif"
+      },
+      "White": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3600_white_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3600_white_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_White_swatch.gif"
+      },
+      "Oxblood": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2022/f15/NL3600_oxblood_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2022/f15/NL3600_oxblood_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NextLevel_NL3600_oxblood_swatch.gif"
+      },
+      "Watermelon": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f5/NL3600_watermelon_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f5/NL3600_watermelon_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL3600_Watermelon.gif"
+      },
+      "Blue Jean": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f5/NL3600_bluejean_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f5/NL3600_bluejean_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL3600_BlueJean.gif"
+      },
+      "Tan": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f5/NL3600_tan_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f5/NL3600_tan_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL3600_Tan.gif"
+      },
+      "Peri Blue": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f5/NL3600_periblue_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f5/NL3600_periblue_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL3600_PeriBlue.gif"
+      },
+      "Bone": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2025/f14/NL3600_bone_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2025/f14/NL3600_bone_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL3600_Bone_06202025.gif"
+      },
+      "Clay": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2025/f14/NL3600_clay_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2025/f14/NL3600_clay_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL3600_Clay_06202025.gif"
+      },
+      "Shiitake": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2025/f14/NL3600_shiitake_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2025/f14/NL3600_shiitake_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL3600_Shiitake_06202025.gif"
+      }
+    }
+  },
+  {
     "style": "363M",
     "title": "Jerzees Classics Unisex Cotton T-Shirt 363M",
     "brand": "Jerzees",
@@ -16286,6 +16616,264 @@
         "front": "https://cdnm.sanmar.com/imglib/mresjpg/2025/f31/29B_jnavy_flat_front.jpg",
         "back": "https://cdnm.sanmar.com/imglib/mresjpg/2025/f31/29B_jnavy_flat_back.jpg",
         "swatch": "https://cdnm.sanmar.com/swatches/JERZEES_truenavy.gif"
+      }
+    }
+  },
+  {
+    "style": "NL6210",
+    "title": "Next Level Apparel Adult CVC Tee. NL6210",
+    "brand": "Next Level Apparel",
+    "description": "4.3-ounce 60/40 combed ring spun cotton/poly 32 singles CVC blend 1x1 rib knit neck Shoulder to shoulder taping Tear-away label Side seamed",
+    "category": "T-Shirts",
+    "price": 8.38,
+    "colors": [
+      "Black",
+      "Cardinal",
+      "Charcoal",
+      "Dark Heather Gray",
+      "Indigo",
+      "Kelly Green",
+      "Midnight Navy",
+      "Military Green",
+      "Orange",
+      "Purple Rush",
+      "Red",
+      "Royal",
+      "White",
+      "Apple Green",
+      "Espresso",
+      "Ice Blue",
+      "Light Olive",
+      "Mint",
+      "Neon Green",
+      "Neon Yellow",
+      "Sand",
+      "Storm",
+      "Teal",
+      "Turquoise",
+      "Banana Cream",
+      "Bondi Blue",
+      "Cream",
+      "Silk",
+      "Stone Gray",
+      "Tahiti Blue",
+      "Warm Gray",
+      "Heather Columbia Blue",
+      "Heather Maroon",
+      "Heather Mauve",
+      "Heather Forest Green",
+      "Heather Heavy Metal",
+      "Heather Cool Blue",
+      "Heather Tan",
+      "Heather Slate Blue",
+      "Heather Light Pink",
+      "Heather Redwood"
+    ],
+    "images": {
+      "Black": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL6210_black_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL6210_black_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL6210_Black.gif"
+      },
+      "Cardinal": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL6210_cardinal_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL6210_cardinal_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL6210_Cardinal.gif"
+      },
+      "Charcoal": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL6210_charcoal_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL6210_charcoal_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL6210_Charcoal.gif"
+      },
+      "Dark Heather Gray": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL6210_darkheathergray_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL6210_darkheathergray_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL6210_DarkHeatherGray.gif"
+      },
+      "Indigo": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL6210_indigo_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL6210_indigo_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL6210_Indigo.gif"
+      },
+      "Kelly Green": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL6210_kellygreen_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL6210_kellygreen_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL6210_KellyGreen.gif"
+      },
+      "Midnight Navy": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL6210_midnightnavy_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL6210_midnightnavy_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL6210_MidnightNavy.gif"
+      },
+      "Military Green": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL6210_miltarygreen_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL6210_militarygreen_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL6210_MilitaryGreen.gif"
+      },
+      "Orange": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL6210_orange_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2021/f18/NL6210_orange_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL6210_Orange.gif"
+      },
+      "Purple Rush": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL6210_purplerush_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL6210_purplerush_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL6210_PurpleRush.gif"
+      },
+      "Red": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL6210_red_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL6210_red_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL6210_Red.gif"
+      },
+      "Royal": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL6210_royal_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL6210_royal_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL6210_Royal.gif"
+      },
+      "White": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL6210_white_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL6210_white_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL6210_White.gif"
+      },
+      "Apple Green": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL6210_applegreen_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL6210_applegreen_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL6210_AppleGreen.gif"
+      },
+      "Espresso": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL6210_espresso_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL6210_espresso_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL6210_Espresso.gif"
+      },
+      "Ice Blue": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL6210_iceblue_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL6210_iceblue_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL6210_IceBlue.gif"
+      },
+      "Light Olive": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL6210_lightolive_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL6210_lightolive_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL6210_LightOlive.gif"
+      },
+      "Mint": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL6210_mint_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL6210_mint_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL6210_Mint.gif"
+      },
+      "Neon Green": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL6210_neongreen_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL6210_neongreen_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL6210_NeonGreen.gif"
+      },
+      "Neon Yellow": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL6210_neonyellow_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL6210_neonyellow_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL6210_NeonYellow.gif"
+      },
+      "Sand": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL6210_sand_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL6210_sand_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL6210_Sand.gif"
+      },
+      "Storm": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL6210_storm_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL6210_storm_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL6210_Storm.gif"
+      },
+      "Teal": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL6210_teal_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL6210_teal_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL6210_Teal.gif"
+      },
+      "Turquoise": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL6210_turquoise_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL6210_turquoise_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL6210_Turquoise.gif"
+      },
+      "Banana Cream": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL6210_bananacream_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL6210_bananacream_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL6210_BananaCream.gif"
+      },
+      "Bondi Blue": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL6210_bondiblue_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL6210_bondiblue_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL6210_BondiBlue.gif"
+      },
+      "Cream": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL6210_cream_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL6210_cream_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL6210_Cream.gif"
+      },
+      "Silk": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL6210_silk_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL6210_silk_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL6210_Silk.gif"
+      },
+      "Stone Gray": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL6210_stonegray_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL6210_stonegray_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL6210_StoneGray.gif"
+      },
+      "Tahiti Blue": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL6210_tahitiblue_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL6210_tahitiblue_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL6210_TahitiBlue.gif"
+      },
+      "Warm Gray": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL6210_warmgray_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL6210_warmgray_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL6210_WarmGray.gif"
+      },
+      "Heather Columbia Blue": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2021/f12/NL6210_heathercolumbiablue_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2021/f12/NL6210_heathercolumbiablue_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL6210_HeatherColumbiaBlue.gif"
+      },
+      "Heather Maroon": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2021/f12/NL6210_heathermaroon_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2021/f12/NL6210_heathermaroon_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL6210_HeatherMaroon.gif"
+      },
+      "Heather Mauve": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2021/f12/NL6210_heathermauve_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2021/f12/NL6210_heathermauve_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL6210_HeatherMauve.gif"
+      },
+      "Heather Forest Green": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2021/f12/NL6210_heatherforestgreen_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2021/f12/NL6210_heatherforestgreen_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL6210_HeatherForestGreen.gif"
+      },
+      "Heather Heavy Metal": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2021/f12/NL6210_heatherheavymetal_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2021/f12/NL6210_heatherheavymetal_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL6210_HeatherHeavyMetal.gif"
+      },
+      "Heather Cool Blue": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2021/f12/NL6210_heathercoolblue_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2021/f12/NL6210_heathercoolblue_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL6210_HeatherCoolBlue.gif"
+      },
+      "Heather Tan": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f5/NL6210_heathertan_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f5/NL6210_heathertan_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL6210_HeatherTan.gif"
+      },
+      "Heather Slate Blue": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f5/NL6210_heatherslateblue_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f5/NL6210_heatherslateblue_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL6210_HeatherSlateBlue.gif"
+      },
+      "Heather Light Pink": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f5/NL6210_heatherlightpink_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f5/NL6210_heatherlightpink_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL6210_HeatherLightPink.gif"
+      },
+      "Heather Redwood": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f5/NL6210_heatherredwood_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f5/NL6210_heatherredwood_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL6210_HeatherRedwood.gif"
       }
     }
   },
@@ -18332,6 +18920,216 @@
         "front": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f18/363Y_blackheather_flat_front.jpg",
         "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f18/363Y_blackheather_flat_back.jpg",
         "swatch": "https://cdnm.sanmar.com/swatches/363Y_BlackHeather.gif"
+      }
+    }
+  },
+  {
+    "style": "NL3900",
+    "title": "Next Level Apparel Women's Cotton Tee. NL3900",
+    "brand": "Next Level Apparel",
+    "description": "4.3-ounce 100% combed ring spun cotton 32 singles 90/10 combed ring spun cotton/poly 32 singles (Heather Grey) 1x1 rib knit neck Shoulder to shoulder taping Tear-away label Side seamed Fitted",
+    "category": "T-Shirts",
+    "price": 7.72,
+    "colors": [
+      "Antique Gold",
+      "Banana Cream",
+      "Black",
+      "Cancun",
+      "Cardinal",
+      "Classic Orange",
+      "Cool Blue",
+      "Desert Pink",
+      "DK Chocolate",
+      "Forest Green",
+      "Gold",
+      "Heavy Metal",
+      "Hot Pink",
+      "Heather Gray",
+      "Indigo",
+      "Kelly Green",
+      "Light Blue",
+      "Light Olive",
+      "Light Pink",
+      "Maroon",
+      "Midnight Navy",
+      "Military Green",
+      "Mint",
+      "Natural",
+      "Purple Berry",
+      "Purple Rush",
+      "Red",
+      "Royal",
+      "Tahiti Blue",
+      "Turquoise",
+      "Vibrant Yellow",
+      "Warm Gray",
+      "White"
+    ],
+    "images": {
+      "Antique Gold": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3900_antiquegold_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3900_antiquegold_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_AntiqueGold_swatch.gif"
+      },
+      "Banana Cream": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3900_bananacream_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3900_bananacream_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_BananaCream_swatch.gif"
+      },
+      "Black": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3900_black_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3900_black_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_Black_swatch.gif"
+      },
+      "Cancun": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3900_cancun_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3900_cancun_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_Cancun_swatch.gif"
+      },
+      "Cardinal": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3900_cardinal_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3900_cardinal_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_Cardinal_swatch.gif"
+      },
+      "Classic Orange": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3900_classicorange_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3900_classicorange_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_ClassicOrange_swatch.gif"
+      },
+      "Cool Blue": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3900_coolblue_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3900_coolblue_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_CoolBlue_swatch.gif"
+      },
+      "Desert Pink": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3900_desertpink_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3900_desertpink_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_DesertPink_swatch.gif"
+      },
+      "DK Chocolate": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3900_darkchocolate_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3900_darkchocolate_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_DarkChocolate_swatch.gif"
+      },
+      "Forest Green": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3900_forestgreen_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3900_forestgreen_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_ForestGreen_swatch.gif"
+      },
+      "Gold": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3900_gold_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3900_gold_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_Gold_swatch.gif"
+      },
+      "Heavy Metal": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3900_heavymetal_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3900_heavymetal_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_HeavyMetal_swatch.gif"
+      },
+      "Hot Pink": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3900_hotpink_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3900_hotpink_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_HotPink_swatch.gif"
+      },
+      "Heather Gray": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3900_heathergray_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3900_heathergrey_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_HeatherGray_swatch.gif"
+      },
+      "Indigo": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3900_indigo_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3900_indigo_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_Indigo_swatch.gif"
+      },
+      "Kelly Green": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3900_kellygreen_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3900_kellygreen_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_KellyGreen_swatch.gif"
+      },
+      "Light Blue": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3900_lightblue_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3900_lightblue_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_LightBlue_swatch.gif"
+      },
+      "Light Olive": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3900_lightolive_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3900_lightolive_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_LightOlive_swatch.gif"
+      },
+      "Light Pink": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3900_lightpink_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3900_lightpink_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_LightPink_swatch.gif"
+      },
+      "Maroon": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3900_maroon_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3900_maroon_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_Maroon_swatch.gif"
+      },
+      "Midnight Navy": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3900_midnightnavy_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3900_midnightnavy_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_MidnightNavy_swatch.gif"
+      },
+      "Military Green": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3900_militarygreen_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3900_militarygreen_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_MilitaryGreen_swatch.gif"
+      },
+      "Mint": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3900_mint_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3900_mint_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_Mint_swatch.gif"
+      },
+      "Natural": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3900_natural_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3900_natural_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_Natural_swatch.gif"
+      },
+      "Purple Berry": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3900_purpleberry_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3900_purpleberry_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_PurpleBerry_swatch.gif"
+      },
+      "Purple Rush": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3900_purplerush_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3900_purplerush_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_PurpleRush_swatch.gif"
+      },
+      "Red": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3900_red_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3900_red_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_Red_swatch.gif"
+      },
+      "Royal": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3900_royal_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3900_royal_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_Royal_swatch.gif"
+      },
+      "Tahiti Blue": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3900_tahitiblue_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3900_tahitiblue_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_TahitiBlue_swatch.gif"
+      },
+      "Turquoise": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3900_turquoise_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3900_turquoise_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_Turquoise_swatch.gif"
+      },
+      "Vibrant Yellow": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3900_vibrantyellow_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3900_vibrantyellow_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_VibrantYellow_swatch.gif"
+      },
+      "Warm Gray": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3900_warmgray_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3900_warmgray_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_WarmGray_swatch.gif"
+      },
+      "White": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL3900_white_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f20/NL3900_white_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_White_swatch.gif"
       }
     }
   },
@@ -21690,674 +22488,176 @@
     }
   },
   {
-    "style": "DT5000",
-    "title": "District The Concert Tee DT5000",
-    "brand": "District",
-    "description": "This tee rocks with comfort.4.3-ounce (145 GSM)100% soft spun cotton 30 singles50/50 soft spun cotton/polyester (Neons Heathered Charcoal Heathered Royal Heathered Navy Military Green Frost New Heather Red)90/10 soft spun cotton/polyester (Heather Grey)98/2 soft spun cotton/polyester (White Heather)Tear-away label 1x1 rib knit neckShoulder to shoulder taping",
+    "style": "NL6610",
+    "title": "Next Level Apparel  Women's CVC Tee. NL6610",
+    "brand": "Next Level Apparel",
+    "description": "4.3-ounce 60/40 combed ring spun cotton/poly 32 singles CVC blend 1x1 rib knit neck Shoulder to shoulder taping Tear-away label Side seamed Fitted",
     "category": "T-Shirts",
-    "price": 7.22,
+    "price": 8.6,
     "colors": [
-      "Heather Grey",
-      "White",
+      "Apple Green",
+      "Banana Cream",
+      "Black",
+      "Bondi Blue",
+      "Cardinal",
       "Charcoal",
-      "Deep Royal",
-      "Black",
+      "Cream",
+      "Dark Heather Gray",
+      "Espresso",
+      "Hot Pink",
+      "Ice Blue",
+      "Indigo",
       "Kelly Green",
-      "Maroon",
-      "New Navy",
-      "New Red",
-      "Purple",
-      "Neon Pink",
-      "Neon Green",
-      "Neon Yellow",
-      "Neon Orange",
-      "Burnt Orange",
-      "Deep Orange",
-      "Forest Green",
-      "Gold",
-      "Neon Blue",
-      "Silver",
-      "Heathered Charcoal",
-      "Aquatic Blue",
-      "Heathered Navy",
-      "Heathered Royal",
-      "Military Green Frost",
-      "New Red Heather"
-    ],
-    "images": {
-      "Heather Grey": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2022/f9/DT5000_heathergrey_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2022/f9/DT5000_heathergrey_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/DistrictThreads_athleticheather.gif"
-      },
-      "White": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2015/f2/DT5000_white_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2022/f9/DT5000_white_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/DistrictThreads_White.gif"
-      },
-      "Charcoal": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2015/f1/DT5000_charcoal_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2022/f9/DT5000_charcoal_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/DistrictThreads_charcoal.gif"
-      },
-      "Deep Royal": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2015/f1/DT5000_deeproyal_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2022/f9/DT5000_deeproyal_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/DistrictThreads_DeepRoyal.gif"
-      },
-      "Black": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2015/f1/DT5000_black_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2022/f9/DT5000_black_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/DistrictThreads_Black.gif"
-      },
-      "Kelly Green": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2015/f1/DT5000_kellygreen_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2022/f9/DT5000_kellygreen_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/DistrictThreads_kellygreen2.gif"
-      },
-      "Maroon": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2015/f2/DT5000_maroon_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2022/f9/DT5000_maroon_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/DistrictThreads_maroon.gif"
-      },
-      "New Navy": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2015/f2/DT5000_newnavy_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2021/f1/DT5000_newnavy_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/DistrictThreads_newnavy.gif"
-      },
-      "New Red": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2015/f2/DT5000_newred_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2022/f9/DT5000_newred_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/DistrictThreads_newred2.gif"
-      },
-      "Purple": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2015/f2/DT5000_purple_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2022/f9/DT5000_purple_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/DistrictThreads_purple2.gif"
-      },
-      "Neon Pink": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2015/f2/DT5000_neonpink_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2022/f9/DT5000_neonpink_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/DistrictThreads_neonpink2.gif"
-      },
-      "Neon Green": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2015/f2/DT5000_neongreen_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2022/f9/DT5000_neongreen_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/DistrictThreads_neongreen2.gif"
-      },
-      "Neon Yellow": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2015/f2/DT5000_neonyellow_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2022/f9/DT5000_neonyellow_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/DistrictThreads_neonyellow2.gif"
-      },
-      "Neon Orange": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2015/f2/DT5000_neonorange_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2022/f9/DT5000_neonorange_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/DistrictThreads_neworange2.gif"
-      },
-      "Burnt Orange": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2015/f27/DT5000_burntorange_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2015/f6/DT5000_burntorange_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/district_burntorange.gif"
-      },
-      "Deep Orange": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2015/f27/DT5000_deeporange_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2015/f6/DT5000_deeporange_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/district_deeporange.gif"
-      },
-      "Forest Green": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2015/f27/DT5000_forestgreen_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2015/f6/DT5000_forestgreen_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/district_forestgreen.gif"
-      },
-      "Gold": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2015/f27/DT5000_gold_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2015/f6/DT5000_gold_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/district_gold.gif"
-      },
-      "Neon Blue": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2015/f27/DT5000_neonblue_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2014/f3/DT5000_neonblue_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/district_neonblue.gif"
-      },
-      "Silver": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2014/f3/DT5000_silver_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2014/f3/DT5000_silver_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/district_silver.gif"
-      },
-      "Heathered Charcoal": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2022/f9/DT5000_heatheredcharcoal_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2022/f9/DT5000_heatheredcharcoal_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/district_heatheredcharcoal_DT5000.gif"
-      },
-      "Aquatic Blue": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2015/f27/DT5000_aquaticblue_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2015/f27/DT5000_aquaticblue_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/port_aquaticblue.gif"
-      },
-      "Heathered Navy": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2021/f15/DT5000_heatherednavy_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2021/f15/DT5000_heatherednavy_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/DT_HeatheredNavy_swatch.gif"
-      },
-      "Heathered Royal": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2021/f15/DT5000_heatheredroyal_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2021/f15/DT5000_heatheredroyal_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/DT_HeatheredRoyal_swatch.gif"
-      },
-      "Military Green Frost": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2021/f15/DT5000_militarygreenfrost_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2021/f15/DT5000_militarygreenfrost_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/DT_MilitaryGreenFrost_swatch.gif"
-      },
-      "New Red Heather": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2021/f15/DT5000_newredheather_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2021/f15/DT5000_newredheather_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/DT_NewRedHeather_swatch.gif"
-      }
-    }
-  },
-  {
-    "style": "5000L",
-    "title": "Gildan Women's Heavy Cotton 100% Cotton T-Shirt. 5000L",
-    "brand": "Gildan",
-    "description": "5.3-ounce 100% cotton Non-topstitched classic width rib collar 50/50 cotton/poly (Graphite Heather) Taped neck and shouldersRecycled high-performing black tear-away label Side seamed with tapered fit Cap sleeves",
-    "category": "T-Shirts",
-    "price": 7.64,
-    "colors": [
-      "Black",
-      "Maroon",
-      "Navy",
-      "Orange",
-      "Purple",
+      "Light Olive",
+      "Lush",
+      "Midnight Navy",
+      "Military Green",
+      "Mint",
+      "Plum",
+      "Purple Berry",
+      "Purple Rush",
       "Red",
       "Royal",
-      "Sport Grey",
-      "White",
-      "Azalea",
-      "Carolina Blue",
-      "Charcoal",
-      "Daisy",
-      "Heliconia",
-      "Sapphire",
-      "Coral Silk",
-      "Graphite Heather",
-      "Irish Green",
-      "Off White",
-      "Blue Dusk",
-      "Light Blue",
-      "Light Pink",
-      "Aquatic",
-      "Dusty Rose",
-      "Dark Heather",
-      "Violet"
+      "Storm",
+      "Teal",
+      "Turquoise",
+      "White"
     ],
     "images": {
+      "Apple Green": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL6610_applegreen_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL6610_applegreen_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_AppleGreen_swatch.gif"
+      },
+      "Banana Cream": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL6610_bananacream_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL6610_bananacream_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_BananaCream_swatch.gif"
+      },
       "Black": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2014/f8/5000L_black_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2014/f8/5000L_black_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/ANVIL_black.gif"
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL6610_black_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL6610_black_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_Black_swatch.gif"
       },
-      "Maroon": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2014/f8/5000L_maroon_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2014/f8/5000L_maroon_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/GILDAN_maroon.gif"
+      "Bondi Blue": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL6610_bondiblue_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL6610_bondiblue_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_BondiBlue_swatch.gif"
       },
-      "Navy": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2014/f8/5000L_navy_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2014/f8/5000L_navy_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/GILDAN_navy.gif"
+      "Cardinal": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL6610_cardinal_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL6610_cardinal_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_Cardinal_swatch.gif"
       },
-      "Orange": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2014/f8/5000L_orange_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2014/f8/5000L_orange_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/GILDAN_orange.gif"
+      "Charcoal": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL6610_charcoal_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL6610_charcoal_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_Charcoal_swatch.gif"
       },
-      "Purple": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2014/f8/5000L_purple_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2014/f8/5000L_purple_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/GILDAN_purple.gif"
+      "Cream": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL6610_cream_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL6610_cream_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_Cream_swatch.gif"
+      },
+      "Dark Heather Gray": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2022/f10/NL6610_darkheathergray_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2022/f10/NL6610_darkheathergray_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_DarkHeatherGray_swatch.gif"
+      },
+      "Espresso": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL6610_espresso_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL6610_espresso_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_Espresso_swatch.gif"
+      },
+      "Hot Pink": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL6610_hotpink_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL6610_hotpink_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_HotPink_swatch.gif"
+      },
+      "Ice Blue": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL6610_iceblue_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL6610_iceblue_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_IceBlue_swatch.gif"
+      },
+      "Indigo": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL6610_indigo_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL6610_indigo_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_Indigo_swatch.gif"
+      },
+      "Kelly Green": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL6610_kellygreen_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL6610_kellygreen_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_KellyGreen_swatch.gif"
+      },
+      "Light Olive": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL6610_lightolive_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL6610_lightolive_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_LightOlive_swatch.gif"
+      },
+      "Lush": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL6610_lush_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL6610_lush_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_Lush_swatch.gif"
+      },
+      "Midnight Navy": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL6610_midnightnavy_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL6610_midnightnavy_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_MidnightNavy_swatch.gif"
+      },
+      "Military Green": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL6610_militarygreen_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL6610_militarygreen_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_MilitaryGreen_swatch.gif"
+      },
+      "Mint": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL6610_mint_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL6610_mint_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_Mint_swatch.gif"
+      },
+      "Plum": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL6610_plum_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL6610_plum_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_Plum_swatch.gif"
+      },
+      "Purple Berry": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL6610_purpleberry_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL6610_purpleberry_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_PurpleBerry_swatch.gif"
+      },
+      "Purple Rush": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL6610_purplerush_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL6610_purplerush_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_PurpleRush_swatch.gif"
       },
       "Red": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2014/f8/5000L_red_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2014/f8/5000L_red_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/GILDAN_red.gif"
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL6610_red_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL6610_red_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_Red_swatch.gif"
       },
       "Royal": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2014/f8/5000L_royal_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2014/f8/5000L_royal_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/GILDAN_royal.gif"
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL6610_royal_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL6610_royal_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_Royal_swatch.gif"
       },
-      "Sport Grey": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2014/f8/5000L_sportgrey_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2014/f8/5000L_sportgrey_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/GILDAN_sportsgrey_5000L.gif"
+      "Storm": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL6610_storm_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL6610_storm_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_Storm_swatch.gif"
       },
-      "White": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2014/f8/5000L_white_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2014/f8/5000L_white_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/GILDAN_white.gif"
+      "Teal": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL6610_teal_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL6610_teal_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_Teal_swatch.gif"
       },
-      "Azalea": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2014/f7/5000L_azalea_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2014/f8/5000L_azalea_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/GILDAN_azalea.gif"
-      },
-      "Carolina Blue": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2014/f8/5000L_carolinablue_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2014/f8/5000L_carolinablue_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/GILDAN_carolinablue.gif"
-      },
-      "Charcoal": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2014/f8/5000L_charcoal_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2014/f8/5000L_charcoal_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/GILDAN_charcoal.gif"
-      },
-      "Daisy": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2014/f8/5000L_daisy_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2014/f8/5000L_daisy_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/5000L_Daisy_06202025.gif"
-      },
-      "Heliconia": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2014/f8/5000L_heliconia_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2014/f8/5000L_heliconia_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/GILDAN_heliconia.gif"
-      },
-      "Sapphire": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2014/f8/5000L_sapphire_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2014/f8/5000L_sapphire_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/GILDAN_sapphire.gif"
-      },
-      "Coral Silk": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2017/f21/5000L_coralsilk_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2017/f21/5000L_coralsilk_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/gildan_coralsilk.gif"
-      },
-      "Graphite Heather": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2025/f14/5000L_graphiteheather_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2025/f14/5000L_graphiteheather_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/gildan_graphitehthr.gif"
-      },
-      "Irish Green": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2014/f8/5000L_irishgreen_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2014/f8/5000L_irishgreen_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/5000L_IrishGreen.gif"
-      },
-      "Off White": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2025/f14/5000L_offwhite_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2025/f14/5000L_offwhite_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/5000L_OffWhite_06202025.gif"
-      },
-      "Blue Dusk": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2025/f14/5000L_bluedusk_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2025/f14/5000L_bluedusk_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/5000L_BlueDusk_06202025.gif"
-      },
-      "Light Blue": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2025/f14/5000L_lightblue_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2025/f14/5000L_lightblue_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/5000L_LightBlue_06202025.gif"
-      },
-      "Light Pink": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2025/f14/5000L_lightpink_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2025/f14/5000L_lightpink_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/5000L_LightPink_06202025.gif"
-      },
-      "Aquatic": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2025/f14/5000L_aquatic_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2025/f14/5000L_aquatic_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/5000L_Aquatic_06202025.gif"
-      },
-      "Dusty Rose": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2025/f14/5000L_dustyrose_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2025/f14/5000L_dustyrose_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/5000L_DustyRose_06202025.gif"
-      },
-      "Dark Heather": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2025/f14/5000L_darkheather_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2025/f14/5000L_darkheather_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/5000L_DarkHeather_06202025.gif"
-      },
-      "Violet": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2025/f14/5000L_violet_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2025/f14/5000L_violet_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/5000L_Violet_06202025.gif"
-      }
-    }
-  },
-  {
-    "style": "DT184",
-    "title": "District Perfect Weight CVC Tee DT184",
-    "brand": "District",
-    "description": "With a relaxed drape and easy movement Perfect Weight CVC Tees are on a premium level. They begin with a dense silky long staple blend of combed ring spun cotton and recycled polyester. Then a proprietary finishing technology creates an unbelievably soft and uniquely optimized printing surface. The color palette seamlessly mixes and matches with the entire Perfect Weight Tee and Fleece family. 4.4-ounce (148 GSM)60/40 combed ring spun cotton/recycled polyester 32 singlesProprietary finishing technology creates an ultra-clean surface optimized for printing1x1 rib knit neckBack neck tapeSide seamedTear-away label",
-    "category": "T-Shirts",
-    "price": 8.9,
-    "colors": [
-      "Blackberry",
-      "Bluestone",
-      "Dark Royal",
-      "Dune Heather",
-      "Elderberry",
-      "Frosted Mint",
-      "Garnet",
-      "Geranium Heather",
-      "Golden Cypress Green",
-      "Jet Black Heather",
-      "Meadow Green Heather",
-      "Military Green Heather",
-      "Navy Blue",
-      "Orchid Haze Heather",
-      "Sienna Heather",
-      "Soft Yellow",
-      "Tundra Blue Heather",
-      "White Onyx",
-      "Light Heather Grey",
-      "Graphite Heather",
-      "Heathered Deep Royal",
-      "Heathered Navy",
-      "Heathered Teal",
-      "Jet Black",
-      "Bright White",
-      "Charcoal"
-    ],
-    "images": {
-      "Blackberry": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f17/DT184_blackberry_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f17/DT184_blackberry_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/DT184_Blackberry.gif"
-      },
-      "Bluestone": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f17/DT184_bluestone_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f17/DT184_bluestone_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/DT184_Bluestone.gif"
-      },
-      "Dark Royal": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f17/DT184_darkroyal_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f17/DT184_darkroyal_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/DT184_DarkRoyal.gif"
-      },
-      "Dune Heather": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f17/DT184_duneheather_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f17/DT184_duneheather_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/DT184_DuneHeather.gif"
-      },
-      "Elderberry": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f17/DT184_elderberry_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f17/DT184_elderberry_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/DT184_Elderberry.gif"
-      },
-      "Frosted Mint": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f17/DT184_frostedmint_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f17/DT184_frostedmint_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/DT184_FrostedMint.gif"
-      },
-      "Garnet": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f17/DT184_garnet_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f17/DT184_garnet_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/DT184_Garnet.gif"
-      },
-      "Geranium Heather": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f17/DT184_geraniumheather_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f17/DT184_geraniumheather_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/DT184_GeraniumHeather.gif"
-      },
-      "Golden Cypress Green": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f17/DT184_goldencypressgreen_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f17/DT184_goldencypressgreen_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/DT184_GoldenCypressGreen.gif"
-      },
-      "Jet Black Heather": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f17/DT184_jetblackheather_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f17/DT184_jetblackheather_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/DT184_JetBlackHeather.gif"
-      },
-      "Meadow Green Heather": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f17/DT184_meadowgreenheather_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f17/DT184_meadowgreenheather_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/DT184_MeadowGreenHeather.gif"
-      },
-      "Military Green Heather": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f17/DT184_militarygreenheather_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f17/DT184_militarygreenheather_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/DT184_MilitaryGreenHeather.gif"
-      },
-      "Navy Blue": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f17/DT184_navyblue_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f17/DT184_navyblue_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/DT184_NavyBlue.gif"
-      },
-      "Orchid Haze Heather": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f17/DT184_orchidhazeheather_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f17/DT184_orchidhazeheather_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/DT184_OrchidHazeHeather.gif"
-      },
-      "Sienna Heather": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f17/DT184_siennaheather_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f17/DT184_siennaheather_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/DT184_SiennaHeather.gif"
-      },
-      "Soft Yellow": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f17/DT184_softyellow_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f17/DT184_softyellow_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/DT184_SoftYellow.gif"
-      },
-      "Tundra Blue Heather": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f17/DT184_tundrablueheather_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f17/DT184_tundrablueheather_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/DT184_TundraBlueHeather.gif"
-      },
-      "White Onyx": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f17/DT184_whiteonyx_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f17/DT184_whiteonyx_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/DT184_WhiteOnyx.gif"
-      },
-      "Light Heather Grey": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f17/DT184_lightheathergrey_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f17/DT184_lightheathergrey_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/DT184_LightHeatherGrey.gif"
-      },
-      "Graphite Heather": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f17/DT184_graphiteheather_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f17/DT184_graphiteheather_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/DT184_GraphiteHeather.gif"
-      },
-      "Heathered Deep Royal": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f17/DT184_heathereddeeproyal_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f17/DT184_heathereddeeproyal_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/DT184_HeatheredDeepRoyal.gif"
-      },
-      "Heathered Navy": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f17/DT184_heatherednavy_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f17/DT184_heatherednavy_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/DT184_HeatheredNavy.gif"
-      },
-      "Heathered Teal": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f17/DT184_heatheredteal_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f17/DT184_heatheredteal_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/DT184_HeatheredTeal.gif"
-      },
-      "Jet Black": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f17/DT184_jetblack_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f17/DT184_jetblack_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/DT184_JetBlack.gif"
-      },
-      "Bright White": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f17/DT184_brightwhite_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f17/DT184_brightwhite_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/DT184_BrightWhite.gif"
-      },
-      "Charcoal": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f17/DT184_charcoal_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f17/DT184_charcoal_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/DT184_Charcoal.gif"
-      }
-    }
-  },
-  {
-    "style": "363L",
-    "title": "Jerzees Classics Unisex Cotton Long Sleeve T-Shirt 363L",
-    "brand": "Jerzees",
-    "description": "4.7-ounce 100% cotton jersey 60/40 CVC cotton/polyester (Heathers Neon Pink Safety Green Safety Orange) 90/10 CVC cotton/polyester (Athletic Heather) Seamless 1x1 rib knit collar with clean neckline Shoulder to shoulder taping 1x1 rib knit cuffs Classic fit Tear-away label",
-    "category": "T-Shirts",
-    "price": 11.78,
-    "colors": [
-      "Breezy Blue",
-      "Denim",
-      "Retro Heather Coral",
-      "Retro Heather Green",
-      "Sage",
-      "Safety Green",
-      "Safety Orange",
-      "Sweet Cream Heather",
-      "True Red",
-      "White",
-      "Retro Heather Royal",
-      "Rock",
-      "Royal",
-      "Forest Green",
-      "J. Navy",
-      "Kelly",
-      "Khaki",
-      "Maroon",
-      "Neon Pink",
-      "California Blue",
-      "Charcoal Grey",
-      "Classic Pink",
-      "Deep Purple",
-      "Athletic Heather",
-      "Black Ink",
-      "Black Heather"
-    ],
-    "images": {
-      "Breezy Blue": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f18/363L_breezyblue_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f18/363L_breezyblue_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/363L_BreezyBlue.gif"
-      },
-      "Denim": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f18/363L_denim_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f18/363L_denim_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/363L_Denim.gif"
-      },
-      "Retro Heather Coral": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f18/363L_retroheathercoral_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f18/363L_retroheathercoral_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/363L_RetroHeatherCoral.gif"
-      },
-      "Retro Heather Green": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f18/363L_retroheathergreen_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f18/363L_retroheathergreen_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/363L_RetroHeatherGreen.gif"
-      },
-      "Sage": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f18/363L_sage_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f18/363L_sage_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/363L_Sage.gif"
-      },
-      "Safety Green": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f18/363L_safetygreen_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f18/363L_safetygreen_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/363L_SafetyGreen.gif"
-      },
-      "Safety Orange": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f18/363L_safetyorange_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f18/363L_safetyorange_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/363L_SafetyOrange.gif"
-      },
-      "Sweet Cream Heather": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f18/363L_sweetcreamheather_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f18/363L_sweetcreamheather_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/363L_SweetCreamHeather.gif"
-      },
-      "True Red": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f18/363L_truered_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f18/363L_truered_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/363L_TrueRed.gif"
+      "Turquoise": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL6610_turquoise_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL6610_turquoise_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_Turquoise_swatch.gif"
       },
       "White": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f18/363L_white_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f18/363L_white_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/363L_White.gif"
-      },
-      "Retro Heather Royal": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f18/363L_retroheatherroyal_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f18/363L_retroheatherroyal_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/363L_RetroHeatherRoyal.gif"
-      },
-      "Rock": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f18/363L_rock_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f18/363L_rock_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/363L_Rock.gif"
-      },
-      "Royal": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f18/363L_royal_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f18/363L_royal_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/363L_Royal.gif"
-      },
-      "Forest Green": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f18/363L_forestgreen_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f18/363L_forestgreen_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/363L_ForestGreen.gif"
-      },
-      "J. Navy": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f18/363L_jnavy_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f18/363L_jnavy_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/363L_JNavy.gif"
-      },
-      "Kelly": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f18/363L_kelly_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f18/363L_kelly_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/363L_Kelly.gif"
-      },
-      "Khaki": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f18/363L_khaki_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f18/363L_khaki_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/363L_Khaki.gif"
-      },
-      "Maroon": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f18/363L_maroon_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f18/363L_maroon_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/363L_Maroon.gif"
-      },
-      "Neon Pink": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f18/363L_neonpink_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f18/363L_neonpink_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/363L_NeonPink.gif"
-      },
-      "California Blue": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f18/363L_californiablue_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f18/363L_californiablue_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/363L_CaliforniaBlue.gif"
-      },
-      "Charcoal Grey": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f18/363L_charcoalgrey_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f18/363L_charcoalgrey_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/363L_CharcoalGrey.gif"
-      },
-      "Classic Pink": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f18/363L_classicpink_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f18/363L_classicpink_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/363L_ClassicPink.gif"
-      },
-      "Deep Purple": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f18/363L_deeppurple_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f18/363L_deeppurple_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/363L_DeepPurple.gif"
-      },
-      "Athletic Heather": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f18/363L_athleticheather_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f18/363L_athleticheather_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/363L_AthleticHeather.gif"
-      },
-      "Black Ink": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f18/363L_blackink_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f18/363L_blackink_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/363L_BlackInk.gif"
-      },
-      "Black Heather": {
-        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f18/363L_blackheather_flat_front.jpg",
-        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2024/f18/363L_blackheather_flat_back.jpg",
-        "swatch": "https://cdnm.sanmar.com/swatches/363L_BlackHeather.gif"
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f18/NL6610_white_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2020/f21/NL6610_white_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/swatches/NL_White_swatch.gif"
       }
     }
   },
