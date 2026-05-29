@@ -1808,7 +1808,7 @@ export function PublicQuoteRequest() {
                             return (
                               <img 
                                 src={imgSrc} 
-                                className="max-h-full max-w-full object-contain filter drop-shadow-xs group-hover:scale-105 transition-transform duration-300" 
+                                className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-300" 
                                 alt={item.product.style} 
                               />
                             );
@@ -1883,8 +1883,8 @@ export function PublicQuoteRequest() {
                           <span className={`text-[9px] font-bold uppercase tracking-widest ${
                             slot === 'good' ? 'text-neutral-400' : slot === 'better' ? 'text-blue-500' : 'text-emerald-500'
                           }`}>{slot} Option</span>
-                          <div className="aspect-[4/5] bg-neutral-50/50 rounded-xl flex items-center justify-center p-4">
-                            <img src={previewImg} alt={item.title} className="max-h-full max-w-full object-contain filter drop-shadow-xs" />
+                          <div className="aspect-[4/5] bg-white rounded-xl flex items-center justify-center p-4">
+                            <img src={previewImg} alt={item.title} className="max-h-full max-w-full object-contain" />
                           </div>
                           <div>
                             <span className="text-[10px] font-bold text-neutral-400 uppercase">{item.brand} • {item.style}</span>
@@ -2215,7 +2215,7 @@ export function PublicQuoteRequest() {
                           </div>
 
                           {/* Garment Image */}
-                          <img src={previewImg} className="max-w-[85%] max-h-[85%] object-contain filter drop-shadow-xs pointer-events-none" alt={item.product.style} />
+                          <img src={previewImg} className="max-w-[85%] max-h-[85%] object-contain pointer-events-none" alt={item.product.style} />
 
                           {/* Overlay Projected Logo */}
                           <div 
@@ -2304,7 +2304,7 @@ export function PublicQuoteRequest() {
                         const imgSet = selectedBasicsItem.images[selectedBasicsColor] || Object.values(selectedBasicsItem.images)[0];
                         const imgSrc = imgSet ? (typeof imgSet === 'string' ? imgSet : (imgSet as any).front) : '';
                         return (
-                          <img src={imgSrc} className="max-w-[85%] max-h-[85%] object-contain filter drop-shadow-xs pointer-events-none" alt={selectedBasicsItem.style} />
+                          <img src={imgSrc} className="max-w-[85%] max-h-[85%] object-contain pointer-events-none" alt={selectedBasicsItem.style} />
                         );
                       })()}
 
@@ -2410,8 +2410,8 @@ export function PublicQuoteRequest() {
               {cart.map((item) => (
                 <div key={item.id} className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-3xs grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
                   <div className="lg:col-span-4 flex gap-4 items-center">
-                    <div className="w-14 h-16 bg-neutral-50 border border-neutral-200 rounded-lg flex items-center justify-center p-1.5 overflow-hidden flex-shrink-0">
-                      <img src={item.mockupUrl} alt={item.product.title} className="max-h-full max-w-full object-contain filter drop-shadow-xs" />
+                    <div className="w-14 h-16 bg-white border border-neutral-200 rounded-lg flex items-center justify-center p-1.5 overflow-hidden flex-shrink-0">
+                      <img src={item.mockupUrl} alt={item.product.title} className="max-h-full max-w-full object-contain" />
                     </div>
                     <div className="min-w-0">
                       <span className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider">{item.product.brand} {item.product.style}</span>
