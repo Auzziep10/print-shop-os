@@ -1491,9 +1491,9 @@ export function PublicQuoteRequest() {
                 <img 
                   src="/images/apparel_rack_hero.png" 
                   alt="Custom Apparel Rack" 
-                  className="w-full h-full object-cover transition-transform duration-[2000ms] ease-out group-hover:scale-105 opacity-35 mix-blend-overlay"
+                  className="w-full h-full object-cover transition-transform duration-[2000ms] ease-out group-hover:scale-105 opacity-60"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/75 to-transparent" />
               </div>
               {/* Abstract CSS design element in background (glowing orb and blueprint lines) */}
               <div 
@@ -1555,9 +1555,9 @@ export function PublicQuoteRequest() {
                 <img 
                   src="/images/blank_basics_hero.png" 
                   alt="Blank Basics" 
-                  className="w-full h-full object-cover transition-transform duration-[2000ms] ease-out group-hover:scale-105 opacity-25 mix-blend-multiply"
+                  className="w-full h-full object-cover transition-transform duration-[2000ms] ease-out group-hover:scale-105 opacity-80"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#FAF9F5] via-[#FAF9F5]/60 to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#FAF9F5] via-[#FAF9F5]/75 to-transparent" />
               </div>
               {/* Abstract CSS design element in background (glowing warm orb and blueprint lines) */}
               <div 
