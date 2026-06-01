@@ -1671,50 +1671,69 @@ export function Inventory() {
                                             <div className="space-y-4 bg-neutral-50/50 p-4 rounded-xl border border-brand-border/40">
                                                 <h4 className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/80 border-b border-brand-border/30 pb-1">3D Positioning</h4>
                                                 
-                                                <div className="space-y-3">
-                                                    <div>
-                                                        <div className="flex justify-between items-center mb-1">
-                                                            <label className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary">Pos X (Lateral)</label>
-                                                            <span className="text-xs font-bold text-brand-primary bg-neutral-100 px-1.5 py-0.5 rounded">{r.position[0].toFixed(1)}m</span>
+                                                <div className="space-y-4">
+                                                    <div className="grid grid-cols-2 gap-3 bg-white p-2.5 rounded-lg border border-brand-border/40">
+                                                        <div>
+                                                            <span className="text-[9px] font-bold uppercase tracking-wider text-brand-secondary block mb-0.5">Pos X (Lateral)</span>
+                                                            <span className="text-sm font-bold text-brand-primary">{r.position[0].toFixed(1)}m</span>
                                                         </div>
-                                                        <div className="flex gap-2">
-                                                            <button 
-                                                                onClick={(e) => { e.preventDefault(); updateActiveRack({ position: [r.position[0] - 0.5, r.position[1], r.position[2]] }); }}
-                                                                className="flex-1 py-1 rounded border border-brand-border bg-white text-xs font-semibold text-brand-secondary hover:bg-neutral-50 hover:text-brand-primary transition-all duration-150"
-                                                            >
-                                                                -0.5m
-                                                            </button>
-                                                            <button 
-                                                                onClick={(e) => { e.preventDefault(); updateActiveRack({ position: [r.position[0] + 0.5, r.position[1], r.position[2]] }); }}
-                                                                className="flex-1 py-1 rounded border border-brand-border bg-white text-xs font-semibold text-brand-secondary hover:bg-neutral-50 hover:text-brand-primary transition-all duration-150"
-                                                            >
-                                                                +0.5m
-                                                            </button>
+                                                        <div>
+                                                            <span className="text-[9px] font-bold uppercase tracking-wider text-brand-secondary block mb-0.5">Pos Z (Depth)</span>
+                                                            <span className="text-sm font-bold text-brand-primary">{r.position[2].toFixed(1)}m</span>
                                                         </div>
                                                     </div>
 
-                                                    <div>
-                                                        <div className="flex justify-between items-center mb-1">
-                                                            <label className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary">Pos Z (Depth)</label>
-                                                            <span className="text-xs font-bold text-brand-primary bg-neutral-100 px-1.5 py-0.5 rounded">{r.position[2].toFixed(1)}m</span>
-                                                        </div>
-                                                        <div className="flex gap-2">
-                                                            <button 
-                                                                onClick={(e) => { e.preventDefault(); updateActiveRack({ position: [r.position[0], r.position[1], r.position[2] - 0.5] }); }}
-                                                                className="flex-1 py-1 rounded border border-brand-border bg-white text-xs font-semibold text-brand-secondary hover:bg-neutral-50 hover:text-brand-primary transition-all duration-150"
-                                                            >
-                                                                -0.5m
-                                                            </button>
-                                                            <button 
-                                                                onClick={(e) => { e.preventDefault(); updateActiveRack({ position: [r.position[0], r.position[1], r.position[2] + 0.5] }); }}
-                                                                className="flex-1 py-1 rounded border border-brand-border bg-white text-xs font-semibold text-brand-secondary hover:bg-neutral-50 hover:text-brand-primary transition-all duration-150"
-                                                            >
-                                                                +0.5m
-                                                            </button>
-                                                        </div>
+                                                    {/* Move Keypad */}
+                                                    <div className="flex flex-col items-center gap-2">
+                                                       <div className="flex flex-col items-center gap-1.5">
+                                                          <button 
+                                                             onClick={(e) => { e.preventDefault(); handleMoveRack(r.label, 'N', parseFloat(moveStepSize)); }}
+                                                             className="w-9 h-9 bg-white border border-brand-border hover:border-brand-primary rounded-lg flex items-center justify-center font-bold text-lg text-brand-primary shadow-sm hover:scale-105 active:scale-95 transition-all"
+                                                             title="Move North (-Z)"
+                                                          >
+                                                             ↑
+                                                          </button>
+                                                          <div className="flex gap-4">
+                                                             <button 
+                                                                onClick={(e) => { e.preventDefault(); handleMoveRack(r.label, 'W', parseFloat(moveStepSize)); }}
+                                                                className="w-9 h-9 bg-white border border-brand-border hover:border-brand-primary rounded-lg flex items-center justify-center font-bold text-lg text-brand-primary shadow-sm hover:scale-105 active:scale-95 transition-all"
+                                                                title="Move West (-X)"
+                                                             >
+                                                                ←
+                                                             </button>
+                                                             <button 
+                                                                onClick={(e) => { e.preventDefault(); handleMoveRack(r.label, 'E', parseFloat(moveStepSize)); }}
+                                                                className="w-9 h-9 bg-white border border-brand-border hover:border-brand-primary rounded-lg flex items-center justify-center font-bold text-lg text-brand-primary shadow-sm hover:scale-105 active:scale-95 transition-all"
+                                                                title="Move East (+X)"
+                                                             >
+                                                                →
+                                                             </button>
+                                                          </div>
+                                                          <button 
+                                                             onClick={(e) => { e.preventDefault(); handleMoveRack(r.label, 'S', parseFloat(moveStepSize)); }}
+                                                             className="w-9 h-9 bg-white border border-brand-border hover:border-brand-primary rounded-lg flex items-center justify-center font-bold text-lg text-brand-primary shadow-sm hover:scale-105 active:scale-95 transition-all"
+                                                             title="Move South (+Z)"
+                                                          >
+                                                             ↓
+                                                          </button>
+                                                       </div>
+                                                       
+                                                       <div className="flex items-center gap-2 mt-1 w-full justify-between px-1">
+                                                          <span className="text-[9px] uppercase font-bold text-brand-secondary">Step Size:</span>
+                                                          <select 
+                                                             value={moveStepSize} 
+                                                             onChange={e => setMoveStepSize(e.target.value)}
+                                                             className="bg-white border border-brand-border rounded-lg px-2 py-0.5 text-xs font-bold text-brand-primary focus:outline-none focus:border-brand-primary cursor-pointer shadow-sm"
+                                                          >
+                                                             <option value="0.5">0.5 m</option>
+                                                             <option value="1.0">1.0 m</option>
+                                                             <option value="2.0">2.0 m</option>
+                                                             <option value="5.0">5.0 m</option>
+                                                          </select>
+                                                       </div>
                                                     </div>
 
-                                                    <div>
+                                                    <div className="border-t border-brand-border/30 pt-3">
                                                         <div className="flex justify-between items-center mb-1.5">
                                                             <label className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary">Rotation Y</label>
                                                             <span className="text-xs font-bold text-brand-primary bg-neutral-100 px-1.5 py-0.5 rounded">{Math.round(r.rotation[1] * (180/Math.PI))}°</span>
