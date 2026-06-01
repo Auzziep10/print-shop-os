@@ -225,15 +225,89 @@ function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, slots = 3, c
   const pallets: any[] = [];
 
   // Build components geometrically
+  const zOffset = isBoxRack ? 0.02 : 0.05;
+
   for (let i = 0; i <= bays; i++) {
     const xPos = (i * width) - (totalWidth / 2);
-    // front-left upright
-    uprights.push(<mesh key={`ul_${i}`} position={[xPos, height/2, depth/2 - 0.05]}><boxGeometry args={[0.1, height, 0.1]} /><meshStandardMaterial color={upColor} /></mesh>);
-    // back-left upright
-    uprights.push(<mesh key={`ub_${i}`} position={[xPos, height/2, -depth/2 + 0.05]}><boxGeometry args={[0.1, height, 0.1]} /><meshStandardMaterial color={upColor} /></mesh>);
-    // cross braces
-    for (let h = 0.5; h < height; h += isBoxRack ? 0.5 : 0.8) {
-       uprights.push(<mesh key={`uc_${i}_${h}`} position={[xPos, h, 0]} rotation={[0.45, 0, 0]}><boxGeometry args={[0.04, depth, 0.04]} /><meshStandardMaterial color={upColor} /></mesh>);
+    
+    if (isBoxRack) {
+      // Casters at the base (y = 0 to 0.12)
+      // Front caster
+      uprights.push(
+        <mesh key={`caw_f_${i}`} position={[xPos, 0.045, depth / 2 - zOffset]} rotation={[0, 0, Math.PI / 2]}>
+          <cylinderGeometry args={[0.045, 0.045, 0.03, 16]} />
+          <meshStandardMaterial color="#1f2937" roughness={0.9} />
+        </mesh>
+      );
+      uprights.push(
+        <mesh key={`cab_f_${i}`} position={[xPos, 0.0825, depth / 2 - zOffset]}>
+          <cylinderGeometry args={[0.015, 0.015, 0.075, 12]} />
+          <meshStandardMaterial color="#9ca3af" metalness={0.8} roughness={0.2} />
+        </mesh>
+      );
+
+      // Back caster
+      uprights.push(
+        <mesh key={`caw_b_${i}`} position={[xPos, 0.045, -depth / 2 + zOffset]} rotation={[0, 0, Math.PI / 2]}>
+          <cylinderGeometry args={[0.045, 0.045, 0.03, 16]} />
+          <meshStandardMaterial color="#1f2937" roughness={0.9} />
+        </mesh>
+      );
+      uprights.push(
+        <mesh key={`cab_b_${i}`} position={[xPos, 0.0825, -depth / 2 + zOffset]}>
+          <cylinderGeometry args={[0.015, 0.015, 0.075, 12]} />
+          <meshStandardMaterial color="#9ca3af" metalness={0.8} roughness={0.2} />
+        </mesh>
+      );
+
+      // Thin cylindrical metal upright tubes starting from y = 0.12 to height
+      uprights.push(
+        <mesh key={`ul_${i}`} position={[xPos, (height + 0.12) / 2, depth / 2 - zOffset]}>
+          <cylinderGeometry args={[0.02, 0.02, height - 0.12, 16]} />
+          <meshStandardMaterial color={upColor} metalness={0.7} roughness={0.3} />
+        </mesh>
+      );
+      uprights.push(
+        <mesh key={`ub_${i}`} position={[xPos, (height + 0.12) / 2, -depth / 2 + zOffset]}>
+          <cylinderGeometry args={[0.02, 0.02, height - 0.12, 16]} />
+          <meshStandardMaterial color={upColor} metalness={0.7} roughness={0.3} />
+        </mesh>
+      );
+
+      // Thin horizontal metal side supports running along Z axis
+      for (let h = 0.3; h < height; h += 0.4) {
+        uprights.push(
+          <mesh key={`uc_${i}_${h}`} position={[xPos, h, 0]} rotation={[Math.PI / 2, 0, 0]}>
+            <cylinderGeometry args={[0.012, 0.012, depth - 2 * zOffset, 12]} />
+            <meshStandardMaterial color={upColor} metalness={0.7} roughness={0.3} />
+          </mesh>
+        );
+      }
+    } else {
+      // Standard Pallet Rack
+      // front-left upright
+      uprights.push(
+        <mesh key={`ul_${i}`} position={[xPos, height / 2, depth / 2 - 0.05]}>
+          <boxGeometry args={[0.1, height, 0.1]} />
+          <meshStandardMaterial color={upColor} />
+        </mesh>
+      );
+      // back-left upright
+      uprights.push(
+        <mesh key={`ub_${i}`} position={[xPos, height / 2, -depth / 2 + 0.05]}>
+          <boxGeometry args={[0.1, height, 0.1]} />
+          <meshStandardMaterial color={upColor} />
+        </mesh>
+      );
+      // cross braces
+      for (let h = 0.5; h < height; h += 0.8) {
+        uprights.push(
+          <mesh key={`uc_${i}_${h}`} position={[xPos, h, 0]} rotation={[0.45, 0, 0]}>
+            <boxGeometry args={[0.04, depth, 0.04]} />
+            <meshStandardMaterial color={upColor} />
+          </mesh>
+        );
+      }
     }
   }
 
@@ -242,11 +316,56 @@ function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, slots = 3, c
     
     for (let l = 1; l <= levels; l++) {
       const yPos = (l * (height / levels)) - 0.06;
-      beams.push(<mesh key={`bf_${bay}_${l}`} position={[xCenter, yPos, depth/2]}><boxGeometry args={[width, 0.12, 0.05]} /><meshStandardMaterial color={beamColor} /></mesh>);
-      beams.push(<mesh key={`bb_${bay}_${l}`} position={[xCenter, yPos, -depth/2]}><boxGeometry args={[width, 0.12, 0.05]} /><meshStandardMaterial color={beamColor} /></mesh>);
-      // For box racks, add wire shelf plane
       if (isBoxRack) {
-          beams.push(<mesh key={`bw_${bay}_${l}`} position={[xCenter, yPos + 0.05, 0]} rotation={[-Math.PI/2, 0, 0]}><planeGeometry args={[width, depth]} /><meshStandardMaterial color="#e5e7eb" transparent opacity={0.6} side={2} /></mesh>);
+        // Front rail
+        beams.push(
+          <mesh key={`bf_${bay}_${l}`} position={[xCenter, yPos, depth / 2 - 0.01]}>
+            <boxGeometry args={[width - 0.04, 0.03, 0.02]} />
+            <meshStandardMaterial color={beamColor} metalness={0.7} roughness={0.3} />
+          </mesh>
+        );
+        // Back rail
+        beams.push(
+          <mesh key={`bb_${bay}_${l}`} position={[xCenter, yPos, -depth / 2 + 0.01]}>
+            <boxGeometry args={[width - 0.04, 0.03, 0.02]} />
+            <meshStandardMaterial color={beamColor} metalness={0.7} roughness={0.3} />
+          </mesh>
+        );
+        // Left side border
+        beams.push(
+          <mesh key={`bl_${bay}_${l}`} position={[xCenter - width / 2 + 0.01, yPos, 0]}>
+            <boxGeometry args={[0.02, 0.03, depth - 0.02]} />
+            <meshStandardMaterial color={beamColor} metalness={0.7} roughness={0.3} />
+          </mesh>
+        );
+        // Right side border
+        beams.push(
+          <mesh key={`br_${bay}_${l}`} position={[xCenter + width / 2 - 0.01, yPos, 0]}>
+            <boxGeometry args={[0.02, 0.03, depth - 0.02]} />
+            <meshStandardMaterial color={beamColor} metalness={0.7} roughness={0.3} />
+          </mesh>
+        );
+        // Wire grid mesh
+        beams.push(
+          <mesh key={`bw_${bay}_${l}`} position={[xCenter, yPos + 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <planeGeometry args={[width - 0.02, depth - 0.02, Math.round(width * 12), Math.round(depth * 12)]} />
+            <meshStandardMaterial color="#9ca3af" wireframe={true} side={2} metalness={0.8} roughness={0.2} />
+          </mesh>
+        );
+      } else {
+        // Standard Pallet Rack
+        beams.push(
+          <mesh key={`bf_${bay}_${l}`} position={[xCenter, yPos, depth / 2]}>
+            <boxGeometry args={[width, 0.12, 0.05]} />
+            <meshStandardMaterial color={beamColor} />
+          </mesh>
+        );
+        beams.push(
+          <mesh key={`bb_${bay}_${l}`} position={[xCenter, yPos, -depth / 2]}>
+            <boxGeometry args={[width, 0.12, 0.05]} />
+            <meshStandardMaterial color={beamColor} />
+          </mesh>
+        );
       }
     }
   }
