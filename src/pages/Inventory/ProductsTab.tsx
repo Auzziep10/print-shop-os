@@ -471,7 +471,7 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
                          <button 
                             onClick={() => {
                                setEditingBoxPalletId(null);
-                               setNewBoxName(`${selectedProduct.title} Box`);
+                               setNewBoxName(`${selectedProduct.title}`);
                                setNewBoxQuantities({});
                                setNewBoxLocationType('Unmapped');
                                setNewBoxWarehouseId(warehouses[0]?.id || 'wh_default_01');
@@ -587,7 +587,7 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
                                 <button 
                                    onClick={() => {
                                       setEditingBoxPalletId(null);
-                                      setNewBoxName(`${selectedProduct.title} Box`);
+                                      setNewBoxName(`${selectedProduct.title}`);
                                       setNewBoxQuantities({});
                                       setNewBoxLocationType('Unmapped');
                                       setNewBoxWarehouseId(warehouses[0]?.id || 'wh_default_01');

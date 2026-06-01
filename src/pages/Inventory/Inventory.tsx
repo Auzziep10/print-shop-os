@@ -74,7 +74,7 @@ function CameraController({ activePallet, activeRack, warehouse }: any) {
   return null;
 }
 
-const PalletLabels = ({ pallet }: any) => {
+const PalletLabels = ({ pallet, allPallets = [] }: any) => {
     const textProps = {
         fontSize: 0.18,
         color: "white",
@@ -91,8 +91,26 @@ const PalletLabels = ({ pallet }: any) => {
         anchorY: "top"
     };
 
-    const name = pallet.name || pallet.client || 'Unknown';
-    const boxes = `${pallet.boxes?.length || 0} Boxes`;
+    const isBox = pallet.type === 'Box';
+    let name = pallet.name || pallet.client || 'Unknown';
+    let boxes = `${pallet.boxes?.length || 0} Boxes`;
+
+    if (isBox) {
+        // Find index of this pallet among all box type pallets in allPallets, sorted stably by createdAt and id
+        const boxPallets = allPallets
+            .filter((p: any) => p.type === 'Box')
+            .sort((a: any, b: any) => (a.createdAt || 0) - (b.createdAt || 0) || (a.id || '').localeCompare(b.id || ''));
+        const idx = boxPallets.findIndex((p: any) => p.id === pallet.id);
+        name = `Box ${idx !== -1 ? idx + 1 : 1}`;
+
+        let totalQty = 0;
+        pallet.boxes?.forEach((box: any) => {
+            box.items?.forEach((item: any) => {
+                totalQty += item.quantity || 0;
+            });
+        });
+        boxes = `${totalQty} Units`;
+    }
 
     return (
         <group>
@@ -436,7 +454,7 @@ function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, slots = 3, c
         scale={scaleFactor}
         onClick={(e) => { if (e.delta > 2) return; e.stopPropagation(); onPalletClick?.(pallet); }}
       >
-        <PalletLabels pallet={pallet} />
+        <PalletLabels pallet={pallet} allPallets={allPallets} />
         {!isBoxRack && pallet.type !== 'Box' && (
           <mesh position={[0, -(pallet.height || (pallet.type === 'Box' ? 0.35 : 0.8))/2 + 0.07, 0]}>
             <boxGeometry args={[1.0, 0.14, 1.0]} />
@@ -490,7 +508,7 @@ function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, slots = 3, c
   );
 }
 
-function FloorPallet({ pallet, onClick, onPalletClick, activePallet, setIsOrbitEnabled, onUpdatePosition, onLocalUpdatePosition }: any) {
+function FloorPallet({ pallet, onClick, onPalletClick, activePallet, setIsOrbitEnabled, onUpdatePosition, onLocalUpdatePosition, allPallets = [] }: any) {
   const isThisPalletActive = activePallet?.id === pallet.id;
   const pHeight = pallet.height || (pallet.type === 'Box' ? 0.35 : 0.8);
   const pY = pHeight / 2;
@@ -518,7 +536,7 @@ function FloorPallet({ pallet, onClick, onPalletClick, activePallet, setIsOrbitE
       }}
     >
       <group scale={[1.3, 1.3, 1.3]}>
-         <PalletLabels pallet={pallet} />
+         <PalletLabels pallet={pallet} allPallets={allPallets} />
       </group>
       {pallet.type !== 'Box' && (
         <mesh position={[0, -pHeight/2 + 0.07, 0]}>
@@ -790,6 +808,7 @@ function WarehouseMap({ activeRack, setActiveRack, activePallet, setActivePallet
                 setIsOrbitEnabled={setIsOrbitEnabled}
                 onUpdatePosition={onUpdatePalletPosition}
                 onLocalUpdatePosition={onLocalUpdatePalletPosition}
+                allPallets={inventory}
              />
         ))}
 
