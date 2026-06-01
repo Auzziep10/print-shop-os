@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { tokens } from '../../lib/tokens';
-import { PackageOpen, Printer, Boxes, Map, QrCode, Upload, Search, Layers } from 'lucide-react';
+import { PackageOpen, Printer, Boxes, Map, QrCode, Upload, Search, Layers, ChevronLeft, Minus, Plus, Trash2 } from 'lucide-react';
 import QRCode from 'react-qr-code';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Text, Environment, DragControls } from '@react-three/drei';
@@ -538,9 +538,21 @@ function FloorPallet({ pallet, onClick, onPalletClick, activePallet, setIsOrbitE
   return palletGroup;
 }
 
-function FloorMoveArrows({ position, onMove, setIsOrbitEnabled }: { position: [number, number, number], onMove: (dir: 'N' | 'S' | 'E' | 'W') => void, setIsOrbitEnabled: (b: boolean) => void }) {
-  const arrowColor = '#10b981';
-  const hoverColor = '#059669';
+function FloorMoveArrows({ 
+  position, 
+  onMove, 
+  setIsOrbitEnabled,
+  color = '#10b981',
+  hoverColor = '#059669'
+}: { 
+  position: [number, number, number], 
+  onMove: (dir: 'N' | 'S' | 'E' | 'W') => void, 
+  setIsOrbitEnabled: (b: boolean) => void,
+  color?: string,
+  hoverColor?: string
+}) {
+  const arrowColor = color;
+  const arrowHoverColor = hoverColor;
 
   useEffect(() => {
     // Reset orbit controls on mount and when position changes
@@ -577,8 +589,8 @@ function FloorMoveArrows({ position, onMove, setIsOrbitEnabled }: { position: [n
         <mesh position={[0, 0.02, -0.9]}>
           <boxGeometry args={[0.15, 0.04, 0.5]} />
           <meshStandardMaterial 
-            color={hovered ? hoverColor : arrowColor} 
-            emissive={hovered ? hoverColor : arrowColor} 
+            color={hovered ? arrowHoverColor : arrowColor} 
+            emissive={hovered ? arrowHoverColor : arrowColor} 
             emissiveIntensity={hovered ? 0.8 : 0.3} 
             transparent 
             opacity={0.8}
@@ -588,8 +600,8 @@ function FloorMoveArrows({ position, onMove, setIsOrbitEnabled }: { position: [n
         <mesh position={[0, 0.02, -1.25]} rotation={[-Math.PI / 2, 0, 0]}>
           <coneGeometry args={[0.2, 0.3, 4]} />
           <meshStandardMaterial 
-            color={hovered ? hoverColor : arrowColor} 
-            emissive={hovered ? hoverColor : arrowColor} 
+            color={hovered ? arrowHoverColor : arrowColor} 
+            emissive={hovered ? arrowHoverColor : arrowColor} 
             emissiveIntensity={hovered ? 0.8 : 0.3} 
             transparent 
             opacity={0.8}
@@ -618,7 +630,7 @@ function FloorMoveArrows({ position, onMove, setIsOrbitEnabled }: { position: [n
   );
 }
 
-function WarehouseMap({ activeRack, setActiveRack, activePallet, setActivePallet, inventory, warehouse, isAddingPallet, addForm, setAddForm, onMovePallet, moveStepSize, onUpdatePalletPosition, onLocalUpdatePalletPosition }: any) {
+function WarehouseMap({ activeRack, setActiveRack, activePallet, setActivePallet, inventory, warehouse, isAddingPallet, addForm, setAddForm, onMovePallet, moveStepSize, onUpdatePalletPosition, onLocalUpdatePalletPosition, onMoveRack, activeTab }: any) {
   const rackProps = {
      onClick: setActiveRack,
      activeRack,
@@ -742,6 +754,20 @@ function WarehouseMap({ activeRack, setActiveRack, activePallet, setActivePallet
                setIsOrbitEnabled={setIsOrbitEnabled}
             />
         )}
+
+        {activeTab === 'Builder' && activeRack && (() => {
+             const selectedRack = warehouse?.racks?.find((r: any) => r.label === activeRack);
+             if (!selectedRack || !selectedRack.position) return null;
+             return (
+                 <FloorMoveArrows 
+                    position={[selectedRack.position[0], 0, selectedRack.position[2]]}
+                    onMove={(dir) => onMoveRack(activeRack, dir, 0.5)}
+                    setIsOrbitEnabled={setIsOrbitEnabled}
+                    color="#4f46e5"
+                    hoverColor="#4338ca"
+                 />
+             );
+        })()}
       </Canvas>
     </div>
   );
@@ -1124,6 +1150,28 @@ export function Inventory() {
     await handleUpdatePalletPosition(palletId, x, z);
   };
 
+  const handleMoveRack = async (rackLabel: string, direction: 'N' | 'S' | 'E' | 'W', stepSize = 0.5) => {
+    if (!currentWarehouse) return;
+    const rack = currentWarehouse.racks.find((r: any) => r.label === rackLabel);
+    if (!rack || !rack.position) return;
+    
+    let [x, y, z] = rack.position;
+    if (direction === 'N') z -= stepSize;
+    if (direction === 'S') z += stepSize;
+    if (direction === 'W') x -= stepSize;
+    if (direction === 'E') x += stepSize;
+    
+    // Snap to 0.5 grid
+    x = Math.round(x * 2) / 2;
+    z = Math.round(z * 2) / 2;
+    
+    const newRacks = currentWarehouse.racks.map((r: any) => 
+        r.label === rackLabel ? { ...r, position: [x, y, z] } : r
+    );
+    
+    updateWarehouse({ racks: newRacks });
+  };
+
 
 
   const [addForm, setAddForm] = useState({ palletId: '', color: '#10b981', zoneType: 'Floor', x: 0, z: 0, rackLabel: 'Aisle S-Left', bay: 0, level: 0, slot: -1 });
@@ -1472,6 +1520,8 @@ export function Inventory() {
                             moveStepSize={moveStepSize}
                             onUpdatePalletPosition={handleUpdatePalletPosition}
                             onLocalUpdatePalletPosition={handleUpdatePalletPositionLocal}
+                            onMoveRack={handleMoveRack}
+                            activeTab={activeTab}
                         />
                     )}
                  </Suspense>
@@ -1489,65 +1539,224 @@ export function Inventory() {
                              {activeRack !== null && currentWarehouse?.racks?.find((r:any) => r.label === activeRack) ? (() => {
                                  const r = currentWarehouse.racks.find((r:any) => r.label === activeRack);
                                  return (
-                                    <div className="space-y-6">
-                                       <div className="flex justify-between items-center mb-2">
-                                          <h3 className="font-serif font-bold text-brand-primary text-xl">Rack Editor</h3>
-                                          <button onClick={() => setActiveRack(null)} className="text-[10px] uppercase font-bold text-brand-secondary hover:text-black">Back to Map</button>
-                                       </div>
-                                       
-                                       <div className="space-y-4 border-l-2 border-brand-primary pl-4">
-                                            <div className="pb-2">
-                                                <label className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1 block">Rack Variation</label>
-                                                <select value={r.type || 'Pallet'} onChange={(e) => updateActiveRack({ type: e.target.value })} className="w-full bg-brand-bg border border-brand-border rounded-lg px-3 py-2 text-sm font-medium focus:outline-brand-primary">
-                                                   <option value="Pallet">Industrial Pallet Rack</option>
-                                                   <option value="Box">Rolling Box Rack</option>
-                                                </select>
-                                             </div>
-                                             
-                                            <div>
-                                               <label className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1 block">Aisle / Label</label>
-                                               <input type="text" value={r.label} onChange={(e) => updateActiveRack({ label: e.target.value })} className="w-full bg-brand-bg border border-brand-border rounded-lg px-3 py-2 text-sm font-medium focus:outline-brand-primary" />
+                                     <div className="space-y-6">
+                                        <div className="flex justify-between items-center pb-3 border-b border-brand-border/60">
+                                           <div>
+                                              <h3 className="font-serif font-bold text-brand-primary text-xl">Rack Editor</h3>
+                                              <p className="text-[10px] uppercase tracking-wider text-brand-secondary font-semibold mt-0.5">{r.label}</p>
+                                           </div>
+                                           <button 
+                                              onClick={() => setActiveRack(null)} 
+                                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-brand-border text-[11px] font-bold text-brand-secondary uppercase hover:bg-neutral-50 hover:text-brand-primary transition-all duration-200"
+                                           >
+                                              <ChevronLeft className="w-3.5 h-3.5" />
+                                              Back
+                                           </button>
+                                        </div>
+
+                                        <div className="space-y-5">
+                                            {/* Section 1: Variation & Label */}
+                                            <div className="space-y-3 bg-neutral-50/50 p-4 rounded-xl border border-brand-border/40">
+                                                <div>
+                                                    <label className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1.5 block">Rack Variation</label>
+                                                    <div className="grid grid-cols-2 gap-2">
+                                                        <button
+                                                            onClick={(e) => { e.preventDefault(); updateActiveRack({ type: 'Pallet' }); }}
+                                                            className={`flex flex-col items-center justify-center p-3 rounded-lg border transition-all duration-200 ${
+                                                                (r.type || 'Pallet') === 'Pallet'
+                                                                    ? 'bg-white border-brand-primary text-brand-primary shadow-sm font-semibold'
+                                                                    : 'bg-transparent border-brand-border/80 text-brand-secondary hover:bg-white/60 hover:text-brand-primary'
+                                                            }`}
+                                                        >
+                                                            <Layers className="w-4 h-4 mb-1" />
+                                                            <span className="text-xs">Pallet Rack</span>
+                                                        </button>
+                                                        <button
+                                                            onClick={(e) => { e.preventDefault(); updateActiveRack({ type: 'Box' }); }}
+                                                            className={`flex flex-col items-center justify-center p-3 rounded-lg border transition-all duration-200 ${
+                                                                r.type === 'Box'
+                                                                    ? 'bg-white border-brand-primary text-brand-primary shadow-sm font-semibold'
+                                                                    : 'bg-transparent border-brand-border/80 text-brand-secondary hover:bg-white/60 hover:text-brand-primary'
+                                                            }`}
+                                                        >
+                                                            <Boxes className="w-4 h-4 mb-1" />
+                                                            <span className="text-xs">Rolling Shelf</span>
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                <div>
+                                                    <label className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1 block">Aisle / Label</label>
+                                                    <input 
+                                                        type="text" 
+                                                        value={r.label} 
+                                                        onChange={(e) => updateActiveRack({ label: e.target.value })} 
+                                                        className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all duration-200" 
+                                                    />
+                                                </div>
                                             </div>
-                                            
-                                            <div className="grid grid-cols-3 gap-3">
-                                                <div>
-                                                   <label className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1 block">Num Bays</label>
-                                                   <input type="number" min="1" max="20" value={r.bays} onChange={(e) => updateActiveRack({ bays: parseInt(e.target.value) || 1 })} className="w-full bg-brand-bg border border-brand-border rounded-lg px-3 py-2 text-sm font-medium focus:outline-brand-primary" />
+
+                                            {/* Section 2: Structure Customization */}
+                                            <div className="space-y-4 bg-neutral-50/50 p-4 rounded-xl border border-brand-border/40">
+                                                <h4 className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/80 border-b border-brand-border/30 pb-1">Structure</h4>
+                                                
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <div>
+                                                        <label className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1.5 block">Num Bays</label>
+                                                        <div className="flex items-center justify-between border border-brand-border rounded-lg bg-white overflow-hidden h-9">
+                                                            <button 
+                                                                onClick={(e) => { e.preventDefault(); updateActiveRack({ bays: Math.max(1, r.bays - 1) }); }}
+                                                                className="px-2.5 h-full text-brand-secondary hover:bg-neutral-50 hover:text-brand-primary transition-colors duration-150 border-r border-brand-border/60"
+                                                            >
+                                                                <Minus className="w-3.5 h-3.5" />
+                                                            </button>
+                                                            <span className="font-bold text-sm text-brand-primary flex-1 text-center select-none">{r.bays}</span>
+                                                            <button 
+                                                                onClick={(e) => { e.preventDefault(); updateActiveRack({ bays: Math.min(20, r.bays + 1) }); }}
+                                                                className="px-2.5 h-full text-brand-secondary hover:bg-neutral-50 hover:text-brand-primary transition-colors duration-150 border-l border-brand-border/60"
+                                                            >
+                                                                <Plus className="w-3.5 h-3.5" />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+
+                                                    <div>
+                                                        <label className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1.5 block">Shelf Levels</label>
+                                                        <div className="flex items-center justify-between border border-brand-border rounded-lg bg-white overflow-hidden h-9">
+                                                            <button 
+                                                                onClick={(e) => { e.preventDefault(); updateActiveRack({ levels: Math.max(1, r.levels - 1) }); }}
+                                                                className="px-2.5 h-full text-brand-secondary hover:bg-neutral-50 hover:text-brand-primary transition-colors duration-150 border-r border-brand-border/60"
+                                                            >
+                                                                <Minus className="w-3.5 h-3.5" />
+                                                            </button>
+                                                            <span className="font-bold text-sm text-brand-primary flex-1 text-center select-none">{r.levels}</span>
+                                                            <button 
+                                                                onClick={(e) => { e.preventDefault(); updateActiveRack({ levels: Math.min(10, r.levels + 1) }); }}
+                                                                className="px-2.5 h-full text-brand-secondary hover:bg-neutral-50 hover:text-brand-primary transition-colors duration-150 border-l border-brand-border/60"
+                                                            >
+                                                                <Plus className="w-3.5 h-3.5" />
+                                                            </button>
+                                                        </div>
+                                                    </div>
                                                 </div>
+
                                                 <div>
-                                                   <label className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1 block">Vertical Levels</label>
-                                                   <input type="number" min="1" max="10" value={r.levels} onChange={(e) => updateActiveRack({ levels: parseInt(e.target.value) || 1 })} className="w-full bg-brand-bg border border-brand-border rounded-lg px-3 py-2 text-sm font-medium focus:outline-brand-primary" />
-                                                </div>
-                                                <div>
-                                                   <label className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1 block">Slots / Bay</label>
-                                                   <select value={r.slots || 3} onChange={(e) => updateActiveRack({ slots: parseInt(e.target.value) })} className="w-full bg-brand-bg border border-brand-border rounded-lg px-3 py-2 text-sm font-medium focus:outline-brand-primary">
-                                                      <option value={2}>2 Slots</option>
-                                                      <option value={3}>3 Slots</option>
-                                                   </select>
+                                                    <label className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1.5 block">Slots / Bay</label>
+                                                    <div className="grid grid-cols-2 gap-2 bg-neutral-100 p-1 rounded-lg">
+                                                        <button
+                                                            onClick={(e) => { e.preventDefault(); updateActiveRack({ slots: 2 }); }}
+                                                            className={`py-1 text-xs rounded transition-all duration-200 ${
+                                                                (r.slots || 3) === 2
+                                                                    ? 'bg-white text-brand-primary font-bold shadow-sm'
+                                                                    : 'text-brand-secondary hover:text-brand-primary'
+                                                            }`}
+                                                        >
+                                                            2 Slots
+                                                        </button>
+                                                        <button
+                                                            onClick={(e) => { e.preventDefault(); updateActiveRack({ slots: 3 }); }}
+                                                            className={`py-1 text-xs rounded transition-all duration-200 ${
+                                                                (r.slots || 3) === 3
+                                                                    ? 'bg-white text-brand-primary font-bold shadow-sm'
+                                                                    : 'text-brand-secondary hover:text-brand-primary'
+                                                            }`}
+                                                        >
+                                                            3 Slots
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             </div>
-                                            
-                                            <div className="grid grid-cols-2 gap-3 pt-2">
-                                                <div>
-                                                   <label className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1 block">Pos X (Lateral)</label>
-                                                   <input type="number" step="0.5" value={r.position[0]} onChange={(e) => updateActiveRack({ position: [parseFloat(e.target.value)||0, r.position[1], r.position[2]] })} className="w-full bg-brand-bg border border-brand-border rounded-lg px-3 py-2 text-sm font-medium focus:outline-brand-primary" />
-                                                </div>
-                                                <div>
-                                                   <label className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1 block">Pos Z (Depth)</label>
-                                                   <input type="number" step="0.5" value={r.position[2]} onChange={(e) => updateActiveRack({ position: [r.position[0], r.position[1], parseFloat(e.target.value)||0] })} className="w-full bg-brand-bg border border-brand-border rounded-lg px-3 py-2 text-sm font-medium focus:outline-brand-primary" />
+
+                                            {/* Section 3: Position & Orientation */}
+                                            <div className="space-y-4 bg-neutral-50/50 p-4 rounded-xl border border-brand-border/40">
+                                                <h4 className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/80 border-b border-brand-border/30 pb-1">3D Positioning</h4>
+                                                
+                                                <div className="space-y-3">
+                                                    <div>
+                                                        <div className="flex justify-between items-center mb-1">
+                                                            <label className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary">Pos X (Lateral)</label>
+                                                            <span className="text-xs font-bold text-brand-primary bg-neutral-100 px-1.5 py-0.5 rounded">{r.position[0].toFixed(1)}m</span>
+                                                        </div>
+                                                        <div className="flex gap-2">
+                                                            <button 
+                                                                onClick={(e) => { e.preventDefault(); updateActiveRack({ position: [r.position[0] - 0.5, r.position[1], r.position[2]] }); }}
+                                                                className="flex-1 py-1 rounded border border-brand-border bg-white text-xs font-semibold text-brand-secondary hover:bg-neutral-50 hover:text-brand-primary transition-all duration-150"
+                                                            >
+                                                                -0.5m
+                                                            </button>
+                                                            <button 
+                                                                onClick={(e) => { e.preventDefault(); updateActiveRack({ position: [r.position[0] + 0.5, r.position[1], r.position[2]] }); }}
+                                                                className="flex-1 py-1 rounded border border-brand-border bg-white text-xs font-semibold text-brand-secondary hover:bg-neutral-50 hover:text-brand-primary transition-all duration-150"
+                                                            >
+                                                                +0.5m
+                                                            </button>
+                                                        </div>
+                                                    </div>
+
+                                                    <div>
+                                                        <div className="flex justify-between items-center mb-1">
+                                                            <label className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary">Pos Z (Depth)</label>
+                                                            <span className="text-xs font-bold text-brand-primary bg-neutral-100 px-1.5 py-0.5 rounded">{r.position[2].toFixed(1)}m</span>
+                                                        </div>
+                                                        <div className="flex gap-2">
+                                                            <button 
+                                                                onClick={(e) => { e.preventDefault(); updateActiveRack({ position: [r.position[0], r.position[1], r.position[2] - 0.5] }); }}
+                                                                className="flex-1 py-1 rounded border border-brand-border bg-white text-xs font-semibold text-brand-secondary hover:bg-neutral-50 hover:text-brand-primary transition-all duration-150"
+                                                            >
+                                                                -0.5m
+                                                            </button>
+                                                            <button 
+                                                                onClick={(e) => { e.preventDefault(); updateActiveRack({ position: [r.position[0], r.position[1], r.position[2] + 0.5] }); }}
+                                                                className="flex-1 py-1 rounded border border-brand-border bg-white text-xs font-semibold text-brand-secondary hover:bg-neutral-50 hover:text-brand-primary transition-all duration-150"
+                                                            >
+                                                                +0.5m
+                                                            </button>
+                                                        </div>
+                                                    </div>
+
+                                                    <div>
+                                                        <div className="flex justify-between items-center mb-1.5">
+                                                            <label className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary">Rotation Y</label>
+                                                            <span className="text-xs font-bold text-brand-primary bg-neutral-100 px-1.5 py-0.5 rounded">{Math.round(r.rotation[1] * (180/Math.PI))}°</span>
+                                                        </div>
+                                                        <div className="grid grid-cols-4 gap-1">
+                                                            {[0, 90, 180, 270].map((deg) => {
+                                                                const rad = deg * (Math.PI / 180);
+                                                                const isSelected = Math.round(r.rotation[1] * (180/Math.PI)) % 360 === deg || (deg === 270 && Math.round(r.rotation[1] * (180/Math.PI)) % 360 === -90);
+                                                                return (
+                                                                    <button
+                                                                        key={deg}
+                                                                        onClick={(e) => { e.preventDefault(); updateActiveRack({ rotation: [0, rad, 0] }); }}
+                                                                        className={`py-1 rounded text-xs font-semibold transition-all duration-150 ${
+                                                                            isSelected
+                                                                                ? 'bg-brand-primary text-white shadow-sm'
+                                                                                : 'border border-brand-border bg-white text-brand-secondary hover:bg-neutral-50 hover:text-brand-primary'
+                                                                        }`}
+                                                                    >
+                                                                        {deg}°
+                                                                    </button>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
-                                            
-                                            <div>
-                                               <label className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1 block">Rotation Y (Degrees)</label>
-                                               <input type="number" step="15" value={Math.round(r.rotation[1] * (180/Math.PI))} onChange={(e) => updateActiveRack({ rotation: [0, (parseFloat(e.target.value)||0) * (Math.PI/180), 0] })} className="w-full bg-brand-bg border border-brand-border rounded-lg px-3 py-2 text-sm font-medium focus:outline-brand-primary" />
+
+                                            {/* Section 4: Danger Zone */}
+                                            <div className="pt-2">
+                                                <button 
+                                                    onClick={handleDeleteRack} 
+                                                    className="w-full flex items-center justify-center gap-2 bg-red-50 text-red-600 border border-red-200 hover:bg-red-600 hover:text-white py-3 rounded-lg font-bold uppercase tracking-wider text-[10px] shadow-sm transition-all duration-200 active:scale-95"
+                                                >
+                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                    Delete Rack Forever
+                                                </button>
+                                                <p className="text-[9px] text-center text-red-400 font-medium mt-1.5">
+                                                    * Note: Evicts all staged inventory on this rack.
+                                                </p>
                                             </div>
-                                            
-                                            <button onClick={handleDeleteRack} className="w-full mt-4 bg-red-50 text-red-600 py-3 rounded-lg border border-red-200 font-bold uppercase tracking-widest text-[10px] shadow-sm hover:bg-red-600 hover:text-white transition-colors">
-                                                Delete Rack Forever
-                                            </button>
-                                       </div>
-                                    </div>
+                                        </div>
+                                     </div>
                                  );
                              })() : (
                              <div className="space-y-6">
