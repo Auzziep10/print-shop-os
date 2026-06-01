@@ -1183,6 +1183,19 @@ export function Inventory() {
     const isFloor = addForm.zoneType === 'Floor';
     const activeRackObj = currentWarehouse?.racks?.find((r: any) => r.label === addForm.rackLabel);
     
+    if (!isFloor && activeRackObj) {
+        const selectedPayload = allPallets.find((p: any) => p.id === addForm.palletId);
+        const payloadType = selectedPayload?.type || 'Pallet';
+        const rackType = activeRackObj.type || 'Pallet';
+        
+        if (rackType === 'Box' && payloadType !== 'Box') {
+            return alert("You cannot place a Pallet on a Rolling Box Rack. Only Box payloads are allowed.");
+        }
+        if (rackType === 'Pallet' && payloadType === 'Box') {
+            return alert("You cannot place a Box on a standard Pallet Rack. Only Pallets are allowed.");
+        }
+    }
+    
     // Bounds checking for slotting
     const maxBays = activeRackObj?.bays ?? 1;
     const maxLevels = activeRackObj?.levels ?? 1;
@@ -1351,6 +1364,21 @@ export function Inventory() {
                                   wh.racks?.some((r: any) => r.label === mobilePlacementData.rackLabel)
                               );
                               if (foundWh) targetWarehouseId = foundWh.id;
+                          }
+                          
+                          const targetWh = allWarehouses.find(w => w.id === targetWarehouseId) || currentWarehouse;
+                          const targetRack = targetWh?.racks?.find((r: any) => r.label === mobilePlacementData.rackLabel);
+                          const selectedPayload = allPallets.find((p: any) => p.id === mobileSelectedPalletId);
+                          
+                          if (targetRack) {
+                              const rackType = targetRack.type || 'Pallet';
+                              const payloadType = selectedPayload?.type || 'Pallet';
+                              if (rackType === 'Box' && payloadType !== 'Box') {
+                                  return alert("You cannot place a Pallet on a Rolling Box Rack. Only Box payloads are allowed.");
+                              }
+                              if (rackType === 'Pallet' && payloadType === 'Box') {
+                                  return alert("You cannot place a Box on a standard Pallet Rack. Only Pallets are allowed.");
+                              }
                           }
                           
                           // Evict occupant if slot is already taken
@@ -2125,7 +2153,18 @@ export function Inventory() {
 
         {mainTab === 'Products' && (
            <div className="w-full h-full pb-8 animate-in fade-in">
-              <ProductsTab />
+              <ProductsTab 
+                 onJumpToWarehouse={(palletId: string, zone: string, warehouseId?: string) => { 
+                     if (warehouseId) {
+                         const targetWarehouse = allWarehouses.find(w => w.id === warehouseId);
+                         if (targetWarehouse) setCurrentWarehouse(targetWarehouse);
+                     }
+                     setMainTab('Warehouse'); 
+                     setActiveTab('Map'); 
+                     setActiveRack(zone || 'Floor'); 
+                     setTimeout(() => setActivePallet(allPallets.find((p: any) => p.id === palletId)), 100); 
+                 }} 
+              />
            </div>
         )}
         

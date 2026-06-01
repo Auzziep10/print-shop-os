@@ -2,12 +2,12 @@ import { useState, useEffect } from 'react';
 import { db, storage } from '../../lib/firebase';
 import { collection, query, onSnapshot, setDoc, doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { Search, Plus, Image as ImageIcon, ChevronLeft, Trash2, Save, X, Upload, QrCode, Loader2 } from 'lucide-react';
+import { Search, Plus, Image as ImageIcon, ChevronLeft, Trash2, Save, X, Upload, QrCode, Loader2, Boxes, Map } from 'lucide-react';
 import { tokens } from '../../lib/tokens';
 
 const SIZES = ['XXS', 'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL', 'OSFA'];
 
-export function ProductsTab() {
+export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (palletId: string, zone: string, warehouseId?: string) => void }) {
   const [products, setProducts] = useState<any[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
   const [isCreating, setIsCreating] = useState(false);
@@ -16,6 +16,155 @@ export function ProductsTab() {
   const [qrSessionId, setQrSessionId] = useState<string | null>(null);
   const [expandedImage, setExpandedImage] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Racks and boxes tracking
+  const [pallets, setPallets] = useState<any[]>([]);
+  const [warehouses, setWarehouses] = useState<any[]>([]);
+  
+  const [newBoxName, setNewBoxName] = useState('');
+  const [newBoxQuantities, setNewBoxQuantities] = useState<Record<string, number>>({});
+  const [newBoxLocationType, setNewBoxLocationType] = useState<'Unmapped' | 'Floor' | 'Rack'>('Unmapped');
+  const [newBoxWarehouseId, setNewBoxWarehouseId] = useState('');
+  const [newBoxRackLabel, setNewBoxRackLabel] = useState('');
+  const [newBoxBay, setNewBoxBay] = useState('0');
+  const [newBoxLevel, setNewBoxLevel] = useState('1');
+  const [newBoxSlot, setNewBoxSlot] = useState('-1');
+  const [newBoxX, setNewBoxX] = useState('0');
+  const [newBoxZ, setNewBoxZ] = useState('0');
+  const [isCreatingBox, setIsCreatingBox] = useState(false);
+  const [isSubmittingBox, setIsSubmittingBox] = useState(false);
+
+  useEffect(() => {
+    const q = query(collection(db, 'pallets'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      setPallets(data);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const q = query(collection(db, 'warehouses'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      setWarehouses(data);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleCreateBoxSubmit = async (e: React.FormEvent) => {
+     e.preventDefault();
+     if (!newBoxName.trim()) return alert("Box name is required.");
+
+     const selectedItems = Object.entries(newBoxQuantities)
+        .filter(([_, qty]) => typeof qty === 'number' && qty > 0)
+        .map(([size, qty]) => ({
+            id: `item_${size}_${Date.now()}`,
+            sku: selectedProduct.sku || '',
+            name: selectedProduct.title || '',
+            size: size,
+            quantity: qty,
+            photoUrl: selectedProduct.images?.[0] || ''
+        }));
+
+     if (selectedItems.length === 0) {
+        return alert("Please specify quantity for at least one size.");
+     }
+
+     setIsSubmittingBox(true);
+
+     try {
+        const palletId = `pal_box_${Date.now()}`;
+        
+        let positionInfo: any = {};
+        
+        if (newBoxLocationType === 'Floor') {
+           const parsedX = Math.round(parseFloat(newBoxX) * 2) / 2;
+           const parsedZ = Math.round(parseFloat(newBoxZ) * 2) / 2;
+           positionInfo = {
+               position: [parsedX, 0, parsedZ],
+               rotation: [0, 0, 0],
+               location: `Open Floor Zone (${parsedX.toFixed(1)}, ${parsedZ.toFixed(1)})`
+           };
+        } else if (newBoxLocationType === 'Rack') {
+           const bayIdx = parseInt(newBoxBay);
+           const levelIdx = parseInt(newBoxLevel) - 1; // 0-indexed level in database
+           const slotNum = parseInt(newBoxSlot);
+           
+           // Evict current occupant
+           const occupant = pallets.find((p: any) => 
+               p.warehouseId === newBoxWarehouseId &&
+               p.zone === newBoxRackLabel &&
+               p.rackSpecs?.bay === bayIdx &&
+               p.rackSpecs?.level === levelIdx &&
+               p.rackSpecs?.slot === slotNum &&
+               p.id !== palletId
+           );
+           
+           if (occupant) {
+               const whObj = warehouses.find(w => w.id === newBoxWarehouseId);
+               const rackObj = whObj?.racks?.find((r: any) => r.label === newBoxRackLabel);
+               const rackPos = rackObj?.position || [0, 0, 0];
+               const floorX = rackPos[0] + (Math.random() - 0.5) * 3;
+               const floorZ = rackPos[2] + 3.0 + (Math.random() - 0.5) * 2;
+               
+               const occupantUpdates = {
+                   zone: 'Floor',
+                   rackSpecs: null,
+                   position: [floorX, 0, floorZ],
+                   rotation: [0, 0, 0],
+                   location: `Open Floor Zone (${floorX.toFixed(1)}, ${floorZ.toFixed(1)})`
+               };
+               await setDoc(doc(db, 'pallets', occupant.id), occupantUpdates, { merge: true });
+           }
+
+           positionInfo = {
+               rackSpecs: {
+                   bay: bayIdx,
+                   level: levelIdx,
+                   slot: slotNum
+               },
+               location: `${newBoxRackLabel} | Bay ${bayIdx + 1} | Level ${levelIdx + 1} | Slot ${slotNum === -1 ? '1' : slotNum === 0 ? '2' : '3'}`
+           };
+        }
+
+        const newBoxPayload = {
+            id: palletId,
+            type: 'Box',
+            name: newBoxName.trim(),
+            createdAt: Date.now(),
+            warehouseId: newBoxLocationType === 'Unmapped' ? '' : newBoxWarehouseId,
+            zone: newBoxLocationType === 'Unmapped' ? '' : (newBoxLocationType === 'Floor' ? 'Floor' : newBoxRackLabel),
+            boxes: [
+                {
+                    id: `box_${Date.now()}`,
+                    name: newBoxName.trim(),
+                    items: selectedItems
+                }
+            ],
+            ...positionInfo
+        };
+
+        await setDoc(doc(db, 'pallets', palletId), newBoxPayload);
+        setIsCreatingBox(false);
+        alert('Box payload created successfully!');
+     } catch (err) {
+        console.error(err);
+        alert('Failed to create box payload.');
+     } finally {
+        setIsSubmittingBox(false);
+     }
+  };
+
+  const matchingPallets = selectedProduct ? pallets.filter(pallet => {
+     if (!pallet.boxes) return false;
+     return pallet.boxes.some((box: any) => 
+        box.items && box.items.some((item: any) => 
+           item.sku === selectedProduct.sku || 
+           (item.name && item.name.toLowerCase().includes(selectedProduct.title.toLowerCase()))
+        )
+     );
+  }) : [];
 
   // Form State for editing / creating
   const [formData, setFormData] = useState({
@@ -292,9 +441,30 @@ export function ProductsTab() {
                  </div>
                   <div className="flex gap-2">
                     {!isCreating && !isEditing && (
-                      <button onClick={() => setIsEditing(true)} className="bg-neutral-100 text-brand-primary px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-neutral-200 transition-colors shadow-sm">
-                        Edit
-                      </button>
+                       <>
+                         <button 
+                            onClick={() => {
+                               setNewBoxName(`${selectedProduct.title} Box`);
+                               setNewBoxQuantities({});
+                               setNewBoxLocationType('Unmapped');
+                               setNewBoxWarehouseId(warehouses[0]?.id || 'wh_default_01');
+                               const defaultRack = warehouses[0]?.racks?.[0];
+                               setNewBoxRackLabel(defaultRack?.label || '');
+                               setNewBoxBay('0');
+                               setNewBoxLevel('1');
+                               setNewBoxSlot('-1');
+                               setNewBoxX('0');
+                               setNewBoxZ('0');
+                               setIsCreatingBox(true);
+                            }}
+                            className="bg-brand-primary text-white px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-black hover:scale-[1.02] active:scale-95 transition-all flex items-center gap-1.5 shadow-sm font-sans"
+                         >
+                             <Boxes size={14} /> Create Box
+                         </button>
+                         <button onClick={() => setIsEditing(true)} className="bg-neutral-100 text-brand-primary px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-neutral-200 transition-colors shadow-sm font-sans">
+                           Edit
+                         </button>
+                       </>
                     )}
                     {isEditing && !isCreating && (
                       <button onClick={() => handleSelectProduct(selectedProduct)} className="text-brand-secondary px-3 py-2 text-xs font-bold uppercase tracking-widest hover:text-black transition-colors">
@@ -379,6 +549,103 @@ export function ProductsTab() {
 
                   <hr className="border-brand-border/50" />
 
+                  {selectedProduct && !isCreating && (
+                     <>
+                        <div className="space-y-4 pt-2">
+                            <div className="flex justify-between items-center">
+                                <h3 className="font-serif text-lg font-bold text-brand-primary flex items-center gap-2">
+                                   <Boxes size={18} className="text-brand-secondary" />
+                                   Staged Inventory (Rolling Shelves / Boxes)
+                                </h3>
+                                <button 
+                                   onClick={() => {
+                                      setNewBoxName(`${selectedProduct.title} Box`);
+                                      setNewBoxQuantities({});
+                                      setNewBoxLocationType('Unmapped');
+                                      setNewBoxWarehouseId(warehouses[0]?.id || 'wh_default_01');
+                                      const defaultRack = warehouses[0]?.racks?.[0];
+                                      setNewBoxRackLabel(defaultRack?.label || '');
+                                      setNewBoxBay('0');
+                                      setNewBoxLevel('1');
+                                      setNewBoxSlot('-1');
+                                      setNewBoxX('0');
+                                      setNewBoxZ('0');
+                                      setIsCreatingBox(true);
+                                   }}
+                                   className="bg-brand-primary text-white text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-lg hover:bg-black hover:scale-[1.02] transition-all duration-150 flex items-center gap-1 shadow-sm font-sans"
+                                >
+                                    <Plus size={12} /> Create Box Payload
+                                </button>
+                            </div>
+
+                            {matchingPallets.length === 0 ? (
+                               <div className="border border-dashed border-brand-border rounded-xl p-6 text-center bg-brand-bg/50">
+                                  <p className="text-xs font-semibold text-brand-secondary">No boxes staged for this product yet.</p>
+                                  <p className="text-[9px] mt-1 text-brand-secondary/70">Click "+ Create Box Payload" to allocate inventory to a rolling box shelf or floor zone.</p>
+                                </div>
+                            ) : (
+                               <div className="grid grid-cols-1 gap-3">
+                                  {matchingPallets.map(pallet => {
+                                      let productUnits = 0;
+                                      const sizeDetails: string[] = [];
+                                      pallet.boxes?.forEach((box: any) => {
+                                          box.items?.forEach((item: any) => {
+                                              if (item.sku === selectedProduct.sku || (item.name && item.name.toLowerCase().includes(selectedProduct.title.toLowerCase()))) {
+                                                  productUnits += item.quantity || 0;
+                                                  sizeDetails.push(`${item.size}: ${item.quantity}`);
+                                              }
+                                          });
+                                      });
+
+                                      return (
+                                          <div key={pallet.id} className="flex justify-between items-center p-4 bg-white border border-brand-border rounded-xl shadow-sm hover:shadow-md transition-all duration-150">
+                                             <div className="space-y-1 min-w-0">
+                                                <div className="flex items-center gap-2">
+                                                   <span className="font-bold text-sm text-brand-primary truncate">{pallet.name}</span>
+                                                   <span className="text-[10px] bg-neutral-100 text-brand-secondary px-2.5 py-0.5 rounded-full font-bold">
+                                                      {productUnits} units
+                                                   </span>
+                                                </div>
+                                                <div className="text-[10px] font-bold text-brand-secondary uppercase tracking-wider flex items-center gap-1.5 font-sans">
+                                                   <Map size={11} className="shrink-0" />
+                                                   {pallet.zone 
+                                                      ? (pallet.zone === 'Floor' 
+                                                         ? `Concrete Floor (X: ${pallet.position?.[0]?.toFixed(1) ?? 0}, Z: ${pallet.position?.[2]?.toFixed(1) ?? 0})`
+                                                         : `${pallet.zone} | Bay ${pallet.rackSpecs?.bay !== undefined ? pallet.rackSpecs.bay + 1 : 1} | Level ${pallet.rackSpecs?.level !== undefined ? pallet.rackSpecs.level + 1 : 1} | Slot ${pallet.rackSpecs?.slot === -1 ? '1' : pallet.rackSpecs?.slot === 0 ? '2' : '3'}`
+                                                        )
+                                                      : 'Unmapped / Staging Area'
+                                                   }
+                                                </div>
+                                                {sizeDetails.length > 0 && (
+                                                   <div className="flex flex-wrap gap-1 mt-1">
+                                                      {sizeDetails.map((det, i) => (
+                                                         <span key={i} className="text-[9px] bg-neutral-50 border border-brand-border/60 text-brand-secondary px-1.5 py-0.5 rounded font-semibold shrink-0">
+                                                            {det}
+                                                         </span>
+                                                      ))}
+                                                   </div>
+                                                )}
+                                             </div>
+                                             
+                                             {(pallet.zone || pallet.warehouseId) && onJumpToWarehouse && (
+                                                 <button 
+                                                     onClick={() => onJumpToWarehouse(pallet.id, pallet.zone || 'Floor', pallet.warehouseId)}
+                                                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-brand-primary text-[10px] font-bold text-brand-primary uppercase hover:bg-brand-primary hover:text-white transition-all duration-200 shrink-0 font-sans"
+                                                 >
+                                                     <Map size={12} />
+                                                     Locate in 3D
+                                                 </button>
+                                             )}
+                                          </div>
+                                      );
+                                  })}
+                               </div>
+                            )}
+                        </div>
+                        <hr className="border-brand-border/50" />
+                     </>
+                  )}
+
                   {/* Images Section */}
                   <div>
                     <h3 className="font-serif text-lg font-bold text-brand-primary mb-4 flex justify-between items-center">
@@ -442,10 +709,264 @@ export function ProductsTab() {
                        </div>
                     )}
                   </div>
-              </div>
-           </div>
+               </div>
+            </div>
          )}
       </div>
+
+      {/* Create Box Payload Modal */}
+      {isCreatingBox && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in zoom-in-95 fill-mode-forwards duration-200">
+           <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-8 relative border border-brand-border max-h-[90vh] overflow-y-auto custom-scrollbar flex flex-col">
+              <button 
+                onClick={() => setIsCreatingBox(false)} 
+                className="absolute top-4 right-4 p-2 text-brand-secondary hover:text-black hover:bg-neutral-100 rounded-full transition-colors"
+                title="Cancel"
+              >
+                 <X size={20} />
+              </button>
+              
+              <div className="w-12 h-12 bg-neutral-100 rounded-2xl flex items-center justify-center mb-4 shrink-0">
+                 <Boxes size={24} className="text-brand-primary" />
+              </div>
+              
+              <h2 className="font-serif text-2xl font-bold tracking-tight text-brand-primary mb-1 shrink-0">Create Box Payload</h2>
+              <p className="text-xs text-brand-secondary mb-6 shrink-0">Allocate a box manifest and coordinates for {selectedProduct.title}.</p>
+              
+              <form onSubmit={handleCreateBoxSubmit} className="space-y-5 flex-1 min-h-0">
+                 {/* Box Name */}
+                 <div>
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1 block">Box Label / Name</label>
+                    <input 
+                      type="text" 
+                      required
+                      value={newBoxName} 
+                      onChange={e => setNewBoxName(e.target.value)} 
+                      className="w-full bg-neutral-50 border border-brand-border rounded-lg px-3 py-2 text-sm font-semibold focus:outline-brand-primary"
+                    />
+                 </div>
+
+                  {/* Quantities per Size */}
+                  <div>
+                     <label className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-2 block">Box Contents (Quantity per Size)</label>
+                     {(() => {
+                        const sizesToDisplay = SIZES.filter(size => (selectedProduct?.sizeSpread?.[size] || 0) > 0);
+                        const displaySizes = sizesToDisplay.length > 0 ? sizesToDisplay : SIZES;
+                        return (
+                           <div className="grid grid-cols-4 sm:grid-cols-5 gap-3">
+                              {displaySizes.map(size => {
+                                 const maxQty = selectedProduct?.sizeSpread?.[size] || 0;
+                                 return (
+                                    <div key={size} className="grid grid-rows-[1fr_auto] border border-brand-border shadow-sm rounded-xl overflow-hidden focus-within:border-black focus-within:ring-1 focus-within:ring-black transition-all bg-white group">
+                                       <div className="bg-neutral-100/60 p-1.5 flex flex-col items-center justify-center min-h-[36px] border-b border-brand-border group-focus-within:bg-neutral-100 transition-colors">
+                                          <span className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary leading-tight text-center">{size}</span>
+                                       </div>
+                                       <div className="bg-white flex flex-col items-center justify-center py-2 h-full gap-1">
+                                          <input 
+                                             type="number" 
+                                             min="0"
+                                             max={maxQty || undefined}
+                                             placeholder="0"
+                                             value={newBoxQuantities[size] === 0 ? '' : (newBoxQuantities[size] || '')}
+                                             onChange={e => {
+                                                 let val = parseInt(e.target.value) || 0;
+                                                 if (maxQty > 0 && val > maxQty) val = maxQty;
+                                                 if (val < 0) val = 0;
+                                                 setNewBoxQuantities(prev => ({
+                                                     ...prev,
+                                                     [size]: val
+                                                 }));
+                                             }}
+                                             className="w-full bg-transparent px-2 text-lg font-black text-center focus:outline-none placeholder:text-gray-200"
+                                          />
+                                          {maxQty > 0 && (
+                                             <span className="text-[9px] bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded text-blue-700 font-bold uppercase tracking-widest">
+                                                Max {maxQty}
+                                             </span>
+                                          )}
+                                       </div>
+                                    </div>
+                                 );
+                              })}
+                           </div>
+                        );
+                     })()}
+                  </div>
+
+                 {/* Staging Location Selector */}
+                 <div>
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1.5 block">Location Type</label>
+                    <div className="grid grid-cols-3 gap-2 bg-neutral-100 p-1 rounded-lg">
+                       {(['Unmapped', 'Floor', 'Rack'] as const).map(type => (
+                          <button
+                             key={type}
+                             type="button"
+                             onClick={() => setNewBoxLocationType(type)}
+                             className={`py-1.5 text-xs rounded transition-all duration-200 uppercase tracking-wider font-bold text-[10px] ${
+                                 newBoxLocationType === type
+                                     ? 'bg-white text-brand-primary shadow-sm'
+                                     : 'text-brand-secondary hover:text-brand-primary'
+                             }`}
+                          >
+                             {type === 'Unmapped' ? 'Unmapped' : type === 'Floor' ? 'Floor' : 'Rack Slot'}
+                          </button>
+                       ))}
+                    </div>
+                 </div>
+
+                 {/* Coordinate Detail Forms */}
+                 {newBoxLocationType !== 'Unmapped' && (
+                    <div className="space-y-4 bg-neutral-50 p-4 rounded-xl border border-brand-border/60">
+                       {/* Warehouse Selector */}
+                       <div>
+                          <label className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1 block">Warehouse / Room</label>
+                          <select 
+                             value={newBoxWarehouseId} 
+                             onChange={e => {
+                                const whId = e.target.value;
+                                setNewBoxWarehouseId(whId);
+                                const whObj = warehouses.find(w => w.id === whId);
+                                if (whObj?.racks?.length > 0) {
+                                   setNewBoxRackLabel(whObj.racks[0].label);
+                                } else {
+                                   setNewBoxRackLabel('');
+                                }
+                             }}
+                             className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-sm font-semibold focus:outline-brand-primary"
+                          >
+                             {warehouses.map(w => (
+                                <option key={w.id} value={w.id}>{w.name}</option>
+                             ))}
+                          </select>
+                       </div>
+
+                       {newBoxLocationType === 'Floor' && (
+                          <div className="grid grid-cols-2 gap-3">
+                             <div>
+                                <label className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1 block">Pos X (Lateral)</label>
+                                <input 
+                                   type="number" 
+                                   step="0.5" 
+                                   required
+                                   value={newBoxX} 
+                                   onChange={e => setNewBoxX(e.target.value)} 
+                                   className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-sm font-semibold focus:outline-brand-primary"
+                                />
+                             </div>
+                             <div>
+                                <label className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1 block">Pos Z (Depth)</label>
+                                <input 
+                                   type="number" 
+                                   step="0.5" 
+                                   required
+                                   value={newBoxZ} 
+                                   onChange={e => setNewBoxZ(e.target.value)} 
+                                   className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-sm font-semibold focus:outline-brand-primary"
+                                />
+                             </div>
+                          </div>
+                       )}
+
+                       {newBoxLocationType === 'Rack' && (() => {
+                          const whObj = warehouses.find(w => w.id === newBoxWarehouseId);
+                          const whRacks = whObj?.racks || [];
+                          const activeRackObj = whRacks.find((r: any) => r.label === newBoxRackLabel);
+                          const activeRackSlots = activeRackObj?.slots || 3;
+                          
+                          return (
+                             <div className="space-y-3">
+                                <div>
+                                   <label className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1 block">Aisle / Rack</label>
+                                   {whRacks.length === 0 ? (
+                                      <p className="text-xs text-red-500 font-semibold mt-1">No racks defined in this warehouse.</p>
+                                   ) : (
+                                      <select 
+                                         value={newBoxRackLabel} 
+                                         onChange={e => setNewBoxRackLabel(e.target.value)}
+                                         className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-sm font-semibold focus:outline-brand-primary"
+                                      >
+                                         {whRacks.map((r: any) => (
+                                            <option key={r.id} value={r.label}>{r.label} ({r.type === 'Box' ? 'Rolling Box Rack' : 'Pallet Rack'})</option>
+                                         ))}
+                                      </select>
+                                   )}
+                                </div>
+
+                                {activeRackObj && (
+                                   <div className="grid grid-cols-3 gap-3">
+                                      <div>
+                                         <label className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1 block">Bay</label>
+                                         <select 
+                                            value={newBoxBay} 
+                                            onChange={e => setNewBoxBay(e.target.value)}
+                                            className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-sm font-semibold focus:outline-brand-primary"
+                                         >
+                                            {Array.from({ length: activeRackObj.bays || 1 }).map((_, idx) => (
+                                               <option key={idx} value={idx}>Bay {idx + 1}</option>
+                                            ))}
+                                         </select>
+                                      </div>
+                                      
+                                      <div>
+                                         <label className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1 block">Level</label>
+                                         <select 
+                                            value={newBoxLevel} 
+                                            onChange={e => setNewBoxLevel(e.target.value)}
+                                            className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-sm font-semibold focus:outline-brand-primary"
+                                         >
+                                            {Array.from({ length: activeRackObj.levels || 1 }).map((_, idx) => (
+                                               <option key={idx} value={idx + 1}>Level {idx + 1}</option>
+                                            ))}
+                                         </select>
+                                      </div>
+
+                                      <div>
+                                         <label className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1 block">Slot</label>
+                                         <select 
+                                            value={newBoxSlot} 
+                                            onChange={e => setNewBoxSlot(e.target.value)}
+                                            className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-sm font-semibold focus:outline-brand-primary"
+                                         >
+                                            <option value="-1">Slot 1</option>
+                                            <option value="0">Slot 2</option>
+                                            {activeRackSlots === 3 && <option value="1">Slot 3</option>}
+                                         </select>
+                                      </div>
+                                   </div>
+                                )}
+                             </div>
+                          );
+                       })()}
+                    </div>
+                 )}
+
+                 {/* Submit Button */}
+                 <div className="flex gap-3 justify-end pt-3 shrink-0">
+                    <button 
+                       type="button" 
+                       onClick={() => setIsCreatingBox(false)}
+                       className="px-4 py-2 border border-brand-border text-brand-secondary rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-neutral-50 transition-colors"
+                    >
+                       Cancel
+                    </button>
+                    <button 
+                       type="submit" 
+                       disabled={isSubmittingBox || (newBoxLocationType === 'Rack' && !newBoxRackLabel)}
+                       className="bg-brand-primary text-white px-5 py-2 rounded-lg text-xs font-bold uppercase tracking-widest shadow-sm hover:scale-[1.02] active:scale-95 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                       {isSubmittingBox ? (
+                          <>
+                             <Loader2 size={14} className="animate-spin" /> Creating...
+                          </>
+                       ) : (
+                          'Create Box'
+                       )}
+                    </button>
+                 </div>
+              </form>
+           </div>
+        </div>
+      )}
 
       {/* QR Code Upload Modal */}
       {qrSessionId && (
