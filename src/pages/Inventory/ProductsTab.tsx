@@ -33,6 +33,7 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
   const [newBoxZ, setNewBoxZ] = useState('0');
   const [isCreatingBox, setIsCreatingBox] = useState(false);
   const [isSubmittingBox, setIsSubmittingBox] = useState(false);
+  const [editingBoxPalletId, setEditingBoxPalletId] = useState<string | null>(null);
 
   useEffect(() => {
     const q = query(collection(db, 'pallets'));
@@ -56,7 +57,7 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
      e.preventDefault();
      if (!newBoxName.trim()) return alert("Box name is required.");
 
-     const selectedItems = Object.entries(newBoxQuantities)
+     let selectedItems = Object.entries(newBoxQuantities)
         .filter(([_, qty]) => typeof qty === 'number' && qty > 0)
         .map(([size, qty]) => ({
             id: `item_${size}_${Date.now()}`,
@@ -67,6 +68,14 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
             photoUrl: selectedProduct.images?.[0] || ''
         }));
 
+     if (editingBoxPalletId) {
+        const existingPalletObj = pallets.find(p => p.id === editingBoxPalletId);
+        const nonMatchingItems = existingPalletObj?.boxes?.[0]?.items?.filter((item: any) => 
+            !(item.sku === selectedProduct.sku || (item.name && item.name.toLowerCase().includes(selectedProduct.title.toLowerCase())))
+        ) || [];
+        selectedItems = [...nonMatchingItems, ...selectedItems];
+     }
+
      if (selectedItems.length === 0) {
         return alert("Please specify quantity for at least one size.");
      }
@@ -74,7 +83,7 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
      setIsSubmittingBox(true);
 
      try {
-        const palletId = `pal_box_${Date.now()}`;
+        const palletId = editingBoxPalletId || `pal_box_${Date.now()}`;
         
         let positionInfo: any = {};
         
@@ -132,12 +141,13 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
             id: palletId,
             type: 'Box',
             name: newBoxName.trim(),
+            height: 0.35,
             createdAt: Date.now(),
             warehouseId: newBoxLocationType === 'Unmapped' ? '' : newBoxWarehouseId,
             zone: newBoxLocationType === 'Unmapped' ? '' : (newBoxLocationType === 'Floor' ? 'Floor' : newBoxRackLabel),
             boxes: [
                 {
-                    id: `box_${Date.now()}`,
+                    id: editingBoxPalletId ? (pallets.find(p => p.id === editingBoxPalletId)?.boxes?.[0]?.id || `box_${Date.now()}`) : `box_${Date.now()}`,
                     name: newBoxName.trim(),
                     items: selectedItems
                 }
@@ -147,10 +157,26 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
 
         await setDoc(doc(db, 'pallets', palletId), newBoxPayload);
         setIsCreatingBox(false);
-        alert('Box payload created successfully!');
+        alert(editingBoxPalletId ? 'Box payload updated successfully!' : 'Box payload created successfully!');
      } catch (err) {
         console.error(err);
-        alert('Failed to create box payload.');
+        alert('Failed to save box payload.');
+     } finally {
+        setIsSubmittingBox(false);
+     }
+  };
+
+  const handleDeleteBoxPayload = async () => {
+     if (!editingBoxPalletId) return;
+     if (!window.confirm("Are you sure you want to permanently delete this box payload?")) return;
+     setIsSubmittingBox(true);
+     try {
+        await deleteDoc(doc(db, 'pallets', editingBoxPalletId));
+        setIsCreatingBox(false);
+        alert("Box payload deleted successfully!");
+     } catch (err) {
+        console.error(err);
+        alert("Failed to delete box payload.");
      } finally {
         setIsSubmittingBox(false);
      }
@@ -158,12 +184,12 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
 
   const matchingPallets = selectedProduct ? pallets.filter(pallet => {
      if (!pallet.boxes) return false;
-     return pallet.boxes.some((box: any) => 
-        box.items && box.items.some((item: any) => 
-           item.sku === selectedProduct.sku || 
-           (item.name && item.name.toLowerCase().includes(selectedProduct.title.toLowerCase()))
-        )
-     );
+      return pallet.boxes.some((box: any) => 
+         box.items && box.items.some((item: any) => 
+            (selectedProduct.sku && selectedProduct.sku !== 'No SKU' && item.sku === selectedProduct.sku) || 
+            (item.name && item.name.toLowerCase().includes(selectedProduct.title.toLowerCase()))
+         )
+      );
   }) : [];
 
   // Form State for editing / creating
@@ -444,6 +470,7 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
                        <>
                          <button 
                             onClick={() => {
+                               setEditingBoxPalletId(null);
                                setNewBoxName(`${selectedProduct.title} Box`);
                                setNewBoxQuantities({});
                                setNewBoxLocationType('Unmapped');
@@ -559,6 +586,7 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
                                 </h3>
                                 <button 
                                    onClick={() => {
+                                      setEditingBoxPalletId(null);
                                       setNewBoxName(`${selectedProduct.title} Box`);
                                       setNewBoxQuantities({});
                                       setNewBoxLocationType('Unmapped');
@@ -588,14 +616,14 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
                                   {matchingPallets.map(pallet => {
                                       let productUnits = 0;
                                       const sizeDetails: string[] = [];
-                                      pallet.boxes?.forEach((box: any) => {
-                                          box.items?.forEach((item: any) => {
-                                              if (item.sku === selectedProduct.sku || (item.name && item.name.toLowerCase().includes(selectedProduct.title.toLowerCase()))) {
-                                                  productUnits += item.quantity || 0;
-                                                  sizeDetails.push(`${item.size}: ${item.quantity}`);
-                                              }
-                                          });
-                                      });
+                                       pallet.boxes?.forEach((box: any) => {
+                                           box.items?.forEach((item: any) => {
+                                               if ((selectedProduct.sku && selectedProduct.sku !== 'No SKU' && item.sku === selectedProduct.sku) || (item.name && item.name.toLowerCase().includes(selectedProduct.title.toLowerCase()))) {
+                                                   productUnits += item.quantity || 0;
+                                                   sizeDetails.push(`${item.size}: ${item.quantity}`);
+                                               }
+                                           });
+                                       });
 
                                       return (
                                           <div key={pallet.id} className="flex justify-between items-center p-4 bg-white border border-brand-border rounded-xl shadow-sm hover:shadow-md transition-all duration-150">
@@ -627,15 +655,58 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
                                                 )}
                                              </div>
                                              
-                                             {(pallet.zone || pallet.warehouseId) && onJumpToWarehouse && (
+                                             <div className="flex gap-2 shrink-0">
                                                  <button 
-                                                     onClick={() => onJumpToWarehouse(pallet.id, pallet.zone || 'Floor', pallet.warehouseId)}
-                                                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-brand-primary text-[10px] font-bold text-brand-primary uppercase hover:bg-brand-primary hover:text-white transition-all duration-200 shrink-0 font-sans"
+                                                     onClick={() => {
+                                                        setEditingBoxPalletId(pallet.id);
+                                                        setNewBoxName(pallet.name || '');
+                                                        
+                                                        const initialQuantities: Record<string, number> = {};
+                                                        pallet.boxes?.forEach((box: any) => {
+                                                            box.items?.forEach((item: any) => {
+                                                                if ((selectedProduct.sku && selectedProduct.sku !== 'No SKU' && item.sku === selectedProduct.sku) || (item.name && item.name.toLowerCase().includes(selectedProduct.title.toLowerCase()))) {
+                                                                    initialQuantities[item.size] = item.quantity || 0;
+                                                                }
+                                                            });
+                                                        });
+                                                        setNewBoxQuantities(initialQuantities);
+                                                        
+                                                        const locType = pallet.zone 
+                                                           ? (pallet.zone === 'Floor' ? 'Floor' : 'Rack')
+                                                           : 'Unmapped';
+                                                        setNewBoxLocationType(locType);
+                                                        
+                                                        setNewBoxWarehouseId(pallet.warehouseId || warehouses[0]?.id || 'wh_default_01');
+                                                        
+                                                        if (locType === 'Rack') {
+                                                           setNewBoxRackLabel(pallet.zone || '');
+                                                        } else {
+                                                           const whObj = warehouses.find(w => w.id === (pallet.warehouseId || warehouses[0]?.id));
+                                                           setNewBoxRackLabel(whObj?.racks?.[0]?.label || '');
+                                                        }
+                                                        
+                                                        setNewBoxBay(pallet.rackSpecs?.bay !== undefined ? String(pallet.rackSpecs.bay) : '0');
+                                                        setNewBoxLevel(pallet.rackSpecs?.level !== undefined ? String(pallet.rackSpecs.level + 1) : '1');
+                                                        setNewBoxSlot(pallet.rackSpecs?.slot !== undefined ? String(pallet.rackSpecs.slot) : '-1');
+                                                        setNewBoxX(pallet.position?.[0] !== undefined ? String(pallet.position[0]) : '0');
+                                                        setNewBoxZ(pallet.position?.[2] !== undefined ? String(pallet.position[2]) : '0');
+                                                        
+                                                        setIsCreatingBox(true);
+                                                     }}
+                                                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-brand-border text-[10px] font-bold text-brand-primary uppercase hover:bg-neutral-50 transition-all duration-200 font-sans"
                                                  >
-                                                     <Map size={12} />
-                                                     Locate in 3D
+                                                     Edit Box
                                                  </button>
-                                             )}
+                                                 {(pallet.zone || pallet.warehouseId) && onJumpToWarehouse && (
+                                                     <button 
+                                                         onClick={() => onJumpToWarehouse(pallet.id, pallet.zone || 'Floor', pallet.warehouseId)}
+                                                         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-brand-primary text-[10px] font-bold text-brand-primary uppercase hover:bg-brand-primary hover:text-white transition-all duration-200 shrink-0 font-sans"
+                                                     >
+                                                         <Map size={12} />
+                                                         Locate in 3D
+                                                     </button>
+                                                 )}
+                                             </div>
                                           </div>
                                       );
                                   })}
@@ -730,8 +801,12 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
                  <Boxes size={24} className="text-brand-primary" />
               </div>
               
-              <h2 className="font-serif text-2xl font-bold tracking-tight text-brand-primary mb-1 shrink-0">Create Box Payload</h2>
-              <p className="text-xs text-brand-secondary mb-6 shrink-0">Allocate a box manifest and coordinates for {selectedProduct.title}.</p>
+              <h2 className="font-serif text-2xl font-bold tracking-tight text-brand-primary mb-1 shrink-0">
+                  {editingBoxPalletId ? 'Edit Box Payload' : 'Create Box Payload'}
+               </h2>
+               <p className="text-xs text-brand-secondary mb-6 shrink-0">
+                  {editingBoxPalletId ? `Update manifest and coordinates for ${newBoxName}.` : `Allocate a box manifest and coordinates for ${selectedProduct.title}.`}
+               </p>
               
               <form onSubmit={handleCreateBoxSubmit} className="space-y-5 flex-1 min-h-0">
                  {/* Box Name */}
@@ -941,27 +1016,37 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
                  )}
 
                  {/* Submit Button */}
-                 <div className="flex gap-3 justify-end pt-3 shrink-0">
-                    <button 
-                       type="button" 
-                       onClick={() => setIsCreatingBox(false)}
-                       className="px-4 py-2 border border-brand-border text-brand-secondary rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-neutral-50 transition-colors"
-                    >
-                       Cancel
-                    </button>
-                    <button 
-                       type="submit" 
-                       disabled={isSubmittingBox || (newBoxLocationType === 'Rack' && !newBoxRackLabel)}
-                       className="bg-brand-primary text-white px-5 py-2 rounded-lg text-xs font-bold uppercase tracking-widest shadow-sm hover:scale-[1.02] active:scale-95 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                       {isSubmittingBox ? (
-                          <>
-                             <Loader2 size={14} className="animate-spin" /> Creating...
-                          </>
-                       ) : (
-                          'Create Box'
-                       )}
-                    </button>
+                 <div className="flex gap-3 justify-end pt-3 shrink-0 w-full">
+                     {editingBoxPalletId && (
+                        <button
+                           type="button"
+                           disabled={isSubmittingBox}
+                           onClick={handleDeleteBoxPayload}
+                           className="mr-auto px-4 py-2 bg-red-50 border border-red-200 text-red-600 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-red-100 transition-colors disabled:opacity-50"
+                        >
+                           Delete Box
+                        </button>
+                     )}
+                     <button 
+                        type="button" 
+                        onClick={() => setIsCreatingBox(false)}
+                        className="px-4 py-2 border border-brand-border text-brand-secondary rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-neutral-50 transition-colors"
+                     >
+                        Cancel
+                     </button>
+                     <button 
+                        type="submit" 
+                        disabled={isSubmittingBox || (newBoxLocationType === 'Rack' && !newBoxRackLabel)}
+                        className="bg-brand-primary text-white px-5 py-2 rounded-lg text-xs font-bold uppercase tracking-widest shadow-sm hover:scale-[1.02] active:scale-95 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                     >
+                        {isSubmittingBox ? (
+                           <>
+                              <Loader2 size={14} className="animate-spin" /> {editingBoxPalletId ? 'Saving...' : 'Creating...'}
+                           </>
+                        ) : (
+                           editingBoxPalletId ? 'Save Changes' : 'Create Box'
+                        )}
+                     </button>
                  </div>
               </form>
            </div>

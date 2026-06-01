@@ -142,6 +142,46 @@ const ActiveIndicator = ({ height }: { height: number }) => {
 const PayloadMesh = ({ pallet, isThisPalletActive }: any) => {
     const pHeight = pallet.height || 0.8;
     
+    if (pallet.type === 'Box') {
+        const boxH = pHeight;
+        const boxW = 0.7;
+        const boxD = 0.7;
+        
+        return (
+            <group>
+                {/* Main Cardboard Box body */}
+                <mesh position={[0, 0, 0]}>
+                    <boxGeometry args={[boxW, boxH, boxD]} />
+                    <meshStandardMaterial color={pallet.color || '#d8a47f'} roughness={0.8} emissive={isThisPalletActive ? pallet.color || '#d8a47f' : '#000'} emissiveIntensity={isThisPalletActive ? 0.3 : 0} />
+                </mesh>
+                {/* Packing Tape on top */}
+                <mesh position={[0, boxH/2 + 0.001, 0]}>
+                    <boxGeometry args={[0.08, 0.002, boxD + 0.002]} />
+                    <meshStandardMaterial color="#a0522d" roughness={0.5} />
+                </mesh>
+                {/* Shipping Label on front */}
+                <mesh position={[0, 0, boxD/2 + 0.001]} rotation={[0, 0, 0]}>
+                    <planeGeometry args={[0.22, 0.14]} />
+                    <meshStandardMaterial color="#ffffff" roughness={0.9} side={2} />
+                </mesh>
+                {/* Shipping Label on side */}
+                <mesh position={[boxW/2 + 0.001, 0, 0]} rotation={[0, Math.PI/2, 0]}>
+                    <planeGeometry args={[0.22, 0.14]} />
+                    <meshStandardMaterial color="#ffffff" roughness={0.9} side={2} />
+                </mesh>
+                {isThisPalletActive && (
+                    <>
+                        <mesh position={[0, 0, 0]}>
+                            <boxGeometry args={[boxW + 0.05, boxH + 0.05, boxD + 0.05]} />
+                            <meshStandardMaterial color="#fff" wireframe emissive="#fff" emissiveIntensity={1.5} transparent opacity={0.8} />
+                        </mesh>
+                        <ActiveIndicator height={boxH} />
+                    </>
+                )}
+            </group>
+        );
+    }
+    
     if (pallet.type === 'Pallet' || pallet.boxes?.length > 0) {
         const boxes = [];
         const boxSize = 0.28;
@@ -208,7 +248,7 @@ const PayloadMesh = ({ pallet, isThisPalletActive }: any) => {
 };
 
 
-function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, slots = 3, color = '#2b4478', label = "Rack", type = "Pallet", onClick, isActive, onPalletClick, activePallet, inventory = [], isAddingPallet, addForm }: any) {
+function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, slots = 3, color = '#2b4478', label = "Rack", type = "Pallet", onClick, isActive, onPalletClick, activePallet, inventory = [], isAddingPallet, addForm, allPallets = [] }: any) {
   const rackSlots = Number(slots) || 3;
   const isBoxRack = type === 'Box';
   const width = isBoxRack ? 1.5 : (rackSlots === 3 ? 3.8 : 2.6); // Width per bay
@@ -396,7 +436,7 @@ function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, slots = 3, c
         onClick={(e) => { if (e.delta > 2) return; e.stopPropagation(); onPalletClick?.(pallet); }}
       >
         <PalletLabels pallet={pallet} />
-        {!isBoxRack && (
+        {!isBoxRack && pallet.type !== 'Box' && (
           <mesh position={[0, -(pallet.height || 0.8)/2 + 0.07, 0]}>
             <boxGeometry args={[1.0, 0.14, 1.0]} />
             <meshStandardMaterial color="#8b5a2b" emissive={isThisPalletActive ? "#fff" : "#000"} emissiveIntensity={isThisPalletActive ? 0.3 : 0} />
@@ -418,7 +458,9 @@ function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, slots = 3, c
       const restY = isFloor ? 0 : beamY + 0.06;
       
       const scaleFactor = isBoxRack ? 0.6 : 1;
-      const stdHeight = 0.8 * scaleFactor;
+      const selectedPayload = allPallets.find((p: any) => p.id === addForm.palletId);
+      const isBox = selectedPayload?.type === 'Box';
+      const stdHeight = (isBox ? 0.35 : 0.8) * scaleFactor;
       const pY = restY + stdHeight / 2; 
       const pX = xCenter + (slot * width / (rackSlots === 3 ? 3 : 4));
       
@@ -477,10 +519,12 @@ function FloorPallet({ pallet, onClick, onPalletClick, activePallet, setIsOrbitE
       <group scale={[1.3, 1.3, 1.3]}>
          <PalletLabels pallet={pallet} />
       </group>
-      <mesh position={[0, -pHeight/2 + 0.07, 0]}>
-        <boxGeometry args={[1.0, 0.14, 1.0]} />
-        <meshStandardMaterial color="#8b5a2b" emissive={isThisPalletActive ? "#fff" : "#000"} emissiveIntensity={isThisPalletActive ? 0.3 : 0} />
-      </mesh>
+      {pallet.type !== 'Box' && (
+        <mesh position={[0, -pHeight/2 + 0.07, 0]}>
+          <boxGeometry args={[1.0, 0.14, 1.0]} />
+          <meshStandardMaterial color="#8b5a2b" emissive={isThisPalletActive ? "#fff" : "#000"} emissiveIntensity={isThisPalletActive ? 0.3 : 0} />
+        </mesh>
+      )}
       <PayloadMesh pallet={pallet} isThisPalletActive={isThisPalletActive} />
     </group>
   );
@@ -637,7 +681,8 @@ function WarehouseMap({ activeRack, setActiveRack, activePallet, setActivePallet
      onPalletClick: setActivePallet,
      activePallet,
      isAddingPallet,
-     addForm
+     addForm,
+     allPallets: inventory
   };
   
   const [isOrbitEnabled, setIsOrbitEnabled] = useState(true);
