@@ -435,8 +435,8 @@ function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, slots = 3, c
     if (bay >= bays || level >= levels) return; // Prevent out of bounds rendering if data expands
 
     const xCenter = (bay * width) + (width / 2) - (totalWidth / 2);
-    const isFloor = (level === 0);
-    const beamY = isFloor ? 0 : (level * (height / levels)) - 0.06; 
+    const isFloor = !isBoxRack && (level === 0);
+    const beamY = isFloor ? 0 : (isBoxRack ? ((level + 1) * (height / levels)) - 0.06 : (level * (height / levels)) - 0.06); 
     const restY = isFloor ? 0 : (isBoxRack ? beamY + 0.01 : beamY + 0.06);
     
     // Scale payload down slightly if on a box rack
@@ -472,8 +472,8 @@ function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, slots = 3, c
       const slot = parseInt(addForm.slot) || -1;
       
       const xCenter = (bay * width) + (width / 2) - (totalWidth / 2);
-      const isFloor = (level === 0);
-      const beamY = isFloor ? 0 : (level * (height / levels)) - 0.06; 
+      const isFloor = !isBoxRack && (level === 0);
+      const beamY = isFloor ? 0 : (isBoxRack ? ((level + 1) * (height / levels)) - 0.06 : (level * (height / levels)) - 0.06); 
       const restY = isFloor ? 0 : (isBoxRack ? beamY + 0.01 : beamY + 0.06);
       
       const scaleFactor = isBoxRack ? 0.6 : 1;
