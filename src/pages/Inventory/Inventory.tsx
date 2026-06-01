@@ -718,7 +718,7 @@ function WarehouseMap({ activeRack, setActiveRack, activePallet, setActivePallet
 
         {/* ======== DYNAMIC RACKS ======== */}
         {warehouse?.racks?.map((rack: any) => (
-            <Rack key={rack.id} position={rack.position} rotation={rack.rotation || [0,0,0]} bays={rack.bays} levels={rack.levels} slots={rack.slots || 3} label={rack.label} inventory={getRackInventory(rack.label)} isActive={isRackHighlighted(rack.label)} {...rackProps} />
+            <Rack key={rack.id} position={rack.position} rotation={rack.rotation || [0,0,0]} bays={rack.bays} levels={rack.levels} slots={rack.slots || 3} label={rack.label} type={rack.type} color={rack.color} inventory={getRackInventory(rack.label)} isActive={isRackHighlighted(rack.label)} {...rackProps} />
         ))}
 
         {/* ======== LOOSE FLOOR PALLETS ======== */}
