@@ -447,7 +447,7 @@ export function PalletPickOptimizerModal({ isOpen, onClose, preSelectedOrder, on
     const routeHtml = optimizationResult.route.map((pallet, pIdx) => {
       const locationStr = pallet.zone === 'Floor' 
         ? 'Floor Location' 
-        : `Rack: ${pallet.zone} • Bay ${pallet.rackSpecs?.bay + 1 || 1} • Level ${pallet.rackSpecs?.level || 0}`;
+        : `Rack: ${pallet.zone} • Bay ${pallet.rackSpecs?.bay + 1 || 1} • Level ${(pallet.rackSpecs?.level ?? 0) + 1}`;
 
       const boxesHtml = pallet.boxes.map((box: any) => {
         const totalBoxQty = box.picks.reduce((sum: number, p: any) => sum + p.qty, 0);
@@ -1199,7 +1199,7 @@ export function PalletPickOptimizerModal({ isOpen, onClose, preSelectedOrder, on
                     const isFullyPicked = isPalletFullyChecked(pallet);
                     const locationStr = pallet.zone === 'Floor' 
                       ? 'Floor Location' 
-                      : `Rack: ${pallet.zone} • Bay ${pallet.rackSpecs?.bay + 1 || 1} • Level ${pallet.rackSpecs?.level || 0}`;
+                      : `Rack: ${pallet.zone} • Bay ${pallet.rackSpecs?.bay + 1 || 1} • Level ${(pallet.rackSpecs?.level ?? 0) + 1}`;
 
                     return (
                       <div 

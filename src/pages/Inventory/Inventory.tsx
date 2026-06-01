@@ -1412,7 +1412,7 @@ export function Inventory() {
                          {allPallets.filter((p: any) => p.warehouseId).map((p: any) => {
                             const locStr = p.zone === 'Floor' 
                                ? `Floor (${p.position?.[0]?.toFixed(1) ?? 0}, ${p.position?.[2]?.toFixed(1) ?? 0})`
-                               : `${p.zone} (Bay ${(p.rackSpecs?.bay ?? 0) + 1} Lvl ${p.rackSpecs?.level ?? 0} Slot ${p.rackSpecs?.slot === -1 ? '1' : p.rackSpecs?.slot === 0 ? '2' : '3'})`;
+                               : `${p.zone} (Bay ${(p.rackSpecs?.bay ?? 0) + 1} Lvl ${(p.rackSpecs?.level ?? 0) + 1} Slot ${p.rackSpecs?.slot === -1 ? '1' : p.rackSpecs?.slot === 0 ? '2' : '3'})`;
                             return (
                                 <option key={p.id} value={p.id}>{p.name || p.client || p.id} - {locStr}</option>
                             );
@@ -1967,7 +1967,7 @@ export function Inventory() {
                                <div className="bg-brand-bg p-3 flex flex-col rounded-lg border border-brand-border/50 text-xs font-semibold text-brand-primary break-words">
                                   {activePallet.zone === 'Floor' 
                                      ? `Floor Zone (X: ${activePallet.position?.[0] ?? 0}, Z: ${activePallet.position?.[2] ?? 0})`
-                                     : `${activePallet.zone} | Bay ${activePallet.rackSpecs?.bay ?? 0} | Level ${activePallet.rackSpecs?.level ?? 0}${activePallet.rackSpecs?.slot !== undefined ? ` | Slot ${activePallet.rackSpecs.slot === -1 ? '1' : activePallet.rackSpecs.slot === 0 ? '2' : '3'}` : ''}`
+                                     : `${activePallet.zone} | Bay ${(activePallet.rackSpecs?.bay ?? 0) + 1} | Level ${(activePallet.rackSpecs?.level ?? 0) + 1}${activePallet.rackSpecs?.slot !== undefined ? ` | Slot ${activePallet.rackSpecs.slot === -1 ? '1' : activePallet.rackSpecs.slot === 0 ? '2' : '3'}` : ''}`
                                   }
                                </div>
                             </div>
@@ -2112,7 +2112,7 @@ export function Inventory() {
                                      {allPallets.filter(p => p.warehouseId).map(p => {
                                         const locStr = p.zone === 'Floor' 
                                            ? `Floor (${p.position?.[0]?.toFixed(1) ?? 0}, ${p.position?.[2]?.toFixed(1) ?? 0})`
-                                           : `${p.zone} (Bay ${(p.rackSpecs?.bay ?? 0) + 1} Lvl ${p.rackSpecs?.level ?? 0} Slot ${p.rackSpecs?.slot === -1 ? '1' : p.rackSpecs?.slot === 0 ? '2' : '3'})`;
+                                           : `${p.zone} (Bay ${(p.rackSpecs?.bay ?? 0) + 1} Lvl ${(p.rackSpecs?.level ?? 0) + 1} Slot ${p.rackSpecs?.slot === -1 ? '1' : p.rackSpecs?.slot === 0 ? '2' : '3'})`;
                                         return (
                                            <option key={p.id} value={p.id}>{p.name || p.id} - {locStr}</option>
                                         );
