@@ -140,7 +140,7 @@ const ActiveIndicator = ({ height }: { height: number }) => {
 };
 
 const PayloadMesh = ({ pallet, isThisPalletActive }: any) => {
-    const pHeight = pallet.height || 0.8;
+    const pHeight = pallet.height || (pallet.type === 'Box' ? 0.35 : 0.8);
     
     if (pallet.type === 'Box') {
         const boxH = pHeight;
@@ -419,11 +419,12 @@ function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, slots = 3, c
     const xCenter = (bay * width) + (width / 2) - (totalWidth / 2);
     const isFloor = (level === 0);
     const beamY = isFloor ? 0 : (level * (height / levels)) - 0.06; 
-    const restY = isFloor ? 0 : beamY + 0.06;
+    const restY = isFloor ? 0 : (isBoxRack ? beamY + 0.01 : beamY + 0.06);
     
     // Scale payload down slightly if on a box rack
     const scaleFactor = isBoxRack ? 0.6 : 1;
-    const pY = restY + ((pallet.height || 0.8) * scaleFactor) / 2;
+    const boxHeight = pallet.height || (pallet.type === 'Box' ? 0.35 : 0.8);
+    const pY = restY + (boxHeight * scaleFactor) / 2;
     const pX = xCenter + (slot * width / (rackSlots === 3 ? 3 : 4));
     
     const isThisPalletActive = activePallet?.id === pallet.id;
@@ -437,7 +438,7 @@ function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, slots = 3, c
       >
         <PalletLabels pallet={pallet} />
         {!isBoxRack && pallet.type !== 'Box' && (
-          <mesh position={[0, -(pallet.height || 0.8)/2 + 0.07, 0]}>
+          <mesh position={[0, -(pallet.height || (pallet.type === 'Box' ? 0.35 : 0.8))/2 + 0.07, 0]}>
             <boxGeometry args={[1.0, 0.14, 1.0]} />
             <meshStandardMaterial color="#8b5a2b" emissive={isThisPalletActive ? "#fff" : "#000"} emissiveIntensity={isThisPalletActive ? 0.3 : 0} />
           </mesh>
@@ -455,7 +456,7 @@ function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, slots = 3, c
       const xCenter = (bay * width) + (width / 2) - (totalWidth / 2);
       const isFloor = (level === 0);
       const beamY = isFloor ? 0 : (level * (height / levels)) - 0.06; 
-      const restY = isFloor ? 0 : beamY + 0.06;
+      const restY = isFloor ? 0 : (isBoxRack ? beamY + 0.01 : beamY + 0.06);
       
       const scaleFactor = isBoxRack ? 0.6 : 1;
       const selectedPayload = allPallets.find((p: any) => p.id === addForm.palletId);
@@ -491,7 +492,7 @@ function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, slots = 3, c
 
 function FloorPallet({ pallet, onClick, onPalletClick, activePallet, setIsOrbitEnabled, onUpdatePosition, onLocalUpdatePosition }: any) {
   const isThisPalletActive = activePallet?.id === pallet.id;
-  const pHeight = pallet.height || 0.8;
+  const pHeight = pallet.height || (pallet.type === 'Box' ? 0.35 : 0.8);
   const pY = pHeight / 2;
   const groupRef = useRef<THREE.Group>(null);
   const isDraggingRef = useRef(false);
