@@ -86,6 +86,7 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
               if (typeof qty === 'number' && qty > 0) {
                   selectedItems.push({
                       id: `item_${bp.product.sku || bp.product.title}_${size}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+                      productId: bp.product.id || '',
                       sku: bp.product.sku === 'No SKU' ? '' : (bp.product.sku || ''),
                       name: bp.product.title || '',
                       size: size,
@@ -208,6 +209,7 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
      if (!pallet.boxes) return false;
       return pallet.boxes.some((box: any) => 
          box.items && box.items.some((item: any) => 
+            (selectedProduct.id && item.productId === selectedProduct.id) ||
             (selectedProduct.sku && selectedProduct.sku !== 'No SKU' && item.sku === selectedProduct.sku) || 
             (item.name && item.name.toLowerCase().includes(selectedProduct.title.toLowerCase()))
          )
@@ -226,10 +228,18 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
            pallet.boxes.forEach((box: any) => {
               if (!box.items) return;
               box.items.forEach((item: any) => {
-                 const matches = 
-                    (p.id && (item.productId === p.id || item.product?.id === p.id)) ||
-                    (p.sku && p.sku !== 'No SKU' && item.sku === p.sku) ||
-                    (p.title && item.name && item.name.toLowerCase() === p.title.toLowerCase());
+                  const matches = (() => {
+                     if (item.productId && p.id === item.productId) return true;
+                     const itemSku = item.sku && item.sku !== 'No SKU' ? item.sku : '';
+                     const prodSku = p.sku && p.sku !== 'No SKU' ? p.sku : '';
+                     if (itemSku && prodSku) {
+                        return itemSku.toLowerCase() === prodSku.toLowerCase();
+                     }
+                     if (!itemSku && !prodSku) {
+                        return p.title && item.name && item.name.toLowerCase() === p.title.toLowerCase();
+                     }
+                     return false;
+                  })();
                  if (matches && item.size === size) {
                     stagedQty += (item.quantity || 0);
                  }
@@ -690,10 +700,20 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
                                       const groupedProducts: any[] = [];
                                       pallet.boxes?.forEach((box: any) => {
                                           box.items?.forEach((item: any) => {
-                                              const matchedProduct = products.find((prod: any) => 
-                                                  (prod.sku && prod.sku !== 'No SKU' && prod.sku === item.sku) ||
-                                                  (prod.title && prod.title.toLowerCase() === item.name.toLowerCase())
-                                              );
+                                               const matchedProduct = products.find((prod: any) => {
+                                                   if (item.productId && prod.id === item.productId) {
+                                                       return true;
+                                                   }
+                                                   const itemSku = item.sku && item.sku !== 'No SKU' ? item.sku : '';
+                                                   const prodSku = prod.sku && prod.sku !== 'No SKU' ? prod.sku : '';
+                                                   if (itemSku && prodSku) {
+                                                       return itemSku.toLowerCase() === prodSku.toLowerCase();
+                                                   }
+                                                   if (!itemSku && !prodSku) {
+                                                       return prod.title && prod.title.toLowerCase() === item.name.toLowerCase();
+                                                   }
+                                                   return false;
+                                               });
                                               const prodId = matchedProduct?.id || item.sku || item.name;
                                               let entry = groupedProducts.find(g => g.id === prodId);
                                               if (!entry) {
