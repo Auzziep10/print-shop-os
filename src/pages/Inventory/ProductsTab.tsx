@@ -1245,21 +1245,42 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
                            <div className="flex-1 flex min-h-0">
                                <div className="flex-1 min-w-0 pr-4 overflow-hidden flex flex-col">
                                    <div className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-2">Manifest</div>
-                                   <div className="space-y-1 overflow-y-auto flex-1 pr-2 custom-scrollbar">
-                                       {(printingBox.boxes?.[0]?.items || []).map((item: any) => (
-                                           <div key={item.id} className="flex justify-between items-center py-1 border-b border-gray-100 last:border-0">
-                                               <div className="min-w-0 flex-1 pr-2">
-                                                   <p className="font-bold text-[11px] truncate leading-tight text-black">{item.name}</p>
-                                                   <p className="text-[8px] font-bold text-gray-500 mt-0.5">{item.sku} • {item.size}</p>
-                                               </div>
-                                               <div className="font-black text-xl font-sans shrink-0">
-                                                   ×{item.quantity}
-                                               </div>
-                                           </div>
-                                       ))}
-                                       {(!printingBox.boxes?.[0]?.items || printingBox.boxes[0].items.length === 0) && (
-                                           <div className="p-4 border-2 border-dashed border-black/30 text-center font-bold uppercase text-xs">Empty Box</div>
-                                       )}
+                                   <div className="space-y-2 overflow-y-auto flex-1 pr-2 custom-scrollbar">
+                                        {(() => {
+                                            const items = printingBox.boxes?.[0]?.items || [];
+                                            const grouped: Record<string, { sku: string; sizes: { size: string; quantity: number }[] }> = {};
+                                            
+                                            items.forEach((item: any) => {
+                                                const key = item.name;
+                                                if (!grouped[key]) {
+                                                    grouped[key] = { sku: item.sku || '', sizes: [] };
+                                                }
+                                                grouped[key].sizes.push({ size: item.size, quantity: item.quantity });
+                                            });
+                                            
+                                            return Object.entries(grouped).map(([name, group]: [string, any]) => {
+                                                const totalQty = group.sizes.reduce((sum: number, s: any) => sum + s.quantity, 0);
+                                                return (
+                                                    <div key={name} className="border-b border-black/20 pb-2 last:border-0">
+                                                        <div className="flex justify-between items-baseline mb-1">
+                                                            <p className="font-bold text-[11px] truncate text-black flex-1 pr-2">{name}</p>
+                                                            <span className="text-[10px] font-black text-black shrink-0">Total: {totalQty}</span>
+                                                        </div>
+                                                        {group.sku && <p className="text-[8px] font-bold text-gray-500 mb-1.5">{group.sku}</p>}
+                                                        <div className="flex flex-wrap gap-1">
+                                                            {group.sizes.map((s: any, idx: number) => (
+                                                                <span key={idx} className="text-[9px] border border-black text-black font-black px-1.5 py-0.5 rounded leading-none">
+                                                                    {s.size}: {s.quantity}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            });
+                                        })()}
+                                        {(!printingBox.boxes?.[0]?.items || printingBox.boxes[0].items.length === 0) && (
+                                            <div className="p-4 border-2 border-dashed border-black/30 text-center font-bold uppercase text-xs">Empty Box</div>
+                                        )}
                                    </div>
                                </div>
                                
