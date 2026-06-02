@@ -124,7 +124,7 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
            // Evict current occupant
            const occupant = pallets.find((p: any) => 
                p.warehouseId === newBoxWarehouseId &&
-               p.zone === newBoxRackLabel &&
+               String(p.zone) === String(newBoxRackLabel) &&
                p.rackSpecs?.bay === bayIdx &&
                p.rackSpecs?.level === levelIdx &&
                p.rackSpecs?.slot === slotNum &&
@@ -133,7 +133,7 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
            
            if (occupant) {
                const whObj = warehouses.find(w => w.id === newBoxWarehouseId);
-               const rackObj = whObj?.racks?.find((r: any) => r.label === newBoxRackLabel);
+               const rackObj = whObj?.racks?.find((r: any) => String(r.label) === String(newBoxRackLabel));
                const rackPos = rackObj?.position || [0, 0, 0];
                const floorX = rackPos[0] + (Math.random() - 0.5) * 3;
                const floorZ = rackPos[2] + 3.0 + (Math.random() - 0.5) * 2;
@@ -1153,7 +1153,7 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
                                  {newBoxLocationType === 'Rack' && (() => {
                                     const whObj = warehouses.find(w => w.id === newBoxWarehouseId);
                                     const whRacks = whObj?.racks || [];
-                                    const activeRackObj = whRacks.find((r: any) => r.label === newBoxRackLabel);
+                                    const activeRackObj = whRacks.find((r: any) => String(r.label) === String(newBoxRackLabel));
                                     const activeRackSlots = activeRackObj?.slots || 3;
                                     
                                     return (

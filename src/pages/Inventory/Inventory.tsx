@@ -35,7 +35,7 @@ function CameraController({ activePallet, activeRack, warehouse }: any) {
          lookPos.set(activePallet.position[0], activePallet.position[1], activePallet.position[2]);
          hasTarget = true;
       } else if (activePallet.rackSpecs && activePallet.zone !== 'Floor') {
-         const rack = warehouse?.racks?.find((r: any) => r.label === activePallet.zone);
+         const rack = warehouse?.racks?.find((r: any) => String(r.label) === String(activePallet.zone));
          if (rack) {
             // Rough approximation of rack position
             lookPos.set(rack.position[0], rack.position[1] + (activePallet.rackSpecs.level * 1.2), rack.position[2]);
@@ -43,7 +43,7 @@ function CameraController({ activePallet, activeRack, warehouse }: any) {
          }
       }
     } else if (activeRack) {
-      const rack = warehouse?.racks?.find((r: any) => r.label === activeRack);
+      const rack = warehouse?.racks?.find((r: any) => String(r.label) === String(activeRack));
       if (rack) {
          lookPos.set(rack.position[0], rack.position[1], rack.position[2]);
          hasTarget = true;
@@ -466,7 +466,7 @@ function Rack({ position, rotation = [0,0,0], bays = 2, levels = 2, slots = 3, c
     );
   });
 
-  if (isAddingPallet && addForm?.zoneType === 'Rack' && addForm?.rackLabel === label) {
+  if (isAddingPallet && addForm?.zoneType === 'Rack' && String(addForm?.rackLabel) === String(label)) {
       const bay = parseInt(addForm.bay) || 0;
       const level = parseInt(addForm.level) || 0;
       const slot = parseInt(addForm.slot) || -1;
@@ -706,12 +706,12 @@ function WarehouseMap({ activeRack, setActiveRack, activePallet, setActivePallet
   
   const [isOrbitEnabled, setIsOrbitEnabled] = useState(true);
   
-  const getRackInventory = (zone: string) => inventory.filter((p: any) => p.zone === zone);
+  const getRackInventory = (zone: string) => inventory.filter((p: any) => String(p.zone) === String(zone));
   const floorInventory = inventory.filter((p: any) => p.zone === 'Floor');
   
   const isRackHighlighted = (label: string) => {
-     if (activeRack === label) return true;
-     if (isAddingPallet && addForm?.zoneType === 'Rack' && addForm?.rackLabel === label) return true;
+     if (String(activeRack) === String(label)) return true;
+     if (isAddingPallet && addForm?.zoneType === 'Rack' && String(addForm?.rackLabel) === String(label)) return true;
      return false;
   };
 
@@ -821,7 +821,7 @@ function WarehouseMap({ activeRack, setActiveRack, activePallet, setActivePallet
         )}
 
         {activeTab === 'Builder' && activeRack && (() => {
-             const selectedRack = warehouse?.racks?.find((r: any) => r.label === activeRack);
+             const selectedRack = warehouse?.racks?.find((r: any) => String(r.label) === String(activeRack));
              if (!selectedRack || !selectedRack.position) return null;
              return (
                  <FloorMoveArrows 
@@ -1217,7 +1217,7 @@ export function Inventory() {
 
   const handleMoveRack = async (rackLabel: string, direction: 'N' | 'S' | 'E' | 'W', stepSize = 0.5) => {
     if (!currentWarehouse) return;
-    const rack = currentWarehouse.racks.find((r: any) => r.label === rackLabel);
+    const rack = currentWarehouse.racks.find((r: any) => String(r.label) === String(rackLabel));
     if (!rack || !rack.position) return;
     
     let [x, y, z] = rack.position;
@@ -1231,7 +1231,7 @@ export function Inventory() {
     z = Math.round(z * 2) / 2;
     
     const newRacks = currentWarehouse.racks.map((r: any) => 
-        r.label === rackLabel ? { ...r, position: [x, y, z] } : r
+        String(r.label) === String(rackLabel) ? { ...r, position: [x, y, z] } : r
     );
     
     updateWarehouse({ racks: newRacks });
@@ -1246,7 +1246,7 @@ export function Inventory() {
     if (!addForm.palletId) return alert('Please select a pallet to stage.');
     
     const isFloor = addForm.zoneType === 'Floor';
-    const activeRackObj = currentWarehouse?.racks?.find((r: any) => r.label === addForm.rackLabel);
+    const activeRackObj = currentWarehouse?.racks?.find((r: any) => String(r.label) === String(addForm.rackLabel));
     
     const selectedPayload = allPallets.find((p: any) => p.id === addForm.palletId);
     const payloadType = selectedPayload?.type || 'Pallet';
@@ -1275,7 +1275,7 @@ export function Inventory() {
         const slotNum = parseInt(addForm.slot as any);
         const occupant = allPallets.find((p: any) => 
             p.warehouseId === (currentWarehouse?.id || "wh_default_01") &&
-            p.zone === addForm.rackLabel &&
+            String(p.zone) === String(addForm.rackLabel) &&
             p.rackSpecs?.bay === bayIndex &&
             p.rackSpecs?.level === levelIndex &&
             p.rackSpecs?.slot === slotNum &&
@@ -1429,13 +1429,13 @@ export function Inventory() {
                           let targetWarehouseId = mobilePlacementData.warehouseId;
                           if (!targetWarehouseId && allWarehouses.length > 0) {
                               const foundWh = allWarehouses.find(wh => 
-                                  wh.racks?.some((r: any) => r.label === mobilePlacementData.rackLabel)
+                                  wh.racks?.some((r: any) => String(r.label) === String(mobilePlacementData.rackLabel))
                               );
                               if (foundWh) targetWarehouseId = foundWh.id;
                           }
                           
                           const targetWh = allWarehouses.find(w => w.id === targetWarehouseId) || currentWarehouse;
-                          const targetRack = targetWh?.racks?.find((r: any) => r.label === mobilePlacementData.rackLabel);
+                          const targetRack = targetWh?.racks?.find((r: any) => String(r.label) === String(mobilePlacementData.rackLabel));
                           const selectedPayload = allPallets.find((p: any) => p.id === mobileSelectedPalletId);
                           
                           if (targetRack) {
@@ -1452,7 +1452,7 @@ export function Inventory() {
                           // Evict occupant if slot is already taken
                           const occupant = allPallets.find((p: any) => 
                               p.warehouseId === (targetWarehouseId || currentWarehouse?.id || defaultWarehouseBlueprint.id) &&
-                              p.zone === mobilePlacementData.rackLabel &&
+                              String(p.zone) === String(mobilePlacementData.rackLabel) &&
                               p.rackSpecs?.bay === mobilePlacementData.bay &&
                               p.rackSpecs?.level === mobilePlacementData.level &&
                               p.rackSpecs?.slot === mobilePlacementData.slot &&
@@ -1461,7 +1461,7 @@ export function Inventory() {
                           
                           if (occupant) {
                               const targetWh = allWarehouses.find(w => w.id === targetWarehouseId) || currentWarehouse;
-                              const targetRack = targetWh?.racks?.find((r: any) => r.label === mobilePlacementData.rackLabel);
+                              const targetRack = targetWh?.racks?.find((r: any) => String(r.label) === String(mobilePlacementData.rackLabel));
                               const rackPos = targetRack?.position || [0, 0, 0];
                               // Displace to concrete floor nearby
                               const floorX = rackPos[0] + (Math.random() - 0.5) * 3;
@@ -1632,8 +1632,8 @@ export function Inventory() {
                          </div>
                          
                          <div className="flex-1 overflow-y-auto w-full p-6 custom-scrollbar">
-                             {activeRack !== null && currentWarehouse?.racks?.find((r:any) => r.label === activeRack) ? (() => {
-                                 const r = currentWarehouse.racks.find((r:any) => r.label === activeRack);
+                             {activeRack !== null && currentWarehouse?.racks?.find((r:any) => String(r.label) === String(activeRack)) ? (() => {
+                                 const r = currentWarehouse.racks.find((r:any) => String(r.label) === String(activeRack));
                                  return (
                                      <div className="space-y-6">
                                         <div className="flex justify-between items-center pb-3 border-b border-brand-border/60">
@@ -2072,7 +2072,7 @@ export function Inventory() {
                          <div className="bg-brand-primary text-white p-5 rounded-2xl mb-6 shadow-lg">
                             <span className="text-[10px] font-bold uppercase tracking-widest opacity-70">Current Location</span>
                             <h3 className="font-serif text-2xl border-b border-white/20 pb-3 mb-3 mt-1 tracking-tight">{activeRack}</h3>
-                            <div className="flex items-center gap-2 text-sm font-medium"><Boxes size={16} className="opacity-80"/> {inventoryDB.filter((p: any) => p.zone === activeRack).length} Active Pallets</div>
+                            <div className="flex items-center gap-2 text-sm font-medium"><Boxes size={16} className="opacity-80"/> {inventoryDB.filter((p: any) => String(p.zone) === String(activeRack)).length} Active Pallets</div>
                          </div>
                          
                          <button onClick={() => setPrintRackLabelRack(activeRack)} className="w-full mb-6 bg-black text-white px-4 py-3 rounded-lg font-bold uppercase tracking-widest text-xs flex justify-center items-center gap-2 shadow-sm hover:scale-[1.02] transition-transform">
@@ -2081,7 +2081,7 @@ export function Inventory() {
 
                          <h4 className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-3">Manifest Log</h4>
                          <div className="space-y-3 pb-8">
-                            {inventoryDB.filter((p: any) => p.zone === activeRack).map((p: any) => (
+                            {inventoryDB.filter((p: any) => String(p.zone) === String(activeRack)).map((p: any) => (
                                <div key={p.id} onClick={() => setActivePallet(p)} className="border border-brand-border rounded-xl p-4 hover:bg-brand-bg/50 transition-all cursor-pointer group">
                                   <div className="flex justify-between items-center mb-2">
                                      <span className="text-xs font-bold text-brand-primary group-hover:underline uppercase tracking-wider">{p.id}</span>
@@ -2147,7 +2147,7 @@ export function Inventory() {
                                       <div>
                                          <label className="text-[10px] uppercase font-bold text-brand-secondary tracking-widest">Bay</label>
                                          <select value={addForm.bay} onChange={e => setAddForm({...addForm, bay: parseInt(e.target.value)})} className="w-full mt-1 p-3 flex-1 rounded-lg border border-brand-border bg-brand-bg text-sm font-semibold focus:outline-brand-primary">
-                                             {Array.from({ length: currentWarehouse?.racks?.find((r: any) => r.label === addForm.rackLabel)?.bays || 2 }).map((_, idx) => (
+                                             {Array.from({ length: currentWarehouse?.racks?.find((r: any) => String(r.label) === String(addForm.rackLabel))?.bays || 2 }).map((_, idx) => (
                                                 <option key={idx} value={idx}>Bay {idx}</option>
                                              ))}
                                          </select>
@@ -2155,7 +2155,7 @@ export function Inventory() {
                                       <div>
                                          <label className="text-[10px] uppercase font-bold text-brand-secondary tracking-widest">Level</label>
                                          <select value={addForm.level} onChange={e => setAddForm({...addForm, level: parseInt(e.target.value)})} className="w-full mt-1 p-3 flex-1 rounded-lg border border-brand-border bg-brand-bg text-sm font-semibold focus:outline-brand-primary">
-                                            {Array.from({ length: currentWarehouse?.racks?.find((r: any) => r.label === addForm.rackLabel)?.levels || 2 }).map((_, idx) => (
+                                            {Array.from({ length: currentWarehouse?.racks?.find((r: any) => String(r.label) === String(addForm.rackLabel))?.levels || 2 }).map((_, idx) => (
                                                 <option key={idx} value={idx}>{idx} {idx === 0 ? '(Ground)' : '(Beam)'}</option>
                                              ))}
                                          </select>
@@ -2163,7 +2163,7 @@ export function Inventory() {
                                       <div>
                                          <label className="text-[10px] uppercase font-bold text-brand-secondary tracking-widest">Slot</label>
                                          <select value={addForm.slot} onChange={e => setAddForm({...addForm, slot: parseInt(e.target.value)})} className="w-full mt-1 p-3 flex-1 rounded-lg border border-brand-border bg-brand-bg text-sm font-semibold focus:outline-brand-primary">
-                                          {(currentWarehouse?.racks?.find((r: any) => r.label === addForm.rackLabel)?.slots || 3) === 2 ? (
+                                          {(currentWarehouse?.racks?.find((r: any) => String(r.label) === String(addForm.rackLabel))?.slots || 3) === 2 ? (
                                               <>
                                                   <option value={-1}>Slot 1</option>
                                                   <option value={1}>Slot 2</option>
