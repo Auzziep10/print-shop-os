@@ -27,7 +27,15 @@ const getProductDescriptor = (product: any) => {
   return colorVal || skuVal || 'No SKU';
 };
 
-export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (palletId: string, zone: string, warehouseId?: string) => void }) {
+export function ProductsTab({ 
+  onJumpToWarehouse,
+  initialEditingBoxId,
+  onClearInitialBox
+}: { 
+  onJumpToWarehouse?: (palletId: string, zone: string, warehouseId?: string) => void;
+  initialEditingBoxId?: string | null;
+  onClearInitialBox?: () => void;
+}) {
   const [products, setProducts] = useState<any[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
   const [isCreating, setIsCreating] = useState(false);
@@ -331,6 +339,105 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
     setIsCreating(false);
     setIsEditing(false);
   };
+
+  const handleOpenBoxForEditing = (pallet: any) => {
+     if (!pallet) return;
+     
+     const groupedProducts: any[] = [];
+     pallet.boxes?.forEach((box: any) => {
+         box.items?.forEach((item: any) => {
+              const matchedProduct = products.find((prod: any) => {
+                  if (item.productId) {
+                      return prod.id === item.productId;
+                  }
+                  const itemSku = item.sku && item.sku !== 'No SKU' ? item.sku : '';
+                  const prodSku = prod.sku && prod.sku !== 'No SKU' ? prod.sku : '';
+                  if (itemSku && prodSku) {
+                      return itemSku.toLowerCase() === prodSku.toLowerCase();
+                  }
+                  if (!itemSku && !prodSku) {
+                      return prod.title && prod.title.toLowerCase() === item.name.toLowerCase();
+                  }
+                  return false;
+              });
+             const prodId = matchedProduct?.id || item.sku || item.name;
+             let entry = groupedProducts.find(g => g.id === prodId);
+             if (!entry) {
+                 entry = {
+                     id: prodId,
+                     isCatalogProduct: !!matchedProduct,
+                     product: matchedProduct || {
+                         id: prodId,
+                         title: item.name,
+                         sku: item.sku || 'No SKU',
+                         images: item.photoUrl ? [item.photoUrl] : [],
+                         sizeSpread: {}
+                     },
+                     items: [],
+                     totalQty: 0
+                 };
+                 groupedProducts.push(entry);
+             }
+             entry.items.push(item);
+             entry.totalQty += item.quantity || 0;
+         });
+     });
+
+     const firstCatalogProductEntry = groupedProducts.find(g => g.isCatalogProduct);
+     if (firstCatalogProductEntry) {
+         handleSelectProduct(firstCatalogProductEntry.product);
+     } else if (groupedProducts.length > 0) {
+         handleSelectProduct(groupedProducts[0].product);
+     }
+
+     setEditingBoxPalletId(pallet.id);
+     setNewBoxName(pallet.name || '');
+     setNewBoxNumber(String(pallet.boxNumber || 1));
+     setNewBoxColor(pallet.color || '#d8a47f');
+     
+     const tempBoxProducts: any[] = [];
+     groupedProducts.forEach(g => {
+        const quantities: Record<string, number> = {};
+        g.items.forEach((item: any) => {
+            quantities[item.size] = item.quantity || 0;
+        });
+        tempBoxProducts.push({
+            productId: g.id,
+            product: g.product,
+            quantities
+        });
+     });
+     setBoxProducts(tempBoxProducts);
+     
+     const locType = pallet.zone 
+        ? (pallet.zone === 'Floor' ? 'Floor' : 'Rack')
+        : 'Unmapped';
+     setNewBoxLocationType(locType);
+     setNewBoxWarehouseId(pallet.warehouseId || warehouses[0]?.id || 'wh_default_01');
+     
+     if (locType === 'Rack') {
+        setNewBoxRackLabel(pallet.zone || '');
+        setNewBoxBay(String(pallet.rackSpecs?.bay ?? 0));
+        setNewBoxLevel(String((pallet.rackSpecs?.level ?? 0) + 1));
+        setNewBoxSlot(String(pallet.rackSpecs?.slot ?? -1));
+     } else {
+        setNewBoxX(String(pallet.position?.[0] ?? 0));
+        setNewBoxZ(String(pallet.position?.[2] ?? 0));
+     }
+     setIsCreatingBox(true);
+  };
+
+  useEffect(() => {
+     if (initialEditingBoxId && products.length > 0 && pallets.length > 0) {
+        const pallet = pallets.find(p => p.id === initialEditingBoxId);
+        if (pallet) {
+           handleOpenBoxForEditing(pallet);
+        }
+        if (onClearInitialBox) {
+           onClearInitialBox();
+        }
+     }
+  }, [initialEditingBoxId, products, pallets, onClearInitialBox]);
 
   const handleSave = async () => {
     if (!formData.title) return alert("Title is required");
@@ -787,43 +894,7 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
                                                 {/* Action Buttons */}
                                                 <div className="flex gap-2 shrink-0">
                                                     <button 
-                                                        onClick={() => {
-                                                            setEditingBoxPalletId(pallet.id);
-                                                            setNewBoxName(pallet.name || '');
-                                                            setNewBoxNumber(String(pallet.boxNumber || 1));
-                                                            setNewBoxColor(pallet.color || '#d8a47f');
-                                                            
-                                                            const tempBoxProducts: any[] = [];
-                                                            groupedProducts.forEach(g => {
-                                                               const quantities: Record<string, number> = {};
-                                                               g.items.forEach((item: any) => {
-                                                                   quantities[item.size] = item.quantity || 0;
-                                                               });
-                                                               tempBoxProducts.push({
-                                                                   productId: g.id,
-                                                                   product: g.product,
-                                                                   quantities
-                                                               });
-                                                            });
-                                                            setBoxProducts(tempBoxProducts);
-                                                            
-                                                             const locType = pallet.zone 
-                                                                ? (pallet.zone === 'Floor' ? 'Floor' : 'Rack')
-                                                                : 'Unmapped';
-                                                             setNewBoxLocationType(locType);
-                                                             setNewBoxWarehouseId(pallet.warehouseId || warehouses[0]?.id || 'wh_default_01');
-                                                             
-                                                             if (locType === 'Rack') {
-                                                                setNewBoxRackLabel(pallet.zone || '');
-                                                                setNewBoxBay(String(pallet.rackSpecs?.bay ?? 0));
-                                                                setNewBoxLevel(String((pallet.rackSpecs?.level ?? 0) + 1));
-                                                                setNewBoxSlot(String(pallet.rackSpecs?.slot ?? -1));
-                                                             } else {
-                                                                setNewBoxX(String(pallet.position?.[0] ?? 0));
-                                                                setNewBoxZ(String(pallet.position?.[2] ?? 0));
-                                                             }
-                                                             setIsCreatingBox(true);
-                                                        }}
+                                                        onClick={() => handleOpenBoxForEditing(pallet)}
                                                         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-brand-border text-[10px] font-bold text-brand-primary uppercase hover:bg-neutral-50 transition-all duration-200 font-sans"
                                                     >
                                                         Edit Box

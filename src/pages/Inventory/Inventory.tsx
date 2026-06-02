@@ -907,6 +907,7 @@ export function Inventory() {
   const [currentWarehouse, setCurrentWarehouse] = useState<any>(null);
   
   const [inspectPalletId, setInspectPalletId] = useState<string | null>(null);
+  const [inspectProductBoxId, setInspectProductBoxId] = useState<string | null>(null);
   const [printRackLabelRack, setPrintRackLabelRack] = useState<string | null>(null);
 
   const [allWarehouses, setAllWarehouses] = useState<any[]>([]);
@@ -2052,9 +2053,20 @@ export function Inventory() {
                                </div>
                             </div>
                             
-                            <button onClick={() => { setInspectPalletId(activePallet.id); setMainTab('Pallets'); }} className="w-full mt-4 bg-white text-black border border-brand-border px-4 py-3 rounded-lg font-bold uppercase tracking-widest text-xs flex justify-center items-center gap-2 hover:bg-neutral-50 shadow-sm transition-colors">
-                               <PackageOpen size={16} /> Open Inventory View
-                            </button>
+                             <button 
+                                onClick={() => { 
+                                   if (activePallet.type === 'Box') {
+                                      setInspectProductBoxId(activePallet.id); 
+                                      setMainTab('Products'); 
+                                   } else {
+                                      setInspectPalletId(activePallet.id); 
+                                      setMainTab('Pallets'); 
+                                   }
+                                }} 
+                                className="w-full mt-4 bg-white text-black border border-brand-border px-4 py-3 rounded-lg font-bold uppercase tracking-widest text-xs flex justify-center items-center gap-2 hover:bg-neutral-50 shadow-sm transition-colors"
+                             >
+                                <PackageOpen size={16} /> Open Inventory View
+                             </button>
 
                             {deleteConfirmId === activePallet.id ? (
                                <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDeletePallet(activePallet.id); }} className="w-full mt-2 bg-red-600 text-white px-4 py-3 rounded-lg font-bold uppercase tracking-widest text-xs flex justify-center items-center gap-2 shadow-sm hover:bg-red-700 transition-colors">
@@ -2222,6 +2234,8 @@ export function Inventory() {
         {mainTab === 'Products' && (
            <div className="w-full h-full pb-8 animate-in fade-in">
               <ProductsTab 
+                 initialEditingBoxId={inspectProductBoxId}
+                 onClearInitialBox={() => setInspectProductBoxId(null)}
                  onJumpToWarehouse={(palletId: string, zone: string, warehouseId?: string) => { 
                      if (warehouseId) {
                          const targetWarehouse = allWarehouses.find(w => w.id === warehouseId);
