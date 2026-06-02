@@ -107,6 +107,9 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
         const palletId = editingBoxPalletId || `pal_box_${Date.now()}`;
         
         let positionInfo: any = {};
+        const whObj = warehouses.find(w => w.id === newBoxWarehouseId) || warehouses[0];
+        const whRacks = whObj?.racks || [];
+        const resolvedRackLabel = newBoxRackLabel || whRacks[0]?.label || '';
         
         if (newBoxLocationType === 'Floor') {
            const parsedX = Math.round(parseFloat(newBoxX) * 2) / 2;
@@ -124,7 +127,7 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
            // Evict current occupant
            const occupant = pallets.find((p: any) => 
                p.warehouseId === newBoxWarehouseId &&
-               String(p.zone) === String(newBoxRackLabel) &&
+               String(p.zone) === String(resolvedRackLabel) &&
                p.rackSpecs?.bay === bayIdx &&
                p.rackSpecs?.level === levelIdx &&
                p.rackSpecs?.slot === slotNum &&
@@ -132,8 +135,7 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
            );
            
            if (occupant) {
-               const whObj = warehouses.find(w => w.id === newBoxWarehouseId);
-               const rackObj = whObj?.racks?.find((r: any) => String(r.label) === String(newBoxRackLabel));
+               const rackObj = whObj?.racks?.find((r: any) => String(r.label) === String(resolvedRackLabel));
                const rackPos = rackObj?.position || [0, 0, 0];
                const floorX = rackPos[0] + (Math.random() - 0.5) * 3;
                const floorZ = rackPos[2] + 3.0 + (Math.random() - 0.5) * 2;
@@ -154,7 +156,7 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
                    level: levelIdx,
                    slot: slotNum
                },
-               location: `${newBoxRackLabel} | Bay ${bayIdx + 1} | Level ${levelIdx + 1} | Slot ${slotNum === -1 ? '1' : slotNum === 0 ? '2' : '3'}`
+               location: `${resolvedRackLabel} | Bay ${bayIdx + 1} | Level ${levelIdx + 1} | Slot ${slotNum === -1 ? '1' : slotNum === 0 ? '2' : '3'}`
            };
         }
 
@@ -167,7 +169,7 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
             height: 0.35,
             createdAt: Date.now(),
             warehouseId: newBoxLocationType === 'Unmapped' ? '' : newBoxWarehouseId,
-            zone: newBoxLocationType === 'Unmapped' ? '' : (newBoxLocationType === 'Floor' ? 'Floor' : newBoxRackLabel),
+            zone: newBoxLocationType === 'Unmapped' ? '' : (newBoxLocationType === 'Floor' ? 'Floor' : resolvedRackLabel),
             boxes: [
                 {
                     id: editingBoxPalletId ? (pallets.find(p => p.id === editingBoxPalletId)?.boxes?.[0]?.id || `box_${Date.now()}`) : `box_${Date.now()}`,
@@ -1084,7 +1086,15 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
                                     <button
                                        key={type}
                                        type="button"
-                                       onClick={() => setNewBoxLocationType(type)}
+                                       onClick={() => {
+                                          setNewBoxLocationType(type);
+                                          if (type === 'Rack' && !newBoxRackLabel) {
+                                             const whObj = warehouses.find(w => w.id === newBoxWarehouseId) || warehouses[0];
+                                             if (whObj?.racks?.length > 0) {
+                                                setNewBoxRackLabel(whObj.racks[0].label);
+                                             }
+                                          }
+                                       }}
                                        className={`py-1.5 text-xs rounded transition-all duration-200 uppercase tracking-wider font-bold text-[10px] ${
                                            newBoxLocationType === type
                                                ? 'bg-white text-brand-primary shadow-sm'
@@ -1153,7 +1163,7 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
                                  {newBoxLocationType === 'Rack' && (() => {
                                     const whObj = warehouses.find(w => w.id === newBoxWarehouseId);
                                     const whRacks = whObj?.racks || [];
-                                    const activeRackObj = whRacks.find((r: any) => String(r.label) === String(newBoxRackLabel));
+                                    const activeRackObj = whRacks.find((r: any) => String(r.label) === String(newBoxRackLabel)) || whRacks[0];
                                     const activeRackSlots = activeRackObj?.slots || 3;
                                     
                                     return (
@@ -1164,7 +1174,7 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
                                                 <p className="text-xs text-red-500 font-semibold mt-1">No racks defined in this warehouse.</p>
                                              ) : (
                                                 <select 
-                                                   value={newBoxRackLabel} 
+                                                   value={newBoxRackLabel || whRacks[0]?.label || ''} 
                                                    onChange={e => setNewBoxRackLabel(e.target.value)}
                                                    className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-sm font-semibold focus:outline-brand-primary"
                                                 >
