@@ -15,6 +15,18 @@ const BOX_SWATCHES = [
   '#ec4899', '#06b6d4', '#f97316', '#84cc16', '#64748b'
 ];
 
+const getProductDescriptor = (product: any) => {
+  if (!product) return 'No SKU';
+  const skuVal = product.sku && product.sku !== 'No SKU' ? product.sku : '';
+  const colorVal = Array.isArray(product.colors)
+     ? product.colors.join(', ')
+     : (product.colors || '');
+  if (skuVal && colorVal) {
+     return `${skuVal} • ${colorVal}`;
+  }
+  return colorVal || skuVal || 'No SKU';
+};
+
 export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (palletId: string, zone: string, warehouseId?: string) => void }) {
   const [products, setProducts] = useState<any[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
@@ -817,7 +829,7 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
                                                                <span className="text-xs font-bold text-brand-primary leading-tight truncate">{activeEntry.product.title}</span>
                                                                <span className="text-[8px] bg-brand-primary/10 text-brand-primary px-1.5 py-0.2 rounded font-bold uppercase tracking-wider shrink-0">Active</span>
                                                             </div>
-                                                            <p className="text-[9px] font-bold text-brand-secondary uppercase mt-0.5">{activeEntry.product.sku || 'No SKU'}</p>
+                                                            <p className="text-[9px] font-bold text-brand-secondary uppercase mt-0.5">{getProductDescriptor(activeEntry.product)}</p>
                                                          </div>
                                                       </div>
                                                       <div className="flex items-center gap-3 shrink-0 flex-wrap">
@@ -859,7 +871,7 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
                                                             ) : (
                                                                <span className="text-xs font-bold text-brand-primary leading-tight truncate block">{entry.product.title}</span>
                                                             )}
-                                                            <p className="text-[9px] font-bold text-brand-secondary uppercase mt-0.5">{entry.product.sku || 'No SKU'}</p>
+                                                            <p className="text-[9px] font-bold text-brand-secondary uppercase mt-0.5">{getProductDescriptor(entry.product)}</p>
                                                          </div>
                                                       </div>
                                                       <div className="flex items-center gap-3 shrink-0 flex-wrap">
@@ -1201,7 +1213,7 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
                                                 )}
                                                 <div className="min-w-0">
                                                    <h4 className="text-xs font-bold text-brand-primary truncate leading-snug">{bp.product.title}</h4>
-                                                   <p className="text-[9px] font-bold text-brand-secondary uppercase mt-0.5">{bp.product.sku || 'No SKU'}</p>
+                                                   <p className="text-[9px] font-bold text-brand-secondary uppercase mt-0.5">{getProductDescriptor(bp.product)}</p>
                                                 </div>
                                              </div>
                                              
@@ -1305,7 +1317,7 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
                                         (p.sku && p.sku !== 'No SKU' && bp.product?.sku === p.sku)
                                      ))
                                     .map(p => (
-                                       <option key={p.id} value={p.id}>{p.title} ({p.sku || 'No SKU'})</option>
+                                       <option key={p.id} value={p.id}>{p.title} ({getProductDescriptor(p)})</option>
                                     ))
                                  }
                               </select>
