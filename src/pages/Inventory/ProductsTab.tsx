@@ -674,155 +674,208 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
                             ) : (
                                <div className="grid grid-cols-1 gap-3">
                                   {matchingPallets.map(pallet => {
-                                      let productUnits = 0;
-                                      const sizeDetails: string[] = [];
-                                       pallet.boxes?.forEach((box: any) => {
-                                           box.items?.forEach((item: any) => {
-                                               if ((selectedProduct.sku && selectedProduct.sku !== 'No SKU' && item.sku === selectedProduct.sku) || (item.name && item.name.toLowerCase().includes(selectedProduct.title.toLowerCase()))) {
-                                                   productUnits += item.quantity || 0;
-                                                   sizeDetails.push(`${item.size}: ${item.quantity}`);
-                                               }
-                                           });
-                                       });
+                                      // Group items in this pallet/box by product
+                                      const groupedProducts: any[] = [];
+                                      pallet.boxes?.forEach((box: any) => {
+                                          box.items?.forEach((item: any) => {
+                                              const matchedProduct = products.find((prod: any) => 
+                                                  (prod.sku && prod.sku !== 'No SKU' && prod.sku === item.sku) ||
+                                                  (prod.title && prod.title.toLowerCase() === item.name.toLowerCase())
+                                              );
+                                              const prodId = matchedProduct?.id || item.sku || item.name;
+                                              let entry = groupedProducts.find(g => g.id === prodId);
+                                              if (!entry) {
+                                                  entry = {
+                                                      id: prodId,
+                                                      product: matchedProduct || {
+                                                          id: prodId,
+                                                          title: item.name,
+                                                          sku: item.sku || 'No SKU',
+                                                          images: item.photoUrl ? [item.photoUrl] : [],
+                                                          sizeSpread: {}
+                                                      },
+                                                      items: [],
+                                                      totalQty: 0
+                                                  };
+                                                  groupedProducts.push(entry);
+                                              }
+                                              entry.items.push(item);
+                                              entry.totalQty += item.quantity || 0;
+                                          });
+                                      });
+
+                                      // Separate the active product from other products in the box
+                                      const activeEntry = groupedProducts.find(g => g.id === selectedProduct.id);
+                                      const otherEntries = groupedProducts.filter(g => g.id !== selectedProduct.id);
+                                      
+                                      const totalUnitsInBox = groupedProducts.reduce((sum, g) => sum + g.totalQty, 0);
 
                                       return (
-                                          <div key={pallet.id} className="flex justify-between items-center p-4 bg-white border border-brand-border rounded-xl shadow-sm hover:shadow-md transition-all duration-150">
-                                             <div className="space-y-1 min-w-0">
-                                                <div className="flex items-center gap-2">
-                                                   <span className="font-bold text-sm text-brand-primary truncate">{pallet.name}</span>
-                                                   <span className="text-[10px] bg-neutral-100 text-brand-secondary px-2.5 py-0.5 rounded-full font-bold">
-                                                      {productUnits} units
-                                                   </span>
-                                                </div>
-                                                <div className="text-[10px] font-bold text-brand-secondary uppercase tracking-wider flex items-center gap-1.5 font-sans">
-                                                   <Map size={11} className="shrink-0" />
-                                                   {pallet.zone 
-                                                      ? (pallet.zone === 'Floor' 
-                                                         ? `Concrete Floor (X: ${pallet.position?.[0]?.toFixed(1) ?? 0}, Z: ${pallet.position?.[2]?.toFixed(1) ?? 0})`
-                                                         : `${pallet.zone} | Bay ${pallet.rackSpecs?.bay !== undefined ? pallet.rackSpecs.bay + 1 : 1} | Level ${pallet.rackSpecs?.level !== undefined ? pallet.rackSpecs.level + 1 : 1} | Slot ${pallet.rackSpecs?.slot === -1 ? '1' : pallet.rackSpecs?.slot === 0 ? '2' : '3'}`
-                                                        )
-                                                      : 'Unmapped / Staging Area'
-                                                   }
-                                                </div>
-                                                {sizeDetails.length > 0 && (
-                                                   <div className="flex flex-wrap gap-1 mt-1">
-                                                      {sizeDetails.map((det, i) => (
-                                                         <span key={i} className="text-[9px] bg-neutral-50 border border-brand-border/60 text-brand-secondary px-1.5 py-0.5 rounded font-semibold shrink-0">
-                                                            {det}
-                                                         </span>
-                                                      ))}
+                                          <div key={pallet.id} className="p-4 bg-white border border-brand-border rounded-xl shadow-sm hover:shadow-md transition-all duration-150 space-y-3">
+                                             {/* Box Header Info */}
+                                             <div className="flex justify-between items-start gap-4">
+                                                <div className="space-y-1 min-w-0">
+                                                   <div className="flex items-center gap-2 flex-wrap">
+                                                      <span className="font-serif font-bold text-sm text-brand-primary truncate">{pallet.name}</span>
+                                                      <span className="text-[10px] bg-brand-primary/10 text-brand-primary px-2 py-0.5 rounded-md font-bold uppercase tracking-wider">
+                                                         Box {pallet.boxNumber || 1}
+                                                      </span>
+                                                      <span className="text-[10px] bg-neutral-100 text-brand-secondary px-2 py-0.5 rounded-md font-bold">
+                                                         {totalUnitsInBox} total units
+                                                      </span>
                                                    </div>
-                                                 )}
-                                              </div>
-                                              
-                                              <div className="flex gap-2 shrink-0">
-                                                  <button 
-                                                      onClick={() => {
-                                                          setEditingBoxPalletId(pallet.id);
-                                                          setNewBoxName(pallet.name || '');
-                                                          
-                                                          let fallbackNum = 1;
-                                                         if (pallet.boxNumber !== undefined) {
-                                                             fallbackNum = pallet.boxNumber;
-                                                         } else {
-                                                             const boxPallets = pallets
-                                                                 .filter((p: any) => p.type === 'Box')
-                                                                 .sort((a: any, b: any) => (a.createdAt || 0) - (b.createdAt || 0) || (a.id || '').localeCompare(b.id || ''));
-                                                             const idx = boxPallets.findIndex((p: any) => p.id === pallet.id);
-                                                             fallbackNum = idx !== -1 ? idx + 1 : 1;
-                                                         }
-                                                         setNewBoxNumber(String(fallbackNum));
-                                                         setNewBoxColor(pallet.color || '#d8a47f');
-                                                         
-                                                         const tempBoxProducts: any[] = [];
-                                                         const boxItems = pallet.boxes?.[0]?.items || [];
-                                                         const groupedItems: Record<string, any[]> = {};
-                                                         boxItems.forEach((item: any) => {
-                                                             const key = item.sku || item.name;
-                                                             if (!groupedItems[key]) {
-                                                                 groupedItems[key] = [];
+                                                   <div className="text-[10px] font-bold text-brand-secondary uppercase tracking-wider flex items-center gap-1.5 font-sans mt-0.5">
+                                                      <Map size={11} className="shrink-0 text-brand-primary/70" />
+                                                      {pallet.zone 
+                                                         ? (pallet.zone === 'Floor' 
+                                                            ? `Concrete Floor (X: ${pallet.position?.[0]?.toFixed(1) ?? 0}, Z: ${pallet.position?.[2]?.toFixed(1) ?? 0})`
+                                                            : `${pallet.zone} | Bay ${pallet.rackSpecs?.bay !== undefined ? pallet.rackSpecs.bay + 1 : 1} | Level ${pallet.rackSpecs?.level !== undefined ? pallet.rackSpecs.level + 1 : 1} | Slot ${pallet.rackSpecs?.slot === -1 ? '1' : pallet.rackSpecs?.slot === 0 ? '2' : '3'}`
+                                                           )
+                                                         : 'Unmapped / Staging Area'
+                                                      }
+                                                   </div>
+                                                </div>
+                                                
+                                                {/* Action Buttons */}
+                                                <div className="flex gap-2 shrink-0">
+                                                    <button 
+                                                        onClick={() => {
+                                                            setEditingBoxPalletId(pallet.id);
+                                                            setNewBoxName(pallet.name || '');
+                                                            setNewBoxNumber(String(pallet.boxNumber || 1));
+                                                            setNewBoxColor(pallet.color || '#d8a47f');
+                                                            
+                                                            const tempBoxProducts: any[] = [];
+                                                            groupedProducts.forEach(g => {
+                                                               const quantities: Record<string, number> = {};
+                                                               g.items.forEach((item: any) => {
+                                                                   quantities[item.size] = item.quantity || 0;
+                                                               });
+                                                               tempBoxProducts.push({
+                                                                   productId: g.id,
+                                                                   product: g.product,
+                                                                   quantities
+                                                               });
+                                                            });
+                                                            setBoxProducts(tempBoxProducts);
+                                                            
+                                                             const locType = pallet.zone 
+                                                                ? (pallet.zone === 'Floor' ? 'Floor' : 'Rack')
+                                                                : 'Unmapped';
+                                                             setNewBoxLocationType(locType);
+                                                             setNewBoxWarehouseId(pallet.warehouseId || warehouses[0]?.id || 'wh_default_01');
+                                                             
+                                                             if (locType === 'Rack') {
+                                                                setNewBoxRackLabel(pallet.zone || '');
+                                                                setNewBoxBay(String(pallet.rackSpecs?.bay ?? 0));
+                                                                setNewBoxLevel(String((pallet.rackSpecs?.level ?? 0) + 1));
+                                                                setNewBoxSlot(String(pallet.rackSpecs?.slot ?? -1));
+                                                             } else {
+                                                                setNewBoxX(String(pallet.position?.[0] ?? 0));
+                                                                setNewBoxZ(String(pallet.position?.[2] ?? 0));
                                                              }
-                                                             groupedItems[key].push(item);
-                                                         });
-                                                         Object.entries(groupedItems).forEach(([_, items]) => {
-                                                             const firstItem = items[0];
-                                                             const matchedProduct = products.find((prod: any) => 
-                                                                 (prod.sku && prod.sku !== 'No SKU' && prod.sku === firstItem.sku) ||
-                                                                 (prod.title && prod.title.toLowerCase() === firstItem.name.toLowerCase())
-                                                             );
-                                                             const quantities: Record<string, number> = {};
-                                                             items.forEach((item: any) => {
-                                                                 quantities[item.size] = item.quantity || 0;
-                                                             });
-                                                             tempBoxProducts.push({
-                                                                 productId: matchedProduct?.id || firstItem.sku || firstItem.name,
-                                                                 product: matchedProduct || {
-                                                                     id: firstItem.sku || firstItem.name,
-                                                                     title: firstItem.name,
-                                                                     sku: firstItem.sku || 'No SKU',
-                                                                     images: firstItem.photoUrl ? [firstItem.photoUrl] : [],
-                                                                     sizeSpread: {}
-                                                                 },
-                                                                 quantities
-                                                             });
-                                                         });
-                                                         const hasSelectedProd = tempBoxProducts.some(bp => 
-                                                             (bp.product.sku && bp.product.sku !== 'No SKU' && bp.product.sku === selectedProduct.sku) ||
-                                                             (bp.product.title && bp.product.title.toLowerCase() === selectedProduct.title.toLowerCase())
-                                                         );
-                                                         if (!hasSelectedProd) {
-                                                             tempBoxProducts.unshift({
-                                                                 productId: selectedProduct.id || selectedProduct.title,
-                                                                 product: selectedProduct,
-                                                                 quantities: {}
-                                                             });
-                                                         }
-                                                         setBoxProducts(tempBoxProducts);
-                                                        
-                                                        const locType = pallet.zone 
-                                                           ? (pallet.zone === 'Floor' ? 'Floor' : 'Rack')
-                                                           : 'Unmapped';
-                                                        setNewBoxLocationType(locType);
-                                                        
-                                                        setNewBoxWarehouseId(pallet.warehouseId || warehouses[0]?.id || 'wh_default_01');
-                                                        
-                                                        if (locType === 'Rack') {
-                                                           setNewBoxRackLabel(pallet.zone || '');
-                                                        } else {
-                                                           const whObj = warehouses.find(w => w.id === (pallet.warehouseId || warehouses[0]?.id));
-                                                           setNewBoxRackLabel(whObj?.racks?.[0]?.label || '');
-                                                        }
-                                                        
-                                                        setNewBoxBay(pallet.rackSpecs?.bay !== undefined ? String(pallet.rackSpecs.bay) : '0');
-                                                        setNewBoxLevel(pallet.rackSpecs?.level !== undefined ? String(pallet.rackSpecs.level + 1) : '1');
-                                                        setNewBoxSlot(pallet.rackSpecs?.slot !== undefined ? String(pallet.rackSpecs.slot) : '-1');
-                                                        setNewBoxX(pallet.position?.[0] !== undefined ? String(pallet.position[0]) : '0');
-                                                        setNewBoxZ(pallet.position?.[2] !== undefined ? String(pallet.position[2]) : '0');
-                                                        
-                                                        setIsCreatingBox(true);
-                                                     }}
-                                                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-brand-border text-[10px] font-bold text-brand-primary uppercase hover:bg-neutral-50 transition-all duration-200 font-sans"
-                                                 >
-                                                     Edit Box
-                                                 </button>
-                                                 <button 
-                                                     onClick={() => {
-                                                        setPrintingBox(pallet);
-                                                     }}
-                                                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-brand-border text-[10px] font-bold text-brand-primary uppercase hover:bg-neutral-50 transition-all duration-200 font-sans"
-                                                 >
-                                                     <QrCode size={12} />
-                                                     QR Label
-                                                 </button>
-                                                 {(pallet.zone || pallet.warehouseId) && onJumpToWarehouse && (
-                                                     <button 
-                                                         onClick={() => onJumpToWarehouse(pallet.id, pallet.zone || 'Floor', pallet.warehouseId)}
-                                                         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-brand-primary text-[10px] font-bold text-brand-primary uppercase hover:bg-brand-primary hover:text-white transition-all duration-200 shrink-0 font-sans"
-                                                     >
-                                                         <Map size={12} />
-                                                         Locate in 3D
-                                                     </button>
-                                                 )}
+                                                             setIsCreatingBox(true);
+                                                        }}
+                                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-brand-border text-[10px] font-bold text-brand-primary uppercase hover:bg-neutral-50 transition-all duration-200 font-sans"
+                                                    >
+                                                        Edit Box
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => {
+                                                           setPrintingBox(pallet);
+                                                        }}
+                                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-brand-border text-[10px] font-bold text-brand-primary uppercase hover:bg-neutral-50 transition-all duration-200 font-sans"
+                                                    >
+                                                        <QrCode size={12} /> QR Label
+                                                    </button>
+                                                    {onJumpToWarehouse && (pallet.zone || pallet.warehouseId) && (
+                                                       <button 
+                                                           onClick={() => onJumpToWarehouse(pallet.id, pallet.zone || 'Floor', pallet.warehouseId)}
+                                                           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-brand-primary text-[10px] font-bold text-brand-primary uppercase hover:bg-brand-primary hover:text-white transition-all duration-200 shrink-0 font-sans"
+                                                       >
+                                                           <Map size={12} /> Locate in 3D
+                                                       </button>
+                                                    )}
+                                                </div>
+                                             </div>
+
+                                             {/* Line Items (Products list inside box) */}
+                                             <div className="border border-brand-border rounded-xl divide-y divide-brand-border overflow-hidden bg-neutral-50/10">
+                                                {/* Render Active Product Row */}
+                                                {activeEntry && (
+                                                   <div className="p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white">
+                                                      <div className="flex gap-2.5 items-center min-w-0">
+                                                         {activeEntry.product.images?.[0] ? (
+                                                            <img src={activeEntry.product.images[0]} alt="Product" className="w-8 h-8 object-cover rounded-lg border border-brand-border bg-white shrink-0" />
+                                                         ) : (
+                                                            <div className="w-8 h-8 bg-neutral-100 border border-brand-border rounded-lg flex items-center justify-center shrink-0">
+                                                               <Boxes size={14} className="text-neutral-400" />
+                                                            </div>
+                                                         )}
+                                                         <div className="min-w-0">
+                                                            <div className="flex items-center gap-1.5">
+                                                               <span className="text-xs font-bold text-brand-primary leading-tight truncate">{activeEntry.product.title}</span>
+                                                               <span className="text-[8px] bg-brand-primary/10 text-brand-primary px-1.5 py-0.2 rounded font-bold uppercase tracking-wider shrink-0">Active</span>
+                                                            </div>
+                                                            <p className="text-[9px] font-bold text-brand-secondary uppercase mt-0.5">{activeEntry.product.sku || 'No SKU'}</p>
+                                                         </div>
+                                                      </div>
+                                                      <div className="flex items-center gap-3 shrink-0 flex-wrap">
+                                                         <div className="flex flex-wrap gap-1">
+                                                            {activeEntry.items.map((item: any, i: number) => (
+                                                               <span key={i} className="text-[9px] bg-neutral-50 border border-brand-border/60 text-brand-secondary px-1.5 py-0.5 rounded font-semibold shrink-0">
+                                                                  {item.size}: {item.quantity}
+                                                               </span>
+                                                            ))}
+                                                         </div>
+                                                         <span className="text-[10px] font-bold text-brand-primary bg-neutral-100 px-2 py-0.5 rounded shrink-0">
+                                                            {activeEntry.totalQty} units
+                                                         </span>
+                                                      </div>
+                                                   </div>
+                                                )}
+
+                                                {/* Render Other Products in the Box */}
+                                                {otherEntries.map(entry => (
+                                                   <div key={entry.id} className="p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-neutral-50/30 transition-colors">
+                                                      <div className="flex gap-2.5 items-center min-w-0">
+                                                         {entry.product.images?.[0] ? (
+                                                            <img src={entry.product.images[0]} alt="Product" className="w-8 h-8 object-cover rounded-lg border border-brand-border bg-white shrink-0" />
+                                                         ) : (
+                                                            <div className="w-8 h-8 bg-neutral-100 border border-brand-border rounded-lg flex items-center justify-center shrink-0">
+                                                               <Boxes size={14} className="text-neutral-400" />
+                                                            </div>
+                                                         )}
+                                                         <div className="min-w-0">
+                                                            {/* Clicking the title will change the selected product to this product */}
+                                                            {entry.product.id && entry.product.id !== entry.id ? (
+                                                               <button 
+                                                                  type="button"
+                                                                  onClick={() => setSelectedProduct(entry.product)}
+                                                                  className="text-xs font-bold text-brand-primary hover:text-black hover:underline text-left leading-tight truncate block w-full outline-none focus:underline"
+                                                               >
+                                                                  {entry.product.title}
+                                                               </button>
+                                                            ) : (
+                                                               <span className="text-xs font-bold text-brand-primary leading-tight truncate block">{entry.product.title}</span>
+                                                            )}
+                                                            <p className="text-[9px] font-bold text-brand-secondary uppercase mt-0.5">{entry.product.sku || 'No SKU'}</p>
+                                                         </div>
+                                                      </div>
+                                                      <div className="flex items-center gap-3 shrink-0 flex-wrap">
+                                                         <div className="flex flex-wrap gap-1">
+                                                            {entry.items.map((item: any, i: number) => (
+                                                               <span key={i} className="text-[9px] bg-neutral-50 border border-brand-border/60 text-brand-secondary px-1.5 py-0.5 rounded font-semibold shrink-0">
+                                                                  {item.size}: {item.quantity}
+                                                               </span>
+                                                            ))}
+                                                         </div>
+                                                         <span className="text-[10px] font-bold text-brand-primary bg-neutral-100 px-2 py-0.5 rounded shrink-0">
+                                                            {entry.totalQty} units
+                                                         </span>
+                                                      </div>
+                                                   </div>
+                                                ))}
                                              </div>
                                           </div>
                                       );
