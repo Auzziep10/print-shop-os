@@ -202,6 +202,32 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
       );
   }) : [];
 
+  const isProductFullyAllocated = (p: any) => {
+     if (!p.sizeSpread || Object.keys(p.sizeSpread).length === 0) return true;
+     const positiveSizes = Object.entries(p.sizeSpread).filter(([_, qty]) => typeof qty === 'number' && qty > 0);
+     if (positiveSizes.length === 0) return true;
+     return positiveSizes.every(([size, catalogQty]) => {
+        let stagedQty = 0;
+        pallets.forEach((pallet: any) => {
+           if (pallet.id === editingBoxPalletId) return;
+           if (!pallet.boxes) return;
+           pallet.boxes.forEach((box: any) => {
+              if (!box.items) return;
+              box.items.forEach((item: any) => {
+                 const matches = 
+                    (p.id && (item.productId === p.id || item.product?.id === p.id)) ||
+                    (p.sku && p.sku !== 'No SKU' && item.sku === p.sku) ||
+                    (p.title && item.name && item.name.toLowerCase() === p.title.toLowerCase());
+                 if (matches && item.size === size) {
+                    stagedQty += (item.quantity || 0);
+                 }
+              });
+           });
+        });
+        return stagedQty >= (catalogQty as number);
+     });
+  };
+
   // Form State for editing / creating
   const [formData, setFormData] = useState({
     title: '',
@@ -1220,11 +1246,11 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
                               >
                                  <option value="">-- Choose Product to Add --</option>
                                  {products
-                                    .filter(p => !boxProducts.some(bp => 
-                                       bp.productId === p.id || 
-                                       bp.product?.id === p.id ||
-                                       (p.sku && p.sku !== 'No SKU' && bp.product?.sku === p.sku)
-                                    ))
+                                    .filter(p => !isProductFullyAllocated(p) && !boxProducts.some(bp => 
+                                        bp.productId === p.id || 
+                                        bp.product?.id === p.id ||
+                                        (p.sku && p.sku !== 'No SKU' && bp.product?.sku === p.sku)
+                                     ))
                                     .map(p => (
                                        <option key={p.id} value={p.id}>{p.title} ({p.sku || 'No SKU'})</option>
                                     ))
