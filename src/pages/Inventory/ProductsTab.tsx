@@ -7,6 +7,12 @@ import { tokens } from '../../lib/tokens';
 
 const SIZES = ['XXS', 'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL', 'OSFA'];
 
+const BOX_SWATCHES = [
+  '#d8a47f', // Kraft cardboard (default)
+  '#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', 
+  '#ec4899', '#06b6d4', '#f97316', '#84cc16', '#64748b'
+];
+
 export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (palletId: string, zone: string, warehouseId?: string) => void }) {
   const [products, setProducts] = useState<any[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
@@ -34,6 +40,8 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
   const [isCreatingBox, setIsCreatingBox] = useState(false);
   const [isSubmittingBox, setIsSubmittingBox] = useState(false);
   const [editingBoxPalletId, setEditingBoxPalletId] = useState<string | null>(null);
+  const [newBoxNumber, setNewBoxNumber] = useState('1');
+  const [newBoxColor, setNewBoxColor] = useState('#d8a47f');
 
   useEffect(() => {
     const q = query(collection(db, 'pallets'));
@@ -141,6 +149,8 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
             id: palletId,
             type: 'Box',
             name: newBoxName.trim(),
+            boxNumber: parseInt(newBoxNumber) || 1,
+            color: newBoxColor,
             height: 0.35,
             createdAt: Date.now(),
             warehouseId: newBoxLocationType === 'Unmapped' ? '' : newBoxWarehouseId,
@@ -472,6 +482,14 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
                             onClick={() => {
                                setEditingBoxPalletId(null);
                                setNewBoxName(`${selectedProduct.title}`);
+                               
+                               const existingBoxNumbers = pallets
+                                   .filter((p: any) => p.type === 'Box' && p.boxNumber !== undefined)
+                                   .map((p: any) => parseInt(p.boxNumber) || 0);
+                               const nextNum = existingBoxNumbers.length > 0 ? Math.max(...existingBoxNumbers) + 1 : 1;
+                               setNewBoxNumber(String(nextNum));
+                               setNewBoxColor('#d8a47f');
+
                                setNewBoxQuantities({});
                                setNewBoxLocationType('Unmapped');
                                setNewBoxWarehouseId(warehouses[0]?.id || 'wh_default_01');
@@ -588,6 +606,14 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
                                    onClick={() => {
                                       setEditingBoxPalletId(null);
                                       setNewBoxName(`${selectedProduct.title}`);
+                                      
+                                      const existingBoxNumbers = pallets
+                                          .filter((p: any) => p.type === 'Box' && p.boxNumber !== undefined)
+                                          .map((p: any) => parseInt(p.boxNumber) || 0);
+                                      const nextNum = existingBoxNumbers.length > 0 ? Math.max(...existingBoxNumbers) + 1 : 1;
+                                      setNewBoxNumber(String(nextNum));
+                                      setNewBoxColor('#d8a47f');
+
                                       setNewBoxQuantities({});
                                       setNewBoxLocationType('Unmapped');
                                       setNewBoxWarehouseId(warehouses[0]?.id || 'wh_default_01');
@@ -660,6 +686,8 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
                                                      onClick={() => {
                                                         setEditingBoxPalletId(pallet.id);
                                                         setNewBoxName(pallet.name || '');
+                                                        setNewBoxNumber(pallet.boxNumber !== undefined ? String(pallet.boxNumber) : '1');
+                                                        setNewBoxColor(pallet.color || '#d8a47f');
                                                         
                                                         const initialQuantities: Record<string, number> = {};
                                                         pallet.boxes?.forEach((box: any) => {
@@ -809,17 +837,47 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
                </p>
               
               <form onSubmit={handleCreateBoxSubmit} className="space-y-5 flex-1 min-h-0">
-                 {/* Box Name */}
-                 <div>
-                    <label className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1 block">Box Label / Name</label>
-                    <input 
-                      type="text" 
-                      required
-                      value={newBoxName} 
-                      onChange={e => setNewBoxName(e.target.value)} 
-                      className="w-full bg-neutral-50 border border-brand-border rounded-lg px-3 py-2 text-sm font-semibold focus:outline-brand-primary"
-                    />
-                 </div>
+                  {/* Box Name and Box Number */}
+                  <div className="grid grid-cols-3 gap-4">
+                     <div className="col-span-2">
+                        <label className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1 block">Box Name (Garment)</label>
+                        <input 
+                          type="text" 
+                          required
+                          value={newBoxName} 
+                          onChange={e => setNewBoxName(e.target.value)} 
+                          className="w-full bg-neutral-50 border border-brand-border rounded-lg px-3 py-2 text-sm font-semibold focus:outline-brand-primary"
+                        />
+                     </div>
+                     <div className="col-span-1">
+                        <label className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1 block">Box Number</label>
+                        <input 
+                          type="number" 
+                          min="1"
+                          required
+                          value={newBoxNumber} 
+                          onChange={e => setNewBoxNumber(e.target.value)} 
+                          className="w-full bg-neutral-50 border border-brand-border rounded-lg text-center py-2 text-sm font-semibold focus:outline-brand-primary"
+                        />
+                     </div>
+                  </div>
+
+                  {/* Box Color Swatches */}
+                  <div>
+                     <label className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1.5 block">Box Color Tag</label>
+                     <div className="flex flex-wrap gap-2 bg-neutral-50 p-3 rounded-xl border border-brand-border/60">
+                        {BOX_SWATCHES.map(color => (
+                           <button 
+                              key={color} 
+                              type="button"
+                              onClick={() => setNewBoxColor(color)}
+                              className={`w-6 h-6 rounded-full cursor-pointer transition-transform hover:scale-110 shadow-sm ${newBoxColor === color ? 'ring-2 ring-offset-2 ring-brand-primary scale-110' : ''}`}
+                              style={{ backgroundColor: color }}
+                              title={color === '#d8a47f' ? 'Standard Cardboard' : color}
+                           />
+                        ))}
+                     </div>
+                  </div>
 
                   {/* Quantities per Size */}
                   <div>

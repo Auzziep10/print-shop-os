@@ -101,7 +101,7 @@ const PalletLabels = ({ pallet, allPallets = [] }: any) => {
             .filter((p: any) => p.type === 'Box')
             .sort((a: any, b: any) => (a.createdAt || 0) - (b.createdAt || 0) || (a.id || '').localeCompare(b.id || ''));
         const idx = boxPallets.findIndex((p: any) => p.id === pallet.id);
-        name = `Box ${idx !== -1 ? idx + 1 : 1}`;
+        name = `Box ${pallet.boxNumber !== undefined ? pallet.boxNumber : (idx !== -1 ? idx + 1 : 1)}`;
 
         let totalQty = 0;
         pallet.boxes?.forEach((box: any) => {
