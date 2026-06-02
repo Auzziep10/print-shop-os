@@ -1200,7 +1200,12 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
                                     const prod = products.find(p => p.id === prodId);
                                     if (!prod) return;
                                     
-                                    const alreadyInBox = boxProducts.some(bp => bp.product?.sku === prod.sku || bp.product?.title === prod.title);
+                                    const alreadyInBox = boxProducts.some(bp => 
+                                       bp.productId === prod.id || 
+                                       bp.product?.id === prod.id ||
+                                       (prod.sku && prod.sku !== 'No SKU' && bp.product?.sku === prod.sku) ||
+                                       (prod.title && bp.product?.title?.toLowerCase() === prod.title.toLowerCase())
+                                    );
                                     if (alreadyInBox) return alert("Product is already in this box.");
                                     
                                     setBoxProducts(prev => [
@@ -1216,7 +1221,12 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
                               >
                                  <option value="">-- Choose Product to Add --</option>
                                  {products
-                                    .filter(p => !boxProducts.some(bp => bp.product?.sku === p.sku || bp.product?.title === p.title))
+                                    .filter(p => !boxProducts.some(bp => 
+                                       bp.productId === p.id || 
+                                       bp.product?.id === p.id ||
+                                       (p.sku && p.sku !== 'No SKU' && bp.product?.sku === p.sku) ||
+                                       (p.title && bp.product?.title?.toLowerCase() === p.title.toLowerCase())
+                                    ))
                                     .map(p => (
                                        <option key={p.id} value={p.id}>{p.title} ({p.sku || 'No SKU'})</option>
                                     ))
