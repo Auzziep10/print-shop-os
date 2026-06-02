@@ -407,10 +407,15 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
     );
   };
 
-  const filteredProducts = products.filter(p => 
-    (p.title || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
-    (p.sku || '').toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredProducts = products.filter(p => {
+    const query = searchQuery.toLowerCase();
+    const titleMatch = (p.title || '').toLowerCase().includes(query);
+    const skuMatch = (p.sku || '').toLowerCase().includes(query);
+    const colorsMatch = Array.isArray(p.colors)
+       ? p.colors.some((c: string) => c.toLowerCase().includes(query))
+       : (p.colors || '').toLowerCase().includes(query);
+    return titleMatch || skuMatch || colorsMatch;
+  });
 
   const totalGarmentsAcrossCatalog = products.reduce((total, p) => {
     if (!p.sizeSpread) return total;
@@ -482,7 +487,7 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
                      <div className="flex-1 min-w-0">
                         <h4 className="font-bold text-brand-primary text-sm truncate">{p.title || 'Untitled Product'}</h4>
                         <p className="text-[10px] uppercase tracking-widest text-brand-secondary mt-0.5 truncate">
-                           {p.sku || 'No SKU'}
+                           {getProductDescriptor(p)}
                            {p.style && <span className="ml-2 text-brand-primary/60 border-l border-brand-border pl-2">{p.style}</span>}
                         </p>
                         {p.sizeSpread && Object.keys(p.sizeSpread).length > 0 && (
@@ -719,6 +724,7 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
                                               if (!entry) {
                                                   entry = {
                                                       id: prodId,
+                                                      isCatalogProduct: !!matchedProduct,
                                                       product: matchedProduct || {
                                                           id: prodId,
                                                           title: item.name,
@@ -880,7 +886,7 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
                                                          )}
                                                          <div className="min-w-0">
                                                             {/* Clicking the title will change the selected product to this product */}
-                                                            {entry.product.id && entry.product.id !== entry.id ? (
+                                                            {entry.isCatalogProduct ? (
                                                                <button 
                                                                   type="button"
                                                                   onClick={() => setSelectedProduct(entry.product)}
