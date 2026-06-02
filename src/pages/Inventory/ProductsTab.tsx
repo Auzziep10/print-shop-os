@@ -1203,8 +1203,7 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
                                     const alreadyInBox = boxProducts.some(bp => 
                                        bp.productId === prod.id || 
                                        bp.product?.id === prod.id ||
-                                       (prod.sku && prod.sku !== 'No SKU' && bp.product?.sku === prod.sku) ||
-                                       (prod.title && bp.product?.title?.toLowerCase() === prod.title.toLowerCase())
+                                       (prod.sku && prod.sku !== 'No SKU' && bp.product?.sku === prod.sku)
                                     );
                                     if (alreadyInBox) return alert("Product is already in this box.");
                                     
@@ -1224,8 +1223,7 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
                                     .filter(p => !boxProducts.some(bp => 
                                        bp.productId === p.id || 
                                        bp.product?.id === p.id ||
-                                       (p.sku && p.sku !== 'No SKU' && bp.product?.sku === p.sku) ||
-                                       (p.title && bp.product?.title?.toLowerCase() === p.title.toLowerCase())
+                                       (p.sku && p.sku !== 'No SKU' && bp.product?.sku === p.sku)
                                     ))
                                     .map(p => (
                                        <option key={p.id} value={p.id}>{p.title} ({p.sku || 'No SKU'})</option>
