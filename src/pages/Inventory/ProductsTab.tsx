@@ -1521,37 +1521,58 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
                                    <div className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-2">Manifest</div>
                                    <div className="space-y-2 overflow-y-auto flex-1 pr-2 custom-scrollbar">
                                         {(() => {
-                                            const items = printingBox.boxes?.[0]?.items || [];
-                                            const grouped: Record<string, { sku: string; sizes: { size: string; quantity: number }[] }> = {};
-                                            
-                                            items.forEach((item: any) => {
-                                                const key = item.name;
-                                                if (!grouped[key]) {
-                                                    grouped[key] = { sku: item.sku || '', sizes: [] };
-                                                }
-                                                grouped[key].sizes.push({ size: item.size, quantity: item.quantity });
-                                            });
-                                            
-                                            return Object.entries(grouped).map(([name, group]: [string, any]) => {
-                                                const totalQty = group.sizes.reduce((sum: number, s: any) => sum + s.quantity, 0);
-                                                return (
-                                                    <div key={name} className="border-b border-black/20 pb-2 last:border-0">
-                                                        <div className="flex justify-between items-baseline mb-1">
-                                                            <p className="font-bold text-[11px] truncate text-black flex-1 pr-2">{name}</p>
-                                                            <span className="text-[10px] font-black text-black shrink-0">Total: {totalQty}</span>
-                                                        </div>
-                                                        {group.sku && <p className="text-[8px] font-bold text-gray-500 mb-1.5">{group.sku}</p>}
-                                                        <div className="flex flex-wrap gap-1">
-                                                            {group.sizes.map((s: any, idx: number) => (
-                                                                <span key={idx} className="text-[9px] border border-black text-black font-black px-1.5 py-0.5 rounded leading-none">
-                                                                    {s.size}: {s.quantity}
-                                                                </span>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                );
-                                            });
-                                        })()}
+                                             const items = printingBox.boxes?.[0]?.items || [];
+                                             const grouped: Record<string, { name: string; sku: string; sizes: { size: string; quantity: number }[] }> = {};
+                                             
+                                             items.forEach((item: any) => {
+                                                 // Match item with catalog product to extract color
+                                                 const matchedProduct = products.find((prod: any) => {
+                                                     if (item.productId) {
+                                                         return prod.id === item.productId;
+                                                     }
+                                                     const itemSku = item.sku && item.sku !== 'No SKU' ? item.sku : '';
+                                                     const prodSku = prod.sku && prod.sku !== 'No SKU' ? prod.sku : '';
+                                                     if (itemSku && prodSku) {
+                                                         return itemSku.toLowerCase() === prodSku.toLowerCase();
+                                                     }
+                                                     if (!itemSku && !prodSku) {
+                                                         return prod.title && prod.title.toLowerCase() === item.name.toLowerCase();
+                                                     }
+                                                     return false;
+                                                 });
+                                                 
+                                                 const colorVal = matchedProduct 
+                                                    ? (Array.isArray(matchedProduct.colors) ? matchedProduct.colors.join(', ') : (matchedProduct.colors || ''))
+                                                    : '';
+                                                 
+                                                 const key = matchedProduct?.id ? `${matchedProduct.id}_${colorVal}` : `${item.name}_${colorVal}`;
+                                                 if (!grouped[key]) {
+                                                     const displayName = colorVal ? `${item.name} • ${colorVal.toUpperCase()}` : item.name;
+                                                     grouped[key] = { name: displayName, sku: item.sku || matchedProduct?.sku || '', sizes: [] };
+                                                 }
+                                                 grouped[key].sizes.push({ size: item.size, quantity: item.quantity });
+                                             });
+                                             
+                                             return Object.entries(grouped).map(([key, group]: [string, any]) => {
+                                                 const totalQty = group.sizes.reduce((sum: number, s: any) => sum + s.quantity, 0);
+                                                 return (
+                                                     <div key={key} className="border-b border-black/20 pb-2 last:border-0">
+                                                         <div className="flex justify-between items-baseline mb-1">
+                                                             <p className="font-bold text-[11px] truncate text-black flex-1 pr-2">{group.name}</p>
+                                                             <span className="text-[10px] font-black text-black shrink-0">Total: {totalQty}</span>
+                                                         </div>
+                                                         {group.sku && <p className="text-[8px] font-bold text-gray-500 mb-1.5">{group.sku}</p>}
+                                                         <div className="flex flex-wrap gap-1">
+                                                             {group.sizes.map((s: any, idx: number) => (
+                                                                 <span key={idx} className="text-[9px] border border-black text-black font-black px-1.5 py-0.5 rounded leading-none">
+                                                                     {s.size}: {s.quantity}
+                                                                 </span>
+                                                             ))}
+                                                         </div>
+                                                     </div>
+                                                 );
+                                             });
+                                         })()}
                                         {(!printingBox.boxes?.[0]?.items || printingBox.boxes[0].items.length === 0) && (
                                             <div className="p-4 border-2 border-dashed border-black/30 text-center font-bold uppercase text-xs">Empty Box</div>
                                         )}
