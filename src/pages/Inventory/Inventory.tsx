@@ -968,7 +968,7 @@ export function Inventory() {
          const nameSet = new Set<string>();
          const sizeSet = new Set<string>();
          
-         const rawData = snapshot.docs.map(d => d.data());
+         const rawData = snapshot.docs.map(d => ({ id: d.id, ...d.data() }) as any);
          setAllPallets(rawData);
          
          const mappedInventory = rawData.filter((d: any) => d.warehouseId === currentWarehouse.id);
@@ -1248,9 +1248,11 @@ export function Inventory() {
     const isFloor = addForm.zoneType === 'Floor';
     const activeRackObj = currentWarehouse?.racks?.find((r: any) => r.label === addForm.rackLabel);
     
+    const selectedPayload = allPallets.find((p: any) => p.id === addForm.palletId);
+    const payloadType = selectedPayload?.type || 'Pallet';
+    const payloadHeight = selectedPayload?.height || (payloadType === 'Box' ? 0.35 : 0.8);
+
     if (!isFloor && activeRackObj) {
-        const selectedPayload = allPallets.find((p: any) => p.id === addForm.palletId);
-        const payloadType = selectedPayload?.type || 'Pallet';
         const rackType = activeRackObj.type || 'Pallet';
         
         if (rackType === 'Box' && payloadType !== 'Box') {
@@ -1301,18 +1303,19 @@ export function Inventory() {
     }
 
     const updates = {
-        type: 'Pallet',
+        id: addForm.palletId,
+        type: payloadType,
         warehouseId: currentWarehouse?.id || "wh_default_01",
         zone: isFloor ? 'Floor' : addForm.rackLabel,
         color: addForm.color,
-        height: 0.8,
+        height: payloadHeight,
         ...(isFloor ? {
             position: [parseFloat(addForm.x as any) || 0, 0, parseFloat(addForm.z as any) || 0],
             rotation: [0, 0, 0],
             location: `Open Floor Zone (${addForm.x}, ${addForm.z})`
         } : {
             rackSpecs: { bay: bayIndex, level: levelIndex, slot: parseInt(addForm.slot as any) },
-            location: `${addForm.rackLabel} | Bay ${bayIndex+1} | Level ${levelIndex}`
+            location: `${addForm.rackLabel} | Bay ${bayIndex+1} | Level ${levelIndex + 1} | Slot ${parseInt(addForm.slot as any) === -1 ? '1' : parseInt(addForm.slot as any) === 0 ? '2' : '3'}`
         })
     };
     

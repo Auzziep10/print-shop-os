@@ -30,7 +30,7 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
   const [warehouses, setWarehouses] = useState<any[]>([]);
   
   const [newBoxName, setNewBoxName] = useState('');
-  const [newBoxQuantities, setNewBoxQuantities] = useState<Record<string, number>>({});
+  const [boxProducts, setBoxProducts] = useState<any[]>([]);
   const [newBoxLocationType, setNewBoxLocationType] = useState<'Unmapped' | 'Floor' | 'Rack'>('Unmapped');
   const [newBoxWarehouseId, setNewBoxWarehouseId] = useState('');
   const [newBoxRackLabel, setNewBoxRackLabel] = useState('');
@@ -68,24 +68,21 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
      e.preventDefault();
      if (!newBoxName.trim()) return alert("Box name is required.");
 
-     let selectedItems = Object.entries(newBoxQuantities)
-        .filter(([_, qty]) => typeof qty === 'number' && qty > 0)
-        .map(([size, qty]) => ({
-            id: `item_${size}_${Date.now()}`,
-            sku: selectedProduct.sku || '',
-            name: selectedProduct.title || '',
-            size: size,
-            quantity: qty,
-            photoUrl: selectedProduct.images?.[0] || ''
-        }));
-
-     if (editingBoxPalletId) {
-        const existingPalletObj = pallets.find(p => p.id === editingBoxPalletId);
-        const nonMatchingItems = existingPalletObj?.boxes?.[0]?.items?.filter((item: any) => 
-            !(item.sku === selectedProduct.sku || (item.name && item.name.toLowerCase().includes(selectedProduct.title.toLowerCase())))
-        ) || [];
-        selectedItems = [...nonMatchingItems, ...selectedItems];
-     }
+      let selectedItems: any[] = [];
+      boxProducts.forEach((bp: any) => {
+          Object.entries(bp.quantities).forEach(([size, qty]) => {
+              if (typeof qty === 'number' && qty > 0) {
+                  selectedItems.push({
+                      id: `item_${bp.product.sku || bp.product.title}_${size}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+                      sku: bp.product.sku === 'No SKU' ? '' : (bp.product.sku || ''),
+                      name: bp.product.title || '',
+                      size: size,
+                      quantity: qty,
+                      photoUrl: bp.product.images?.[0] || ''
+                  });
+              }
+          });
+      });
 
      if (selectedItems.length === 0) {
         return alert("Please specify quantity for at least one size.");
@@ -493,7 +490,11 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
                                setNewBoxNumber(String(nextNum));
                                setNewBoxColor('#d8a47f');
 
-                               setNewBoxQuantities({});
+                               setBoxProducts([{
+                                  productId: selectedProduct.id || selectedProduct.title,
+                                  product: selectedProduct,
+                                  quantities: {}
+                               }]);
                                setNewBoxLocationType('Unmapped');
                                setNewBoxWarehouseId(warehouses[0]?.id || 'wh_default_01');
                                const defaultRack = warehouses[0]?.racks?.[0];
@@ -617,7 +618,11 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
                                       setNewBoxNumber(String(nextNum));
                                       setNewBoxColor('#d8a47f');
 
-                                      setNewBoxQuantities({});
+                                      setBoxProducts([{
+                                         productId: selectedProduct.id || selectedProduct.title,
+                                         product: selectedProduct,
+                                         quantities: {}
+                                      }]);
                                       setNewBoxLocationType('Unmapped');
                                       setNewBoxWarehouseId(warehouses[0]?.id || 'wh_default_01');
                                       const defaultRack = warehouses[0]?.racks?.[0];
@@ -681,26 +686,72 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
                                                          </span>
                                                       ))}
                                                    </div>
-                                                )}
-                                             </div>
-                                             
-                                             <div className="flex gap-2 shrink-0">
-                                                 <button 
-                                                     onClick={() => {
-                                                        setEditingBoxPalletId(pallet.id);
-                                                        setNewBoxName(pallet.name || '');
-                                                        setNewBoxNumber(pallet.boxNumber !== undefined ? String(pallet.boxNumber) : '1');
-                                                        setNewBoxColor(pallet.color || '#d8a47f');
-                                                        
-                                                        const initialQuantities: Record<string, number> = {};
-                                                        pallet.boxes?.forEach((box: any) => {
-                                                            box.items?.forEach((item: any) => {
-                                                                if ((selectedProduct.sku && selectedProduct.sku !== 'No SKU' && item.sku === selectedProduct.sku) || (item.name && item.name.toLowerCase().includes(selectedProduct.title.toLowerCase()))) {
-                                                                    initialQuantities[item.size] = item.quantity || 0;
-                                                                }
-                                                            });
-                                                        });
-                                                        setNewBoxQuantities(initialQuantities);
+                                                 )}
+                                              </div>
+                                              
+                                              <div className="flex gap-2 shrink-0">
+                                                  <button 
+                                                      onClick={() => {
+                                                          setEditingBoxPalletId(pallet.id);
+                                                          setNewBoxName(pallet.name || '');
+                                                          
+                                                          let fallbackNum = 1;
+                                                         if (pallet.boxNumber !== undefined) {
+                                                             fallbackNum = pallet.boxNumber;
+                                                         } else {
+                                                             const boxPallets = pallets
+                                                                 .filter((p: any) => p.type === 'Box')
+                                                                 .sort((a: any, b: any) => (a.createdAt || 0) - (b.createdAt || 0) || (a.id || '').localeCompare(b.id || ''));
+                                                             const idx = boxPallets.findIndex((p: any) => p.id === pallet.id);
+                                                             fallbackNum = idx !== -1 ? idx + 1 : 1;
+                                                         }
+                                                         setNewBoxNumber(String(fallbackNum));
+                                                         setNewBoxColor(pallet.color || '#d8a47f');
+                                                         
+                                                         const tempBoxProducts: any[] = [];
+                                                         const boxItems = pallet.boxes?.[0]?.items || [];
+                                                         const groupedItems: Record<string, any[]> = {};
+                                                         boxItems.forEach((item: any) => {
+                                                             const key = item.sku || item.name;
+                                                             if (!groupedItems[key]) {
+                                                                 groupedItems[key] = [];
+                                                             }
+                                                             groupedItems[key].push(item);
+                                                         });
+                                                         Object.entries(groupedItems).forEach(([_, items]) => {
+                                                             const firstItem = items[0];
+                                                             const matchedProduct = products.find((prod: any) => 
+                                                                 (prod.sku && prod.sku !== 'No SKU' && prod.sku === firstItem.sku) ||
+                                                                 (prod.title && prod.title.toLowerCase() === firstItem.name.toLowerCase())
+                                                             );
+                                                             const quantities: Record<string, number> = {};
+                                                             items.forEach((item: any) => {
+                                                                 quantities[item.size] = item.quantity || 0;
+                                                             });
+                                                             tempBoxProducts.push({
+                                                                 productId: matchedProduct?.id || firstItem.sku || firstItem.name,
+                                                                 product: matchedProduct || {
+                                                                     id: firstItem.sku || firstItem.name,
+                                                                     title: firstItem.name,
+                                                                     sku: firstItem.sku || 'No SKU',
+                                                                     images: firstItem.photoUrl ? [firstItem.photoUrl] : [],
+                                                                     sizeSpread: {}
+                                                                 },
+                                                                 quantities
+                                                             });
+                                                         });
+                                                         const hasSelectedProd = tempBoxProducts.some(bp => 
+                                                             (bp.product.sku && bp.product.sku !== 'No SKU' && bp.product.sku === selectedProduct.sku) ||
+                                                             (bp.product.title && bp.product.title.toLowerCase() === selectedProduct.title.toLowerCase())
+                                                         );
+                                                         if (!hasSelectedProd) {
+                                                             tempBoxProducts.unshift({
+                                                                 productId: selectedProduct.id || selectedProduct.title,
+                                                                 product: selectedProduct,
+                                                                 quantities: {}
+                                                             });
+                                                         }
+                                                         setBoxProducts(tempBoxProducts);
                                                         
                                                         const locType = pallet.zone 
                                                            ? (pallet.zone === 'Floor' ? 'Floor' : 'Rack')
@@ -827,300 +878,392 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
 
       {/* Create Box Payload Modal */}
       {isCreatingBox && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in zoom-in-95 fill-mode-forwards duration-200">
-           <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-8 relative border border-brand-border max-h-[90vh] overflow-y-auto custom-scrollbar flex flex-col">
-              <button 
-                onClick={() => setIsCreatingBox(false)} 
-                className="absolute top-4 right-4 p-2 text-brand-secondary hover:text-black hover:bg-neutral-100 rounded-full transition-colors"
-                title="Cancel"
-              >
-                 <X size={20} />
-              </button>
-              
-              <div className="w-12 h-12 bg-neutral-100 rounded-2xl flex items-center justify-center mb-4 shrink-0">
-                 <Boxes size={24} className="text-brand-primary" />
-              </div>
-              
-              <h2 className="font-serif text-2xl font-bold tracking-tight text-brand-primary mb-1 shrink-0">
-                  {editingBoxPalletId ? 'Edit Box Payload' : 'Create Box Payload'}
-               </h2>
-               <p className="text-xs text-brand-secondary mb-6 shrink-0">
-                  {editingBoxPalletId ? `Update manifest and coordinates for ${newBoxName}.` : `Allocate a box manifest and coordinates for ${selectedProduct.title}.`}
-               </p>
-              
-              <form onSubmit={handleCreateBoxSubmit} className="space-y-5 flex-1 min-h-0">
-                  {/* Box Name and Box Number */}
-                  <div className="grid grid-cols-3 gap-4">
-                     <div className="col-span-2">
-                        <label className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1 block">Box Name (Garment)</label>
-                        <input 
-                          type="text" 
-                          required
-                          value={newBoxName} 
-                          onChange={e => setNewBoxName(e.target.value)} 
-                          className="w-full bg-neutral-50 border border-brand-border rounded-lg px-3 py-2 text-sm font-semibold focus:outline-brand-primary"
-                        />
-                     </div>
-                     <div className="col-span-1">
-                        <label className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1 block">Box Number</label>
-                        <input 
-                          type="number" 
-                          min="1"
-                          required
-                          value={newBoxNumber} 
-                          onChange={e => setNewBoxNumber(e.target.value)} 
-                          className="w-full bg-neutral-50 border border-brand-border rounded-lg text-center py-2 text-sm font-semibold focus:outline-brand-primary"
-                        />
-                     </div>
+         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in zoom-in-95 fill-mode-forwards duration-200">
+            <div className="bg-white rounded-3xl shadow-2xl max-w-5xl w-full p-8 relative border border-brand-border h-[90vh] max-h-[90vh] overflow-hidden flex flex-col">
+               <button 
+                 onClick={() => setIsCreatingBox(false)} 
+                 className="absolute top-4 right-4 p-2 text-brand-secondary hover:text-black hover:bg-neutral-100 rounded-full transition-colors"
+                 title="Cancel"
+               >
+                  <X size={20} />
+               </button>
+               
+               <div className="flex items-center gap-3 mb-4 shrink-0">
+                  <div className="w-12 h-12 bg-neutral-100 rounded-2xl flex items-center justify-center">
+                     <Boxes size={24} className="text-brand-primary" />
                   </div>
-
-                  {/* Box Color Swatches */}
                   <div>
-                     <label className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1.5 block">Box Color Tag</label>
-                     <div className="flex flex-wrap gap-2 bg-neutral-50 p-3 rounded-xl border border-brand-border/60">
-                        {BOX_SWATCHES.map(color => (
-                           <button 
-                              key={color} 
-                              type="button"
-                              onClick={() => setNewBoxColor(color)}
-                              className={`w-6 h-6 rounded-full cursor-pointer transition-transform hover:scale-110 shadow-sm ${newBoxColor === color ? 'ring-2 ring-offset-2 ring-brand-primary scale-110' : ''}`}
-                              style={{ backgroundColor: color }}
-                              title={color === '#d8a47f' ? 'Standard Cardboard' : color}
-                           />
-                        ))}
-                     </div>
+                     <h2 className="font-serif text-2xl font-bold tracking-tight text-brand-primary">
+                        {editingBoxPalletId ? 'Edit Box Payload' : 'Create Box Payload'}
+                     </h2>
+                     <p className="text-xs text-brand-secondary">
+                        {editingBoxPalletId ? `Update manifest and coordinates for ${newBoxName}.` : `Allocate a box manifest and coordinates for ${selectedProduct.title}.`}
+                     </p>
                   </div>
+               </div>
+               
+               <form onSubmit={handleCreateBoxSubmit} className="flex-1 flex flex-col min-h-0">
+                  {/* Scrollable body */}
+                  <div className="flex-1 overflow-y-auto pr-2 -mr-2 space-y-6 custom-scrollbar mb-6">
+                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                        
+                        {/* Left Column: Metadata & Coordinates */}
+                        <div className="lg:col-span-5 space-y-5">
+                           {/* Box Name and Box Number */}
+                           <div className="grid grid-cols-3 gap-4">
+                              <div className="col-span-2">
+                                 <label className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1 block">Box Name (Garment)</label>
+                                 <input 
+                                   type="text" 
+                                   required
+                                   value={newBoxName} 
+                                   onChange={e => setNewBoxName(e.target.value)} 
+                                   className="w-full bg-neutral-50 border border-brand-border rounded-lg px-3 py-2 text-sm font-semibold focus:outline-brand-primary"
+                                 />
+                              </div>
+                              <div className="col-span-1">
+                                 <label className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1 block">Box Number</label>
+                                 <input 
+                                   type="number" 
+                                   min="1"
+                                   required
+                                   value={newBoxNumber} 
+                                   onChange={e => setNewBoxNumber(e.target.value)} 
+                                   className="w-full bg-neutral-50 border border-brand-border rounded-lg text-center py-2 text-sm font-semibold focus:outline-brand-primary"
+                                 />
+                              </div>
+                           </div>
 
-                  {/* Quantities per Size */}
-                  <div>
-                     <label className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-2 block">Box Contents (Quantity per Size)</label>
-                     {(() => {
-                        const sizesToDisplay = SIZES.filter(size => (selectedProduct?.sizeSpread?.[size] || 0) > 0);
-                        const displaySizes = sizesToDisplay.length > 0 ? sizesToDisplay : SIZES;
-                        return (
-                           <div className="grid grid-cols-4 sm:grid-cols-5 gap-3">
-                              {displaySizes.map(size => {
-                                 const maxQty = selectedProduct?.sizeSpread?.[size] || 0;
-                                 return (
-                                    <div key={size} className="grid grid-rows-[1fr_auto] border border-brand-border shadow-sm rounded-xl overflow-hidden focus-within:border-black focus-within:ring-1 focus-within:ring-black transition-all bg-white group">
-                                       <div className="bg-neutral-100/60 p-1.5 flex flex-col items-center justify-center min-h-[36px] border-b border-brand-border group-focus-within:bg-neutral-100 transition-colors">
-                                          <span className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary leading-tight text-center">{size}</span>
-                                       </div>
-                                       <div className="bg-white flex flex-col items-center justify-center py-2 h-full gap-1">
+                           {/* Box Color Swatches */}
+                           <div>
+                              <label className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1.5 block">Box Color Tag</label>
+                              <div className="flex flex-wrap gap-2 bg-neutral-50 p-3 rounded-xl border border-brand-border/60">
+                                 {BOX_SWATCHES.map(color => (
+                                    <button 
+                                       key={color} 
+                                       type="button"
+                                       onClick={() => setNewBoxColor(color)}
+                                       className={`w-6 h-6 rounded-full cursor-pointer transition-transform hover:scale-110 shadow-sm ${newBoxColor === color ? 'ring-2 ring-offset-2 ring-brand-primary scale-110' : ''}`}
+                                       style={{ backgroundColor: color }}
+                                       title={color === '#d8a47f' ? 'Standard Cardboard' : color}
+                                    />
+                                 ))}
+                              </div>
+                           </div>
+
+                           {/* Staging Location Selector */}
+                           <div>
+                              <label className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1.5 block">Location Type</label>
+                              <div className="grid grid-cols-3 gap-2 bg-neutral-100 p-1 rounded-lg">
+                                 {(['Unmapped', 'Floor', 'Rack'] as const).map(type => (
+                                    <button
+                                       key={type}
+                                       type="button"
+                                       onClick={() => setNewBoxLocationType(type)}
+                                       className={`py-1.5 text-xs rounded transition-all duration-200 uppercase tracking-wider font-bold text-[10px] ${
+                                           newBoxLocationType === type
+                                               ? 'bg-white text-brand-primary shadow-sm'
+                                               : 'text-brand-secondary hover:text-brand-primary'
+                                       }`}
+                                    >
+                                       {type === 'Unmapped' ? 'Unmapped' : type === 'Floor' ? 'Floor' : 'Rack Slot'}
+                                    </button>
+                                 ))}
+                              </div>
+                           </div>
+
+                           {/* Coordinate Detail Forms */}
+                           {newBoxLocationType !== 'Unmapped' && (
+                              <div className="space-y-4 bg-neutral-50 p-4 rounded-xl border border-brand-border/60">
+                                 {/* Warehouse Selector */}
+                                 <div>
+                                    <label className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1 block">Warehouse / Room</label>
+                                    <select 
+                                       value={newBoxWarehouseId} 
+                                       onChange={e => {
+                                          const whId = e.target.value;
+                                          setNewBoxWarehouseId(whId);
+                                          const whObj = warehouses.find(w => w.id === whId);
+                                          if (whObj?.racks?.length > 0) {
+                                             setNewBoxRackLabel(whObj.racks[0].label);
+                                          } else {
+                                             setNewBoxRackLabel('');
+                                          }
+                                       }}
+                                       className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-sm font-semibold focus:outline-brand-primary"
+                                    >
+                                       {warehouses.map(w => (
+                                          <option key={w.id} value={w.id}>{w.name}</option>
+                                       ))}
+                                    </select>
+                                 </div>
+
+                                 {newBoxLocationType === 'Floor' && (
+                                    <div className="grid grid-cols-2 gap-3">
+                                       <div>
+                                          <label className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1 block">Pos X (Lateral)</label>
                                           <input 
                                              type="number" 
-                                             min="0"
-                                             max={maxQty || undefined}
-                                             placeholder="0"
-                                             value={newBoxQuantities[size] === 0 ? '' : (newBoxQuantities[size] || '')}
-                                             onChange={e => {
-                                                 let val = parseInt(e.target.value) || 0;
-                                                 if (maxQty > 0 && val > maxQty) val = maxQty;
-                                                 if (val < 0) val = 0;
-                                                 setNewBoxQuantities(prev => ({
-                                                     ...prev,
-                                                     [size]: val
-                                                 }));
-                                             }}
-                                             className="w-full bg-transparent px-2 text-lg font-black text-center focus:outline-none placeholder:text-gray-200"
+                                             step="0.5" 
+                                             required
+                                             value={newBoxX} 
+                                             onChange={e => setNewBoxX(e.target.value)} 
+                                             className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-sm font-semibold focus:outline-brand-primary"
                                           />
-                                          {maxQty > 0 && (
-                                             <span className="text-[9px] bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded text-blue-700 font-bold uppercase tracking-widest">
-                                                Max {maxQty}
-                                             </span>
-                                          )}
+                                       </div>
+                                       <div>
+                                          <label className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1 block">Pos Z (Depth)</label>
+                                          <input 
+                                             type="number" 
+                                             step="0.5" 
+                                             required
+                                             value={newBoxZ} 
+                                             onChange={e => setNewBoxZ(e.target.value)} 
+                                             className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-sm font-semibold focus:outline-brand-primary"
+                                          />
                                        </div>
                                     </div>
-                                 );
-                              })}
+                                 )}
+
+                                 {newBoxLocationType === 'Rack' && (() => {
+                                    const whObj = warehouses.find(w => w.id === newBoxWarehouseId);
+                                    const whRacks = whObj?.racks || [];
+                                    const activeRackObj = whRacks.find((r: any) => r.label === newBoxRackLabel);
+                                    const activeRackSlots = activeRackObj?.slots || 3;
+                                    
+                                    return (
+                                       <div className="space-y-3">
+                                          <div>
+                                             <label className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1 block">Aisle / Rack</label>
+                                             {whRacks.length === 0 ? (
+                                                <p className="text-xs text-red-500 font-semibold mt-1">No racks defined in this warehouse.</p>
+                                             ) : (
+                                                <select 
+                                                   value={newBoxRackLabel} 
+                                                   onChange={e => setNewBoxRackLabel(e.target.value)}
+                                                   className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-sm font-semibold focus:outline-brand-primary"
+                                                >
+                                                   {whRacks.map((r: any) => (
+                                                      <option key={r.id} value={r.label}>{r.label} ({r.type === 'Box' ? 'Rolling Box Rack' : 'Pallet Rack'})</option>
+                                                   ))}
+                                                </select>
+                                             )}
+                                          </div>
+
+                                          {activeRackObj && (
+                                             <div className="grid grid-cols-3 gap-3">
+                                                <div>
+                                                   <label className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1 block">Bay</label>
+                                                   <select 
+                                                      value={newBoxBay} 
+                                                      onChange={e => setNewBoxBay(e.target.value)}
+                                                      className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-sm font-semibold focus:outline-brand-primary"
+                                                   >
+                                                      {Array.from({ length: activeRackObj.bays || 1 }).map((_, idx) => (
+                                                         <option key={idx} value={idx}>Bay {idx + 1}</option>
+                                                      ))}
+                                                   </select>
+                                                </div>
+                                                
+                                                <div>
+                                                   <label className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1 block">Level</label>
+                                                   <select 
+                                                      value={newBoxLevel} 
+                                                      onChange={e => setNewBoxLevel(e.target.value)}
+                                                      className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-sm font-semibold focus:outline-brand-primary"
+                                                   >
+                                                      {Array.from({ length: activeRackObj.levels || 1 }).map((_, idx) => (
+                                                         <option key={idx} value={idx + 1}>Level {idx + 1}</option>
+                                                      ))}
+                                                   </select>
+                                                </div>
+
+                                                <div>
+                                                   <label className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1 block">Slot</label>
+                                                   <select 
+                                                      value={newBoxSlot} 
+                                                      onChange={e => setNewBoxSlot(e.target.value)}
+                                                      className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-sm font-semibold focus:outline-brand-primary"
+                                                   >
+                                                      <option value="-1">Slot 1</option>
+                                                      <option value="0">Slot 2</option>
+                                                      {activeRackSlots === 3 && <option value="1">Slot 3</option>}
+                                                   </select>
+                                                </div>
+                                             </div>
+                                          )}
+                                       </div>
+                                    );
+                                 })()}
+                              </div>
+                           )}
+                        </div>
+
+                        {/* Right Column: Box Contents (Manifest) & Product Selector */}
+                        <div className="lg:col-span-7 space-y-5">
+                           {/* Box Contents (Multiple Products Supported) */}
+                           <div className="space-y-4">
+                              <label className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary block">Box Contents (Products & Manifest)</label>
+                              
+                              <div className="space-y-3">
+                                 {boxProducts.map((bp: any) => {
+                                    const sizesToDisplay = SIZES.filter(size => (bp.product?.sizeSpread?.[size] || 0) > 0);
+                                    const displaySizes = sizesToDisplay.length > 0 ? sizesToDisplay : SIZES;
+                                    return (
+                                       <div key={bp.productId} className="border border-brand-border rounded-xl p-4 bg-neutral-50/50 space-y-3 relative animate-in fade-in">
+                                          <div className="flex justify-between items-center gap-4">
+                                             <div className="flex gap-2.5 items-center min-w-0">
+                                                {bp.product.images?.[0] ? (
+                                                   <img src={bp.product.images[0]} alt="Product" className="w-10 h-10 object-cover rounded-lg border border-brand-border bg-white shrink-0" />
+                                                ) : (
+                                                   <div className="w-10 h-10 bg-neutral-100 border border-brand-border rounded-lg flex items-center justify-center shrink-0">
+                                                      <Boxes size={18} className="text-neutral-400" />
+                                                   </div>
+                                                )}
+                                                <div className="min-w-0">
+                                                   <h4 className="text-xs font-bold text-brand-primary truncate leading-snug">{bp.product.title}</h4>
+                                                   <p className="text-[9px] font-bold text-brand-secondary uppercase mt-0.5">{bp.product.sku || 'No SKU'}</p>
+                                                </div>
+                                             </div>
+                                             
+                                             {boxProducts.length > 1 && (
+                                                <button 
+                                                   type="button" 
+                                                   onClick={() => {
+                                                      setBoxProducts(prev => prev.filter(item => item.productId !== bp.productId));
+                                                   }}
+                                                   className="text-[10px] font-bold uppercase tracking-wider text-red-600 hover:text-red-800 transition-colors shrink-0"
+                                                >
+                                                   Remove
+                                                </button>
+                                             )}
+                                          </div>
+                                          
+                                          <div className="grid grid-cols-4 sm:grid-cols-5 gap-2.5">
+                                             {displaySizes.map(size => {
+                                                const maxQty = bp.product?.sizeSpread?.[size] || 0;
+                                                return (
+                                                   <div key={size} className="grid grid-rows-[1fr_auto] border border-brand-border shadow-sm rounded-xl overflow-hidden focus-within:border-black focus-within:ring-1 focus-within:ring-black transition-all bg-white group">
+                                                      <div className="bg-neutral-100/65 p-1 flex items-center justify-center min-h-[26px] border-b border-brand-border group-focus-within:bg-neutral-100 transition-colors">
+                                                         <span className="text-[9px] font-bold uppercase tracking-wider text-brand-secondary leading-none text-center">{size}</span>
+                                                      </div>
+                                                      <div className="bg-white flex flex-col items-center justify-center py-1.5 h-full gap-0.5">
+                                                         <input 
+                                                            type="number" 
+                                                            min="0"
+                                                            max={maxQty || undefined}
+                                                            placeholder="0"
+                                                            value={bp.quantities[size] === 0 ? '' : (bp.quantities[size] || '')}
+                                                            onChange={e => {
+                                                               let val = parseInt(e.target.value) || 0;
+                                                               if (maxQty > 0 && val > maxQty) val = maxQty;
+                                                               if (val < 0) val = 0;
+                                                               setBoxProducts(prev => prev.map(item => {
+                                                                  if (item.productId === bp.productId) {
+                                                                     return {
+                                                                        ...item,
+                                                                        quantities: {
+                                                                           ...item.quantities,
+                                                                           [size]: val
+                                                                        }
+                                                                     };
+                                                                  }
+                                                                  return item;
+                                                               }));
+                                                            }}
+                                                            className="w-full bg-transparent px-2 text-md font-black text-center focus:outline-none placeholder:text-gray-200"
+                                                         />
+                                                         {maxQty > 0 && (
+                                                            <span className="text-[8px] bg-blue-50 border border-blue-200 px-1 py-0.5 rounded text-blue-700 font-bold uppercase tracking-widest leading-none scale-90">
+                                                               Max {maxQty}
+                                                            </span>
+                                                         )}
+                                                      </div>
+                                                   </div>
+                                                );
+                                             })}
+                                          </div>
+                                       </div>
+                                    );
+                                 })}
+                              </div>
                            </div>
-                        );
-                     })()}
+
+                           {/* Add Product Selector */}
+                           <div className="bg-neutral-50 p-4 rounded-xl border border-brand-border/60">
+                              <label className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1.5 block">Add another product to this box</label>
+                              <select 
+                                 value=""
+                                 onChange={e => {
+                                    const prodId = e.target.value;
+                                    if (!prodId) return;
+                                    const prod = products.find(p => p.id === prodId);
+                                    if (!prod) return;
+                                    
+                                    const alreadyInBox = boxProducts.some(bp => bp.product?.sku === prod.sku || bp.product?.title === prod.title);
+                                    if (alreadyInBox) return alert("Product is already in this box.");
+                                    
+                                    setBoxProducts(prev => [
+                                       ...prev,
+                                       {
+                                          productId: prod.id,
+                                          product: prod,
+                                          quantities: {}
+                                       }
+                                    ]);
+                                 }}
+                                 className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-sm font-semibold focus:outline-brand-primary"
+                              >
+                                 <option value="">-- Choose Product to Add --</option>
+                                 {products
+                                    .filter(p => !boxProducts.some(bp => bp.product?.sku === p.sku || bp.product?.title === p.title))
+                                    .map(p => (
+                                       <option key={p.id} value={p.id}>{p.title} ({p.sku || 'No SKU'})</option>
+                                    ))
+                                 }
+                              </select>
+                           </div>
+                        </div>
+
+                     </div>
                   </div>
 
-                 {/* Staging Location Selector */}
-                 <div>
-                    <label className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1.5 block">Location Type</label>
-                    <div className="grid grid-cols-3 gap-2 bg-neutral-100 p-1 rounded-lg">
-                       {(['Unmapped', 'Floor', 'Rack'] as const).map(type => (
-                          <button
-                             key={type}
-                             type="button"
-                             onClick={() => setNewBoxLocationType(type)}
-                             className={`py-1.5 text-xs rounded transition-all duration-200 uppercase tracking-wider font-bold text-[10px] ${
-                                 newBoxLocationType === type
-                                     ? 'bg-white text-brand-primary shadow-sm'
-                                     : 'text-brand-secondary hover:text-brand-primary'
-                             }`}
-                          >
-                             {type === 'Unmapped' ? 'Unmapped' : type === 'Floor' ? 'Floor' : 'Rack Slot'}
-                          </button>
-                       ))}
-                    </div>
-                 </div>
-
-                 {/* Coordinate Detail Forms */}
-                 {newBoxLocationType !== 'Unmapped' && (
-                    <div className="space-y-4 bg-neutral-50 p-4 rounded-xl border border-brand-border/60">
-                       {/* Warehouse Selector */}
-                       <div>
-                          <label className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1 block">Warehouse / Room</label>
-                          <select 
-                             value={newBoxWarehouseId} 
-                             onChange={e => {
-                                const whId = e.target.value;
-                                setNewBoxWarehouseId(whId);
-                                const whObj = warehouses.find(w => w.id === whId);
-                                if (whObj?.racks?.length > 0) {
-                                   setNewBoxRackLabel(whObj.racks[0].label);
-                                } else {
-                                   setNewBoxRackLabel('');
-                                }
-                             }}
-                             className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-sm font-semibold focus:outline-brand-primary"
-                          >
-                             {warehouses.map(w => (
-                                <option key={w.id} value={w.id}>{w.name}</option>
-                             ))}
-                          </select>
-                       </div>
-
-                       {newBoxLocationType === 'Floor' && (
-                          <div className="grid grid-cols-2 gap-3">
-                             <div>
-                                <label className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1 block">Pos X (Lateral)</label>
-                                <input 
-                                   type="number" 
-                                   step="0.5" 
-                                   required
-                                   value={newBoxX} 
-                                   onChange={e => setNewBoxX(e.target.value)} 
-                                   className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-sm font-semibold focus:outline-brand-primary"
-                                />
-                             </div>
-                             <div>
-                                <label className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1 block">Pos Z (Depth)</label>
-                                <input 
-                                   type="number" 
-                                   step="0.5" 
-                                   required
-                                   value={newBoxZ} 
-                                   onChange={e => setNewBoxZ(e.target.value)} 
-                                   className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-sm font-semibold focus:outline-brand-primary"
-                                />
-                             </div>
-                          </div>
-                       )}
-
-                       {newBoxLocationType === 'Rack' && (() => {
-                          const whObj = warehouses.find(w => w.id === newBoxWarehouseId);
-                          const whRacks = whObj?.racks || [];
-                          const activeRackObj = whRacks.find((r: any) => r.label === newBoxRackLabel);
-                          const activeRackSlots = activeRackObj?.slots || 3;
-                          
-                          return (
-                             <div className="space-y-3">
-                                <div>
-                                   <label className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1 block">Aisle / Rack</label>
-                                   {whRacks.length === 0 ? (
-                                      <p className="text-xs text-red-500 font-semibold mt-1">No racks defined in this warehouse.</p>
-                                   ) : (
-                                      <select 
-                                         value={newBoxRackLabel} 
-                                         onChange={e => setNewBoxRackLabel(e.target.value)}
-                                         className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-sm font-semibold focus:outline-brand-primary"
-                                      >
-                                         {whRacks.map((r: any) => (
-                                            <option key={r.id} value={r.label}>{r.label} ({r.type === 'Box' ? 'Rolling Box Rack' : 'Pallet Rack'})</option>
-                                         ))}
-                                      </select>
-                                   )}
-                                </div>
-
-                                {activeRackObj && (
-                                   <div className="grid grid-cols-3 gap-3">
-                                      <div>
-                                         <label className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1 block">Bay</label>
-                                         <select 
-                                            value={newBoxBay} 
-                                            onChange={e => setNewBoxBay(e.target.value)}
-                                            className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-sm font-semibold focus:outline-brand-primary"
-                                         >
-                                            {Array.from({ length: activeRackObj.bays || 1 }).map((_, idx) => (
-                                               <option key={idx} value={idx}>Bay {idx + 1}</option>
-                                            ))}
-                                         </select>
-                                      </div>
-                                      
-                                      <div>
-                                         <label className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1 block">Level</label>
-                                         <select 
-                                            value={newBoxLevel} 
-                                            onChange={e => setNewBoxLevel(e.target.value)}
-                                            className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-sm font-semibold focus:outline-brand-primary"
-                                         >
-                                            {Array.from({ length: activeRackObj.levels || 1 }).map((_, idx) => (
-                                               <option key={idx} value={idx + 1}>Level {idx + 1}</option>
-                                            ))}
-                                         </select>
-                                      </div>
-
-                                      <div>
-                                         <label className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary mb-1 block">Slot</label>
-                                         <select 
-                                            value={newBoxSlot} 
-                                            onChange={e => setNewBoxSlot(e.target.value)}
-                                            className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-sm font-semibold focus:outline-brand-primary"
-                                         >
-                                            <option value="-1">Slot 1</option>
-                                            <option value="0">Slot 2</option>
-                                            {activeRackSlots === 3 && <option value="1">Slot 3</option>}
-                                         </select>
-                                      </div>
-                                   </div>
-                                )}
-                             </div>
-                          );
-                       })()}
-                    </div>
-                 )}
-
-                 {/* Submit Button */}
-                 <div className="flex gap-3 justify-end pt-3 shrink-0 w-full">
-                     {editingBoxPalletId && (
-                        <button
-                           type="button"
-                           disabled={isSubmittingBox}
-                           onClick={handleDeleteBoxPayload}
-                           className="mr-auto px-4 py-2 bg-red-50 border border-red-200 text-red-600 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-red-100 transition-colors disabled:opacity-50"
-                        >
-                           Delete Box
-                        </button>
-                     )}
-                     <button 
-                        type="button" 
-                        onClick={() => setIsCreatingBox(false)}
-                        className="px-4 py-2 border border-brand-border text-brand-secondary rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-neutral-50 transition-colors"
-                     >
-                        Cancel
-                     </button>
-                     <button 
-                        type="submit" 
-                        disabled={isSubmittingBox || (newBoxLocationType === 'Rack' && !newBoxRackLabel)}
-                        className="bg-brand-primary text-white px-5 py-2 rounded-lg text-xs font-bold uppercase tracking-widest shadow-sm hover:scale-[1.02] active:scale-95 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                     >
-                        {isSubmittingBox ? (
-                           <>
-                              <Loader2 size={14} className="animate-spin" /> {editingBoxPalletId ? 'Saving...' : 'Creating...'}
-                           </>
-                        ) : (
-                           editingBoxPalletId ? 'Save Changes' : 'Create Box'
-                        )}
-                     </button>
-                 </div>
-              </form>
-           </div>
-        </div>
+                  {/* Fixed Footer Buttons */}
+                  <div className="flex gap-3 justify-end pt-4 border-t border-brand-border shrink-0 w-full bg-white">
+                      {editingBoxPalletId && (
+                         <button
+                            type="button"
+                            disabled={isSubmittingBox}
+                            onClick={handleDeleteBoxPayload}
+                            className="mr-auto px-4 py-2 bg-red-50 border border-red-200 text-red-600 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-red-100 transition-colors disabled:opacity-50"
+                         >
+                            Delete Box
+                         </button>
+                      )}
+                      <button 
+                         type="button" 
+                         onClick={() => setIsCreatingBox(false)}
+                         className="px-4 py-2 border border-brand-border text-brand-secondary rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-neutral-50 transition-colors"
+                      >
+                         Cancel
+                      </button>
+                      <button 
+                         type="submit" 
+                         disabled={isSubmittingBox || (newBoxLocationType === 'Rack' && !newBoxRackLabel)}
+                         className="bg-brand-primary text-white px-5 py-2 rounded-lg text-xs font-bold uppercase tracking-widest shadow-sm hover:scale-[1.02] active:scale-95 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                         {isSubmittingBox ? (
+                            <>
+                               <Loader2 size={14} className="animate-spin" /> {editingBoxPalletId ? 'Saving...' : 'Creating...'}
+                            </>
+                         ) : (
+                            editingBoxPalletId ? 'Save Changes' : 'Create Box'
+                         )}
+                      </button>
+                  </div>
+               </form>
+            </div>
+         </div>
       )}
 
       {/* QR Code Upload Modal */}

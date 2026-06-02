@@ -56,6 +56,7 @@ export function PalletsTab({ onJumpToWarehouse, initialActivePalletId, onOpenSho
   const [searchQuery, setSearchQuery] = useState('');
   const [sortOption, setSortOption] = useState<'newest' | 'oldest' | 'alpha' | 'boxes'>('newest');
   const [mobileQrPallet, setMobileQrPallet] = useState<Pallet | null>(null);
+  const [directoryTab, setDirectoryTab] = useState<'pallets' | 'boxes'>('pallets');
   
   const [printingBox, setPrintingBox] = useState<{pallet: Pallet, box: BoxType | null, type: 'box' | 'items' | 'all_boxes' | 'pallet' | 'all_boxes_thermal'} | null>(null);
   const [showPrintAllDialog, setShowPrintAllDialog] = useState(false);
@@ -352,6 +353,10 @@ export function PalletsTab({ onJumpToWarehouse, initialActivePalletId, onOpenSho
   const activeBox = activePallet?.boxes.find(b => b.id === activeBoxId);
 
   const filteredPallets = pallets.filter(p => {
+    const isBox = (p as any).type === 'Box';
+    if (directoryTab === 'pallets' && isBox) return false;
+    if (directoryTab === 'boxes' && !isBox) return false;
+
     if (!searchQuery.trim()) return true;
     const terms = searchQuery.toLowerCase().split(',').map(t => t.trim()).filter(Boolean);
     
@@ -392,39 +397,82 @@ export function PalletsTab({ onJumpToWarehouse, initialActivePalletId, onOpenSho
                      <option value="boxes">Most Boxes</option>
                  </select>
              </div>
-             {!isAddingPallet ? (
-                  <div className="flex flex-col gap-2">
-                      <button 
-                          onClick={() => setIsAddingPallet(true)}
-                          className="w-full bg-brand-primary text-white py-2.5 rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-black transition-colors shadow-sm flex items-center justify-center gap-2"
-                      >
-                          <Plus size={14} /> Create Pallet
-                      </button>
-                      {onOpenShopifyPickRoute && (
-                         <button 
-                             onClick={onOpenShopifyPickRoute}
-                             className="w-full bg-green-600 text-white py-2.5 rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-green-700 transition-colors shadow-sm flex items-center justify-center gap-2"
-                         >
-                             <ShoppingBag size={14} /> Shopify Pick Route
-                         </button>
-                      )}
-                  </div>
-             ) : (
-                 <div className="bg-white p-3 rounded-xl border border-brand-border shadow-sm animate-in zoom-in-95">
-                     <input 
-                         type="text" 
-                         autoFocus
-                         placeholder="Pallet Name (e.g. Summer Drop)" 
-                         value={newPalletName}
-                         onChange={e => setNewPalletName(e.target.value)}
-                         className="w-full text-xs font-semibold p-2 bg-brand-bg border border-brand-border rounded-lg outline-none focus:border-brand-primary mb-2"
-                     />
-                     <div className="flex gap-2">
-                         <button onClick={() => setIsAddingPallet(false)} className="flex-1 py-2 text-[10px] font-bold uppercase text-brand-secondary hover:text-black border border-transparent hover:bg-brand-bg rounded-lg">Cancel</button>
-                         <button onClick={handleCreatePallet} className="flex-1 py-2 text-[10px] bg-brand-primary text-white font-bold uppercase rounded-lg shadow-sm">Save</button>
-                     </div>
+
+              {/* Directory Sidebar Tabs */}
+              <div className="flex bg-neutral-100 p-0.5 rounded-lg mb-4 border border-brand-border/40 shadow-inner">
+                 <button
+                    onClick={() => {
+                        setDirectoryTab('pallets');
+                        const firstPal = pallets.find(p => (p as any).type !== 'Box');
+                        if (firstPal && (!activePallet || (activePallet as any).type === 'Box')) {
+                            setActivePalletId(firstPal.id);
+                            setActiveBoxId(null);
+                        }
+                    }}
+                    className={`flex-1 py-1.5 text-center font-bold text-[10px] uppercase tracking-wider rounded transition-all duration-200 ${
+                        directoryTab === 'pallets'
+                            ? 'bg-white text-brand-primary shadow-sm'
+                            : 'text-brand-secondary hover:text-brand-primary'
+                    }`}
+                 >
+                    Pallets
+                 </button>
+                 <button
+                    onClick={() => {
+                        setDirectoryTab('boxes');
+                        const firstBox = pallets.find(p => (p as any).type === 'Box');
+                        if (firstBox && (!activePallet || (activePallet as any).type !== 'Box')) {
+                            setActivePalletId(firstBox.id);
+                            setActiveBoxId(null);
+                        }
+                    }}
+                    className={`flex-1 py-1.5 text-center font-bold text-[10px] uppercase tracking-wider rounded transition-all duration-200 ${
+                        directoryTab === 'boxes'
+                            ? 'bg-white text-brand-primary shadow-sm'
+                            : 'text-brand-secondary hover:text-brand-primary'
+                    }`}
+                 >
+                    Design Studio
+                 </button>
+              </div>
+
+              {directoryTab === 'pallets' && (
+                 <div className="mb-4">
+                     {!isAddingPallet ? (
+                          <div className="flex flex-col gap-2">
+                              <button 
+                                  onClick={() => setIsAddingPallet(true)}
+                                  className="w-full bg-brand-primary text-white py-2.5 rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-black transition-colors shadow-sm flex items-center justify-center gap-2"
+                              >
+                                  <Plus size={14} /> Create Pallet
+                              </button>
+                              {onOpenShopifyPickRoute && (
+                                 <button 
+                                     onClick={onOpenShopifyPickRoute}
+                                     className="w-full bg-green-600 text-white py-2.5 rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-green-700 transition-colors shadow-sm flex items-center justify-center gap-2"
+                                 >
+                                     <ShoppingBag size={14} /> Shopify Pick Route
+                                 </button>
+                              )}
+                          </div>
+                     ) : (
+                          <div className="bg-white p-3 rounded-xl border border-brand-border shadow-sm animate-in zoom-in-95">
+                              <input 
+                                  type="text" 
+                                  autoFocus
+                                  placeholder="Pallet Name (e.g. Summer Drop)" 
+                                  value={newPalletName}
+                                  onChange={e => setNewPalletName(e.target.value)}
+                                  className="w-full text-xs font-semibold p-2 bg-brand-bg border border-brand-border rounded-lg outline-none focus:border-brand-primary mb-2"
+                              />
+                              <div className="flex gap-2">
+                                  <button onClick={() => setIsAddingPallet(false)} className="flex-1 py-2 text-[10px] font-bold uppercase text-brand-secondary hover:text-black border border-transparent hover:bg-brand-bg rounded-lg">Cancel</button>
+                                  <button onClick={handleCreatePallet} className="flex-1 py-2 text-[10px] bg-brand-primary text-white font-bold uppercase rounded-lg shadow-sm">Save</button>
+                              </div>
+                          </div>
+                     )}
                  </div>
-             )}
+              )}
              
              {/* Search */}
              <div className="mt-4 relative">
