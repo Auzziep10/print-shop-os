@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import QRCode from 'react-qr-code';
 import { db, storage } from '../../lib/firebase';
 import { collection, query, onSnapshot, setDoc, doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { Search, Plus, Image as ImageIcon, ChevronLeft, Trash2, Save, X, Upload, QrCode, Loader2, Boxes, Map } from 'lucide-react';
+import { Search, Plus, Image as ImageIcon, ChevronLeft, Trash2, Save, X, Upload, QrCode, Loader2, Boxes, Map, Printer } from 'lucide-react';
 import { tokens } from '../../lib/tokens';
 
 const SIZES = ['XXS', 'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL', 'OSFA'];
@@ -42,6 +44,7 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
   const [editingBoxPalletId, setEditingBoxPalletId] = useState<string | null>(null);
   const [newBoxNumber, setNewBoxNumber] = useState('1');
   const [newBoxColor, setNewBoxColor] = useState('#d8a47f');
+  const [printingBox, setPrintingBox] = useState<any | null>(null);
 
   useEffect(() => {
     const q = query(collection(db, 'pallets'));
@@ -725,6 +728,15 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
                                                  >
                                                      Edit Box
                                                  </button>
+                                                 <button 
+                                                     onClick={() => {
+                                                        setPrintingBox(pallet);
+                                                     }}
+                                                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-brand-border text-[10px] font-bold text-brand-primary uppercase hover:bg-neutral-50 transition-all duration-200 font-sans"
+                                                 >
+                                                     <QrCode size={12} />
+                                                     QR Label
+                                                 </button>
                                                  {(pallet.zone || pallet.warehouseId) && onJumpToWarehouse && (
                                                      <button 
                                                          onClick={() => onJumpToWarehouse(pallet.id, pallet.zone || 'Floor', pallet.warehouseId)}
@@ -1179,6 +1191,158 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
               />
            </div>
         </div>
+      )}
+
+      {printingBox && createPortal(
+         <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-8 print:p-0 animate-in fade-in print-thermal-mode" onClick={() => setPrintingBox(null)}>
+            <div className="bg-brand-bg rounded-2xl shadow-2xl max-w-xl w-full flex flex-col overflow-hidden relative print:shadow-none print:border-none print:m-0 print:bg-white print:w-full print:h-full animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+               <div className="p-6 border-b border-brand-border bg-white flex justify-between items-center shrink-0 print:hidden">
+                   <div>
+                       <h2 className="font-serif text-2xl tracking-tight font-bold text-brand-primary">
+                            Box QR Label Preview
+                       </h2>
+                       <p className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary">Ready for printing</p>
+                   </div>
+                   <div className="flex gap-3">
+                       <button onClick={() => window.print()} className="bg-brand-primary text-white px-6 py-2.5 rounded-pill font-bold uppercase tracking-widest text-xs flex items-center gap-2 shadow-md hover:bg-black transition-all">
+                           <Printer size={16} /> Print Label
+                       </button>
+                       <button onClick={() => setPrintingBox(null)} className="border border-brand-border bg-white text-brand-primary px-4 py-2.5 rounded-pill font-bold uppercase tracking-widest text-xs hover:bg-brand-bg transition-colors">
+                           Close
+                       </button>
+                   </div>
+               </div>
+               
+               <div className="flex-1 p-8 overflow-y-auto flex items-start justify-center bg-gray-200 print:p-0 print:bg-white custom-scrollbar print-viewport">
+                   <div className="print-page-wrapper">
+                       <div className="bg-white shadow-xl p-6 border-4 border-black print-label-container my-auto print:shadow-none print:border-none print:m-0 overflow-hidden flex flex-col" style={{ width: '6in', height: '4in', boxSizing: 'border-box' }}>
+                           <div className="flex justify-between items-start mb-4 border-b-4 border-black pb-3 shrink-0">
+                               <div>
+                                   <img src="/logo.png" alt="WOVN" className="h-8 w-auto mb-4 grayscale" style={{ filter: 'grayscale(1)' }} />
+                                   <h1 className="font-sans text-3xl font-black uppercase tracking-tighter leading-none">
+                                        Box {printingBox.boxNumber !== undefined ? printingBox.boxNumber : 1}
+                                   </h1>
+                                   <p className="text-[10px] font-bold font-sans mt-1 text-gray-500 uppercase tracking-widest">
+                                        {printingBox.zone 
+                                           ? (printingBox.zone === 'Floor' 
+                                              ? `FLOOR ZONE` 
+                                              : `${printingBox.zone} | B${printingBox.rackSpecs?.bay !== undefined ? printingBox.rackSpecs.bay + 1 : 1} L${printingBox.rackSpecs?.level !== undefined ? printingBox.rackSpecs.level + 1 : 1} S${printingBox.rackSpecs?.slot === -1 ? '1' : printingBox.rackSpecs?.slot === 0 ? '2' : '3'}`
+                                             )
+                                           : 'STAGING AREA'
+                                        }
+                                   </p>
+                               </div>
+                               <div className="text-right">
+                                   <div className="text-xs font-black uppercase tracking-widest text-black/60 truncate max-w-[200px]" title={printingBox.name}>
+                                       {printingBox.name}
+                                   </div>
+                                   <p className="text-[8px] font-bold uppercase tracking-widest bg-black text-white px-2 py-0.5 mt-1 inline-block">
+                                       SYS_ID: {printingBox.id.replace('pal_', '')}
+                                   </p>
+                               </div>
+                           </div>
+                           
+                           <div className="flex-1 flex min-h-0">
+                               <div className="flex-1 min-w-0 pr-4 overflow-hidden flex flex-col">
+                                   <div className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-2">Manifest</div>
+                                   <div className="space-y-1 overflow-y-auto flex-1 pr-2 custom-scrollbar">
+                                       {(printingBox.boxes?.[0]?.items || []).map((item: any) => (
+                                           <div key={item.id} className="flex justify-between items-center py-1 border-b border-gray-100 last:border-0">
+                                               <div className="min-w-0 flex-1 pr-2">
+                                                   <p className="font-bold text-[11px] truncate leading-tight text-black">{item.name}</p>
+                                                   <p className="text-[8px] font-bold text-gray-500 mt-0.5">{item.sku} • {item.size}</p>
+                                               </div>
+                                               <div className="font-black text-xl font-sans shrink-0">
+                                                   ×{item.quantity}
+                                               </div>
+                                           </div>
+                                       ))}
+                                       {(!printingBox.boxes?.[0]?.items || printingBox.boxes[0].items.length === 0) && (
+                                           <div className="p-4 border-2 border-dashed border-black/30 text-center font-bold uppercase text-xs">Empty Box</div>
+                                       )}
+                                   </div>
+                               </div>
+                               
+                               <div className="shrink-0 flex flex-col items-center justify-between border-l-4 border-black pl-4 w-36">
+                                   <div className="flex flex-col items-center">
+                                       <div className="p-1 border-4 border-black bg-white mb-1 shrink-0">
+                                           <QRCode value={`${window.location.hostname === 'localhost' ? 'https://print-shop-os.vercel.app' : window.location.origin}/inventory/scan?p=${printingBox.id}&b=${printingBox.boxes?.[0]?.id || ''}`} size={90} level="L" />
+                                       </div>
+                                       <p className="text-[7px] font-black uppercase tracking-widest text-center mt-1 w-full text-black">Scan to Subtract Items</p>
+                                   </div>
+                                   <div className="w-full opacity-60">
+                                       <div className="text-[6px] font-mono leading-tight">
+                                           DATE: {new Date().toLocaleDateString()}<br/>
+                                           TIME: {new Date().toLocaleTimeString()}<br/>
+                                           BOX_ID: {printingBox.boxes?.[0]?.id || 'N/A'}
+                                       </div>
+                                   </div>
+                               </div>
+                           </div>
+                       </div>
+                   </div>
+               </div>
+            </div>
+            
+            <style>{`
+               @page { 
+                  margin: 0; 
+                  size: 4in 6in; 
+               }
+               @media print {
+                  body * { visibility: hidden !important; }
+                  #root { display: none !important; }
+                  
+                  /* UNLOCK MODAL CONSTRAINTS FOR PRINTING */
+                  .print-thermal-mode {
+                      position: static !important;
+                      width: 100% !important;
+                      height: auto !important;
+                      min-height: 100vh !important;
+                      max-height: none !important;
+                      overflow: visible !important;
+                      display: block !important;
+                  }
+                  .print-thermal-mode > div,
+                  .print-thermal-mode .print-viewport,
+                  .print-thermal-mode .print-viewport > div {
+                      position: static !important;
+                      height: auto !important;
+                      max-height: none !important;
+                      overflow: visible !important;
+                      display: block !important;
+                  }
+                  .print-thermal-mode .print-page-wrapper, .print-thermal-mode .print-page-wrapper * { visibility: visible !important; }
+                  
+                  .print-thermal-mode .print-page-wrapper {
+                      display: block !important;
+                      position: relative !important;
+                      width: 4in !important;
+                      height: 6in !important;
+                      page-break-after: always !important;
+                      page-break-inside: avoid !important;
+                      margin: 0 !important;
+                      padding: 0 !important;
+                      background: white !important;
+                  }
+                  .print-thermal-mode .print-label-container {
+                      position: absolute !important;
+                      left: 3.9in !important;
+                      top: 0.1in !important;
+                      width: 5.8in !important;
+                      height: 3.8in !important;
+                      padding: 0.3in !important;
+                      margin: 0 !important;
+                      border: none !important;
+                      box-sizing: border-box !important;
+                      box-shadow: none !important;
+                      transform: rotate(90deg);
+                      transform-origin: top left;
+                  }
+               }
+            `}</style>
+         </div>,
+         document.body
       )}
 
     </div>

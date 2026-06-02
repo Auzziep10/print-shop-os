@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { db } from '../../lib/firebase';
 import { collection, query, onSnapshot, doc, setDoc } from 'firebase/firestore';
-import { Package, Box as BoxIcon, ArrowRight, CheckCircle2, QrCode, Copy } from 'lucide-react';
+import { Package, Box as BoxIcon, ArrowRight, CheckCircle2, QrCode, Copy, Trash2 } from 'lucide-react';
 
 export function InventoryScan() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -262,20 +262,23 @@ export function InventoryScan() {
       }
   };
 
-  const handleUpdateItemQuantity = async (itemId: string, newQuantity: number) => {
-      if (!currentPallet || !currentBox) return;
-      const updatedBoxes = currentPallet.boxes.map((b:any) => {
-          if (b.id === boxId) {
-              return { ...b, items: b.items.map((i:any) => i.id === itemId ? { ...i, quantity: newQuantity } : i) };
-          }
-          return b;
-      });
-      try {
-          await setDoc(doc(db, 'pallets', currentPallet.id), { ...currentPallet, boxes: updatedBoxes });
-      } catch (err) {
-          console.error(err);
-      }
-  };
+   const handleUpdateItemQuantity = async (itemId: string, newQuantity: number) => {
+       if (!currentPallet || !currentBox) return;
+       const updatedBoxes = currentPallet.boxes.map((b:any) => {
+           if (b.id === boxId) {
+               const updatedItems = b.items
+                   .map((i:any) => i.id === itemId ? { ...i, quantity: newQuantity } : i)
+                   .filter((i:any) => i.quantity > 0);
+               return { ...b, items: updatedItems };
+           }
+           return b;
+       });
+       try {
+           await setDoc(doc(db, 'pallets', currentPallet.id), { ...currentPallet, boxes: updatedBoxes });
+       } catch (err) {
+           console.error(err);
+       }
+   };
 
   const handleCreateLineItem = async () => {
       if (!newItemForm.name || !currentBox || !currentPallet) return;
@@ -502,25 +505,40 @@ export function InventoryScan() {
                                       </div>
                                   )}
                               </div>
-                              <div className="flex items-center gap-3 bg-gray-50 rounded-xl p-1 border border-brand-border/50">
-                                  <button onClick={() => handleUpdateItemQuantity(item.id, item.quantity - 1)} className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-brand-primary active:bg-white hover:bg-white transition-colors">-</button>
-                                  <input 
-                                      type="number" 
-                                      inputMode="numeric" 
-                                      pattern="[0-9]*" 
-                                      value={item.quantity === 0 ? '' : item.quantity} 
-                                      onChange={(e) => {
-                                          const val = parseInt(e.target.value);
-                                          handleUpdateItemQuantity(item.id, isNaN(val) ? 0 : Math.max(0, val));
-                                      }}
-                                      onBlur={() => {
-                                          if (!item.quantity || item.quantity < 1) {
-                                              handleUpdateItemQuantity(item.id, 1);
+                              <div className="flex items-center gap-3">
+                                  <button 
+                                      onClick={() => {
+                                          if (window.confirm(`Are you sure you want to remove ${item.name} (${item.size}) from this box?`)) {
+                                              handleUpdateItemQuantity(item.id, 0);
                                           }
                                       }}
-                                      className="font-black text-lg w-12 text-center bg-transparent outline-none text-black" 
-                                  />
-                                  <button onClick={() => handleUpdateItemQuantity(item.id, item.quantity + 1)} className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-brand-primary active:bg-white hover:bg-white transition-colors">+</button>
+                                      className="w-8 h-8 rounded-lg flex items-center justify-center text-red-500 hover:bg-red-50 transition-colors active:scale-95 shrink-0 animate-in fade-in"
+                                      title="Remove Item"
+                                  >
+                                      <Trash2 size={16} />
+                                  </button>
+                                  <div className="flex items-center gap-3 bg-gray-50 rounded-xl p-1 border border-brand-border/50">
+                                      <button onClick={() => handleUpdateItemQuantity(item.id, item.quantity - 1)} className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-brand-primary active:bg-white hover:bg-white transition-colors">-</button>
+                                      <input 
+                                          type="number" 
+                                          inputMode="numeric" 
+                                          pattern="[0-9]*" 
+                                          value={item.quantity === 0 ? '' : item.quantity} 
+                                          onChange={(e) => {
+                                              const val = parseInt(e.target.value);
+                                              handleUpdateItemQuantity(item.id, isNaN(val) ? 0 : Math.max(0, val));
+                                          }}
+                                          onBlur={() => {
+                                              if (item.quantity === undefined || item.quantity === null || isNaN(item.quantity)) {
+                                                  handleUpdateItemQuantity(item.id, 1);
+                                              } else if (item.quantity <= 0) {
+                                                  handleUpdateItemQuantity(item.id, 0);
+                                              }
+                                          }}
+                                          className="font-black text-lg w-12 text-center bg-transparent outline-none text-black" 
+                                      />
+                                      <button onClick={() => handleUpdateItemQuantity(item.id, item.quantity + 1)} className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-brand-primary active:bg-white hover:bg-white transition-colors">+</button>
+                                  </div>
                               </div>
                           </div>
                       ))}
