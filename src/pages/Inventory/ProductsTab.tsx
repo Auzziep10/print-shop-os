@@ -208,11 +208,17 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
   const matchingPallets = selectedProduct ? pallets.filter(pallet => {
      if (!pallet.boxes) return false;
       return pallet.boxes.some((box: any) => 
-         box.items && box.items.some((item: any) => 
-            (selectedProduct.id && item.productId === selectedProduct.id) ||
-            (selectedProduct.sku && selectedProduct.sku !== 'No SKU' && item.sku === selectedProduct.sku) || 
-            (item.name && item.name.toLowerCase().includes(selectedProduct.title.toLowerCase()))
-         )
+         box.items && box.items.some((item: any) => {
+            if (item.productId) {
+               return item.productId === selectedProduct.id;
+            }
+            const itemSku = item.sku && item.sku !== 'No SKU' ? item.sku : '';
+            const prodSku = selectedProduct.sku && selectedProduct.sku !== 'No SKU' ? selectedProduct.sku : '';
+            if (itemSku && prodSku) {
+               return itemSku.toLowerCase() === prodSku.toLowerCase();
+            }
+            return item.name && item.name.toLowerCase().includes(selectedProduct.title.toLowerCase());
+         })
       );
   }) : [];
 
@@ -229,7 +235,9 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
               if (!box.items) return;
               box.items.forEach((item: any) => {
                   const matches = (() => {
-                     if (item.productId && p.id === item.productId) return true;
+                     if (item.productId) {
+                        return p.id === item.productId;
+                     }
                      const itemSku = item.sku && item.sku !== 'No SKU' ? item.sku : '';
                      const prodSku = p.sku && p.sku !== 'No SKU' ? p.sku : '';
                      if (itemSku && prodSku) {
@@ -706,8 +714,8 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
                                       pallet.boxes?.forEach((box: any) => {
                                           box.items?.forEach((item: any) => {
                                                const matchedProduct = products.find((prod: any) => {
-                                                   if (item.productId && prod.id === item.productId) {
-                                                       return true;
+                                                   if (item.productId) {
+                                                       return prod.id === item.productId;
                                                    }
                                                    const itemSku = item.sku && item.sku !== 'No SKU' ? item.sku : '';
                                                    const prodSku = prod.sku && prod.sku !== 'No SKU' ? prod.sku : '';
@@ -1318,10 +1326,9 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
                                     if (!prod) return;
                                     
                                     const alreadyInBox = boxProducts.some(bp => 
-                                       bp.productId === prod.id || 
-                                       bp.product?.id === prod.id ||
-                                       (prod.sku && prod.sku !== 'No SKU' && bp.product?.sku === prod.sku)
-                                    );
+                                        bp.productId === prod.id || 
+                                        bp.product?.id === prod.id
+                                     );
                                     if (alreadyInBox) return alert("Product is already in this box.");
                                     
                                     setBoxProducts(prev => [
@@ -1339,8 +1346,7 @@ export function ProductsTab({ onJumpToWarehouse }: { onJumpToWarehouse?: (pallet
                                  {products
                                     .filter(p => !isProductFullyAllocated(p) && !boxProducts.some(bp => 
                                         bp.productId === p.id || 
-                                        bp.product?.id === p.id ||
-                                        (p.sku && p.sku !== 'No SKU' && bp.product?.sku === p.sku)
+                                        bp.product?.id === p.id
                                      ))
                                     .map(p => (
                                        <option key={p.id} value={p.id}>{p.title} ({getProductDescriptor(p)})</option>
