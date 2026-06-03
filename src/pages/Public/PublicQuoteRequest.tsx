@@ -265,8 +265,10 @@ function TiltCard({
       onClick={onClick}
       style={{
         transformStyle: 'preserve-3d',
-        transition: isHovered ? 'none' : 'transform 0.4s ease-out',
-        willChange: 'transform'
+        transition: isHovered ? 'transform 0.08s cubic-bezier(0.25, 1, 0.5, 1)' : 'transform 0.4s ease-out',
+        willChange: 'transform',
+        contain: 'paint',
+        WebkitMaskImage: '-webkit-radial-gradient(white, black)',
       }}
       className={`${className} relative cursor-pointer overflow-hidden rounded-3xl border border-neutral-200/50 bg-[#EFECE4]`}
     >
