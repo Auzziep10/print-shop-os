@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { PillButton } from '../../components/ui/PillButton';
 import { PackingSlipsManager } from '../../components/Orders/PackingSlipsManager';
 import { TrackingModal } from '../../components/Orders/TrackingModal';
-import { ArrowLeft, MessageSquare, QrCode, Clock, Users, Download, Loader2, X, Edit3, Upload, Trash2, Plus, ChevronDown, Image as ImageIcon, Box, Printer, ExternalLink, ShoppingBag, Search, Check, Truck, GripVertical, Pause, Play, DollarSign, PackagePlus, Layers } from 'lucide-react';
+import { ArrowLeft, MessageSquare, QrCode, Clock, Users, Download, Loader2, X, Edit3, Upload, Trash2, Plus, ChevronDown, Image as ImageIcon, Box, Printer, ExternalLink, ShoppingBag, Search, Check, Truck, GripVertical, Pause, Play, DollarSign, PackagePlus, Layers, CreditCard } from 'lucide-react';
 import QRCode from 'react-qr-code';
 import { StatusBadge, type StatusType } from '../../components/ui/StatusBadge';
 import { useAuth } from '../../contexts/AuthContext';
@@ -75,6 +75,97 @@ export function OrderDetail() {
        await updateDoc(doc(db, 'orders', orderId), { targetCompletionDate: targetDateInput });
      }
      setEditingTargetDateId(null);
+  };
+
+  const handleReceiptFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !id) return;
+    setIsUploadingReceipt(true);
+    try {
+      const storageRef = ref(storage, `orders/${id}/receipts/${Date.now()}_${file.name}`);
+      await uploadBytes(storageRef, file);
+      const url = await getDownloadURL(storageRef);
+      setReceiptUrl(url);
+      setReceiptName(file.name);
+    } catch (err) {
+      console.error('Failed to upload receipt', err);
+      alert('Failed to upload receipt file. Please try again.');
+    } finally {
+      setIsUploadingReceipt(false);
+    }
+  };
+
+  const handleAddCostSubmit = async () => {
+    if (!id || !order || !costDescription.trim() || !costAmount || !costCardUsed) return;
+    
+    const cardName = costCardUsed === 'custom' ? customCardUsed.trim() : costCardUsed;
+    const amountVal = parseFloat(costAmount) || 0;
+    
+    const newCost = {
+      id: `cost-${Date.now()}`,
+      description: costDescription.trim(),
+      amount: amountVal,
+      cardUsed: cardName,
+      receiptUrl: receiptUrl || null,
+      receiptName: receiptName || null,
+      createdAt: new Date().toISOString()
+    };
+    
+    const currentCosts = order.costs || [];
+    const updatedCosts = [...currentCosts, newCost];
+    
+    const activity = {
+      id: `act-${Date.now()}`,
+      type: 'system',
+      message: `Recorded cost: ${newCost.description} ($${amountVal.toFixed(2)}) on card ${cardName}`,
+      user: userData?.name || user?.displayName || user?.email?.split('@')[0] || 'Team Member',
+      timestamp: new Date().toISOString()
+    };
+    
+    try {
+      await setDoc(doc(db, 'orders', id), { 
+        costs: updatedCosts,
+        activities: [activity, ...(order.activities || [])]
+      }, { merge: true });
+      
+      // Reset form
+      setCostDescription('');
+      setCostAmount('');
+      setCostCardUsed('');
+      setCustomCardUsed('');
+      setReceiptUrl('');
+      setReceiptName('');
+    } catch (err) {
+      console.error("Error adding cost:", err);
+      alert("Failed to save expense. Please try again.");
+    }
+  };
+
+  const handleDeleteCost = async (costId: string) => {
+    if (!id || !order) return;
+    if (!window.confirm("Are you sure you want to delete this expense?")) return;
+    
+    const currentCosts = order.costs || [];
+    const costToDelete = currentCosts.find((c: any) => c.id === costId);
+    const updatedCosts = currentCosts.filter((c: any) => c.id !== costId);
+    
+    let dbUpdate: any = { costs: updatedCosts };
+    if (costToDelete) {
+      dbUpdate.activities = [{
+        id: `act-${Date.now()}`,
+        type: 'system',
+        message: `Deleted cost: ${costToDelete.description} ($${parseFloat(costToDelete.amount).toFixed(2)})`,
+        user: userData?.name || user?.displayName || user?.email?.split('@')[0] || 'Team Member',
+        timestamp: new Date().toISOString()
+      }, ...(order.activities || [])];
+    }
+    
+    try {
+      await setDoc(doc(db, 'orders', id), dbUpdate, { merge: true });
+    } catch (err) {
+      console.error("Error deleting cost:", err);
+      alert("Failed to delete expense. Please try again.");
+    }
   };
 
   const [timelineMembers, setTimelineMembers] = useState<any[]>([]);
@@ -220,6 +311,15 @@ export function OrderDetail() {
 
 
   const [noteText, setNoteText] = useState('');
+  
+  // Costs & Receipts State
+  const [costDescription, setCostDescription] = useState('');
+  const [costAmount, setCostAmount] = useState('');
+  const [costCardUsed, setCostCardUsed] = useState('');
+  const [customCardUsed, setCustomCardUsed] = useState('');
+  const [receiptUrl, setReceiptUrl] = useState('');
+  const [receiptName, setReceiptName] = useState('');
+  const [isUploadingReceipt, setIsUploadingReceipt] = useState(false);
   
   // Shopify Product Search
   const [shopifySearchQuery, setShopifySearchQuery] = useState('');
@@ -832,6 +932,12 @@ export function OrderDetail() {
   }, 0) || 0;
   const totalFormatted = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalPriceRaw);
 
+  // Costs & Receipts Calculations
+  const orderCosts = order.costs || [];
+  const totalCosts = orderCosts.reduce((sum: number, c: any) => sum + (parseFloat(c.amount) || 0), 0);
+  const profit = totalPriceRaw - totalCosts;
+  const margin = totalPriceRaw > 0 ? (profit / totalPriceRaw) * 100 : 0;
+
   // Map strict 7-step Index to Admin pipeline Badge component
   const isKitting = order.fulfillmentType === 'Kitting' || (!order.fulfillmentType && customer.fulfillmentType === 'Kitting');
   let badgeStatus: StatusType = 'quote';
@@ -898,8 +1004,8 @@ export function OrderDetail() {
           <div className="bg-white p-8 rounded-card border border-brand-border shadow-sm">
             <div className="flex flex-col lg:flex-row justify-between lg:items-start mb-6 gap-6">
                <div>
-                  <h1 className="font-serif text-4xl text-brand-primary mb-2 line-clamp-2 md:line-clamp-none leading-tight">{customer.company}</h1>
-                  <p className="text-lg text-brand-secondary line-clamp-2">{order.title}</p>
+                  <h1 className="font-serif text-4xl text-brand-primary mb-2 line-clamp-2 md:line-clamp-none leading-tight">{order.title || 'Untitled Order'}</h1>
+                  <p className="text-lg text-brand-secondary line-clamp-2">{customer.company}</p>
                </div>
                <div className="flex flex-col items-start lg:items-end gap-3 lg:text-right shrink-0">
                   <p className="text-xs uppercase font-bold tracking-widest text-brand-secondary">Order {order.portalId || order.id}</p>
@@ -1447,6 +1553,204 @@ export function OrderDetail() {
           </div>
           
           <PackingSlipsManager order={order} onEditTracking={setTrackingBoxId} />
+          
+          {/* Costs & Receipts Tracker Section */}
+          <div className="bg-white p-6 rounded-card border border-brand-border shadow-sm mt-8">
+             <div className="flex justify-between items-center mb-6 pb-2 border-b border-brand-border">
+                <div className="flex items-center gap-2">
+                   <DollarSign className="text-brand-primary animate-pulse" size={22} />
+                   <h2 className={tokens.typography.h2}>Costs & Receipts</h2>
+                </div>
+             </div>
+             
+             {/* Financial metrics dashboard */}
+             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                {/* Est. Revenue */}
+                <div className="bg-neutral-50 border border-brand-border p-4 rounded-xl shadow-sm">
+                   <span className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary block mb-1">Est. Revenue</span>
+                   <span className="text-xl font-black text-brand-primary">{totalFormatted}</span>
+                </div>
+                
+                {/* Cost of Goods */}
+                <div className="bg-red-50/50 border border-red-100 p-4 rounded-xl shadow-sm">
+                   <span className="text-[10px] font-bold uppercase tracking-widest text-red-600 block mb-1">Cost of Goods (COGS)</span>
+                   <span className="text-xl font-black text-red-700">${totalCosts.toFixed(2)}</span>
+                </div>
+                
+                {/* Net Profit */}
+                <div className={`border p-4 rounded-xl shadow-sm ${profit >= 0 ? 'bg-emerald-50/50 border-emerald-100' : 'bg-red-50/50 border-red-100'}`}>
+                   <span className={`text-[10px] font-bold uppercase tracking-widest block mb-1 ${profit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>Net Profit</span>
+                   <span className={`text-xl font-black ${profit >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>${profit.toFixed(2)}</span>
+                </div>
+                
+                {/* Profit Margin */}
+                <div className="bg-indigo-50/50 border border-indigo-100 p-4 rounded-xl shadow-sm">
+                   <span className="text-[10px] font-bold uppercase tracking-widest text-indigo-600 block mb-1">Profit Margin</span>
+                   <span className="text-xl font-black text-indigo-700">{margin.toFixed(1)}%</span>
+                </div>
+             </div>
+             
+             {/* Form & Table Grid */}
+             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 pt-6 border-t border-brand-border">
+                {/* Left: Add Cost Form */}
+                <div className="lg:col-span-4 space-y-4 border-b lg:border-b-0 lg:border-r border-brand-border pb-6 lg:pb-0 lg:pr-8">
+                   <h3 className="text-xs uppercase font-extrabold tracking-widest text-brand-primary mb-3">Record Expense</h3>
+                   
+                   <div className="space-y-4">
+                      <div>
+                         <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1.5">Description / Vendor</label>
+                         <input 
+                            type="text"
+                            value={costDescription}
+                            onChange={e => setCostDescription(e.target.value)}
+                            placeholder="e.g. SanMar blank shirts purchase"
+                            className="w-full bg-brand-bg border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary focus:bg-white outline-none transition-colors font-medium"
+                            required
+                         />
+                      </div>
+                      
+                      <div>
+                         <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1.5">Amount (USD)</label>
+                         <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-secondary text-sm font-bold">$</span>
+                            <input 
+                               type="number"
+                               step="0.01"
+                               min="0"
+                               value={costAmount}
+                               onChange={e => setCostAmount(e.target.value)}
+                               placeholder="0.00"
+                               className="w-full bg-brand-bg border border-brand-border rounded-lg pl-7 pr-3 py-2 text-sm focus:border-brand-primary focus:bg-white outline-none transition-colors font-semibold"
+                               required
+                            />
+                         </div>
+                      </div>
+                      
+                      <div>
+                         <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1.5">Credit Card Used</label>
+                         <div className="relative">
+                            <select
+                               value={costCardUsed}
+                               onChange={e => setCostCardUsed(e.target.value)}
+                               className="w-full appearance-none bg-brand-bg border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary focus:bg-white outline-none transition-colors cursor-pointer font-medium"
+                               required
+                            >
+                               <option value="">-- Select Credit Card --</option>
+                               <option value="Amex (4002)">Amex (4002)</option>
+                               <option value="Visa (8821)">Visa (8821)</option>
+                               <option value="Chase Ink (9284)">Chase Ink (9284)</option>
+                               <option value="Capital One (3020)">Capital One (3020)</option>
+                               <option value="custom">Other / Custom Card</option>
+                            </select>
+                            <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-brand-secondary pointer-events-none" />
+                         </div>
+                         
+                         {costCardUsed === 'custom' && (
+                            <input 
+                               type="text"
+                               value={customCardUsed}
+                               onChange={e => setCustomCardUsed(e.target.value)}
+                               placeholder="Enter card description (e.g. Discover 5501)"
+                               className="w-full mt-2 bg-brand-bg border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary focus:bg-white outline-none transition-colors font-medium"
+                               required
+                            />
+                         )}
+                      </div>
+                      
+                      <div>
+                         <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1.5">Receipt Attachment (Optional)</label>
+                         <div className="flex items-center gap-3">
+                            <label htmlFor="receipt-upload" className="flex items-center gap-2 px-3 py-2 border border-brand-border rounded-lg text-xs font-bold text-brand-secondary hover:text-brand-primary hover:border-brand-primary bg-white cursor-pointer transition-colors shadow-sm select-none">
+                               {isUploadingReceipt ? (
+                                  <Loader2 size={14} className="animate-spin text-brand-primary" />
+                               ) : <Upload size={14} />}
+                               <span>{receiptUrl ? 'Change Receipt' : 'Upload Receipt'}</span>
+                            </label>
+                            <input 
+                               type="file"
+                               id="receipt-upload"
+                               accept="image/*,application/pdf"
+                               onChange={handleReceiptFileChange}
+                               className="hidden"
+                               disabled={isUploadingReceipt}
+                            />
+                            {receiptName && (
+                               <div className="flex items-center gap-1.5 text-xs text-brand-secondary bg-neutral-100 border border-brand-border px-2.5 py-1 rounded-md max-w-[150px] truncate" title={receiptName}>
+                                  <span className="truncate">{receiptName}</span>
+                                  <button type="button" onClick={() => { setReceiptUrl(''); setReceiptName(''); }} className="text-red-500 hover:text-red-700 ml-1 shrink-0">
+                                     <X size={12} strokeWidth={3} />
+                                  </button>
+                                </div>
+                            )}
+                         </div>
+                      </div>
+                      
+                      <button
+                         type="button"
+                         onClick={handleAddCostSubmit}
+                         disabled={isUploadingReceipt || !costDescription.trim() || !costAmount || !costCardUsed || (costCardUsed === 'custom' && !customCardUsed.trim())}
+                         className="w-full mt-4 py-2.5 bg-black text-white hover:bg-neutral-800 text-xs font-bold uppercase tracking-widest transition-all rounded-lg flex items-center justify-center gap-2 shadow-sm border border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                         <Plus size={14} /> Add Expense
+                      </button>
+                   </div>
+                </div>
+                
+                {/* Right: Costs List */}
+                <div className="lg:col-span-8 space-y-4">
+                   <h3 className="text-xs uppercase font-extrabold tracking-widest text-brand-primary mb-3">Recorded Expenses</h3>
+                   
+                   {orderCosts.length === 0 ? (
+                      <div className="text-center text-brand-secondary py-12 bg-brand-bg rounded-xl border border-dashed border-brand-border flex flex-col items-center justify-center gap-2">
+                         <CreditCard size={28} className="opacity-30 text-brand-primary" />
+                         <span className="text-sm font-bold text-brand-primary">No expenses recorded yet</span>
+                         <span className="text-xs text-brand-secondary">Add materials, blanks, or other costs on the left to track profitability.</span>
+                      </div>
+                   ) : (
+                      <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                         {orderCosts.map((cost: any) => (
+                            <div key={cost.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 bg-white hover:bg-brand-bg/40 border border-brand-border rounded-xl transition-all shadow-sm gap-4">
+                               <div className="flex-1 min-w-0">
+                                  <h4 className="font-bold text-sm text-brand-primary truncate">{cost.description}</h4>
+                                  <div className="flex items-center gap-3 mt-1.5 text-xs text-brand-secondary flex-wrap">
+                                     <span className="flex items-center gap-1 font-semibold text-[11px] text-brand-primary bg-neutral-100 border border-brand-border px-2 py-0.5 rounded-md">
+                                        <CreditCard size={10} /> {cost.cardUsed}
+                                     </span>
+                                     <span className="text-brand-border/60">•</span>
+                                     <span>{new Date(cost.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                                     {cost.receiptUrl && (
+                                        <>
+                                           <span className="text-brand-border/60">•</span>
+                                           <a 
+                                              href={cost.receiptUrl} 
+                                              target="_blank" 
+                                              rel="noreferrer" 
+                                              className="flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md hover:bg-emerald-600 hover:text-white hover:border-emerald-600 transition-colors"
+                                           >
+                                              <Download size={10} strokeWidth={3} /> View Receipt
+                                           </a>
+                                        </>
+                                     )}
+                                  </div>
+                               </div>
+                               
+                               <div className="flex items-center gap-4 self-end sm:self-center shrink-0">
+                                  <span className="font-serif text-lg font-bold text-brand-primary">${parseFloat(cost.amount).toFixed(2)}</span>
+                                  <button 
+                                     onClick={() => handleDeleteCost(cost.id)} 
+                                     className="p-1.5 text-brand-secondary hover:text-red-500 hover:bg-red-50 transition-all rounded-lg border border-transparent hover:border-red-100"
+                                     title="Delete Expense"
+                                  >
+                                     <Trash2 size={15} />
+                                  </button>
+                               </div>
+                            </div>
+                         ))}
+                      </div>
+                   )}
+                </div>
+             </div>
+          </div>
           
           {/* Bottom Grid: Team and Activity Feed */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
