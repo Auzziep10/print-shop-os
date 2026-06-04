@@ -106,6 +106,7 @@ export function OrderDetail() {
       description: costDescription.trim(),
       amount: amountVal,
       cardUsed: cardName,
+      supplierOrderNumber: supplierOrderNumber.trim() || null,
       receiptUrl: receiptUrl || null,
       receiptName: receiptName || null,
       createdAt: new Date().toISOString()
@@ -117,7 +118,7 @@ export function OrderDetail() {
     const activity = {
       id: `act-${Date.now()}`,
       type: 'system',
-      message: `Recorded cost: ${newCost.description} ($${amountVal.toFixed(2)}) on card ${cardName}`,
+      message: `Recorded cost: ${newCost.description} ($${amountVal.toFixed(2)}) on card ${cardName}${newCost.supplierOrderNumber ? ` (Supplier Order #${newCost.supplierOrderNumber})` : ''}`,
       user: userData?.name || user?.displayName || user?.email?.split('@')[0] || 'Team Member',
       timestamp: new Date().toISOString()
     };
@@ -133,6 +134,7 @@ export function OrderDetail() {
       setCostAmount('');
       setCostCardUsed('');
       setCustomCardUsed('');
+      setSupplierOrderNumber('');
       setReceiptUrl('');
       setReceiptName('');
     } catch (err) {
@@ -317,6 +319,7 @@ export function OrderDetail() {
   const [costAmount, setCostAmount] = useState('');
   const [costCardUsed, setCostCardUsed] = useState('');
   const [customCardUsed, setCustomCardUsed] = useState('');
+  const [supplierOrderNumber, setSupplierOrderNumber] = useState('');
   const [receiptUrl, setReceiptUrl] = useState('');
   const [receiptName, setReceiptName] = useState('');
   const [isUploadingReceipt, setIsUploadingReceipt] = useState(false);
@@ -1627,6 +1630,17 @@ export function OrderDetail() {
                       </div>
                       
                       <div>
+                          <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1.5">Supplier Order # (Optional)</label>
+                          <input 
+                             type="text"
+                             value={supplierOrderNumber}
+                             onChange={e => setSupplierOrderNumber(e.target.value)}
+                             placeholder="e.g. 1234567"
+                             className="w-full bg-brand-bg border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary focus:bg-white outline-none transition-colors font-medium"
+                          />
+                       </div>
+                       
+                       <div>
                          <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1.5">Credit Card Used</label>
                          <div className="relative">
                             <select
@@ -1716,6 +1730,11 @@ export function OrderDetail() {
                                      <span className="flex items-center gap-1 font-semibold text-[11px] text-brand-primary bg-neutral-100 border border-brand-border px-2 py-0.5 rounded-md">
                                         <CreditCard size={10} /> {cost.cardUsed}
                                      </span>
+                                     {cost.supplierOrderNumber && (
+                                        <span className="font-semibold text-[11px] text-brand-primary bg-neutral-100 border border-brand-border px-2 py-0.5 rounded-md">
+                                           PO/Order: {cost.supplierOrderNumber}
+                                        </span>
+                                     )}
                                      <span className="text-brand-border/60">•</span>
                                      <span>{new Date(cost.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                                      {cost.receiptUrl && (
