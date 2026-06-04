@@ -96,9 +96,9 @@ export function OrderDetail() {
   };
 
   const handleAddCostSubmit = async () => {
-    if (!id || !order || !costDescription.trim() || !costAmount || !costCardUsed) return;
+    if (!id || !order || !costDescription.trim() || !costAmount || !costCardUsed.trim()) return;
     
-    const cardName = costCardUsed === 'custom' ? customCardUsed.trim() : costCardUsed;
+    const cardName = costCardUsed.trim();
     const amountVal = parseFloat(costAmount) || 0;
     
     const newCost = {
@@ -133,7 +133,6 @@ export function OrderDetail() {
       setCostDescription('');
       setCostAmount('');
       setCostCardUsed('');
-      setCustomCardUsed('');
       setSupplierOrderNumber('');
       setReceiptUrl('');
       setReceiptName('');
@@ -318,7 +317,6 @@ export function OrderDetail() {
   const [costDescription, setCostDescription] = useState('');
   const [costAmount, setCostAmount] = useState('');
   const [costCardUsed, setCostCardUsed] = useState('');
-  const [customCardUsed, setCustomCardUsed] = useState('');
   const [supplierOrderNumber, setSupplierOrderNumber] = useState('');
   const [receiptUrl, setReceiptUrl] = useState('');
   const [receiptName, setReceiptName] = useState('');
@@ -1641,37 +1639,18 @@ export function OrderDetail() {
                        </div>
                        
                        <div>
-                         <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1.5">Credit Card Used</label>
-                         <div className="relative">
-                            <select
-                               value={costCardUsed}
-                               onChange={e => setCostCardUsed(e.target.value)}
-                               className="w-full appearance-none bg-brand-bg border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary focus:bg-white outline-none transition-colors cursor-pointer font-medium"
-                               required
-                            >
-                               <option value="">-- Select Credit Card --</option>
-                               <option value="Amex (4002)">Amex (4002)</option>
-                               <option value="Visa (8821)">Visa (8821)</option>
-                               <option value="Chase Ink (9284)">Chase Ink (9284)</option>
-                               <option value="Capital One (3020)">Capital One (3020)</option>
-                               <option value="custom">Other / Custom Card</option>
-                            </select>
-                            <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-brand-secondary pointer-events-none" />
-                         </div>
-                         
-                         {costCardUsed === 'custom' && (
-                            <input 
-                               type="text"
-                               value={customCardUsed}
-                               onChange={e => setCustomCardUsed(e.target.value)}
-                               placeholder="Enter card description (e.g. Discover 5501)"
-                               className="w-full mt-2 bg-brand-bg border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary focus:bg-white outline-none transition-colors font-medium"
-                               required
-                            />
-                         )}
-                      </div>
-                      
-                      <div>
+                          <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1.5">Credit Card Used</label>
+                          <input 
+                             type="text"
+                             value={costCardUsed}
+                             onChange={e => setCostCardUsed(e.target.value)}
+                             placeholder="e.g. Amex 4002"
+                             className="w-full bg-brand-bg border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary focus:bg-white outline-none transition-colors font-medium"
+                             required
+                          />
+                       </div>
+                       
+                       <div>
                          <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1.5">Receipt Attachment (Optional)</label>
                          <div className="flex items-center gap-3">
                             <label htmlFor="receipt-upload" className="flex items-center gap-2 px-3 py-2 border border-brand-border rounded-lg text-xs font-bold text-brand-secondary hover:text-brand-primary hover:border-brand-primary bg-white cursor-pointer transition-colors shadow-sm select-none">
@@ -1702,7 +1681,7 @@ export function OrderDetail() {
                       <button
                          type="button"
                          onClick={handleAddCostSubmit}
-                         disabled={isUploadingReceipt || !costDescription.trim() || !costAmount || !costCardUsed || (costCardUsed === 'custom' && !customCardUsed.trim())}
+                         disabled={isUploadingReceipt || !costDescription.trim() || !costAmount || !costCardUsed.trim()}
                          className="w-full mt-4 py-2.5 bg-black text-white hover:bg-neutral-800 text-xs font-bold uppercase tracking-widest transition-all rounded-lg flex items-center justify-center gap-2 shadow-sm border border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                          <Plus size={14} /> Add Expense
