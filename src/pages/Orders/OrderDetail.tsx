@@ -2657,7 +2657,7 @@ export function OrderDetail() {
                        </div>
                        <label className="cursor-pointer bg-white border border-brand-border rounded-lg py-2.5 flex items-center justify-center gap-2 hover:bg-brand-bg transition-colors text-sm font-semibold text-brand-primary shadow-sm hover:shadow">
                          {isUploadingMain ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
-                         {isUploadingMain ? 'Uploading...' : 'Replace Mockup'}
+                         {isUploadingMain ? 'Uploading...' : 'Upload Mockup'}
                          <input type="file" className="hidden" accept="image/*" onChange={handleMainImageUpload} disabled={isUploadingMain} />
                        </label>
                      </div>
@@ -3312,13 +3312,26 @@ export function OrderDetail() {
                             key={item.id || idx} 
                             onClick={() => {
                                setIsDeckModalOpen(false);
+
+                               // Construct sizes object properly to handle both arrays (e.g. ['S', 'M']) and objects
+                               let initialSizes: Record<string, number> = { 'XS': 0, 'S': 0, 'M': 0, 'L': 0, 'XL': 0, '2XL': 0, '3XL': 0, 'OSFA': 0 };
+                               if (Array.isArray(item.sizes)) {
+                                 item.sizes.forEach((s: any) => {
+                                   if (typeof s === 'string') {
+                                     initialSizes[s] = 0;
+                                   }
+                                 });
+                               } else if (item.sizes && typeof item.sizes === 'object') {
+                                 initialSizes = { ...initialSizes, ...item.sizes };
+                               }
+
                                setEditItemObj({
                                  id: `item-${Date.now()}`,
                                  gender: gender,
                                  style: style,
                                  itemNum: itemNum,
                                  color: colors[0] || '',
-                                 sizes: { 'XS': 0, 'S': 0, 'M': 0, 'L': 0, 'XL': 0, '2XL': 0, '3XL': 0, 'OSFA': 0, ...item.sizes },
+                                 sizes: initialSizes,
                                  price: numericPrice ? numericPrice : formattedPrice,
                                  qty: 0,
                                  total: '$0.00',
