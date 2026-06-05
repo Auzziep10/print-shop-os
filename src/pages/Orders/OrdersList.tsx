@@ -13,7 +13,16 @@ export function OrdersList() {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const { orders, loading } = useOrders();
-  const nonTempOrders = orders.filter(o => o.customerId !== 'Shopify Temporary');
+  const nonTempOrders = [...orders]
+    .filter(o => o.customerId !== 'Shopify Temporary')
+    .sort((a, b) => {
+      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      if (isNaN(timeA) && isNaN(timeB)) return b.id.localeCompare(a.id);
+      if (isNaN(timeA)) return 1;
+      if (isNaN(timeB)) return -1;
+      return timeB - timeA;
+    });
   const [searchParams, setSearchParams] = useSearchParams();
   const currentTab = searchParams.get('tab') || 'orders';
   const [liveCustomers, setLiveCustomers] = useState<Record<string, any>>({});
