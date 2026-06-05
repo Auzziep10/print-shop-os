@@ -24,8 +24,28 @@ export function OrdersList() {
       return timeB - timeA;
     });
   const [searchParams, setSearchParams] = useSearchParams();
-  const currentTab = searchParams.get('tab') || 'orders';
+  const currentTab = searchParams.get('tab') || 'all';
   const [liveCustomers, setLiveCustomers] = useState<Record<string, any>>({});
+
+  const displayedOrders = nonTempOrders.filter(order => {
+    // 1. Tab filter
+    const isQuote = order.statusIndex <= 2;
+    if (currentTab === 'orders' && isQuote) return false;
+    if (currentTab === 'quotes' && !isQuote) return false;
+
+    // 2. Search filter
+    if (search.trim()) {
+      const query = search.toLowerCase();
+      const liveCustomer = order.customerId ? liveCustomers[order.customerId] : null;
+      const customerName = (liveCustomer?.company || liveCustomer?.name || order.customerId || '').toLowerCase();
+      const title = (order.title || '').toLowerCase();
+      const orderId = (order.portalId || order.id || '').toLowerCase();
+      
+      return customerName.includes(query) || title.includes(query) || orderId.includes(query);
+    }
+
+    return true;
+  });
 
   useEffect(() => {
     getDocs(collection(db, 'customers')).then(snapshot => {
@@ -82,10 +102,17 @@ export function OrdersList() {
 
       <div className="flex items-center gap-6 mb-8 border-b border-brand-border">
           <button 
+             onClick={() => setSearchParams({ tab: 'all' })}
+             className={`pb-4 text-sm font-bold uppercase tracking-wider transition-all relative ${currentTab === 'all' ? 'text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}
+          >
+             All
+             {currentTab === 'all' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-primary rounded-t-full" />}
+          </button>
+          <button 
              onClick={() => setSearchParams({ tab: 'orders' })}
              className={`pb-4 text-sm font-bold uppercase tracking-wider transition-all relative ${currentTab === 'orders' ? 'text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}
           >
-             All Orders
+             Orders
              {currentTab === 'orders' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-primary rounded-t-full" />}
           </button>
           <button 
@@ -117,13 +144,13 @@ export function OrdersList() {
         </div>
         
         <div className="text-sm text-brand-secondary">
-          Showing <span className="font-semibold text-brand-primary">{nonTempOrders.length}</span> active orders
+          Showing <span className="font-semibold text-brand-primary">{displayedOrders.length}</span> {currentTab === 'quotes' ? 'active quotes' : currentTab === 'orders' ? 'active orders' : 'active orders & quotes'}
         </div>
       </div>
 
       {/* Production Calendar */}
       <div className="w-full mb-8">
-         <ProductionCalendar orders={nonTempOrders} />
+         <ProductionCalendar orders={displayedOrders} />
       </div>
 
       {/* Orders Table */}
@@ -143,12 +170,7 @@ export function OrdersList() {
           
           {/* Table Body */}
           <div className="divide-y divide-brand-border/60">
-            {nonTempOrders.filter(order => {
-                const isQuote = order.statusIndex <= 2;
-                if (currentTab === 'quotes') return isQuote;
-                // Currently, 'orders' shows ALL, including Quotes? Let's just show all.
-                return true;
-            }).map((order) => {
+            {displayedOrders.map((order) => {
               
               // Calculate dynamic sums from the line items array
               const totalItems = order.items?.reduce((acc: number, i: any) => acc + (i.qty || 0), 0) || 0;
