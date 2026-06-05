@@ -13,6 +13,7 @@ import { collection, query, onSnapshot, setDoc, deleteDoc, doc, getDocs } from '
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { ProductsTab } from './ProductsTab';
 import { PalletsTab } from './PalletsTab';
+import { DTFTab } from './DTFTab';
 import { PalletPickOptimizerModal } from '../../components/Inventory/PalletPickOptimizerModal';
 
 const PALLET_SWATCHES = [
@@ -862,7 +863,7 @@ export function Inventory() {
   const isAdmin = userData?.role === 'Admin';
 
   const [searchParams, setSearchParams] = useSearchParams();
-  const mainTab = (searchParams.get('tab') as 'Warehouse' | 'Pallets' | 'Products') || 'Products';
+  const mainTab = (searchParams.get('tab') as 'Warehouse' | 'Pallets' | 'Products' | 'DTF') || 'Products';
   
   const subParam = searchParams.get('sub') || 'Map';
   const activeTab = (!isAdmin && subParam === 'Builder') ? 'Map' : subParam;
@@ -877,7 +878,7 @@ export function Inventory() {
     }
   }, [isAdmin, searchParams, setSearchParams]);
 
-  const setMainTab = (newMainTab: 'Warehouse' | 'Pallets' | 'Products') => {
+  const setMainTab = (newMainTab: 'Warehouse' | 'Pallets' | 'Products' | 'DTF') => {
     setSearchParams(prev => {
       const next = new URLSearchParams(prev);
       next.set('tab', newMainTab);
@@ -1513,6 +1514,8 @@ export function Inventory() {
                     ? (activeTab === 'Map' ? 'Warehouse 3D Map' : 'Admin Builder') 
                     : mainTab === 'Pallets' 
                     ? 'Pallet Inventory' 
+                    : mainTab === 'DTF'
+                    ? 'DTF Supplies'
                     : 'Product Catalog'}
                </h1>
                
@@ -2230,6 +2233,12 @@ export function Inventory() {
            </div>
         )}
         
+
+        {mainTab === 'DTF' && (
+           <div className="w-full h-full pb-8 animate-in fade-in">
+              <DTFTab />
+           </div>
+        )}
 
         {mainTab === 'Products' && (
            <div className="w-full h-full pb-8 animate-in fade-in">

@@ -28,7 +28,8 @@ import {
   Globe,
   ChevronDown,
   Boxes,
-  Map
+  Map,
+  Droplet
 } from 'lucide-react';
 
 import { cn } from '../../lib/utils';
@@ -113,6 +114,7 @@ export function Sidebar({ onClose }: SidebarProps) {
   const inventorySubItems = [
     { label: 'Products', path: '/inventory?tab=Products', icon: ShoppingBag },
     { label: 'Pallet Inventory', path: '/inventory?tab=Pallets', icon: Boxes },
+    { label: 'DTF Supplies', path: '/inventory?tab=DTF', icon: Droplet },
     { label: 'Warehouse 3D Map', path: '/inventory?tab=Warehouse&sub=Map', icon: Map },
     ...(isAdmin ? [{ label: 'Admin Builder', path: '/inventory?tab=Warehouse&sub=Builder', icon: Settings }] : []),
   ];
