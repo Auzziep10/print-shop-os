@@ -217,7 +217,7 @@ export function PortalCreateOrder() {
                   onClick={() => setIsDrawerOpen(true)}
                   className="bg-black text-white px-8 py-3.5 rounded-full text-[13px] font-bold tracking-wide hover:bg-neutral-800 hover:scale-[1.02] transition-all shadow-md"
                 >
-                  + Add Garment
+                  + Add Garment from my "WOVN Rack"
                 </button>
                 <button 
                   onClick={() => navigate(customerId ? `/portal/${customerId}/quote` : '/portal/quote')}
@@ -301,7 +301,7 @@ export function PortalCreateOrder() {
                 <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform mb-3">
                   <PackagePlus size={20} strokeWidth={2} />
                 </div>
-                <span className="font-bold text-sm tracking-wide">Add Another Garment</span>
+                <span className="font-bold text-sm tracking-wide">Add Another Garment from my "WOVN Rack"</span>
               </button>
             </>
           )}
