@@ -6,9 +6,11 @@ import { KanbanBoard } from '../../components/shared/KanbanBoard';
 import { TimelinePlanner } from '../Team/TimelinePlanner';
 import { useAuth } from '../../contexts/AuthContext';
 import { useOrders } from '../../hooks/useOrders';
-import { db } from '../../lib/firebase';
-import { collection, query, where, getDocs, onSnapshot, updateDoc, doc } from 'firebase/firestore';
+import { db, chronoDb, chronoAuth } from '../../lib/firebase';
+import { collection, query, getDocs, onSnapshot, updateDoc, doc } from 'firebase/firestore';
+import { signInAnonymously } from 'firebase/auth';
 import { normalizeUser } from '../../lib/utils';
+
 
 export function Dashboard() {
   const navigate = useNavigate();
@@ -47,17 +49,145 @@ export function Dashboard() {
   }, []);
 
   useEffect(() => {
-    if (!userData?.id) return;
-    const qTasks = query(collection(db, 'timelineTasks'), where('memberId', '==', userData.id));
-    const unsub = onSnapshot(qTasks, (snap) => {
-      const tasks = snap.docs.map(doc => ({ id: doc.id, ...(doc.data() as any) }));
-      setMyTasks(tasks.sort((a, b) => (a.start || 0) - (b.start || 0)));
-    });
-    return unsub;
-  }, [userData?.id]);
+    if (!userData?.email) return;
+
+    let unsubSchedules: (() => void) | undefined;
+    
+    const initChronoTasks = async () => {
+      try {
+        await signInAnonymously(chronoAuth);
+        
+        // Find matching chronotrack user ID
+        const userEmail = userData.email.toLowerCase();
+        
+        // Query schedules onSnapshot
+        const qSchedules = query(collection(chronoDb, 'shiftSchedules'));
+        
+        // Fetch users list from Chronotrack to find the ID corresponding to email
+        const usersSnap = await getDocs(collection(chronoDb, 'users'));
+        let matchedChronoUserId: string | null = null;
+        usersSnap.forEach((doc) => {
+          const uData = doc.data();
+          if (uData.email && uData.email.toLowerCase() === userEmail) {
+            matchedChronoUserId = doc.id;
+          }
+        });
+        
+        // Fallback: match by name if email didn't match (e.g. email not set in Chronotrack)
+        if (!matchedChronoUserId) {
+          usersSnap.forEach((doc) => {
+            const uData = doc.data();
+            if (uData.name && uData.name.toLowerCase() === userData.name.toLowerCase()) {
+              matchedChronoUserId = doc.id;
+            }
+          });
+        }
+
+        if (!matchedChronoUserId) {
+          console.warn("Could not find a matching Chronotrack user for email/name:", userEmail, userData.name);
+          setMyTasks([]);
+          return;
+        }
+
+        const chronoUserId = matchedChronoUserId;
+
+        unsubSchedules = onSnapshot(qSchedules, (snap) => {
+          const liveTasks: any[] = [];
+          snap.forEach(doc => {
+            const data = doc.data();
+            if (data.title && data.title.startsWith('[SHIFT]')) return;
+            if (data.isShiftBlock) return;
+            
+            const taskMemberId = data.assignedTo || data.memberId;
+            if (taskMemberId !== chronoUserId) return;
+
+            let startVal = 9;
+            let durationVal = 1;
+            let taskDate = data.date;
+            
+            if (data.startTime && data.endTime) {
+                const startDate = new Date(data.startTime);
+                const endDate = new Date(data.endTime);
+                startVal = startDate.getHours() + (startDate.getMinutes() / 60);
+                durationVal = (endDate.getHours() + (endDate.getMinutes() / 60)) - startVal;
+                if (durationVal <= 0) durationVal = 1;
+                taskDate = startDate.toISOString().split('T')[0];
+            } else if (!taskDate && data.createdAt) {
+                 taskDate = new Date(data.createdAt.toMillis ? data.createdAt.toMillis() : Date.now()).toISOString().split('T')[0];
+            }
+
+            let color = 'bg-blue-500';
+            if (data.status === 'completed') color = 'bg-green-500';
+            if (data.status === 'delayed') color = 'bg-red-500';
+            if (data.status === 'pending') color = 'bg-amber-500';
+
+            const weekString = (d: Date) => {
+                const copy = new Date(d);
+                copy.setHours(0,0,0,0);
+                const dayNum = copy.getUTCDay() || 7;
+                copy.setUTCDate(copy.getUTCDate() + 4 - dayNum);
+                const yearStart = new Date(Date.UTC(copy.getUTCFullYear(),0,1));
+                const weekNo = Math.ceil((((copy.getTime() - yearStart.getTime()) / 86400000) + 1)/7);
+                return `${copy.getUTCFullYear()}-W${weekNo}`;
+            };
+
+            const tDate = taskDate || new Date().toISOString().split('T')[0];
+            const parsedDateObj = new Date(tDate + "T00:00:00");
+
+            liveTasks.push({
+              id: doc.id,
+              memberId: taskMemberId,
+              title: data.title || 'Untitled Task',
+              start: startVal,
+              duration: durationVal,
+              color: data.color || color,
+              orderId: data.orderId || '',
+              date: tDate,
+              week: data.week || weekString(parsedDateObj),
+              month: data.month || tDate.substring(0, 7)
+            });
+          });
+          
+          setMyTasks(liveTasks.sort((a, b) => (a.start || 0) - (b.start || 0)));
+        });
+      } catch (err) {
+        console.error("Failed to load Chronotrack tasks:", err);
+      }
+    };
+
+    initChronoTasks();
+
+    return () => {
+      if (unsubSchedules) unsubSchedules();
+    };
+  }, [userData?.email, userData?.name]);
+
+  const getWeekString = (d: Date) => {
+      const copy = new Date(d);
+      copy.setHours(0,0,0,0);
+      const dayNum = copy.getUTCDay() || 7;
+      copy.setUTCDate(copy.getUTCDate() + 4 - dayNum);
+      const yearStart = new Date(Date.UTC(copy.getUTCFullYear(),0,1));
+      const weekNo = Math.ceil((((copy.getTime() - yearStart.getTime()) / 86400000) + 1)/7);
+      return `${copy.getUTCFullYear()}-W${weekNo}`;
+  };
+
+  const currentDate = new Date();
+  const activeDateStr = currentDate.toISOString().split('T')[0];
+  const activeWeekStr = getWeekString(currentDate);
+  const activeMonthStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth()+1).padStart(2,'0')}`;
+
+  const displayedTasks = myTasks.filter(t => {
+    if (t.range && t.range !== staffTimeframe) return false;
+    if (!t.range && staffTimeframe !== 'Day') return false;
+    if (staffTimeframe === 'Day') return t.date === activeDateStr;
+    if (staffTimeframe === 'Week') return t.week === activeWeekStr;
+    if (staffTimeframe === 'Month') return t.month === activeMonthStr;
+    return true;
+  });
 
   const productionOrders = orders.filter(o => (o.statusIndex === 6 || o.statusIndex === 7) && o.customerId !== 'Shopify Temporary');
-  const assignedOrderIds = new Set(myTasks.filter(t => t.orderId).map(t => String(t.orderId)));
+  const assignedOrderIds = new Set(displayedTasks.filter(t => t.orderId).map(t => String(t.orderId)));
   const assignedOrders = productionOrders.filter(o => assignedOrderIds.has(String(o.id)));
 
   const formatTaskTime = (start: number, duration: number) => {
@@ -532,10 +662,10 @@ export function Dashboard() {
              <div>
                <h3 className={tokens.typography.h3 + " mb-4"}>Assigned Tasks</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {myTasks.length === 0 ? (
+                  {displayedTasks.length === 0 ? (
                     <div className="md:col-span-2 text-sm text-brand-secondary italic p-4 bg-brand-bg/50 rounded-xl border border-brand-border">No tasks immediately assigned to you right now.</div>
                   ) : (
-                    myTasks.map((task) => (
+                    displayedTasks.map((task) => (
                      <div 
                        key={task.id} 
                        onClick={() => {
@@ -557,14 +687,22 @@ export function Dashboard() {
                          onChange={async (e) => {
                             e.stopPropagation();
                             try {
-                              await updateDoc(doc(db, 'timelineTasks', task.id), { color: e.target.value });
+                              let status = 'in_progress';
+                              if (e.target.value === 'bg-green-500') status = 'completed';
+                              if (e.target.value === 'bg-red-500') status = 'delayed';
+                              if (e.target.value === 'bg-amber-500') status = 'pending';
+                              
+                              await updateDoc(doc(chronoDb, 'shiftSchedules', task.id), { 
+                                color: e.target.value,
+                                status: status
+                              });
                             } catch (err) {
                               console.error("Error updating status:", err);
                             }
                          }}
                          className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary bg-brand-bg border border-brand-border/60 rounded-md px-2 py-1.5 outline-none cursor-pointer hover:border-brand-primary/50 hover:text-brand-primary transition-colors max-w-[120px]"
                        >
-                         <option value="bg-yellow-500">Not Started</option>
+                         <option value="bg-amber-500">Not Started</option>
                          <option value="bg-blue-500">Active</option>
                          <option value="bg-green-500">Complete</option>
                          <option value="bg-red-500">Delayed</option>
