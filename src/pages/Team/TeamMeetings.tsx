@@ -2355,7 +2355,7 @@ export function TeamMeetings() {
       {/* Sync from Google Meet Picker Modal */}
       {isSyncModalOpen && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white max-w-[420px] w-full rounded-2xl p-6 shadow-2xl border border-brand-border flex flex-col gap-5">
+          <div className="bg-[#f7f4ef] max-w-[420px] w-full rounded-2xl p-6 shadow-2xl border border-[#ded8ce] flex flex-col gap-5">
             <div className="flex justify-between items-center">
               <div>
                 <h4 className="font-serif text-lg text-brand-primary font-bold flex items-center gap-1.5">
@@ -2364,7 +2364,7 @@ export function TeamMeetings() {
                 </h4>
                 <p className="text-[10px] text-brand-secondary mt-1">Found in your connected Google Workspace Drive</p>
               </div>
-              <button onClick={() => setIsSyncModalOpen(false)} className="text-brand-secondary hover:text-brand-primary transition-colors bg-brand-bg border border-brand-border rounded-md p-1">
+              <button onClick={() => setIsSyncModalOpen(false)} className="text-brand-secondary hover:text-brand-primary transition-colors bg-white border border-[#ded8ce] rounded-full p-1.5 shadow-sm cursor-pointer">
                 <X size={16} />
               </button>
             </div>
@@ -2380,13 +2380,13 @@ export function TeamMeetings() {
                   <div 
                     key={meet.id}
                     onClick={() => handlePerformMeetSync(meet)}
-                    className="p-4 rounded-xl border border-brand-border hover:border-indigo-500 hover:bg-indigo-50/20 cursor-pointer transition-all flex flex-col gap-2 group"
+                    className="p-4 bg-white rounded-[14px] border border-[#ded8ce] hover:border-indigo-500 hover:bg-indigo-50/20 cursor-pointer transition-all flex flex-col gap-2 group"
                   >
                     <div className="flex justify-between items-start">
                       <span className="font-serif text-xs font-black text-brand-primary group-hover:text-indigo-600 transition-colors leading-snug">{meet.title}</span>
                     </div>
                     <p className="text-[10px] text-brand-secondary line-clamp-1">{meet.summary}</p>
-                    <div className="flex justify-between items-center text-[8px] font-bold text-brand-secondary border-t border-brand-border/30 pt-2 mt-1 uppercase tracking-wider">
+                    <div className="flex justify-between items-center text-[8px] font-bold text-brand-secondary border-t border-[#ded8ce]/30 pt-2 mt-1 uppercase tracking-wider">
                       <span className="flex items-center gap-1"><Clock size={10} /> {meet.date}</span>
                       <span>{meet.attendees.length} present</span>
                     </div>
