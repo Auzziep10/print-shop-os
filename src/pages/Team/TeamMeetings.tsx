@@ -537,12 +537,19 @@ export function TeamMeetings() {
   };
 
   const handleSaveMeeting = async () => {
-    if (!newTitle.trim()) {
+    if (!selectedTemplateId && !newTitle.trim()) {
       alert("Please enter a meeting title.");
       return;
     }
 
     try {
+      const templateName = selectedTemplateId 
+        ? (templates.find(t => t.id === selectedTemplateId)?.name || 'Template Meeting')
+        : '';
+      const finalTitle = selectedTemplateId
+        ? `${templateName} - ${newDate}`
+        : newTitle.trim();
+
       const finalSections = selectedTemplateId 
         ? meetingSections 
         : [{ name: 'Discussion Notes', notes: newNotes.trim() || 'No detailed notes.' }];
@@ -552,14 +559,14 @@ export function TeamMeetings() {
         : newNotes.trim() || 'No detailed notes.';
 
       const payload = {
-        title: newTitle.trim(),
+        title: finalTitle,
         date: newDate,
         createdAt: new Date().toISOString(),
-        summary: newSummary.trim() || 'Weekly sync meeting.',
+        summary: newSummary.trim() || `${templateName || 'Meeting'} minutes.`,
         notes: finalNotes,
         sections: finalSections,
         templateId: selectedTemplateId || '',
-        templateName: selectedTemplateId ? (templates.find(t => t.id === selectedTemplateId)?.name || '') : '',
+        templateName: templateName,
         attendees: newAttendees,
         actionItems: newActionItems,
         capacityScores: capacityCheckins,
@@ -1251,33 +1258,32 @@ export function TeamMeetings() {
 
       {/* Record New Meeting Modal */}
       {isNewModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="bg-brand-bg max-w-[95vw] lg:max-w-[1000px] w-full rounded-2xl overflow-hidden shadow-2xl flex flex-col border border-brand-border my-auto">
+        <div className="fixed inset-0 z-[100] flex flex-col bg-brand-bg w-screen h-screen overflow-hidden animate-in fade-in duration-200">
             
             {/* Modal Header */}
-            <div className="p-6 border-b border-brand-border flex justify-between items-center bg-white sticky top-0 z-10">
+            <div className="p-6 border-b border-brand-border flex justify-between items-center bg-white shrink-0">
               <div>
-                <h3 className="font-serif text-xl text-brand-primary">Record Meeting Minutes</h3>
-                <p className="text-xs font-medium text-brand-secondary mt-1">Date, record check-in scores, and write or import your discussions.</p>
+                <h3 className="font-serif text-2xl text-brand-primary font-bold">Record Meeting Minutes</h3>
+                <p className="text-sm font-medium text-brand-secondary mt-1">Date, record capacity check-in scores, and write or import your discussions.</p>
               </div>
               <button 
                 onClick={() => setIsNewModalOpen(false)} 
-                className="text-brand-secondary hover:text-brand-primary transition-colors bg-brand-bg border border-brand-border rounded-md p-1"
+                className="text-brand-secondary hover:text-brand-primary transition-colors bg-brand-bg border border-brand-border rounded-md p-2 hover:bg-neutral-100"
               >
-                <X size={18} />
+                <X size={20} />
               </button>
             </div>
             
             {/* Modal Content */}
-            <div className="p-6 grid grid-cols-1 lg:grid-cols-3 gap-6 overflow-y-auto custom-scrollbar max-h-[70vh] bg-white">
+            <div className="p-6 md:p-8 grid grid-cols-1 lg:grid-cols-3 gap-8 overflow-y-auto custom-scrollbar flex-1 bg-white">
               
               {/* Left Column: Basic Details & Action Items */}
-              <div className="lg:col-span-2 flex flex-col gap-5">
+              <div className="lg:col-span-2 flex flex-col gap-6">
                 
                 {/* Form Inputs */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
                   <div className="sm:col-span-3">
-                    <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1.5">Meeting Template Selection</label>
+                    <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-1.5">Meeting Template Selection</label>
                     <select
                       value={selectedTemplateId}
                       onChange={e => {
@@ -1296,7 +1302,7 @@ export function TeamMeetings() {
                           setMeetingSections([]);
                         }
                       }}
-                      className="w-full bg-brand-bg border border-brand-border rounded-lg px-3 py-2 text-xs focus:border-brand-primary outline-none cursor-pointer font-bold text-brand-primary"
+                      className="w-full bg-brand-bg border border-brand-border rounded-lg px-4 py-2.5 text-sm focus:border-brand-primary outline-none cursor-pointer font-bold text-brand-primary"
                     >
                       <option value="">-- Custom / Ad-hoc Meeting --</option>
                       {templates.map(t => (
@@ -1304,62 +1310,66 @@ export function TeamMeetings() {
                       ))}
                     </select>
                   </div>
-                  <div className="sm:col-span-2">
-                    <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1.5">Meeting Title</label>
-                    <input 
-                      type="text" 
-                      placeholder="e.g. Weekly Sync"
-                      value={newTitle}
-                      onChange={e => setNewTitle(e.target.value)}
-                      className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-xs focus:border-brand-primary outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1.5">Date</label>
+                  
+                  {!selectedTemplateId ? (
+                    <div className="sm:col-span-2 animate-in fade-in duration-200">
+                      <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-1.5">Meeting Title</label>
+                      <input 
+                        type="text" 
+                        placeholder="e.g. Weekly Sync"
+                        value={newTitle}
+                        onChange={e => setNewTitle(e.target.value)}
+                        className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-2.5 text-sm focus:border-brand-primary outline-none text-brand-primary font-medium"
+                      />
+                    </div>
+                  ) : null}
+                  
+                  <div className={selectedTemplateId ? "sm:col-span-3" : "sm:col-span-1"}>
+                    <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-1.5">Date</label>
                     <input 
                       type="date" 
                       value={newDate}
                       onChange={e => setNewDate(e.target.value)}
-                      className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-xs focus:border-brand-primary outline-none"
+                      className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-2.5 text-sm focus:border-brand-primary outline-none text-brand-primary font-medium"
                     />
                   </div>
                 </div>
 
                 {/* Gemini AI Integrator Section */}
-                <div className="border border-indigo-100 bg-indigo-50/30 rounded-xl p-4 flex flex-col gap-3">
+                <div className="border border-indigo-100 bg-indigo-50/30 rounded-xl p-5 flex flex-col gap-4">
                   <div className="flex justify-between items-center">
-                    <span className="text-xs font-black text-indigo-900 flex items-center gap-1.5">
-                      <Sparkles size={14} className="text-indigo-600 animate-pulse" />
+                    <span className="text-sm font-black text-indigo-900 flex items-center gap-1.5">
+                      <Sparkles size={16} className="text-indigo-600 animate-pulse" />
                       Google Meet & Gemini AI Integrator
                     </span>
                     <button 
                       onClick={() => setIsSyncModalOpen(true)}
-                      className="bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-lg transition-colors shadow-sm flex items-center gap-1"
+                      className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold uppercase tracking-wider px-3.5 py-2 rounded-lg transition-colors shadow-sm flex items-center gap-1"
                     >
-                      <Plus size={10} /> Sync Google Meet
+                      <Plus size={12} /> Sync Google Meet
                     </button>
                   </div>
-                  <p className="text-[10px] text-indigo-950 leading-relaxed">
+                  <p className="text-xs text-indigo-950 leading-relaxed">
                     Instantly sync Gemini-generated summaries and checklists from your Google Meet, or paste them manually below.
                   </p>
                   
                   {isParsingText ? (
-                    <div className="flex flex-col gap-2 animate-in fade-in duration-200">
+                    <div className="flex flex-col gap-3 animate-in fade-in duration-200">
                       <textarea 
                         placeholder="Paste your Gemini meeting notes summary here... (bullet points will be extracted as action items)"
                         value={rawPasteText}
                         onChange={e => setRawPasteText(e.target.value)}
-                        className="text-xs"
+                        className="w-full bg-white border border-brand-border rounded-lg p-3 text-sm focus:border-brand-primary outline-none min-h-[120px]"
                       />
                       <div className="flex gap-2 justify-end">
-                        <PillButton variant="outline" className="py-1 px-3 text-[10px]" onClick={() => setIsParsingText(false)}>Cancel</PillButton>
-                        <PillButton variant="filled" className="py-1 px-3 text-[10px] bg-indigo-600 hover:bg-indigo-700 text-white border-transparent" onClick={handlePerformManualParse}>Parse Notes</PillButton>
+                        <PillButton variant="outline" className="py-1.5 px-4 text-xs" onClick={() => setIsParsingText(false)}>Cancel</PillButton>
+                        <PillButton variant="filled" className="py-1.5 px-4 text-xs bg-indigo-600 hover:bg-indigo-700 text-white border-transparent" onClick={handlePerformManualParse}>Parse Notes</PillButton>
                       </div>
                     </div>
                   ) : (
                     <button 
                       onClick={() => setIsParsingText(true)}
-                      className="border border-dashed border-indigo-200 bg-white hover:bg-indigo-50/50 rounded-lg py-2.5 text-center text-[10px] font-bold text-indigo-600 transition-colors"
+                      className="border border-dashed border-indigo-200 bg-white hover:bg-indigo-50/50 rounded-lg py-3 text-center text-xs font-bold text-indigo-600 transition-colors"
                     >
                       + Paste & Parse Gemini Notes Text
                     </button>
@@ -1367,35 +1377,35 @@ export function TeamMeetings() {
                 </div>
 
                 {/* Summary & Discussion notes */}
-                <div className="space-y-4">
+                <div className="space-y-5">
                   <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1.5">Brief Summary</label>
+                    <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-1.5">Brief Summary</label>
                     <input 
                       type="text" 
                       placeholder="Enter a brief high-level sentence summarizing outcomes"
                       value={newSummary}
                       onChange={e => setNewSummary(e.target.value)}
-                      className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-xs focus:border-brand-primary outline-none"
+                      className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-2.5 text-sm focus:border-brand-primary outline-none text-brand-primary font-medium"
                     />
                   </div>
 
                   {selectedTemplateId ? (
                     <div className="space-y-4">
                       <div className="flex justify-between items-center">
-                        <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary">Meeting Sections</label>
+                        <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary">Meeting Sections</label>
                         <button
                           type="button"
                           onClick={() => {
                             setMeetingSections(prev => [...prev, { name: 'New Section', notes: '' }]);
                           }}
-                          className="text-[10px] font-bold text-black border border-[#ded8ce] rounded-full px-3 py-1 hover:bg-neutral-50 shadow-sm"
+                          className="text-xs font-bold text-black border border-[#ded8ce] rounded-full px-3.5 py-1 hover:bg-neutral-50 shadow-sm"
                         >
                           + Add Section
                         </button>
                       </div>
 
                       {meetingSections.map((sec, idx) => (
-                        <div key={idx} className="border border-[#ded8ce] rounded-xl p-4 bg-[#f7f4ef]/30 flex flex-col gap-2 relative shadow-sm">
+                        <div key={idx} className="border border-[#ded8ce] rounded-xl p-5 bg-[#f7f4ef]/30 flex flex-col gap-3 relative shadow-sm animate-in fade-in duration-150">
                           <div className="flex justify-between items-center gap-2">
                             <input
                               type="text"
@@ -1405,7 +1415,7 @@ export function TeamMeetings() {
                                 newSecs[idx].name = e.target.value;
                                 setMeetingSections(newSecs);
                               }}
-                              className="bg-transparent border-b border-transparent hover:border-brand-border focus:border-brand-primary font-bold text-xs text-brand-primary outline-none py-0.5"
+                              className="bg-transparent border-b border-transparent hover:border-brand-border focus:border-brand-primary font-bold text-sm text-brand-primary outline-none py-0.5"
                               placeholder="Section Name"
                             />
                             <button
@@ -1416,7 +1426,7 @@ export function TeamMeetings() {
                               className="text-brand-secondary hover:text-red-500 transition-colors p-1"
                               title="Remove Section"
                             >
-                              <X size={12} />
+                              <X size={14} />
                             </button>
                           </div>
                           <textarea
@@ -1427,19 +1437,19 @@ export function TeamMeetings() {
                               setMeetingSections(newSecs);
                             }}
                             placeholder={`Enter notes for "${sec.name}"...`}
-                            className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-xs focus:border-brand-primary outline-none min-h-[80px]"
+                            className="w-full bg-white border border-brand-border rounded-lg px-3.5 py-2.5 text-sm focus:border-brand-primary outline-none min-h-[90px]"
                           />
                         </div>
                       ))}
                     </div>
                   ) : (
                     <div>
-                      <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1.5">Meeting Discussion / Notes</label>
+                      <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-1.5">Meeting Discussion / Notes</label>
                       <textarea 
                         placeholder="Write comprehensive meeting notes, topics discussed, or copy-paste detailed logs here..."
                         value={newNotes}
                         onChange={e => setNewNotes(e.target.value)}
-                        className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-xs focus:border-brand-primary outline-none min-h-[120px]"
+                        className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-2.5 text-sm focus:border-brand-primary outline-none min-h-[140px]"
                       />
                     </div>
                   )}
@@ -1448,26 +1458,26 @@ export function TeamMeetings() {
                 {/* Attendees Comma Field / Select */}
                 <div>
                   <div className="flex justify-between items-center mb-1.5">
-                    <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary">Attendees Present</label>
+                    <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary">Attendees Present</label>
                     <div className="flex gap-2">
                       <button
                         type="button"
                         onClick={() => setNewAttendees(teamMembers.map(m => m.name))}
-                        className="text-[9px] text-brand-primary hover:underline font-bold"
+                        className="text-xs text-brand-primary hover:underline font-bold"
                       >
                         Select All
                       </button>
-                      <span className="text-[9px] text-brand-secondary">•</span>
+                      <span className="text-xs text-brand-secondary">•</span>
                       <button
                         type="button"
                         onClick={() => setNewAttendees([])}
-                        className="text-[9px] text-brand-secondary hover:text-brand-primary hover:underline font-bold"
+                        className="text-xs text-brand-secondary hover:text-brand-primary hover:underline font-bold"
                       >
                         Clear All
                       </button>
                     </div>
                   </div>
-                  <div className="flex flex-wrap gap-1.5 p-2 bg-brand-bg/40 border border-brand-border rounded-lg min-h-[40px]">
+                  <div className="flex flex-wrap gap-2 p-3 bg-brand-bg/40 border border-brand-border rounded-lg min-h-[48px]">
                     {teamMembers.map(member => {
                       const isSelected = newAttendees.includes(member.name);
                       return (
@@ -1481,7 +1491,7 @@ export function TeamMeetings() {
                               setNewAttendees(prev => [...prev, member.name]);
                             }
                           }}
-                          className={`text-[10px] px-2.5 py-1 rounded-full font-bold border transition-colors ${isSelected ? 'bg-black text-white border-black' : 'bg-white text-brand-primary border-brand-border hover:border-neutral-400'}`}
+                          className={`text-xs px-3.5 py-1.5 rounded-full font-bold border transition-colors ${isSelected ? 'bg-black text-white border-black' : 'bg-white text-brand-primary border-brand-border hover:border-neutral-400'}`}
                         >
                           {member.name}
                         </button>
@@ -1492,13 +1502,13 @@ export function TeamMeetings() {
 
                 {/* Action Items construction */}
                 <div className="space-y-3">
-                  <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary">Construct Action Items</label>
+                  <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary">Construct Action Items</label>
                   <div className="flex gap-2">
                     <input 
                       type="text" 
                       id="itemInput"
                       placeholder="e.g. Write platform unit tests (Bob)"
-                      className="flex-1 bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-xs focus:border-brand-primary outline-none"
+                      className="flex-1 bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-2.5 text-sm focus:border-brand-primary outline-none text-brand-primary font-medium"
                       onKeyDown={e => {
                         if (e.key === 'Enter') {
                           e.preventDefault();
@@ -1517,19 +1527,19 @@ export function TeamMeetings() {
                           el.value = '';
                         }
                       }}
-                      className="py-2 text-[10px]"
+                      className="py-2.5 px-4 text-xs font-bold shrink-0"
                     >
                       Add
                     </PillButton>
                   </div>
 
                   {newActionItems.length > 0 && (
-                    <div className="border border-brand-border rounded-xl p-3 flex flex-col gap-2 max-h-[150px] overflow-y-auto custom-scrollbar">
+                    <div className="border border-brand-border rounded-xl p-4 flex flex-col gap-2 max-h-[180px] overflow-y-auto custom-scrollbar">
                       {newActionItems.map((item, idx) => (
-                        <div key={idx} className="flex justify-between items-center bg-brand-bg/50 p-2 rounded-lg border border-brand-border/30">
-                          <span className="text-[10px] text-brand-primary font-medium">{item.text}</span>
+                        <div key={idx} className="flex justify-between items-center bg-brand-bg/50 p-2.5 rounded-lg border border-brand-border/30">
+                          <span className="text-xs text-brand-primary font-medium">{item.text}</span>
                           <button onClick={() => handleRemoveActionItemInput(idx)} className="text-brand-secondary hover:text-red-500 transition-colors p-1">
-                            <X size={12} />
+                            <X size={14} />
                           </button>
                         </div>
                       ))}
@@ -1540,23 +1550,23 @@ export function TeamMeetings() {
               </div>
 
               {/* Right Column: Pre-Meeting Capacity Check-in (Call Score Sliders) */}
-              <div className="lg:col-span-1 border-l lg:border-l border-brand-border pl-0 lg:pl-6 flex flex-col gap-5">
+              <div className="lg:col-span-1 border-l lg:border-l border-brand-border pl-0 lg:pl-8 flex flex-col gap-6">
                 <div>
-                  <h4 className="text-xs font-bold text-brand-primary border-b border-brand-border pb-2 mb-3 flex items-center gap-1.5">
-                    <UserPlus size={14} className="text-brand-secondary" />
+                  <h4 className="text-sm font-bold text-brand-primary border-b border-brand-border pb-2.5 mb-4 flex items-center gap-1.5">
+                    <UserPlus size={16} className="text-brand-secondary" />
                     Capacity Check-in (Call Score)
                   </h4>
-                  <p className="text-[10px] text-brand-secondary leading-relaxed mb-4">
+                  <p className="text-xs text-brand-secondary leading-relaxed mb-4">
                     Have team members record their scores before starting the meeting.
                   </p>
 
-                  <div className="space-y-4">
+                  <div className="space-y-5">
                     <div>
-                      <label className="block text-[9px] font-bold uppercase tracking-widest text-brand-secondary mb-1">Select Member</label>
+                      <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-1.5">Select Member</label>
                       <select 
                         value={checkinMemberId}
                         onChange={e => setCheckinMemberId(e.target.value)}
-                        className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-xs focus:border-brand-primary outline-none cursor-pointer font-medium"
+                        className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3.5 py-2.5 text-sm focus:border-brand-primary outline-none cursor-pointer font-bold text-brand-primary"
                       >
                         <option value="">-- Choose Member --</option>
                         {teamMembers.map(m => (
@@ -1567,10 +1577,10 @@ export function TeamMeetings() {
 
                     {/* Capacity sliders */}
                     {checkinMemberId && (
-                      <div className="space-y-3 animate-in slide-in-from-top-2 duration-300">
+                      <div className="space-y-4 animate-in slide-in-from-top-2 duration-300">
                         {/* Slider 1: Workload */}
                         <div>
-                          <div className="flex justify-between text-[9px] font-bold text-brand-primary mb-1">
+                          <div className="flex justify-between text-xs font-bold text-brand-primary mb-1">
                             <span>1. Workload Volume</span>
                             <span>{checkinWorkload}/10</span>
                           </div>
@@ -1578,13 +1588,13 @@ export function TeamMeetings() {
                             type="range" min="1" max="10" 
                             value={checkinWorkload} 
                             onChange={e => setCheckinWorkload(parseInt(e.target.value))}
-                            className="w-full accent-black h-1 bg-neutral-200 rounded-lg appearance-none cursor-pointer"
+                            className="w-full accent-black h-1.5 bg-neutral-200 rounded-lg appearance-none cursor-pointer"
                           />
                         </div>
 
                         {/* Slider 2: Urgency */}
                         <div>
-                          <div className="flex justify-between text-[9px] font-bold text-brand-primary mb-1">
+                          <div className="flex justify-between text-xs font-bold text-brand-primary mb-1">
                             <span>2. Deadline Pressure</span>
                             <span>{checkinUrgency}/10</span>
                           </div>
@@ -1592,13 +1602,13 @@ export function TeamMeetings() {
                             type="range" min="1" max="10" 
                             value={checkinUrgency} 
                             onChange={e => setCheckinUrgency(parseInt(e.target.value))}
-                            className="w-full accent-black h-1 bg-neutral-200 rounded-lg appearance-none cursor-pointer"
+                            className="w-full accent-black h-1.5 bg-neutral-200 rounded-lg appearance-none cursor-pointer"
                           />
                         </div>
 
                         {/* Slider 3: Stress */}
                         <div>
-                          <div className="flex justify-between text-[9px] font-bold text-brand-primary mb-1">
+                          <div className="flex justify-between text-xs font-bold text-brand-primary mb-1">
                             <span>3. Stress Load</span>
                             <span>{checkinStress}/10</span>
                           </div>
@@ -1606,13 +1616,13 @@ export function TeamMeetings() {
                             type="range" min="1" max="10" 
                             value={checkinStress} 
                             onChange={e => setCheckinStress(parseInt(e.target.value))}
-                            className="w-full accent-black h-1 bg-neutral-200 rounded-lg appearance-none cursor-pointer"
+                            className="w-full accent-black h-1.5 bg-neutral-200 rounded-lg appearance-none cursor-pointer"
                           />
                         </div>
 
                         {/* Slider 4: Availability */}
                         <div>
-                          <div className="flex justify-between text-[9px] font-bold text-brand-primary mb-1">
+                          <div className="flex justify-between text-xs font-bold text-brand-primary mb-1">
                             <span>4. Available Bandwidth</span>
                             <span>{checkinAvailability}/10</span>
                           </div>
@@ -1620,13 +1630,13 @@ export function TeamMeetings() {
                             type="range" min="1" max="10" 
                             value={checkinAvailability} 
                             onChange={e => setCheckinAvailability(parseInt(e.target.value))}
-                            className="w-full accent-black h-1 bg-neutral-200 rounded-lg appearance-none cursor-pointer"
+                            className="w-full accent-black h-1.5 bg-neutral-200 rounded-lg appearance-none cursor-pointer"
                           />
                         </div>
 
                         {/* Slider 5: Friction */}
                         <div>
-                          <div className="flex justify-between text-[9px] font-bold text-brand-primary mb-1">
+                          <div className="flex justify-between text-xs font-bold text-brand-primary mb-1">
                             <span>5. Workflow Friction</span>
                             <span>{checkinFriction}/10</span>
                           </div>
@@ -1634,20 +1644,20 @@ export function TeamMeetings() {
                             type="range" min="1" max="10" 
                             value={checkinFriction} 
                             onChange={e => setCheckinFriction(parseInt(e.target.value))}
-                            className="w-full accent-black h-1 bg-neutral-200 rounded-lg appearance-none cursor-pointer"
+                            className="w-full accent-black h-1.5 bg-neutral-200 rounded-lg appearance-none cursor-pointer"
                           />
                         </div>
 
                         {/* Confidence Check-in */}
                         <div>
-                          <label className="block text-[9px] font-bold uppercase tracking-widest text-brand-secondary mb-1">Confidence Status</label>
+                          <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-1.5">Confidence Status</label>
                           <div className="flex gap-2">
                             {['Green', 'Yellow', 'Red'].map(c => (
                               <button
                                 key={c}
                                 type="button"
                                 onClick={() => setCheckinConfidence(c)}
-                                className={`flex-1 text-[9px] font-bold py-1.5 rounded-lg border transition-all ${checkinConfidence === c ? 'bg-black text-white border-black scale-[1.02]' : 'bg-white border-brand-border text-brand-secondary'}`}
+                                className={`flex-1 text-xs font-bold py-2 rounded-lg border transition-all ${checkinConfidence === c ? 'bg-black text-white border-black scale-[1.02]' : 'bg-white border-brand-border text-brand-secondary hover:border-neutral-400'}`}
                               >
                                 {c}
                               </button>
@@ -1657,19 +1667,19 @@ export function TeamMeetings() {
 
                         {/* Notes Check-in */}
                         <div>
-                          <label className="block text-[9px] font-bold uppercase tracking-widest text-brand-secondary mb-1">Blockers / Notes</label>
+                          <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-1.5">Blockers / Notes</label>
                           <textarea 
                             placeholder="Add specific blocker notes..."
                             value={checkinNotes}
                             onChange={e => setCheckinNotes(e.target.value)}
-                            className="w-full bg-brand-bg/50 border border-brand-border rounded-lg p-2 text-xs focus:border-brand-primary outline-none min-h-[60px]"
+                            className="w-full bg-brand-bg/50 border border-brand-border rounded-lg p-3 text-sm focus:border-brand-primary outline-none min-h-[70px]"
                           />
                         </div>
 
                         <button
                           type="button"
                           onClick={handleAddCheckin}
-                          className="w-full bg-black text-white text-[10px] font-bold uppercase tracking-wider py-2 rounded-lg hover:bg-neutral-800 transition-all"
+                          className="w-full bg-black text-white text-xs font-bold uppercase tracking-wider py-3 rounded-lg hover:bg-neutral-800 transition-all shadow-sm"
                         >
                           Submit Score check-in
                         </button>
@@ -1680,21 +1690,21 @@ export function TeamMeetings() {
 
                 {/* List of active checked-in members */}
                 {capacityCheckins.length > 0 && (
-                  <div className="mt-4 flex flex-col gap-2.5">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-brand-secondary">Checked-in Members</span>
-                    <div className="flex flex-col gap-2 max-h-[220px] overflow-y-auto custom-scrollbar">
+                  <div className="mt-6 flex flex-col gap-3">
+                    <span className="text-xs font-black uppercase tracking-widest text-brand-secondary border-b border-brand-border pb-1">Checked-in Members</span>
+                    <div className="flex flex-col gap-2.5 max-h-[250px] overflow-y-auto custom-scrollbar">
                       {capacityCheckins.map(c => (
-                        <div key={c.memberId} className="flex justify-between items-center bg-brand-bg p-3 rounded-xl border border-brand-border/40">
+                        <div key={c.memberId} className="flex justify-between items-center bg-brand-bg p-3.5 rounded-xl border border-brand-border/40 shadow-sm">
                           <div>
-                            <div className="font-bold text-xs text-brand-primary">{c.memberName}</div>
-                            <div className="text-[9px] text-brand-secondary font-medium mt-0.5">{c.status} ({c.score.toFixed(1)}/10)</div>
+                            <div className="font-bold text-sm text-brand-primary">{c.memberName}</div>
+                            <div className="text-xs text-brand-secondary font-medium mt-0.5">{c.status} ({c.score.toFixed(1)}/10)</div>
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className={`text-[8px] font-black px-1.5 py-0.5 rounded border uppercase ${getConfidenceBadge(c.confidence)}`}>
+                            <span className={`text-[10px] font-black px-2 py-0.5 rounded border uppercase ${getConfidenceBadge(c.confidence)}`}>
                               {c.confidence}
                             </span>
                             <button onClick={() => handleRemoveCheckin(c.memberId)} className="text-brand-secondary hover:text-red-500 transition-colors p-1">
-                              <X size={12} />
+                              <X size={14} />
                             </button>
                           </div>
                         </div>
@@ -1707,16 +1717,15 @@ export function TeamMeetings() {
             </div>
 
             {/* Modal Footer */}
-            <div className="p-6 bg-brand-bg flex gap-3 border-t border-brand-border sticky bottom-0 z-10">
-              <PillButton variant="outline" onClick={() => setIsNewModalOpen(false)} className="flex-1 justify-center py-3">
+            <div className="p-6 bg-brand-bg flex gap-4 border-t border-brand-border sticky bottom-0 z-10 shrink-0">
+              <PillButton variant="outline" onClick={() => setIsNewModalOpen(false)} className="flex-1 justify-center py-3 text-sm">
                 Cancel
               </PillButton>
-              <PillButton variant="filled" onClick={handleSaveMeeting} className="flex-1 justify-center py-3">
+              <PillButton variant="filled" onClick={handleSaveMeeting} className="flex-1 justify-center py-3 text-sm">
                 Save Meeting Minutes
               </PillButton>
             </div>
             
-          </div>
         </div>
       )}
 
