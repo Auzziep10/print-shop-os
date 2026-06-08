@@ -217,6 +217,32 @@ export function TeamMeetings() {
   // Loading indicator for simulated Google Meet Sync
   const [isSyncing, setIsSyncing] = useState(false);
 
+  // Template states
+  const [templates, setTemplates] = useState<any[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
+  const [meetingSections, setMeetingSections] = useState<any[]>([]);
+  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
+  const [expandedTemplates, setExpandedTemplates] = useState<Record<string, boolean>>({});
+
+  // Template Form states
+  const [templateNameInput, setTemplateNameInput] = useState('');
+  const [templateAttendeesInput, setTemplateAttendeesInput] = useState<string[]>([]);
+  const [templateSectionsInput, setTemplateSectionsInput] = useState<string[]>(['']);
+
+  const handleAddTemplateSectionInput = () => {
+    setTemplateSectionsInput(prev => [...prev, '']);
+  };
+
+  const handleUpdateTemplateSectionInput = (index: number, val: string) => {
+    const newSecs = [...templateSectionsInput];
+    newSecs[index] = val;
+    setTemplateSectionsInput(newSecs);
+  };
+
+  const handleRemoveTemplateSectionInput = (index: number) => {
+    setTemplateSectionsInput(prev => prev.filter((_, i) => i !== index));
+  };
+
   // Pre-select all team members by default when opening the New Meeting modal
   useEffect(() => {
     if (isNewModalOpen && teamMembers.length > 0) {
@@ -284,6 +310,54 @@ export function TeamMeetings() {
       unsubUsers();
       unsubMeetings();
     };
+  }, []);
+
+  // Fetch meeting templates and seed defaults if empty
+  useEffect(() => {
+    const unsubTemplates = onSnapshot(collection(db, 'meetingTemplates'), (snap) => {
+      const list: any[] = [];
+      snap.forEach(d => {
+        list.push({ id: d.id, ...d.data() });
+      });
+
+      if (list.length === 0) {
+        // Seed default templates
+        const defaultTemplates = [
+          {
+            name: 'Daily Standup',
+            attendees: FALLBACK_USERS.map(u => u.name),
+            sections: ['What did you do yesterday?', 'What are you doing today?', 'Any blockers?'],
+            createdAt: new Date().toISOString()
+          },
+          {
+            name: 'Weekly Production Review',
+            attendees: FALLBACK_USERS.map(u => u.name),
+            sections: ['Production Queue Status', 'DTF & Supply Levels', 'Rush Orders Review', 'Blocked Orders'],
+            createdAt: new Date().toISOString()
+          },
+          {
+            name: 'Weekly Leadership Sync',
+            attendees: [FALLBACK_USERS[0].name, FALLBACK_USERS[1].name], // Alice & Bob
+            sections: ['Key Metrics Review', 'Operational Blockers', 'Strategic Alignment'],
+            createdAt: new Date().toISOString()
+          }
+        ];
+
+        defaultTemplates.forEach(async (t) => {
+          try {
+            await addDoc(collection(db, 'meetingTemplates'), t);
+          } catch (e) {
+            console.error("Failed to seed template", e);
+          }
+        });
+      } else {
+        // Sort by name
+        list.sort((a, b) => a.name.localeCompare(b.name));
+        setTemplates(list);
+      }
+    });
+
+    return () => unsubTemplates();
   }, []);
 
   const handleToggleActionItem = async (meetingId: string, index: number) => {
@@ -419,6 +493,49 @@ export function TeamMeetings() {
     }
   };
 
+  const handleSaveTemplate = async () => {
+    if (!templateNameInput.trim()) {
+      alert("Please enter a template name.");
+      return;
+    }
+    const filteredSections = templateSectionsInput.filter(s => s.trim());
+    if (filteredSections.length === 0) {
+      alert("Please enter at least one meeting section.");
+      return;
+    }
+
+    try {
+      const payload = {
+        name: templateNameInput.trim(),
+        attendees: templateAttendeesInput,
+        sections: filteredSections,
+        createdAt: new Date().toISOString()
+      };
+
+      await addDoc(collection(db, 'meetingTemplates'), payload);
+      
+      // Reset form fields
+      setTemplateNameInput('');
+      setTemplateAttendeesInput([]);
+      setTemplateSectionsInput(['']);
+      alert("Template saved successfully!");
+    } catch (err) {
+      console.error("Failed to save template", err);
+      alert("Failed to save template. Please try again.");
+    }
+  };
+
+  const handleDeleteTemplate = async (templateId: string) => {
+    const confirmed = window.confirm("Are you sure you want to delete this template? Everyday meetings using this template will not be deleted, but the template structure will be removed.");
+    if (!confirmed) return;
+
+    try {
+      await deleteDoc(doc(db, 'meetingTemplates', templateId));
+    } catch (err) {
+      console.error("Failed to delete template", err);
+    }
+  };
+
   const handleSaveMeeting = async () => {
     if (!newTitle.trim()) {
       alert("Please enter a meeting title.");
@@ -426,16 +543,27 @@ export function TeamMeetings() {
     }
 
     try {
+      const finalSections = selectedTemplateId 
+        ? meetingSections 
+        : [{ name: 'Discussion Notes', notes: newNotes.trim() || 'No detailed notes.' }];
+      
+      const finalNotes = selectedTemplateId
+        ? meetingSections.map(s => `## ${s.name}\n${s.notes}`).join('\n\n')
+        : newNotes.trim() || 'No detailed notes.';
+
       const payload = {
         title: newTitle.trim(),
         date: newDate,
         createdAt: new Date().toISOString(),
         summary: newSummary.trim() || 'Weekly sync meeting.',
-        notes: newNotes.trim() || 'No detailed notes.',
+        notes: finalNotes,
+        sections: finalSections,
+        templateId: selectedTemplateId || '',
+        templateName: selectedTemplateId ? (templates.find(t => t.id === selectedTemplateId)?.name || '') : '',
         attendees: newAttendees,
         actionItems: newActionItems,
         capacityScores: capacityCheckins,
-        totalAmount: Math.round((capacityCheckins.reduce((sum, c) => sum + c.score, 0) / (capacityCheckins.length || 1)) * 10) / 10
+        totalAmount: Math.round((capacityCheckins.reduce((sum: number, c: any) => sum + (c.score || 0), 0) / (capacityCheckins.length || 1)) * 10) / 10
       };
 
       await addDoc(collection(db, 'meetings'), payload);
@@ -448,6 +576,8 @@ export function TeamMeetings() {
       setNewAttendees([]);
       setNewActionItems([]);
       setCapacityCheckins([]);
+      setSelectedTemplateId('');
+      setMeetingSections([]);
       setIsNewModalOpen(false);
     } catch (err) {
       console.error("Failed to save meeting", err);
@@ -527,22 +657,63 @@ export function TeamMeetings() {
     !selectedMeeting?.capacityScores?.some((c: any) => c.memberName === name)
   ) || [];
 
+  // Group meetings by template
+  const getGroupedMeetings = () => {
+    const groups: Record<string, { name: string; meetings: any[] }> = {};
+    
+    // Initialize templates in groups
+    templates.forEach(t => {
+      groups[t.id] = { name: t.name, meetings: [] };
+    });
+    // Add "Custom / Ad-hoc" group
+    groups['custom'] = { name: 'Custom / Ad-hoc Meetings', meetings: [] };
+
+    // Group each meeting
+    filteredMeetings.forEach(meet => {
+      const tId = meet.templateId;
+      if (tId && groups[tId]) {
+        groups[tId].meetings.push(meet);
+      } else {
+        groups['custom'].meetings.push(meet);
+      }
+    });
+
+    return groups;
+  };
+
+  const toggleTemplateExpansion = (templateId: string) => {
+    setExpandedTemplates(prev => ({
+      ...prev,
+      [templateId]: prev[templateId] === false ? true : false
+    }));
+  };
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start animate-in fade-in zoom-in-95 duration-300">
       
       {/* Left Column: Meetings Sidebar List */}
       <div className="lg:col-span-1 flex flex-col gap-4">
         <div className="bg-white p-4 rounded-card border border-brand-border shadow-sm flex flex-col gap-3">
-          <div className="flex justify-between items-center">
-            <h2 className="font-serif text-lg font-bold text-brand-primary">Meetings Log</h2>
-            <PillButton 
-              variant="filled" 
-              onClick={() => setIsNewModalOpen(true)}
-              className="py-1 px-3 text-xs gap-1.5 h-8"
-            >
-              <Plus size={14} />
-              Record Meeting
-            </PillButton>
+          <div className="flex justify-between items-center gap-2">
+            <h2 className="font-serif text-base font-bold text-brand-primary">Meetings Log</h2>
+            <div className="flex gap-1.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsTemplateModalOpen(true)}
+                className="py-1 px-2.5 text-[10px] font-bold border border-brand-border rounded-full hover:bg-neutral-50 flex items-center gap-1 transition-all h-8 text-brand-primary"
+                title="Manage Templates"
+              >
+                Templates
+              </button>
+              <PillButton 
+                variant="filled" 
+                onClick={() => setIsNewModalOpen(true)}
+                className="py-1 px-2.5 text-[10px] gap-1 h-8"
+              >
+                <Plus size={12} />
+                Record
+              </PillButton>
+            </div>
           </div>
           
           <div className="relative">
@@ -557,7 +728,7 @@ export function TeamMeetings() {
           </div>
         </div>
 
-        <div className="flex flex-col gap-2 max-h-[60vh] overflow-y-auto custom-scrollbar">
+        <div className="flex flex-col gap-3 max-h-[60vh] overflow-y-auto custom-scrollbar">
           {loading ? (
             <div className="p-8 text-center text-xs text-brand-secondary">Loading meetings...</div>
           ) : filteredMeetings.length === 0 ? (
@@ -565,40 +736,65 @@ export function TeamMeetings() {
               No meetings recorded.
             </div>
           ) : (
-            filteredMeetings.map((meet) => {
-              const isActive = selectedMeeting?.id === meet.id;
-              const hasCheckins = meet.capacityScores && meet.capacityScores.length > 0;
-              
-              // Calculate average capacity score
-              let avgScore = 0;
-              if (hasCheckins) {
-                const total = meet.capacityScores.reduce((sum: number, c: any) => sum + (c.score || 0), 0);
-                avgScore = Math.round((total / meet.capacityScores.length) * 10) / 10;
-              }
-
-              return (
-                <div 
-                  key={meet.id} 
-                  onClick={() => setSelectedMeeting(meet)}
-                  className={`p-4 rounded-card border transition-all cursor-pointer bg-white flex flex-col gap-2 shadow-sm ${isActive ? 'border-brand-primary ring-1 ring-brand-primary' : 'border-brand-border hover:border-neutral-400'}`}
-                >
-                  <div className="flex justify-between items-start gap-2">
-                    <h3 className="font-serif text-sm font-bold text-brand-primary line-clamp-1">{meet.title}</h3>
-                    {hasCheckins && (
-                      <span className={`text-[10px] font-black border px-1.5 py-0.5 rounded-full shrink-0 ${getScoreColor(avgScore)}`}>
-                        {avgScore.toFixed(1)}
+            (() => {
+              const grouped = getGroupedMeetings();
+              return Object.entries(grouped).map(([groupId, group]) => {
+                if (group.meetings.length === 0) return null;
+                const isExpanded = expandedTemplates[groupId] !== false;
+                return (
+                  <div key={groupId} className="flex flex-col gap-2 border-b border-brand-border/30 pb-3 last:border-0 last:pb-0">
+                    <button
+                      onClick={() => toggleTemplateExpansion(groupId)}
+                      className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-brand-secondary hover:text-brand-primary transition-colors py-1 px-1.5 w-full text-left"
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <span className="text-neutral-400 font-sans">📁</span>
+                        {group.name} ({group.meetings.length})
                       </span>
+                      <span className="text-[9px]">{isExpanded ? '▼' : '►'}</span>
+                    </button>
+                    {isExpanded && (
+                      <div className="flex flex-col gap-2 pl-2 animate-in fade-in duration-200">
+                        {group.meetings.map((meet) => {
+                          const isActive = selectedMeeting?.id === meet.id;
+                          const hasCheckins = meet.capacityScores && meet.capacityScores.length > 0;
+                          
+                          // Calculate average capacity score
+                          let avgScore = 0;
+                          if (hasCheckins) {
+                            const total = meet.capacityScores.reduce((sum: number, c: any) => sum + (c.score || 0), 0);
+                            avgScore = Math.round((total / meet.capacityScores.length) * 10) / 10;
+                          }
+
+                          return (
+                            <div 
+                              key={meet.id} 
+                              onClick={() => setSelectedMeeting(meet)}
+                              className={`p-3.5 rounded-card border transition-all cursor-pointer bg-white flex flex-col gap-2 shadow-sm ${isActive ? 'border-brand-primary ring-1 ring-brand-primary' : 'border-brand-border hover:border-neutral-400'}`}
+                            >
+                              <div className="flex justify-between items-start gap-2">
+                                <h3 className="font-serif text-xs font-bold text-brand-primary line-clamp-1">{meet.title}</h3>
+                                {hasCheckins && (
+                                  <span className={`text-[9px] font-black border px-1.5 py-0.5 rounded-full shrink-0 ${getScoreColor(avgScore)}`}>
+                                    {avgScore.toFixed(1)}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-[10px] text-brand-secondary line-clamp-2 leading-relaxed">{meet.summary}</p>
+                              
+                              <div className="flex justify-between items-center text-[9px] text-brand-secondary border-t border-brand-border/50 pt-2 mt-1">
+                                <span className="flex items-center gap-1 font-medium"><Calendar size={9} /> {new Date(meet.date).toLocaleDateString(undefined, {month: 'short', day: 'numeric', year: 'numeric'})}</span>
+                                <span>{meet.actionItems?.length || 0} tasks</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     )}
                   </div>
-                  <p className="text-[11px] text-brand-secondary line-clamp-2 leading-relaxed">{meet.summary}</p>
-                  
-                  <div className="flex justify-between items-center text-[10px] text-brand-secondary border-t border-brand-border/50 pt-2 mt-1">
-                    <span className="flex items-center gap-1 font-medium"><Calendar size={10} /> {new Date(meet.date).toLocaleDateString(undefined, {month: 'short', day: 'numeric', year: 'numeric'})}</span>
-                    <span>{meet.actionItems?.length || 0} tasks</span>
-                  </div>
-                </div>
-              );
-            })
+                );
+              });
+            })()
           )}
         </div>
       </div>
@@ -1020,11 +1216,24 @@ export function TeamMeetings() {
 
               {/* Full Notes Markdown */}
               <div className="flex flex-col gap-3">
-                <h3 className="text-xs font-bold uppercase tracking-widest text-brand-secondary">Discussion Notes</h3>
-                <div className="border border-brand-border rounded-xl p-4 bg-brand-bg/5 max-h-[300px] overflow-y-auto custom-scrollbar">
-                  <div className="prose prose-sm max-w-none text-brand-primary text-xs leading-relaxed whitespace-pre-wrap font-sans">
-                    {selectedMeeting.notes}
-                  </div>
+                <h3 className="text-xs font-bold uppercase tracking-widest text-brand-secondary">
+                  {selectedMeeting.sections && selectedMeeting.sections.length > 0 ? 'Meeting Sections & Notes' : 'Discussion Notes'}
+                </h3>
+                <div className="border border-brand-border rounded-xl p-4 bg-brand-bg/5 max-h-[350px] overflow-y-auto custom-scrollbar flex flex-col gap-4">
+                  {selectedMeeting.sections && selectedMeeting.sections.length > 0 ? (
+                    selectedMeeting.sections.map((sec: any, idx: number) => (
+                      <div key={idx} className="border-b border-brand-border/30 last:border-0 pb-3 last:pb-0">
+                        <h4 className="font-bold text-xs text-brand-primary mb-1 uppercase tracking-wider">{sec.name}</h4>
+                        <p className="text-xs text-[#222] leading-relaxed whitespace-pre-wrap font-sans">
+                          {sec.notes || <span className="italic text-neutral-400">No notes written for this section.</span>}
+                        </p>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="prose prose-sm max-w-none text-brand-primary text-xs leading-relaxed whitespace-pre-wrap font-sans">
+                      {selectedMeeting.notes}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1067,6 +1276,34 @@ export function TeamMeetings() {
                 
                 {/* Form Inputs */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="sm:col-span-3">
+                    <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1.5">Meeting Template Selection</label>
+                    <select
+                      value={selectedTemplateId}
+                      onChange={e => {
+                        const val = e.target.value;
+                        setSelectedTemplateId(val);
+                        if (val) {
+                          const t = templates.find(temp => temp.id === val);
+                          if (t) {
+                            // Preselect attendees
+                            setNewAttendees(t.attendees || []);
+                            // Set dynamic sections
+                            setMeetingSections((t.sections || []).map((sec: string) => ({ name: sec, notes: '' })));
+                          }
+                        } else {
+                          // Reset to custom
+                          setMeetingSections([]);
+                        }
+                      }}
+                      className="w-full bg-brand-bg border border-brand-border rounded-lg px-3 py-2 text-xs focus:border-brand-primary outline-none cursor-pointer font-bold text-brand-primary"
+                    >
+                      <option value="">-- Custom / Ad-hoc Meeting --</option>
+                      {templates.map(t => (
+                        <option key={t.id} value={t.id}>{t.name}</option>
+                      ))}
+                    </select>
+                  </div>
                   <div className="sm:col-span-2">
                     <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1.5">Meeting Title</label>
                     <input 
@@ -1142,15 +1379,70 @@ export function TeamMeetings() {
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1.5">Meeting Discussion / Notes</label>
-                    <textarea 
-                      placeholder="Write comprehensive meeting notes, topics discussed, or copy-paste detailed logs here..."
-                      value={newNotes}
-                      onChange={e => setNewNotes(e.target.value)}
-                      className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-xs focus:border-brand-primary outline-none min-h-[120px]"
-                    />
-                  </div>
+                  {selectedTemplateId ? (
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-center">
+                        <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary">Meeting Sections</label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMeetingSections(prev => [...prev, { name: 'New Section', notes: '' }]);
+                          }}
+                          className="text-[10px] font-bold text-black border border-[#ded8ce] rounded-full px-3 py-1 hover:bg-neutral-50 shadow-sm"
+                        >
+                          + Add Section
+                        </button>
+                      </div>
+
+                      {meetingSections.map((sec, idx) => (
+                        <div key={idx} className="border border-[#ded8ce] rounded-xl p-4 bg-[#f7f4ef]/30 flex flex-col gap-2 relative shadow-sm">
+                          <div className="flex justify-between items-center gap-2">
+                            <input
+                              type="text"
+                              value={sec.name}
+                              onChange={e => {
+                                const newSecs = [...meetingSections];
+                                newSecs[idx].name = e.target.value;
+                                setMeetingSections(newSecs);
+                              }}
+                              className="bg-transparent border-b border-transparent hover:border-brand-border focus:border-brand-primary font-bold text-xs text-brand-primary outline-none py-0.5"
+                              placeholder="Section Name"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setMeetingSections(prev => prev.filter((_, i) => i !== idx));
+                              }}
+                              className="text-brand-secondary hover:text-red-500 transition-colors p-1"
+                              title="Remove Section"
+                            >
+                              <X size={12} />
+                            </button>
+                          </div>
+                          <textarea
+                            value={sec.notes}
+                            onChange={e => {
+                              const newSecs = [...meetingSections];
+                              newSecs[idx].notes = e.target.value;
+                              setMeetingSections(newSecs);
+                            }}
+                            placeholder={`Enter notes for "${sec.name}"...`}
+                            className="w-full bg-white border border-brand-border rounded-lg px-3 py-2 text-xs focus:border-brand-primary outline-none min-h-[80px]"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1.5">Meeting Discussion / Notes</label>
+                      <textarea 
+                        placeholder="Write comprehensive meeting notes, topics discussed, or copy-paste detailed logs here..."
+                        value={newNotes}
+                        onChange={e => setNewNotes(e.target.value)}
+                        className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-xs focus:border-brand-primary outline-none min-h-[120px]"
+                      />
+                    </div>
+                  )}
                 </div>
 
                 {/* Attendees Comma Field / Select */}
@@ -1424,6 +1716,157 @@ export function TeamMeetings() {
               </PillButton>
             </div>
             
+          </div>
+        </div>
+      )}
+
+      {/* Template Manager Modal */}
+      {isTemplateModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="bg-white max-w-[95vw] lg:max-w-[700px] w-full rounded-2xl overflow-hidden shadow-2xl flex flex-col border border-brand-border my-auto max-h-[90vh]">
+            
+            {/* Modal Header */}
+            <div className="p-6 border-b border-brand-border flex justify-between items-center bg-white sticky top-0 z-10">
+              <div>
+                <h3 className="font-serif text-xl text-brand-primary font-bold">Manage Meeting Templates</h3>
+                <p className="text-xs font-medium text-brand-secondary mt-1">Create and manage customized schemas for recurring everyday meetings.</p>
+              </div>
+              <button 
+                onClick={() => setIsTemplateModalOpen(false)} 
+                className="text-brand-secondary hover:text-brand-primary transition-colors bg-brand-bg border border-brand-border rounded-md p-1"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto custom-scrollbar flex-1 bg-white space-y-6">
+              
+              {/* Existing Templates Section */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-bold uppercase tracking-widest text-brand-secondary border-b border-brand-border pb-1">Existing Templates</h4>
+                {templates.length === 0 ? (
+                  <p className="text-xs text-brand-secondary italic">No custom templates defined yet.</p>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {templates.map(t => (
+                      <div key={t.id} className="border border-brand-border rounded-xl p-3.5 bg-brand-bg/10 flex justify-between items-start gap-4 shadow-sm">
+                        <div className="space-y-1.5">
+                          <h5 className="font-serif font-bold text-xs text-brand-primary">{t.name}</h5>
+                          <div className="text-[10px] text-brand-secondary space-y-0.5">
+                            <div><span className="font-bold text-brand-primary">Sections:</span> {t.sections?.length || 0} items</div>
+                            <div><span className="font-bold text-brand-primary">Default Attendees:</span> {t.attendees?.length || 0} members</div>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleDeleteTemplate(t.id)}
+                          className="text-brand-secondary hover:text-red-600 transition-colors p-1.5 hover:bg-red-50 rounded"
+                          title="Delete Template"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Create Template Section */}
+              <div className="border border-[#ded8ce] rounded-2xl p-5 bg-[#f7f4ef]/50 space-y-5">
+                <h4 className="text-xs font-bold uppercase tracking-widest text-brand-primary border-b border-[#ded8ce] pb-2">Create New Template</h4>
+                
+                {/* Template Name */}
+                <div className="space-y-1">
+                  <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary">Template Name</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Daily Standup, Weekly Design Sync"
+                    value={templateNameInput}
+                    onChange={e => setTemplateNameInput(e.target.value)}
+                    className="w-full bg-white border border-[#ded8ce] rounded-lg px-3 py-2 text-xs focus:border-black outline-none font-medium text-brand-primary"
+                  />
+                </div>
+
+                {/* Default Attendees */}
+                <div className="space-y-1.5">
+                  <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary">Preselected Attendees</label>
+                  <div className="flex flex-wrap gap-1.5 p-2 bg-white border border-[#ded8ce] rounded-lg min-h-[40px]">
+                    {teamMembers.map(member => {
+                      const isSelected = templateAttendeesInput.includes(member.name);
+                      return (
+                        <button
+                          key={member.id}
+                          type="button"
+                          onClick={() => {
+                            if (isSelected) {
+                              setTemplateAttendeesInput(prev => prev.filter(a => a !== member.name));
+                            } else {
+                              setTemplateAttendeesInput(prev => [...prev, member.name]);
+                            }
+                          }}
+                          className={`text-[9px] px-2 py-0.5 rounded-full font-bold border transition-colors ${isSelected ? 'bg-black text-white border-black' : 'bg-white text-brand-primary border-[#ded8ce] hover:border-neutral-400'}`}
+                        >
+                          {member.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Custom Sections */}
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary">Template Sections</label>
+                    <button
+                      type="button"
+                      onClick={handleAddTemplateSectionInput}
+                      className="text-[9px] font-bold text-black border border-[#ded8ce] bg-white rounded-full px-2 py-0.5 hover:bg-neutral-50 shadow-sm"
+                    >
+                      + Add Section Input
+                    </button>
+                  </div>
+                  <div className="flex flex-col gap-2 max-h-[180px] overflow-y-auto custom-scrollbar pr-1">
+                    {templateSectionsInput.map((sec, idx) => (
+                      <div key={idx} className="flex gap-2 items-center">
+                        <input
+                          type="text"
+                          placeholder={`Section ${idx + 1} Name (e.g. Blockers)`}
+                          value={sec}
+                          onChange={e => handleUpdateTemplateSectionInput(idx, e.target.value)}
+                          className="flex-1 bg-white border border-[#ded8ce] rounded-lg px-3 py-1.5 text-xs focus:border-black outline-none font-medium text-brand-primary"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveTemplateSectionInput(idx)}
+                          className="text-brand-secondary hover:text-red-500 transition-colors p-1"
+                          disabled={templateSectionsInput.length === 1}
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Save Button */}
+                <button
+                  type="button"
+                  onClick={handleSaveTemplate}
+                  className="w-full bg-[#111] hover:bg-black text-white text-xs font-bold uppercase tracking-wider py-2.5 rounded-full shadow-sm transition-all"
+                >
+                  Save New Template
+                </button>
+              </div>
+
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-6 bg-brand-bg flex gap-3 border-t border-brand-border sticky bottom-0 z-10">
+              <PillButton variant="outline" onClick={() => setIsTemplateModalOpen(false)} className="w-full justify-center py-2.5">
+                Close Manager
+              </PillButton>
+            </div>
+
           </div>
         </div>
       )}
