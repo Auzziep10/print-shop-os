@@ -214,7 +214,6 @@ export function TeamMeetings() {
   const [myFriction, setMyFriction] = useState(5);
   const [myConfidence, setMyConfidence] = useState('Green');
   const [myNotes, setMyNotes] = useState('');
-  const [isEditingMyCheckin, setIsEditingMyCheckin] = useState(false);
 
   // Loading indicator for simulated Google Meet Sync
   const [isSyncing, setIsSyncing] = useState(false);
@@ -235,6 +234,32 @@ export function TeamMeetings() {
   const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
   const [isEditingMeeting, setIsEditingMeeting] = useState(false);
   const [editingMeetingId, setEditingMeetingId] = useState<string | null>(null);
+
+  // New Capacity Check-in states
+  const [newEnableCapacityCheckin, setNewEnableCapacityCheckin] = useState(true);
+  const [templateEnableCapacityCheckin, setTemplateEnableCapacityCheckin] = useState(true);
+  const [isCheckinModalOpen, setIsCheckinModalOpen] = useState(false);
+  const [viewingCheckin, setViewingCheckin] = useState<any | null>(null);
+  const [dismissedMeetingCheckinId, setDismissedMeetingCheckinId] = useState<string | null>(null);
+
+  // Section Notes editing states
+  const [editingSectionIdx, setEditingSectionIdx] = useState<number | null>(null);
+  const [editingSectionNotes, setEditingSectionNotes] = useState<string>('');
+
+  // Auto-open capacity check-in modal for tagged attendees who haven't checked in yet
+  useEffect(() => {
+    if (selectedMeeting && selectedMeeting.status === 'live' && selectedMeeting.enableCapacityCheckin !== false && userData) {
+      const isAttendee = selectedMeeting.attendees?.includes(userData.name);
+      const alreadyCheckedIn = selectedMeeting.capacityScores?.some(
+        (c: any) => c.memberName === userData.name || c.memberId === userData.id
+      );
+      if (isAttendee && !alreadyCheckedIn && dismissedMeetingCheckinId !== selectedMeeting.id) {
+        setIsCheckinModalOpen(true);
+      }
+    } else {
+      setIsCheckinModalOpen(false);
+    }
+  }, [selectedMeeting, userData, dismissedMeetingCheckinId]);
 
   const handleAddTemplateSectionInput = () => {
     setTemplateSectionsInput(prev => [...prev, '']);
@@ -271,7 +296,6 @@ export function TeamMeetings() {
         setMyFriction(existing.categories?.friction ?? 5);
         setMyConfidence(existing.confidence ?? 'Green');
         setMyNotes(existing.notes ?? '');
-        setIsEditingMyCheckin(false);
       } else {
         // Reset to default
         setMyWorkload(5);
@@ -281,7 +305,6 @@ export function TeamMeetings() {
         setMyFriction(5);
         setMyConfidence('Green');
         setMyNotes('');
-        setIsEditingMyCheckin(false);
       }
     }
   }, [selectedMeeting, userData]);
@@ -507,11 +530,39 @@ export function TeamMeetings() {
         capacityScores: updatedScores,
         totalAmount: newTotalAmount
       }));
-
-      setIsEditingMyCheckin(false);
     } catch (err) {
       console.error("Failed to submit capacity check-in", err);
       alert("Failed to save check-in. Please try again.");
+    }
+  };
+
+  const handleSaveSectionNotes = async (idx: number) => {
+    if (!selectedMeeting) return;
+    try {
+      const updatedSections = [...(selectedMeeting.sections || [])];
+      updatedSections[idx] = {
+        ...updatedSections[idx],
+        notes: editingSectionNotes
+      };
+      
+      const finalNotes = updatedSections.map(s => `## ${s.name}\n${s.notes}`).join('\n\n');
+
+      const meetingRef = doc(db, 'meetings', selectedMeeting.id);
+      await updateDoc(meetingRef, {
+        sections: updatedSections,
+        notes: finalNotes
+      });
+
+      setSelectedMeeting((prev: any) => ({
+        ...prev,
+        sections: updatedSections,
+        notes: finalNotes
+      }));
+
+      setEditingSectionIdx(null);
+    } catch (err) {
+      console.error("Failed to save section notes", err);
+      alert("Failed to save notes. Please try again.");
     }
   };
 
@@ -530,7 +581,8 @@ export function TeamMeetings() {
       const payload = {
         name: templateNameInput.trim(),
         attendees: templateAttendeesInput,
-        sections: filteredSections
+        sections: filteredSections,
+        enableCapacityCheckin: templateEnableCapacityCheckin
       };
 
       if (editingTemplateId) {
@@ -549,6 +601,7 @@ export function TeamMeetings() {
       setTemplateNameInput('');
       setTemplateAttendeesInput([]);
       setTemplateSectionsInput(['']);
+      setTemplateEnableCapacityCheckin(true);
     } catch (err) {
       console.error("Failed to save template", err);
       alert("Failed to save template. Please try again.");
@@ -560,6 +613,7 @@ export function TeamMeetings() {
     setTemplateNameInput(template.name);
     setTemplateAttendeesInput(template.attendees || []);
     setTemplateSectionsInput(template.sections || ['']);
+    setTemplateEnableCapacityCheckin(template.enableCapacityCheckin !== false);
   };
 
   const handleCancelEditTemplate = () => {
@@ -567,6 +621,7 @@ export function TeamMeetings() {
     setTemplateNameInput('');
     setTemplateAttendeesInput([]);
     setTemplateSectionsInput(['']);
+    setTemplateEnableCapacityCheckin(true);
   };
 
   const handleDeleteTemplate = async (templateId: string) => {
@@ -595,6 +650,7 @@ export function TeamMeetings() {
     setNewNotes(meeting.notes || '');
     setNewAttendees(meeting.attendees || []);
     setNewActionItems(meeting.actionItems || []);
+    setNewEnableCapacityCheckin(meeting.enableCapacityCheckin !== false);
     
     // If it has sections, load them. Otherwise initialize empty
     setMeetingSections(meeting.sections || []);
@@ -640,6 +696,7 @@ export function TeamMeetings() {
         actionItems: newActionItems,
         capacityScores: capacityCheckins,
         status: isLiveOnly ? 'live' : 'completed',
+        enableCapacityCheckin: newEnableCapacityCheckin,
         totalAmount: Math.round((capacityCheckins.reduce((sum: number, c: any) => sum + (c.score || 0), 0) / (capacityCheckins.length || 1)) * 10) / 10
       };
 
@@ -672,6 +729,7 @@ export function TeamMeetings() {
       setCapacityCheckins([]);
       setSelectedTemplateId('');
       setMeetingSections([]);
+      setNewEnableCapacityCheckin(true);
       setIsEditingMeeting(false);
       setEditingMeetingId(null);
       setIsNewModalOpen(false);
@@ -950,17 +1008,27 @@ export function TeamMeetings() {
 
             {/* Live Meeting Banner */}
             {selectedMeeting.status === 'live' && (
-              <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex justify-between items-center animate-pulse shrink-0">
+              <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 animate-in fade-in shrink-0">
                 <div className="flex items-center gap-2">
                   <span className="w-3.5 h-3.5 rounded-full bg-red-600 animate-ping shrink-0" />
                   <span className="text-xs font-bold text-red-900">This meeting is currently LIVE. Everyone in attendance should submit their Capacity score.</span>
                 </div>
-                <button
-                  onClick={() => handleStartEditMeeting(selectedMeeting)}
-                  className="bg-red-600 hover:bg-red-700 text-white text-[10px] font-extrabold uppercase tracking-widest px-3 py-1.5 rounded-full shadow-sm transition-all"
-                >
-                  Edit / Take Notes
-                </button>
+                <div className="flex gap-2 shrink-0 w-full sm:w-auto justify-end">
+                  {isTagged && selectedMeeting.enableCapacityCheckin !== false && (
+                    <button
+                      onClick={() => setIsCheckinModalOpen(true)}
+                      className="bg-black hover:bg-neutral-900 text-white text-[10px] font-extrabold uppercase tracking-widest px-3.5 py-1.5 rounded-full shadow-sm transition-all flex items-center gap-1.5"
+                    >
+                      <span>🔴</span> {myExistingCheckin ? 'Update Check-in' : 'Submit Check-in'}
+                    </button>
+                  )}
+                  <button
+                    onClick={() => handleStartEditMeeting(selectedMeeting)}
+                    className="bg-red-600 hover:bg-red-700 text-white text-[10px] font-extrabold uppercase tracking-widest px-3.5 py-1.5 rounded-full shadow-sm transition-all"
+                  >
+                    Edit / Take Notes
+                  </button>
+                </div>
               </div>
             )}
 
@@ -1004,255 +1072,6 @@ export function TeamMeetings() {
               </div>
             ) : null}
 
-            {/* Live Capacity Check-in Section */}
-            {isTagged && (
-              <div className="flex flex-col gap-6 p-6 rounded-2xl bg-[#f7f4ef]/80 border border-[#ded8ce] animate-in fade-in duration-300">
-                {(!myExistingCheckin || isEditingMyCheckin) ? (
-                  <div className="space-y-6">
-                    {/* Header */}
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h2 className="text-xl font-bold text-[#171717] tracking-tight">WOVN Leadership Capacity Score</h2>
-                        <p className="text-[11px] text-[#666] leading-relaxed mt-1">
-                          Use this daily to create a shared language around workload, stress, availability, and execution friction. 
-                          The target operating zone is <span className="font-bold text-[#171717]">5–6</span>: fully engaged, moving priorities, and still able to absorb meaningful work.
-                        </p>
-                      </div>
-                      {myExistingCheckin && (
-                        <button 
-                          onClick={() => setIsEditingMyCheckin(false)}
-                          className="text-xs font-bold text-[#111] hover:underline bg-white border border-[#ded8ce] rounded-full px-3.5 py-1.5 shadow-sm shrink-0"
-                        >
-                          Cancel Update
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Card 1: Sliders */}
-                    <div className="bg-white border border-[#ded8ce] rounded-[18px] p-6 space-y-6 shadow-sm">
-                      {/* Workload */}
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-baseline">
-                          <label className="font-bold text-sm text-[#171717]">1. Workload Volume</label>
-                          <span className="text-sm font-extrabold text-[#171717]">{myWorkload}</span>
-                        </div>
-                        <p className="text-[11px] text-[#666] leading-snug">How full is your plate today? 1 = light / open capacity. 10 = too many active responsibilities.</p>
-                        <input 
-                          type="range" 
-                          min="1" 
-                          max="10" 
-                          value={myWorkload} 
-                          onChange={e => setMyWorkload(Number(e.target.value))}
-                          className="w-full accent-[#111111] cursor-pointer"
-                        />
-                        <div className="flex justify-between text-[10px] text-[#666] px-0.5">
-                          <span>Light</span>
-                          <span>Optimal</span>
-                          <span>Overloaded</span>
-                        </div>
-                      </div>
-
-                      {/* Urgency */}
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-baseline">
-                          <label className="font-bold text-sm text-[#171717]">2. Deadline Pressure</label>
-                          <span className="text-sm font-extrabold text-[#171717]">{myUrgency}</span>
-                        </div>
-                        <p className="text-[11px] text-[#666] leading-snug">How much deadline pressure are you carrying? 1 = calm. 10 = everything feels urgent.</p>
-                        <input 
-                          type="range" 
-                          min="1" 
-                          max="10" 
-                          value={myUrgency} 
-                          onChange={e => setMyUrgency(Number(e.target.value))}
-                          className="w-full accent-[#111111] cursor-pointer"
-                        />
-                        <div className="flex justify-between text-[10px] text-[#666] px-0.5">
-                          <span>Calm</span>
-                          <span>Managed</span>
-                          <span>Critical</span>
-                        </div>
-                      </div>
-
-                      {/* Stress */}
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-baseline">
-                          <label className="font-bold text-sm text-[#171717]">3. Stress Load</label>
-                          <span className="text-sm font-extrabold text-[#171717]">{myStress}</span>
-                        </div>
-                        <p className="text-[11px] text-[#666] leading-snug">How mentally/emotionally taxed are you? 1 = clear and calm. 10 = overwhelmed.</p>
-                        <input 
-                          type="range" 
-                          min="1" 
-                          max="10" 
-                          value={myStress} 
-                          onChange={e => setMyStress(Number(e.target.value))}
-                          className="w-full accent-[#111111] cursor-pointer"
-                        />
-                        <div className="flex justify-between text-[10px] text-[#666] px-0.5">
-                          <span>Calm</span>
-                          <span>Engaged</span>
-                          <span>Overwhelmed</span>
-                        </div>
-                      </div>
-
-                      {/* Availability */}
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-baseline">
-                          <label className="font-bold text-sm text-[#171717]">4. Available Bandwidth</label>
-                          <span className="text-sm font-extrabold text-[#171717]">{myAvailability}</span>
-                        </div>
-                        <p className="text-[11px] text-[#666] leading-snug">How much room do you have to absorb new requests? 1 = wide open. 10 = no room without dropping something.</p>
-                        <input 
-                          type="range" 
-                          min="1" 
-                          max="10" 
-                          value={myAvailability} 
-                          onChange={e => setMyAvailability(Number(e.target.value))}
-                          className="w-full accent-[#111111] cursor-pointer"
-                        />
-                        <div className="flex justify-between text-[10px] text-[#666] px-0.5">
-                          <span>Available</span>
-                          <span>Selective</span>
-                          <span>No Room</span>
-                        </div>
-                      </div>
-
-                      {/* Friction */}
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-baseline">
-                          <label className="font-bold text-sm text-[#171717]">5. Workflow Friction</label>
-                          <span className="text-sm font-extrabold text-[#171717]">{myFriction}</span>
-                        </div>
-                        <p className="text-[11px] text-[#666] leading-snug">How much drag is coming from unclear priorities, dependencies, approvals, tools, or blocked decisions?</p>
-                        <input 
-                          type="range" 
-                          min="1" 
-                          max="10" 
-                          value={myFriction} 
-                          onChange={e => setMyFriction(Number(e.target.value))}
-                          className="w-full accent-[#111111] cursor-pointer"
-                        />
-                        <div className="flex justify-between text-[10px] text-[#666] px-0.5">
-                          <span>Smooth</span>
-                          <span>Some Drag</span>
-                          <span>Blocked</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Card 2: Results & Actions */}
-                    {(() => {
-                      const liveScore = Math.round(((myWorkload + myUrgency + myStress + myAvailability + myFriction) / 5) * 10) / 10;
-                      const getStatusDetails = (s: number) => {
-                        if (s <= 2.9) return { status: "Underutilized", desc: "More ownership or responsibility can likely be added." };
-                        if (s <= 4.4) return { status: "Comfortable", desc: "Healthy bandwidth. This person can likely absorb a meaningful new initiative." };
-                        if (s <= 6.4) return { status: "Optimal Zone", desc: "Fully engaged, priorities are moving, and small-to-medium requests can still be absorbed." };
-                        if (s <= 8.4) return { status: "Constrained", desc: "Prioritization is required. New work will create tradeoffs." };
-                        if (s <= 9.4) return { status: "Overloaded", desc: "Something needs to move. Quality, speed, or morale may suffer." };
-                        return { status: "Unsustainable", desc: "Immediate intervention required. Remove work, reset expectations, or add support." };
-                      };
-                      const liveDetails = getStatusDetails(liveScore);
-
-                      return (
-                        <div className="bg-white border border-[#ded8ce] rounded-[18px] p-6 shadow-sm flex flex-col md:flex-row items-center gap-6">
-                          {/* Score Circle */}
-                          <div className="w-[130px] h-[130px] rounded-full bg-[#f0ebe3] border border-[#ded8ce] flex flex-col items-center justify-center shrink-0">
-                            <span className="text-4xl font-black text-[#171717] leading-none tracking-tight">{liveScore.toFixed(1)}</span>
-                            <span className="text-[10px] text-[#666] font-bold uppercase tracking-[0.12em] mt-1">Capacity</span>
-                          </div>
-
-                          {/* Details & Confidence row */}
-                          <div className="flex-1 space-y-4 text-center md:text-left">
-                            <div>
-                              <h4 className="text-lg font-extrabold text-[#171717]">{liveDetails.status}</h4>
-                              <p className="text-xs text-[#666] leading-relaxed mt-1">{liveDetails.desc}</p>
-                            </div>
-
-                            {/* Confidence buttons */}
-                            <div className="flex flex-wrap justify-center md:justify-start gap-2">
-                              {['Green', 'Yellow', 'Red'].map(c => {
-                                const isSelected = myConfidence === c;
-                                let btnText = '';
-                                if (c === 'Green') btnText = 'Green: I can deliver';
-                                if (c === 'Yellow') btnText = 'Yellow: tradeoffs needed';
-                                if (c === 'Red') btnText = 'Red: intervention needed';
-
-                                return (
-                                  <button
-                                    key={c}
-                                    type="button"
-                                    onClick={() => setMyConfidence(c)}
-                                    className={`text-[11px] font-bold px-4 py-2 border rounded-full transition-all ${
-                                      isSelected 
-                                        ? 'bg-[#111] text-white border-[#111]' 
-                                        : 'bg-white text-[#111] border-[#ded8ce] hover:bg-neutral-50'
-                                    }`}
-                                  >
-                                    {btnText}
-                                  </button>
-                                );
-                              })}
-                            </div>
-
-                            {/* Main CTA buttons */}
-                            <div className="flex flex-wrap justify-center md:justify-start gap-2 pt-2 border-t border-brand-border/40">
-                              <button
-                                type="button"
-                                onClick={handleSubmitMyCheckin}
-                                className="bg-[#111] hover:bg-black text-white text-[11px] font-extrabold px-6 py-2.5 rounded-full shadow-sm transition-colors"
-                              >
-                                {myExistingCheckin ? 'Update Pre-Meeting Check-in' : 'Submit Pre-Meeting Check-in'}
-                              </button>
-                              {myExistingCheckin && (
-                                <button
-                                  type="button"
-                                  onClick={() => setIsEditingMyCheckin(false)}
-                                  className="bg-white text-[#111] border border-[#ded8ce] hover:bg-neutral-50 text-[11px] font-extrabold px-6 py-2.5 rounded-full transition-colors"
-                                >
-                                  Cancel
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })()}
-
-                    {/* Card 3: Notes & Blockers */}
-                    <div className="bg-white border border-[#ded8ce] rounded-[18px] p-6 shadow-sm space-y-2">
-                      <label className="font-bold text-sm text-[#171717] block">Notes / blockers / asks</label>
-                      <p className="text-[11px] text-[#666]">Use this to capture what needs to change today.</p>
-                      <textarea
-                        value={myNotes}
-                        onChange={e => setMyNotes(e.target.value)}
-                        placeholder="Example: Need priority call on client deliverables vs platform sprint. Waiting on design approval before production handoff."
-                        className="w-full min-h-[90px] border border-[#ded8ce] rounded-[14px] p-3.5 text-xs outline-none focus:border-black transition-colors resize-y font-sans leading-relaxed text-[#171717]"
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <div className="bg-white border border-[#ded8ce] rounded-[18px] p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 shadow-sm">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-[#111] flex items-center justify-center text-white font-bold text-xs shrink-0">✓</div>
-                      <div>
-                        <p className="text-xs font-extrabold text-[#171717]">You've checked in for this meeting</p>
-                        <p className="text-[10px] text-[#666] font-medium mt-0.5">
-                          Score: <span className="font-bold text-[#171717]">{myExistingCheckin.score.toFixed(1)}</span> ({myExistingCheckin.status}) • Confidence: <span className={`font-bold text-xs ${myExistingCheckin.confidence === 'Green' ? 'text-green-700' : myExistingCheckin.confidence === 'Yellow' ? 'text-yellow-700' : 'text-red-700'}`}>{myExistingCheckin.confidence}</span>
-                        </p>
-                      </div>
-                    </div>
-                    <button 
-                      onClick={() => setIsEditingMyCheckin(true)}
-                      className="text-xs font-bold text-[#111] bg-white border border-[#ded8ce] hover:border-neutral-400 px-3.5 py-1.5 rounded-full transition-all shadow-sm shrink-0"
-                    >
-                      Update Your Check-in
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-
             {/* Subsections: Notes vs Action Items vs Call Scores */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
               
@@ -1269,49 +1088,55 @@ export function TeamMeetings() {
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {selectedMeeting.capacityScores && selectedMeeting.capacityScores.length > 0 ? (
-                      selectedMeeting.capacityScores.map((c: any) => (
-                        <div key={c.memberId} className="border border-brand-border p-4 rounded-xl bg-white flex flex-col gap-3 shadow-sm">
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <span className="font-bold text-xs text-brand-primary">{c.memberName}</span>
-                              <div className="text-[9px] uppercase font-semibold text-brand-secondary">{c.status}</div>
+                      selectedMeeting.capacityScores
+                        .filter((c: any) => selectedMeeting.attendees?.includes(c.memberName))
+                        .map((c: any) => (
+                          <div 
+                            key={c.memberId} 
+                            onClick={() => setViewingCheckin(c)}
+                            className="border border-brand-border p-4 rounded-xl bg-white flex flex-col gap-3 shadow-sm cursor-pointer hover:border-black hover:shadow-md transition-all"
+                          >
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <span className="font-bold text-xs text-brand-primary">{c.memberName}</span>
+                                <div className="text-[9px] uppercase font-semibold text-brand-secondary">{c.status}</div>
+                              </div>
+                              <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${getConfidenceBadge(c.confidence)}`}>
+                                {c.score.toFixed(1)} • {c.confidence}
+                              </span>
                             </div>
-                            <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${getConfidenceBadge(c.confidence)}`}>
-                              {c.score.toFixed(1)} • {c.confidence}
-                            </span>
+                            {c.notes && (
+                              <p className="text-[10px] text-brand-secondary bg-brand-bg p-2 rounded-lg italic line-clamp-2">
+                                "{c.notes}"
+                              </p>
+                            )}
+                            {/* Categories details */}
+                            {c.categories && (
+                              <div className="grid grid-cols-5 gap-1 text-center border-t border-brand-border/50 pt-2 text-[8px] font-bold text-brand-secondary">
+                                <div>
+                                  <div>WKL</div>
+                                  <div className="text-brand-primary">{c.categories.workload}</div>
+                                </div>
+                                <div>
+                                  <div>DLN</div>
+                                  <div className="text-brand-primary">{c.categories.urgency}</div>
+                                </div>
+                                <div>
+                                  <div>STR</div>
+                                  <div className="text-brand-primary">{c.categories.stress}</div>
+                                </div>
+                                <div>
+                                  <div>BND</div>
+                                  <div className="text-brand-primary">{c.categories.availability}</div>
+                                </div>
+                                <div>
+                                  <div>FRC</div>
+                                  <div className="text-brand-primary">{c.categories.friction}</div>
+                                </div>
+                              </div>
+                            )}
                           </div>
-                          {c.notes && (
-                            <p className="text-[10px] text-brand-secondary bg-brand-bg p-2 rounded-lg italic line-clamp-2">
-                              "{c.notes}"
-                            </p>
-                          )}
-                          {/* Categories details */}
-                          {c.categories && (
-                            <div className="grid grid-cols-5 gap-1 text-center border-t border-brand-border/50 pt-2 text-[8px] font-bold text-brand-secondary">
-                              <div>
-                                <div>WKL</div>
-                                <div className="text-brand-primary">{c.categories.workload}</div>
-                              </div>
-                              <div>
-                                <div>DLN</div>
-                                <div className="text-brand-primary">{c.categories.urgency}</div>
-                              </div>
-                              <div>
-                                <div>STR</div>
-                                <div className="text-brand-primary">{c.categories.stress}</div>
-                              </div>
-                              <div>
-                                <div>BND</div>
-                                <div className="text-brand-primary">{c.categories.availability}</div>
-                              </div>
-                              <div>
-                                <div>FRC</div>
-                                <div className="text-brand-primary">{c.categories.friction}</div>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      ))
+                        ))
                     ) : (
                       <div className="sm:col-span-2 border border-dashed border-brand-border p-6 rounded-xl bg-white text-center text-xs text-brand-secondary">
                         No team member capacity check-ins recorded yet. Tagged members can submit their scores above.
@@ -1354,17 +1179,122 @@ export function TeamMeetings() {
                 <div className="border border-brand-border rounded-xl p-4 bg-brand-bg/5 max-h-[350px] overflow-y-auto custom-scrollbar flex flex-col gap-4">
                   {selectedMeeting.sections && selectedMeeting.sections.length > 0 ? (
                     selectedMeeting.sections.map((sec: any, idx: number) => (
-                      <div key={idx} className="border-b border-brand-border/30 last:border-0 pb-3 last:pb-0">
-                        <h4 className="font-bold text-xs text-brand-primary mb-1 uppercase tracking-wider">{sec.name}</h4>
-                        <p className="text-xs text-[#222] leading-relaxed whitespace-pre-wrap font-sans">
-                          {sec.notes || <span className="italic text-neutral-400">No notes written for this section.</span>}
-                        </p>
-                      </div>
+                      editingSectionIdx === idx ? (
+                        <div key={idx} className="border-b border-brand-border/30 last:border-0 pb-3 last:pb-0 space-y-2">
+                          <h4 className="font-bold text-xs text-brand-primary uppercase tracking-wider">{sec.name}</h4>
+                          <textarea
+                            value={editingSectionNotes}
+                            onChange={e => setEditingSectionNotes(e.target.value)}
+                            className="w-full min-h-[80px] bg-white border border-[#ded8ce] rounded-xl p-3 text-xs outline-none focus:border-black transition-colors resize-y font-sans leading-relaxed text-[#171717]"
+                            placeholder={`Enter notes for ${sec.name}...`}
+                            autoFocus
+                          />
+                          <div className="flex gap-2 justify-end">
+                            <button
+                              onClick={() => setEditingSectionIdx(null)}
+                              className="px-3 py-1 text-[10px] font-bold border border-[#ded8ce] rounded-full bg-white hover:bg-neutral-50"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              onClick={() => handleSaveSectionNotes(idx)}
+                              className="px-3 py-1 text-[10px] font-bold text-white bg-black rounded-full hover:bg-neutral-900"
+                            >
+                              Save
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div key={idx} className="border-b border-brand-border/30 last:border-0 pb-3 last:pb-0 group">
+                          <div className="flex justify-between items-center mb-1">
+                            <h4 className="font-bold text-xs text-brand-primary uppercase tracking-wider">{sec.name}</h4>
+                            <button
+                              onClick={() => {
+                                setEditingSectionIdx(idx);
+                                setEditingSectionNotes(sec.notes || '');
+                              }}
+                              className="text-[10px] font-bold text-[#111111] hover:underline opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1"
+                              title="Edit notes for this section"
+                            >
+                              ✏️ Edit
+                            </button>
+                          </div>
+                          <p 
+                            className="text-xs text-[#222] leading-relaxed whitespace-pre-wrap font-sans cursor-pointer hover:bg-neutral-50/50 p-1 rounded transition-colors"
+                            onClick={() => {
+                              setEditingSectionIdx(idx);
+                              setEditingSectionNotes(sec.notes || '');
+                            }}
+                          >
+                            {sec.notes || <span className="italic text-neutral-400 font-medium">No notes written for this section. Click here to add notes.</span>}
+                          </p>
+                        </div>
+                      )
                     ))
                   ) : (
-                    <div className="prose prose-sm max-w-none text-brand-primary text-xs leading-relaxed whitespace-pre-wrap font-sans">
-                      {selectedMeeting.notes}
-                    </div>
+                    editingSectionIdx === -1 ? (
+                      <div className="space-y-2">
+                        <textarea
+                          value={editingSectionNotes}
+                          onChange={e => setEditingSectionNotes(e.target.value)}
+                          className="w-full min-h-[150px] bg-white border border-[#ded8ce] rounded-xl p-3.5 text-xs outline-none focus:border-black transition-colors resize-y font-sans leading-relaxed text-[#171717]"
+                          placeholder="Enter discussion notes..."
+                          autoFocus
+                        />
+                        <div className="flex gap-2 justify-end">
+                          <button
+                            onClick={() => setEditingSectionIdx(null)}
+                            className="px-3 py-1 text-[10px] font-bold border border-[#ded8ce] rounded-full bg-white hover:bg-neutral-50"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={async () => {
+                              if (!selectedMeeting) return;
+                              try {
+                                const meetingRef = doc(db, 'meetings', selectedMeeting.id);
+                                await updateDoc(meetingRef, {
+                                  notes: editingSectionNotes
+                                });
+                                setSelectedMeeting((prev: any) => ({
+                                  ...prev,
+                                  notes: editingSectionNotes
+                                }));
+                                setEditingSectionIdx(null);
+                              } catch (err) {
+                                console.error("Failed to save discussion notes", err);
+                                alert("Failed to save notes. Please try again.");
+                              }
+                            }}
+                            className="px-3 py-1 text-[10px] font-bold text-white bg-black rounded-full hover:bg-neutral-900"
+                          >
+                            Save
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="group relative">
+                        <button
+                          onClick={() => {
+                            setEditingSectionIdx(-1);
+                            setEditingSectionNotes(selectedMeeting.notes || '');
+                          }}
+                          className="absolute right-0 top-0 text-[10px] font-bold text-[#111111] hover:underline opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1"
+                          title="Edit discussion notes"
+                        >
+                          ✏️ Edit
+                        </button>
+                        <div 
+                          className="prose prose-sm max-w-none text-brand-primary text-xs leading-relaxed whitespace-pre-wrap font-sans cursor-pointer hover:bg-neutral-50/50 p-2 rounded transition-colors"
+                          onClick={() => {
+                            setEditingSectionIdx(-1);
+                            setEditingSectionNotes(selectedMeeting.notes || '');
+                          }}
+                        >
+                          {selectedMeeting.notes || <span className="italic text-neutral-400 font-medium">No discussion notes written yet. Click here to add notes.</span>}
+                        </div>
+                      </div>
+                    )
                   )}
                 </div>
               </div>
@@ -1421,6 +1351,8 @@ export function TeamMeetings() {
                             setNewAttendees(t.attendees || []);
                             // Set dynamic sections
                             setMeetingSections((t.sections || []).map((sec: string) => ({ name: sec, notes: '' })));
+                            // Prepopulate the capacity check-in setting from template
+                            setNewEnableCapacityCheckin(t.enableCapacityCheckin !== false);
                           }
                         } else {
                           // Reset to custom
@@ -1434,6 +1366,19 @@ export function TeamMeetings() {
                         <option key={t.id} value={t.id}>{t.name}</option>
                       ))}
                     </select>
+                  </div>
+
+                  <div className="sm:col-span-3 flex items-center gap-2.5">
+                    <input
+                      type="checkbox"
+                      id="newEnableCapacityCheckin"
+                      checked={newEnableCapacityCheckin}
+                      onChange={e => setNewEnableCapacityCheckin(e.target.checked)}
+                      className="w-4 h-4 accent-black cursor-pointer rounded border-brand-border"
+                    />
+                    <label htmlFor="newEnableCapacityCheckin" className="text-xs font-bold uppercase tracking-widest text-brand-secondary cursor-pointer select-none">
+                      Enable Capacity Check-in (Call Score) for this meeting
+                    </label>
                   </div>
                   
                   {!selectedTemplateId ? (
@@ -1986,6 +1931,20 @@ export function TeamMeetings() {
                   />
                 </div>
 
+                {/* Enable Capacity Check-in Checkbox Toggle */}
+                <div className="flex items-center gap-2.5">
+                  <input
+                    type="checkbox"
+                    id="templateEnableCapacityCheckin"
+                    checked={templateEnableCapacityCheckin}
+                    onChange={e => setTemplateEnableCapacityCheckin(e.target.checked)}
+                    className="w-4 h-4 accent-black cursor-pointer rounded border-[#ded8ce]"
+                  />
+                  <label htmlFor="templateEnableCapacityCheckin" className="text-[10px] font-bold uppercase tracking-widest text-[#171717] cursor-pointer select-none">
+                    Enable Capacity Check-in (Call Score) for meetings under this template
+                  </label>
+                </div>
+
                 {/* Default Attendees */}
                 <div className="space-y-1.5">
                   <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary">Preselected Attendees</label>
@@ -2130,6 +2089,367 @@ export function TeamMeetings() {
                 ))}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Capacity Check-in Popup Modal */}
+      {isCheckinModalOpen && (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="bg-[#f7f4ef] max-w-[650px] w-full rounded-2xl p-6 md:p-8 border border-[#ded8ce] my-auto shadow-2xl flex flex-col gap-6 max-h-[95vh] overflow-y-auto custom-scrollbar animate-in zoom-in-95 duration-200">
+            
+            {/* Modal Header */}
+            <div className="flex justify-between items-start border-b border-[#ded8ce] pb-4">
+              <div>
+                <h2 className="text-xl font-bold text-[#171717] tracking-tight font-serif">WOVN Leadership Capacity Score</h2>
+                <p className="text-[11px] text-[#666] leading-relaxed mt-1">
+                  Use this daily to create a shared language around workload, stress, availability, and execution friction. 
+                  The target operating zone is <span className="font-bold text-[#171717]">5–6</span>.
+                </p>
+              </div>
+              <button 
+                onClick={() => {
+                  setDismissedMeetingCheckinId(selectedMeeting.id);
+                  setIsCheckinModalOpen(false);
+                }} 
+                className="text-brand-secondary hover:text-[#111] transition-colors p-1 bg-white border border-[#ded8ce] rounded-full"
+                title="Dismiss check-in"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Sliders Card */}
+            <div className="bg-white border border-[#ded8ce] rounded-[18px] p-6 space-y-6 shadow-sm">
+              {/* Workload */}
+              <div className="space-y-2">
+                <div className="flex justify-between items-baseline">
+                  <label className="font-bold text-sm text-[#171717]">1. Workload Volume</label>
+                  <span className="text-sm font-extrabold text-[#171717]">{myWorkload}</span>
+                </div>
+                <p className="text-[11px] text-[#666] leading-snug">How full is your plate today? 1 = light / open capacity. 10 = too many active responsibilities.</p>
+                <input 
+                  type="range" min="1" max="10" 
+                  value={myWorkload} 
+                  onChange={e => setMyWorkload(Number(e.target.value))}
+                  className="w-full accent-[#111111] cursor-pointer"
+                />
+                <div className="flex justify-between text-[10px] text-[#666] px-0.5 font-bold">
+                  <span>Light</span>
+                  <span>Optimal</span>
+                  <span>Overloaded</span>
+                </div>
+              </div>
+
+              {/* Urgency */}
+              <div className="space-y-2">
+                <div className="flex justify-between items-baseline">
+                  <label className="font-bold text-sm text-[#171717]">2. Deadline Pressure</label>
+                  <span className="text-sm font-extrabold text-[#171717]">{myUrgency}</span>
+                </div>
+                <p className="text-[11px] text-[#666] leading-snug">How much deadline pressure are you carrying? 1 = calm. 10 = everything feels urgent.</p>
+                <input 
+                  type="range" min="1" max="10" 
+                  value={myUrgency} 
+                  onChange={e => setMyUrgency(Number(e.target.value))}
+                  className="w-full accent-[#111111] cursor-pointer"
+                />
+                <div className="flex justify-between text-[10px] text-[#666] px-0.5 font-bold">
+                  <span>Calm</span>
+                  <span>Managed</span>
+                  <span>Critical</span>
+                </div>
+              </div>
+
+              {/* Stress */}
+              <div className="space-y-2">
+                <div className="flex justify-between items-baseline">
+                  <label className="font-bold text-sm text-[#171717]">3. Stress Load</label>
+                  <span className="text-sm font-extrabold text-[#171717]">{myStress}</span>
+                </div>
+                <p className="text-[11px] text-[#666] leading-snug">How mentally/emotionally taxed are you? 1 = clear and calm. 10 = overwhelmed.</p>
+                <input 
+                  type="range" min="1" max="10" 
+                  value={myStress} 
+                  onChange={e => setMyStress(Number(e.target.value))}
+                  className="w-full accent-[#111111] cursor-pointer"
+                />
+                <div className="flex justify-between text-[10px] text-[#666] px-0.5 font-bold">
+                  <span>Calm</span>
+                  <span>Engaged</span>
+                  <span>Overwhelmed</span>
+                </div>
+              </div>
+
+              {/* Availability */}
+              <div className="space-y-2">
+                <div className="flex justify-between items-baseline">
+                  <label className="font-bold text-sm text-[#171717]">4. Available Bandwidth</label>
+                  <span className="text-sm font-extrabold text-[#171717]">{myAvailability}</span>
+                </div>
+                <p className="text-[11px] text-[#666] leading-snug">How much room do you have to absorb new requests? 1 = wide open. 10 = no room without dropping something.</p>
+                <input 
+                  type="range" min="1" max="10" 
+                  value={myAvailability} 
+                  onChange={e => setMyAvailability(Number(e.target.value))}
+                  className="w-full accent-[#111111] cursor-pointer"
+                />
+                <div className="flex justify-between text-[10px] text-[#666] px-0.5 font-bold">
+                  <span>Available</span>
+                  <span>Selective</span>
+                  <span>No Room</span>
+                </div>
+              </div>
+
+              {/* Friction */}
+              <div className="space-y-2">
+                <div className="flex justify-between items-baseline">
+                  <label className="font-bold text-sm text-[#171717]">5. Workflow Friction</label>
+                  <span className="text-sm font-extrabold text-[#171717]">{myFriction}</span>
+                </div>
+                <p className="text-[11px] text-[#666] leading-snug">How much drag is coming from unclear priorities, dependencies, approvals, tools, or blocked decisions?</p>
+                <input 
+                  type="range" min="1" max="10" 
+                  value={myFriction} 
+                  onChange={e => setMyFriction(Number(e.target.value))}
+                  className="w-full accent-[#111111] cursor-pointer"
+                />
+                <div className="flex justify-between text-[10px] text-[#666] px-0.5 font-bold">
+                  <span>Smooth</span>
+                  <span>Some Drag</span>
+                  <span>Blocked</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Results & Actions Card */}
+            {(() => {
+              const liveScore = Math.round(((myWorkload + myUrgency + myStress + myAvailability + myFriction) / 5) * 10) / 10;
+              const getStatusDetails = (s: number) => {
+                if (s <= 2.9) return { status: "Underutilized", desc: "More ownership or responsibility can likely be added." };
+                if (s <= 4.4) return { status: "Comfortable", desc: "Healthy bandwidth. This person can likely absorb a meaningful new initiative." };
+                if (s <= 6.4) return { status: "Optimal Zone", desc: "Fully engaged, priorities are moving, and small-to-medium requests can still be absorbed." };
+                if (s <= 8.4) return { status: "Constrained", desc: "Prioritization is required. New work will create tradeoffs." };
+                if (s <= 9.4) return { status: "Overloaded", desc: "Something needs to move. Quality, speed, or morale may suffer." };
+                return { status: "Unsustainable", desc: "Immediate intervention required. Remove work, reset expectations, or add support." };
+              };
+              const liveDetails = getStatusDetails(liveScore);
+
+              return (
+                <div className="bg-white border border-[#ded8ce] rounded-[18px] p-6 shadow-sm flex flex-col md:flex-row items-center gap-6">
+                  {/* Score Circle */}
+                  <div className="w-[110px] h-[110px] rounded-full bg-[#f0ebe3] border border-[#ded8ce] flex flex-col items-center justify-center shrink-0">
+                    <span className="text-3xl font-black text-[#171717] leading-none tracking-tight">{liveScore.toFixed(1)}</span>
+                    <span className="text-[9px] text-[#666] font-bold uppercase tracking-[0.12em] mt-1">Capacity</span>
+                  </div>
+
+                  {/* Details & Confidence row */}
+                  <div className="flex-1 space-y-4 text-center md:text-left">
+                    <div>
+                      <h4 className="text-base font-extrabold text-[#171717]">{liveDetails.status}</h4>
+                      <p className="text-[11px] text-[#666] leading-relaxed mt-1">{liveDetails.desc}</p>
+                    </div>
+
+                    {/* Confidence buttons */}
+                    <div className="flex flex-wrap justify-center md:justify-start gap-1.5">
+                      {['Green', 'Yellow', 'Red'].map(c => {
+                        const isSelected = myConfidence === c;
+                        let btnText = '';
+                        if (c === 'Green') btnText = 'Green: I can deliver';
+                        if (c === 'Yellow') btnText = 'Yellow: tradeoffs';
+                        if (c === 'Red') btnText = 'Red: intervention';
+
+                        return (
+                          <button
+                            key={c}
+                            type="button"
+                            onClick={() => setMyConfidence(c)}
+                            className={`text-[10px] font-bold px-3 py-1.5 border rounded-full transition-all ${
+                              isSelected 
+                                ? 'bg-[#111] text-white border-[#111]' 
+                                : 'bg-white text-[#111] border-[#ded8ce] hover:bg-neutral-50'
+                            }`}
+                          >
+                            {btnText}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Notes & Blockers Card */}
+            <div className="bg-white border border-[#ded8ce] rounded-[18px] p-6 shadow-sm space-y-2">
+              <label className="font-bold text-sm text-[#171717] block">Notes / blockers / asks</label>
+              <textarea
+                value={myNotes}
+                onChange={e => setMyNotes(e.target.value)}
+                placeholder="Example: Need priority call on client deliverables. Blocked on design approval."
+                className="w-full min-h-[80px] border border-[#ded8ce] rounded-[14px] p-3 text-xs outline-none focus:border-black transition-colors resize-y font-sans leading-relaxed text-[#171717]"
+              />
+            </div>
+
+            {/* Footer CTAs */}
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setDismissedMeetingCheckinId(selectedMeeting.id);
+                  setIsCheckinModalOpen(false);
+                }}
+                className="flex-1 bg-white hover:bg-neutral-50 text-[#111] border border-[#ded8ce] text-xs font-bold uppercase tracking-wider py-3 rounded-full shadow-sm transition-all"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  await handleSubmitMyCheckin();
+                  setIsCheckinModalOpen(false);
+                }}
+                className="flex-1 bg-[#111] hover:bg-black text-white text-xs font-bold uppercase tracking-wider py-3 rounded-full shadow-sm transition-all animate-pulse"
+              >
+                {myExistingCheckin ? 'Update Check-in' : 'Submit Check-in'}
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* Read-Only Capacity Score Detail View Popup */}
+      {viewingCheckin && (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="bg-[#f7f4ef] max-w-[600px] w-full rounded-2xl p-6 md:p-8 border border-[#ded8ce] my-auto shadow-2xl flex flex-col gap-6 max-h-[90vh] overflow-y-auto custom-scrollbar animate-in zoom-in-95 duration-200">
+            
+            {/* Modal Header */}
+            <div className="flex justify-between items-center border-b border-[#ded8ce] pb-4">
+              <div>
+                <h3 className="font-serif text-lg font-bold text-brand-primary">{viewingCheckin.memberName}'s Capacity Check-in</h3>
+                <p className="text-[10px] text-brand-secondary uppercase font-bold tracking-widest mt-0.5">Submitted Details</p>
+              </div>
+              <button 
+                onClick={() => setViewingCheckin(null)} 
+                className="text-brand-secondary hover:text-[#111] transition-colors p-1.5 bg-white border border-[#ded8ce] rounded-full"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Read-only Sliders Card */}
+            <div className="bg-white border border-[#ded8ce] rounded-[18px] p-6 space-y-5 shadow-sm pointer-events-none">
+              {/* Workload */}
+              <div className="space-y-1">
+                <div className="flex justify-between items-baseline text-xs font-bold text-[#171717]">
+                  <span>1. Workload Volume</span>
+                  <span>{viewingCheckin.categories?.workload ?? 5}/10</span>
+                </div>
+                <input 
+                  type="range" min="1" max="10" 
+                  value={viewingCheckin.categories?.workload ?? 5} 
+                  disabled
+                  className="w-full accent-neutral-400 cursor-not-allowed"
+                />
+              </div>
+
+              {/* Urgency */}
+              <div className="space-y-1">
+                <div className="flex justify-between items-baseline text-xs font-bold text-[#171717]">
+                  <span>2. Deadline Pressure</span>
+                  <span>{viewingCheckin.categories?.urgency ?? 5}/10</span>
+                </div>
+                <input 
+                  type="range" min="1" max="10" 
+                  value={viewingCheckin.categories?.urgency ?? 5} 
+                  disabled
+                  className="w-full accent-neutral-400 cursor-not-allowed"
+                />
+              </div>
+
+              {/* Stress */}
+              <div className="space-y-1">
+                <div className="flex justify-between items-baseline text-xs font-bold text-[#171717]">
+                  <span>3. Stress Load</span>
+                  <span>{viewingCheckin.categories?.stress ?? 5}/10</span>
+                </div>
+                <input 
+                  type="range" min="1" max="10" 
+                  value={viewingCheckin.categories?.stress ?? 5} 
+                  disabled
+                  className="w-full accent-neutral-400 cursor-not-allowed"
+                />
+              </div>
+
+              {/* Availability */}
+              <div className="space-y-1">
+                <div className="flex justify-between items-baseline text-xs font-bold text-[#171717]">
+                  <span>4. Available Bandwidth</span>
+                  <span>{viewingCheckin.categories?.availability ?? 5}/10</span>
+                </div>
+                <input 
+                  type="range" min="1" max="10" 
+                  value={viewingCheckin.categories?.availability ?? 5} 
+                  disabled
+                  className="w-full accent-neutral-400 cursor-not-allowed"
+                />
+              </div>
+
+              {/* Friction */}
+              <div className="space-y-1">
+                <div className="flex justify-between items-baseline text-xs font-bold text-[#171717]">
+                  <span>5. Workflow Friction</span>
+                  <span>{viewingCheckin.categories?.friction ?? 5}/10</span>
+                </div>
+                <input 
+                  type="range" min="1" max="10" 
+                  value={viewingCheckin.categories?.friction ?? 5} 
+                  disabled
+                  className="w-full accent-neutral-400 cursor-not-allowed"
+                />
+              </div>
+            </div>
+
+            {/* Score Summary Card */}
+            <div className="bg-white border border-[#ded8ce] rounded-[18px] p-6 shadow-sm flex items-center gap-6">
+              <div className="w-[90px] h-[90px] rounded-full bg-[#f0ebe3] border border-[#ded8ce] flex flex-col items-center justify-center shrink-0">
+                <span className="text-2xl font-black text-[#171717] leading-none tracking-tight">{(viewingCheckin.score || 0).toFixed(1)}</span>
+                <span className="text-[8px] text-[#666] font-bold uppercase tracking-[0.12em] mt-0.5">Capacity</span>
+              </div>
+              <div>
+                <h4 className="text-sm font-extrabold text-[#171717]">{viewingCheckin.status}</h4>
+                <div className="mt-2">
+                  <span className={`text-[10px] font-bold px-3 py-1 border rounded-full ${
+                    viewingCheckin.confidence === 'Green' 
+                      ? 'bg-green-50 text-green-700 border-green-200' 
+                      : viewingCheckin.confidence === 'Yellow'
+                        ? 'bg-yellow-50 text-yellow-700 border-yellow-200'
+                        : 'bg-red-50 text-red-700 border-red-200'
+                  }`}>
+                    Confidence: {viewingCheckin.confidence}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Notes / Blockers */}
+            <div className="bg-white border border-[#ded8ce] rounded-[18px] p-5 shadow-sm space-y-2">
+              <span className="text-xs font-bold text-[#171717] block">Notes & Blockers</span>
+              <p className="text-xs text-[#555] bg-[#f7f4ef]/40 border border-brand-border/40 p-3 rounded-lg italic leading-relaxed whitespace-pre-wrap font-sans">
+                "{viewingCheckin.notes || 'No blockers or notes reported.'}"
+              </p>
+            </div>
+
+            {/* Close Button */}
+            <button
+              type="button"
+              onClick={() => setViewingCheckin(null)}
+              className="w-full bg-[#111] hover:bg-black text-white text-xs font-bold uppercase tracking-wider py-3 rounded-full shadow-sm transition-all"
+            >
+              Close Details
+            </button>
+
           </div>
         </div>
       )}
