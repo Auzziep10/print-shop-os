@@ -1144,10 +1144,10 @@ export function TeamMeetings() {
                     </button>
                   )}
                   <button
-                    onClick={handleStartInlineNotesEditing}
-                    className="bg-red-600 hover:bg-red-700 text-white text-[10px] font-extrabold uppercase tracking-widest px-3.5 py-1.5 rounded-full shadow-sm transition-all animate-pulse"
+                    onClick={() => handleStartEditMeeting(selectedMeeting)}
+                    className="bg-red-600 hover:bg-red-700 text-white text-[10px] font-extrabold uppercase tracking-widest px-3.5 py-1.5 rounded-full shadow-sm transition-all animate-pulse cursor-pointer"
                   >
-                    Edit / Take Notes
+                    Save Meeting
                   </button>
                 </div>
               </div>
