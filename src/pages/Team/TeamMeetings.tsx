@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { collection, onSnapshot, addDoc, updateDoc, doc, deleteDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -172,6 +173,7 @@ const parseGeminiNotes = (text: string) => {
 
 export function TeamMeetings() {
   const { userData } = useAuth();
+  const location = useLocation();
   const [meetings, setMeetings] = useState<any[]>([]);
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
   const [selectedMeeting, setSelectedMeeting] = useState<any>(null);
@@ -229,6 +231,11 @@ export function TeamMeetings() {
   const [templateAttendeesInput, setTemplateAttendeesInput] = useState<string[]>([]);
   const [templateSectionsInput, setTemplateSectionsInput] = useState<string[]>(['']);
 
+  // Editing states
+  const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
+  const [isEditingMeeting, setIsEditingMeeting] = useState(false);
+  const [editingMeetingId, setEditingMeetingId] = useState<string | null>(null);
+
   const handleAddTemplateSectionInput = () => {
     setTemplateSectionsInput(prev => [...prev, '']);
   };
@@ -243,12 +250,12 @@ export function TeamMeetings() {
     setTemplateSectionsInput(prev => prev.filter((_, i) => i !== index));
   };
 
-  // Pre-select all team members by default when opening the New Meeting modal
+  // Pre-select all team members by default when opening the New Meeting modal (if not editing)
   useEffect(() => {
-    if (isNewModalOpen && teamMembers.length > 0) {
+    if (isNewModalOpen && !isEditingMeeting && teamMembers.length > 0) {
       setNewAttendees(teamMembers.map(m => m.name));
     }
-  }, [isNewModalOpen, teamMembers]);
+  }, [isNewModalOpen, isEditingMeeting, teamMembers]);
 
   // Sync logged in user's capacity sliders with their existing check-in score
   useEffect(() => {
@@ -300,10 +307,25 @@ export function TeamMeetings() {
       setMeetings(list);
       setLoading(false);
 
-      // Select first meeting by default if none selected
-      if (list.length > 0 && !selectedMeeting) {
-        setSelectedMeeting(list[0]);
-      }
+      // Determine default selected meeting & keep it updated in real-time
+      setSelectedMeeting((prevSelected: any) => {
+        // 1. If we have a state from navigation, select it
+        const navMeetingId = location.state?.selectMeetingId;
+        if (navMeetingId) {
+          const found = list.find(m => m.id === navMeetingId);
+          if (found) return found;
+        }
+        
+        // 2. If no meeting is selected, select a live meeting if it exists, otherwise select the first one
+        if (!prevSelected) {
+          const live = list.find(m => m.status === 'live');
+          return live || list[0] || null;
+        }
+
+        // 3. If a meeting is selected, find its latest version in the list
+        const updated = list.find(m => m.id === prevSelected.id);
+        return updated || prevSelected;
+      });
     });
 
     return () => {
@@ -508,21 +530,43 @@ export function TeamMeetings() {
       const payload = {
         name: templateNameInput.trim(),
         attendees: templateAttendeesInput,
-        sections: filteredSections,
-        createdAt: new Date().toISOString()
+        sections: filteredSections
       };
 
-      await addDoc(collection(db, 'meetingTemplates'), payload);
+      if (editingTemplateId) {
+        await updateDoc(doc(db, 'meetingTemplates', editingTemplateId), payload);
+        alert("Template updated successfully!");
+        setEditingTemplateId(null);
+      } else {
+        await addDoc(collection(db, 'meetingTemplates'), {
+          ...payload,
+          createdAt: new Date().toISOString()
+        });
+        alert("Template saved successfully!");
+      }
       
       // Reset form fields
       setTemplateNameInput('');
       setTemplateAttendeesInput([]);
       setTemplateSectionsInput(['']);
-      alert("Template saved successfully!");
     } catch (err) {
       console.error("Failed to save template", err);
       alert("Failed to save template. Please try again.");
     }
+  };
+
+  const handleStartEditTemplate = (template: any) => {
+    setEditingTemplateId(template.id);
+    setTemplateNameInput(template.name);
+    setTemplateAttendeesInput(template.attendees || []);
+    setTemplateSectionsInput(template.sections || ['']);
+  };
+
+  const handleCancelEditTemplate = () => {
+    setEditingTemplateId(null);
+    setTemplateNameInput('');
+    setTemplateAttendeesInput([]);
+    setTemplateSectionsInput(['']);
   };
 
   const handleDeleteTemplate = async (templateId: string) => {
@@ -531,12 +575,38 @@ export function TeamMeetings() {
 
     try {
       await deleteDoc(doc(db, 'meetingTemplates', templateId));
+      if (editingTemplateId === templateId) {
+        handleCancelEditTemplate();
+      }
     } catch (err) {
       console.error("Failed to delete template", err);
     }
   };
 
-  const handleSaveMeeting = async () => {
+  const handleStartEditMeeting = (meeting: any) => {
+    setIsEditingMeeting(true);
+    setEditingMeetingId(meeting.id);
+    setSelectedTemplateId(meeting.templateId || '');
+    
+    // Load fields
+    setNewTitle(meeting.title || '');
+    setNewDate(meeting.date || new Date().toISOString().split('T')[0]);
+    setNewSummary(meeting.summary || '');
+    setNewNotes(meeting.notes || '');
+    setNewAttendees(meeting.attendees || []);
+    setNewActionItems(meeting.actionItems || []);
+    
+    // If it has sections, load them. Otherwise initialize empty
+    setMeetingSections(meeting.sections || []);
+    
+    // Crucial: Load capacity checkins already entered by members
+    setCapacityCheckins(meeting.capacityScores || []);
+    
+    // Open the modal
+    setIsNewModalOpen(true);
+  };
+
+  const handleSaveMeeting = async (isLiveOnly = false) => {
     if (!selectedTemplateId && !newTitle.trim()) {
       alert("Please enter a meeting title.");
       return;
@@ -561,7 +631,6 @@ export function TeamMeetings() {
       const payload = {
         title: finalTitle,
         date: newDate,
-        createdAt: new Date().toISOString(),
         summary: newSummary.trim() || `${templateName || 'Meeting'} minutes.`,
         notes: finalNotes,
         sections: finalSections,
@@ -570,10 +639,28 @@ export function TeamMeetings() {
         attendees: newAttendees,
         actionItems: newActionItems,
         capacityScores: capacityCheckins,
+        status: isLiveOnly ? 'live' : 'completed',
         totalAmount: Math.round((capacityCheckins.reduce((sum: number, c: any) => sum + (c.score || 0), 0) / (capacityCheckins.length || 1)) * 10) / 10
       };
 
-      await addDoc(collection(db, 'meetings'), payload);
+      if (isEditingMeeting && editingMeetingId) {
+        // Update existing meeting document
+        await updateDoc(doc(db, 'meetings', editingMeetingId), payload);
+        
+        // Find updated meeting from current list to keep selection updated
+        const updatedObj = { id: editingMeetingId, ...payload };
+        setSelectedMeeting(updatedObj);
+      } else {
+        // Create new meeting document
+        const docRef = await addDoc(collection(db, 'meetings'), {
+          ...payload,
+          createdAt: new Date().toISOString()
+        });
+        
+        // Select it immediately
+        const newObj = { id: docRef.id, ...payload, createdAt: new Date().toISOString() };
+        setSelectedMeeting(newObj);
+      }
       
       // Reset form fields
       setNewTitle('');
@@ -585,6 +672,8 @@ export function TeamMeetings() {
       setCapacityCheckins([]);
       setSelectedTemplateId('');
       setMeetingSections([]);
+      setIsEditingMeeting(false);
+      setEditingMeetingId(null);
       setIsNewModalOpen(false);
     } catch (err) {
       console.error("Failed to save meeting", err);
@@ -780,11 +869,22 @@ export function TeamMeetings() {
                               className={`p-3.5 rounded-card border transition-all cursor-pointer bg-white flex flex-col gap-2 shadow-sm ${isActive ? 'border-brand-primary ring-1 ring-brand-primary' : 'border-brand-border hover:border-neutral-400'}`}
                             >
                               <div className="flex justify-between items-start gap-2">
-                                <h3 className="font-serif text-xs font-bold text-brand-primary line-clamp-1">{meet.title}</h3>
-                                {hasCheckins && (
-                                  <span className={`text-[9px] font-black border px-1.5 py-0.5 rounded-full shrink-0 ${getScoreColor(avgScore)}`}>
-                                    {avgScore.toFixed(1)}
+                                <h3 className="font-serif text-xs font-bold text-brand-primary line-clamp-1 flex items-center gap-1.5">
+                                  {meet.status === 'live' && (
+                                    <span className="w-1.5 h-1.5 rounded-full bg-red-600 animate-ping inline-block shrink-0" title="Meeting in progress" />
+                                  )}
+                                  {meet.title}
+                                </h3>
+                                {meet.status === 'live' ? (
+                                  <span className="text-[8px] font-bold uppercase tracking-wider text-red-600 bg-red-50 border border-red-200 px-1 py-0.5 rounded shrink-0">
+                                    Live
                                   </span>
+                                ) : (
+                                  hasCheckins && (
+                                    <span className={`text-[9px] font-black border px-1.5 py-0.5 rounded-full shrink-0 ${getScoreColor(avgScore)}`}>
+                                      {avgScore.toFixed(1)}
+                                    </span>
+                                  )
                                 )}
                               </div>
                               <p className="text-[10px] text-brand-secondary line-clamp-2 leading-relaxed">{meet.summary}</p>
@@ -830,14 +930,39 @@ export function TeamMeetings() {
                   </div>
                 )}
               </div>
-              <button 
-                onClick={() => handleDeleteMeeting(selectedMeeting.id)}
-                className="text-brand-secondary hover:text-red-600 transition-colors p-2 hover:bg-red-50 rounded-lg shrink-0"
-                title="Delete Meeting Log"
-              >
-                <Trash2 size={16} />
-              </button>
+              <div className="flex gap-1 shrink-0">
+                <button 
+                  onClick={() => handleStartEditMeeting(selectedMeeting)}
+                  className="text-brand-secondary hover:text-brand-primary transition-colors p-2 hover:bg-neutral-50 rounded-lg"
+                  title="Edit Meeting / Take Notes"
+                >
+                  ✏️
+                </button>
+                <button 
+                  onClick={() => handleDeleteMeeting(selectedMeeting.id)}
+                  className="text-brand-secondary hover:text-red-600 transition-colors p-2 hover:bg-red-50 rounded-lg"
+                  title="Delete Meeting Log"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
             </div>
+
+            {/* Live Meeting Banner */}
+            {selectedMeeting.status === 'live' && (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex justify-between items-center animate-pulse shrink-0">
+                <div className="flex items-center gap-2">
+                  <span className="w-3.5 h-3.5 rounded-full bg-red-600 animate-ping shrink-0" />
+                  <span className="text-xs font-bold text-red-900">This meeting is currently LIVE. Everyone in attendance should submit their Capacity score.</span>
+                </div>
+                <button
+                  onClick={() => handleStartEditMeeting(selectedMeeting)}
+                  className="bg-red-600 hover:bg-red-700 text-white text-[10px] font-extrabold uppercase tracking-widest px-3 py-1.5 rounded-full shadow-sm transition-all"
+                >
+                  Edit / Take Notes
+                </button>
+              </div>
+            )}
 
             {/* Capacity Score Circle (Integrated Call Score) */}
             {selectedMeeting.capacityScores && selectedMeeting.capacityScores.length > 0 ? (
@@ -1415,7 +1540,7 @@ export function TeamMeetings() {
                                 newSecs[idx].name = e.target.value;
                                 setMeetingSections(newSecs);
                               }}
-                              className="bg-transparent border-b border-transparent hover:border-brand-border focus:border-brand-primary font-bold text-sm text-brand-primary outline-none py-0.5"
+                              className="flex-1 bg-transparent border-b border-transparent hover:border-brand-border focus:border-brand-primary font-bold text-sm text-brand-primary outline-none py-0.5"
                               placeholder="Section Name"
                             />
                             <button
@@ -1718,12 +1843,44 @@ export function TeamMeetings() {
 
             {/* Modal Footer */}
             <div className="p-6 bg-brand-bg flex gap-4 border-t border-brand-border sticky bottom-0 z-10 shrink-0">
-              <PillButton variant="outline" onClick={() => setIsNewModalOpen(false)} className="flex-1 justify-center py-3 text-sm">
+              <PillButton 
+                variant="outline" 
+                onClick={() => {
+                  setIsNewModalOpen(false);
+                  setIsEditingMeeting(false);
+                  setEditingMeetingId(null);
+                }} 
+                className="flex-1 justify-center py-3 text-sm"
+              >
                 Cancel
               </PillButton>
-              <PillButton variant="filled" onClick={handleSaveMeeting} className="flex-1 justify-center py-3 text-sm">
-                Save Meeting Minutes
-              </PillButton>
+              {isEditingMeeting ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => handleSaveMeeting(true)}
+                    className="flex-1 justify-center py-3 text-sm font-bold text-black border border-brand-border rounded-full hover:bg-neutral-50 shadow-sm"
+                  >
+                    Keep as Live Meeting
+                  </button>
+                  <PillButton variant="filled" onClick={() => handleSaveMeeting(false)} className="flex-1 justify-center py-3 text-sm">
+                    Complete Meeting
+                  </PillButton>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => handleSaveMeeting(true)}
+                    className="flex-1 justify-center py-3 text-sm font-bold text-black border border-brand-border rounded-full hover:bg-neutral-50 shadow-sm"
+                  >
+                    Start Live Meeting
+                  </button>
+                  <PillButton variant="filled" onClick={() => handleSaveMeeting(false)} className="flex-1 justify-center py-3 text-sm">
+                    Save Completed Minutes
+                  </PillButton>
+                </>
+              )}
             </div>
             
         </div>
@@ -1735,13 +1892,18 @@ export function TeamMeetings() {
           <div className="bg-white max-w-[95vw] lg:max-w-[700px] w-full rounded-2xl overflow-hidden shadow-2xl flex flex-col border border-brand-border my-auto max-h-[90vh]">
             
             {/* Modal Header */}
-            <div className="p-6 border-b border-brand-border flex justify-between items-center bg-white sticky top-0 z-10">
+            <div className="p-6 border-b border-brand-border flex justify-between items-center bg-white shrink-0">
               <div>
-                <h3 className="font-serif text-xl text-brand-primary font-bold">Manage Meeting Templates</h3>
+                <h3 className="font-serif text-2xl text-brand-primary font-bold">
+                  Manage Meeting Templates
+                </h3>
                 <p className="text-xs font-medium text-brand-secondary mt-1">Create and manage customized schemas for recurring everyday meetings.</p>
               </div>
               <button 
-                onClick={() => setIsTemplateModalOpen(false)} 
+                onClick={() => {
+                  setIsTemplateModalOpen(false);
+                  handleCancelEditTemplate();
+                }} 
                 className="text-brand-secondary hover:text-brand-primary transition-colors bg-brand-bg border border-brand-border rounded-md p-1"
               >
                 <X size={18} />
@@ -1759,30 +1921,55 @@ export function TeamMeetings() {
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {templates.map(t => (
-                      <div key={t.id} className="border border-brand-border rounded-xl p-3.5 bg-brand-bg/10 flex justify-between items-start gap-4 shadow-sm">
+                      <div key={t.id} className={`border rounded-xl p-3.5 flex justify-between items-start gap-4 shadow-sm transition-all ${editingTemplateId === t.id ? 'border-brand-primary bg-brand-bg/20 ring-1 ring-brand-primary' : 'border-brand-border bg-brand-bg/10'}`}>
                         <div className="space-y-1.5">
-                          <h5 className="font-serif font-bold text-xs text-brand-primary">{t.name}</h5>
+                          <h5 className="font-serif font-bold text-xs text-brand-primary flex items-center gap-1.5">
+                            {editingTemplateId === t.id && <span className="text-brand-primary font-sans">✏️</span>}
+                            {t.name}
+                          </h5>
                           <div className="text-[10px] text-brand-secondary space-y-0.5">
                             <div><span className="font-bold text-brand-primary">Sections:</span> {t.sections?.length || 0} items</div>
                             <div><span className="font-bold text-brand-primary">Default Attendees:</span> {t.attendees?.length || 0} members</div>
                           </div>
                         </div>
-                        <button
-                          onClick={() => handleDeleteTemplate(t.id)}
-                          className="text-brand-secondary hover:text-red-600 transition-colors p-1.5 hover:bg-red-50 rounded"
-                          title="Delete Template"
-                        >
-                          <Trash2 size={14} />
-                        </button>
+                        <div className="flex gap-1 shrink-0">
+                          <button
+                            onClick={() => handleStartEditTemplate(t)}
+                            className="text-brand-secondary hover:text-brand-primary transition-colors p-1.5 hover:bg-white/80 rounded border border-transparent hover:border-brand-border"
+                            title="Edit Template"
+                          >
+                            ✏️
+                          </button>
+                          <button
+                            onClick={() => handleDeleteTemplate(t.id)}
+                            className="text-brand-secondary hover:text-red-600 transition-colors p-1.5 hover:bg-red-50 rounded"
+                            title="Delete Template"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
                 )}
               </div>
 
-              {/* Create Template Section */}
+              {/* Create/Edit Template Section */}
               <div className="border border-[#ded8ce] rounded-2xl p-5 bg-[#f7f4ef]/50 space-y-5">
-                <h4 className="text-xs font-bold uppercase tracking-widest text-brand-primary border-b border-[#ded8ce] pb-2">Create New Template</h4>
+                <div className="flex justify-between items-center border-b border-[#ded8ce] pb-2">
+                  <h4 className="text-xs font-bold uppercase tracking-widest text-brand-primary">
+                    {editingTemplateId ? `Edit Template: ${templates.find(t => t.id === editingTemplateId)?.name}` : 'Create New Template'}
+                  </h4>
+                  {editingTemplateId && (
+                    <button
+                      type="button"
+                      onClick={handleCancelEditTemplate}
+                      className="text-[10px] font-bold text-red-600 hover:underline"
+                    >
+                      Cancel Edit
+                    </button>
+                  )}
+                </div>
                 
                 {/* Template Name */}
                 <div className="space-y-1">
@@ -1858,20 +2045,38 @@ export function TeamMeetings() {
                 </div>
 
                 {/* Save Button */}
-                <button
-                  type="button"
-                  onClick={handleSaveTemplate}
-                  className="w-full bg-[#111] hover:bg-black text-white text-xs font-bold uppercase tracking-wider py-2.5 rounded-full shadow-sm transition-all"
-                >
-                  Save New Template
-                </button>
+                <div className="flex gap-3">
+                  {editingTemplateId && (
+                    <button
+                      type="button"
+                      onClick={handleCancelEditTemplate}
+                      className="flex-1 border border-[#ded8ce] hover:border-neutral-400 bg-white text-brand-primary text-xs font-bold uppercase tracking-wider py-2.5 rounded-full shadow-sm transition-all"
+                    >
+                      Cancel
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleSaveTemplate}
+                    className="flex-1 bg-[#111] hover:bg-black text-white text-xs font-bold uppercase tracking-wider py-2.5 rounded-full shadow-sm transition-all"
+                  >
+                    {editingTemplateId ? 'Save Template Changes' : 'Save New Template'}
+                  </button>
+                </div>
               </div>
 
             </div>
 
             {/* Modal Footer */}
             <div className="p-6 bg-brand-bg flex gap-3 border-t border-brand-border sticky bottom-0 z-10">
-              <PillButton variant="outline" onClick={() => setIsTemplateModalOpen(false)} className="w-full justify-center py-2.5">
+              <PillButton 
+                variant="outline" 
+                onClick={() => {
+                  setIsTemplateModalOpen(false);
+                  handleCancelEditTemplate();
+                }} 
+                className="w-full justify-center py-2.5"
+              >
                 Close Manager
               </PillButton>
             </div>
