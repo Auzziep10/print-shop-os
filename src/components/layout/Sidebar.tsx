@@ -13,7 +13,6 @@ import {
   Settings, 
   FileBox,
   X,
-  Mail,
   Rocket,
   ExternalLink,
   Link2,
@@ -149,7 +148,6 @@ export function Sidebar({ onClose }: SidebarProps) {
     { label: 'Inventory', icon: Package, path: '/inventory' },
     { label: 'Team', icon: UsersRound, path: '/team' },
     { label: 'Reports', icon: FileBox, path: '/reports' },
-    { label: 'Signatures', icon: Mail, path: '/signatures' },
     { label: 'Public Quote', icon: Rocket, path: '/start' },
   ];
 

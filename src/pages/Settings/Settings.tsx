@@ -1,14 +1,17 @@
-import { useState } from 'react';
 import { tokens } from '../../lib/tokens';
 import { Settings as SettingsIcon } from 'lucide-react';
 import { UsersTab } from './UsersTab';
 import { BusinessTab } from './BusinessTab';
 import { AppsTab } from './AppsTab';
 import { StorefrontCatalogTab } from './StorefrontCatalogTab';
+import { Signatures } from '../Signatures/Signatures';
 import { useAuth } from '../../contexts/AuthContext';
+import { useSearchParams } from 'react-router-dom';
 
 export function Settings() {
-  const [activeTab, setActiveTab] = useState('users');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get('tab') || 'users';
+  const setActiveTab = (tab: string) => setSearchParams({ tab });
   const { userData } = useAuth();
   
   // Only Admin or Leadership can access settings
@@ -81,6 +84,16 @@ export function Settings() {
             >
               Storefront Catalog
             </button>
+            <button
+              onClick={() => setActiveTab('signatures')}
+              className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+                activeTab === 'signatures' 
+                  ? 'bg-brand-primary text-white' 
+                  : 'text-brand-secondary hover:bg-brand-bg hover:text-brand-primary'
+              }`}
+            >
+              Email Signatures
+            </button>
           </nav>
         </div>
 
@@ -90,6 +103,7 @@ export function Settings() {
           {activeTab === 'business' && <BusinessTab />}
           {activeTab === 'apps' && <AppsTab />}
           {activeTab === 'storefront-catalog' && <StorefrontCatalogTab />}
+          {activeTab === 'signatures' && <Signatures />}
         </div>
       </div>
     </div>

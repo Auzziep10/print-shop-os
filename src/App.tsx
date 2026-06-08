@@ -27,7 +27,7 @@ import { InvoiceView } from './pages/Public/InvoiceView';
 
 import { Inventory } from './pages/Inventory/Inventory';
 import { InventoryScan } from './pages/Inventory/InventoryScan';
-import { Signatures } from './pages/Signatures/Signatures';
+
 import { MobileUpload } from './pages/MobileUpload/MobileUpload';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -138,7 +138,7 @@ function App() {
         <Route path="artwork" element={<div className="p-6">Artwork coming soon...</div>} />
         <Route path="inventory" element={<Inventory />} />
         <Route path="team" element={<Team />} />
-        <Route path="signatures" element={<Signatures />} />
+        <Route path="signatures" element={<Navigate to="/settings?tab=signatures" replace />} />
           <Route path="reports" element={<div className="p-6">Reports coming soon...</div>} />
           <Route path="settings" element={<Settings />} />
         </Route>
