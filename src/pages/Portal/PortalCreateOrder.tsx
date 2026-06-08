@@ -1,8 +1,59 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, PackagePlus, X, Trash2, ChevronDown } from 'lucide-react';
+import { ArrowLeft, PackagePlus, X, Trash2, ChevronDown, RotateCcw, Calendar, Loader2 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { db } from '../../lib/firebase';
 import { doc, getDoc, collection, query, where, getDocs, setDoc } from 'firebase/firestore';
+const findColorsInObj = (obj: any, maxDepth = 4): string[] | null => {
+  if (!obj || typeof obj !== 'object' || maxDepth === 0) return null;
+  const colorKeys = ['availableColors', 'available_colors', 'colors', 'Colors', 'color', 'Color', 'AvailableColors'];
+  for (const k of colorKeys) {
+      if (obj[k]) {
+          const val = obj[k];
+          if (Array.isArray(val) && val.length > 0 && typeof val[0] === 'string') return val;
+          if (typeof val === 'string' && val.trim().length > 0) return val.split(',').map(s=>s.trim());
+      }
+  }
+  if (Array.isArray(obj)) {
+      for (const i of obj) {
+          const res = findColorsInObj(i, maxDepth - 1);
+          if (res) return res;
+      }
+  } else {
+      for (const k of Object.keys(obj)) {
+          if (typeof obj[k] === 'object') {
+              const res = findColorsInObj(obj[k], maxDepth - 1);
+              if (res) return res;
+          }
+      }
+  }
+  return null;
+};
+
+const parseSizesFromItem = (item: any, style = ''): string[] => {
+  let sizes: string[] = [];
+  if (Array.isArray(item.sizes) && item.sizes.length > 0) {
+      sizes = item.sizes;
+  } else if (typeof item.sizes === 'string' && item.sizes.trim()) {
+      sizes = item.sizes.split(',').map((s:string) => s.trim());
+  } else if (Array.isArray(item.availableSizes) && item.availableSizes.length > 0) {
+      sizes = item.availableSizes;
+  } else if (typeof item.availableSizes === 'string' && item.availableSizes.trim()) {
+      sizes = item.availableSizes.split(',').map((s:string) => s.trim());
+  } else if (item.sizeSpread && typeof item.sizeSpread === 'string' && item.sizeSpread.trim()) {
+      sizes = item.sizeSpread.split(',').map((s:string) => s.trim());
+  } else if (item.size_spread && typeof item.size_spread === 'string' && item.size_spread.trim()) {
+      sizes = item.size_spread.split(',').map((s:string) => s.trim());
+  } else if (Array.isArray(item.variations) && item.variations[0]?.sizes) {
+      sizes = item.variations[0].sizes;
+  } else if (style.toLowerCase().includes('chill') || style.toLowerCase().includes('tumbler') || style.toLowerCase().includes('bag') || style.toLowerCase().includes('hat')) {
+      sizes = ['OSFA'];
+  }
+  if (sizes.length === 0) {
+      sizes = ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'];
+  }
+  return sizes;
+};
+
 export function PortalCreateOrder() {
   const navigate = useNavigate();
   const { customerId } = useParams();
@@ -11,6 +62,88 @@ export function PortalCreateOrder() {
   const [customerDecks, setCustomerDecks] = useState<any[]>([]);
   const [isLoadingDecks, setIsLoadingDecks] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [previousOrders, setPreviousOrders] = useState<any[]>([]);
+  const [isLoadingPreviousOrders, setIsLoadingPreviousOrders] = useState(true);
+  const [isRepeatModalOpen, setIsRepeatModalOpen] = useState(false);
+
+  useEffect(() => {
+    const fetchPreviousOrders = async () => {
+      if (!customerId) return;
+      setIsLoadingPreviousOrders(true);
+      try {
+        const q = query(
+          collection(db, 'orders'),
+          where('customerId', '==', customerId)
+        );
+        const querySnapshot = await getDocs(q);
+        const ordersList: any[] = [];
+        querySnapshot.forEach((docSnap) => {
+          ordersList.push(docSnap.data());
+        });
+        ordersList.sort((a, b) => {
+          const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return timeB - timeA;
+        });
+        setPreviousOrders(ordersList);
+      } catch (err) {
+        console.error("Failed to fetch previous orders", err);
+      } finally {
+        setIsLoadingPreviousOrders(false);
+      }
+    };
+    fetchPreviousOrders();
+  }, [customerId]);
+
+  const handleRepeatOrder = (prevOrder: any) => {
+    if (!prevOrder || !Array.isArray(prevOrder.items)) return;
+
+    const newItems = prevOrder.items.map((item: any) => {
+      const quantities = item.sizes || {};
+      
+      const matchingCatalogGarment = customerDecks.find(dItem => 
+        (dItem.garment_id || dItem.sku || dItem.id) === item.itemNum ||
+        (dItem.garment_name || dItem.name || dItem.style || dItem.title) === item.style
+      );
+      
+      let colors = ['Custom Color'];
+      if (matchingCatalogGarment) {
+        const catalogColors = findColorsInObj({ ...matchingCatalogGarment });
+        if (catalogColors && catalogColors.length > 0) {
+          colors = catalogColors;
+        }
+      } else if (item.color) {
+        colors = [item.color];
+      }
+      
+      const sizes = parseSizesFromItem(matchingCatalogGarment || {}, item.style || '');
+      
+      const quantitiesMap: any = {};
+      sizes.forEach((s: string) => {
+        quantitiesMap[s] = 0;
+      });
+      
+      Object.keys(quantities).forEach((s: string) => {
+        quantitiesMap[s] = quantities[s] || 0;
+      });
+
+      return {
+        instanceId: Math.random().toString(36).substring(7),
+        style: item.style || 'Custom Garment',
+        itemNum: item.itemNum || '',
+        gender: item.gender || 'Unisex',
+        price: item.price || 0,
+        image: item.image || '',
+        colors: colors,
+        selectedColor: item.color || colors[0],
+        quantities: quantitiesMap,
+        sizes: sizes
+      };
+    });
+
+    setOrderItems(newItems);
+    setIsRepeatModalOpen(false);
+  };
 
   useEffect(() => {
     const fetchDecks = async () => {
@@ -184,6 +317,16 @@ export function PortalCreateOrder() {
           <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
           Back to Orders
         </button>
+
+        {previousOrders.length > 0 && (
+          <button 
+            onClick={() => setIsRepeatModalOpen(true)}
+            className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-neutral-500 hover:text-black hover:underline transition-colors cursor-pointer"
+          >
+            <RotateCcw size={12} />
+            Repeat Past Order
+          </button>
+        )}
       </div>
 
       <div className="flex flex-col gap-2">
@@ -212,13 +355,22 @@ export function PortalCreateOrder() {
                 </p>
               </div>
               
-              <div className="mt-4 flex items-center justify-center gap-4">
+              <div className="mt-4 flex items-center justify-center gap-4 flex-wrap">
                 <button 
                   onClick={() => setIsDrawerOpen(true)}
                   className="bg-black text-white px-8 py-3.5 rounded-full text-[13px] font-bold tracking-wide hover:bg-neutral-800 hover:scale-[1.02] transition-all shadow-md"
                 >
                   + Add Garment from my "WOVN Rack"
                 </button>
+                {previousOrders.length > 0 && (
+                  <button 
+                    onClick={() => setIsRepeatModalOpen(true)}
+                    className="bg-[#f0ebe1] text-neutral-900 border border-[#e6e2db] px-8 py-3.5 rounded-full text-[13px] font-bold tracking-wide hover:bg-[#e6e2db] hover:scale-[1.02] transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <RotateCcw size={14} />
+                    Repeat Previous Order
+                  </button>
+                )}
                 <button 
                   onClick={() => navigate(customerId ? `/portal/${customerId}/quote` : '/portal/quote')}
                   className="bg-white text-neutral-900 border border-neutral-200 px-8 py-3.5 rounded-full text-[13px] font-bold tracking-wide hover:bg-neutral-50 hover:border-neutral-300 hover:scale-[1.02] transition-all shadow-sm"
@@ -408,55 +560,10 @@ export function PortalCreateOrder() {
                         const gender = item.gender || 'Unisex';
                         const itemNum = item.itemNum || item.garment_id || item.sku || item.id || `GARMENT-${idx+1}`;
                         
-                        // Parse colors from various possible catalog structures using recursive scanning
-                        const findColorsInObj = (obj: any, maxDepth = 4): string[] | null => {
-                           if (!obj || typeof obj !== 'object' || maxDepth === 0) return null;
-                           const colorKeys = ['availableColors', 'available_colors', 'colors', 'Colors', 'color', 'Color', 'AvailableColors'];
-                           for (const k of colorKeys) {
-                               if (obj[k]) {
-                                   const val = obj[k];
-                                   if (Array.isArray(val) && val.length > 0 && typeof val[0] === 'string') return val;
-                                   if (typeof val === 'string' && val.trim().length > 0) return val.split(',').map(s=>s.trim());
-                               }
-                           }
-                           if (Array.isArray(obj)) {
-                               for (const i of obj) {
-                                   const res = findColorsInObj(i, maxDepth - 1);
-                                   if (res) return res;
-                               }
-                           } else {
-                               for (const k of Object.keys(obj)) {
-                                   if (typeof obj[k] === 'object') {
-                                       const res = findColorsInObj(obj[k], maxDepth - 1);
-                                       if (res) return res;
-                                   }
-                               }
-                           }
-                           return null;
-                        };
-                        
                         let colors = findColorsInObj({ ...item }) || ['Custom Color'];
                         if (colors.length === 0) colors = ['Custom Color'];
                         
-                        // Parse sizes
-                        let sizes: string[] = [];
-                        if (Array.isArray(item.sizes) && item.sizes.length > 0) {
-                            sizes = item.sizes;
-                        } else if (typeof item.sizes === 'string' && item.sizes.trim()) {
-                            sizes = item.sizes.split(',').map((s:string) => s.trim());
-                        } else if (Array.isArray(item.availableSizes) && item.availableSizes.length > 0) {
-                            sizes = item.availableSizes;
-                        } else if (typeof item.availableSizes === 'string' && item.availableSizes.trim()) {
-                            sizes = item.availableSizes.split(',').map((s:string) => s.trim());
-                        } else if (item.sizeSpread && typeof item.sizeSpread === 'string' && item.sizeSpread.trim()) {
-                            sizes = item.sizeSpread.split(',').map((s:string) => s.trim());
-                        } else if (item.size_spread && typeof item.size_spread === 'string' && item.size_spread.trim()) {
-                            sizes = item.size_spread.split(',').map((s:string) => s.trim());
-                        } else if (Array.isArray(item.variations) && item.variations[0]?.sizes) {
-                            sizes = item.variations[0].sizes;
-                        } else if (style.toLowerCase().includes('chill') || style.toLowerCase().includes('tumbler') || style.toLowerCase().includes('bag') || style.toLowerCase().includes('hat')) {
-                            sizes = ['OSFA'];
-                        }
+                        let sizes = parseSizesFromItem(item, style);
 
                         const image = item.mockup_image || item.mock_image || item.original_image || item.image || item.imageUrl || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
                         
@@ -510,6 +617,76 @@ export function PortalCreateOrder() {
               </button>
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {isRepeatModalOpen && (
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/20 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-[500px] h-full bg-white shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+            
+            {/* Drawer Header */}
+            <div className="px-8 py-6 border-b border-neutral-100 flex items-center justify-between bg-neutral-50/50">
+              <div>
+                <h2 className="text-xl font-serif text-neutral-900">Repeat Previous Order</h2>
+                <p className="text-sm font-medium text-neutral-500 mt-1">Select a past order to copy its garments and quantities.</p>
+              </div>
+              <button 
+                onClick={() => setIsRepeatModalOpen(false)}
+                className="w-10 h-10 rounded-full bg-white border border-neutral-200 flex items-center justify-center text-neutral-500 hover:text-black hover:border-black transition-colors shadow-sm"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Drawer Content */}
+            <div className="flex-1 overflow-y-auto p-8 flex flex-col gap-4">
+              {isLoadingPreviousOrders ? (
+                <div className="flex items-center justify-center p-8">
+                  <Loader2 className="animate-spin w-8 h-8 text-black" />
+                </div>
+              ) : previousOrders.length === 0 ? (
+                <div className="flex flex-col items-center justify-center p-8 text-center text-neutral-500">
+                  <RotateCcw size={32} className="mb-4 text-neutral-300 animate-pulse" />
+                  <p className="font-bold text-neutral-800">No previous orders found</p>
+                  <p className="text-xs mt-1 text-neutral-500">Place your first order to enable repeating.</p>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-4">
+                  {previousOrders.map((prevOrder) => {
+                    const totalQty = prevOrder.items?.reduce((sum: number, i: any) => sum + (i.qty || 0), 0) || 0;
+                    return (
+                      <div 
+                        key={prevOrder.id} 
+                        className="group flex flex-col bg-white border border-neutral-200 hover:border-black transition-all rounded-2xl p-5 cursor-pointer shadow-[0_2px_10px_rgb(0,0,0,0.02)] hover:shadow-md gap-3"
+                        onClick={() => handleRepeatOrder(prevOrder)}
+                      >
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <h4 className="font-serif text-lg text-neutral-900 leading-tight group-hover:text-black transition-colors">{prevOrder.title}</h4>
+                            <p className="text-xs font-bold text-neutral-500 mt-1 uppercase tracking-wider">{prevOrder.portalId || 'Portal Order'}</p>
+                          </div>
+                          <span className="text-sm font-black text-black shrink-0">
+                            ${(prevOrder.totalAmount || 0).toFixed(2)}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-4 text-xs font-medium text-neutral-500 border-t border-neutral-100 pt-3">
+                          <span className="flex items-center gap-1">
+                            <Calendar size={12} />
+                            {prevOrder.date}
+                          </span>
+                          <span>•</span>
+                          <span>{prevOrder.items?.length || 0} styles</span>
+                          <span>•</span>
+                          <span>{totalQty} total units</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
