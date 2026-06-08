@@ -12,7 +12,6 @@ import {
   Settings, 
   FileBox,
   X,
-  Rocket,
   ExternalLink,
   Link2,
   Calendar,
@@ -165,7 +164,6 @@ export function Sidebar({ onClose }: SidebarProps) {
     { label: 'Customers', icon: Users, path: '/customers' },
     { label: 'Inventory', icon: Package, path: '/inventory' },
     { label: 'Team', icon: UsersRound, path: '/team' },
-    { label: 'Public Quote', icon: Rocket, path: '/start' },
   ];
 
   return (

@@ -1,4 +1,4 @@
-import { Search, Bell, Plus, LogOut, Menu, Check } from 'lucide-react';
+import { Search, Bell, Plus, LogOut, Menu, Check, Rocket } from 'lucide-react';
 import { PillButton } from '../ui/PillButton';
 import { useAuth } from '../../contexts/AuthContext';
 import { useOrders } from '../../hooks/useOrders';
@@ -48,6 +48,14 @@ export function TopBar({ onOpenSidebar }: TopBarProps) {
       </div>
 
       <div className="flex items-center gap-2 md:gap-4 shrink-0 relative">
+        <button 
+          onClick={() => navigate('/start')}
+          className="relative p-2 text-brand-secondary hover:text-brand-primary transition-colors"
+          title="Public Quote"
+        >
+          <Rocket size={20} strokeWidth={1.5} />
+        </button>
+
         <button 
           onClick={() => setShowNotifications(!showNotifications)}
           className="relative p-2 text-brand-secondary hover:text-brand-primary transition-colors"
