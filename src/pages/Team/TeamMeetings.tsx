@@ -1155,7 +1155,7 @@ export function TeamMeetings() {
 
             {/* Capacity Score Circle (Integrated Call Score) */}
             {selectedMeeting.capacityScores && selectedMeeting.capacityScores.length > 0 ? (
-              <div className="bg-brand-bg/25 border border-brand-border rounded-2xl p-6 flex flex-col md:flex-row gap-6 items-center">
+              <div className="bg-white border border-brand-border rounded-xl p-5 shadow-sm flex flex-col md:flex-row gap-6 items-center">
                 {/* Visual Score Badge */}
                 {(() => {
                   const scores = selectedMeeting.capacityScores;
@@ -1270,7 +1270,7 @@ export function TeamMeetings() {
               {/* Action Items List */}
               <div className="flex flex-col gap-3">
                 <h3 className="text-xs font-bold uppercase tracking-widest text-brand-secondary">Meeting Action Items</h3>
-                <div className="border border-brand-border rounded-xl p-4 flex flex-col gap-2 bg-brand-bg/10">
+                <div className="bg-white border border-brand-border rounded-xl p-5 shadow-sm flex flex-col gap-3">
                   {(!selectedMeeting.actionItems || selectedMeeting.actionItems.length === 0) ? (
                     <div className="text-xs text-brand-secondary italic p-2">No action items recorded for this meeting.</div>
                   ) : (
@@ -1308,7 +1308,7 @@ export function TeamMeetings() {
                     </button>
                   )}
                 </div>
-                <div className="border border-brand-border rounded-xl p-4 bg-brand-bg/5 max-h-[350px] overflow-y-auto custom-scrollbar flex flex-col gap-4">
+                <div className="bg-white border border-brand-border rounded-xl p-5 shadow-sm max-h-[350px] overflow-y-auto custom-scrollbar flex flex-col gap-4">
                   {isEditingAllNotes ? (
                     <div className="space-y-4">
                       {selectedMeeting.sections && selectedMeeting.sections.length > 0 ? (
@@ -1586,7 +1586,7 @@ export function TeamMeetings() {
                 </div>
 
                 {/* Gemini AI Integrator Section */}
-                <div className="border border-indigo-100 bg-indigo-50/30 rounded-xl p-5 flex flex-col gap-4">
+                <div className="bg-white border border-brand-border rounded-xl p-5 shadow-sm flex flex-col gap-4">
                   <div className="flex justify-between items-center">
                     <span className="text-sm font-black text-indigo-900 flex items-center gap-1.5">
                       <Sparkles size={16} className="text-indigo-600 animate-pulse" />
@@ -1655,7 +1655,7 @@ export function TeamMeetings() {
                       </div>
 
                       {meetingSections.map((sec, idx) => (
-                        <div key={idx} className="border border-[#ded8ce] rounded-xl p-5 bg-[#f7f4ef]/30 flex flex-col gap-3 relative shadow-sm animate-in fade-in duration-150">
+                        <div key={idx} className="bg-white border border-[#ded8ce] rounded-xl p-5 flex flex-col gap-3 relative shadow-sm animate-in fade-in duration-150">
                           <div className="flex justify-between items-center gap-2">
                             <input
                               type="text"
@@ -1947,7 +1947,7 @@ export function TeamMeetings() {
                     <span className="text-xs font-black uppercase tracking-widest text-brand-secondary border-b border-brand-border pb-1">Checked-in Members</span>
                     <div className="flex flex-col gap-2.5 max-h-[250px] overflow-y-auto custom-scrollbar">
                       {capacityCheckins.map(c => (
-                        <div key={c.memberId} className="flex justify-between items-center bg-brand-bg p-3.5 rounded-xl border border-brand-border/40 shadow-sm">
+                        <div key={c.memberId} className="bg-white flex justify-between items-center p-3.5 rounded-xl border border-brand-border shadow-sm">
                           <div>
                             <div className="font-bold text-sm text-brand-primary">{c.memberName}</div>
                             <div className="text-xs text-brand-secondary font-medium mt-0.5">{c.status} ({c.score.toFixed(1)}/10)</div>
@@ -2049,7 +2049,7 @@ export function TeamMeetings() {
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {templates.map(t => (
-                      <div key={t.id} className={`border rounded-xl p-3.5 flex justify-between items-start gap-4 shadow-sm transition-all ${editingTemplateId === t.id ? 'border-brand-primary bg-brand-bg/20 ring-1 ring-brand-primary' : 'border-brand-border bg-brand-bg/10'}`}>
+                      <div key={t.id} className={`border rounded-xl p-3.5 flex justify-between items-start gap-4 shadow-sm transition-all ${editingTemplateId === t.id ? 'border-brand-primary bg-brand-bg/10 ring-1 ring-brand-primary' : 'border-brand-border bg-white'}`}>
                         <div className="space-y-1.5">
                           <h5 className="font-serif font-bold text-xs text-brand-primary flex items-center gap-1.5">
                             {editingTemplateId === t.id && <Pencil size={10} className="text-brand-primary shrink-0" />}
@@ -2083,7 +2083,7 @@ export function TeamMeetings() {
               </div>
 
               {/* Create/Edit Template Section */}
-              <div className="border border-[#ded8ce] rounded-2xl p-5 bg-[#f7f4ef]/50 space-y-5">
+              <div className="bg-white border border-[#ded8ce] rounded-2xl p-5 shadow-sm space-y-5">
                 <div className="flex justify-between items-center border-b border-[#ded8ce] pb-2">
                   <h4 className="text-xs font-bold uppercase tracking-widest text-brand-primary">
                     {editingTemplateId ? `Edit Template: ${templates.find(t => t.id === editingTemplateId)?.name}` : 'Create New Template'}
