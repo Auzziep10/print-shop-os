@@ -1694,9 +1694,12 @@ export function TeamMeetings() {
                         className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3.5 py-2.5 text-sm focus:border-brand-primary outline-none cursor-pointer font-bold text-brand-primary"
                       >
                         <option value="">-- Choose Member --</option>
-                        {teamMembers.map(m => (
-                          <option key={m.id} value={m.id}>{m.name}</option>
-                        ))}
+                        {teamMembers
+                          .filter(m => newAttendees.includes(m.name))
+                          .map(m => (
+                            <option key={m.id} value={m.id}>{m.name}</option>
+                          ))
+                        }
                       </select>
                     </div>
 
