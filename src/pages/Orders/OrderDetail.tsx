@@ -992,7 +992,7 @@ export function OrderDetail() {
           </PillButton>
           <PillButton variant="filled" className="gap-2" onClick={() => setIsEditDialogOpen(true)}>
             <Edit3 size={16} />
-            Edit Profile
+            Edit Order
           </PillButton>
         </div>
       </div>
