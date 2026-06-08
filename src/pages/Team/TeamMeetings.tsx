@@ -1068,7 +1068,7 @@ export function TeamMeetings() {
       {/* Right Column: Detailed Meeting View */}
       <div className={`lg:col-span-2 ${mobileActiveTab === 'detail' ? 'block' : 'hidden lg:block'}`}>
         {selectedMeeting ? (
-          <div className="bg-white p-6 md:p-8 rounded-card border border-brand-border shadow-sm flex flex-col gap-6 animate-in fade-in duration-300">
+          <div className="bg-[#f7f4ef] p-6 md:p-8 rounded-[18px] border border-[#ded8ce] shadow-sm flex flex-col gap-6 animate-in fade-in duration-300">
             
             {/* Mobile Back Button */}
             <div className="lg:hidden flex items-center mb-1">
@@ -1155,7 +1155,7 @@ export function TeamMeetings() {
 
             {/* Capacity Score Card (Redesigned to match the capacity score card style) */}
             {selectedMeeting.capacityScores && selectedMeeting.capacityScores.length > 0 ? (
-              <div className="border border-brand-border p-4 rounded-xl bg-white flex flex-col gap-3 shadow-sm">
+              <div className="bg-white border border-[#ded8ce] rounded-[18px] p-5 shadow-sm flex flex-col gap-4">
                 {(() => {
                   const scores = selectedMeeting.capacityScores;
                   const total = scores.reduce((sum: number, c: any) => sum + (c.score || 0), 0);
@@ -1195,47 +1195,78 @@ export function TeamMeetings() {
 
                   return (
                     <>
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <span className="font-bold text-xs text-brand-primary">Team Capacity Status</span>
-                          <div className="text-[9px] uppercase font-semibold text-brand-secondary">{details.status}</div>
+                      {/* Top section: Circle & Details */}
+                      <div className="flex flex-col md:flex-row gap-6 items-center">
+                        {/* Rating Circle */}
+                        <div className="w-[110px] h-[110px] rounded-full bg-[#f0ebe3] border border-[#ded8ce] flex flex-col items-center justify-center shrink-0">
+                          <span className="text-3xl font-black text-[#171717] leading-none tracking-tight">{avg.toFixed(1)}</span>
+                          <span className="text-[9px] text-[#666] font-bold uppercase tracking-[0.12em] mt-1">Capacity</span>
                         </div>
-                        <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${getConfidenceBadge(details.confidence)}`}>
-                          {avg.toFixed(1)} • {details.confidence}
-                        </span>
+                        
+                        {/* Details & Confidence Row */}
+                        <div className="flex-1 space-y-2 text-center md:text-left">
+                          <div>
+                            <span className="text-[9px] uppercase font-bold text-[#666] tracking-[0.12em]">Team Capacity Status</span>
+                            <h4 className="text-base font-extrabold text-[#171717]">{details.status}</h4>
+                          </div>
+                          <p className="text-[11px] text-[#666] leading-relaxed">
+                            "{details.desc}"
+                          </p>
+                          
+                          {/* Confidence Buttons */}
+                          <div className="flex flex-wrap justify-center md:justify-start gap-1.5 pt-1">
+                            <span className={`text-[10px] font-bold px-3 py-1.5 border rounded-full transition-all select-none ${
+                              details.confidence === 'Green' 
+                                ? 'bg-[#111] text-white border-[#111]' 
+                                : 'bg-white text-[#111] border-[#ded8ce]'
+                            }`}>
+                              Green: I can deliver
+                            </span>
+                            <span className={`text-[10px] font-bold px-3 py-1.5 border rounded-full transition-all select-none ${
+                              details.confidence === 'Yellow' 
+                                ? 'bg-[#111] text-white border-[#111]' 
+                                : 'bg-white text-[#111] border-[#ded8ce]'
+                            }`}>
+                              Yellow: tradeoffs needed
+                            </span>
+                            <span className={`text-[10px] font-bold px-3 py-1.5 border rounded-full transition-all select-none ${
+                              details.confidence === 'Red' 
+                                ? 'bg-[#111] text-white border-[#111]' 
+                                : 'bg-white text-[#111] border-[#ded8ce]'
+                            }`}>
+                              Red: intervention needed
+                            </span>
+                          </div>
+                        </div>
                       </div>
-                      
-                      <p className="text-[10px] text-brand-secondary bg-brand-bg p-2 rounded-lg italic">
-                        "{details.desc}"
-                      </p>
 
-                      {/* Categories details */}
+                      {/* Bottom Section: Category Averages Grid */}
                       {count > 0 && (
-                        <div className="grid grid-cols-5 gap-1 text-center border-t border-brand-border/50 pt-2 text-[8px] font-bold text-brand-secondary">
+                        <div className="grid grid-cols-5 gap-1 text-center border-t border-[#ded8ce] pt-3 text-[9px] font-bold text-brand-secondary">
                           <div>
                             <div>WKL</div>
-                            <div className="text-brand-primary">{avgWkl.toFixed(1)}</div>
+                            <div className="text-brand-primary text-xs mt-0.5">{avgWkl.toFixed(1)}</div>
                           </div>
                           <div>
                             <div>DLN</div>
-                            <div className="text-brand-primary">{avgDln.toFixed(1)}</div>
+                            <div className="text-brand-primary text-xs mt-0.5">{avgDln.toFixed(1)}</div>
                           </div>
                           <div>
                             <div>STR</div>
-                            <div className="text-brand-primary">{avgStr.toFixed(1)}</div>
+                            <div className="text-brand-primary text-xs mt-0.5">{avgStr.toFixed(1)}</div>
                           </div>
                           <div>
                             <div>BND</div>
-                            <div className="text-brand-primary">{avgBnd.toFixed(1)}</div>
+                            <div className="text-brand-primary text-xs mt-0.5">{avgBnd.toFixed(1)}</div>
                           </div>
                           <div>
                             <div>PRC</div>
-                            <div className="text-brand-primary">{avgFrc.toFixed(1)}</div>
+                            <div className="text-brand-primary text-xs mt-0.5">{avgFrc.toFixed(1)}</div>
                           </div>
                         </div>
                       )}
                       
-                      <div className="text-[8px] text-brand-secondary font-medium border-t border-brand-border/30 pt-1 text-center">
+                      <div className="text-[8px] text-[#666] font-medium border-t border-[#ded8ce]/40 pt-2 text-center">
                         Aggregated across {scores.length} members checked in prior to this call.
                       </div>
                     </>
@@ -1266,7 +1297,7 @@ export function TeamMeetings() {
                           <div 
                             key={c.memberId} 
                             onClick={() => setViewingCheckin(c)}
-                            className="border border-brand-border p-4 rounded-xl bg-white flex flex-col gap-3 shadow-sm cursor-pointer hover:border-black hover:shadow-md transition-all"
+                            className="border border-[#ded8ce] p-4 rounded-[18px] bg-white flex flex-col gap-3 shadow-sm cursor-pointer hover:border-black hover:shadow-md transition-all"
                           >
                             <div className="flex justify-between items-start">
                               <div>
@@ -1278,13 +1309,13 @@ export function TeamMeetings() {
                               </span>
                             </div>
                             {c.notes && (
-                              <p className="text-[10px] text-brand-secondary bg-brand-bg p-2 rounded-lg italic line-clamp-2">
+                              <p className="text-[10px] text-[#555] bg-[#f7f4ef]/40 border border-[#ded8ce]/40 p-2.5 rounded-[12px] italic line-clamp-2">
                                 "{c.notes}"
                               </p>
                             )}
                             {/* Categories details */}
                             {c.categories && (
-                              <div className="grid grid-cols-5 gap-1 text-center border-t border-brand-border/50 pt-2 text-[8px] font-bold text-brand-secondary">
+                              <div className="grid grid-cols-5 gap-1 text-center border-t border-[#ded8ce]/50 pt-2 text-[8px] font-bold text-brand-secondary">
                                 <div>
                                   <div>WKL</div>
                                   <div className="text-brand-primary">{c.categories.workload}</div>
@@ -1321,7 +1352,7 @@ export function TeamMeetings() {
               {/* Action Items List */}
               <div className="flex flex-col gap-3">
                 <h3 className="text-xs font-bold uppercase tracking-widest text-brand-secondary">Meeting Action Items</h3>
-                <div className="bg-white border border-brand-border rounded-xl p-4 shadow-sm flex flex-col gap-3">
+                <div className="bg-white border border-[#ded8ce] rounded-[18px] p-4 shadow-sm flex flex-col gap-3">
                   {(() => {
                     const items = selectedMeeting.actionItems || [];
                     const completedCount = items.filter((i: any) => i.completed).length;
@@ -1329,7 +1360,7 @@ export function TeamMeetings() {
                     
                     return (
                       <>
-                        <div className="flex justify-between items-start border-b border-brand-border/30 pb-2">
+                        <div className="flex justify-between items-start border-b border-[#ded8ce]/30 pb-2">
                           <div>
                             <span className="font-bold text-xs text-brand-primary">Action Items List</span>
                             <div className="text-[9px] uppercase font-semibold text-brand-secondary">Tasks & Follow-ups</div>
@@ -1374,9 +1405,9 @@ export function TeamMeetings() {
                 <h3 className="text-xs font-bold uppercase tracking-widest text-brand-secondary">
                   {selectedMeeting.sections && selectedMeeting.sections.length > 0 ? 'Meeting Sections & Notes' : 'Discussion Notes'}
                 </h3>
-                <div className="bg-white border border-brand-border rounded-xl p-4 shadow-sm flex flex-col gap-3">
+                <div className="bg-white border border-[#ded8ce] rounded-[18px] p-4 shadow-sm flex flex-col gap-3">
                   {/* Card Header inside Notes Card */}
-                  <div className="flex justify-between items-start border-b border-brand-border/30 pb-2">
+                  <div className="flex justify-between items-start border-b border-[#ded8ce]/30 pb-2">
                     <div>
                       <span className="font-bold text-xs text-brand-primary">
                         {selectedMeeting.sections && selectedMeeting.sections.length > 0 ? 'Notes & Discussions' : 'Discussion Notes'}
@@ -1386,7 +1417,7 @@ export function TeamMeetings() {
                     {!isEditingAllNotes ? (
                       <button
                         onClick={handleStartInlineNotesEditing}
-                        className="text-[9px] font-bold text-neutral-500 hover:text-black hover:border-black flex items-center gap-1 transition-colors border border-brand-border rounded-full px-2.5 py-0.5 bg-white shadow-sm"
+                        className="text-[9px] font-bold text-neutral-500 hover:text-black hover:border-black flex items-center gap-1 transition-colors border border-[#ded8ce] rounded-full px-2.5 py-0.5 bg-white shadow-sm"
                         title="Edit all notes at once"
                       >
                         <Pencil size={9} className="text-neutral-400" /> Edit All Notes
