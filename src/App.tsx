@@ -2,6 +2,7 @@ import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AppLayout } from './components/layout/AppLayout';
 import { Dashboard } from './pages/Dashboard/Dashboard';
 import { Team } from './pages/Team/Team';
+import { TeamMeetingsPage } from './pages/Team/TeamMeetingsPage';
 import { OrdersList } from './pages/Orders/OrdersList';
 import { OrderDetail } from './pages/Orders/OrderDetail';
 import { CustomersList } from './pages/Customers/CustomersList';
@@ -138,6 +139,7 @@ function App() {
         <Route path="artwork" element={<Navigate to="/orders?tab=production&sub=artwork" replace />} />
         <Route path="inventory" element={<Inventory />} />
         <Route path="team" element={<Team />} />
+        <Route path="team/meetings" element={<TeamMeetingsPage />} />
         <Route path="signatures" element={<Navigate to="/settings?tab=signatures" replace />} />
           <Route path="reports" element={<Navigate to="/orders?tab=reports" replace />} />
           <Route path="settings" element={<Settings />} />

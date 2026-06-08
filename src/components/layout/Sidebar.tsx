@@ -100,6 +100,7 @@ export function Sidebar({ onClose }: SidebarProps) {
 
   const [isInventoryExpanded, setIsInventoryExpanded] = useState<boolean>(false);
   const [isOrdersExpanded, setIsOrdersExpanded] = useState<boolean>(false);
+  const [isTeamExpanded, setIsTeamExpanded] = useState<boolean>(false);
 
   const inventorySubItems = [
     { label: 'Products', path: '/inventory?tab=Products', icon: ShoppingBag },
@@ -115,6 +116,11 @@ export function Sidebar({ onClose }: SidebarProps) {
     { label: 'Quotes', path: '/orders?tab=quotes', icon: MailIcon },
     { label: 'Production', path: '/orders?tab=production', icon: Scissors },
     { label: 'Reports', path: '/orders?tab=reports', icon: FileBox },
+  ];
+
+  const teamSubItems = [
+    { label: 'Daily Planner', path: '/team', icon: Calendar },
+    { label: 'Meetings', path: '/team/meetings', icon: MessageSquare },
   ];
 
   const isSubItemActive = (subPath: string) => {
@@ -269,6 +275,71 @@ export function Sidebar({ onClose }: SidebarProps) {
                 {isInventoryExpanded && (
                   <div className="space-y-1 pl-4 border-l border-brand-border/60 ml-[22px] mt-1 animate-in fade-in slide-in-from-top-1 duration-200">
                     {inventorySubItems.map((subItem) => {
+                      const isSubActive = isSubItemActive(subItem.path);
+                      return (
+                        <Link
+                          key={subItem.label}
+                          to={subItem.path}
+                          onClick={() => onClose?.()}
+                          className={cn(
+                            "flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs transition-colors cursor-pointer group border border-transparent",
+                            isSubActive 
+                              ? "bg-white border border-brand-border text-brand-primary shadow-sm font-semibold" 
+                              : "text-brand-secondary hover:text-brand-primary hover:bg-brand-muted/40"
+                          )}
+                        >
+                          <subItem.icon 
+                            size={14} 
+                            strokeWidth={isSubActive ? 2 : 1.5}
+                            className={cn(
+                              isSubActive ? "text-brand-primary" : "text-brand-secondary group-hover:text-brand-primary"
+                            )}
+                          />
+                          <span>{subItem.label}</span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          }
+
+          if (item.label === 'Team') {
+            return (
+              <div key={item.label} className="space-y-1">
+                <Link
+                  to="/team"
+                  onClick={() => {
+                    setIsTeamExpanded(prev => !prev);
+                  }}
+                  className={cn(
+                    "w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-colors group border border-transparent",
+                    isActive 
+                      ? "bg-white border border-brand-border text-brand-primary shadow-sm font-medium" 
+                      : "text-brand-secondary hover:text-brand-primary hover:bg-brand-muted"
+                  )}
+                >
+                  <div className="flex items-center gap-3">
+                    <item.icon 
+                      size={18} 
+                      strokeWidth={isActive ? 2 : 1.5} 
+                      className={cn(isActive ? "text-brand-primary" : "text-brand-secondary group-hover:text-brand-primary")}
+                    />
+                    <span>{item.label}</span>
+                  </div>
+                  <ChevronDown 
+                    size={14} 
+                    className={cn(
+                      "transition-transform duration-200 text-brand-secondary group-hover:text-brand-primary",
+                      isTeamExpanded ? "rotate-180" : ""
+                    )}
+                  />
+                </Link>
+                
+                {isTeamExpanded && (
+                  <div className="space-y-1 pl-4 border-l border-brand-border/60 ml-[22px] mt-1 animate-in fade-in slide-in-from-top-1 duration-200">
+                    {teamSubItems.map((subItem) => {
                       const isSubActive = isSubItemActive(subItem.path);
                       return (
                         <Link
