@@ -276,6 +276,16 @@ export function TeamMeetings() {
     setIsEditingAllNotes(false);
   }, [selectedMeeting?.id]);
 
+  // Mobile active tab ('list' | 'detail')
+  const [mobileActiveTab, setMobileActiveTab] = useState<'list' | 'detail'>('list');
+
+  // Auto-switch to detail tab on mobile when a meeting is selected
+  useEffect(() => {
+    if (selectedMeeting) {
+      setMobileActiveTab('detail');
+    }
+  }, [selectedMeeting?.id]);
+
   // Auto-open capacity check-in modal for tagged attendees who haven't checked in yet
   useEffect(() => {
     if (selectedMeeting && selectedMeeting.status === 'live' && selectedMeeting.enableCapacityCheckin !== false && userData) {
@@ -917,7 +927,7 @@ export function TeamMeetings() {
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start animate-in fade-in zoom-in-95 duration-300">
       
       {/* Left Column: Meetings Sidebar List */}
-      <div className="lg:col-span-1 flex flex-col gap-4">
+      <div className={`lg:col-span-1 flex flex-col gap-4 ${mobileActiveTab === 'list' ? 'flex' : 'hidden lg:flex'}`}>
         <div className="bg-white p-4 rounded-card border border-brand-border shadow-sm flex flex-col gap-3">
           <div className="flex justify-between items-center gap-2">
             <h2 className="font-serif text-base font-bold text-brand-primary">Meetings Log</h2>
@@ -1056,9 +1066,20 @@ export function TeamMeetings() {
       </div>
 
       {/* Right Column: Detailed Meeting View */}
-      <div className="lg:col-span-2">
+      <div className={`lg:col-span-2 ${mobileActiveTab === 'detail' ? 'block' : 'hidden lg:block'}`}>
         {selectedMeeting ? (
           <div className="bg-white p-6 md:p-8 rounded-card border border-brand-border shadow-sm flex flex-col gap-6 animate-in fade-in duration-300">
+            
+            {/* Mobile Back Button */}
+            <div className="lg:hidden flex items-center mb-1">
+              <button
+                type="button"
+                onClick={() => setMobileActiveTab('list')}
+                className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-extrabold text-neutral-500 hover:text-black transition-colors py-1.5 px-3 rounded-full bg-brand-bg border border-[#ded8ce] shadow-sm cursor-pointer"
+              >
+                ← Back to Meetings List
+              </button>
+            </div>
             
             {/* Detail Header */}
             <div className="flex justify-between items-start border-b border-brand-border pb-6 gap-4">
