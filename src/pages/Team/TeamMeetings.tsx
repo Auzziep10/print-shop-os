@@ -1616,100 +1616,102 @@ export function TeamMeetings() {
 
       {/* Record New Meeting Modal */}
       {isNewModalOpen && (
-        <div className="fixed inset-0 z-[100] flex flex-col bg-brand-bg w-screen h-screen overflow-hidden animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[100] flex flex-col bg-[#f7f4ef] w-screen h-screen overflow-hidden animate-in fade-in duration-200">
             
             {/* Modal Header */}
-            <div className="p-6 border-b border-brand-border flex justify-between items-center bg-white shrink-0">
+            <div className="p-6 border-b border-[#ded8ce] flex justify-between items-center bg-white shrink-0">
               <div>
                 <h3 className="font-serif text-2xl text-brand-primary font-bold">Record Meeting Minutes</h3>
                 <p className="text-sm font-medium text-brand-secondary mt-1">Date, record capacity check-in scores, and write or import your discussions.</p>
               </div>
               <button 
                 onClick={() => setIsNewModalOpen(false)} 
-                className="text-brand-secondary hover:text-brand-primary transition-colors bg-brand-bg border border-brand-border rounded-md p-2 hover:bg-neutral-100"
+                className="text-brand-secondary hover:text-brand-primary transition-colors bg-white border border-[#ded8ce] rounded-full p-2.5 hover:bg-neutral-50 shadow-sm cursor-pointer"
               >
                 <X size={20} />
               </button>
             </div>
             
             {/* Modal Content */}
-            <div className="p-6 md:p-8 grid grid-cols-1 lg:grid-cols-3 gap-8 overflow-y-auto custom-scrollbar flex-1 bg-white">
+            <div className="p-6 md:p-8 grid grid-cols-1 lg:grid-cols-3 gap-8 overflow-y-auto custom-scrollbar flex-1 bg-[#f7f4ef]">
               
               {/* Left Column: Basic Details & Action Items */}
               <div className="lg:col-span-2 flex flex-col gap-6">
                 
                 {/* Form Inputs */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-                  <div className="sm:col-span-3">
-                    <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-1.5">Meeting Template Selection</label>
-                    <select
-                      value={selectedTemplateId}
-                      onChange={e => {
-                        const val = e.target.value;
-                        setSelectedTemplateId(val);
-                        if (val) {
-                          const t = templates.find(temp => temp.id === val);
-                          if (t) {
-                            // Preselect attendees
-                            setNewAttendees(t.attendees || []);
-                            // Set dynamic sections
-                            setMeetingSections((t.sections || []).map((sec: string) => ({ name: sec, notes: '' })));
-                            // Prepopulate the capacity check-in setting from template
-                            setNewEnableCapacityCheckin(t.enableCapacityCheckin !== false);
+                <div className="bg-white p-6 border border-[#ded8ce] rounded-[18px] shadow-sm flex flex-col gap-5">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                    <div className="sm:col-span-3">
+                      <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-1.5">Meeting Template Selection</label>
+                      <select
+                        value={selectedTemplateId}
+                        onChange={e => {
+                          const val = e.target.value;
+                          setSelectedTemplateId(val);
+                          if (val) {
+                            const t = templates.find(temp => temp.id === val);
+                            if (t) {
+                              // Preselect attendees
+                              setNewAttendees(t.attendees || []);
+                              // Set dynamic sections
+                              setMeetingSections((t.sections || []).map((sec: string) => ({ name: sec, notes: '' })));
+                              // Prepopulate the capacity check-in setting from template
+                              setNewEnableCapacityCheckin(t.enableCapacityCheckin !== false);
+                            }
+                          } else {
+                            // Reset to custom
+                            setMeetingSections([]);
                           }
-                        } else {
-                          // Reset to custom
-                          setMeetingSections([]);
-                        }
-                      }}
-                      className="w-full bg-brand-bg border border-brand-border rounded-lg px-4 py-2.5 text-sm focus:border-brand-primary outline-none cursor-pointer font-bold text-brand-primary"
-                    >
-                      <option value="">-- Custom / Ad-hoc Meeting --</option>
-                      {templates.map(t => (
-                        <option key={t.id} value={t.id}>{t.name}</option>
-                      ))}
-                    </select>
-                  </div>
+                        }}
+                        className="w-full bg-[#fcfbf9] border border-[#ded8ce] rounded-lg px-4 py-2.5 text-sm focus:border-brand-primary outline-none cursor-pointer font-bold text-brand-primary"
+                      >
+                        <option value="">-- Custom / Ad-hoc Meeting --</option>
+                        {templates.map(t => (
+                          <option key={t.id} value={t.id}>{t.name}</option>
+                        ))}
+                      </select>
+                    </div>
 
-                  <div className="sm:col-span-3 flex items-center gap-2.5">
-                    <input
-                      type="checkbox"
-                      id="newEnableCapacityCheckin"
-                      checked={newEnableCapacityCheckin}
-                      onChange={e => setNewEnableCapacityCheckin(e.target.checked)}
-                      className="w-4 h-4 accent-black cursor-pointer rounded border-brand-border"
-                    />
-                    <label htmlFor="newEnableCapacityCheckin" className="text-xs font-bold uppercase tracking-widest text-brand-secondary cursor-pointer select-none">
-                      Enable Capacity Check-in (Call Score) for this meeting
-                    </label>
-                  </div>
-                  
-                  {!selectedTemplateId ? (
-                    <div className="sm:col-span-2 animate-in fade-in duration-200">
-                      <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-1.5">Meeting Title</label>
+                    <div className="sm:col-span-3 flex items-center gap-2.5">
+                      <input
+                        type="checkbox"
+                        id="newEnableCapacityCheckin"
+                        checked={newEnableCapacityCheckin}
+                        onChange={e => setNewEnableCapacityCheckin(e.target.checked)}
+                        className="w-4 h-4 accent-black cursor-pointer rounded border-[#ded8ce]"
+                      />
+                      <label htmlFor="newEnableCapacityCheckin" className="text-xs font-bold uppercase tracking-widest text-brand-secondary cursor-pointer select-none">
+                        Enable Capacity Check-in (Call Score) for this meeting
+                      </label>
+                    </div>
+                    
+                    {!selectedTemplateId ? (
+                      <div className="sm:col-span-2 animate-in fade-in duration-200">
+                        <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-1.5">Meeting Title</label>
+                        <input 
+                          type="text" 
+                          placeholder="e.g. Weekly Sync"
+                          value={newTitle}
+                          onChange={e => setNewTitle(e.target.value)}
+                          className="w-full bg-neutral-50/50 border border-[#ded8ce] rounded-lg px-4 py-2.5 text-sm focus:border-brand-primary outline-none text-brand-primary font-medium"
+                        />
+                      </div>
+                    ) : null}
+                    
+                    <div className={selectedTemplateId ? "sm:col-span-3" : "sm:col-span-1"}>
+                      <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-1.5">Date</label>
                       <input 
-                        type="text" 
-                        placeholder="e.g. Weekly Sync"
-                        value={newTitle}
-                        onChange={e => setNewTitle(e.target.value)}
-                        className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-2.5 text-sm focus:border-brand-primary outline-none text-brand-primary font-medium"
+                        type="date" 
+                        value={newDate}
+                        onChange={e => setNewDate(e.target.value)}
+                        className="w-full bg-neutral-50/50 border border-[#ded8ce] rounded-lg px-4 py-2.5 text-sm focus:border-brand-primary outline-none text-brand-primary font-medium"
                       />
                     </div>
-                  ) : null}
-                  
-                  <div className={selectedTemplateId ? "sm:col-span-3" : "sm:col-span-1"}>
-                    <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-1.5">Date</label>
-                    <input 
-                      type="date" 
-                      value={newDate}
-                      onChange={e => setNewDate(e.target.value)}
-                      className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-2.5 text-sm focus:border-brand-primary outline-none text-brand-primary font-medium"
-                    />
                   </div>
                 </div>
 
                 {/* Gemini AI Integrator Section */}
-                <div className="bg-white border border-brand-border rounded-xl p-5 shadow-sm flex flex-col gap-4">
+                <div className="bg-white border border-[#ded8ce] rounded-[18px] p-6 shadow-sm flex flex-col gap-4">
                   <div className="flex justify-between items-center">
                     <span className="text-sm font-black text-indigo-900 flex items-center gap-1.5">
                       <Sparkles size={16} className="text-indigo-600 animate-pulse" />
@@ -1717,7 +1719,7 @@ export function TeamMeetings() {
                     </span>
                     <button 
                       onClick={() => setIsSyncModalOpen(true)}
-                      className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold uppercase tracking-wider px-3.5 py-2 rounded-lg transition-colors shadow-sm flex items-center gap-1"
+                      className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold uppercase tracking-wider px-3.5 py-2 rounded-lg transition-colors shadow-sm flex items-center gap-1 cursor-pointer"
                     >
                       <Plus size={12} /> Sync Google Meet
                     </button>
@@ -1732,17 +1734,17 @@ export function TeamMeetings() {
                         placeholder="Paste your Gemini meeting notes summary here... (bullet points will be extracted as action items)"
                         value={rawPasteText}
                         onChange={e => setRawPasteText(e.target.value)}
-                        className="w-full bg-white border border-brand-border rounded-lg p-3 text-sm focus:border-brand-primary outline-none min-h-[120px]"
+                        className="w-full bg-white border border-[#ded8ce] rounded-lg p-3 text-sm focus:border-brand-primary outline-none min-h-[120px]"
                       />
                       <div className="flex gap-2 justify-end">
-                        <PillButton variant="outline" className="py-1.5 px-4 text-xs" onClick={() => setIsParsingText(false)}>Cancel</PillButton>
+                        <PillButton variant="outline" className="py-1.5 px-4 text-xs border-[#ded8ce] hover:bg-neutral-50" onClick={() => setIsParsingText(false)}>Cancel</PillButton>
                         <PillButton variant="filled" className="py-1.5 px-4 text-xs bg-indigo-600 hover:bg-indigo-700 text-white border-transparent" onClick={handlePerformManualParse}>Parse Notes</PillButton>
                       </div>
                     </div>
                   ) : (
                     <button 
                       onClick={() => setIsParsingText(true)}
-                      className="border border-dashed border-indigo-200 bg-white hover:bg-indigo-50/50 rounded-lg py-3 text-center text-xs font-bold text-indigo-600 transition-colors"
+                      className="border border-dashed border-indigo-200/80 bg-[#fcfbf9] hover:bg-indigo-50/50 rounded-lg py-3 text-center text-xs font-bold text-indigo-600 transition-colors cursor-pointer"
                     >
                       + Paste & Parse Gemini Notes Text
                     </button>
@@ -1750,7 +1752,7 @@ export function TeamMeetings() {
                 </div>
 
                 {/* Summary & Discussion notes */}
-                <div className="space-y-5">
+                <div className="bg-white p-6 border border-[#ded8ce] rounded-[18px] shadow-sm flex flex-col gap-5">
                   <div>
                     <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-1.5">Brief Summary</label>
                     <input 
@@ -1758,7 +1760,7 @@ export function TeamMeetings() {
                       placeholder="Enter a brief high-level sentence summarizing outcomes"
                       value={newSummary}
                       onChange={e => setNewSummary(e.target.value)}
-                      className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-2.5 text-sm focus:border-brand-primary outline-none text-brand-primary font-medium"
+                      className="w-full bg-neutral-50/50 border border-[#ded8ce] rounded-lg px-4 py-2.5 text-sm focus:border-brand-primary outline-none text-brand-primary font-medium"
                     />
                   </div>
 
@@ -1771,14 +1773,14 @@ export function TeamMeetings() {
                           onClick={() => {
                             setMeetingSections(prev => [...prev, { name: 'New Section', notes: '' }]);
                           }}
-                          className="text-xs font-bold text-black border border-[#ded8ce] rounded-full px-3.5 py-1 hover:bg-neutral-50 shadow-sm"
+                          className="text-xs font-bold text-black border border-[#ded8ce] rounded-full px-3.5 py-1 hover:bg-neutral-50 shadow-sm cursor-pointer"
                         >
                           + Add Section
                         </button>
                       </div>
 
                       {meetingSections.map((sec, idx) => (
-                        <div key={idx} className="bg-white border border-[#ded8ce] rounded-xl p-5 flex flex-col gap-3 relative shadow-sm animate-in fade-in duration-150">
+                        <div key={idx} className="bg-[#f7f4ef]/30 border border-[#ded8ce] rounded-xl p-5 flex flex-col gap-3 relative shadow-sm animate-in fade-in duration-150">
                           <div className="flex justify-between items-center gap-2">
                             <input
                               type="text"
@@ -1788,7 +1790,7 @@ export function TeamMeetings() {
                                 newSecs[idx].name = e.target.value;
                                 setMeetingSections(newSecs);
                               }}
-                              className="flex-1 bg-transparent border-b border-transparent hover:border-brand-border focus:border-brand-primary font-bold text-sm text-brand-primary outline-none py-0.5"
+                              className="flex-1 bg-transparent border-b border-transparent hover:border-[#ded8ce] focus:border-brand-primary font-bold text-sm text-brand-primary outline-none py-0.5"
                               placeholder="Section Name"
                             />
                             <button
@@ -1796,7 +1798,7 @@ export function TeamMeetings() {
                               onClick={() => {
                                 setMeetingSections(prev => prev.filter((_, i) => i !== idx));
                               }}
-                              className="text-brand-secondary hover:text-red-500 transition-colors p-1"
+                              className="text-brand-secondary hover:text-red-500 transition-colors p-1 cursor-pointer"
                               title="Remove Section"
                             >
                               <X size={14} />
@@ -1810,7 +1812,7 @@ export function TeamMeetings() {
                               setMeetingSections(newSecs);
                             }}
                             placeholder={`Enter notes for "${sec.name}"...`}
-                            className="w-full bg-white border border-brand-border rounded-lg px-3.5 py-2.5 text-sm focus:border-brand-primary outline-none min-h-[90px]"
+                            className="w-full bg-white border border-[#ded8ce] rounded-lg px-3.5 py-2.5 text-sm focus:border-brand-primary outline-none min-h-[90px]"
                           />
                         </div>
                       ))}
@@ -1822,21 +1824,21 @@ export function TeamMeetings() {
                         placeholder="Write comprehensive meeting notes, topics discussed, or copy-paste detailed logs here..."
                         value={newNotes}
                         onChange={e => setNewNotes(e.target.value)}
-                        className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-2.5 text-sm focus:border-brand-primary outline-none min-h-[140px]"
+                        className="w-full bg-neutral-50/50 border border-[#ded8ce] rounded-lg px-4 py-2.5 text-sm focus:border-brand-primary outline-none min-h-[140px]"
                       />
                     </div>
                   )}
                 </div>
 
                 {/* Attendees Comma Field / Select */}
-                <div>
+                <div className="bg-white p-6 border border-[#ded8ce] rounded-[18px] shadow-sm flex flex-col gap-4">
                   <div className="flex justify-between items-center mb-1.5">
                     <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary">Attendees Present</label>
                     <div className="flex gap-2">
                       <button
                         type="button"
                         onClick={() => setNewAttendees(teamMembers.map(m => m.name))}
-                        className="text-xs text-brand-primary hover:underline font-bold"
+                        className="text-xs text-brand-primary hover:underline font-bold cursor-pointer"
                       >
                         Select All
                       </button>
@@ -1844,13 +1846,13 @@ export function TeamMeetings() {
                       <button
                         type="button"
                         onClick={() => setNewAttendees([])}
-                        className="text-xs text-brand-secondary hover:text-brand-primary hover:underline font-bold"
+                        className="text-xs text-brand-secondary hover:text-brand-primary hover:underline font-bold cursor-pointer"
                       >
                         Clear All
                       </button>
                     </div>
                   </div>
-                  <div className="flex flex-wrap gap-2 p-3 bg-brand-bg/40 border border-brand-border rounded-lg min-h-[48px]">
+                  <div className="flex flex-wrap gap-2 p-3 bg-neutral-50/50 border border-[#ded8ce] rounded-lg min-h-[48px]">
                     {teamMembers.map(member => {
                       const isSelected = newAttendees.includes(member.name);
                       return (
@@ -1864,7 +1866,7 @@ export function TeamMeetings() {
                               setNewAttendees(prev => [...prev, member.name]);
                             }
                           }}
-                          className={`text-xs px-3.5 py-1.5 rounded-full font-bold border transition-colors ${isSelected ? 'bg-black text-white border-black' : 'bg-white text-brand-primary border-brand-border hover:border-neutral-400'}`}
+                          className={`text-xs px-3.5 py-1.5 rounded-full font-bold border transition-colors cursor-pointer ${isSelected ? 'bg-black text-white border-black' : 'bg-white text-brand-primary border-[#ded8ce] hover:border-neutral-400'}`}
                         >
                           {member.name}
                         </button>
@@ -1874,14 +1876,14 @@ export function TeamMeetings() {
                 </div>
 
                 {/* Action Items construction */}
-                <div className="space-y-3">
+                <div className="bg-white p-6 border border-[#ded8ce] rounded-[18px] shadow-sm flex flex-col gap-4">
                   <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary">Construct Action Items</label>
                   <div className="flex gap-2">
                     <input 
                       type="text" 
                       id="itemInput"
                       placeholder="e.g. Write platform unit tests (Bob)"
-                      className="flex-1 bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-2.5 text-sm focus:border-brand-primary outline-none text-brand-primary font-medium"
+                      className="flex-1 bg-neutral-50/50 border border-[#ded8ce] rounded-lg px-4 py-2.5 text-sm focus:border-brand-primary outline-none text-brand-primary font-medium"
                       onKeyDown={e => {
                         if (e.key === 'Enter') {
                           e.preventDefault();
@@ -1907,11 +1909,11 @@ export function TeamMeetings() {
                   </div>
 
                   {newActionItems.length > 0 && (
-                    <div className="border border-brand-border rounded-xl p-4 flex flex-col gap-2 max-h-[180px] overflow-y-auto custom-scrollbar">
+                    <div className="border border-[#ded8ce] rounded-[14px] p-4 flex flex-col gap-2 max-h-[180px] overflow-y-auto custom-scrollbar">
                       {newActionItems.map((item, idx) => (
-                        <div key={idx} className="flex justify-between items-center bg-brand-bg/50 p-2.5 rounded-lg border border-brand-border/30">
+                        <div key={idx} className="flex justify-between items-center bg-neutral-50/50 p-2.5 rounded-lg border border-[#ded8ce]/30">
                           <span className="text-xs text-brand-primary font-medium">{item.text}</span>
-                          <button onClick={() => handleRemoveActionItemInput(idx)} className="text-brand-secondary hover:text-red-500 transition-colors p-1">
+                          <button onClick={() => handleRemoveActionItemInput(idx)} className="text-brand-secondary hover:text-red-500 transition-colors p-1 cursor-pointer">
                             <X size={14} />
                           </button>
                         </div>
@@ -1923,9 +1925,9 @@ export function TeamMeetings() {
               </div>
 
               {/* Right Column: Pre-Meeting Capacity Check-in (Call Score Sliders) */}
-              <div className="lg:col-span-1 border-l lg:border-l border-brand-border pl-0 lg:pl-8 flex flex-col gap-6">
+              <div className="lg:col-span-1 bg-white p-6 border border-[#ded8ce] rounded-[18px] shadow-sm flex flex-col gap-6 self-start">
                 <div>
-                  <h4 className="text-sm font-bold text-brand-primary border-b border-brand-border pb-2.5 mb-4 flex items-center gap-1.5">
+                  <h4 className="text-sm font-bold text-brand-primary border-b border-[#ded8ce] pb-2.5 mb-4 flex items-center gap-1.5">
                     <UserPlus size={16} className="text-brand-secondary" />
                     Capacity Check-in (Call Score)
                   </h4>
@@ -1939,7 +1941,7 @@ export function TeamMeetings() {
                       <select 
                         value={checkinMemberId}
                         onChange={e => setCheckinMemberId(e.target.value)}
-                        className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3.5 py-2.5 text-sm focus:border-brand-primary outline-none cursor-pointer font-bold text-brand-primary"
+                        className="w-full bg-[#fcfbf9] border border-[#ded8ce] rounded-lg px-3.5 py-2.5 text-sm focus:border-brand-primary outline-none cursor-pointer font-bold text-brand-primary"
                       >
                         <option value="">-- Choose Member --</option>
                         {teamMembers
@@ -2033,7 +2035,7 @@ export function TeamMeetings() {
                                 key={c}
                                 type="button"
                                 onClick={() => setCheckinConfidence(c)}
-                                className={`flex-1 text-xs font-bold py-2 rounded-lg border transition-all ${checkinConfidence === c ? 'bg-black text-white border-black scale-[1.02]' : 'bg-white border-brand-border text-brand-secondary hover:border-neutral-400'}`}
+                                className={`flex-1 text-xs font-bold py-2 rounded-lg border transition-all cursor-pointer ${checkinConfidence === c ? 'bg-black text-white border-black scale-[1.02]' : 'bg-white border-[#ded8ce] text-brand-secondary hover:border-neutral-400'}`}
                               >
                                 {c}
                               </button>
@@ -2048,14 +2050,14 @@ export function TeamMeetings() {
                             placeholder="Add specific blocker notes..."
                             value={checkinNotes}
                             onChange={e => setCheckinNotes(e.target.value)}
-                            className="w-full bg-brand-bg/50 border border-brand-border rounded-lg p-3 text-sm focus:border-brand-primary outline-none min-h-[70px]"
+                            className="w-full bg-neutral-50/50 border border-[#ded8ce] rounded-lg p-3 text-sm focus:border-brand-primary outline-none min-h-[70px]"
                           />
                         </div>
 
                         <button
                           type="button"
                           onClick={handleAddCheckin}
-                          className="w-full bg-black text-white text-xs font-bold uppercase tracking-wider py-3 rounded-lg hover:bg-neutral-800 transition-all shadow-sm"
+                          className="w-full bg-black text-white text-xs font-bold uppercase tracking-wider py-3 rounded-lg hover:bg-neutral-800 transition-all shadow-sm cursor-pointer"
                         >
                           Submit Score check-in
                         </button>
@@ -2067,10 +2069,10 @@ export function TeamMeetings() {
                 {/* List of active checked-in members */}
                 {capacityCheckins.length > 0 && (
                   <div className="mt-6 flex flex-col gap-3">
-                    <span className="text-xs font-black uppercase tracking-widest text-brand-secondary border-b border-brand-border pb-1">Checked-in Members</span>
+                    <span className="text-xs font-black uppercase tracking-widest text-brand-secondary border-b border-[#ded8ce] pb-1">Checked-in Members</span>
                     <div className="flex flex-col gap-2.5 max-h-[250px] overflow-y-auto custom-scrollbar">
                       {capacityCheckins.map(c => (
-                        <div key={c.memberId} className="bg-white flex justify-between items-center p-3.5 rounded-xl border border-brand-border shadow-sm">
+                        <div key={c.memberId} className="bg-[#f7f4ef]/30 flex justify-between items-center p-3.5 rounded-xl border border-[#ded8ce]/70">
                           <div>
                             <div className="font-bold text-sm text-brand-primary">{c.memberName}</div>
                             <div className="text-xs text-brand-secondary font-medium mt-0.5">{c.status} ({c.score.toFixed(1)}/10)</div>
@@ -2079,7 +2081,7 @@ export function TeamMeetings() {
                             <span className={`text-[10px] font-black px-2 py-0.5 rounded border uppercase ${getConfidenceBadge(c.confidence)}`}>
                               {c.confidence}
                             </span>
-                            <button onClick={() => handleRemoveCheckin(c.memberId)} className="text-brand-secondary hover:text-red-500 transition-colors p-1">
+                            <button onClick={() => handleRemoveCheckin(c.memberId)} className="text-brand-secondary hover:text-red-500 transition-colors p-1 cursor-pointer">
                               <X size={14} />
                             </button>
                           </div>
@@ -2093,7 +2095,7 @@ export function TeamMeetings() {
             </div>
 
             {/* Modal Footer */}
-            <div className="p-6 bg-brand-bg flex gap-4 border-t border-brand-border sticky bottom-0 z-10 shrink-0">
+            <div className="p-6 bg-white flex gap-4 border-t border-[#ded8ce] sticky bottom-0 z-10 shrink-0">
               <PillButton 
                 variant="outline" 
                 onClick={() => {
@@ -2101,7 +2103,7 @@ export function TeamMeetings() {
                   setIsEditingMeeting(false);
                   setEditingMeetingId(null);
                 }} 
-                className="flex-1 justify-center py-3 text-sm"
+                className="flex-1 justify-center py-3 text-sm border-[#ded8ce] hover:bg-neutral-50"
               >
                 Cancel
               </PillButton>
@@ -2110,7 +2112,7 @@ export function TeamMeetings() {
                   <button
                     type="button"
                     onClick={() => handleSaveMeeting(true)}
-                    className="flex-1 justify-center py-3 text-sm font-bold text-black border border-brand-border rounded-full hover:bg-neutral-50 shadow-sm"
+                    className="flex-1 justify-center py-3 text-sm font-bold text-black border border-[#ded8ce] rounded-full hover:bg-neutral-50 shadow-sm cursor-pointer"
                   >
                     Keep as Live Meeting
                   </button>
@@ -2123,7 +2125,7 @@ export function TeamMeetings() {
                   <button
                     type="button"
                     onClick={() => handleSaveMeeting(true)}
-                    className="flex-1 justify-center py-3 text-sm font-bold text-black border border-brand-border rounded-full hover:bg-neutral-50 shadow-sm"
+                    className="flex-1 justify-center py-3 text-sm font-bold text-black border border-[#ded8ce] rounded-full hover:bg-neutral-50 shadow-sm cursor-pointer"
                   >
                     Start Live Meeting
                   </button>
