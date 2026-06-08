@@ -98,22 +98,8 @@ export function Sidebar({ onClose }: SidebarProps) {
   const { userData } = useAuth();
   const isAdmin = userData?.role === 'Admin';
 
-  const [isInventoryExpanded, setIsInventoryExpanded] = useState<boolean>(() => {
-    return location.pathname.startsWith('/inventory');
-  });
-
-  const [isOrdersExpanded, setIsOrdersExpanded] = useState<boolean>(() => {
-    return location.pathname.startsWith('/orders');
-  });
-
-  useEffect(() => {
-    if (location.pathname.startsWith('/inventory')) {
-      setIsInventoryExpanded(true);
-    }
-    if (location.pathname.startsWith('/orders')) {
-      setIsOrdersExpanded(true);
-    }
-  }, [location.pathname]);
+  const [isInventoryExpanded, setIsInventoryExpanded] = useState<boolean>(false);
+  const [isOrdersExpanded, setIsOrdersExpanded] = useState<boolean>(false);
 
   const inventorySubItems = [
     { label: 'Products', path: '/inventory?tab=Products', icon: ShoppingBag },
