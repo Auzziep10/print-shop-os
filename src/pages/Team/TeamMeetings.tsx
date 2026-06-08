@@ -126,6 +126,20 @@ const MOCK_MEETINGS_CATALOG = [
 ];
 
 
+const formatLocalDate = (dateStr: string, options?: Intl.DateTimeFormatOptions) => {
+  if (!dateStr) return '';
+  const parts = dateStr.split('-');
+  if (parts.length === 3) {
+    const [year, month, day] = parts.map(Number);
+    if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
+      const date = new Date(Date.UTC(year, month - 1, day));
+      return date.toLocaleDateString(undefined, { ...options, timeZone: 'UTC' });
+    }
+  }
+  const d = new Date(dateStr);
+  return isNaN(d.getTime()) ? dateStr : d.toLocaleDateString(undefined, options);
+};
+
 const parseGeminiNotes = (text: string) => {
   const lines = text.split('\n').map(l => l.trim());
   let parsedTitle = '';
@@ -163,7 +177,7 @@ const parseGeminiNotes = (text: string) => {
   });
 
   return {
-    title: parsedTitle || `Gemini Meeting Notes - ${new Date(parsedDate).toLocaleDateString()}`,
+    title: parsedTitle || `Gemini Meeting Notes - ${formatLocalDate(parsedDate)}`,
     date: parsedDate,
     notes: text,
     summary: lines.filter(l => l && !l.startsWith('#')).slice(0, 2).join(' ').substring(0, 120) + '...',
@@ -948,7 +962,7 @@ export function TeamMeetings() {
                               <p className="text-[10px] text-brand-secondary line-clamp-2 leading-relaxed">{meet.summary}</p>
                               
                               <div className="flex justify-between items-center text-[9px] text-brand-secondary border-t border-brand-border/50 pt-2 mt-1">
-                                <span className="flex items-center gap-1 font-medium"><Calendar size={9} /> {new Date(meet.date).toLocaleDateString(undefined, {month: 'short', day: 'numeric', year: 'numeric'})}</span>
+                                <span className="flex items-center gap-1 font-medium"><Calendar size={9} /> {formatLocalDate(meet.date, {month: 'short', day: 'numeric', year: 'numeric'})}</span>
                                 <span>{meet.actionItems?.length || 0} tasks</span>
                               </div>
                             </div>
@@ -974,7 +988,7 @@ export function TeamMeetings() {
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-xs font-bold text-brand-secondary uppercase tracking-widest">
                   <Calendar size={12} />
-                  <span>{new Date(selectedMeeting.date).toLocaleDateString(undefined, {weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'})}</span>
+                  <span>{formatLocalDate(selectedMeeting.date, {weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'})}</span>
                 </div>
                 <h1 className="font-serif text-2xl md:text-3xl text-brand-primary leading-tight">{selectedMeeting.title}</h1>
                 
