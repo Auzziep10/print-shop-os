@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
 import { useState, useEffect } from 'react';
 import { PillButton } from '../../components/ui/PillButton';
@@ -1004,10 +1004,19 @@ export function OrderDetail() {
           {/* Header */}
           <div className="bg-white p-8 rounded-card border border-brand-border shadow-sm">
             <div className="flex flex-col lg:flex-row justify-between lg:items-start mb-6 gap-6">
-               <div>
+                <div>
                   <h1 className="font-serif text-4xl text-brand-primary mb-2 line-clamp-2 md:line-clamp-none leading-tight">{order.title || 'Untitled Order'}</h1>
-                  <p className="text-lg text-brand-secondary line-clamp-2">{customer.company}</p>
-               </div>
+                  {order.customerId ? (
+                    <Link 
+                      to={`/customers/${order.customerId}`}
+                      className="text-lg text-brand-secondary hover:text-brand-primary hover:underline transition-colors line-clamp-2 inline-block"
+                    >
+                      {customer.company}
+                    </Link>
+                  ) : (
+                    <p className="text-lg text-brand-secondary line-clamp-2">{customer.company}</p>
+                  )}
+                </div>
                <div className="flex flex-col items-start lg:items-end gap-3 lg:text-right shrink-0">
                   <p className="text-xs uppercase font-bold tracking-widest text-brand-secondary">Order {order.portalId || order.id}</p>
                   
