@@ -928,14 +928,14 @@ export function TeamMeetings() {
       
       {/* Left Column: Meetings Sidebar List */}
       <div className={`lg:col-span-1 flex flex-col gap-4 ${mobileActiveTab === 'list' ? 'flex' : 'hidden lg:flex'}`}>
-        <div className="bg-white p-4 rounded-card border border-brand-border shadow-sm flex flex-col gap-3">
+        <div className="bg-white p-4 rounded-[18px] border border-[#ded8ce] shadow-sm flex flex-col gap-3">
           <div className="flex justify-between items-center gap-2">
             <h2 className="font-serif text-base font-bold text-brand-primary">Meetings Log</h2>
             <div className="flex gap-1.5 shrink-0">
               <button
                 type="button"
                 onClick={() => setIsTemplateModalOpen(true)}
-                className="py-1 px-2.5 text-[10px] font-bold border border-brand-border rounded-full hover:bg-neutral-50 flex items-center gap-1 transition-all h-8 text-brand-primary"
+                className="py-1 px-2.5 text-[10px] font-bold border border-[#ded8ce] rounded-full hover:bg-neutral-50 flex items-center gap-1 transition-all h-8 text-brand-primary"
                 title="Manage Templates"
               >
                 Templates
@@ -958,7 +958,7 @@ export function TeamMeetings() {
               placeholder="Search meeting topics..." 
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="w-full bg-brand-bg border border-transparent rounded-lg pl-9 pr-4 py-2 text-xs focus:bg-white focus:border-brand-primary outline-none transition-all"
+              className="w-full bg-white border border-[#ded8ce] rounded-lg pl-9 pr-4 py-2 text-xs focus:bg-white focus:border-brand-primary outline-none transition-all"
             />
           </div>
         </div>
@@ -967,7 +967,7 @@ export function TeamMeetings() {
           {loading ? (
             <div className="p-8 text-center text-xs text-brand-secondary">Loading meetings...</div>
           ) : filteredMeetings.length === 0 ? (
-            <div className="bg-white p-8 rounded-card border border-brand-border text-center text-xs text-brand-secondary">
+            <div className="bg-white p-8 rounded-[18px] border border-[#ded8ce] text-center text-xs text-brand-secondary">
               No meetings recorded.
             </div>
           ) : (
@@ -977,7 +977,7 @@ export function TeamMeetings() {
                 if (group.meetings.length === 0) return null;
                 const isExpanded = expandedTemplates[groupId] !== false;
                 return (
-                  <div key={groupId} className="flex flex-col gap-2 border-b border-brand-border/30 pb-3 last:border-0 last:pb-0">
+                  <div key={groupId} className="flex flex-col gap-2 border-b border-[#ded8ce]/30 pb-3 last:border-0 last:pb-0">
                     <button
                       onClick={() => toggleTemplateExpansion(groupId)}
                       className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-brand-secondary hover:text-brand-primary transition-colors py-1 px-1.5 w-full text-left"
@@ -1011,7 +1011,7 @@ export function TeamMeetings() {
                             <div 
                               key={meet.id} 
                               onClick={() => setSelectedMeeting(meet)}
-                              className={`p-3.5 rounded-card border transition-all cursor-pointer bg-white flex flex-col gap-2 shadow-sm ${isActive ? 'border-brand-primary ring-1 ring-brand-primary' : 'border-brand-border hover:border-neutral-400'}`}
+                              className={`p-3.5 rounded-[18px] border transition-all cursor-pointer bg-white flex flex-col gap-2 ${isActive ? 'border-black border-2' : 'border-[#ded8ce] hover:border-neutral-400 shadow-sm'}`}
                             >
                               {(() => {
                                 const isAutoTitle = meet.templateId && meet.title.includes(meet.date);
@@ -1023,7 +1023,7 @@ export function TeamMeetings() {
                                     <div className="flex justify-between items-start gap-2 w-full">
                                       <h3 className="font-serif text-xs font-bold text-brand-primary line-clamp-1 flex items-center gap-1.5">
                                         {meet.status === 'live' && (
-                                          <span className="w-1.5 h-1.5 rounded-full bg-red-600 animate-ping inline-block shrink-0" title="Meeting in progress" />
+                                          <span className="w-2 h-3.5 rounded bg-red-200/60 inline-block shrink-0" title="Meeting in progress" />
                                         )}
                                         {displayCardTitle}
                                       </h3>
@@ -1041,13 +1041,13 @@ export function TeamMeetings() {
                                     </div>
                                     <p className="text-[10px] text-brand-secondary line-clamp-2 leading-relaxed">{meet.summary}</p>
                                     
-                                    <div className="flex justify-between items-center text-[9px] text-brand-secondary border-t border-brand-border/50 pt-2 mt-1">
+                                    <div className="flex justify-between items-center text-[9px] text-brand-secondary border-t border-[#ded8ce]/50 pt-2 mt-1">
                                       {!isAutoTitle ? (
                                         <span className="flex items-center gap-1 font-medium"><Calendar size={9} /> {formatLocalDate(meet.date, {month: 'short', day: 'numeric', year: 'numeric'})}</span>
                                       ) : (
                                         <span className="text-[8px] font-bold text-neutral-400 uppercase tracking-wider">Minutes Logged</span>
                                       )}
-                                      <span>{meet.actionItems?.length || 0} tasks</span>
+                                      <span className="text-neutral-400">{meet.actionItems?.length || 0} tasks</span>
                                     </div>
                                   </>
                                 );
@@ -1606,7 +1606,7 @@ export function TeamMeetings() {
 
           </div>
         ) : (
-          <div className="bg-white p-12 text-center text-brand-secondary border border-brand-border rounded-card shadow-sm flex flex-col justify-center items-center min-h-[40vh] gap-3">
+          <div className="bg-white p-12 text-center text-brand-secondary border border-[#ded8ce] rounded-[18px] shadow-sm flex flex-col justify-center items-center min-h-[40vh] gap-3">
             <FileText size={40} className="text-brand-secondary/40" />
             <h3 className="font-serif text-lg font-bold text-brand-primary">No Meeting Selected</h3>
             <p className="text-xs text-brand-secondary max-w-xs mx-auto">Select a meeting log from the sidebar or click "Record Meeting" to construct a new report.</p>
