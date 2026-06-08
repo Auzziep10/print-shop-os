@@ -1153,39 +1153,90 @@ export function TeamMeetings() {
               </div>
             )}
 
-            {/* Capacity Score Circle (Integrated Call Score) */}
+            {/* Capacity Score Card (Redesigned to match the capacity score card style) */}
             {selectedMeeting.capacityScores && selectedMeeting.capacityScores.length > 0 ? (
-              <div className="bg-white border border-brand-border rounded-xl p-5 shadow-sm flex flex-col md:flex-row gap-6 items-center">
-                {/* Visual Score Badge */}
+              <div className="border border-brand-border p-4 rounded-xl bg-white flex flex-col gap-3 shadow-sm">
                 {(() => {
                   const scores = selectedMeeting.capacityScores;
                   const total = scores.reduce((sum: number, c: any) => sum + (c.score || 0), 0);
                   const avg = Math.round((total / scores.length) * 10) / 10;
                   
+                  // Calculate averages of each category
+                  let avgWkl = 0, avgDln = 0, avgStr = 0, avgBnd = 0, avgFrc = 0;
+                  let count = 0;
+                  scores.forEach((c: any) => {
+                    if (c.categories) {
+                      avgWkl += c.categories.workload ?? 5;
+                      avgDln += c.categories.urgency ?? 5;
+                      avgStr += c.categories.stress ?? 5;
+                      avgBnd += c.categories.availability ?? 5;
+                      avgFrc += c.categories.friction ?? 5;
+                      count++;
+                    }
+                  });
+                  if (count > 0) {
+                    avgWkl = Math.round((avgWkl / count) * 10) / 10;
+                    avgDln = Math.round((avgDln / count) * 10) / 10;
+                    avgStr = Math.round((avgStr / count) * 10) / 10;
+                    avgBnd = Math.round((avgBnd / count) * 10) / 10;
+                    avgFrc = Math.round((avgFrc / count) * 10) / 10;
+                  }
+
                   const getStatusDetails = (s: number) => {
-                    if (s <= 2.9) return { status: "Underutilized", desc: "Healthy resource availability. More initiatives can be added.", style: "border-green-300 bg-green-500 text-white" };
-                    if (s <= 4.4) return { status: "Comfortable", desc: "Stable team load. Ready to absorb new projects as needed.", style: "border-green-300 bg-green-600 text-white" };
-                    if (s <= 6.4) return { status: "Optimal Zone", desc: "Fully engaged, moving priorities, and keeping small backlogs.", style: "border-indigo-300 bg-indigo-600 text-white" };
-                    if (s <= 8.4) return { status: "Constrained", desc: "Prioritisation required. Adding new goals will force tradeoffs.", style: "border-amber-300 bg-amber-600 text-white" };
-                    if (s <= 9.4) return { status: "Overloaded", desc: "Action required. Team performance and morale may suffer.", style: "border-red-300 bg-red-500 text-white" };
-                    return { status: "Unsustainable", desc: "Immediate support needed. Remove friction and shift tasks.", style: "border-red-300 bg-red-700 text-white animate-pulse" };
+                    if (s <= 2.9) return { status: "Underutilized", desc: "Healthy resource availability. More initiatives can be added.", confidence: "Green" };
+                    if (s <= 4.4) return { status: "Comfortable", desc: "Stable team load. Ready to absorb new projects as needed.", confidence: "Green" };
+                    if (s <= 6.4) return { status: "Optimal Zone", desc: "Fully engaged, priorities are moving, and keeping small backlogs.", confidence: "Green" };
+                    if (s <= 8.4) return { status: "Constrained", desc: "Prioritisation required. Adding new goals will force tradeoffs.", confidence: "Yellow" };
+                    if (s <= 9.4) return { status: "Overloaded", desc: "Action required. Team performance and morale may suffer.", confidence: "Red" };
+                    return { status: "Unsustainable", desc: "Immediate support needed. Remove friction and shift tasks.", confidence: "Red" };
                   };
 
                   const details = getStatusDetails(avg);
 
                   return (
                     <>
-                      <div className={`w-28 h-28 rounded-full border-4 flex flex-col justify-center items-center shrink-0 ${details.style}`}>
-                        <span className="text-3xl font-black tracking-tight">{avg.toFixed(1)}</span>
-                        <span className="text-[8px] uppercase font-bold tracking-widest opacity-80">Capacity</span>
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <span className="font-bold text-xs text-brand-primary">Team Capacity Status</span>
+                          <div className="text-[9px] uppercase font-semibold text-brand-secondary">{details.status}</div>
+                        </div>
+                        <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${getConfidenceBadge(details.confidence)}`}>
+                          {avg.toFixed(1)} • {details.confidence}
+                        </span>
                       </div>
-                      <div className="flex-1 text-center md:text-left space-y-1">
-                        <h3 className="font-bold text-brand-primary text-base flex items-center justify-center md:justify-start gap-2">
-                          Team Capacity Status: 
-                          <span className="underline decoration-dotted decoration-indigo-500 underline-offset-4">{details.status}</span>
-                        </h3>
-                        <p className="text-xs text-brand-secondary leading-relaxed max-w-md">{details.desc}</p>
-                        <p className="text-[10px] text-brand-secondary font-medium">Aggregated across {scores.length} members checked in prior to this call.</p>
+                      
+                      <p className="text-[10px] text-brand-secondary bg-brand-bg p-2 rounded-lg italic">
+                        "{details.desc}"
+                      </p>
+
+                      {/* Categories details */}
+                      {count > 0 && (
+                        <div className="grid grid-cols-5 gap-1 text-center border-t border-brand-border/50 pt-2 text-[8px] font-bold text-brand-secondary">
+                          <div>
+                            <div>WKL</div>
+                            <div className="text-brand-primary">{avgWkl.toFixed(1)}</div>
+                          </div>
+                          <div>
+                            <div>DLN</div>
+                            <div className="text-brand-primary">{avgDln.toFixed(1)}</div>
+                          </div>
+                          <div>
+                            <div>STR</div>
+                            <div className="text-brand-primary">{avgStr.toFixed(1)}</div>
+                          </div>
+                          <div>
+                            <div>BND</div>
+                            <div className="text-brand-primary">{avgBnd.toFixed(1)}</div>
+                          </div>
+                          <div>
+                            <div>PRC</div>
+                            <div className="text-brand-primary">{avgFrc.toFixed(1)}</div>
+                          </div>
+                        </div>
+                      )}
+                      
+                      <div className="text-[8px] text-brand-secondary font-medium border-t border-brand-border/30 pt-1 text-center">
+                        Aggregated across {scores.length} members checked in prior to this call.
                       </div>
                     </>
                   );
@@ -1251,7 +1302,7 @@ export function TeamMeetings() {
                                   <div className="text-brand-primary">{c.categories.availability}</div>
                                 </div>
                                 <div>
-                                  <div>FRC</div>
+                                  <div>PRC</div>
                                   <div className="text-brand-primary">{c.categories.friction}</div>
                                 </div>
                               </div>
@@ -1270,212 +1321,253 @@ export function TeamMeetings() {
               {/* Action Items List */}
               <div className="flex flex-col gap-3">
                 <h3 className="text-xs font-bold uppercase tracking-widest text-brand-secondary">Meeting Action Items</h3>
-                <div className="bg-white border border-brand-border rounded-xl p-5 shadow-sm flex flex-col gap-3">
-                  {(!selectedMeeting.actionItems || selectedMeeting.actionItems.length === 0) ? (
-                    <div className="text-xs text-brand-secondary italic p-2">No action items recorded for this meeting.</div>
-                  ) : (
-                    selectedMeeting.actionItems.map((item: any, idx: number) => (
-                      <div 
-                        key={idx} 
-                        onClick={() => handleToggleActionItem(selectedMeeting.id, idx)}
-                        className="flex items-start gap-2.5 p-2 bg-white rounded-lg border border-brand-border/50 hover:border-brand-primary cursor-pointer transition-colors shadow-sm"
-                      >
-                        <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 mt-0.5 transition-colors ${item.completed ? 'bg-black border-black text-white' : 'border-brand-border bg-white'}`}>
-                          {item.completed && <Check size={10} strokeWidth={3} />}
+                <div className="bg-white border border-brand-border rounded-xl p-4 shadow-sm flex flex-col gap-3">
+                  {(() => {
+                    const items = selectedMeeting.actionItems || [];
+                    const completedCount = items.filter((i: any) => i.completed).length;
+                    const totalCount = items.length;
+                    
+                    return (
+                      <>
+                        <div className="flex justify-between items-start border-b border-brand-border/30 pb-2">
+                          <div>
+                            <span className="font-bold text-xs text-brand-primary">Action Items List</span>
+                            <div className="text-[9px] uppercase font-semibold text-brand-secondary">Tasks & Follow-ups</div>
+                          </div>
+                          {totalCount > 0 && (
+                            <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${
+                              completedCount === totalCount 
+                                ? 'bg-green-100 text-green-800 border-green-200' 
+                                : 'bg-neutral-100 text-neutral-800 border-neutral-200'
+                            }`}>
+                              {completedCount}/{totalCount} Completed
+                            </span>
+                          )}
                         </div>
-                        <span className={`text-[11px] leading-tight font-medium ${item.completed ? 'line-through text-brand-secondary font-normal' : 'text-brand-primary'}`}>
-                          {item.text}
-                        </span>
-                      </div>
-                    ))
-                  )}
+                        
+                        {totalCount === 0 ? (
+                          <div className="text-xs text-brand-secondary italic p-2">No action items recorded for this meeting.</div>
+                        ) : (
+                          <div className="flex flex-col gap-2.5">
+                            {items.map((item: any, idx: number) => (
+                              <div 
+                                key={idx} 
+                                onClick={() => handleToggleActionItem(selectedMeeting.id, idx)}
+                                className="flex items-start gap-2.5 p-2 bg-white rounded-lg border border-brand-border/50 hover:border-brand-primary cursor-pointer transition-colors shadow-sm"
+                              >
+                                <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 mt-0.5 transition-colors ${item.completed ? 'bg-black border-black text-white' : 'border-brand-border bg-white'}`}>
+                                  {item.completed && <Check size={10} strokeWidth={3} />}
+                                </div>
+                                <span className={`text-[11px] leading-tight font-medium ${item.completed ? 'line-through text-brand-secondary font-normal' : 'text-brand-primary'}`}>
+                                  {item.text}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
-
-              {/* Full Notes Markdown */}
               <div className="flex flex-col gap-3">
-                <div className="flex justify-between items-center">
-                  <h3 className="text-xs font-bold uppercase tracking-widest text-brand-secondary">
-                    {selectedMeeting.sections && selectedMeeting.sections.length > 0 ? 'Meeting Sections & Notes' : 'Discussion Notes'}
-                  </h3>
-                  {!isEditingAllNotes && (
-                    <button
-                      onClick={handleStartInlineNotesEditing}
-                      className="text-[10px] font-bold text-neutral-500 hover:text-brand-primary flex items-center gap-1.5 transition-colors"
-                      title="Edit all notes at once"
-                    >
-                      <Pencil size={10} /> Edit All Notes
-                    </button>
-                  )}
-                </div>
-                <div className="bg-white border border-brand-border rounded-xl p-5 shadow-sm max-h-[350px] overflow-y-auto custom-scrollbar flex flex-col gap-4">
-                  {isEditingAllNotes ? (
-                    <div className="space-y-4">
-                      {selectedMeeting.sections && selectedMeeting.sections.length > 0 ? (
-                        localSections.map((sec, idx) => (
-                          <div key={idx} className="space-y-1.5">
-                            <label className="block text-[10px] font-bold text-brand-secondary uppercase tracking-wider">{sec.name}</label>
-                            <textarea
-                              value={sec.notes}
-                              onChange={e => {
-                                const updated = [...localSections];
-                                updated[idx].notes = e.target.value;
-                                setLocalSections(updated);
-                              }}
-                              className="w-full min-h-[100px] bg-white border border-[#ded8ce] rounded-xl p-3 text-xs outline-none focus:border-black transition-colors resize-y font-sans leading-relaxed text-[#171717]"
-                              placeholder={`Enter notes for ${sec.name}...`}
-                              autoFocus={idx === 0}
-                            />
-                          </div>
-                        ))
-                      ) : (
-                        <div className="space-y-1.5">
-                          <label className="block text-[10px] font-bold text-brand-secondary uppercase tracking-wider">Discussion Notes</label>
-                          <textarea
-                            value={localGeneralNotes}
-                            onChange={e => setLocalGeneralNotes(e.target.value)}
-                            className="w-full min-h-[180px] bg-white border border-[#ded8ce] rounded-xl p-3.5 text-xs outline-none focus:border-black transition-colors resize-y font-sans leading-relaxed text-[#171717]"
-                            placeholder="Enter discussion notes..."
-                            autoFocus
-                          />
-                        </div>
-                      )}
-                      <div className="flex gap-2 justify-end pt-2 border-t border-brand-border/30">
-                        <button
-                          onClick={() => setIsEditingAllNotes(false)}
-                          className="px-4 py-1.5 text-xs font-bold border border-[#ded8ce] rounded-full bg-white hover:bg-neutral-50 shadow-sm transition-colors"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={handleSaveAllInlineNotes}
-                          className="px-4 py-1.5 text-xs font-bold text-white bg-black rounded-full hover:bg-neutral-900 shadow-sm transition-colors"
-                        >
-                          Save Notes
-                        </button>
-                      </div>
+                <h3 className="text-xs font-bold uppercase tracking-widest text-brand-secondary">
+                  {selectedMeeting.sections && selectedMeeting.sections.length > 0 ? 'Meeting Sections & Notes' : 'Discussion Notes'}
+                </h3>
+                <div className="bg-white border border-brand-border rounded-xl p-4 shadow-sm flex flex-col gap-3">
+                  {/* Card Header inside Notes Card */}
+                  <div className="flex justify-between items-start border-b border-brand-border/30 pb-2">
+                    <div>
+                      <span className="font-bold text-xs text-brand-primary">
+                        {selectedMeeting.sections && selectedMeeting.sections.length > 0 ? 'Notes & Discussions' : 'Discussion Notes'}
+                      </span>
+                      <div className="text-[9px] uppercase font-semibold text-brand-secondary">Agenda & Minutes</div>
                     </div>
-                  ) : (
-                    selectedMeeting.sections && selectedMeeting.sections.length > 0 ? (
-                      selectedMeeting.sections.map((sec: any, idx: number) => (
-                        editingSectionIdx === idx ? (
-                          <div key={idx} className="border-b border-brand-border/30 last:border-0 pb-3 last:pb-0 space-y-2">
-                            <h4 className="font-bold text-xs text-brand-primary uppercase tracking-wider">{sec.name}</h4>
+                    {!isEditingAllNotes ? (
+                      <button
+                        onClick={handleStartInlineNotesEditing}
+                        className="text-[9px] font-bold text-neutral-500 hover:text-black hover:border-black flex items-center gap-1 transition-colors border border-brand-border rounded-full px-2.5 py-0.5 bg-white shadow-sm"
+                        title="Edit all notes at once"
+                      >
+                        <Pencil size={9} className="text-neutral-400" /> Edit All Notes
+                      </button>
+                    ) : (
+                      <span className="text-[9px] font-bold px-2 py-0.5 rounded-full border border-red-200 bg-red-50 text-red-600">
+                        Editing Notes
+                      </span>
+                    )}
+                  </div>
+                  
+                  {/* Scrollable Body inside Notes Card */}
+                  <div className="max-h-[290px] overflow-y-auto custom-scrollbar flex flex-col gap-4">
+                    {isEditingAllNotes ? (
+                      <div className="space-y-4">
+                        {selectedMeeting.sections && selectedMeeting.sections.length > 0 ? (
+                          localSections.map((sec, idx) => (
+                            <div key={idx} className="space-y-1.5">
+                              <label className="block text-[10px] font-bold text-brand-secondary uppercase tracking-wider">{sec.name}</label>
+                              <textarea
+                                value={sec.notes}
+                                onChange={e => {
+                                  const updated = [...localSections];
+                                  updated[idx].notes = e.target.value;
+                                  setLocalSections(updated);
+                                }}
+                                className="w-full min-h-[100px] bg-white border border-[#ded8ce] rounded-xl p-3 text-xs outline-none focus:border-black transition-colors resize-y font-sans leading-relaxed text-[#171717]"
+                                placeholder={`Enter notes for ${sec.name}...`}
+                                autoFocus={idx === 0}
+                              />
+                            </div>
+                          ))
+                        ) : (
+                          <div className="space-y-1.5">
+                            <label className="block text-[10px] font-bold text-brand-secondary uppercase tracking-wider">Discussion Notes</label>
                             <textarea
-                              value={editingSectionNotes}
-                              onChange={e => setEditingSectionNotes(e.target.value)}
-                              className="w-full min-h-[80px] bg-white border border-[#ded8ce] rounded-xl p-3 text-xs outline-none focus:border-black transition-colors resize-y font-sans leading-relaxed text-[#171717]"
-                              placeholder={`Enter notes for ${sec.name}...`}
+                              value={localGeneralNotes}
+                              onChange={e => setLocalGeneralNotes(e.target.value)}
+                              className="w-full min-h-[180px] bg-white border border-[#ded8ce] rounded-xl p-3.5 text-xs outline-none focus:border-black transition-colors resize-y font-sans leading-relaxed text-[#171717]"
+                              placeholder="Enter discussion notes..."
                               autoFocus
                             />
-                            <div className="flex gap-2 justify-end">
-                              <button
-                                onClick={() => setEditingSectionIdx(null)}
-                                className="px-3 py-1 text-[10px] font-bold border border-[#ded8ce] rounded-full bg-white hover:bg-neutral-50"
-                              >
-                                Cancel
-                              </button>
-                              <button
-                                onClick={() => handleSaveSectionNotes(idx)}
-                                className="px-3 py-1 text-[10px] font-bold text-white bg-black rounded-full hover:bg-neutral-900"
-                              >
-                                Save
-                              </button>
-                            </div>
                           </div>
-                        ) : (
-                          <div key={idx} className="border-b border-brand-border/30 last:border-0 pb-3 last:pb-0 group">
-                            <div className="flex justify-between items-center mb-1">
+                        )}
+                        <div className="flex gap-2 justify-end pt-2 border-t border-brand-border/30">
+                          <button
+                            onClick={() => setIsEditingAllNotes(false)}
+                            className="px-4 py-1.5 text-xs font-bold border border-[#ded8ce] rounded-full bg-white hover:bg-neutral-50 shadow-sm transition-colors"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={handleSaveAllInlineNotes}
+                            className="px-4 py-1.5 text-xs font-bold text-white bg-black rounded-full hover:bg-neutral-900 shadow-sm transition-colors"
+                          >
+                            Save Notes
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      selectedMeeting.sections && selectedMeeting.sections.length > 0 ? (
+                        selectedMeeting.sections.map((sec: any, idx: number) => (
+                          editingSectionIdx === idx ? (
+                            <div key={idx} className="border-b border-brand-border/30 last:border-0 pb-3 last:pb-0 space-y-2">
                               <h4 className="font-bold text-xs text-brand-primary uppercase tracking-wider">{sec.name}</h4>
-                              <button
+                              <textarea
+                                value={editingSectionNotes}
+                                onChange={e => setEditingSectionNotes(e.target.value)}
+                                className="w-full min-h-[80px] bg-white border border-[#ded8ce] rounded-xl p-3 text-xs outline-none focus:border-black transition-colors resize-y font-sans leading-relaxed text-[#171717]"
+                                placeholder={`Enter notes for ${sec.name}...`}
+                                autoFocus
+                              />
+                              <div className="flex gap-2 justify-end">
+                                <button
+                                  onClick={() => setEditingSectionIdx(null)}
+                                  className="px-3 py-1 text-[10px] font-bold border border-[#ded8ce] rounded-full bg-white hover:bg-neutral-50"
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  onClick={() => handleSaveSectionNotes(idx)}
+                                  className="px-3 py-1 text-[10px] font-bold text-white bg-black rounded-full hover:bg-neutral-900"
+                                >
+                                  Save
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div key={idx} className="border-b border-brand-border/30 last:border-0 pb-3 last:pb-0 group">
+                              <div className="flex justify-between items-center mb-1">
+                                <h4 className="font-bold text-xs text-brand-primary uppercase tracking-wider">{sec.name}</h4>
+                                <button
+                                  onClick={() => {
+                                    setEditingSectionIdx(idx);
+                                    setEditingSectionNotes(sec.notes || '');
+                                  }}
+                                  className="text-[10px] font-bold text-neutral-500 hover:text-black transition-colors opacity-0 group-hover:opacity-100 flex items-center gap-1"
+                                  title="Edit notes for this section"
+                                >
+                                  <Pencil size={10} className="text-neutral-400" /> Edit
+                                </button>
+                              </div>
+                              <p 
+                                className="text-xs text-[#222] leading-relaxed whitespace-pre-wrap font-sans cursor-pointer hover:bg-neutral-50/50 p-1 rounded transition-colors"
                                 onClick={() => {
                                   setEditingSectionIdx(idx);
                                   setEditingSectionNotes(sec.notes || '');
                                 }}
-                                className="text-[10px] font-bold text-neutral-500 hover:text-black transition-colors opacity-0 group-hover:opacity-100 flex items-center gap-1"
-                                title="Edit notes for this section"
+                              >
+                                {sec.notes || <span className="italic text-neutral-400 font-medium">No notes written for this section. Click here to add notes.</span>}
+                              </p>
+                            </div>
+                          )
+                        ))
+                      ) : (
+                        editingSectionIdx === -1 ? (
+                          <div className="space-y-2">
+                            <textarea
+                              value={editingSectionNotes}
+                              onChange={e => setEditingSectionNotes(e.target.value)}
+                              className="w-full min-h-[150px] bg-white border border-[#ded8ce] rounded-xl p-3.5 text-xs outline-none focus:border-black transition-colors resize-y font-sans leading-relaxed text-[#171717]"
+                              placeholder="Enter discussion notes..."
+                              autoFocus
+                            />
+                            <div className="flex gap-2 justify-end">
+                              <button
+                                  onClick={() => setEditingSectionIdx(null)}
+                                  className="px-3 py-1 text-[10px] font-bold border border-[#ded8ce] rounded-full bg-white hover:bg-neutral-50"
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  onClick={async () => {
+                                    if (!selectedMeeting) return;
+                                    try {
+                                      const meetingRef = doc(db, 'meetings', selectedMeeting.id);
+                                      await updateDoc(meetingRef, {
+                                        notes: editingSectionNotes
+                                      });
+                                      setSelectedMeeting((prev: any) => ({
+                                        ...prev,
+                                        notes: editingSectionNotes
+                                      }));
+                                      setEditingSectionIdx(null);
+                                    } catch (err) {
+                                      console.error("Failed to save discussion notes", err);
+                                      alert("Failed to save notes. Please try again.");
+                                    }
+                                  }}
+                                  className="px-3 py-1 text-[10px] font-bold text-white bg-black rounded-full hover:bg-neutral-900"
+                                >
+                                  Save
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="group relative">
+                              <button
+                                onClick={() => {
+                                  setEditingSectionIdx(-1);
+                                  setEditingSectionNotes(selectedMeeting.notes || '');
+                                }}
+                                className="absolute right-0 top-0 text-[10px] font-bold text-neutral-500 hover:text-black transition-colors opacity-0 group-hover:opacity-100 flex items-center gap-1"
+                                title="Edit discussion notes"
                               >
                                 <Pencil size={10} className="text-neutral-400" /> Edit
                               </button>
+                              <div 
+                                className="prose prose-sm max-w-none text-brand-primary text-xs leading-relaxed whitespace-pre-wrap font-sans cursor-pointer hover:bg-neutral-50/50 p-2 rounded transition-colors"
+                                onClick={() => {
+                                  setEditingSectionIdx(-1);
+                                  setEditingSectionNotes(selectedMeeting.notes || '');
+                                }}
+                              >
+                                {selectedMeeting.notes || <span className="italic text-neutral-400 font-medium">No discussion notes written yet. Click here to add notes.</span>}
+                              </div>
                             </div>
-                            <p 
-                              className="text-xs text-[#222] leading-relaxed whitespace-pre-wrap font-sans cursor-pointer hover:bg-neutral-50/50 p-1 rounded transition-colors"
-                              onClick={() => {
-                                setEditingSectionIdx(idx);
-                                setEditingSectionNotes(sec.notes || '');
-                              }}
-                            >
-                              {sec.notes || <span className="italic text-neutral-400 font-medium">No notes written for this section. Click here to add notes.</span>}
-                            </p>
-                          </div>
+                          )
                         )
-                      ))
-                    ) : (
-                      editingSectionIdx === -1 ? (
-                        <div className="space-y-2">
-                          <textarea
-                            value={editingSectionNotes}
-                            onChange={e => setEditingSectionNotes(e.target.value)}
-                            className="w-full min-h-[150px] bg-white border border-[#ded8ce] rounded-xl p-3.5 text-xs outline-none focus:border-black transition-colors resize-y font-sans leading-relaxed text-[#171717]"
-                            placeholder="Enter discussion notes..."
-                            autoFocus
-                          />
-                          <div className="flex gap-2 justify-end">
-                            <button
-                              onClick={() => setEditingSectionIdx(null)}
-                              className="px-3 py-1 text-[10px] font-bold border border-[#ded8ce] rounded-full bg-white hover:bg-neutral-50"
-                            >
-                              Cancel
-                            </button>
-                            <button
-                              onClick={async () => {
-                                if (!selectedMeeting) return;
-                                try {
-                                  const meetingRef = doc(db, 'meetings', selectedMeeting.id);
-                                  await updateDoc(meetingRef, {
-                                    notes: editingSectionNotes
-                                  });
-                                  setSelectedMeeting((prev: any) => ({
-                                    ...prev,
-                                    notes: editingSectionNotes
-                                  }));
-                                  setEditingSectionIdx(null);
-                                } catch (err) {
-                                  console.error("Failed to save discussion notes", err);
-                                  alert("Failed to save notes. Please try again.");
-                                }
-                              }}
-                              className="px-3 py-1 text-[10px] font-bold text-white bg-black rounded-full hover:bg-neutral-900"
-                            >
-                              Save
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="group relative">
-                          <button
-                            onClick={() => {
-                              setEditingSectionIdx(-1);
-                              setEditingSectionNotes(selectedMeeting.notes || '');
-                            }}
-                            className="absolute right-0 top-0 text-[10px] font-bold text-neutral-500 hover:text-black transition-colors opacity-0 group-hover:opacity-100 flex items-center gap-1"
-                            title="Edit discussion notes"
-                          >
-                            <Pencil size={10} className="text-neutral-400" /> Edit
-                          </button>
-                          <div 
-                            className="prose prose-sm max-w-none text-brand-primary text-xs leading-relaxed whitespace-pre-wrap font-sans cursor-pointer hover:bg-neutral-50/50 p-2 rounded transition-colors"
-                            onClick={() => {
-                              setEditingSectionIdx(-1);
-                              setEditingSectionNotes(selectedMeeting.notes || '');
-                            }}
-                          >
-                            {selectedMeeting.notes || <span className="italic text-neutral-400 font-medium">No discussion notes written yet. Click here to add notes.</span>}
-                          </div>
-                        </div>
-                      )
-                    )
-                  )}
+                      )}
+                  </div>
                 </div>
               </div>
 
