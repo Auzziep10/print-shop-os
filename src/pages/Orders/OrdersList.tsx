@@ -24,7 +24,7 @@ export function OrdersList() {
       return timeB - timeA;
     });
   const [searchParams, setSearchParams] = useSearchParams();
-  const currentTab = searchParams.get('tab') || 'all';
+  const currentTab = searchParams.get('tab') || 'calendar';
   const [liveCustomers, setLiveCustomers] = useState<Record<string, any>>({});
 
   const displayedOrders = nonTempOrders.filter(order => {
@@ -102,11 +102,11 @@ export function OrdersList() {
 
       <div className="flex items-center gap-6 mb-8 border-b border-brand-border">
           <button 
-             onClick={() => setSearchParams({ tab: 'all' })}
-             className={`pb-4 text-sm font-bold uppercase tracking-wider transition-all relative ${currentTab === 'all' ? 'text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}
+             onClick={() => setSearchParams({ tab: 'calendar' })}
+             className={`pb-4 text-sm font-bold uppercase tracking-wider transition-all relative ${currentTab === 'calendar' ? 'text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}
           >
-             All
-             {currentTab === 'all' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-primary rounded-t-full" />}
+             Calendar
+             {currentTab === 'calendar' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-primary rounded-t-full" />}
           </button>
           <button 
              onClick={() => setSearchParams({ tab: 'orders' })}
@@ -144,17 +144,20 @@ export function OrdersList() {
         </div>
         
         <div className="text-sm text-brand-secondary">
-          Showing <span className="font-semibold text-brand-primary">{displayedOrders.length}</span> {currentTab === 'quotes' ? 'active quotes' : currentTab === 'orders' ? 'active orders' : 'active orders & quotes'}
+          Showing <span className="font-semibold text-brand-primary">{displayedOrders.length}</span> {currentTab === 'quotes' ? 'active quotes' : currentTab === 'orders' ? 'active orders' : 'scheduled items'}
         </div>
       </div>
 
       {/* Production Calendar */}
-      <div className="w-full mb-8">
-         <ProductionCalendar orders={displayedOrders} />
-      </div>
+      {currentTab === 'calendar' && (
+        <div className="w-full mb-8">
+           <ProductionCalendar orders={displayedOrders} />
+        </div>
+      )}
 
       {/* Orders Table */}
-      <div className="bg-white rounded-card border border-brand-border overflow-hidden custom-scrollbar overflow-x-auto shadow-sm">
+      {currentTab !== 'calendar' && (
+        <div className="bg-white rounded-card border border-brand-border overflow-hidden custom-scrollbar overflow-x-auto shadow-sm">
         <div className="min-w-[1000px]">
           {/* Table Header */}
           <div className="grid grid-cols-[100px_minmax(200px,1fr)_minmax(250px,2fr)_150px_100px_120px_100px_60px] p-4 text-xs font-semibold uppercase tracking-wider text-brand-secondary border-b border-brand-border bg-brand-bg/60">
@@ -240,6 +243,7 @@ export function OrdersList() {
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }
