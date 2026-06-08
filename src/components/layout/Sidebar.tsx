@@ -7,7 +7,6 @@ import {
   Layers, 
   Users, 
   Scissors, 
-  Image as ImageIcon, 
   Package,
   UsersRound, 
   Settings, 
@@ -130,6 +129,7 @@ export function Sidebar({ onClose }: SidebarProps) {
     { label: 'Orders', path: '/orders?tab=orders', icon: Layers },
     { label: 'Quotes', path: '/orders?tab=quotes', icon: MailIcon },
     { label: 'Production', path: '/orders?tab=production', icon: Scissors },
+    { label: 'Reports', path: '/orders?tab=reports', icon: FileBox },
   ];
 
   const isSubItemActive = (subPath: string) => {
@@ -163,10 +163,8 @@ export function Sidebar({ onClose }: SidebarProps) {
     { label: 'Dashboard', icon: LayoutDashboard, path: '/' },
     { label: 'Orders/Quotes', icon: Layers, path: '/orders' },
     { label: 'Customers', icon: Users, path: '/customers' },
-    { label: 'Artwork', icon: ImageIcon, path: '/artwork' },
     { label: 'Inventory', icon: Package, path: '/inventory' },
     { label: 'Team', icon: UsersRound, path: '/team' },
-    { label: 'Reports', icon: FileBox, path: '/reports' },
     { label: 'Public Quote', icon: Rocket, path: '/start' },
   ];
 

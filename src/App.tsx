@@ -135,11 +135,11 @@ function App() {
           <Route path=":id" element={<CustomerDetail />} />
         </Route>
         <Route path="production" element={<Navigate to="/orders?tab=production" replace />} />
-        <Route path="artwork" element={<div className="p-6">Artwork coming soon...</div>} />
+        <Route path="artwork" element={<Navigate to="/orders?tab=production&sub=artwork" replace />} />
         <Route path="inventory" element={<Inventory />} />
         <Route path="team" element={<Team />} />
         <Route path="signatures" element={<Navigate to="/settings?tab=signatures" replace />} />
-          <Route path="reports" element={<div className="p-6">Reports coming soon...</div>} />
+          <Route path="reports" element={<Navigate to="/orders?tab=reports" replace />} />
           <Route path="settings" element={<Settings />} />
         </Route>
       </Routes>

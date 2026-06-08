@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
-import { Search, Filter, Plus, FileDown, MoreHorizontal, Loader2, Check } from 'lucide-react';
+import { Search, Filter, Plus, FileDown, MoreHorizontal, Loader2, Check, FileBox } from 'lucide-react';
 import { StatusBadge, type StatusType } from '../../components/ui/StatusBadge';
 import { useOrders } from '../../hooks/useOrders';
 import { doc, updateDoc, collection, getDocs } from 'firebase/firestore';
@@ -130,10 +130,17 @@ export function OrdersList() {
              Production
              {currentTab === 'production' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-primary rounded-t-full" />}
           </button>
+          <button 
+             onClick={() => setSearchParams({ tab: 'reports' })}
+             className={`pb-4 text-sm font-bold uppercase tracking-wider transition-all relative ${currentTab === 'reports' ? 'text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}
+          >
+             Reports
+             {currentTab === 'reports' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-primary rounded-t-full" />}
+          </button>
       </div>
 
       {/* Filters and Search Bar */}
-      {currentTab !== 'production' && (
+      {currentTab !== 'production' && currentTab !== 'reports' && (
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between mb-6 gap-4">
         <div className="flex gap-2 w-full max-w-md">
            <div className="relative flex-1">
@@ -170,8 +177,23 @@ export function OrdersList() {
         <Production isEmbed={true} />
       )}
 
+      {/* Reports Panel */}
+      {currentTab === 'reports' && (
+        <div className="bg-white border border-brand-border rounded-xl p-8 shadow-sm flex flex-col items-center justify-center text-center gap-6 min-h-[400px] mt-4 animate-in fade-in duration-300">
+          <div className="w-20 h-20 bg-brand-bg rounded-full flex items-center justify-center text-brand-primary border border-brand-border">
+            <FileBox size={32} strokeWidth={1.5} />
+          </div>
+          <div>
+            <h2 className="text-2xl font-serif text-brand-primary mb-2">Reports & Analytics coming soon</h2>
+            <p className="text-brand-secondary text-sm max-w-md mx-auto leading-relaxed">
+               Track order volume, quote conversion rates, production velocity, and financial summaries.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Orders Table */}
-      {currentTab !== 'calendar' && currentTab !== 'production' && (
+      {currentTab !== 'calendar' && currentTab !== 'production' && currentTab !== 'reports' && (
         <div className="bg-white rounded-card border border-brand-border overflow-hidden custom-scrollbar overflow-x-auto shadow-sm">
         <div className="min-w-[1000px]">
           {/* Table Header */}

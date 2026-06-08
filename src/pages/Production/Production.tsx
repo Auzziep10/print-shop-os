@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ChevronRight, Loader2, PackageOpen, Building2, Search, Check, Clock, Box, X, Play, Pause, Activity, ExternalLink, Archive } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { ChevronRight, Loader2, PackageOpen, Building2, Search, Check, Clock, Box, X, Play, Pause, Activity, ExternalLink, Archive, Image as ImageIcon } from 'lucide-react';
 import { useOrders } from '../../hooks/useOrders';
 import { useAuth } from '../../contexts/AuthContext';
 import { db } from '../../lib/firebase';
@@ -52,10 +52,22 @@ export function Production({ isEmbed = false }: { isEmbed?: boolean }) {
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [metricsTimeFilter, setMetricsTimeFilter] = useState<string>('Today');
   const [metricsMode, setMetricsMode] = useState<'Production' | 'Kitting'>('Production');
+  const [searchParams, setSearchParams] = useSearchParams();
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
   const [showGroupModal, setShowGroupModal] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
-  const [activePipelineTab, setActivePipelineTab] = useState<'Active' | 'Archived'>('Active');
+  const [activePipelineTab, setActivePipelineTab] = useState<'Active' | 'Archived' | 'Artwork'>(() => {
+    return (searchParams.get('sub') === 'artwork') ? 'Artwork' : 'Active';
+  });
+
+  const handleTabChange = (tab: 'Active' | 'Archived' | 'Artwork') => {
+    setActivePipelineTab(tab);
+    if (tab === 'Artwork') {
+      setSearchParams({ tab: 'production', sub: 'artwork' });
+    } else {
+      setSearchParams({ tab: 'production' });
+    }
+  };
 
   useEffect(() => {
     getDocs(collection(db, 'users')).then(snap => {
@@ -543,6 +555,55 @@ export function Production({ isEmbed = false }: { isEmbed?: boolean }) {
     );
   }
 
+  if (activePipelineTab === 'Artwork') {
+    return (
+      <div className={isEmbed ? "space-y-8 mt-4" : "p-6 md:p-10 max-w-[1600px] mx-auto space-y-8"}>
+        <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-6 mb-8">
+          <div className="flex flex-col gap-3">
+            {!isEmbed && (
+              <div>
+                <h1 className={tokens.typography.h1}>Production Pipeline</h1>
+                <p className="text-brand-secondary text-sm mt-1">Manage active orders currently on the floor.</p>
+              </div>
+            )}
+            <div className="flex items-center gap-1 bg-neutral-100/80 p-1.5 rounded-xl w-fit border border-neutral-200 shadow-inner mt-2">
+               <button 
+                  onClick={() => handleTabChange('Active')}
+                  className="px-5 py-1.5 rounded-lg text-[13px] font-bold tracking-widest uppercase transition-all text-brand-secondary hover:text-brand-primary border border-transparent"
+               >
+                 Active
+               </button>
+               <button 
+                  onClick={() => handleTabChange('Archived')}
+                  className="px-5 py-1.5 rounded-lg text-[13px] font-bold tracking-widest uppercase transition-all text-brand-secondary hover:text-brand-primary border border-transparent"
+               >
+                 Archived
+               </button>
+               <button 
+                  onClick={() => handleTabChange('Artwork')}
+                  className="px-5 py-1.5 rounded-lg text-[13px] font-bold tracking-widest uppercase transition-all bg-white text-brand-primary shadow-sm border border-neutral-200"
+               >
+                 Artwork
+               </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white border border-brand-border rounded-xl p-8 shadow-sm flex flex-col items-center justify-center text-center gap-6 min-h-[400px]">
+          <div className="w-20 h-20 bg-brand-bg rounded-full flex items-center justify-center text-brand-primary border border-brand-border">
+            <ImageIcon size={32} strokeWidth={1.5} />
+          </div>
+          <div>
+            <h2 className="text-2xl font-serif text-brand-primary mb-2">Artwork pipeline coming soon</h2>
+            <p className="text-brand-secondary text-sm max-w-md mx-auto leading-relaxed">
+               Manage mockups, screen-print color separations, digital film files, and approval workflows in one place.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (productionOrders.length === 0 && !searchQuery && activePipelineTab === 'Active') {
     return (
       <div className={isEmbed ? "mt-4 flex flex-col gap-6" : "max-w-[1600px] mx-auto mt-8 flex flex-col gap-6 p-6 md:p-10"}>
@@ -556,16 +617,22 @@ export function Production({ isEmbed = false }: { isEmbed?: boolean }) {
             )}
             <div className="flex items-center gap-1 bg-neutral-100/80 p-1.5 rounded-xl w-fit border border-neutral-200 shadow-inner mt-2">
                <button 
-                  onClick={() => setActivePipelineTab('Active')}
+                  onClick={() => handleTabChange('Active')}
                   className={`px-5 py-1.5 rounded-lg text-[13px] font-bold tracking-widest uppercase transition-all ${activePipelineTab==='Active' ? 'bg-white text-brand-primary shadow-sm border border-neutral-200' : 'text-brand-secondary hover:text-brand-primary border border-transparent'}`}
                >
                  Active
                </button>
                <button 
-                  onClick={() => setActivePipelineTab('Archived')}
+                  onClick={() => handleTabChange('Archived')}
                   className={`px-5 py-1.5 rounded-lg text-[13px] font-bold tracking-widest uppercase transition-all ${(activePipelineTab as string)==='Archived' ? 'bg-white text-brand-primary shadow-sm border border-neutral-200' : 'text-brand-secondary hover:text-brand-primary border border-transparent'}`}
                >
                  Archived
+               </button>
+               <button 
+                  onClick={() => handleTabChange('Artwork')}
+                  className={`px-5 py-1.5 rounded-lg text-[13px] font-bold tracking-widest uppercase transition-all ${(activePipelineTab as string)==='Artwork' ? 'bg-white text-brand-primary shadow-sm border border-neutral-200' : 'text-brand-secondary hover:text-brand-primary border border-transparent'}`}
+               >
+                 Artwork
                </button>
             </div>
           </div>
@@ -597,16 +664,22 @@ export function Production({ isEmbed = false }: { isEmbed?: boolean }) {
           )}
           <div className="flex items-center gap-1 bg-neutral-100/80 p-1.5 rounded-xl w-fit border border-neutral-200 shadow-inner mt-2">
              <button 
-                onClick={() => setActivePipelineTab('Active')}
+                onClick={() => handleTabChange('Active')}
                 className={`px-5 py-1.5 rounded-lg text-[13px] font-bold tracking-widest uppercase transition-all ${activePipelineTab==='Active' ? 'bg-white text-brand-primary shadow-sm border border-neutral-200' : 'text-brand-secondary hover:text-brand-primary border border-transparent'}`}
              >
                Active
              </button>
              <button 
-                onClick={() => setActivePipelineTab('Archived')}
-                className={`px-5 py-1.5 rounded-lg text-[13px] font-bold tracking-widest uppercase transition-all ${activePipelineTab==='Archived' ? 'bg-white text-brand-primary shadow-sm border border-neutral-200' : 'text-brand-secondary hover:text-brand-primary border border-transparent'}`}
+                onClick={() => handleTabChange('Archived')}
+                className={`px-5 py-1.5 rounded-lg text-[13px] font-bold tracking-widest uppercase transition-all ${(activePipelineTab as string)==='Archived' ? 'bg-white text-brand-primary shadow-sm border border-neutral-200' : 'text-brand-secondary hover:text-brand-primary border border-transparent'}`}
              >
                Archived
+             </button>
+             <button 
+                onClick={() => handleTabChange('Artwork')}
+                className={`px-5 py-1.5 rounded-lg text-[13px] font-bold tracking-widest uppercase transition-all ${(activePipelineTab as string)==='Artwork' ? 'bg-white text-brand-primary shadow-sm border border-neutral-200' : 'text-brand-secondary hover:text-brand-primary border border-transparent'}`}
+             >
+               Artwork
              </button>
           </div>
         </div>
