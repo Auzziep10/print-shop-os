@@ -15,7 +15,13 @@ import {
   FileText, 
   UserPlus, 
   Loader2, 
-  Search
+  Search,
+  Folder,
+  FolderOpen,
+  ChevronDown,
+  ChevronRight,
+  Pencil,
+  Settings
 } from 'lucide-react';
 
 // Predefined fallbacks to prevent empty states
@@ -259,6 +265,16 @@ export function TeamMeetings() {
   // Section Notes editing states
   const [editingSectionIdx, setEditingSectionIdx] = useState<number | null>(null);
   const [editingSectionNotes, setEditingSectionNotes] = useState<string>('');
+
+  // Inline Notes editing states
+  const [isEditingAllNotes, setIsEditingAllNotes] = useState(false);
+  const [localSections, setLocalSections] = useState<any[]>([]);
+  const [localGeneralNotes, setLocalGeneralNotes] = useState('');
+
+  // Reset notes editor when selected meeting changes
+  useEffect(() => {
+    setIsEditingAllNotes(false);
+  }, [selectedMeeting?.id]);
 
   // Auto-open capacity check-in modal for tagged attendees who haven't checked in yet
   useEffect(() => {
@@ -576,6 +592,47 @@ export function TeamMeetings() {
       setEditingSectionIdx(null);
     } catch (err) {
       console.error("Failed to save section notes", err);
+      alert("Failed to save notes. Please try again.");
+    }
+  };
+
+  const handleStartInlineNotesEditing = () => {
+    if (!selectedMeeting) return;
+    setIsEditingAllNotes(true);
+    if (selectedMeeting.sections && selectedMeeting.sections.length > 0) {
+      setLocalSections(selectedMeeting.sections.map((s: any) => ({ name: s.name, notes: s.notes || '' })));
+    } else {
+      setLocalGeneralNotes(selectedMeeting.notes || '');
+    }
+  };
+
+  const handleSaveAllInlineNotes = async () => {
+    if (!selectedMeeting) return;
+    try {
+      const meetingRef = doc(db, 'meetings', selectedMeeting.id);
+      if (selectedMeeting.sections && selectedMeeting.sections.length > 0) {
+        const finalNotes = localSections.map(s => `## ${s.name}\n${s.notes}`).join('\n\n');
+        await updateDoc(meetingRef, {
+          sections: localSections,
+          notes: finalNotes
+        });
+        setSelectedMeeting((prev: any) => ({
+          ...prev,
+          sections: localSections,
+          notes: finalNotes
+        }));
+      } else {
+        await updateDoc(meetingRef, {
+          notes: localGeneralNotes
+        });
+        setSelectedMeeting((prev: any) => ({
+          ...prev,
+          notes: localGeneralNotes
+        }));
+      }
+      setIsEditingAllNotes(false);
+    } catch (err) {
+      console.error("Failed to save inline notes", err);
       alert("Failed to save notes. Please try again.");
     }
   };
@@ -916,10 +973,16 @@ export function TeamMeetings() {
                       className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-brand-secondary hover:text-brand-primary transition-colors py-1 px-1.5 w-full text-left"
                     >
                       <span className="flex items-center gap-1.5">
-                        <span className="text-neutral-400 font-sans">📁</span>
+                        {isExpanded ? (
+                          <FolderOpen size={12} className="text-neutral-400 shrink-0" />
+                        ) : (
+                          <Folder size={12} className="text-neutral-400 shrink-0" />
+                        )}
                         {group.name} ({group.meetings.length})
                       </span>
-                      <span className="text-[9px]">{isExpanded ? '▼' : '►'}</span>
+                      <span className="text-neutral-400">
+                        {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                      </span>
                     </button>
                     {isExpanded && (
                       <div className="flex flex-col gap-2 pl-2 animate-in fade-in duration-200">
@@ -940,31 +1003,45 @@ export function TeamMeetings() {
                               onClick={() => setSelectedMeeting(meet)}
                               className={`p-3.5 rounded-card border transition-all cursor-pointer bg-white flex flex-col gap-2 shadow-sm ${isActive ? 'border-brand-primary ring-1 ring-brand-primary' : 'border-brand-border hover:border-neutral-400'}`}
                             >
-                              <div className="flex justify-between items-start gap-2">
-                                <h3 className="font-serif text-xs font-bold text-brand-primary line-clamp-1 flex items-center gap-1.5">
-                                  {meet.status === 'live' && (
-                                    <span className="w-1.5 h-1.5 rounded-full bg-red-600 animate-ping inline-block shrink-0" title="Meeting in progress" />
-                                  )}
-                                  {meet.title}
-                                </h3>
-                                {meet.status === 'live' ? (
-                                  <span className="text-[8px] font-bold uppercase tracking-wider text-red-600 bg-red-50 border border-red-200 px-1 py-0.5 rounded shrink-0">
-                                    Live
-                                  </span>
-                                ) : (
-                                  hasCheckins && (
-                                    <span className={`text-[9px] font-black border px-1.5 py-0.5 rounded-full shrink-0 ${getScoreColor(avgScore)}`}>
-                                      {avgScore.toFixed(1)}
-                                    </span>
-                                  )
-                                )}
-                              </div>
-                              <p className="text-[10px] text-brand-secondary line-clamp-2 leading-relaxed">{meet.summary}</p>
-                              
-                              <div className="flex justify-between items-center text-[9px] text-brand-secondary border-t border-brand-border/50 pt-2 mt-1">
-                                <span className="flex items-center gap-1 font-medium"><Calendar size={9} /> {formatLocalDate(meet.date, {month: 'short', day: 'numeric', year: 'numeric'})}</span>
-                                <span>{meet.actionItems?.length || 0} tasks</span>
-                              </div>
+                              {(() => {
+                                const isAutoTitle = meet.templateId && meet.title.includes(meet.date);
+                                const displayCardTitle = isAutoTitle 
+                                  ? formatLocalDate(meet.date, { month: 'long', day: 'numeric', year: 'numeric' })
+                                  : meet.title;
+                                return (
+                                  <>
+                                    <div className="flex justify-between items-start gap-2 w-full">
+                                      <h3 className="font-serif text-xs font-bold text-brand-primary line-clamp-1 flex items-center gap-1.5">
+                                        {meet.status === 'live' && (
+                                          <span className="w-1.5 h-1.5 rounded-full bg-red-600 animate-ping inline-block shrink-0" title="Meeting in progress" />
+                                        )}
+                                        {displayCardTitle}
+                                      </h3>
+                                      {meet.status === 'live' ? (
+                                        <span className="text-[8px] font-bold uppercase tracking-wider text-red-600 bg-red-50 border border-red-200 px-1 py-0.5 rounded shrink-0">
+                                          Live
+                                        </span>
+                                      ) : (
+                                        hasCheckins && (
+                                          <span className={`text-[9px] font-black border px-1.5 py-0.5 rounded-full shrink-0 ${getScoreColor(avgScore)}`}>
+                                            {avgScore.toFixed(1)}
+                                          </span>
+                                        )
+                                      )}
+                                    </div>
+                                    <p className="text-[10px] text-brand-secondary line-clamp-2 leading-relaxed">{meet.summary}</p>
+                                    
+                                    <div className="flex justify-between items-center text-[9px] text-brand-secondary border-t border-brand-border/50 pt-2 mt-1">
+                                      {!isAutoTitle ? (
+                                        <span className="flex items-center gap-1 font-medium"><Calendar size={9} /> {formatLocalDate(meet.date, {month: 'short', day: 'numeric', year: 'numeric'})}</span>
+                                      ) : (
+                                        <span className="text-[8px] font-bold text-neutral-400 uppercase tracking-wider">Minutes Logged</span>
+                                      )}
+                                      <span>{meet.actionItems?.length || 0} tasks</span>
+                                    </div>
+                                  </>
+                                );
+                              })()}
                             </div>
                           );
                         })}
@@ -990,7 +1067,16 @@ export function TeamMeetings() {
                   <Calendar size={12} />
                   <span>{formatLocalDate(selectedMeeting.date, {weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'})}</span>
                 </div>
-                <h1 className="font-serif text-2xl md:text-3xl text-brand-primary leading-tight">{selectedMeeting.title}</h1>
+                {(() => {
+                  const selectedTemplate = templates.find(t => t.id === selectedMeeting.templateId);
+                  const isDetailAutoTitle = selectedMeeting.templateId && selectedMeeting.title.includes(selectedMeeting.date);
+                  const displayDetailTitle = isDetailAutoTitle && selectedTemplate
+                    ? selectedTemplate.name
+                    : selectedMeeting.title;
+                  return (
+                    <h1 className="font-serif text-2xl md:text-3xl text-brand-primary leading-tight">{displayDetailTitle}</h1>
+                  );
+                })()}
                 
                 {/* Attendees list */}
                 {selectedMeeting.attendees && selectedMeeting.attendees.length > 0 && (
@@ -1006,9 +1092,9 @@ export function TeamMeetings() {
                 <button 
                   onClick={() => handleStartEditMeeting(selectedMeeting)}
                   className="text-brand-secondary hover:text-brand-primary transition-colors p-2 hover:bg-neutral-50 rounded-lg"
-                  title="Edit Meeting / Take Notes"
+                  title="Meeting Settings"
                 >
-                  ✏️
+                  <Settings size={16} />
                 </button>
                 <button 
                   onClick={() => handleDeleteMeeting(selectedMeeting.id)}
@@ -1033,12 +1119,12 @@ export function TeamMeetings() {
                       onClick={() => setIsCheckinModalOpen(true)}
                       className="bg-black hover:bg-neutral-900 text-white text-[10px] font-extrabold uppercase tracking-widest px-3.5 py-1.5 rounded-full shadow-sm transition-all flex items-center gap-1.5"
                     >
-                      <span>🔴</span> {myExistingCheckin ? 'Update Check-in' : 'Submit Check-in'}
+                      <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse shrink-0" /> {myExistingCheckin ? 'Update Check-in' : 'Submit Check-in'}
                     </button>
                   )}
                   <button
-                    onClick={() => handleStartEditMeeting(selectedMeeting)}
-                    className="bg-red-600 hover:bg-red-700 text-white text-[10px] font-extrabold uppercase tracking-widest px-3.5 py-1.5 rounded-full shadow-sm transition-all"
+                    onClick={handleStartInlineNotesEditing}
+                    className="bg-red-600 hover:bg-red-700 text-white text-[10px] font-extrabold uppercase tracking-widest px-3.5 py-1.5 rounded-full shadow-sm transition-all animate-pulse"
                   >
                     Edit / Take Notes
                   </button>
@@ -1187,20 +1273,130 @@ export function TeamMeetings() {
 
               {/* Full Notes Markdown */}
               <div className="flex flex-col gap-3">
-                <h3 className="text-xs font-bold uppercase tracking-widest text-brand-secondary">
-                  {selectedMeeting.sections && selectedMeeting.sections.length > 0 ? 'Meeting Sections & Notes' : 'Discussion Notes'}
-                </h3>
+                <div className="flex justify-between items-center">
+                  <h3 className="text-xs font-bold uppercase tracking-widest text-brand-secondary">
+                    {selectedMeeting.sections && selectedMeeting.sections.length > 0 ? 'Meeting Sections & Notes' : 'Discussion Notes'}
+                  </h3>
+                  {!isEditingAllNotes && (
+                    <button
+                      onClick={handleStartInlineNotesEditing}
+                      className="text-[10px] font-bold text-neutral-500 hover:text-brand-primary flex items-center gap-1.5 transition-colors"
+                      title="Edit all notes at once"
+                    >
+                      <Pencil size={10} /> Edit All Notes
+                    </button>
+                  )}
+                </div>
                 <div className="border border-brand-border rounded-xl p-4 bg-brand-bg/5 max-h-[350px] overflow-y-auto custom-scrollbar flex flex-col gap-4">
-                  {selectedMeeting.sections && selectedMeeting.sections.length > 0 ? (
-                    selectedMeeting.sections.map((sec: any, idx: number) => (
-                      editingSectionIdx === idx ? (
-                        <div key={idx} className="border-b border-brand-border/30 last:border-0 pb-3 last:pb-0 space-y-2">
-                          <h4 className="font-bold text-xs text-brand-primary uppercase tracking-wider">{sec.name}</h4>
+                  {isEditingAllNotes ? (
+                    <div className="space-y-4">
+                      {selectedMeeting.sections && selectedMeeting.sections.length > 0 ? (
+                        localSections.map((sec, idx) => (
+                          <div key={idx} className="space-y-1.5">
+                            <label className="block text-[10px] font-bold text-brand-secondary uppercase tracking-wider">{sec.name}</label>
+                            <textarea
+                              value={sec.notes}
+                              onChange={e => {
+                                const updated = [...localSections];
+                                updated[idx].notes = e.target.value;
+                                setLocalSections(updated);
+                              }}
+                              className="w-full min-h-[100px] bg-white border border-[#ded8ce] rounded-xl p-3 text-xs outline-none focus:border-black transition-colors resize-y font-sans leading-relaxed text-[#171717]"
+                              placeholder={`Enter notes for ${sec.name}...`}
+                              autoFocus={idx === 0}
+                            />
+                          </div>
+                        ))
+                      ) : (
+                        <div className="space-y-1.5">
+                          <label className="block text-[10px] font-bold text-brand-secondary uppercase tracking-wider">Discussion Notes</label>
+                          <textarea
+                            value={localGeneralNotes}
+                            onChange={e => setLocalGeneralNotes(e.target.value)}
+                            className="w-full min-h-[180px] bg-white border border-[#ded8ce] rounded-xl p-3.5 text-xs outline-none focus:border-black transition-colors resize-y font-sans leading-relaxed text-[#171717]"
+                            placeholder="Enter discussion notes..."
+                            autoFocus
+                          />
+                        </div>
+                      )}
+                      <div className="flex gap-2 justify-end pt-2 border-t border-brand-border/30">
+                        <button
+                          onClick={() => setIsEditingAllNotes(false)}
+                          className="px-4 py-1.5 text-xs font-bold border border-[#ded8ce] rounded-full bg-white hover:bg-neutral-50 shadow-sm transition-colors"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={handleSaveAllInlineNotes}
+                          className="px-4 py-1.5 text-xs font-bold text-white bg-black rounded-full hover:bg-neutral-900 shadow-sm transition-colors"
+                        >
+                          Save Notes
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    selectedMeeting.sections && selectedMeeting.sections.length > 0 ? (
+                      selectedMeeting.sections.map((sec: any, idx: number) => (
+                        editingSectionIdx === idx ? (
+                          <div key={idx} className="border-b border-brand-border/30 last:border-0 pb-3 last:pb-0 space-y-2">
+                            <h4 className="font-bold text-xs text-brand-primary uppercase tracking-wider">{sec.name}</h4>
+                            <textarea
+                              value={editingSectionNotes}
+                              onChange={e => setEditingSectionNotes(e.target.value)}
+                              className="w-full min-h-[80px] bg-white border border-[#ded8ce] rounded-xl p-3 text-xs outline-none focus:border-black transition-colors resize-y font-sans leading-relaxed text-[#171717]"
+                              placeholder={`Enter notes for ${sec.name}...`}
+                              autoFocus
+                            />
+                            <div className="flex gap-2 justify-end">
+                              <button
+                                onClick={() => setEditingSectionIdx(null)}
+                                className="px-3 py-1 text-[10px] font-bold border border-[#ded8ce] rounded-full bg-white hover:bg-neutral-50"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                onClick={() => handleSaveSectionNotes(idx)}
+                                className="px-3 py-1 text-[10px] font-bold text-white bg-black rounded-full hover:bg-neutral-900"
+                              >
+                                Save
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div key={idx} className="border-b border-brand-border/30 last:border-0 pb-3 last:pb-0 group">
+                            <div className="flex justify-between items-center mb-1">
+                              <h4 className="font-bold text-xs text-brand-primary uppercase tracking-wider">{sec.name}</h4>
+                              <button
+                                onClick={() => {
+                                  setEditingSectionIdx(idx);
+                                  setEditingSectionNotes(sec.notes || '');
+                                }}
+                                className="text-[10px] font-bold text-neutral-500 hover:text-black transition-colors opacity-0 group-hover:opacity-100 flex items-center gap-1"
+                                title="Edit notes for this section"
+                              >
+                                <Pencil size={10} className="text-neutral-400" /> Edit
+                              </button>
+                            </div>
+                            <p 
+                              className="text-xs text-[#222] leading-relaxed whitespace-pre-wrap font-sans cursor-pointer hover:bg-neutral-50/50 p-1 rounded transition-colors"
+                              onClick={() => {
+                                setEditingSectionIdx(idx);
+                                setEditingSectionNotes(sec.notes || '');
+                              }}
+                            >
+                              {sec.notes || <span className="italic text-neutral-400 font-medium">No notes written for this section. Click here to add notes.</span>}
+                            </p>
+                          </div>
+                        )
+                      ))
+                    ) : (
+                      editingSectionIdx === -1 ? (
+                        <div className="space-y-2">
                           <textarea
                             value={editingSectionNotes}
                             onChange={e => setEditingSectionNotes(e.target.value)}
-                            className="w-full min-h-[80px] bg-white border border-[#ded8ce] rounded-xl p-3 text-xs outline-none focus:border-black transition-colors resize-y font-sans leading-relaxed text-[#171717]"
-                            placeholder={`Enter notes for ${sec.name}...`}
+                            className="w-full min-h-[150px] bg-white border border-[#ded8ce] rounded-xl p-3.5 text-xs outline-none focus:border-black transition-colors resize-y font-sans leading-relaxed text-[#171717]"
+                            placeholder="Enter discussion notes..."
                             autoFocus
                           />
                           <div className="flex gap-2 justify-end">
@@ -1211,7 +1407,23 @@ export function TeamMeetings() {
                               Cancel
                             </button>
                             <button
-                              onClick={() => handleSaveSectionNotes(idx)}
+                              onClick={async () => {
+                                if (!selectedMeeting) return;
+                                try {
+                                  const meetingRef = doc(db, 'meetings', selectedMeeting.id);
+                                  await updateDoc(meetingRef, {
+                                    notes: editingSectionNotes
+                                  });
+                                  setSelectedMeeting((prev: any) => ({
+                                    ...prev,
+                                    notes: editingSectionNotes
+                                  }));
+                                  setEditingSectionIdx(null);
+                                } catch (err) {
+                                  console.error("Failed to save discussion notes", err);
+                                  alert("Failed to save notes. Please try again.");
+                                }
+                              }}
                               className="px-3 py-1 text-[10px] font-bold text-white bg-black rounded-full hover:bg-neutral-900"
                             >
                               Save
@@ -1219,95 +1431,28 @@ export function TeamMeetings() {
                           </div>
                         </div>
                       ) : (
-                        <div key={idx} className="border-b border-brand-border/30 last:border-0 pb-3 last:pb-0 group">
-                          <div className="flex justify-between items-center mb-1">
-                            <h4 className="font-bold text-xs text-brand-primary uppercase tracking-wider">{sec.name}</h4>
-                            <button
-                              onClick={() => {
-                                setEditingSectionIdx(idx);
-                                setEditingSectionNotes(sec.notes || '');
-                              }}
-                              className="text-[10px] font-bold text-[#111111] hover:underline opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1"
-                              title="Edit notes for this section"
-                            >
-                              ✏️ Edit
-                            </button>
-                          </div>
-                          <p 
-                            className="text-xs text-[#222] leading-relaxed whitespace-pre-wrap font-sans cursor-pointer hover:bg-neutral-50/50 p-1 rounded transition-colors"
+                        <div className="group relative">
+                          <button
                             onClick={() => {
-                              setEditingSectionIdx(idx);
-                              setEditingSectionNotes(sec.notes || '');
+                              setEditingSectionIdx(-1);
+                              setEditingSectionNotes(selectedMeeting.notes || '');
+                            }}
+                            className="absolute right-0 top-0 text-[10px] font-bold text-neutral-500 hover:text-black transition-colors opacity-0 group-hover:opacity-100 flex items-center gap-1"
+                            title="Edit discussion notes"
+                          >
+                            <Pencil size={10} className="text-neutral-400" /> Edit
+                          </button>
+                          <div 
+                            className="prose prose-sm max-w-none text-brand-primary text-xs leading-relaxed whitespace-pre-wrap font-sans cursor-pointer hover:bg-neutral-50/50 p-2 rounded transition-colors"
+                            onClick={() => {
+                              setEditingSectionIdx(-1);
+                              setEditingSectionNotes(selectedMeeting.notes || '');
                             }}
                           >
-                            {sec.notes || <span className="italic text-neutral-400 font-medium">No notes written for this section. Click here to add notes.</span>}
-                          </p>
+                            {selectedMeeting.notes || <span className="italic text-neutral-400 font-medium">No discussion notes written yet. Click here to add notes.</span>}
+                          </div>
                         </div>
                       )
-                    ))
-                  ) : (
-                    editingSectionIdx === -1 ? (
-                      <div className="space-y-2">
-                        <textarea
-                          value={editingSectionNotes}
-                          onChange={e => setEditingSectionNotes(e.target.value)}
-                          className="w-full min-h-[150px] bg-white border border-[#ded8ce] rounded-xl p-3.5 text-xs outline-none focus:border-black transition-colors resize-y font-sans leading-relaxed text-[#171717]"
-                          placeholder="Enter discussion notes..."
-                          autoFocus
-                        />
-                        <div className="flex gap-2 justify-end">
-                          <button
-                            onClick={() => setEditingSectionIdx(null)}
-                            className="px-3 py-1 text-[10px] font-bold border border-[#ded8ce] rounded-full bg-white hover:bg-neutral-50"
-                          >
-                            Cancel
-                          </button>
-                          <button
-                            onClick={async () => {
-                              if (!selectedMeeting) return;
-                              try {
-                                const meetingRef = doc(db, 'meetings', selectedMeeting.id);
-                                await updateDoc(meetingRef, {
-                                  notes: editingSectionNotes
-                                });
-                                setSelectedMeeting((prev: any) => ({
-                                  ...prev,
-                                  notes: editingSectionNotes
-                                }));
-                                setEditingSectionIdx(null);
-                              } catch (err) {
-                                console.error("Failed to save discussion notes", err);
-                                alert("Failed to save notes. Please try again.");
-                              }
-                            }}
-                            className="px-3 py-1 text-[10px] font-bold text-white bg-black rounded-full hover:bg-neutral-900"
-                          >
-                            Save
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="group relative">
-                        <button
-                          onClick={() => {
-                            setEditingSectionIdx(-1);
-                            setEditingSectionNotes(selectedMeeting.notes || '');
-                          }}
-                          className="absolute right-0 top-0 text-[10px] font-bold text-[#111111] hover:underline opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1"
-                          title="Edit discussion notes"
-                        >
-                          ✏️ Edit
-                        </button>
-                        <div 
-                          className="prose prose-sm max-w-none text-brand-primary text-xs leading-relaxed whitespace-pre-wrap font-sans cursor-pointer hover:bg-neutral-50/50 p-2 rounded transition-colors"
-                          onClick={() => {
-                            setEditingSectionIdx(-1);
-                            setEditingSectionNotes(selectedMeeting.notes || '');
-                          }}
-                        >
-                          {selectedMeeting.notes || <span className="italic text-neutral-400 font-medium">No discussion notes written yet. Click here to add notes.</span>}
-                        </div>
-                      </div>
                     )
                   )}
                 </div>
@@ -1886,7 +2031,7 @@ export function TeamMeetings() {
                       <div key={t.id} className={`border rounded-xl p-3.5 flex justify-between items-start gap-4 shadow-sm transition-all ${editingTemplateId === t.id ? 'border-brand-primary bg-brand-bg/20 ring-1 ring-brand-primary' : 'border-brand-border bg-brand-bg/10'}`}>
                         <div className="space-y-1.5">
                           <h5 className="font-serif font-bold text-xs text-brand-primary flex items-center gap-1.5">
-                            {editingTemplateId === t.id && <span className="text-brand-primary font-sans">✏️</span>}
+                            {editingTemplateId === t.id && <Pencil size={10} className="text-brand-primary shrink-0" />}
                             {t.name}
                           </h5>
                           <div className="text-[10px] text-brand-secondary space-y-0.5">
@@ -1900,7 +2045,7 @@ export function TeamMeetings() {
                             className="text-brand-secondary hover:text-brand-primary transition-colors p-1.5 hover:bg-white/80 rounded border border-transparent hover:border-brand-border"
                             title="Edit Template"
                           >
-                            ✏️
+                            <Pencil size={12} className="text-neutral-500" />
                           </button>
                           <button
                             onClick={() => handleDeleteTemplate(t.id)}
