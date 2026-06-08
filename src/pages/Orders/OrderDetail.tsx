@@ -10,7 +10,7 @@ import { StatusBadge, type StatusType } from '../../components/ui/StatusBadge';
 import { useAuth } from '../../contexts/AuthContext';
 import { useOrders } from '../../hooks/useOrders';
 import { db, storage } from '../../lib/firebase';
-import { doc, setDoc, getDoc, updateDoc, collection, getDocs, query, where, onSnapshot } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc, collection, getDocs, query, where, onSnapshot, deleteDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { getTrackingLink, normalizeUser } from '../../lib/utils';
 import { PalletPickOptimizerModal } from '../../components/Inventory/PalletPickOptimizerModal';
@@ -43,6 +43,7 @@ export function OrderDetail() {
 
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [editForm, setEditForm] = useState({ 
     title: '', date: '', statusIndex: 0,
     trackingCarrier: '', trackingNumber: '',
@@ -902,6 +903,24 @@ export function OrderDetail() {
       // Fallback update could go here if using local state array, but we have onSnapshot so it's live!
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleDeleteOrder = async () => {
+    if (!id || !order) return;
+    const confirmed = window.confirm(`Are you sure you want to delete "${order.title || 'this order'}"? This action cannot be undone.`);
+    if (!confirmed) return;
+
+    setIsDeleting(true);
+    try {
+      await deleteDoc(doc(db, 'orders', id));
+      setIsEditDialogOpen(false);
+      navigate('/orders');
+    } catch (err) {
+      console.error("Error deleting order:", err);
+      alert("Failed to delete order. Please try again.");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -2539,14 +2558,31 @@ export function OrderDetail() {
               </div>
             </div>
 
-            <div className="p-6 bg-brand-bg flex gap-4 border-t border-brand-border sticky bottom-0">
-              <PillButton variant="outline" onClick={() => setIsEditDialogOpen(false)} className="flex-1 justify-center py-3">
-                Cancel
+            <div className="p-6 bg-brand-bg flex justify-between gap-4 border-t border-brand-border sticky bottom-0">
+              <PillButton 
+                variant="outline" 
+                onClick={handleDeleteOrder} 
+                className="border-red-200 text-red-600 hover:bg-red-50 hover:border-red-600 px-6 py-3 flex items-center gap-1.5 shrink-0"
+                disabled={isDeleting || isSaving}
+              >
+                {isDeleting ? <Loader2 className="animate-spin" size={18} /> : (
+                  <>
+                    <Trash2 size={16} />
+                    <span>Delete Order</span>
+                  </>
+                )}
               </PillButton>
-              <PillButton variant="filled" onClick={handleSaveEdit} className="flex-1 justify-center py-3" disabled={isSaving}>
-                {isSaving ? <Loader2 className="animate-spin" size={18} /> : <span>Save All Changes</span>}
-              </PillButton>
+              
+              <div className="flex gap-4 flex-1 justify-end">
+                <PillButton variant="outline" onClick={() => setIsEditDialogOpen(false)} className="px-8 py-3">
+                  Cancel
+                </PillButton>
+                <PillButton variant="filled" onClick={handleSaveEdit} className="px-8 py-3" disabled={isSaving || isDeleting}>
+                  {isSaving ? <Loader2 className="animate-spin" size={18} /> : <span>Save All Changes</span>}
+                </PillButton>
+              </div>
             </div>
+
           </div>
         </div>
       )}
