@@ -4,6 +4,7 @@ import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { PillButton } from '../../components/ui/PillButton';
 import { Calendar, Users, Plus } from 'lucide-react';
 import { TimelinePlanner, OPEN_NEW_TASK_EVENT } from './TimelinePlanner';
+import { TeamMeetings } from './TeamMeetings';
 import { useNavigate } from 'react-router-dom';
 
 export function Team() {
@@ -32,7 +33,7 @@ export function Team() {
             onChange={setActiveRange} 
           />
           <SegmentedControl 
-            options={['Timeline', 'Kanban']} 
+            options={['Timeline', 'Kanban', 'Meetings']} 
             value={activeView} 
             onChange={setActiveView} 
           />
@@ -52,6 +53,8 @@ export function Team() {
       <div className="mt-6">
         {activeView === 'Timeline' ? (
           <TimelinePlanner activeRange={activeRange} />
+        ) : activeView === 'Meetings' ? (
+          <TeamMeetings />
         ) : (
           <div className="p-12 text-center text-brand-secondary border border-brand-border rounded-card bg-white">
             Kanban view coming soon...
