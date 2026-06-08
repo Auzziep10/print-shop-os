@@ -21,7 +21,7 @@ import { PrintLabel } from './pages/Print/PrintLabel';
 import { PrintLabelsSheet } from './pages/Print/PrintLabelsSheet';
 import { PrintCourierLabel } from './pages/Print/PrintCourierLabel';
 import { PrintItemLabels } from './pages/Print/PrintItemLabels';
-import { Production } from './pages/Production/Production';
+
 import { PublicQuoteRequest } from './pages/Public/PublicQuoteRequest';
 import { InvoiceView } from './pages/Public/InvoiceView';
 
@@ -134,7 +134,7 @@ function App() {
           <Route index element={<CustomersList />} />
           <Route path=":id" element={<CustomerDetail />} />
         </Route>
-        <Route path="production" element={<Production />} />
+        <Route path="production" element={<Navigate to="/orders?tab=production" replace />} />
         <Route path="artwork" element={<div className="p-6">Artwork coming soon...</div>} />
         <Route path="inventory" element={<Inventory />} />
         <Route path="team" element={<Team />} />

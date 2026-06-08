@@ -104,9 +104,16 @@ export function Sidebar({ onClose }: SidebarProps) {
     return location.pathname.startsWith('/inventory');
   });
 
+  const [isOrdersExpanded, setIsOrdersExpanded] = useState<boolean>(() => {
+    return location.pathname.startsWith('/orders');
+  });
+
   useEffect(() => {
     if (location.pathname.startsWith('/inventory')) {
       setIsInventoryExpanded(true);
+    }
+    if (location.pathname.startsWith('/orders')) {
+      setIsOrdersExpanded(true);
     }
   }, [location.pathname]);
 
@@ -118,12 +125,25 @@ export function Sidebar({ onClose }: SidebarProps) {
     ...(isAdmin ? [{ label: 'Admin Builder', path: '/inventory?tab=Warehouse&sub=Builder', icon: Settings }] : []),
   ];
 
+  const ordersSubItems = [
+    { label: 'Calendar', path: '/orders?tab=calendar', icon: Calendar },
+    { label: 'Orders', path: '/orders?tab=orders', icon: Layers },
+    { label: 'Quotes', path: '/orders?tab=quotes', icon: MailIcon },
+    { label: 'Production', path: '/orders?tab=production', icon: Scissors },
+  ];
+
   const isSubItemActive = (subPath: string) => {
     const [path, search] = subPath.split('?');
     if (location.pathname !== path) return false;
     
     const params = new URLSearchParams(search || '');
     const currentParams = new URLSearchParams(location.search);
+    
+    if (path === '/orders') {
+      const tab = params.get('tab') || 'calendar';
+      const currentTab = currentParams.get('tab') || 'calendar';
+      return tab === currentTab;
+    }
     
     const tab = params.get('tab') || 'Products';
     const currentTab = currentParams.get('tab') || 'Products';
@@ -143,7 +163,6 @@ export function Sidebar({ onClose }: SidebarProps) {
     { label: 'Dashboard', icon: LayoutDashboard, path: '/' },
     { label: 'Orders/Quotes', icon: Layers, path: '/orders' },
     { label: 'Customers', icon: Users, path: '/customers' },
-    { label: 'Production', icon: Scissors, path: '/production' },
     { label: 'Artwork', icon: ImageIcon, path: '/artwork' },
     { label: 'Inventory', icon: Package, path: '/inventory' },
     { label: 'Team', icon: UsersRound, path: '/team' },
@@ -168,6 +187,71 @@ export function Sidebar({ onClose }: SidebarProps) {
         {navItems.map((item) => {
           const isActive = location.pathname === item.path || (item.path !== '/' && location.pathname.startsWith(item.path));
           
+          if (item.label === 'Orders/Quotes') {
+            return (
+              <div key={item.label} className="space-y-1">
+                <Link
+                  to="/orders?tab=calendar"
+                  onClick={() => {
+                    setIsOrdersExpanded(prev => !prev);
+                  }}
+                  className={cn(
+                    "w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-colors group border border-transparent",
+                    isActive 
+                      ? "bg-white border border-brand-border text-brand-primary shadow-sm font-medium" 
+                      : "text-brand-secondary hover:text-brand-primary hover:bg-brand-muted"
+                  )}
+                >
+                  <div className="flex items-center gap-3">
+                    <item.icon 
+                      size={18} 
+                      strokeWidth={isActive ? 2 : 1.5} 
+                      className={cn(isActive ? "text-brand-primary" : "text-brand-secondary group-hover:text-brand-primary")}
+                    />
+                    <span>{item.label}</span>
+                  </div>
+                  <ChevronDown 
+                    size={14} 
+                    className={cn(
+                      "transition-transform duration-200 text-brand-secondary group-hover:text-brand-primary",
+                      isOrdersExpanded ? "rotate-180" : ""
+                    )}
+                  />
+                </Link>
+                
+                {isOrdersExpanded && (
+                  <div className="space-y-1 pl-4 border-l border-brand-border/60 ml-[22px] mt-1 animate-in fade-in slide-in-from-top-1 duration-200">
+                    {ordersSubItems.map((subItem) => {
+                      const isSubActive = isSubItemActive(subItem.path);
+                      return (
+                        <Link
+                          key={subItem.label}
+                          to={subItem.path}
+                          onClick={() => onClose?.()}
+                          className={cn(
+                            "flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs transition-colors cursor-pointer group border border-transparent",
+                            isSubActive 
+                              ? "bg-white border border-brand-border text-brand-primary shadow-sm font-semibold" 
+                              : "text-brand-secondary hover:text-brand-primary hover:bg-brand-muted/40"
+                          )}
+                        >
+                          <subItem.icon 
+                            size={14} 
+                            strokeWidth={isSubActive ? 2 : 1.5}
+                            className={cn(
+                              isSubActive ? "text-brand-primary" : "text-brand-secondary group-hover:text-brand-primary"
+                            )}
+                          />
+                          <span>{subItem.label}</span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          }
+
           if (item.label === 'Inventory') {
             return (
               <div key={item.label} className="space-y-1">

@@ -35,7 +35,7 @@ const DataPill = ({ label, value }: { label: string, value: string }) => (
   </div>
 );
 
-export function Production() {
+export function Production({ isEmbed = false }: { isEmbed?: boolean }) {
   const { user, userData } = useAuth();
   const { orders, loading } = useOrders();
   const navigate = useNavigate();
@@ -545,13 +545,15 @@ export function Production() {
 
   if (productionOrders.length === 0 && !searchQuery && activePipelineTab === 'Active') {
     return (
-      <div className="max-w-[1600px] mx-auto mt-8 flex flex-col gap-6 p-6 md:p-10">
+      <div className={isEmbed ? "mt-4 flex flex-col gap-6" : "max-w-[1600px] mx-auto mt-8 flex flex-col gap-6 p-6 md:p-10"}>
         <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-6 mb-8">
           <div className="flex flex-col gap-3">
-            <div>
-              <h1 className={tokens.typography.h1}>Production Pipeline</h1>
-              <p className="text-brand-secondary text-sm mt-1">Manage active orders currently on the floor.</p>
-            </div>
+            {!isEmbed && (
+              <div>
+                <h1 className={tokens.typography.h1}>Production Pipeline</h1>
+                <p className="text-brand-secondary text-sm mt-1">Manage active orders currently on the floor.</p>
+              </div>
+            )}
             <div className="flex items-center gap-1 bg-neutral-100/80 p-1.5 rounded-xl w-fit border border-neutral-200 shadow-inner mt-2">
                <button 
                   onClick={() => setActivePipelineTab('Active')}
@@ -584,13 +586,15 @@ export function Production() {
   }
 
   return (
-    <div className="p-6 md:p-10 max-w-[1600px] mx-auto space-y-8">
+    <div className={isEmbed ? "space-y-8 mt-4" : "p-6 md:p-10 max-w-[1600px] mx-auto space-y-8"}>
       <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-6 mb-8">
         <div className="flex flex-col gap-3">
-          <div>
-            <h1 className={tokens.typography.h1}>Production Pipeline</h1>
-            <p className="text-brand-secondary text-sm mt-1">Manage active orders currently on the floor.</p>
-          </div>
+          {!isEmbed && (
+            <div>
+              <h1 className={tokens.typography.h1}>Production Pipeline</h1>
+              <p className="text-brand-secondary text-sm mt-1">Manage active orders currently on the floor.</p>
+            </div>
+          )}
           <div className="flex items-center gap-1 bg-neutral-100/80 p-1.5 rounded-xl w-fit border border-neutral-200 shadow-inner mt-2">
              <button 
                 onClick={() => setActivePipelineTab('Active')}

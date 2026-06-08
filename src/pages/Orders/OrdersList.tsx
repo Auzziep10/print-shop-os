@@ -8,6 +8,7 @@ import { useOrders } from '../../hooks/useOrders';
 import { doc, updateDoc, collection, getDocs } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { ProductionCalendar } from '../Dashboard/ProductionCalendar';
+import { Production } from '../Production/Production';
 
 export function OrdersList() {
   const navigate = useNavigate();
@@ -122,9 +123,17 @@ export function OrdersList() {
              Quotes
              {currentTab === 'quotes' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-primary rounded-t-full" />}
           </button>
+          <button 
+             onClick={() => setSearchParams({ tab: 'production' })}
+             className={`pb-4 text-sm font-bold uppercase tracking-wider transition-all relative ${currentTab === 'production' ? 'text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}
+          >
+             Production
+             {currentTab === 'production' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-primary rounded-t-full" />}
+          </button>
       </div>
 
       {/* Filters and Search Bar */}
+      {currentTab !== 'production' && (
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between mb-6 gap-4">
         <div className="flex gap-2 w-full max-w-md">
            <div className="relative flex-1">
@@ -147,6 +156,7 @@ export function OrdersList() {
           Showing <span className="font-semibold text-brand-primary">{displayedOrders.length}</span> {currentTab === 'quotes' ? 'active quotes' : currentTab === 'orders' ? 'active orders' : 'scheduled items'}
         </div>
       </div>
+      )}
 
       {/* Production Calendar */}
       {currentTab === 'calendar' && (
@@ -155,8 +165,13 @@ export function OrdersList() {
         </div>
       )}
 
+      {/* Production Pipeline */}
+      {currentTab === 'production' && (
+        <Production isEmbed={true} />
+      )}
+
       {/* Orders Table */}
-      {currentTab !== 'calendar' && (
+      {currentTab !== 'calendar' && currentTab !== 'production' && (
         <div className="bg-white rounded-card border border-brand-border overflow-hidden custom-scrollbar overflow-x-auto shadow-sm">
         <div className="min-w-[1000px]">
           {/* Table Header */}
