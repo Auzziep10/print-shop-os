@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { collection, onSnapshot, addDoc, updateDoc, doc, deleteDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
+import { useAuth } from '../../contexts/AuthContext';
 import { PillButton } from '../../components/ui/PillButton';
 import { 
   Calendar, 
@@ -170,6 +171,7 @@ const parseGeminiNotes = (text: string) => {
 };
 
 export function TeamMeetings() {
+  const { userData } = useAuth();
   const [meetings, setMeetings] = useState<any[]>([]);
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
   const [selectedMeeting, setSelectedMeeting] = useState<any>(null);
@@ -202,8 +204,54 @@ export function TeamMeetings() {
   const [checkinConfidence, setCheckinConfidence] = useState('Green');
   const [checkinNotes, setCheckinNotes] = useState('');
 
+  // Live pre-meeting check-in states
+  const [myWorkload, setMyWorkload] = useState(5);
+  const [myUrgency, setMyUrgency] = useState(5);
+  const [myStress, setMyStress] = useState(5);
+  const [myAvailability, setMyAvailability] = useState(5);
+  const [myFriction, setMyFriction] = useState(5);
+  const [myConfidence, setMyConfidence] = useState('Green');
+  const [myNotes, setMyNotes] = useState('');
+  const [isEditingMyCheckin, setIsEditingMyCheckin] = useState(false);
+
   // Loading indicator for simulated Google Meet Sync
   const [isSyncing, setIsSyncing] = useState(false);
+
+  // Pre-select all team members by default when opening the New Meeting modal
+  useEffect(() => {
+    if (isNewModalOpen && teamMembers.length > 0) {
+      setNewAttendees(teamMembers.map(m => m.name));
+    }
+  }, [isNewModalOpen, teamMembers]);
+
+  // Sync logged in user's capacity sliders with their existing check-in score
+  useEffect(() => {
+    if (selectedMeeting && userData) {
+      const existing = selectedMeeting.capacityScores?.find(
+        (c: any) => c.memberName === userData.name || c.memberId === userData.id
+      );
+      if (existing) {
+        setMyWorkload(existing.categories?.workload ?? 5);
+        setMyUrgency(existing.categories?.urgency ?? 5);
+        setMyStress(existing.categories?.stress ?? 5);
+        setMyAvailability(existing.categories?.availability ?? 5);
+        setMyFriction(existing.categories?.friction ?? 5);
+        setMyConfidence(existing.confidence ?? 'Green');
+        setMyNotes(existing.notes ?? '');
+        setIsEditingMyCheckin(false);
+      } else {
+        // Reset to default
+        setMyWorkload(5);
+        setMyUrgency(5);
+        setMyStress(5);
+        setMyAvailability(5);
+        setMyFriction(5);
+        setMyConfidence('Green');
+        setMyNotes('');
+        setIsEditingMyCheckin(false);
+      }
+    }
+  }, [selectedMeeting, userData]);
 
   // Fetch users and meetings from Firestore
   useEffect(() => {
@@ -313,6 +361,64 @@ export function TeamMeetings() {
     setCapacityCheckins(prev => prev.filter(c => c.memberId !== memberId));
   };
 
+  const handleSubmitMyCheckin = async () => {
+    if (!selectedMeeting || !userData) return;
+
+    const avg = (myWorkload + myUrgency + myStress + myAvailability + myFriction) / 5;
+    const score = Math.round(avg * 10) / 10;
+
+    const getStatus = (s: number) => {
+      if (s <= 2.9) return "Underutilized";
+      if (s <= 4.4) return "Comfortable";
+      if (s <= 6.4) return "Optimal Zone";
+      if (s <= 8.4) return "Constrained";
+      if (s <= 9.4) return "Overloaded";
+      return "Unsustainable";
+    };
+
+    const myCheckinObj = {
+      memberId: userData.id,
+      memberName: userData.name || 'Unknown Member',
+      score,
+      status: getStatus(score),
+      confidence: myConfidence,
+      notes: myNotes.trim() || 'No blockers noted.',
+      categories: {
+        workload: myWorkload,
+        urgency: myUrgency,
+        stress: myStress,
+        availability: myAvailability,
+        friction: myFriction
+      }
+    };
+
+    try {
+      const existingScores = selectedMeeting.capacityScores || [];
+      const updatedScores = [
+        ...existingScores.filter((c: any) => c.memberName !== userData.name && c.memberId !== userData.id),
+        myCheckinObj
+      ];
+
+      const newTotalAmount = Math.round((updatedScores.reduce((sum: number, c: any) => sum + (c.score || 0), 0) / (updatedScores.length || 1)) * 10) / 10;
+
+      await updateDoc(doc(db, 'meetings', selectedMeeting.id), {
+        capacityScores: updatedScores,
+        totalAmount: newTotalAmount
+      });
+
+      setSelectedMeeting((prev: any) => ({
+        ...prev,
+        capacityScores: updatedScores,
+        totalAmount: newTotalAmount
+      }));
+
+      setIsEditingMyCheckin(false);
+    } catch (err) {
+      console.error("Failed to submit capacity check-in", err);
+      alert("Failed to save check-in. Please try again.");
+    }
+  };
+
   const handleSaveMeeting = async () => {
     if (!newTitle.trim()) {
       alert("Please enter a meeting title.");
@@ -412,6 +518,14 @@ export function TeamMeetings() {
       default: return 'bg-neutral-100 text-neutral-800 border-neutral-200';
     }
   };
+
+  const isTagged = selectedMeeting?.attendees?.includes(userData?.name || '');
+  const myExistingCheckin = selectedMeeting?.capacityScores?.find(
+    (c: any) => c.memberName === userData?.name || c.memberId === userData?.id
+  );
+  const pendingCheckins = selectedMeeting?.attendees?.filter((name: string) => 
+    !selectedMeeting?.capacityScores?.some((c: any) => c.memberName === name)
+  ) || [];
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start animate-in fade-in zoom-in-95 duration-300">
@@ -562,57 +676,319 @@ export function TeamMeetings() {
               </div>
             ) : null}
 
+            {/* Live Capacity Check-in Section */}
+            {isTagged && (
+              <div className="flex flex-col gap-6 p-6 rounded-2xl bg-[#f7f4ef]/80 border border-[#ded8ce] animate-in fade-in duration-300">
+                {(!myExistingCheckin || isEditingMyCheckin) ? (
+                  <div className="space-y-6">
+                    {/* Header */}
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h2 className="text-xl font-bold text-[#171717] tracking-tight">WOVN Leadership Capacity Score</h2>
+                        <p className="text-[11px] text-[#666] leading-relaxed mt-1">
+                          Use this daily to create a shared language around workload, stress, availability, and execution friction. 
+                          The target operating zone is <span className="font-bold text-[#171717]">5–6</span>: fully engaged, moving priorities, and still able to absorb meaningful work.
+                        </p>
+                      </div>
+                      {myExistingCheckin && (
+                        <button 
+                          onClick={() => setIsEditingMyCheckin(false)}
+                          className="text-xs font-bold text-[#111] hover:underline bg-white border border-[#ded8ce] rounded-full px-3.5 py-1.5 shadow-sm shrink-0"
+                        >
+                          Cancel Update
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Card 1: Sliders */}
+                    <div className="bg-white border border-[#ded8ce] rounded-[18px] p-6 space-y-6 shadow-sm">
+                      {/* Workload */}
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-baseline">
+                          <label className="font-bold text-sm text-[#171717]">1. Workload Volume</label>
+                          <span className="text-sm font-extrabold text-[#171717]">{myWorkload}</span>
+                        </div>
+                        <p className="text-[11px] text-[#666] leading-snug">How full is your plate today? 1 = light / open capacity. 10 = too many active responsibilities.</p>
+                        <input 
+                          type="range" 
+                          min="1" 
+                          max="10" 
+                          value={myWorkload} 
+                          onChange={e => setMyWorkload(Number(e.target.value))}
+                          className="w-full accent-[#111111] cursor-pointer"
+                        />
+                        <div className="flex justify-between text-[10px] text-[#666] px-0.5">
+                          <span>Light</span>
+                          <span>Optimal</span>
+                          <span>Overloaded</span>
+                        </div>
+                      </div>
+
+                      {/* Urgency */}
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-baseline">
+                          <label className="font-bold text-sm text-[#171717]">2. Deadline Pressure</label>
+                          <span className="text-sm font-extrabold text-[#171717]">{myUrgency}</span>
+                        </div>
+                        <p className="text-[11px] text-[#666] leading-snug">How much deadline pressure are you carrying? 1 = calm. 10 = everything feels urgent.</p>
+                        <input 
+                          type="range" 
+                          min="1" 
+                          max="10" 
+                          value={myUrgency} 
+                          onChange={e => setMyUrgency(Number(e.target.value))}
+                          className="w-full accent-[#111111] cursor-pointer"
+                        />
+                        <div className="flex justify-between text-[10px] text-[#666] px-0.5">
+                          <span>Calm</span>
+                          <span>Managed</span>
+                          <span>Critical</span>
+                        </div>
+                      </div>
+
+                      {/* Stress */}
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-baseline">
+                          <label className="font-bold text-sm text-[#171717]">3. Stress Load</label>
+                          <span className="text-sm font-extrabold text-[#171717]">{myStress}</span>
+                        </div>
+                        <p className="text-[11px] text-[#666] leading-snug">How mentally/emotionally taxed are you? 1 = clear and calm. 10 = overwhelmed.</p>
+                        <input 
+                          type="range" 
+                          min="1" 
+                          max="10" 
+                          value={myStress} 
+                          onChange={e => setMyStress(Number(e.target.value))}
+                          className="w-full accent-[#111111] cursor-pointer"
+                        />
+                        <div className="flex justify-between text-[10px] text-[#666] px-0.5">
+                          <span>Calm</span>
+                          <span>Engaged</span>
+                          <span>Overwhelmed</span>
+                        </div>
+                      </div>
+
+                      {/* Availability */}
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-baseline">
+                          <label className="font-bold text-sm text-[#171717]">4. Available Bandwidth</label>
+                          <span className="text-sm font-extrabold text-[#171717]">{myAvailability}</span>
+                        </div>
+                        <p className="text-[11px] text-[#666] leading-snug">How much room do you have to absorb new requests? 1 = wide open. 10 = no room without dropping something.</p>
+                        <input 
+                          type="range" 
+                          min="1" 
+                          max="10" 
+                          value={myAvailability} 
+                          onChange={e => setMyAvailability(Number(e.target.value))}
+                          className="w-full accent-[#111111] cursor-pointer"
+                        />
+                        <div className="flex justify-between text-[10px] text-[#666] px-0.5">
+                          <span>Available</span>
+                          <span>Selective</span>
+                          <span>No Room</span>
+                        </div>
+                      </div>
+
+                      {/* Friction */}
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-baseline">
+                          <label className="font-bold text-sm text-[#171717]">5. Workflow Friction</label>
+                          <span className="text-sm font-extrabold text-[#171717]">{myFriction}</span>
+                        </div>
+                        <p className="text-[11px] text-[#666] leading-snug">How much drag is coming from unclear priorities, dependencies, approvals, tools, or blocked decisions?</p>
+                        <input 
+                          type="range" 
+                          min="1" 
+                          max="10" 
+                          value={myFriction} 
+                          onChange={e => setMyFriction(Number(e.target.value))}
+                          className="w-full accent-[#111111] cursor-pointer"
+                        />
+                        <div className="flex justify-between text-[10px] text-[#666] px-0.5">
+                          <span>Smooth</span>
+                          <span>Some Drag</span>
+                          <span>Blocked</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Card 2: Results & Actions */}
+                    {(() => {
+                      const liveScore = Math.round(((myWorkload + myUrgency + myStress + myAvailability + myFriction) / 5) * 10) / 10;
+                      const getStatusDetails = (s: number) => {
+                        if (s <= 2.9) return { status: "Underutilized", desc: "More ownership or responsibility can likely be added." };
+                        if (s <= 4.4) return { status: "Comfortable", desc: "Healthy bandwidth. This person can likely absorb a meaningful new initiative." };
+                        if (s <= 6.4) return { status: "Optimal Zone", desc: "Fully engaged, priorities are moving, and small-to-medium requests can still be absorbed." };
+                        if (s <= 8.4) return { status: "Constrained", desc: "Prioritization is required. New work will create tradeoffs." };
+                        if (s <= 9.4) return { status: "Overloaded", desc: "Something needs to move. Quality, speed, or morale may suffer." };
+                        return { status: "Unsustainable", desc: "Immediate intervention required. Remove work, reset expectations, or add support." };
+                      };
+                      const liveDetails = getStatusDetails(liveScore);
+
+                      return (
+                        <div className="bg-white border border-[#ded8ce] rounded-[18px] p-6 shadow-sm flex flex-col md:flex-row items-center gap-6">
+                          {/* Score Circle */}
+                          <div className="w-[130px] h-[130px] rounded-full bg-[#f0ebe3] border border-[#ded8ce] flex flex-col items-center justify-center shrink-0">
+                            <span className="text-4xl font-black text-[#171717] leading-none tracking-tight">{liveScore.toFixed(1)}</span>
+                            <span className="text-[10px] text-[#666] font-bold uppercase tracking-[0.12em] mt-1">Capacity</span>
+                          </div>
+
+                          {/* Details & Confidence row */}
+                          <div className="flex-1 space-y-4 text-center md:text-left">
+                            <div>
+                              <h4 className="text-lg font-extrabold text-[#171717]">{liveDetails.status}</h4>
+                              <p className="text-xs text-[#666] leading-relaxed mt-1">{liveDetails.desc}</p>
+                            </div>
+
+                            {/* Confidence buttons */}
+                            <div className="flex flex-wrap justify-center md:justify-start gap-2">
+                              {['Green', 'Yellow', 'Red'].map(c => {
+                                const isSelected = myConfidence === c;
+                                let btnText = '';
+                                if (c === 'Green') btnText = 'Green: I can deliver';
+                                if (c === 'Yellow') btnText = 'Yellow: tradeoffs needed';
+                                if (c === 'Red') btnText = 'Red: intervention needed';
+
+                                return (
+                                  <button
+                                    key={c}
+                                    type="button"
+                                    onClick={() => setMyConfidence(c)}
+                                    className={`text-[11px] font-bold px-4 py-2 border rounded-full transition-all ${
+                                      isSelected 
+                                        ? 'bg-[#111] text-white border-[#111]' 
+                                        : 'bg-white text-[#111] border-[#ded8ce] hover:bg-neutral-50'
+                                    }`}
+                                  >
+                                    {btnText}
+                                  </button>
+                                );
+                              })}
+                            </div>
+
+                            {/* Main CTA buttons */}
+                            <div className="flex flex-wrap justify-center md:justify-start gap-2 pt-2 border-t border-brand-border/40">
+                              <button
+                                type="button"
+                                onClick={handleSubmitMyCheckin}
+                                className="bg-[#111] hover:bg-black text-white text-[11px] font-extrabold px-6 py-2.5 rounded-full shadow-sm transition-colors"
+                              >
+                                {myExistingCheckin ? 'Update Pre-Meeting Check-in' : 'Submit Pre-Meeting Check-in'}
+                              </button>
+                              {myExistingCheckin && (
+                                <button
+                                  type="button"
+                                  onClick={() => setIsEditingMyCheckin(false)}
+                                  className="bg-white text-[#111] border border-[#ded8ce] hover:bg-neutral-50 text-[11px] font-extrabold px-6 py-2.5 rounded-full transition-colors"
+                                >
+                                  Cancel
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Card 3: Notes & Blockers */}
+                    <div className="bg-white border border-[#ded8ce] rounded-[18px] p-6 shadow-sm space-y-2">
+                      <label className="font-bold text-sm text-[#171717] block">Notes / blockers / asks</label>
+                      <p className="text-[11px] text-[#666]">Use this to capture what needs to change today.</p>
+                      <textarea
+                        value={myNotes}
+                        onChange={e => setMyNotes(e.target.value)}
+                        placeholder="Example: Need priority call on client deliverables vs platform sprint. Waiting on design approval before production handoff."
+                        className="w-full min-h-[90px] border border-[#ded8ce] rounded-[14px] p-3.5 text-xs outline-none focus:border-black transition-colors resize-y font-sans leading-relaxed text-[#171717]"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-white border border-[#ded8ce] rounded-[18px] p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 shadow-sm">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-[#111] flex items-center justify-center text-white font-bold text-xs shrink-0">✓</div>
+                      <div>
+                        <p className="text-xs font-extrabold text-[#171717]">You've checked in for this meeting</p>
+                        <p className="text-[10px] text-[#666] font-medium mt-0.5">
+                          Score: <span className="font-bold text-[#171717]">{myExistingCheckin.score.toFixed(1)}</span> ({myExistingCheckin.status}) • Confidence: <span className={`font-bold text-xs ${myExistingCheckin.confidence === 'Green' ? 'text-green-700' : myExistingCheckin.confidence === 'Yellow' ? 'text-yellow-700' : 'text-red-700'}`}>{myExistingCheckin.confidence}</span>
+                        </p>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => setIsEditingMyCheckin(true)}
+                      className="text-xs font-bold text-[#111] bg-white border border-[#ded8ce] hover:border-neutral-400 px-3.5 py-1.5 rounded-full transition-all shadow-sm shrink-0"
+                    >
+                      Update Your Check-in
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Subsections: Notes vs Action Items vs Call Scores */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
               
               {/* Detailed Check-ins List */}
-              {selectedMeeting.capacityScores && selectedMeeting.capacityScores.length > 0 && (
+              {((selectedMeeting.capacityScores && selectedMeeting.capacityScores.length > 0) || pendingCheckins.length > 0) && (
                 <div className="md:col-span-2 flex flex-col gap-3">
-                  <h3 className="text-xs font-bold uppercase tracking-widest text-brand-secondary">Pre-Meeting Capacity Check-ins</h3>
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                    <h3 className="text-xs font-bold uppercase tracking-widest text-brand-secondary">Pre-Meeting Capacity Check-ins</h3>
+                    {pendingCheckins.length > 0 && (
+                      <span className="text-[10px] text-brand-secondary font-medium italic">
+                        Waiting for: <span className="text-brand-primary font-semibold">{pendingCheckins.join(', ')}</span>
+                      </span>
+                    )}
+                  </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {selectedMeeting.capacityScores.map((c: any) => (
-                      <div key={c.memberId} className="border border-brand-border p-4 rounded-xl bg-white flex flex-col gap-3 shadow-sm">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <span className="font-bold text-xs text-brand-primary">{c.memberName}</span>
-                            <div className="text-[9px] uppercase font-semibold text-brand-secondary">{c.status}</div>
+                    {selectedMeeting.capacityScores && selectedMeeting.capacityScores.length > 0 ? (
+                      selectedMeeting.capacityScores.map((c: any) => (
+                        <div key={c.memberId} className="border border-brand-border p-4 rounded-xl bg-white flex flex-col gap-3 shadow-sm">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <span className="font-bold text-xs text-brand-primary">{c.memberName}</span>
+                              <div className="text-[9px] uppercase font-semibold text-brand-secondary">{c.status}</div>
+                            </div>
+                            <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${getConfidenceBadge(c.confidence)}`}>
+                              {c.score.toFixed(1)} • {c.confidence}
+                            </span>
                           </div>
-                          <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${getConfidenceBadge(c.confidence)}`}>
-                            {c.score.toFixed(1)} • {c.confidence}
-                          </span>
+                          {c.notes && (
+                            <p className="text-[10px] text-brand-secondary bg-brand-bg p-2 rounded-lg italic line-clamp-2">
+                              "{c.notes}"
+                            </p>
+                          )}
+                          {/* Categories details */}
+                          {c.categories && (
+                            <div className="grid grid-cols-5 gap-1 text-center border-t border-brand-border/50 pt-2 text-[8px] font-bold text-brand-secondary">
+                              <div>
+                                <div>WKL</div>
+                                <div className="text-brand-primary">{c.categories.workload}</div>
+                              </div>
+                              <div>
+                                <div>DLN</div>
+                                <div className="text-brand-primary">{c.categories.urgency}</div>
+                              </div>
+                              <div>
+                                <div>STR</div>
+                                <div className="text-brand-primary">{c.categories.stress}</div>
+                              </div>
+                              <div>
+                                <div>BND</div>
+                                <div className="text-brand-primary">{c.categories.availability}</div>
+                              </div>
+                              <div>
+                                <div>FRC</div>
+                                <div className="text-brand-primary">{c.categories.friction}</div>
+                              </div>
+                            </div>
+                          )}
                         </div>
-                        {c.notes && (
-                          <p className="text-[10px] text-brand-secondary bg-brand-bg p-2 rounded-lg italic line-clamp-2">
-                            "{c.notes}"
-                          </p>
-                        )}
-                        {/* Categories details */}
-                        {c.categories && (
-                          <div className="grid grid-cols-5 gap-1 text-center border-t border-brand-border/50 pt-2 text-[8px] font-bold text-brand-secondary">
-                            <div>
-                              <div>WKL</div>
-                              <div className="text-brand-primary">{c.categories.workload}</div>
-                            </div>
-                            <div>
-                              <div>DLN</div>
-                              <div className="text-brand-primary">{c.categories.urgency}</div>
-                            </div>
-                            <div>
-                              <div>STR</div>
-                              <div className="text-brand-primary">{c.categories.stress}</div>
-                            </div>
-                            <div>
-                              <div>BND</div>
-                              <div className="text-brand-primary">{c.categories.availability}</div>
-                            </div>
-                            <div>
-                              <div>FRC</div>
-                              <div className="text-brand-primary">{c.categories.friction}</div>
-                            </div>
-                          </div>
-                        )}
+                      ))
+                    ) : (
+                      <div className="sm:col-span-2 border border-dashed border-brand-border p-6 rounded-xl bg-white text-center text-xs text-brand-secondary">
+                        No team member capacity check-ins recorded yet. Tagged members can submit their scores above.
                       </div>
-                    ))}
+                    )}
                   </div>
                 </div>
               )}
@@ -779,7 +1155,26 @@ export function TeamMeetings() {
 
                 {/* Attendees Comma Field / Select */}
                 <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1.5">Attendees Present</label>
+                  <div className="flex justify-between items-center mb-1.5">
+                    <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary">Attendees Present</label>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setNewAttendees(teamMembers.map(m => m.name))}
+                        className="text-[9px] text-brand-primary hover:underline font-bold"
+                      >
+                        Select All
+                      </button>
+                      <span className="text-[9px] text-brand-secondary">•</span>
+                      <button
+                        type="button"
+                        onClick={() => setNewAttendees([])}
+                        className="text-[9px] text-brand-secondary hover:text-brand-primary hover:underline font-bold"
+                      >
+                        Clear All
+                      </button>
+                    </div>
+                  </div>
                   <div className="flex flex-wrap gap-1.5 p-2 bg-brand-bg/40 border border-brand-border rounded-lg min-h-[40px]">
                     {teamMembers.map(member => {
                       const isSelected = newAttendees.includes(member.name);
