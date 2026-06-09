@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { collection, onSnapshot, addDoc, updateDoc, doc, deleteDoc } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, updateDoc, doc, deleteDoc, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import { PillButton } from '../../components/ui/PillButton';
@@ -287,6 +287,9 @@ export function TeamMeetings() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [showFutureMeetings, setShowFutureMeetings] = useState(false);
+  const [recurrenceStart, setRecurrenceStart] = useState('');
+  const [recurrenceEnd, setRecurrenceEnd] = useState('');
+  const [isGeneratingMeetings, setIsGeneratingMeetings] = useState(false);
   
   // Modal toggle states
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
@@ -933,6 +936,97 @@ export function TeamMeetings() {
       setIsSyncing(false);
       setIsSyncModalOpen(false);
     }, 1200);
+  };
+
+  const handleGenerateRecurringMeetings = async () => {
+    if (!editingTemplateId) {
+      alert("Please save or select a template first before generating recurring meetings.");
+      return;
+    }
+    if (!recurrenceStart || !recurrenceEnd) {
+      alert("Please select both a start and end date.");
+      return;
+    }
+    const start = new Date(recurrenceStart);
+    const end = new Date(recurrenceEnd);
+    if (end < start) {
+      alert("End date must be after start date.");
+      return;
+    }
+
+    setIsGeneratingMeetings(true);
+    try {
+      const template = templates.find(t => t.id === editingTemplateId);
+      if (!template) {
+        alert("Template not found.");
+        setIsGeneratingMeetings(false);
+        return;
+      }
+
+      // Generate dates using UTC to prevent off-by-one errors
+      const datesToCreate: string[] = [];
+      const current = new Date(start);
+      while (current <= end) {
+        const dayOfWeek = current.getUTCDay();
+        // 0 = Sunday, 6 = Saturday. We want Mon-Fri (1-5)
+        if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+          const dateStr = current.toISOString().split('T')[0];
+          datesToCreate.push(dateStr);
+        }
+        current.setUTCDate(current.getUTCDate() + 1);
+      }
+
+      if (datesToCreate.length === 0) {
+        alert("No weekdays found in the specified date range.");
+        setIsGeneratingMeetings(false);
+        return;
+      }
+
+      // Fetch existing meetings for this template to prevent duplicates
+      const existingQ = query(
+        collection(db, 'meetings'),
+        where('templateId', '==', editingTemplateId)
+      );
+      const existingSnap = await getDocs(existingQ);
+      const existingDates = new Set<string>();
+      existingSnap.forEach(d => {
+        const date = d.data().date;
+        if (date) existingDates.add(date);
+      });
+
+      let createdCount = 0;
+      for (const dateStr of datesToCreate) {
+        if (!existingDates.has(dateStr)) {
+          const payload = {
+            title: `${template.name} - ${dateStr}`,
+            date: dateStr,
+            summary: `${template.name} scheduled.`,
+            notes: (template.sections || []).map((s: string) => `## ${s}\nNo detailed notes.`).join('\n\n'),
+            sections: (template.sections || []).map((s: string) => ({ name: s, notes: '' })),
+            templateId: template.id,
+            templateName: template.name,
+            attendees: template.attendees || [],
+            actionItems: [],
+            capacityScores: [],
+            status: 'scheduled',
+            enableCapacityCheckin: template.enableCapacityCheckin !== false,
+            totalAmount: 0,
+            createdAt: new Date().toISOString()
+          };
+          await addDoc(collection(db, 'meetings'), payload);
+          createdCount++;
+        }
+      }
+
+      alert(`Successfully generated ${createdCount} scheduled meetings (skipped ${datesToCreate.length - createdCount} duplicates).`);
+      setRecurrenceStart('');
+      setRecurrenceEnd('');
+    } catch (err) {
+      console.error("Failed to generate recurring meetings", err);
+      alert("Error generating meetings. Please check console for details.");
+    } finally {
+      setIsGeneratingMeetings(false);
+    }
   };
 
   // Perform manual Gemini copy-paste parsing
@@ -2606,6 +2700,46 @@ export function TeamMeetings() {
                     {editingTemplateId ? 'Save Template Changes' : 'Save New Template'}
                   </button>
                 </div>
+
+                {/* Generate Recurring Scheduled Meetings (Only when editing a template) */}
+                {editingTemplateId && (
+                  <div className="border-t border-[#ded8ce]/60 pt-4 mt-2 space-y-3">
+                    <h5 className="text-[10px] font-extrabold uppercase tracking-widest text-[#171717]">
+                      Generate Recurring Scheduled Meetings
+                    </h5>
+                    <p className="text-[9px] text-[#666] leading-relaxed">
+                      Pre-create scheduled meeting logs for every weekday (Mon - Fri) within a specified date range for this template.
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+                      <div className="space-y-1">
+                        <label className="block text-[8px] font-bold uppercase tracking-widest text-brand-secondary">Start Date</label>
+                        <input
+                          type="date"
+                          value={recurrenceStart}
+                          onChange={e => setRecurrenceStart(e.target.value)}
+                          className="w-full bg-[#fcfbf9] border border-[#ded8ce] rounded-lg px-2.5 py-1.5 text-xs focus:border-black outline-none font-medium text-brand-primary"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="block text-[8px] font-bold uppercase tracking-widest text-brand-secondary">End Date</label>
+                        <input
+                          type="date"
+                          value={recurrenceEnd}
+                          onChange={e => setRecurrenceEnd(e.target.value)}
+                          className="w-full bg-[#fcfbf9] border border-[#ded8ce] rounded-lg px-2.5 py-1.5 text-xs focus:border-black outline-none font-medium text-brand-primary"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleGenerateRecurringMeetings}
+                        disabled={isGeneratingMeetings}
+                        className="bg-black hover:bg-neutral-900 text-white text-[10px] font-extrabold uppercase tracking-widest py-2 px-3 rounded-lg shadow-sm transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 h-8"
+                      >
+                        {isGeneratingMeetings ? 'Generating...' : 'Generate Logs'}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
             </div>
