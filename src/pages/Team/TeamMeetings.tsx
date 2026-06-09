@@ -286,9 +286,9 @@ export function TeamMeetings() {
     }
   }, [selectedMeeting?.id]);
 
-  // Auto-open capacity check-in modal for tagged attendees who haven't checked in yet
+  // Auto-open capacity check-in modal for tagged attendees who haven't checked in yet (templated meetings only)
   useEffect(() => {
-    if (selectedMeeting && selectedMeeting.status === 'live' && selectedMeeting.enableCapacityCheckin !== false && userData) {
+    if (selectedMeeting && selectedMeeting.status === 'live' && selectedMeeting.templateId && selectedMeeting.enableCapacityCheckin !== false && userData) {
       const isAttendee = selectedMeeting.attendees?.includes(userData.name);
       const alreadyCheckedIn = selectedMeeting.capacityScores?.some(
         (c: any) => c.memberName === userData.name || c.memberId === userData.id
