@@ -1014,9 +1014,8 @@ export function TeamMeetings() {
                               className={`p-3.5 rounded-[18px] border transition-all cursor-pointer bg-white flex flex-col gap-2 ${isActive ? 'border-black border-2' : 'border-[#ded8ce] hover:border-neutral-400 shadow-sm'}`}
                             >
                               {(() => {
-                                const isAutoTitle = meet.templateId && meet.title.includes(meet.date);
-                                const displayCardTitle = isAutoTitle 
-                                  ? formatLocalDate(meet.date, { month: 'long', day: 'numeric', year: 'numeric' })
+                                const displayCardTitle = meet.templateId && meet.templateName 
+                                  ? meet.templateName 
                                   : meet.title;
                                 return (
                                   <>
@@ -1049,11 +1048,10 @@ export function TeamMeetings() {
                                     <p className="text-[10px] text-brand-secondary line-clamp-2 leading-relaxed">{meet.summary}</p>
                                     
                                     <div className="flex justify-between items-center text-[9px] text-brand-secondary border-t border-[#ded8ce]/50 pt-2 mt-1">
-                                      {!isAutoTitle ? (
-                                        <span className="flex items-center gap-1 font-medium"><Calendar size={9} /> {formatLocalDate(meet.date, {month: 'short', day: 'numeric', year: 'numeric'})}</span>
-                                      ) : (
-                                        <span className="text-[8px] font-bold text-neutral-400 uppercase tracking-wider">Minutes Logged</span>
-                                      )}
+                                      <span className="flex items-center gap-1 text-[8px] font-bold text-neutral-400 uppercase tracking-wider">
+                                        <Calendar size={10} className="text-neutral-400/80 mr-0.5" /> 
+                                        {formatLocalDate(meet.date, { month: 'long', day: 'numeric', year: 'numeric' })}
+                                      </span>
                                       <span className="text-neutral-400">{meet.actionItems?.length || 0} tasks</span>
                                     </div>
                                   </>
