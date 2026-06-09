@@ -25,6 +25,7 @@ import { PrintItemLabels } from './pages/Print/PrintItemLabels';
 
 import { PublicQuoteRequest } from './pages/Public/PublicQuoteRequest';
 import { InvoiceView } from './pages/Public/InvoiceView';
+import { SmsConsent } from './pages/Public/SmsConsent';
 
 import { Inventory } from './pages/Inventory/Inventory';
 import { InventoryScan } from './pages/Inventory/InventoryScan';
@@ -58,6 +59,7 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/waiting" element={<WaitingRoom />} />
         <Route path="/start" element={<PublicQuoteRequest />} />
+        <Route path="/sms-opt-in" element={<SmsConsent />} />
         
         {/* Temp Seed Route */}
         <Route path="/seed" element={<SeedData />} />
