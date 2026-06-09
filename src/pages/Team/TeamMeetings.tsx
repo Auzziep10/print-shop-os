@@ -146,11 +146,43 @@ const formatLocalDate = (dateStr: string, options?: Intl.DateTimeFormatOptions) 
   return isNaN(d.getTime()) ? dateStr : d.toLocaleDateString(undefined, options);
 };
 
+const parseSectionsFromText = (text: string) => {
+  const lines = text.split(/\r?\n/);
+  const sections: { name: string; notes: string }[] = [];
+  let currentSectionName = '';
+  let currentSectionLines: string[] = [];
+
+  lines.forEach((line) => {
+    const headerMatch = line.match(/^#{1,6}\s+(.+)$/);
+    if (headerMatch) {
+      if (currentSectionName || currentSectionLines.length > 0) {
+        sections.push({
+          name: currentSectionName,
+          notes: currentSectionLines.join('\n').trim()
+        });
+      }
+      currentSectionName = headerMatch[1].trim();
+      currentSectionLines = [];
+    } else {
+      currentSectionLines.push(line);
+    }
+  });
+
+  if (currentSectionName || currentSectionLines.length > 0) {
+    sections.push({
+      name: currentSectionName,
+      notes: currentSectionLines.join('\n').trim()
+    });
+  }
+
+  return sections;
+};
+
 const parseGeminiNotes = (text: string) => {
-  const lines = text.split('\n').map(l => l.trim());
+  const lines = text.split(/\r?\n/).map(l => l.trim());
   let parsedTitle = '';
   let parsedDate = new Date().toISOString().split('T')[0];
-  const actionItems: any[] = [];
+  const actionItems: { text: string; completed: boolean }[] = [];
 
   const dateRegex = /\b(19|20)\d\d[- /.](0[1-9]|1[012])[- /.](0[1-9]|[12][0-9]|3[01])\b|\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]* \d{1,2},? \d{4}\b/i;
 
@@ -172,22 +204,76 @@ const parseGeminiNotes = (text: string) => {
         console.error(e);
       }
     }
-
-    const actionMatch = line.match(/^[-*+]\s+(.*)/) || line.match(/^\d+\.\s+(.*)/);
-    if (actionMatch) {
-      const itemText = actionMatch[1];
-      if (!itemText.toLowerCase().includes('action item') && !itemText.toLowerCase().includes('todo') && !itemText.startsWith('[ ]') && !itemText.startsWith('[x]')) {
-        actionItems.push({ text: itemText, completed: false });
-      }
-    }
   });
+
+  const parsedSections = parseSectionsFromText(text);
+
+  const taskKeywords = ['action item', 'todo', 'task', 'follow-up', 'follow up', 'next step', 'action checklist'];
+  const taskSections = parsedSections.filter(sec => 
+    taskKeywords.some(keyword => sec.name.toLowerCase().includes(keyword))
+  );
+
+  const seenTexts = new Set<string>();
+
+  const addActionItem = (itemText: string) => {
+    const cleaned = itemText.trim().replace(/^\[[ x]\]\s*/i, '');
+    if (!cleaned) return;
+    if (taskKeywords.some(keyword => cleaned.toLowerCase() === keyword)) return;
+    if (!seenTexts.has(cleaned)) {
+      seenTexts.add(cleaned);
+      actionItems.push({ text: cleaned, completed: false });
+    }
+  };
+
+  // 1. Extract from task-related sections
+  taskSections.forEach(sec => {
+    const secLines = sec.notes.split(/\r?\n/);
+    secLines.forEach(line => {
+      const trimmedLine = line.trim();
+      const match = trimmedLine.match(/^[-*+]\s+(.*)/) || trimmedLine.match(/^\d+\.\s+(.*)/);
+      if (match) {
+        addActionItem(match[1]);
+      }
+    });
+  });
+
+  // 2. Scan all sections for lines containing person-assignee indicators
+  const assigneeRegex = /\(([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)?)\)/;
+  parsedSections.forEach(sec => {
+    const secLines = sec.notes.split(/\r?\n/);
+    secLines.forEach(line => {
+      const trimmedLine = line.trim();
+      const match = trimmedLine.match(/^[-*+]\s+(.*)/) || trimmedLine.match(/^\d+\.\s+(.*)/);
+      const itemText = match ? match[1] : trimmedLine;
+      if (assigneeRegex.test(itemText)) {
+        if (itemText.length < 200) {
+          addActionItem(itemText);
+        }
+      }
+    });
+  });
+
+  // 3. Fallback: if no action items found at all, extract all bullet points / numbered lists in the entire document
+  if (actionItems.length === 0) {
+    parsedSections.forEach(sec => {
+      const secLines = sec.notes.split(/\r?\n/);
+      secLines.forEach(line => {
+        const trimmedLine = line.trim();
+        const match = trimmedLine.match(/^[-*+]\s+(.*)/) || trimmedLine.match(/^\d+\.\s+(.*)/);
+        if (match) {
+          addActionItem(match[1]);
+        }
+      });
+    });
+  }
 
   return {
     title: parsedTitle || `Gemini Meeting Notes - ${formatLocalDate(parsedDate)}`,
     date: parsedDate,
     notes: text,
     summary: lines.filter(l => l && !l.startsWith('#')).slice(0, 2).join(' ').substring(0, 120) + '...',
-    actionItems
+    actionItems,
+    parsedSections
   };
 };
 
@@ -200,6 +286,7 @@ export function TeamMeetings() {
   
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showFutureMeetings, setShowFutureMeetings] = useState(false);
   
   // Modal toggle states
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
@@ -855,17 +942,117 @@ export function TeamMeetings() {
     setNewTitle(parsed.title);
     setNewDate(parsed.date);
     setNewSummary(parsed.summary);
-    setNewNotes(parsed.notes);
+    
+    if (selectedTemplateId) {
+      // Create a copy of the current meetingSections with empty/cleared notes to populate
+      const updatedSections = meetingSections.map(s => ({ ...s, notes: '' }));
+      
+      const cleanString = (str: string) => {
+        return str.toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+      };
+      
+      const cleanWords = (str: string) => {
+        return str.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim().split(/\s+/).filter(Boolean);
+      };
+      
+      const isWordSimilar = (w1: string, w2: string) => {
+        return w1 === w2 || w1.startsWith(w2) || w2.startsWith(w1);
+      };
+
+      const fuzzyMatchIndex = (parsedName: string, tempSecs: any[]) => {
+        const cleanedParsed = cleanString(parsedName);
+        if (!cleanedParsed) return -1;
+
+        // 1. Exact match (cleaned)
+        let bestIndex = tempSecs.findIndex(s => cleanString(s.name) === cleanedParsed);
+        if (bestIndex !== -1) return bestIndex;
+
+        // 2. Contains match (one contains the other)
+        bestIndex = tempSecs.findIndex(s => {
+          const cleanedTemp = cleanString(s.name);
+          return cleanedTemp && (cleanedParsed.includes(cleanedTemp) || cleanedTemp.includes(cleanedParsed));
+        });
+        if (bestIndex !== -1) return bestIndex;
+
+        // 3. Keyword / word overlap match
+        let highestScore = 0;
+        let scoreIndex = -1;
+        const parsedWords = cleanWords(parsedName);
+        
+        tempSecs.forEach((s, idx) => {
+          const tempWords = cleanWords(s.name);
+          const commonCount = parsedWords.filter(pw => tempWords.some(tw => isWordSimilar(pw, tw))).length;
+          if (commonCount > 0) {
+            const score = commonCount / Math.max(parsedWords.length, tempWords.length);
+            if (score > highestScore) {
+              highestScore = score;
+              scoreIndex = idx;
+            }
+          }
+        });
+
+        if (highestScore >= 0.3) {
+          return scoreIndex;
+        }
+
+        return -1;
+      };
+
+      const unmatched: any[] = [];
+      
+      parsed.parsedSections.forEach(parsedSec => {
+        const idx = fuzzyMatchIndex(parsedSec.name, updatedSections);
+        if (idx !== -1) {
+          if (updatedSections[idx].notes) {
+            updatedSections[idx].notes += '\n\n' + parsedSec.notes;
+          } else {
+            updatedSections[idx].notes = parsedSec.notes;
+          }
+        } else {
+          unmatched.push(parsedSec);
+        }
+      });
+
+      // Append unmatched sections cleanly to the first section's notes to prevent loss of information
+      if (unmatched.length > 0 && updatedSections.length > 0) {
+        const extraNotes = unmatched.map(sec => {
+          if (sec.name) {
+            return `### ${sec.name}\n${sec.notes}`;
+          }
+          return sec.notes;
+        }).filter(Boolean).join('\n\n');
+
+        if (extraNotes) {
+          if (updatedSections[0].notes) {
+            updatedSections[0].notes += '\n\n' + extraNotes;
+          } else {
+            updatedSections[0].notes = extraNotes;
+          }
+        }
+      }
+
+      setMeetingSections(updatedSections);
+      setNewNotes(''); // Clear custom notes since we are in template mode
+    } else {
+      setNewNotes(parsed.notes);
+    }
+    
     setNewActionItems(parsed.actionItems);
     setRawPasteText('');
     setIsParsingText(false);
   };
 
-  const filteredMeetings = meetings.filter(m => 
-    m.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    m.notes.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    m.summary.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredMeetings = meetings.filter(m => {
+    const todayDateStr = new Date().toISOString().split('T')[0];
+    if (m.status === 'scheduled' && m.date > todayDateStr && !showFutureMeetings) {
+      return false;
+    }
+    return (
+      m.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      m.notes.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      m.summary.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  });
 
   // Math helper for overall score styling
   const getScoreColor = (score: number) => {
@@ -960,6 +1147,18 @@ export function TeamMeetings() {
               onChange={e => setSearchQuery(e.target.value)}
               className="w-full bg-white border border-[#ded8ce] rounded-lg pl-9 pr-4 py-2 text-xs focus:bg-white focus:border-brand-primary outline-none transition-all"
             />
+          </div>
+
+          <div className="flex items-center justify-between pt-1 border-t border-[#ded8ce]/30">
+            <label className="flex items-center gap-1.5 text-[9px] font-bold text-brand-secondary cursor-pointer uppercase tracking-wider select-none">
+              <input
+                type="checkbox"
+                checked={showFutureMeetings}
+                onChange={e => setShowFutureMeetings(e.target.checked)}
+                className="w-3.5 h-3.5 accent-black rounded cursor-pointer border-[#ded8ce]"
+              />
+              Show future scheduled logs
+            </label>
           </div>
         </div>
 
