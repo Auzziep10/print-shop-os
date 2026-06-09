@@ -1132,7 +1132,7 @@ export function OrderDetail() {
                    })}
                    className="gap-2 shrink-0 px-4 py-2 text-xs border-[1.5px] border-brand-primary text-brand-primary hover:bg-brand-primary hover:text-white transition-colors font-bold"
                  >
-                   <Plus size={14} /> Create Ad Hoc
+                   <Plus size={14} /> Add Item
                  </PillButton>
                  {(liveCustomer?.catalogLinkIds?.length > 0) && (
                     <PillButton 
@@ -1181,7 +1181,7 @@ export function OrderDetail() {
                          </div>
                          <div className="flex flex-col xl:flex-row xl:items-center gap-6 xl:gap-8 flex-1 min-w-0 pr-4">
                            {/* Product Visual */}
-                           <div className="flex items-center gap-4 min-w-[240px] w-auto shrink-0">
+                            <div className="flex items-start gap-4 min-w-[240px] flex-1 min-w-0">
                               <div 
                                 className={`w-14 h-14 rounded-[14px] overflow-hidden shrink-0 flex items-center justify-center ${item.image ? 'bg-transparent cursor-pointer hover:scale-[1.05] transition-transform' : 'bg-brand-bg/50 border border-brand-border/50'}`}
                                 onClick={() => item.image && setExpandedImage({ src: item.image, alt: item.style })}
@@ -1193,7 +1193,7 @@ export function OrderDetail() {
                                   <Box size={24} className="text-brand-secondary/40" />
                                 )}
                               </div>
-                             <div>
+                             <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2">
                                   <h4 className="font-bold text-gray-900 text-[15px]">{item.style}</h4>
                                   {item.shopifyOrder && (
