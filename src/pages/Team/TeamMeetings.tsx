@@ -743,7 +743,7 @@ export function TeamMeetings() {
     setIsNewModalOpen(true);
   };
 
-  const handleSaveMeeting = async (isLiveOnly = false) => {
+  const handleSaveMeeting = async (statusType: 'live' | 'completed' | 'scheduled') => {
     if (!selectedTemplateId && !newTitle.trim()) {
       alert("Please enter a meeting title.");
       return;
@@ -776,7 +776,7 @@ export function TeamMeetings() {
         attendees: newAttendees,
         actionItems: newActionItems,
         capacityScores: capacityCheckins,
-        status: isLiveOnly ? 'live' : 'completed',
+        status: statusType,
         enableCapacityCheckin: newEnableCapacityCheckin,
         totalAmount: Math.round((capacityCheckins.reduce((sum: number, c: any) => sum + (c.score || 0), 0) / (capacityCheckins.length || 1)) * 10) / 10
       };
@@ -1025,11 +1025,18 @@ export function TeamMeetings() {
                                         {meet.status === 'live' && (
                                           <span className="w-2 h-3.5 rounded bg-red-200/60 inline-block shrink-0" title="Meeting in progress" />
                                         )}
+                                        {meet.status === 'scheduled' && (
+                                          <span className="w-2 h-3.5 rounded bg-blue-200/60 inline-block shrink-0" title="Meeting scheduled" />
+                                        )}
                                         {displayCardTitle}
                                       </h3>
                                       {meet.status === 'live' ? (
                                         <span className="text-[8px] font-bold uppercase tracking-wider text-red-600 bg-red-50 border border-red-200 px-1 py-0.5 rounded shrink-0">
                                           Live
+                                        </span>
+                                      ) : meet.status === 'scheduled' ? (
+                                        <span className="text-[8px] font-bold uppercase tracking-wider text-blue-600 bg-blue-50 border border-blue-200 px-1 py-0.5 rounded shrink-0">
+                                          Scheduled
                                         </span>
                                       ) : (
                                         hasCheckins && (
@@ -1148,6 +1155,39 @@ export function TeamMeetings() {
                     className="bg-red-600 hover:bg-red-700 text-white text-[10px] font-extrabold uppercase tracking-widest px-3.5 py-1.5 rounded-full shadow-sm transition-all animate-pulse cursor-pointer"
                   >
                     Save Meeting
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Scheduled Meeting Banner */}
+            {selectedMeeting.status === 'scheduled' && (
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 animate-in fade-in shrink-0">
+                <div className="flex items-center gap-2">
+                  <Calendar size={14} className="text-blue-600 shrink-0" />
+                  <span className="text-xs font-bold text-blue-900">This meeting is scheduled. Team members should submit their pre-meeting Capacity scores.</span>
+                </div>
+                <div className="flex gap-2 shrink-0 w-full sm:w-auto justify-end">
+                  {isTagged && selectedMeeting.enableCapacityCheckin !== false && (
+                    <button
+                      onClick={() => setIsCheckinModalOpen(true)}
+                      className="bg-black hover:bg-neutral-900 text-white text-[10px] font-extrabold uppercase tracking-widest px-3.5 py-1.5 rounded-full shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse shrink-0" /> {myExistingCheckin ? 'Update Check-in' : 'Submit Check-in'}
+                    </button>
+                  )}
+                  <button
+                    onClick={async () => {
+                      try {
+                        await updateDoc(doc(db, 'meetings', selectedMeeting.id), { status: 'live' });
+                        setSelectedMeeting((prev: any) => prev ? { ...prev, status: 'live' } : null);
+                      } catch (err) {
+                        console.error("Failed to start meeting", err);
+                      }
+                    }}
+                    className="bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-extrabold uppercase tracking-widest px-3.5 py-1.5 rounded-full shadow-sm transition-all cursor-pointer"
+                  >
+                    Start Meeting
                   </button>
                 </div>
               </div>
@@ -2107,29 +2147,68 @@ export function TeamMeetings() {
               >
                 Cancel
               </PillButton>
-              {isEditingMeeting ? (
+              {isEditingMeeting && selectedMeeting ? (
                 <>
-                  <button
-                    type="button"
-                    onClick={() => handleSaveMeeting(true)}
-                    className="flex-1 justify-center py-3 text-sm font-bold text-black border border-[#ded8ce] rounded-full hover:bg-neutral-50 shadow-sm cursor-pointer"
-                  >
-                    Keep as Live Meeting
-                  </button>
-                  <PillButton variant="filled" onClick={() => handleSaveMeeting(false)} className="flex-1 justify-center py-3 text-sm">
-                    Complete Meeting
-                  </PillButton>
+                  {selectedMeeting.status === 'scheduled' && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => handleSaveMeeting('scheduled')}
+                        className="flex-1 justify-center py-3 text-sm font-bold text-black border border-[#ded8ce] rounded-full hover:bg-neutral-50 shadow-sm cursor-pointer"
+                      >
+                        Save Changes (Scheduled)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleSaveMeeting('live')}
+                        className="flex-1 justify-center py-3 text-sm font-bold text-black border border-[#ded8ce] rounded-full hover:bg-neutral-50 shadow-sm cursor-pointer"
+                      >
+                        Start Live Meeting
+                      </button>
+                      <PillButton variant="filled" onClick={() => handleSaveMeeting('completed')} className="flex-1 justify-center py-3 text-sm">
+                        Complete Meeting
+                      </PillButton>
+                    </>
+                  )}
+                  {selectedMeeting.status === 'live' && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => handleSaveMeeting('live')}
+                        className="flex-1 justify-center py-3 text-sm font-bold text-black border border-[#ded8ce] rounded-full hover:bg-neutral-50 shadow-sm cursor-pointer"
+                      >
+                        Keep as Live Meeting
+                      </button>
+                      <PillButton variant="filled" onClick={() => handleSaveMeeting('completed')} className="flex-1 justify-center py-3 text-sm">
+                        Complete Meeting
+                      </PillButton>
+                    </>
+                  )}
+                  {selectedMeeting.status === 'completed' && (
+                    <>
+                      <PillButton variant="filled" onClick={() => handleSaveMeeting('completed')} className="flex-1 justify-center py-3 text-sm">
+                        Save Changes
+                      </PillButton>
+                    </>
+                  )}
                 </>
               ) : (
                 <>
                   <button
                     type="button"
-                    onClick={() => handleSaveMeeting(true)}
+                    onClick={() => handleSaveMeeting('scheduled')}
+                    className="flex-1 justify-center py-3 text-sm font-bold text-black border border-[#ded8ce] rounded-full hover:bg-neutral-50 shadow-sm cursor-pointer"
+                  >
+                    Schedule for Later
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSaveMeeting('live')}
                     className="flex-1 justify-center py-3 text-sm font-bold text-black border border-[#ded8ce] rounded-full hover:bg-neutral-50 shadow-sm cursor-pointer"
                   >
                     Start Live Meeting
                   </button>
-                  <PillButton variant="filled" onClick={() => handleSaveMeeting(false)} className="flex-1 justify-center py-3 text-sm">
+                  <PillButton variant="filled" onClick={() => handleSaveMeeting('completed')} className="flex-1 justify-center py-3 text-sm">
                     Save Completed Minutes
                   </PillButton>
                 </>
