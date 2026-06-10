@@ -246,14 +246,79 @@ const parseGeminiNotes = (text: string, memberNames: string[] = []) => {
 
     const seenTexts = new Set<string>();
 
+    const simplifyActionText = (actionText: string): string => {
+      let cleaned = actionText.trim();
+
+      // Suffix/filler patterns to strip
+      const fillers = [
+        /\s+(?:immediately\s+)?following\s+the\s+meeting\.?/i,
+        /\s+as\s+soon\s+as\s+possible\.?/i,
+        /\s+by\s+the\s+end\s+of\s+the\s+(?:day|week|sprint|month)\.?/i,
+        /\s+during\s+the\s+meeting\.?/i,
+        /\s+to\s+enable\s+.+$/i,
+        /\s+so\s+that\s+.+$/i,
+        /\s+in\s+order\s+to\s+.+$/i,
+        /\s+to\s+allow\s+.+$/i,
+        /\s+to\s+help\s+with\s+.+$/i,
+        /\s+regarding\s+the\s+.+$/i
+      ];
+
+      fillers.forEach(regex => {
+        cleaned = cleaned.replace(regex, '');
+      });
+
+      // Simplify common wordy phrases
+      cleaned = cleaned
+        .replace(/\bfinish\s+the\s+remaining\s+sections\s+of\s+the\b/i, 'Finish remaining')
+        .replace(/\bfinish\s+the\s+remaining\s+sections\s+of\b/i, 'Finish remaining')
+        .replace(/\bcheck\s+on\s+the\s+status\s+of\s+the\b/i, 'Check')
+        .replace(/\bcoordinate\s+with\s+([A-Za-z\s]+)\s+to\s+coordinate\b/i, 'Coordinate with $1 for')
+        .replace(/\breview\s+and\s+verify\b/i, 'Verify')
+        .replace(/\bmake\s+sure\s+to\s+check\b/i, 'Check');
+
+      // Capitalize first letter of the actual action part
+      const colonIdx = cleaned.indexOf(':');
+      if (colonIdx !== -1) {
+        const namePart = cleaned.slice(0, colonIdx + 1);
+        let actionPart = cleaned.slice(colonIdx + 1).trim();
+        if (actionPart) {
+          actionPart = actionPart.charAt(0).toUpperCase() + actionPart.slice(1);
+        }
+        cleaned = namePart + ' ' + actionPart;
+      } else {
+        // Also handle "Name to Action" capitalization and format to Name: Action
+        const toMatch = cleaned.match(/^([A-Za-z\s]+)\s+to\s+(.+)/i);
+        if (toMatch) {
+          const namePart = toMatch[1].trim();
+          let actionPart = toMatch[2].trim();
+          actionPart = actionPart.charAt(0).toUpperCase() + actionPart.slice(1);
+          cleaned = `${namePart}: ${actionPart}`;
+        } else {
+          cleaned = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+        }
+      }
+
+      // Truncate to maximum words if still excessively wordy
+      const words = cleaned.split(/\s+/);
+      if (words.length > 15) {
+        cleaned = words.slice(0, 12).join(' ') + '...';
+      }
+
+      return cleaned.trim();
+    };
+
     const addActionItem = (itemText: string) => {
       if (!itemText) return;
       const cleaned = itemText.trim().replace(/^\[[ x]\]\s*/i, '');
       if (!cleaned) return;
       if (TASK_KEYWORDS.some(keyword => cleaned.toLowerCase() === keyword)) return;
-      if (!seenTexts.has(cleaned)) {
-        seenTexts.add(cleaned);
-        actionItems.push({ text: cleaned, completed: false });
+
+      const simplified = simplifyActionText(cleaned);
+      if (!simplified) return;
+
+      if (!seenTexts.has(simplified)) {
+        seenTexts.add(simplified);
+        actionItems.push({ text: simplified, completed: false });
       }
     };
 
@@ -441,7 +506,7 @@ const parseGeminiNotes = (text: string, memberNames: string[] = []) => {
 export function TeamMeetings() {
   const { userData } = useAuth();
   useEffect(() => {
-    console.log("TeamMeetings v1.0.7 loaded");
+    console.log("TeamMeetings v1.0.8 loaded");
   }, []);
   const location = useLocation();
   const [meetings, setMeetings] = useState<any[]>([]);
@@ -2239,7 +2304,7 @@ export function TeamMeetings() {
             {/* Modal Header */}
             <div className="p-6 border-b border-[#ded8ce] flex justify-between items-center bg-white shrink-0">
               <div>
-                <h3 className="font-serif text-2xl text-brand-primary font-bold">Record Meeting Minutes (v1.0.7)</h3>
+                <h3 className="font-serif text-2xl text-brand-primary font-bold">Record Meeting Minutes (v1.0.8)</h3>
                 <p className="text-sm font-medium text-brand-secondary mt-1">Date, record capacity check-in scores, and write or import your discussions.</p>
               </div>
               <button 
