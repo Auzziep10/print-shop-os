@@ -956,6 +956,22 @@ export function TeamMeetings() {
     }
   };
 
+  const handleOpenNewMeeting = () => {
+    setNewTitle('');
+    setNewDate(new Date().toISOString().split('T')[0]);
+    setNewSummary('');
+    setNewNotes('');
+    setNewAttendees(teamMembers.map(m => m.name));
+    setNewActionItems([]);
+    setCapacityCheckins([]);
+    setSelectedTemplateId('');
+    setMeetingSections([]);
+    setNewEnableCapacityCheckin(true);
+    setIsEditingMeeting(false);
+    setEditingMeetingId(null);
+    setIsNewModalOpen(true);
+  };
+
   // Perform Google Meet / Gemini mock Sync
   const handlePerformMeetSync = (meet: any) => {
     setIsSyncing(true);
@@ -1160,8 +1176,13 @@ export function TeamMeetings() {
           }
         }
 
-        setMeetingSections(updatedSections);
-        setNewNotes(''); // Clear custom notes since we are in template mode
+        if (updatedSections.length === 0) {
+          setSelectedTemplateId('');
+          setNewNotes(parsed.notes);
+        } else {
+          setMeetingSections(updatedSections);
+          setNewNotes(''); // Clear custom notes since we are in template mode
+        }
       } else {
         setNewNotes(parsed.notes);
       }
@@ -1262,7 +1283,7 @@ export function TeamMeetings() {
               </button>
               <PillButton 
                 variant="filled" 
-                onClick={() => setIsNewModalOpen(true)}
+                onClick={handleOpenNewMeeting}
                 className="py-1 px-2.5 text-[10px] gap-1 h-8"
               >
                 <Plus size={12} />
