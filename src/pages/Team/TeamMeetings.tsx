@@ -148,6 +148,15 @@ const formatLocalDate = (dateStr: string, options?: Intl.DateTimeFormatOptions) 
 
 const TASK_KEYWORDS = ['action item', 'todo', 'task', 'follow-up', 'follow up', 'next step', 'action checklist', 'action items', 'todos', 'tasks', 'next steps'];
 
+const ACTION_VERBS = [
+  'register', 'finish', 'verify', 'coordinate', 'check', 'review', 'finalize', 'deploy', 'fix',
+  'update', 'create', 'add', 'remove', 'delete', 'build', 'test', 'design', 'setup', 'send',
+  'contact', 'reach', 'follow', 'investigate', 'prepare', 'schedule', 'discuss', 'resolve',
+  'clean', 'publish', 'submit', 'implement', 'configure', 'integrate', 'document', 'write',
+  'analyze', 'research', 'migrate', 'refactor', 'do', 'make', 'get', 'run', 'push', 'pull',
+  'sync', 'draft', 'launch', 'track', 'monitor', 'audit', 'request', 'approve'
+];
+
 const parseSectionsFromText = (text: string) => {
   const lines = text.split(/\r?\n/);
   const sections: { name: string; notes: string }[] = [];
@@ -279,11 +288,20 @@ const parseGeminiNotes = (text: string, memberNames: string[] = []) => {
     });
 
     // Add robust fallback names
-    const defaultNames = ['alice', 'bob', 'charlie', 'diana', 'austin', 'mel', 'patterson', 'pete', 'john', 'sarah'];
+    const defaultNames = ['alice', 'bob', 'charlie', 'diana', 'austin', 'mel', 'patterson', 'pete', 'john', 'sarah', 'kate'];
     defaultNames.forEach(n => {
       knownFirstNames.add(n);
       knownNames.add(n);
     });
+
+    const namesForRegex = Array.from(knownNames)
+      .concat(Array.from(knownFirstNames))
+      .filter(n => n.length > 2)
+      .map(n => n.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'));
+
+    namesForRegex.sort((a, b) => b.length - a.length);
+
+    const namesPatternStr = `\\b(${namesForRegex.join('|')})\\b`;
 
     const checkLineForAssignee = (cleanText: string): boolean => {
       if (cleanText.length > 250) return false;
@@ -343,38 +361,61 @@ const parseGeminiNotes = (text: string, memberNames: string[] = []) => {
       return false;
     };
 
-    // 2. Scan all sections for lines containing person-assignee indicators
+    const checkLineForActionVerb = (cleanText: string): boolean => {
+      const firstWord = cleanText.split(/\s+/)[0]?.toLowerCase().replace(/[^a-z]/g, '');
+      if (!firstWord) return false;
+      return ACTION_VERBS.includes(firstWord);
+    };
+
+    const extractSemanticCommitments = (text: string): string[] => {
+      const results: string[] = [];
+      const localRegex = new RegExp(
+        namesPatternStr + 
+        `\\s+(?:agreed\\s+to|will|to|needs?\\s+to|should|is\\s+going\\s+to|is\\s+tasked\\s+with)\\s+([a-z]+(?:\\s+[a-z0-9,.'\"-]+){2,20})`,
+        'gi'
+      );
+      let match;
+      while ((match = localRegex.exec(text)) !== null) {
+        const name = match[1].trim();
+        const action = match[2].trim();
+        const formattedName = name.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+        results.push(`${formattedName}: ${action}`);
+      }
+      return results;
+    };
+
+    // 2. Scan all sections for lines containing person-assignee indicators, action verbs or commitments
     (parsedSections || []).forEach(sec => {
       if (sec && sec.notes) {
         const secLines = sec.notes.split(/\r?\n/);
         secLines.forEach(line => {
           const trimmedLine = line.trim();
+          if (!trimmedLine) return;
           const match = trimmedLine.match(/^[-*+]\s+(.*)/) || trimmedLine.match(/^\d+\.\s+(.*)/);
           const itemText = match ? match[1] : trimmedLine;
           
           const cleanText = itemText.trim();
+          
+          // Heuristic A: Direct list-style assignee formats
           if (checkLineForAssignee(cleanText)) {
             addActionItem(cleanText);
+            return;
+          }
+
+          // Heuristic B: Line starts with present-tense action verb (bulleted tasks)
+          if (checkLineForActionVerb(cleanText)) {
+            addActionItem(cleanText);
+            return;
+          }
+
+          // Heuristic C: Paragraph contains a semantic commitment clause
+          const commitments = extractSemanticCommitments(trimmedLine);
+          if (commitments.length > 0) {
+            commitments.forEach(c => addActionItem(c));
           }
         });
       }
     });
-
-    // 3. Fallback: if no action items found at all, extract all bullet points / numbered lists in the entire document
-    if (actionItems.length === 0) {
-      (parsedSections || []).forEach(sec => {
-        if (sec && sec.notes) {
-          const secLines = sec.notes.split(/\r?\n/);
-          secLines.forEach(line => {
-            const trimmedLine = line.trim();
-            const match = trimmedLine.match(/^[-*+]\s+(.*)/) || trimmedLine.match(/^\d+\.\s+(.*)/);
-            if (match) {
-              addActionItem(match[1]);
-            }
-          });
-        }
-      });
-    }
 
     return {
       title: parsedTitle || `Gemini Meeting Notes - ${formatLocalDate(parsedDate)}`,
@@ -400,7 +441,7 @@ const parseGeminiNotes = (text: string, memberNames: string[] = []) => {
 export function TeamMeetings() {
   const { userData } = useAuth();
   useEffect(() => {
-    console.log("TeamMeetings v1.0.6 loaded");
+    console.log("TeamMeetings v1.0.7 loaded");
   }, []);
   const location = useLocation();
   const [meetings, setMeetings] = useState<any[]>([]);
@@ -2198,7 +2239,7 @@ export function TeamMeetings() {
             {/* Modal Header */}
             <div className="p-6 border-b border-[#ded8ce] flex justify-between items-center bg-white shrink-0">
               <div>
-                <h3 className="font-serif text-2xl text-brand-primary font-bold">Record Meeting Minutes (v1.0.6)</h3>
+                <h3 className="font-serif text-2xl text-brand-primary font-bold">Record Meeting Minutes (v1.0.7)</h3>
                 <p className="text-sm font-medium text-brand-secondary mt-1">Date, record capacity check-in scores, and write or import your discussions.</p>
               </div>
               <button 
