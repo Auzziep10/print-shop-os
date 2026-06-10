@@ -445,6 +445,10 @@ export function TeamMeetings() {
       const list: any[] = [];
       snap.forEach(d => {
         const data = d.data();
+        // Exclude clients and pending users from meetings list
+        if (data.role === 'Client' || data.role === 'Pending') {
+          return;
+        }
         list.push({ id: d.id, name: data.name || data.displayName || data.email, email: data.email });
       });
       setTeamMembers(list.length > 0 ? list : FALLBACK_USERS);
