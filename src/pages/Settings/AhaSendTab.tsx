@@ -15,6 +15,7 @@ export function AhaSendTab() {
   const [apiKey, setApiKey] = useState('');
   const [fromEmail, setFromEmail] = useState('');
   const [fromName, setFromName] = useState('');
+  const [accountId, setAccountId] = useState('');
 
   // Status message states
   const [saveStatus, setSaveStatus] = useState<{ success: boolean; message: string } | null>(null);
@@ -30,6 +31,7 @@ export function AhaSendTab() {
           setApiKey(data.apiKey || '');
           setFromEmail(data.fromEmail || '');
           setFromName(data.fromName || '');
+          setAccountId(data.accountId || '');
         }
       } catch (err) {
         console.error("Error fetching AhaSend settings:", err);
@@ -42,6 +44,12 @@ export function AhaSendTab() {
 
   const handleSave = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
+    
+    if (apiKey.trim().startsWith('aha-sk-') && !accountId.trim()) {
+      setSaveStatus({ success: false, message: 'Account ID is required when using a v2 API Key.' });
+      return;
+    }
+
     setSaving(true);
     setSaveStatus(null);
     setTestStatus(null);
@@ -53,6 +61,7 @@ export function AhaSendTab() {
           apiKey: apiKey.trim(),
           fromEmail: fromEmail.trim().toLowerCase(),
           fromName: fromName.trim(),
+          accountId: accountId.trim(),
           updatedAt: new Date().toISOString()
         },
         { merge: true }
@@ -69,6 +78,11 @@ export function AhaSendTab() {
   const handleTestConnection = async () => {
     if (!apiKey || !fromEmail) {
       setTestStatus({ success: false, message: 'Please provide both an API Key and Sender Email before testing.' });
+      return;
+    }
+
+    if (apiKey.startsWith('aha-sk-') && !accountId) {
+      setTestStatus({ success: false, message: 'Please provide an Account ID before testing.' });
       return;
     }
 
@@ -207,6 +221,24 @@ export function AhaSendTab() {
               <Key size={12} /> Retrieve this key from your AhaSend dashboard settings.
             </p>
           </div>
+
+          {/* Account ID (Required for v2 keys starting with 'aha-sk-') */}
+          {apiKey.startsWith('aha-sk-') && (
+            <div className="animate-in fade-in slide-in-from-top-1 duration-200">
+              <label className={tokens.typography.label + " mb-2 block"}>AhaSend Account ID</label>
+              <input
+                type="text"
+                required
+                value={accountId}
+                onChange={(e) => setAccountId(e.target.value)}
+                className={tokens.components.input}
+                placeholder="Enter your Account ID (e.g., 12345)"
+              />
+              <p className="text-[11px] text-brand-secondary/70 mt-1">
+                Required because you are using a v2 API key. Locate this ID under **Account Info** in your AhaSend dashboard.
+              </p>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>

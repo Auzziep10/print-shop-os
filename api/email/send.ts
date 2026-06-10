@@ -37,6 +37,7 @@ export default async function handler(req: Request) {
     const apiKey = fields.apiKey?.stringValue;
     const fromEmail = fields.fromEmail?.stringValue;
     const fromName = fields.fromName?.stringValue;
+    const accountId = fields.accountId?.stringValue;
 
     if (!apiKey || !fromEmail) {
       return new Response(JSON.stringify({ 
@@ -52,24 +53,57 @@ export default async function handler(req: Request) {
       return new Response(JSON.stringify({ error: 'Missing required parameters: to, subject, and either text or html' }), { status: 400 });
     }
 
-    // 3. Format sender header and build AhaSend payload
-    const fromField = fromName ? `${fromName} <${fromEmail}>` : fromEmail;
-    const ahaSendPayload = {
-      from: fromField,
-      to,
-      subject,
-      text,
-      html
-    };
+    const isV2 = apiKey.startsWith('aha-sk-');
+    
+    if (isV2 && !accountId) {
+      return new Response(JSON.stringify({ 
+        error: 'AhaSend API v2 key requires an Account ID. Please add it to your settings.' 
+      }), { status: 400 });
+    }
 
-    // 4. Send the request to AhaSend API
-    const ahaSendRes = await fetch('https://api.ahasend.com/v1/email/send', {
-      method: 'POST',
-      headers: {
+    let ahaSendRes: Response;
+    let url: string;
+    let headers: Record<string, string>;
+    let payloadBody: any;
+
+    if (isV2) {
+      url = `https://api.ahasend.com/v2/accounts/${accountId}/messages`;
+      headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      };
+      payloadBody = {
+        from: {
+          email: fromEmail,
+          name: fromName || undefined
+        },
+        recipients: [
+          { email: to }
+        ],
+        subject,
+        text_content: text || undefined,
+        html_content: html || undefined
+      };
+    } else {
+      url = 'https://api.ahasend.com/v1/email/send';
+      headers = {
         'Content-Type': 'application/json',
         'X-Api-Key': apiKey
-      },
-      body: JSON.stringify(ahaSendPayload)
+      };
+      payloadBody = {
+        from: fromName ? `${fromName} <${fromEmail}>` : fromEmail,
+        to,
+        subject,
+        text,
+        html
+      };
+    }
+
+    // 4. Send the request to AhaSend API
+    ahaSendRes = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(payloadBody)
     });
 
     const ahaSendData = await ahaSendRes.json().catch(() => ({}));
@@ -77,7 +111,7 @@ export default async function handler(req: Request) {
     if (!ahaSendRes.ok) {
       console.error('AhaSend API responded with error:', ahaSendData);
       return new Response(JSON.stringify({ 
-        error: `AhaSend API error: ${ahaSendData.message || ahaSendRes.statusText}` 
+        error: `AhaSend API error: ${ahaSendData.status || ahaSendData.message || ahaSendRes.statusText}` 
       }), { status: ahaSendRes.status });
     }
 
