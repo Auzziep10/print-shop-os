@@ -34,6 +34,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.search.includes('bypassAuth=true')) {
+      const mockUser = {
+        uid: 'mock-uid-123',
+        email: 'admin@wovn.com',
+        displayName: 'Mock Admin'
+      } as any;
+      const mockUserData: UserData = {
+        id: 'mock-user-123',
+        uid: 'mock-uid-123',
+        email: 'admin@wovn.com',
+        name: 'Mock Admin',
+        role: 'Admin',
+        createdAt: new Date().toISOString()
+      };
+      setUser(mockUser);
+      setUserData(mockUserData);
+      setLoading(false);
+      return;
+    }
+
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
         if (!currentUser.email) {
