@@ -10,7 +10,13 @@ import {
   Calendar,
   X,
   ArrowRight,
-  Sparkles
+  Sparkles,
+  LayoutDashboard,
+  Layers,
+  Users,
+  Package,
+  Settings,
+  Clock
 } from 'lucide-react';
 
 interface CommandPaletteProps {
@@ -18,20 +24,29 @@ interface CommandPaletteProps {
   onClose: () => void;
 }
 
+const QUICK_PAGES = [
+  { name: 'Dashboard', path: '/', icon: LayoutDashboard, color: 'text-blue-600 bg-blue-50 border-blue-100' },
+  { name: 'Orders', path: '/orders', icon: Layers, color: 'text-emerald-600 bg-emerald-50 border-emerald-100' },
+  { name: 'Customers', path: '/customers', icon: Users, color: 'text-purple-600 bg-purple-50 border-purple-100' },
+  { name: 'Inventory', path: '/inventory', icon: Package, color: 'text-amber-600 bg-amber-50 border-amber-100' },
+  { name: 'Meetings', path: '/team/meetings', icon: Calendar, color: 'text-rose-600 bg-rose-50 border-rose-100' },
+  { name: 'Settings', path: '/settings', icon: Settings, color: 'text-neutral-600 bg-neutral-100 border-neutral-200' }
+];
+
 const PAGES = [
-  { name: 'Dashboard', path: '/', category: 'Pages', description: 'View system metrics, alerts, and live meetings' },
-  { name: 'Orders List', path: '/orders', category: 'Pages', description: 'Manage print orders, quotes, and production status' },
-  { name: 'Production Pipeline', path: '/orders?tab=production', category: 'Pages', description: 'Monitor order steps and schedule timeline' },
-  { name: 'Artwork Pipeline', path: '/orders?tab=production&sub=artwork', category: 'Pages', description: 'Track proof approvals and design files' },
-  { name: 'Reports', path: '/orders?tab=reports', category: 'Pages', description: 'Analyze sales, profit margins, and costs' },
-  { name: 'Customers List', path: '/customers', category: 'Pages', description: 'View clients, companies, and contacts' },
-  { name: 'Inventory', path: '/inventory', category: 'Pages', description: 'Manage garments, boxes, and stock counts' },
-  { name: 'Mobile Inventory Scan', path: '/inventory/scan', category: 'Pages', description: 'Scan box barcodes with your mobile device' },
-  { name: 'Team Members', path: '/team', category: 'Pages', description: 'View user capacities and workload distribution' },
-  { name: 'Team Meetings', path: '/team/meetings', category: 'Pages', description: 'Sync meetings, checklists, and capacity scores' },
-  { name: 'Settings', path: '/settings', category: 'Pages', description: 'Configure system defaults and user roles' },
-  { name: 'Signatures & Profiles', path: '/settings?tab=signatures', category: 'Pages', description: 'Manage print setup specifications' },
-  { name: 'Public Quote Request', path: '/start', category: 'Pages', description: 'Access the external client quoting form' }
+  { name: 'Dashboard', path: '/', category: 'Pages' },
+  { name: 'Orders List', path: '/orders', category: 'Pages' },
+  { name: 'Production Pipeline', path: '/orders?tab=production', category: 'Pages' },
+  { name: 'Artwork Pipeline', path: '/orders?tab=production&sub=artwork', category: 'Pages' },
+  { name: 'Reports', path: '/orders?tab=reports', category: 'Pages' },
+  { name: 'Customers List', path: '/customers', category: 'Pages' },
+  { name: 'Inventory', path: '/inventory', category: 'Pages' },
+  { name: 'Mobile Inventory Scan', path: '/inventory/scan', category: 'Pages' },
+  { name: 'Team Members', path: '/team', category: 'Pages' },
+  { name: 'Team Meetings', path: '/team/meetings', category: 'Pages' },
+  { name: 'Settings', path: '/settings', category: 'Pages' },
+  { name: 'Signatures & Profiles', path: '/settings?tab=signatures', category: 'Pages' },
+  { name: 'Public Quote Request', path: '/start', category: 'Pages' }
 ];
 
 export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
@@ -65,6 +80,7 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
       snap.forEach(d => {
         list.push({ id: d.id, ...d.data() });
       });
+      // Sort by date or ID to show recent orders first
       list.sort((a, b) => b.id.localeCompare(a.id));
       setOrders(list);
     });
@@ -105,12 +121,16 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
     return map;
   }, [customers]);
 
+  // 3 most recent orders for default quick access
+  const recentOrders = useMemo(() => {
+    return orders.slice(0, 3);
+  }, [orders]);
+
   // Filter lists based on query
   const filteredPages = useMemo(() => {
-    if (!query.trim()) return PAGES;
+    if (!query.trim()) return [];
     return PAGES.filter(p => 
-      p.name.toLowerCase().includes(query.toLowerCase()) ||
-      p.description.toLowerCase().includes(query.toLowerCase())
+      p.name.toLowerCase().includes(query.toLowerCase())
     );
   }, [query]);
 
@@ -124,7 +144,7 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
         o.id.toLowerCase().includes(query.toLowerCase()) ||
         companyName.toLowerCase().includes(query.toLowerCase())
       );
-    }).slice(0, 5); // Cap to 5 results for clean view
+    }).slice(0, 5);
   }, [query, orders, customerMap]);
 
   const filteredCustomers = useMemo(() => {
@@ -133,7 +153,7 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
       (c.company || '').toLowerCase().includes(query.toLowerCase()) ||
       (c.contactName || '').toLowerCase().includes(query.toLowerCase()) ||
       (c.email || '').toLowerCase().includes(query.toLowerCase())
-    ).slice(0, 5); // Cap to 5 results for clean view
+    ).slice(0, 5);
   }, [query, customers]);
 
   const filteredMeetings = useMemo(() => {
@@ -142,18 +162,26 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
       (m.title || '').toLowerCase().includes(query.toLowerCase()) ||
       (m.summary || '').toLowerCase().includes(query.toLowerCase()) ||
       (m.date || '').toLowerCase().includes(query.toLowerCase())
-    ).slice(0, 5); // Cap to 5 results for clean view
+    ).slice(0, 5);
   }, [query, meetings]);
 
-  // Flattened results list for easy index-based navigation
+  // Flattened results list for easy index-based keyboard navigation
   const flatResults = useMemo(() => {
     const list: any[] = [];
-    filteredPages.forEach(p => list.push({ ...p, type: 'page', key: `page-${p.name}` }));
-    filteredOrders.forEach(o => list.push({ ...o, type: 'order', key: `order-${o.id}` }));
-    filteredCustomers.forEach(c => list.push({ ...c, type: 'customer', key: `customer-${c.id}` }));
-    filteredMeetings.forEach(m => list.push({ ...m, type: 'meeting', key: `meeting-${m.id}` }));
+    
+    if (!query.trim()) {
+      // 1. In empty state, make Quick Pages and Recent Orders keyboard navigable!
+      QUICK_PAGES.forEach(p => list.push({ ...p, type: 'quick-page', key: `quick-${p.name}` }));
+      recentOrders.forEach(o => list.push({ ...o, type: 'recent-order', key: `recent-order-${o.id}` }));
+    } else {
+      // 2. In search state, add filtered results
+      filteredPages.forEach(p => list.push({ ...p, type: 'page', key: `page-${p.name}` }));
+      filteredOrders.forEach(o => list.push({ ...o, type: 'order', key: `order-${o.id}` }));
+      filteredCustomers.forEach(c => list.push({ ...c, type: 'customer', key: `customer-${c.id}` }));
+      filteredMeetings.forEach(m => list.push({ ...m, type: 'meeting', key: `meeting-${m.id}` }));
+    }
     return list;
-  }, [filteredPages, filteredOrders, filteredCustomers, filteredMeetings]);
+  }, [query, filteredPages, filteredOrders, filteredCustomers, filteredMeetings, recentOrders]);
 
   // Handle keydown navigation
   useEffect(() => {
@@ -196,9 +224,9 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
 
   const handleSelect = (item: any) => {
     onClose();
-    if (item.type === 'page') {
+    if (item.type === 'page' || item.type === 'quick-page') {
       navigate(item.path);
-    } else if (item.type === 'order') {
+    } else if (item.type === 'order' || item.type === 'recent-order') {
       navigate(`/orders/${item.id}`);
     } else if (item.type === 'customer') {
       navigate(`/customers/${item.id}`);
@@ -211,23 +239,23 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-start justify-center pt-[10vh] px-4 bg-black/50 backdrop-blur-md transition-opacity duration-200"
+      className="fixed inset-0 z-50 flex items-start justify-center pt-[10vh] px-4 bg-black/40 backdrop-blur-md transition-opacity duration-200"
       onClick={onClose}
     >
       <div 
-        className="bg-[#f7f4ef] border border-[#ded8ce] rounded-[24px] shadow-2xl max-w-2xl w-full overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[75vh]"
+        className="bg-[#f7f4ef] border border-[#ded8ce] rounded-[24px] shadow-2xl max-w-lg w-full overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[75vh]"
         onClick={e => e.stopPropagation()}
       >
         {/* Search Input Box */}
         <div className="flex items-center gap-3 px-6 py-4 border-b border-[#ded8ce] bg-white relative">
-          <Search className="text-brand-secondary shrink-0" size={20} strokeWidth={2.5} />
+          <Search className="text-brand-secondary shrink-0" size={18} strokeWidth={2.5} />
           <input 
             ref={inputRef}
             type="text" 
-            placeholder="Search pages, orders, customers, or meetings..." 
+            placeholder="Type to search orders, customers, or meetings..." 
             value={query}
             onChange={e => setQuery(e.target.value)}
-            className="w-full text-base bg-transparent text-brand-primary placeholder:text-brand-secondary/60 focus:outline-none border-none py-1 font-sans"
+            className="w-full text-base bg-transparent text-brand-primary placeholder:text-brand-secondary/60 focus:outline-none border-none py-0.5 font-sans"
           />
           <button 
             onClick={onClose}
@@ -237,185 +265,83 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
           </button>
         </div>
 
-        {/* Search Results List */}
+        {/* Search Content */}
         <div 
           ref={containerRef}
-          className="flex-1 overflow-y-auto p-4 custom-scrollbar space-y-4"
+          className="flex-1 overflow-y-auto p-5 custom-scrollbar space-y-5"
         >
-          {flatResults.length === 0 ? (
-            <div className="py-12 text-center text-brand-secondary text-sm flex flex-col items-center gap-2">
-              <Sparkles size={24} className="text-brand-secondary/40" />
-              <p>No results found for <span className="font-semibold">"{query}"</span></p>
-              <p className="text-xs text-brand-secondary/70">Try searching for pages like "meetings", or orders by title/client.</p>
-            </div>
-          ) : (
+          {query.trim() === '' ? (
+            // Default View (No Query): Clean Quick Navigation + Recent Orders
             <>
-              {/* Pages Section */}
-              {filteredPages.length > 0 && (
-                <div>
-                  <h3 className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary px-3 py-1.5">
-                    Pages
-                  </h3>
-                  <div className="space-y-1">
-                    {filteredPages.map((page) => {
-                      const itemIndex = flatResults.findIndex(r => r.key === `page-${page.name}`);
-                      const isActive = selectedIndex === itemIndex;
-                      return (
-                        <div 
-                          key={page.name}
-                          onClick={() => handleSelect({ ...page, type: 'page' })}
-                          onMouseEnter={() => setSelectedIndex(itemIndex)}
-                          className={`flex items-start gap-3 p-3 rounded-[16px] transition-all cursor-pointer group ${
-                            isActive 
-                              ? 'bg-[#111] text-white active-search-item' 
-                              : 'hover:bg-[#ded8ce]/30 text-brand-primary'
-                          }`}
-                        >
-                          <div className={`p-2 rounded-lg ${isActive ? 'bg-white/10 text-white' : 'bg-[#ded8ce]/30 text-brand-secondary group-hover:text-brand-primary'}`}>
-                            <Folder size={16} />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="text-sm font-semibold flex items-center justify-between">
-                              <span>{page.name}</span>
-                              <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${isActive ? 'bg-white/20 text-white' : 'bg-brand-bg text-brand-secondary'}`}>
-                                Route
-                              </span>
-                            </div>
-                            <p className={`text-xs mt-0.5 truncate ${isActive ? 'text-white/70' : 'text-brand-secondary'}`}>
-                              {page.description}
-                            </p>
-                          </div>
-                          {isActive && <ArrowRight size={16} className="self-center text-white/50" />}
+              {/* Quick Pages Grid */}
+              <div>
+                <h4 className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary px-1 mb-3">
+                  Quick Navigation
+                </h4>
+                <div className="grid grid-cols-3 gap-3">
+                  {QUICK_PAGES.map((page, idx) => {
+                    const isActive = selectedIndex === idx;
+                    const Icon = page.icon;
+                    return (
+                      <div
+                        key={page.name}
+                        onClick={() => handleSelect({ ...page, type: 'quick-page' })}
+                        onMouseEnter={() => setSelectedIndex(idx)}
+                        className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-all cursor-pointer text-center group ${
+                          isActive 
+                            ? 'bg-[#ded8ce]/40 border-[#ded8ce] scale-[1.02] shadow-sm active-search-item' 
+                            : 'bg-white border-[#ded8ce]/60 hover:bg-neutral-50/65'
+                        }`}
+                      >
+                        <div className={`p-2 rounded-xl border border-transparent mb-2 ${page.color} ${isActive ? 'scale-105' : 'group-hover:scale-105'} transition-all`}>
+                          <Icon size={18} />
                         </div>
-                      );
-                    })}
-                  </div>
+                        <span className="text-xs font-semibold text-brand-primary truncate w-full">
+                          {page.name}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
-              )}
+              </div>
 
-              {/* Orders Section */}
-              {filteredOrders.length > 0 && (
+              {/* Recent Orders */}
+              {recentOrders.length > 0 && (
                 <div>
-                  <h3 className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary px-3 py-1.5">
-                    Orders
-                  </h3>
+                  <h4 className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary px-1 mb-2">
+                    Recent Orders
+                  </h4>
                   <div className="space-y-1">
-                    {filteredOrders.map((order) => {
-                      const itemIndex = flatResults.findIndex(r => r.key === `order-${order.id}`);
+                    {recentOrders.map((order, idx) => {
+                      const itemIndex = QUICK_PAGES.length + idx;
                       const isActive = selectedIndex === itemIndex;
                       const company = order.customerId ? (customerMap[order.customerId] || '') : '';
                       return (
-                        <div 
+                        <div
                           key={order.id}
-                          onClick={() => handleSelect({ ...order, type: 'order' })}
+                          onClick={() => handleSelect({ ...order, type: 'recent-order' })}
                           onMouseEnter={() => setSelectedIndex(itemIndex)}
-                          className={`flex items-start gap-3 p-3 rounded-[16px] transition-all cursor-pointer group ${
+                          className={`flex items-center gap-3 p-3 rounded-[16px] transition-all cursor-pointer group border ${
                             isActive 
-                              ? 'bg-[#111] text-white active-search-item' 
-                              : 'hover:bg-[#ded8ce]/30 text-brand-primary'
+                              ? 'bg-[#ded8ce]/40 border-[#ded8ce] active-search-item' 
+                              : 'bg-white/60 border-transparent hover:bg-[#ded8ce]/20'
                           }`}
                         >
-                          <div className={`p-2 rounded-lg ${isActive ? 'bg-white/10 text-white' : 'bg-[#ded8ce]/30 text-brand-secondary group-hover:text-brand-primary'}`}>
-                            <FileText size={16} />
+                          <div className={`p-2 rounded-lg bg-neutral-100 text-brand-secondary transition-colors ${isActive ? 'bg-[#ded8ce]/50 text-brand-primary' : ''}`}>
+                            <Clock size={16} />
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="text-sm font-semibold flex items-center justify-between">
                               <span className="truncate pr-2">{order.title || 'Untitled Order'}</span>
-                              <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${isActive ? 'bg-white/20 text-white' : 'bg-brand-bg text-brand-secondary'}`}>
+                              <span className="text-[10px] text-brand-secondary font-mono">
                                 #{order.portalId || order.id.substring(0, 6)}
                               </span>
                             </div>
-                            <p className={`text-xs mt-0.5 truncate ${isActive ? 'text-white/70' : 'text-brand-secondary'}`}>
+                            <p className="text-xs text-brand-secondary truncate mt-0.5">
                               {company ? `${company} • ` : ''}Due: {order.targetCompletionDate || order.date || 'N/A'}
                             </p>
                           </div>
-                          {isActive && <ArrowRight size={16} className="self-center text-white/50" />}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Customers Section */}
-              {filteredCustomers.length > 0 && (
-                <div>
-                  <h3 className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary px-3 py-1.5">
-                    Customers
-                  </h3>
-                  <div className="space-y-1">
-                    {filteredCustomers.map((customer) => {
-                      const itemIndex = flatResults.findIndex(r => r.key === `customer-${customer.id}`);
-                      const isActive = selectedIndex === itemIndex;
-                      return (
-                        <div 
-                          key={customer.id}
-                          onClick={() => handleSelect({ ...customer, type: 'customer' })}
-                          onMouseEnter={() => setSelectedIndex(itemIndex)}
-                          className={`flex items-start gap-3 p-3 rounded-[16px] transition-all cursor-pointer group ${
-                            isActive 
-                              ? 'bg-[#111] text-white active-search-item' 
-                              : 'hover:bg-[#ded8ce]/30 text-brand-primary'
-                          }`}
-                        >
-                          <div className={`p-2 rounded-lg ${isActive ? 'bg-white/10 text-white' : 'bg-[#ded8ce]/30 text-brand-secondary group-hover:text-brand-primary'}`}>
-                            <Building2 size={16} />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="text-sm font-semibold flex items-center justify-between">
-                              <span className="truncate">{customer.company !== '-' ? customer.company : 'Individual Client'}</span>
-                              <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${isActive ? 'bg-white/20 text-white' : 'bg-brand-bg text-brand-secondary'}`}>
-                                Client
-                              </span>
-                            </div>
-                            <p className={`text-xs mt-0.5 truncate ${isActive ? 'text-white/70' : 'text-brand-secondary'}`}>
-                              {customer.contactName || customer.email || 'No contact specified'}
-                            </p>
-                          </div>
-                          {isActive && <ArrowRight size={16} className="self-center text-white/50" />}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Meetings Section */}
-              {filteredMeetings.length > 0 && (
-                <div>
-                  <h3 className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary px-3 py-1.5">
-                    Meetings
-                  </h3>
-                  <div className="space-y-1">
-                    {filteredMeetings.map((meeting) => {
-                      const itemIndex = flatResults.findIndex(r => r.key === `meeting-${meeting.id}`);
-                      const isActive = selectedIndex === itemIndex;
-                      return (
-                        <div 
-                          key={meeting.id}
-                          onClick={() => handleSelect({ ...meeting, type: 'meeting' })}
-                          onMouseEnter={() => setSelectedIndex(itemIndex)}
-                          className={`flex items-start gap-3 p-3 rounded-[16px] transition-all cursor-pointer group ${
-                            isActive 
-                              ? 'bg-[#111] text-white active-search-item' 
-                              : 'hover:bg-[#ded8ce]/30 text-brand-primary'
-                          }`}
-                        >
-                          <div className={`p-2 rounded-lg ${isActive ? 'bg-white/10 text-white' : 'bg-[#ded8ce]/30 text-brand-secondary group-hover:text-brand-primary'}`}>
-                            <Calendar size={16} />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="text-sm font-semibold flex items-center justify-between">
-                              <span className="truncate">{meeting.title || 'Untitled Meeting'}</span>
-                              <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${isActive ? 'bg-white/20 text-white' : 'bg-brand-bg text-brand-secondary'}`}>
-                                Meeting
-                              </span>
-                            </div>
-                            <p className={`text-xs mt-0.5 truncate ${isActive ? 'text-white/70' : 'text-brand-secondary'}`}>
-                              Date: {meeting.date} {meeting.summary ? `• ${meeting.summary}` : ''}
-                            </p>
-                          </div>
-                          {isActive && <ArrowRight size={16} className="self-center text-white/50" />}
+                          {isActive && <ArrowRight size={16} className="text-brand-secondary" />}
                         </div>
                       );
                     })}
@@ -423,24 +349,100 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
                 </div>
               )}
             </>
+          ) : (
+            // Search View (Query entered): Simplified, clean lists
+            <>
+              {flatResults.length === 0 ? (
+                <div className="py-12 text-center text-brand-secondary text-sm flex flex-col items-center gap-2">
+                  <Sparkles size={20} className="text-brand-secondary/40" />
+                  <p>No matches for <span className="font-semibold text-brand-primary">"{query}"</span></p>
+                  <p className="text-xs text-brand-secondary/70">Type pages, meetings, clients, or order titles.</p>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  {flatResults.map((item, idx) => {
+                    const isActive = selectedIndex === idx;
+                    
+                    // Determine Icon & Badges dynamically
+                    let IconComponent = Folder;
+                    let label = 'Route';
+                    let subtext = '';
+
+                    if (item.type === 'page') {
+                      IconComponent = Folder;
+                      label = 'Page';
+                      subtext = item.path;
+                    } else if (item.type === 'order') {
+                      IconComponent = FileText;
+                      label = `Order #${item.portalId || item.id.substring(0, 6)}`;
+                      const company = item.customerId ? (customerMap[item.customerId] || '') : '';
+                      subtext = company ? `${company} • Due: ${item.date}` : `Due: ${item.date}`;
+                    } else if (item.type === 'customer') {
+                      IconComponent = Building2;
+                      label = 'Client';
+                      subtext = item.contactName || item.email || '';
+                    } else if (item.type === 'meeting') {
+                      IconComponent = Calendar;
+                      label = 'Meeting';
+                      subtext = `Held: ${item.date}`;
+                    }
+
+                    return (
+                      <div 
+                        key={item.key}
+                        onClick={() => handleSelect(item)}
+                        onMouseEnter={() => setSelectedIndex(idx)}
+                        className={`flex items-center gap-3 p-3 rounded-[16px] transition-all cursor-pointer group border ${
+                          isActive 
+                            ? 'bg-[#ded8ce]/40 border-[#ded8ce] active-search-item' 
+                            : 'border-transparent hover:bg-[#ded8ce]/25'
+                        }`}
+                      >
+                        <div className={`p-2 rounded-lg ${isActive ? 'bg-[#ded8ce]/50 text-brand-primary' : 'bg-neutral-100/80 text-brand-secondary group-hover:text-brand-primary'} transition-colors`}>
+                          <IconComponent size={16} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-semibold flex items-center justify-between">
+                            <span className="truncate pr-2 text-brand-primary">
+                              {item.name || item.title || (item.company !== '-' ? item.company : 'Individual Client')}
+                            </span>
+                            <span className={`text-[9px] px-1.5 py-0.5 rounded font-mono uppercase font-bold tracking-wider ${
+                              isActive ? 'bg-[#ded8ce]/60 text-brand-primary' : 'bg-brand-bg border border-brand-border/40 text-brand-secondary'
+                            }`}>
+                              {label}
+                            </span>
+                          </div>
+                          {subtext && (
+                            <p className="text-xs text-brand-secondary truncate mt-0.5">
+                              {subtext}
+                            </p>
+                          )}
+                        </div>
+                        {isActive && <ArrowRight size={16} className="text-brand-secondary" />}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </>
           )}
         </div>
 
         {/* Command Palette Keyboard Hints Footer */}
-        <div className="px-6 py-3 border-t border-[#ded8ce] bg-neutral-50 flex items-center justify-between text-[11px] text-brand-secondary">
-          <div className="flex items-center gap-4">
+        <div className="px-6 py-2.5 border-t border-[#ded8ce] bg-neutral-50/60 flex items-center justify-between text-[10px] text-brand-secondary">
+          <div className="flex items-center gap-3">
             <span>
-              Use <kbd className="bg-white px-1.5 py-0.5 border border-brand-border rounded font-semibold font-mono text-[9px]">↑↓</kbd> to navigate
+              <kbd className="bg-white px-1 py-0.5 border border-brand-border rounded font-sans text-[9px] shadow-sm">↑↓</kbd> to move
             </span>
             <span>
-              Press <kbd className="bg-white px-1.5 py-0.5 border border-brand-border rounded font-semibold font-mono text-[9px]">Enter</kbd> to select
+              <kbd className="bg-white px-1 py-0.5 border border-brand-border rounded font-sans text-[9px] shadow-sm">Enter</kbd> to select
             </span>
             <span>
-              Press <kbd className="bg-white px-1.5 py-0.5 border border-brand-border rounded font-semibold font-mono text-[9px]">Esc</kbd> to close
+              <kbd className="bg-white px-1 py-0.5 border border-brand-border rounded font-sans text-[9px] shadow-sm">Esc</kbd> to close
             </span>
           </div>
-          <div className="flex items-center gap-1 font-semibold uppercase tracking-wider text-[10px]">
-            <span>WOVN SEARCH</span>
+          <div className="text-[9px] font-bold tracking-widest text-brand-secondary/80">
+            WOVN SEARCH
           </div>
         </div>
       </div>
