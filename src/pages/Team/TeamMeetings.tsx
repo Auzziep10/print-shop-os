@@ -381,7 +381,7 @@ export function TeamMeetings() {
     if (selectedMeeting && selectedMeeting.status === 'live' && selectedMeeting.templateId && selectedMeeting.enableCapacityCheckin !== false && userData) {
       const isAttendee = selectedMeeting.attendees?.includes(userData.name);
       const alreadyCheckedIn = selectedMeeting.capacityScores?.some(
-        (c: any) => c.memberName === userData.name || c.memberId === userData.id
+        (c: any) => c.memberName === userData.name || c.memberId === userData.id || (userData.uid && c.memberId === userData.uid)
       );
       if (isAttendee && !alreadyCheckedIn && dismissedMeetingCheckinId !== selectedMeeting.id) {
         setIsCheckinModalOpen(true);
@@ -416,7 +416,7 @@ export function TeamMeetings() {
   useEffect(() => {
     if (selectedMeeting && userData) {
       const existing = selectedMeeting.capacityScores?.find(
-        (c: any) => c.memberName === userData.name || c.memberId === userData.id
+        (c: any) => c.memberName === userData.name || c.memberId === userData.id || (userData.uid && c.memberId === userData.uid)
       );
       if (existing) {
         setMyWorkload(existing.categories?.workload ?? 5);
@@ -636,25 +636,26 @@ export function TeamMeetings() {
     };
 
     const myCheckinObj = {
-      memberId: userData.id,
+      memberId: userData.id || userData.uid || '',
       memberName: userData.name || 'Unknown Member',
       score,
       status: getStatus(score),
-      confidence: myConfidence,
-      notes: myNotes.trim() || 'No blockers noted.',
+      confidence: myConfidence || 'Green',
+      notes: myNotes?.trim() || 'No blockers noted.',
       categories: {
-        workload: myWorkload,
-        urgency: myUrgency,
-        stress: myStress,
-        availability: myAvailability,
-        friction: myFriction
+        workload: myWorkload ?? 5,
+        urgency: myUrgency ?? 5,
+        stress: myStress ?? 5,
+        availability: myAvailability ?? 5,
+        friction: myFriction ?? 5
       }
     };
 
     try {
       const existingScores = selectedMeeting.capacityScores || [];
+      const currentUserId = userData.id || userData.uid || '';
       const updatedScores = [
-        ...existingScores.filter((c: any) => c.memberName !== userData.name && c.memberId !== userData.id),
+        ...existingScores.filter((c: any) => c.memberName !== userData.name && c.memberId !== currentUserId),
         myCheckinObj
       ];
 

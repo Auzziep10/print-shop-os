@@ -84,7 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           } else {
             // User exists, grab the data
             const userDoc = querySnapshot.docs[0];
-            const data = userDoc.data() as UserData;
+            const data = { id: userDoc.id, ...userDoc.data() } as UserData;
 
             // Update uid and name if empty
             if (!data.uid || !data.name) {
