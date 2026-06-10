@@ -153,7 +153,13 @@ const parseSectionsFromText = (text: string) => {
   let currentSectionLines: string[] = [];
 
   lines.forEach((line) => {
-    const headerMatch = line.match(/^#{1,6}\s+(.+)$/);
+    const trimmed = line.trim();
+    const markdownMatch = trimmed.match(/^#{1,6}\s+(.+)$/);
+    const boldMatch = trimmed.match(/^\*\*([^*]+)\*\*:?$/) || trimmed.match(/^__([^_]+)__:?$/);
+    const colonMatch = trimmed.match(/^([A-Z][a-zA-Z\s?]{2,40}):$/);
+
+    const headerMatch = markdownMatch || boldMatch || colonMatch;
+
     if (headerMatch) {
       if (currentSectionName || currentSectionLines.length > 0) {
         sections.push({
@@ -161,7 +167,10 @@ const parseSectionsFromText = (text: string) => {
           notes: currentSectionLines.join('\n').trim()
         });
       }
-      currentSectionName = headerMatch[1].trim();
+      const rawName = markdownMatch 
+        ? markdownMatch[1] 
+        : (boldMatch ? boldMatch[1] : (colonMatch ? colonMatch[1] : ''));
+      currentSectionName = rawName.replace(/:$/, '').trim();
       currentSectionLines = [];
     } else {
       currentSectionLines.push(line);
@@ -298,6 +307,9 @@ const parseGeminiNotes = (text: string) => {
 
 export function TeamMeetings() {
   const { userData } = useAuth();
+  useEffect(() => {
+    console.log("TeamMeetings v1.0.4 loaded");
+  }, []);
   const location = useLocation();
   const [meetings, setMeetings] = useState<any[]>([]);
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
@@ -2088,7 +2100,7 @@ export function TeamMeetings() {
             {/* Modal Header */}
             <div className="p-6 border-b border-[#ded8ce] flex justify-between items-center bg-white shrink-0">
               <div>
-                <h3 className="font-serif text-2xl text-brand-primary font-bold">Record Meeting Minutes</h3>
+                <h3 className="font-serif text-2xl text-brand-primary font-bold">Record Meeting Minutes (v1.0.4)</h3>
                 <p className="text-sm font-medium text-brand-secondary mt-1">Date, record capacity check-in scores, and write or import your discussions.</p>
               </div>
               <button 
