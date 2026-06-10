@@ -146,6 +146,8 @@ const formatLocalDate = (dateStr: string, options?: Intl.DateTimeFormatOptions) 
   return isNaN(d.getTime()) ? dateStr : d.toLocaleDateString(undefined, options);
 };
 
+const TASK_KEYWORDS = ['action item', 'todo', 'task', 'follow-up', 'follow up', 'next step', 'action checklist', 'action items', 'todos', 'tasks', 'next steps'];
+
 const parseSectionsFromText = (text: string) => {
   const lines = text.split(/\r?\n/);
   const sections: { name: string; notes: string }[] = [];
@@ -154,11 +156,19 @@ const parseSectionsFromText = (text: string) => {
 
   lines.forEach((line) => {
     const trimmed = line.trim();
-    const markdownMatch = trimmed.match(/^#{1,6}\s+(.+)$/);
-    const boldMatch = trimmed.match(/^\*\*([^*]+)\*\*:?$/) || trimmed.match(/^__([^_]+)__:?$/);
-    const colonMatch = trimmed.match(/^([A-Z][a-zA-Z\s?]{2,40}):$/);
+    const cleanLine = trimmed.replace(/^[-*+]\s+/, '');
+    
+    const markdownMatch = cleanLine.match(/^#{1,6}\s+(.+)$/);
+    const boldMatch = cleanLine.match(/^\*\*([^*]+)\*\*:?$/) || cleanLine.match(/^__([^_]+)__:?$/);
+    const colonMatch = cleanLine.match(/^([A-Z][a-zA-Z\s?]{2,40}):$/);
+    
+    const isTaskHeader = TASK_KEYWORDS.some(kw => {
+      const cleanL = cleanLine.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const cleanK = kw.toLowerCase().replace(/[^a-z0-9]/g, '');
+      return cleanL === cleanK && cleanL.length > 2;
+    });
 
-    const headerMatch = markdownMatch || boldMatch || colonMatch;
+    const headerMatch = markdownMatch || boldMatch || colonMatch || isTaskHeader;
 
     if (headerMatch) {
       if (currentSectionName || currentSectionLines.length > 0) {
@@ -167,10 +177,13 @@ const parseSectionsFromText = (text: string) => {
           notes: currentSectionLines.join('\n').trim()
         });
       }
-      const rawName = markdownMatch 
-        ? markdownMatch[1] 
-        : (boldMatch ? boldMatch[1] : (colonMatch ? colonMatch[1] : ''));
-      currentSectionName = rawName.replace(/:$/, '').trim();
+      let rawName = '';
+      if (markdownMatch) rawName = markdownMatch[1];
+      else if (boldMatch) rawName = boldMatch[1];
+      else if (colonMatch) rawName = colonMatch[1];
+      else rawName = cleanLine;
+
+      currentSectionName = rawName.replace(/:$/, '').replace(/\*\*$/, '').replace(/^\*\*/, '').trim();
       currentSectionLines = [];
     } else {
       currentSectionLines.push(line);
@@ -187,7 +200,7 @@ const parseSectionsFromText = (text: string) => {
   return sections;
 };
 
-const parseGeminiNotes = (text: string) => {
+const parseGeminiNotes = (text: string, memberNames: string[] = []) => {
   try {
     const lines = (text || '').split(/\r?\n/).map(l => l.trim());
     let parsedTitle = '';
@@ -218,9 +231,8 @@ const parseGeminiNotes = (text: string) => {
 
     const parsedSections = parseSectionsFromText(text || '');
 
-    const taskKeywords = ['action item', 'todo', 'task', 'follow-up', 'follow up', 'next step', 'action checklist'];
     const taskSections = (parsedSections || []).filter(sec => 
-      sec && sec.name && taskKeywords.some(keyword => sec.name.toLowerCase().includes(keyword))
+      sec && sec.name && TASK_KEYWORDS.some(keyword => sec.name.toLowerCase().includes(keyword))
     );
 
     const seenTexts = new Set<string>();
@@ -229,7 +241,7 @@ const parseGeminiNotes = (text: string) => {
       if (!itemText) return;
       const cleaned = itemText.trim().replace(/^\[[ x]\]\s*/i, '');
       if (!cleaned) return;
-      if (taskKeywords.some(keyword => cleaned.toLowerCase() === keyword)) return;
+      if (TASK_KEYWORDS.some(keyword => cleaned.toLowerCase() === keyword)) return;
       if (!seenTexts.has(cleaned)) {
         seenTexts.add(cleaned);
         actionItems.push({ text: cleaned, completed: false });
@@ -242,16 +254,96 @@ const parseGeminiNotes = (text: string) => {
         const secLines = sec.notes.split(/\r?\n/);
         secLines.forEach(line => {
           const trimmedLine = line.trim();
+          if (!trimmedLine) return;
           const match = trimmedLine.match(/^[-*+]\s+(.*)/) || trimmedLine.match(/^\d+\.\s+(.*)/);
           if (match) {
             addActionItem(match[1]);
+          } else {
+            addActionItem(trimmedLine);
           }
         });
       }
     });
 
+    // Build sets for known member names
+    const knownNames = new Set<string>();
+    const knownFirstNames = new Set<string>();
+    (memberNames || []).forEach(name => {
+      if (!name) return;
+      const lower = name.toLowerCase().trim();
+      knownNames.add(lower);
+      const parts = lower.split(/\s+/);
+      if (parts[0]) {
+        knownFirstNames.add(parts[0]);
+      }
+    });
+
+    // Add robust fallback names
+    const defaultNames = ['alice', 'bob', 'charlie', 'diana', 'austin', 'mel', 'patterson', 'pete', 'john', 'sarah'];
+    defaultNames.forEach(n => {
+      knownFirstNames.add(n);
+      knownNames.add(n);
+    });
+
+    const checkLineForAssignee = (cleanText: string): boolean => {
+      if (cleanText.length > 250) return false;
+
+      // 1. Check parenthesized name like "(Austin)" or "(Austin Patterson)" or "(Austin P.)"
+      const parenMatch = cleanText.match(/\(([^)]+)\)/);
+      if (parenMatch) {
+        const nameCandidate = parenMatch[1].trim().toLowerCase();
+        if (knownNames.has(nameCandidate) || knownFirstNames.has(nameCandidate)) {
+          return true;
+        }
+        const words = nameCandidate.split(/\s+/);
+        if (words.some(w => knownFirstNames.has(w))) {
+          return true;
+        }
+      }
+
+      // 2. Check prefix name with colon, like "Austin: finalize..." or "Austin Patterson: finalize..."
+      const colonMatch = cleanText.match(/^([^:]+):\s+(.+)/);
+      if (colonMatch) {
+        const nameCandidate = colonMatch[1].trim().toLowerCase();
+        if (knownNames.has(nameCandidate) || knownFirstNames.has(nameCandidate)) {
+          return true;
+        }
+        const words = nameCandidate.split(/\s+/);
+        if (words.length <= 2 && words.some(w => knownFirstNames.has(w))) {
+          return true;
+        }
+      }
+
+      // 3. Check suffix name with dash, like "Action - Mel" or "Action - Austin Patterson"
+      const dashMatch = cleanText.match(/-\s+([A-Za-z\s]+)$/);
+      if (dashMatch) {
+        const nameCandidate = dashMatch[1].trim().toLowerCase();
+        if (knownNames.has(nameCandidate) || knownFirstNames.has(nameCandidate)) {
+          return true;
+        }
+        const words = nameCandidate.split(/\s+/);
+        if (words.length <= 2 && words.some(w => knownFirstNames.has(w))) {
+          return true;
+        }
+      }
+
+      // 4. Check "Name to [action]" or "First Last to [action]" at the start of the line
+      const toMatch = cleanText.match(/^([A-Za-z\s]+)\s+to\s+([a-z]+)/i);
+      if (toMatch) {
+        const nameCandidate = toMatch[1].trim().toLowerCase();
+        if (knownNames.has(nameCandidate) || knownFirstNames.has(nameCandidate)) {
+          return true;
+        }
+        const words = nameCandidate.split(/\s+/);
+        if (words.length <= 2 && words.some(w => knownFirstNames.has(w))) {
+          return true;
+        }
+      }
+
+      return false;
+    };
+
     // 2. Scan all sections for lines containing person-assignee indicators
-    const assigneeRegex = /\(([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)?)\)/;
     (parsedSections || []).forEach(sec => {
       if (sec && sec.notes) {
         const secLines = sec.notes.split(/\r?\n/);
@@ -259,10 +351,10 @@ const parseGeminiNotes = (text: string) => {
           const trimmedLine = line.trim();
           const match = trimmedLine.match(/^[-*+]\s+(.*)/) || trimmedLine.match(/^\d+\.\s+(.*)/);
           const itemText = match ? match[1] : trimmedLine;
-          if (assigneeRegex.test(itemText)) {
-            if (itemText.length < 200) {
-              addActionItem(itemText);
-            }
+          
+          const cleanText = itemText.trim();
+          if (checkLineForAssignee(cleanText)) {
+            addActionItem(cleanText);
           }
         });
       }
@@ -308,7 +400,7 @@ const parseGeminiNotes = (text: string) => {
 export function TeamMeetings() {
   const { userData } = useAuth();
   useEffect(() => {
-    console.log("TeamMeetings v1.0.4 loaded");
+    console.log("TeamMeetings v1.0.6 loaded");
   }, []);
   const location = useLocation();
   const [meetings, setMeetings] = useState<any[]>([]);
@@ -1150,7 +1242,7 @@ export function TeamMeetings() {
   const handlePerformManualParse = () => {
     try {
       if (!rawPasteText.trim()) return;
-      const parsed = parseGeminiNotes(rawPasteText);
+      const parsed = parseGeminiNotes(rawPasteText, teamMembers.map(m => m.name));
       setNewTitle(parsed.title || newTitle);
       setNewDate(parsed.date || newDate);
       setNewSummary(parsed.summary || newSummary);
@@ -1221,6 +1313,12 @@ export function TeamMeetings() {
         const unmatched: any[] = [];
         
         (parsed.parsedSections || []).forEach(parsedSec => {
+          // Skip task/action sections so they are not treated as unmatched and dumped into the first template section
+          const isTaskSec = TASK_KEYWORDS.some(keyword => parsedSec.name.toLowerCase().includes(keyword));
+          if (isTaskSec) {
+            return;
+          }
+
           const idx = fuzzyMatchIndex(parsedSec.name, updatedSections);
           if (idx !== -1 && updatedSections[idx]) {
             if (updatedSections[idx].notes) {
@@ -2100,7 +2198,7 @@ export function TeamMeetings() {
             {/* Modal Header */}
             <div className="p-6 border-b border-[#ded8ce] flex justify-between items-center bg-white shrink-0">
               <div>
-                <h3 className="font-serif text-2xl text-brand-primary font-bold">Record Meeting Minutes (v1.0.4)</h3>
+                <h3 className="font-serif text-2xl text-brand-primary font-bold">Record Meeting Minutes (v1.0.6)</h3>
                 <p className="text-sm font-medium text-brand-secondary mt-1">Date, record capacity check-in scores, and write or import your discussions.</p>
               </div>
               <button 
