@@ -44,23 +44,22 @@ export function Login() {
     }
   }, [user, authLoading, isLoading]);
 
-  const handleGoogleSignIn = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      await signInWithGoogle();
-      // Do not navigate here, the useEffect will handle it when userData populates
-    } catch (err) {
-      setError('Failed to sign in. Please try again.');
-      setIsLoading(false);
-    }
+  const handleGoogleSignIn = () => {
+    setError(null);
+    setIsLoading(true);
+    signInWithGoogle()
+      .catch((err) => {
+        console.error(err);
+        setError('Failed to sign in. Please try again.');
+        setIsLoading(false);
+      });
   };
 
   return (
     <div className="min-h-screen bg-[#070605] flex flex-col justify-center items-center p-6 relative overflow-hidden selection:bg-amber-500 selection:text-black font-sans">
       
       {/* Cinematic Film Grain Overlay */}
-      <svg className="pointer-events-none fixed inset-0 z-50 h-full w-full opacity-[0.25] mix-blend-screen isolate">
+      <svg className="pointer-events-none fixed inset-0 z-50 h-full w-full opacity-[0.25] mix-blend-screen isolate hidden md:block">
         <filter id="noiseFilterLogin">
             <feTurbulence 
               type="fractalNoise" 
@@ -74,7 +73,7 @@ export function Login() {
       {/* Dynamic Cursor Glow (Warm Amber/Rust Artlist Vibe) */}
       <div 
         ref={blobRef}
-        className="absolute w-[900px] h-[700px] rounded-[100%] blur-[120px] pointer-events-none z-0 transform -translate-x-1/2 -translate-y-1/2 mix-blend-screen opacity-70"
+        className="absolute w-[900px] h-[700px] rounded-[100%] blur-[120px] pointer-events-none z-0 transform -translate-x-1/2 -translate-y-1/2 mix-blend-screen opacity-70 hidden md:block"
         style={{ 
           left: '50%', top: '50%',
           background: 'radial-gradient(ellipse at center, rgba(228, 107, 64, 0.45) 0%, rgba(164, 59, 34, 0.25) 40%, transparent 70%)'
