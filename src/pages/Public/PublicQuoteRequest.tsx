@@ -16,7 +16,8 @@ import {
   X,
   CheckSquare,
   Square,
-  Scissors
+  Scissors,
+  UserPlus
 } from 'lucide-react';
 import { db, storage } from '../../lib/firebase';
 import { doc, getDoc, setDoc, getDocs, collection, query, where } from 'firebase/firestore';
@@ -1354,7 +1355,7 @@ export function PublicQuoteRequest() {
             <CheckCircle size={40} />
           </div>
           <h1 className="text-3xl font-serif text-neutral-900 tracking-tight">
-            Order Processed
+            Quote Request Received
           </h1>
           <p className="text-neutral-500 text-sm leading-relaxed">
             {paymentSuccessMsg}
@@ -1895,8 +1896,7 @@ export function PublicQuoteRequest() {
                           </div>
                         </div>
 
-                        <div className="pt-3 border-t border-neutral-100 flex items-center justify-between">
-                          <span className="text-sm font-bold text-neutral-900">${item.price.toFixed(2)}</span>
+                        <div className="pt-3 border-t border-neutral-100 flex items-center justify-end">
                           <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${
                             isSelected ? 'bg-neutral-900 border-neutral-900 text-white' : 'border-neutral-300 text-transparent'
                           }`}>
@@ -2442,9 +2442,8 @@ export function PublicQuoteRequest() {
                   </div>
 
                   <div className="lg:col-span-2 text-right border-t lg:border-t-0 lg:border-l border-neutral-100 pt-4 lg:pt-0 lg:pl-6">
-                    <span className="text-[9px] text-neutral-400 block font-bold uppercase">Estimated Total</span>
-                    <span className="text-base font-extrabold text-neutral-900 block mt-0.5">${(item.pricingDetails.total * item.qty).toFixed(2)}</span>
-                    <span className="text-[10px] text-neutral-500 font-bold block mt-0.5">({item.qty} units @ ${item.pricingDetails.total.toFixed(2)})</span>
+                    <span className="text-[9px] text-neutral-400 block font-bold uppercase">Total Units</span>
+                    <span className="text-base font-extrabold text-neutral-900 block mt-0.5">{item.qty} units</span>
                   </div>
                 </div>
               ))}
@@ -2481,7 +2480,18 @@ export function PublicQuoteRequest() {
               </button>
               <div>
                 <span className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-400">Step 5 of 5</span>
-                <h3 className="text-2xl font-serif text-neutral-900 mt-0.5">Finalize Project & Checkout</h3>
+                <h3 className="text-2xl font-serif text-neutral-900 mt-0.5">Finalize Project & Submit Quote</h3>
+              </div>
+            </div>
+
+            {/* Client Registration Notice */}
+            <div className="bg-white/80 backdrop-blur-md border border-neutral-200 rounded-3xl p-5 flex gap-4 items-start text-xs text-neutral-600 leading-relaxed shadow-3xs max-w-4xl">
+              <div className="bg-neutral-100 p-2 rounded-xl text-neutral-900 shrink-0">
+                <UserPlus size={18} />
+              </div>
+              <div className="space-y-1">
+                <span className="font-extrabold text-neutral-855 block text-sm">Quote Request & Client Registration</span>
+                <p>Submit your design selections as a quote request. No payment is required today. This will register you as a new client and automatically prepare your portal account, where you can log in with Google to monitor project status and view custom pricing quotes once completed by our design team.</p>
               </div>
             </div>
 
@@ -2578,22 +2588,14 @@ export function PublicQuoteRequest() {
                   >
                     <ArrowLeft size={14} /> Back
                   </button>
-                  <div className="flex-1 flex flex-col sm:flex-row gap-3">
+                  <div className="flex-1 flex justify-end">
                     <button
                       onClick={() => submitOrderOrCheckout(false)}
                       disabled={isSubmitting}
-                      className="flex-1 h-11 bg-white border border-neutral-200 hover:bg-neutral-50 text-neutral-700 rounded-xl text-xs font-bold tracking-wide transition-all shadow-3xs flex items-center justify-center gap-1.5 disabled:opacity-50"
+                      className="w-full sm:w-auto px-8 h-11 bg-neutral-900 text-white hover:bg-neutral-800 rounded-xl text-xs font-bold tracking-wide transition-all shadow-xs flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
                     >
                       {isSubmitting ? <Loader2 className="animate-spin" size={14} /> : <FileText size={14} />}
-                      Submit Quote Only
-                    </button>
-                    <button
-                      onClick={() => submitOrderOrCheckout(true)}
-                      disabled={isSubmitting}
-                      className="flex-1 h-11 bg-neutral-900 text-white hover:bg-neutral-800 rounded-xl text-xs font-bold tracking-wide transition-all shadow-xs flex items-center justify-center gap-1.5 disabled:opacity-50"
-                    >
-                      {isSubmitting ? <Loader2 className="animate-spin" size={14} /> : <Lock size={14} />}
-                      Checkout & Pay Now
+                      Submit Quote Request
                     </button>
                   </div>
                 </div>
@@ -2611,12 +2613,6 @@ export function PublicQuoteRequest() {
                     <span className="text-neutral-500 font-semibold">Total Units</span>
                     <span className="text-neutral-800 font-bold">
                       {cart.reduce((acc, item) => acc + item.qty, 0)}
-                    </span>
-                  </div>
-                  <div className="py-2.5 flex justify-between bg-neutral-50 p-2.5 rounded-lg border border-neutral-200/50 my-1">
-                    <span className="text-neutral-900 font-bold">Grand Total</span>
-                    <span className="text-neutral-900 font-extrabold text-sm">
-                      ${cart.reduce((acc, item) => acc + (item.pricingDetails.total * item.qty), 0).toFixed(2)}
                     </span>
                   </div>
                 </div>
