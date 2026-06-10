@@ -469,10 +469,20 @@ export function TeamMeetings() {
           if (found) return found;
         }
         
-        // 2. If no meeting is selected, select a live meeting if it exists, otherwise select the first one
+        // 2. If no meeting is selected, select a live meeting if it exists, otherwise select the first visible one
         if (!prevSelected) {
           const live = list.find(m => m.status === 'live');
-          return live || list[0] || null;
+          if (live) return live;
+          
+          const todayDateStr = new Date().toISOString().split('T')[0];
+          const visibleList = list.filter(m => {
+            // Filter out future scheduled meetings by default (matching the sidebar default view)
+            if (m.status === 'scheduled' && m.date > todayDateStr) {
+              return false;
+            }
+            return true;
+          });
+          return visibleList[0] || list[0] || null;
         }
 
         // 3. If a meeting is selected, find its latest version in the list
