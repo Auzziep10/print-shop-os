@@ -2,10 +2,11 @@ import { Search, Bell, Plus, LogOut, Menu, Check, Rocket } from 'lucide-react';
 import { PillButton } from '../ui/PillButton';
 import { useAuth } from '../../contexts/AuthContext';
 import { useOrders } from '../../hooks/useOrders';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useNavigate } from 'react-router-dom';
+import { CommandPalette } from './CommandPalette';
 
 interface TopBarProps {
   onOpenSidebar?: () => void;
@@ -16,6 +17,7 @@ export function TopBar({ onOpenSidebar }: TopBarProps) {
   const { orders } = useOrders();
   const navigate = useNavigate();
   const [showNotifications, setShowNotifications] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   const unreadPayments = orders.filter(o => o.paymentStatus === 'paid' && o.paymentRead === false);
 
@@ -29,6 +31,17 @@ export function TopBar({ onOpenSidebar }: TopBarProps) {
     }
   };
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsSearchOpen(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   return (
     <header className="h-16 border-b border-brand-border bg-white px-4 md:px-6 flex items-center justify-between sticky top-0 z-40 w-full shrink-0">
       <div className="flex items-center flex-1 min-w-0 mr-4">
@@ -37,15 +50,21 @@ export function TopBar({ onOpenSidebar }: TopBarProps) {
               <Menu size={20} strokeWidth={2} />
            </button>
         )}
-        <div className="max-w-md w-full relative hidden sm:block">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-secondary" size={16} strokeWidth={2} />
+        <div 
+          onClick={() => setIsSearchOpen(true)}
+          className="max-w-md w-full relative hidden sm:block cursor-pointer group"
+        >
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-secondary group-hover:text-brand-primary transition-colors" size={16} strokeWidth={2} />
           <input 
             type="text" 
+            readOnly
             placeholder="Search orders, customers, or files (⌘K)" 
-            className="w-full pl-10 pr-4 py-2 bg-brand-bg border border-transparent rounded-lg text-sm focus:bg-white focus:border-brand-primary focus:outline-none transition-all placeholder:text-brand-secondary/70"
+            className="w-full pl-10 pr-4 py-2 bg-brand-bg border border-transparent rounded-lg text-sm group-hover:border-brand-border/60 focus:outline-none transition-all placeholder:text-brand-secondary/70 cursor-pointer pointer-events-none"
           />
         </div>
       </div>
+
+      <CommandPalette isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
 
       <div className="flex items-center gap-2 md:gap-4 shrink-0 relative">
         <button 
