@@ -7,6 +7,7 @@ import { StorefrontCatalogTab } from './StorefrontCatalogTab';
 import { Signatures } from '../Signatures/Signatures';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSearchParams } from 'react-router-dom';
+import { AhaSendTab } from './AhaSendTab';
 
 export function Settings() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -94,6 +95,16 @@ export function Settings() {
             >
               Email Signatures
             </button>
+            <button
+              onClick={() => setActiveTab('email')}
+              className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+                activeTab === 'email' 
+                  ? 'bg-brand-primary text-white' 
+                  : 'text-brand-secondary hover:bg-brand-bg hover:text-brand-primary'
+              }`}
+            >
+              Email Integration
+            </button>
           </nav>
         </div>
 
@@ -104,6 +115,7 @@ export function Settings() {
           {activeTab === 'apps' && <AppsTab />}
           {activeTab === 'storefront-catalog' && <StorefrontCatalogTab />}
           {activeTab === 'signatures' && <Signatures />}
+          {activeTab === 'email' && <AhaSendTab />}
         </div>
       </div>
     </div>
