@@ -315,6 +315,16 @@ export function PublicQuoteRequest() {
     return () => clearInterval(interval);
   }, [step]);
 
+  // Deep-link entry from the immersive landing prototype (/start2): ?mode=racks|basics
+  useEffect(() => {
+    const modeParam = searchParams.get('mode');
+    if (modeParam === 'racks' || modeParam === 'basics') {
+      setFlowMode(modeParam);
+      setStep(1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Firestore dynamic curations (loaded on mount)
   const [catalogSettings, setCatalogSettings] = useState<{
     racks: Record<string, any>;

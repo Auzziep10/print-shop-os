@@ -1,0 +1,153 @@
+/* ============================================
+   Immersive Landing — editorial motion styles
+   ============================================ */
+
+.landing-root {
+  --landing-ink: #111110;
+  --landing-cream: #faf9f5;
+  --landing-bone: #e5e0d5;
+  background: var(--landing-cream);
+  color: var(--landing-ink);
+}
+
+.landing-root ::selection {
+  background: #111110;
+  color: #faf9f5;
+}
+
+.font-inter {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+/* --- Hero line masks (initial states set by GSAP so no-JS stays visible) --- */
+.hero-line {
+  display: block;
+  overflow: hidden;
+}
+.hero-line > span {
+  display: block;
+  will-change: transform;
+}
+
+/* --- Ken Burns drift on the active hero slide --- */
+@keyframes landing-kenburns {
+  from { transform: scale(1.02); }
+  to   { transform: scale(1.14); }
+}
+.hero-slide-active img {
+  animation: landing-kenburns 9s ease-out forwards;
+}
+
+/* --- Announcement marquee --- */
+@keyframes landing-marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+.landing-marquee-track {
+  display: flex;
+  width: max-content;
+  animation: landing-marquee 30s linear infinite;
+}
+
+/* --- Process rows: ink fill sweep on hover --- */
+.process-row {
+  position: relative;
+  isolation: isolate;
+}
+.process-row::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--landing-ink);
+  transform: scaleY(0);
+  transform-origin: bottom;
+  transition: transform 0.45s cubic-bezier(0.65, 0, 0.35, 1);
+}
+@media (hover: hover) {
+  .process-row:hover::after {
+    transform: scaleY(1);
+    transform-origin: top;
+  }
+  .process-row:hover .process-ink {
+    color: var(--landing-cream);
+  }
+  .process-row:hover .process-muted {
+    color: rgba(250, 249, 245, 0.6);
+  }
+}
+.process-ink,
+.process-muted {
+  transition: color 0.35s ease;
+}
+
+/* --- Showcase cards --- */
+.showcase-card img {
+  transition: transform 1.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@media (hover: hover) {
+  .showcase-card:hover img {
+    transform: scale(1.07);
+  }
+}
+
+/* --- CTA panels --- */
+.cta-panel img {
+  transition: transform 1.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@media (hover: hover) {
+  .cta-panel:hover img {
+    transform: scale(1.06);
+  }
+  .cta-panel:hover .cta-arrow {
+    transform: translateX(6px);
+  }
+}
+.cta-arrow {
+  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* --- Custom cursor --- */
+.landing-cursor {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 9999;
+  width: 12px;
+  height: 12px;
+  border-radius: 9999px;
+  background: #fff;
+  mix-blend-mode: difference;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  transition: width 0.3s ease, height 0.3s ease, opacity 0.3s ease;
+}
+.landing-cursor.is-hovering {
+  width: 56px;
+  height: 56px;
+}
+
+/* --- Footer giant brand --- */
+.footer-brand {
+  line-height: 0.95;
+  letter-spacing: -0.02em;
+  transition: letter-spacing 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@media (hover: hover) {
+  .footer-brand:hover {
+    letter-spacing: 0.01em;
+  }
+}
+
+/* --- Reduced motion: kill ambient animation --- */
+@media (prefers-reduced-motion: reduce) {
+  .landing-marquee-track {
+    animation: none;
+  }
+  .hero-slide-active img {
+    animation: none;
+  }
+  .landing-cursor {
+    display: none;
+  }
+}

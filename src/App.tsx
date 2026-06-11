@@ -31,6 +31,7 @@ const SmsConsent = lazy(() => import('./pages/Public/SmsConsent').then(m => ({ d
 const Inventory = lazy(() => import('./pages/Inventory/Inventory').then(m => ({ default: m.Inventory })));
 const InventoryScan = lazy(() => import('./pages/Inventory/InventoryScan').then(m => ({ default: m.InventoryScan })));
 const MobileUpload = lazy(() => import('./pages/MobileUpload/MobileUpload').then(m => ({ default: m.MobileUpload })));
+const ImmersiveLandingPage = lazy(() => import('./pages/Public/Landing/ImmersiveLandingPage').then(m => ({ default: m.ImmersiveLandingPage })));
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, userData, loading } = useAuth();
@@ -64,6 +65,8 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/waiting" element={<WaitingRoom />} />
           <Route path="/start" element={<PublicQuoteRequest />} />
+          {/* Immersive landing prototype — new direction exploration */}
+          <Route path="/start2" element={<ImmersiveLandingPage />} />
           <Route path="/sms-opt-in" element={<SmsConsent />} />
           
           {/* Temp Seed Route */}
