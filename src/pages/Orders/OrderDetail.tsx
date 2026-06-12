@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { PillButton } from '../../components/ui/PillButton';
 import { PackingSlipsManager } from '../../components/Orders/PackingSlipsManager';
 import { TrackingModal } from '../../components/Orders/TrackingModal';
-import { ArrowLeft, MessageSquare, QrCode, Clock, Users, Download, Loader2, X, Edit3, Upload, Trash2, Plus, ChevronDown, Image as ImageIcon, Box, Printer, ExternalLink, ShoppingBag, Search, Check, Truck, GripVertical, Pause, Play, DollarSign, PackagePlus, Layers, CreditCard } from 'lucide-react';
+import { ArrowLeft, MessageSquare, QrCode, Clock, Users, Download, Loader2, X, Edit3, Upload, Trash2, Plus, ChevronDown, Image as ImageIcon, Box, Printer, ExternalLink, ShoppingBag, Search, Check, Truck, GripVertical, Pause, Play, DollarSign, PackagePlus, Layers, CreditCard, Copy } from 'lucide-react';
 import QRCode from 'react-qr-code';
 import { StatusBadge, type StatusType } from '../../components/ui/StatusBadge';
 import { useAuth } from '../../contexts/AuthContext';
@@ -876,6 +876,45 @@ export function OrderDetail() {
     }
   };
 
+  const handleDuplicateItem = async (itemToDuplicate: any) => {
+    if (!id || !order) return;
+    setIsItemSaving(true);
+    try {
+      const existingItems = [...(order.items || [])];
+      const index = existingItems.findIndex((i: any) => i.id === itemToDuplicate.id);
+      if (index === -1) return;
+
+      const duplicateItem = {
+        ...itemToDuplicate,
+        id: `item-${Date.now()}`,
+        completedSizes: [],
+        inProgressSizes: {},
+        sizeStats: {},
+        receivedSizes: []
+      };
+
+      existingItems.splice(index + 1, 0, duplicateItem);
+
+      const activity = {
+        id: `act-${Date.now()}`,
+        type: 'system',
+        message: `Duplicated item: ${itemToDuplicate.style || 'garment'}`,
+        user: userData?.name || user?.displayName || user?.email?.split('@')[0] || 'Team Member',
+        timestamp: new Date().toISOString()
+      };
+
+      await setDoc(doc(db, 'orders', id), { 
+        items: existingItems,
+        activities: [activity, ...(order.activities || [])]
+      }, { merge: true });
+      setEditItemObj(null);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsItemSaving(false);
+    }
+  };
+
   const handleDeleteBox = async (boxId: string) => {
     if (!id || !order) return;
     if (!window.confirm('Delete this shipment and its packing slip?')) return;
@@ -1194,14 +1233,23 @@ export function OrderDetail() {
                  >
                     <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 w-full relative group">
                        
-                       {/* Edit Button */}
-                       <button 
-                         onClick={() => setEditItemObj(item)} 
-                         className="absolute top-0 right-0 p-1.5 text-brand-secondary hover:text-brand-primary transition-colors opacity-0 group-hover:opacity-100 bg-white rounded-md shadow-sm border border-brand-border z-10"
-                         title="Edit Item"
-                       >
-                         <Edit3 size={14} />
-                       </button>
+                        {/* Item Actions */}
+                        <div className="absolute top-0 right-0 flex gap-1.5 opacity-0 group-hover:opacity-100 z-10">
+                          <button 
+                            onClick={() => handleDuplicateItem(item)} 
+                            className="p-1.5 text-brand-secondary hover:text-brand-primary transition-colors bg-white rounded-md shadow-sm border border-brand-border flex items-center justify-center"
+                            title="Duplicate Garment"
+                          >
+                            <Copy size={14} />
+                          </button>
+                          <button 
+                            onClick={() => setEditItemObj(item)} 
+                            className="p-1.5 text-brand-secondary hover:text-brand-primary transition-colors bg-white rounded-md shadow-sm border border-brand-border flex items-center justify-center"
+                            title="Edit Item"
+                          >
+                            <Edit3 size={14} />
+                          </button>
+                        </div>
 
                        {/* Left Side: Visual & Specs & Artwork */}
                        <div className="flex flex-col gap-3 flex-1 min-w-0 pr-2 pb-2 lg:pb-0 relative pl-6">
@@ -3103,14 +3151,24 @@ export function OrderDetail() {
               
               {/* Footer Actions */}
               <div className="lg:col-span-12 flex flex-col sm:flex-row justify-between items-center gap-4 pt-6 border-t border-brand-border mt-2 sticky bottom-0 bg-brand-bg/95 backdrop-blur-md pb-2 -mb-2">
-                 <button 
-                   onClick={handleDeleteItem} 
-                   className="px-5 py-2.5 text-red-500 hover:text-white font-bold bg-white hover:bg-red-500 rounded-xl transition-colors flex items-center justify-center border border-red-200 hover:border-red-500 shadow-sm w-full sm:w-auto"
-                   title="Delete Item"
-                   disabled={isItemSaving}
-                 >
-                   <Trash2 size={18} className="mr-2" /> Delete Segment
-                 </button>
+                 <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+                   <button 
+                     onClick={handleDeleteItem} 
+                     className="px-5 py-2.5 text-red-500 hover:text-white font-bold bg-white hover:bg-red-500 rounded-xl transition-colors flex items-center justify-center border border-red-200 hover:border-red-500 shadow-sm w-full sm:w-auto"
+                     title="Delete Item"
+                     disabled={isItemSaving}
+                   >
+                     <Trash2 size={18} className="mr-2" /> Delete Segment
+                   </button>
+                   <button 
+                     onClick={() => handleDuplicateItem(editItemObj)} 
+                     className="px-5 py-2.5 text-brand-primary hover:text-white font-bold bg-white hover:bg-brand-primary rounded-xl transition-colors flex items-center justify-center border border-brand-border hover:border-brand-primary shadow-sm w-full sm:w-auto"
+                     title="Duplicate Garment"
+                     disabled={isItemSaving}
+                   >
+                     <Copy size={18} className="mr-2" /> Duplicate Garment
+                   </button>
+                 </div>
                  <div className="flex items-center gap-4 w-full sm:w-auto">
                    <PillButton variant="outline" onClick={() => setEditItemObj(null)} className="flex-1 sm:flex-none justify-center py-2.5 px-8 bg-white">
                      Cancel
