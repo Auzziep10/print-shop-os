@@ -552,79 +552,100 @@ export function OrderDetail() {
   };
 
   const handleSizeClick = async (item: any, size: string, qty: number) => {
-     if (!id || !order) return;
-     const currentCompleted = item.completedSizes || [];
-     const inProgress = item.inProgressSizes || {};
-     
-     if (currentCompleted.includes(size)) {
-         return; // Do nothing on left click if already complete. Use right-click menu to uncomplete.
-     }
-     
-     if (inProgress[size]) {
-         const startTime = new Date(inProgress[size].startTime).getTime();
-         const runningDuration = inProgress[size].paused ? 0 : Date.now() - startTime;
-         const totalElapsedMs = (inProgress[size].elapsedMs || 0) + runningDuration;
-         const durationMs = totalElapsedMs > 0 ? totalElapsedMs : (Date.now() - startTime);
-         
-         const avgItemTimeMs = qty > 0 ? durationMs / qty : 0;
-         const itemsPerHour = durationMs > 0 ? (qty / (durationMs / 3600000)) : 0;
-         
-         const newCompleted = [...currentCompleted, size];
-         const newInProgress = { ...inProgress };
-         delete newInProgress[size];
-         
-         const newStats = { ...(item.sizeStats || {}) };
-         newStats[size] = {
-             durationMs,
-             avgItemTimeMs,
-             itemsPerHour: Math.round(itemsPerHour),
-             user: user?.email || 'Team Member'
-         };
-         
-         const updatedItems = order.items.map((i: any) => 
-             i.id === item.id ? { ...i, completedSizes: newCompleted, inProgressSizes: newInProgress, sizeStats: newStats } : i
-         );
-         
-         const formatedTime = durationMs > 60000 ? `${Math.round(durationMs/60000)}m` : `${Math.round(durationMs/1000)}s`;
-         const activity = {
-           id: `act-${Date.now()}`,
-           type: 'system',
-           message: `Completed ${qty}x ${size} for ${item.style} in ${formatedTime}. Rate: ${Math.round(itemsPerHour)}/hr`,
-           user: userData?.name || user?.displayName || user?.email?.split('@')[0] || 'Team Member',
-           timestamp: new Date().toISOString()
-         };
+      if (!id || !order) return;
+      const currentCompleted = item.completedSizes || [];
+      const inProgress = item.inProgressSizes || {};
+      const receivedSizes = item.receivedSizes || [];
+      
+      if (currentCompleted.includes(size)) {
+          return; // Do nothing on left click if already complete. Use right-click menu to uncomplete.
+      }
+      
+      if (inProgress[size]) {
+          const startTime = new Date(inProgress[size].startTime).getTime();
+          const runningDuration = inProgress[size].paused ? 0 : Date.now() - startTime;
+          const totalElapsedMs = (inProgress[size].elapsedMs || 0) + runningDuration;
+          const durationMs = totalElapsedMs > 0 ? totalElapsedMs : (Date.now() - startTime);
+          
+          const avgItemTimeMs = qty > 0 ? durationMs / qty : 0;
+          const itemsPerHour = durationMs > 0 ? (qty / (durationMs / 3600000)) : 0;
+          
+          const newCompleted = [...currentCompleted, size];
+          const newInProgress = { ...inProgress };
+          delete newInProgress[size];
+          
+          const newStats = { ...(item.sizeStats || {}) };
+          newStats[size] = {
+              durationMs,
+              avgItemTimeMs,
+              itemsPerHour: Math.round(itemsPerHour),
+              user: user?.email || 'Team Member'
+          };
+          
+          const updatedItems = order.items.map((i: any) => 
+              i.id === item.id ? { ...i, completedSizes: newCompleted, inProgressSizes: newInProgress, sizeStats: newStats } : i
+          );
+          
+          const formatedTime = durationMs > 60000 ? `${Math.round(durationMs/60000)}m` : `${Math.round(durationMs/1000)}s`;
+          const activity = {
+            id: `act-${Date.now()}`,
+            type: 'system',
+            message: `Completed ${qty}x ${size} for ${item.style} in ${formatedTime}. Rate: ${Math.round(itemsPerHour)}/hr`,
+            user: userData?.name || user?.displayName || user?.email?.split('@')[0] || 'Team Member',
+            timestamp: new Date().toISOString()
+          };
 
-         await setDoc(doc(db, 'orders', id), { 
-           items: updatedItems,
-           activities: [activity, ...(order.activities || [])]
-         }, { merge: true });
-     } else {
-         const newInProgress = { 
-             ...inProgress, 
-             [size]: { 
-                 startTime: new Date().toISOString(), 
-                 user: user?.email || 'Team Member' 
-             } 
-         };
-         
-         const updatedItems = order.items.map((i: any) => 
-             i.id === item.id ? { ...i, inProgressSizes: newInProgress } : i
-         );
-         
-         const activity = {
-           id: `act-${Date.now()}`,
-           type: 'system',
-           message: `Started production on ${qty}x ${size} for ${item.style}`,
-           user: userData?.name || user?.displayName || user?.email?.split('@')[0] || 'Team Member',
-           timestamp: new Date().toISOString()
-         };
+          await setDoc(doc(db, 'orders', id), { 
+            items: updatedItems,
+            activities: [activity, ...(order.activities || [])]
+          }, { merge: true });
+      } else if (!receivedSizes.includes(size)) {
+          // Mark as received
+          const newReceived = [...receivedSizes, size];
+          const updatedItems = order.items.map((i: any) => 
+              i.id === item.id ? { ...i, receivedSizes: newReceived } : i
+          );
+          
+          const activity = {
+            id: `act-${Date.now()}`,
+            type: 'system',
+            message: `Marked size ${size} for ${item.style} as received`,
+            user: userData?.name || user?.displayName || user?.email?.split('@')[0] || 'Team Member',
+            timestamp: new Date().toISOString()
+          };
 
-         await setDoc(doc(db, 'orders', id), { 
-           items: updatedItems,
-           activities: [activity, ...(order.activities || [])]
-         }, { merge: true });
-     }
-  };
+          await setDoc(doc(db, 'orders', id), { 
+            items: updatedItems,
+            activities: [activity, ...(order.activities || [])]
+          }, { merge: true });
+      } else {
+          // Already received, so start the timer
+          const newInProgress = { 
+              ...inProgress, 
+              [size]: { 
+                  startTime: new Date().toISOString(), 
+                  user: user?.email || 'Team Member' 
+              } 
+          };
+          
+          const updatedItems = order.items.map((i: any) => 
+              i.id === item.id ? { ...i, inProgressSizes: newInProgress } : i
+          );
+          
+          const activity = {
+            id: `act-${Date.now()}`,
+            type: 'system',
+            message: `Started production on ${qty}x ${size} for ${item.style}`,
+            user: userData?.name || user?.displayName || user?.email?.split('@')[0] || 'Team Member',
+            timestamp: new Date().toISOString()
+          };
+
+          await setDoc(doc(db, 'orders', id), { 
+            items: updatedItems,
+            activities: [activity, ...(order.activities || [])]
+          }, { merge: true });
+      }
+   };
 
   const isSizeFullyBoxed = (item: any, size: string, totalQty: number) => {
       if (!order.boxes || totalQty <= 0) return false;
@@ -652,6 +673,18 @@ export function OrderDetail() {
            } : i
        );
        activityMessage = `Unmarked size ${size} for ${item.style}`;
+    } else if (action === 'mark_received') {
+       const newReceived = [...(item.receivedSizes || []), size];
+       updatedItems = updatedItems.map((i: any) => 
+           i.id === item.id ? { ...i, receivedSizes: newReceived } : i
+       );
+       activityMessage = `Marked size ${size} for ${item.style} as received`;
+    } else if (action === 'unreceive') {
+       const newReceived = (item.receivedSizes || []).filter((s: string) => s !== size);
+       updatedItems = updatedItems.map((i: any) => 
+           i.id === item.id ? { ...i, receivedSizes: newReceived } : i
+       );
+       activityMessage = `Unmarked size ${size} for ${item.style} as received`;
     } else if (action === 'pause_timer') {
        const newInProgress = { ...(item.inProgressSizes || {}) };
        const target = newInProgress[size];
@@ -1342,6 +1375,7 @@ export function OrderDetail() {
                              const isCompleted = item.completedSizes?.includes(size);
                              const inProgress = item.inProgressSizes?.[size];
                              const isPacked = isSizeFullyBoxed(item, size, qty);
+                             const isReceived = item.receivedSizes?.includes(size);
 
                              let colorClassTop = 'bg-neutral-300 text-neutral-600 group-hover/sizebtn:bg-neutral-400';
                              let colorClassBottom = (qty > 0 ? 'bg-white text-neutral-800 group-hover/sizebtn:bg-neutral-50' : 'bg-white text-neutral-400');
@@ -1370,6 +1404,11 @@ export function OrderDetail() {
                                      topContent = <div className="flex items-center gap-[2px]"><Clock size={10} strokeWidth={3} className="animate-pulse" /> <span className="text-[10px] leading-none mb-[1px]">{size}</span></div>;
                                      wrapperClass = 'opacity-90 hover:opacity-100';
                                  }
+                             } else if (isReceived) {
+                                 colorClassTop = 'bg-indigo-600 text-white';
+                                 colorClassBottom = 'bg-indigo-50 text-indigo-700';
+                                 topContent = <div className="flex items-center gap-[2px]"><Check size={10} strokeWidth={3} /> <span className="text-[10px] leading-none mb-[1px]">{size}</span></div>;
+                                 wrapperClass = 'opacity-100 hover:-translate-y-0.5 hover:shadow-sm';
                              }
 
                              return (
@@ -1382,10 +1421,15 @@ export function OrderDetail() {
                                  e.stopPropagation(); 
                                  setContextMenu({ x: e.clientX, y: e.clientY, item, size, qty }); 
                                }}
-                               title={isPacked ? "Packed in shipments." : isCompleted ? `Completed. Right-click to manage.` : inProgress ? (inProgress.paused ? "Timer paused. Right-click to resume!" : "Timer running. Click to complete!") : "Click to start timer"}
+                               title={isPacked ? "Packed in shipments." : isCompleted ? `Completed. Right-click to manage.` : inProgress ? (inProgress.paused ? "Timer paused. Right-click to resume!" : "Timer running. Click to complete!") : (isReceived ? "Click to start timer" : "Click to mark as received")}
                              >
                                {/* Hover hints */}
-                               {!isCompleted && !isPacked && !inProgress && (
+                               {!isReceived && !isCompleted && !isPacked && !inProgress && (
+                                 <div className="absolute inset-0 bg-brand-primary/5 backdrop-blur-[1px] opacity-0 group-hover/sizebtn:opacity-100 transition-opacity z-10 flex flex-col items-center justify-center rounded-[8px] pointer-events-none">
+                                    <Check size={20} className="text-brand-primary drop-shadow-md" strokeWidth={3} />
+                                 </div>
+                               )}
+                               {isReceived && !isCompleted && !isPacked && !inProgress && (
                                  <div className="absolute inset-0 bg-brand-primary/5 backdrop-blur-[1px] opacity-0 group-hover/sizebtn:opacity-100 transition-opacity z-10 flex flex-col items-center justify-center rounded-[8px] pointer-events-none">
                                     <Clock size={20} className="text-brand-primary drop-shadow-md" strokeWidth={3} />
                                  </div>
@@ -3268,8 +3312,29 @@ export function OrderDetail() {
                </button>
             )}
 
+            {!contextMenu.item.completedSizes?.includes(contextMenu.size) && !contextMenu.item.inProgressSizes?.[contextMenu.size] && (
+               <>
+                 {contextMenu.item.receivedSizes?.includes(contextMenu.size) ? (
+                   <button 
+                     onClick={() => handleContextMenuAction('unreceive')}
+                     className="text-left px-3 py-2.5 text-[11px] font-bold uppercase tracking-wider text-orange-600 hover:bg-orange-50 rounded-lg transition-colors flex items-center gap-2"
+                   >
+                     <X size={14} /> Unmark Received
+                   </button>
+                 ) : (
+                   <button 
+                     onClick={() => handleContextMenuAction('mark_received')}
+                     className="text-left px-3 py-2.5 text-[11px] font-bold uppercase tracking-wider text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors flex items-center gap-2"
+                   >
+                     <Check size={14} strokeWidth={3} className="text-indigo-600" /> Mark Received
+                   </button>
+                 )}
+               </>
+            )}
+
             {((contextMenu.item.inProgressSizes?.[contextMenu.size] && contextMenu.item.inProgressSizes[contextMenu.size].user === (user?.email || 'Team Member')) || 
-               (contextMenu.item.completedSizes?.includes(contextMenu.size) && (!contextMenu.item.sizeStats?.[contextMenu.size]?.user || contextMenu.item.sizeStats[contextMenu.size].user === (user?.email || 'Team Member')))) && (
+               (contextMenu.item.completedSizes?.includes(contextMenu.size) && (!contextMenu.item.sizeStats?.[contextMenu.size]?.user || contextMenu.item.sizeStats[contextMenu.size].user === (user?.email || 'Team Member'))) ||
+               (!contextMenu.item.completedSizes?.includes(contextMenu.size) && !contextMenu.item.inProgressSizes?.[contextMenu.size])) && (
                <div className="my-1 border-t border-brand-border/30"></div>
             )}
 

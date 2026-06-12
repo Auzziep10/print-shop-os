@@ -242,6 +242,7 @@ export function Production({ isEmbed = false }: { isEmbed?: boolean }) {
      const realOrder = item.sourceOrder || projectOrOrder;
      const currentCompleted = item.completedSizes || [];
      const inProgress = item.inProgressSizes || {};
+     const receivedSizes = item.receivedSizes || [];
      
      if (currentCompleted.includes(size)) {
          return; 
@@ -294,7 +295,27 @@ export function Production({ isEmbed = false }: { isEmbed?: boolean }) {
            items: updatedItems,
            activities: [activity, ...(realOrder.activities || [])]
          });
+     } else if (!receivedSizes.includes(size)) {
+         // Mark size as received
+         const newReceived = [...receivedSizes, size];
+         const updatedItems = realOrder.items.map((i: any) => 
+             i.id === item.id ? { ...i, receivedSizes: newReceived } : i
+         );
+         
+         const activity = {
+           id: `act-${Date.now()}`,
+           type: 'system',
+           message: `Marked size ${size} for ${item.style} as received`,
+           user: userData?.name || user?.displayName || user?.email?.split('@')[0] || 'Team Member',
+           timestamp: new Date().toISOString()
+         };
+
+         await updateDoc(doc(db, 'orders', realOrder.id), { 
+           items: updatedItems,
+           activities: [activity, ...(realOrder.activities || [])]
+         });
      } else {
+         // Already received, start timer
          const newInProgress = { 
              ...inProgress, 
              [size]: { 
@@ -350,6 +371,18 @@ export function Production({ isEmbed = false }: { isEmbed?: boolean }) {
            } : i
        );
        activityMessage = `Unmarked size ${size} for ${item.style}`;
+    } else if (action === 'mark_received') {
+       const newReceived = [...(item.receivedSizes || []), size];
+       updatedItems = updatedItems.map((i: any) => 
+           i.id === item.id ? { ...i, receivedSizes: newReceived } : i
+       );
+       activityMessage = `Marked size ${size} for ${item.style} as received`;
+    } else if (action === 'unreceive') {
+       const newReceived = (item.receivedSizes || []).filter((s: string) => s !== size);
+       updatedItems = updatedItems.map((i: any) => 
+           i.id === item.id ? { ...i, receivedSizes: newReceived } : i
+       );
+       activityMessage = `Unmarked size ${size} for ${item.style} as received`;
     } else if (action === 'pause_timer') {
        const newInProgress = { ...(item.inProgressSizes || {}) };
        const target = newInProgress[size];
@@ -460,6 +493,7 @@ export function Production({ isEmbed = false }: { isEmbed?: boolean }) {
              const isCompleted = item.completedSizes?.includes(size);
              const inProgress = item.inProgressSizes?.[size];
              const isPacked = isSizeFullyBoxed(orderContext, item, size, qty);
+             const isReceived = item.receivedSizes?.includes(size);
 
              let colorClassTop = 'bg-neutral-300 text-neutral-600 group-hover/sizebtn:bg-neutral-400';
              let colorClassBottom = 'bg-white text-neutral-800';
@@ -489,6 +523,11 @@ export function Production({ isEmbed = false }: { isEmbed?: boolean }) {
                      iconContent = <Clock size={10} strokeWidth={3} className="animate-pulse ml-1 opacity-80 shrink-0" />;
                      wrapperClass = 'opacity-90 hover:opacity-100';
                  }
+             } else if (isReceived) {
+                 colorClassTop = 'bg-indigo-600 text-white';
+                 colorClassBottom = 'bg-indigo-50 text-indigo-700';
+                 iconContent = <Check size={10} strokeWidth={3} className="ml-1 opacity-80 shrink-0" />;
+                 wrapperClass = 'opacity-100 hover:-translate-y-0.5 hover:shadow-sm';
              }
 
              return (
@@ -501,10 +540,15 @@ export function Production({ isEmbed = false }: { isEmbed?: boolean }) {
                  e.stopPropagation(); 
                  setContextMenu({ x: e.clientX, y: e.clientY, order: orderContext, item, size, qty }); 
                }}
-               title={isPacked ? "Packed in shipments." : isCompleted ? `Completed. Right-click to manage.` : inProgress ? (inProgress.paused ? "Timer paused. Right-click to resume!" : "Timer running. Click to complete!") : "Click to start timer"}
+               title={isPacked ? "Packed in shipments." : isCompleted ? `Completed. Right-click to manage.` : inProgress ? (inProgress.paused ? "Timer paused. Right-click to resume!" : "Timer running. Click to complete!") : (isReceived ? "Click to start timer" : "Click to mark as received")}
              >
                {/* Hover hints */}
-               {!isCompleted && !isPacked && !inProgress && (
+               {!isReceived && !isCompleted && !isPacked && !inProgress && (
+                 <div className="absolute inset-0 bg-brand-primary/5 backdrop-blur-[1px] opacity-0 group-hover/sizebtn:opacity-100 transition-opacity z-10 flex flex-col items-center justify-center rounded-[8px] pointer-events-none">
+                    <Check size={20} className="text-brand-primary drop-shadow-md" strokeWidth={3} />
+                 </div>
+               )}
+               {isReceived && !isCompleted && !isPacked && !inProgress && (
                  <div className="absolute inset-0 bg-brand-primary/5 backdrop-blur-[1px] opacity-0 group-hover/sizebtn:opacity-100 transition-opacity z-10 flex flex-col items-center justify-center rounded-[8px] pointer-events-none">
                     <Clock size={20} className="text-brand-primary drop-shadow-md" strokeWidth={3} />
                  </div>
@@ -1017,6 +1061,26 @@ export function Production({ isEmbed = false }: { isEmbed?: boolean }) {
                >
                  <X size={14} /> Uncomplete Size
                </button>
+            )}
+
+            {!contextMenu.item.completedSizes?.includes(contextMenu.size) && !contextMenu.item.inProgressSizes?.[contextMenu.size] && (
+               <>
+                 {contextMenu.item.receivedSizes?.includes(contextMenu.size) ? (
+                   <button 
+                     onClick={() => handleContextMenuAction('unreceive')}
+                     className="text-left px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-orange-600 hover:bg-orange-50 rounded-lg transition-colors flex items-center gap-2"
+                   >
+                     <X size={14} /> Unmark Received
+                   </button>
+                 ) : (
+                   <button 
+                     onClick={() => handleContextMenuAction('mark_received')}
+                     className="text-left px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors flex items-center gap-2"
+                   >
+                     <Check size={14} strokeWidth={3} className="text-indigo-600" /> Mark Received
+                   </button>
+                 )}
+               </>
             )}
 
             <div className="my-1 border-t border-brand-border/30"></div>
