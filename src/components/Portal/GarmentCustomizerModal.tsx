@@ -22,6 +22,7 @@ export function GarmentCustomizerModal({
 }: GarmentCustomizerModalProps) {
   const [selectedColor, setSelectedColor] = useState('');
   const [activeTab, setActiveTab] = useState<'front' | 'back'>('front');
+  const [isColorDropdownOpen, setIsColorDropdownOpen] = useState(false);
 
   // Vault/Assets
   const [assets, setAssets] = useState<any[]>([]);
@@ -83,7 +84,7 @@ export function GarmentCustomizerModal({
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
   const dragStartPos = useRef({ x: 0, y: 0, offsetX: 50, offsetY: 45 });
-  const resizeStartPos = useRef({ x: 0, scale: 30 });
+  const resizeStartPos = useRef({ x: 0, scale: 30, containerWidth: 500 });
 
   const handleDragMouseDown = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -101,9 +102,11 @@ export function GarmentCustomizerModal({
     e.stopPropagation();
     e.preventDefault();
     setIsResizing(true);
+    const containerWidth = previewRef.current?.getBoundingClientRect().width || 500;
     resizeStartPos.current = {
       x: e.clientX,
-      scale
+      scale,
+      containerWidth
     };
   };
 
@@ -127,7 +130,8 @@ export function GarmentCustomizerModal({
 
       if (isResizing) {
         const deltaX = e.clientX - resizeStartPos.current.x;
-        const newScale = resizeStartPos.current.scale + (deltaX / 1.8);
+        const containerWidth = resizeStartPos.current.containerWidth || 500;
+        const newScale = resizeStartPos.current.scale + ((2 * deltaX) / (containerWidth * 0.0036));
         const valScale = Math.max(10, Math.min(100, Math.round(newScale)));
         
         if (activeTab === 'front') {
@@ -357,7 +361,7 @@ export function GarmentCustomizerModal({
       <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
         
         {/* Left Panel: Preview Workspace */}
-        <div className="flex-1 bg-neutral-50 flex flex-col items-center justify-center p-8 relative overflow-y-auto border-b md:border-b-0 md:border-r border-neutral-100 gap-8 animate-in fade-in duration-300">
+        <div className="flex-1 bg-neutral-50 flex flex-col items-center justify-center p-4 md:p-6 relative overflow-y-auto border-b md:border-b-0 md:border-r border-neutral-100 gap-4 md:gap-6 animate-in fade-in duration-300">
           
           {/* Segmented View Selector */}
           {backImage && (
@@ -390,7 +394,7 @@ export function GarmentCustomizerModal({
           {/* Garment Preview Container */}
           <div 
             ref={previewRef}
-            className="relative w-full max-w-[550px] aspect-[4/5] bg-white rounded-[2rem] border border-neutral-200/50 shadow-lg p-6 flex items-center justify-center overflow-hidden shrink-0 transition-all duration-300 hover:shadow-xl"
+            className="relative h-full max-h-[80vh] aspect-[4/5] bg-white rounded-[2rem] border border-neutral-200/50 shadow-lg p-4 md:p-6 flex items-center justify-center overflow-hidden shrink-0 transition-all duration-300 hover:shadow-xl animate-in zoom-in-95 duration-300"
           >
             {/* Main Garment Image */}
             <img 
@@ -404,7 +408,7 @@ export function GarmentCustomizerModal({
               <div 
                 onMouseDown={handleDragMouseDown}
                 style={{
-                  width: `${scale * 2.2}px`,
+                  width: `${scale * 0.36}%`,
                   left: `${offsetX}%`,
                   top: `${offsetY}%`,
                   transform: 'translate(-50%, -50%)',
@@ -448,56 +452,88 @@ export function GarmentCustomizerModal({
               Placement: {placement} ({activeTab.toUpperCase()})
             </span>
           </div>
-
-          {/* Circular Swatches below garment */}
-          {garment.colors && garment.colors.length > 0 && (
-            <div className="w-full max-w-[550px] flex flex-col gap-2">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 text-center">
-                Select Garment Color: <strong className="text-neutral-900">{selectedColor}</strong>
-              </span>
-              <div className="flex flex-wrap gap-2.5 justify-center max-h-[140px] overflow-y-auto p-1 custom-scrollbar">
-                {garment.colors.map((c: string) => {
-                  const swatchHex = getSwatchColor(c, true);
-                  const isActive = selectedColor === c;
-                  const isWhite = c.toLowerCase() === 'white';
-                  
-                  return (
-                    <button
-                      key={c}
-                      type="button"
-                      title={c}
-                      onClick={() => setSelectedColor(c)}
-                      className={`w-6.5 h-6.5 rounded-full border transition-all relative cursor-pointer ${
-                        isActive 
-                          ? 'ring-2 ring-black ring-offset-2 scale-110 shadow-sm' 
-                          : 'border-neutral-300 hover:scale-105'
-                      }`}
-                      style={{ 
-                        backgroundColor: swatchHex.startsWith('linear-gradient') ? 'transparent' : swatchHex,
-                        backgroundImage: swatchHex.startsWith('linear-gradient') ? swatchHex : 'none',
-                        borderColor: isWhite ? '#D1D5DB' : 'transparent' 
-                      }}
-                    >
-                      {isActive && (
-                        <span className="absolute inset-0 flex items-center justify-center">
-                          <Check 
-                            size={12} 
-                            strokeWidth={3}
-                            className={c.toLowerCase() === 'white' || c.toLowerCase() === 'silver' || c.toLowerCase() === 'athletic heather' ? 'text-black' : 'text-white'} 
-                          />
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Right Panel: Controls */}
         <div className="w-full md:w-[420px] overflow-y-auto p-8 flex flex-col gap-6 shrink-0 border-l border-neutral-150 bg-white shadow-sm">
           
+          {/* Garment Color Selection Dropdown */}
+          {garment.colors && garment.colors.length > 0 && (
+            <div className="flex flex-col gap-2 border-b border-neutral-100 pb-6">
+              <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Garment Color</label>
+              
+              <div className="relative">
+                {/* Trigger Button */}
+                <button
+                  type="button"
+                  onClick={() => setIsColorDropdownOpen(!isColorDropdownOpen)}
+                  className="w-full bg-neutral-50 border border-neutral-200 hover:border-neutral-300 rounded-xl px-4 py-3 text-sm font-bold flex items-center justify-between transition-colors cursor-pointer"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span 
+                      className="w-4.5 h-4.5 rounded-full border border-neutral-300 shrink-0"
+                      style={{
+                        backgroundColor: getSwatchColor(selectedColor, true).startsWith('linear-gradient') ? 'transparent' : getSwatchColor(selectedColor, true),
+                        backgroundImage: getSwatchColor(selectedColor, true).startsWith('linear-gradient') ? getSwatchColor(selectedColor, true) : 'none',
+                      }}
+                    />
+                    <span className="uppercase tracking-wide">{selectedColor}</span>
+                  </div>
+                  <svg className={`w-4 h-4 text-neutral-500 transition-transform duration-200 ${isColorDropdownOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+
+                {/* Dropdown Menu */}
+                {isColorDropdownOpen && (
+                  <>
+                    {/* Backdrop to close dropdown on click-away */}
+                    <div 
+                      className="fixed inset-0 z-[110]" 
+                      onClick={() => setIsColorDropdownOpen(false)}
+                    />
+                    
+                    <div className="absolute left-0 right-0 mt-2 bg-white border border-neutral-200 rounded-xl shadow-xl max-h-[240px] overflow-y-auto z-[115] p-1.5 flex flex-col gap-0.5 custom-scrollbar animate-in fade-in slide-in-from-top-2 duration-200">
+                      {garment.colors.map((c: string) => {
+                        const isSelected = selectedColor === c;
+                        const swatchHex = getSwatchColor(c, true);
+                        return (
+                          <button
+                            key={c}
+                            type="button"
+                            onClick={() => {
+                              setSelectedColor(c);
+                              setIsColorDropdownOpen(false);
+                            }}
+                            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-bold transition-all cursor-pointer ${
+                              isSelected 
+                                ? 'bg-neutral-900 text-white' 
+                                : 'text-neutral-700 hover:bg-neutral-100'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <span 
+                                className={`w-4 h-4 rounded-full border shrink-0 ${isSelected ? 'border-white/30' : 'border-neutral-300'}`}
+                                style={{
+                                  backgroundColor: swatchHex.startsWith('linear-gradient') ? 'transparent' : swatchHex,
+                                  backgroundImage: swatchHex.startsWith('linear-gradient') ? swatchHex : 'none',
+                                }}
+                              />
+                              <span className="uppercase tracking-wide">{c}</span>
+                            </div>
+                            {isSelected && (
+                              <Check size={14} strokeWidth={3} className="text-white" />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Design Placement Presets */}
           <div className="flex flex-col gap-2.5">
             <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Logo Placement Presets</label>

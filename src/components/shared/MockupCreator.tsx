@@ -313,7 +313,7 @@ export function MockupCreator({
       <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
         
         {/* Left Side: Dynamic Canvas Workspace */}
-        <div className="flex-1 bg-neutral-50 flex flex-col items-center justify-center p-8 relative overflow-y-auto border-b md:border-b-0 md:border-r border-neutral-100 gap-8 animate-in fade-in duration-300 select-none">
+        <div className="flex-1 bg-neutral-50 flex flex-col items-center justify-center p-4 md:p-6 relative overflow-y-auto border-b md:border-b-0 md:border-r border-neutral-100 gap-4 md:gap-6 animate-in fade-in duration-300 select-none">
           
           {/* Segmented View Selector */}
           {garmentBackImageUrl && (
@@ -346,7 +346,7 @@ export function MockupCreator({
           {/* Garment + Logo Wrapper */}
           <div 
             ref={containerRef}
-            className="w-full max-w-[550px] aspect-[4/5] relative bg-white rounded-[2rem] shadow-lg border border-neutral-200/60 overflow-hidden flex items-center justify-center cursor-default shrink-0 transition-all duration-300 hover:shadow-xl p-6"
+            className="relative h-full max-h-[80vh] aspect-[4/5] bg-white rounded-[2rem] shadow-lg border border-neutral-200/60 overflow-hidden flex items-center justify-center cursor-default shrink-0 transition-all duration-300 hover:shadow-xl p-4 md:p-6"
           >
             {/* Proxied or direct garment image */}
             <img 
