@@ -1,9 +1,12 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../../lib/firebase';
 import { X, Upload, Loader2, Check, FileText } from 'lucide-react';
 import { getSwatchColor } from '../shared/GarmentBrowser';
+import sanmarCatalogJson from '../../data/sanmar-catalog.json';
+
+const sanmarCatalog = sanmarCatalogJson as any[];
 
 interface GarmentCustomizerModalProps {
   isOpen: boolean;
@@ -75,9 +78,29 @@ export function GarmentCustomizerModal({
     else setPlacementBack(val);
   };
 
+  // Find product in catalog as fallback for images
+  const catalogProduct = useMemo(() => {
+    const styleStr = garment.style || garment.itemNum || '';
+    if (!styleStr) return null;
+    return sanmarCatalog.find(
+      (p) => 
+        p.style.toLowerCase() === styleStr.toLowerCase() || 
+        p.title.toLowerCase().includes(styleStr.toLowerCase())
+    ) || null;
+  }, [garment.style, garment.itemNum]);
+
   // Image source path resolver
-  const frontImage = garment.images?.[selectedColor]?.front || garment.images?.[selectedColor] || garment.image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
-  const backImage = garment.backImages?.[selectedColor] || garment.images?.[selectedColor]?.back || null;
+  const frontImage = garment.images?.[selectedColor]?.front || 
+                     garment.images?.[selectedColor] || 
+                     catalogProduct?.images?.[selectedColor]?.front || 
+                     catalogProduct?.images?.[selectedColor] || 
+                     garment.image || 
+                     'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
+
+  const backImage = garment.backImages?.[selectedColor] || 
+                    garment.images?.[selectedColor]?.back || 
+                    catalogProduct?.images?.[selectedColor]?.back || 
+                    null;
 
   const activeMockupImage = activeTab === 'front' ? frontImage : (backImage || frontImage);
 
@@ -260,7 +283,10 @@ export function GarmentCustomizerModal({
       };
 
       const drawSide = async (garmentSrc: string, logoAsset: any, scaleVal: number, offX: number, offY: number, canvasOffsetX: number) => {
-        const garmentImg = await loadImg(garmentSrc);
+        const proxiedGarmentSrc = garmentSrc.startsWith('http')
+          ? `/api/sanmar/proxy-image?url=${encodeURIComponent(garmentSrc)}`
+          : garmentSrc;
+        const garmentImg = await loadImg(proxiedGarmentSrc);
         ctx.drawImage(garmentImg, canvasOffsetX + 50, 50, 500, 500);
 
         if (logoAsset) {
