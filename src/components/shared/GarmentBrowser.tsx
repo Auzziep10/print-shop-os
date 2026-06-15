@@ -230,7 +230,7 @@ export function GarmentBrowser({ isOpen, onClose, onSelect }: GarmentBrowserProp
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden flex items-center justify-center p-4 sm:p-6 md:p-10">
+    <div className="fixed inset-0 z-[130] overflow-hidden flex items-center justify-center p-4 sm:p-6 md:p-10">
       {/* Backdrop */}
       <div 
         className="absolute inset-0 bg-neutral-900/60 backdrop-blur-sm transition-opacity duration-300 animate-in fade-in"
