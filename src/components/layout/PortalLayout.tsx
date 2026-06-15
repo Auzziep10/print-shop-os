@@ -1,12 +1,55 @@
 import { Outlet, useParams, useNavigate, useLocation } from 'react-router-dom';
-import { Search, Info } from 'lucide-react';
+import { Search, Info, HelpCircle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useState, useEffect } from 'react';
+import { PortalHelpDrawer } from '../Portal/PortalHelpDrawer';
+import { PortalTourOverlay } from '../Portal/PortalTourOverlay';
 
 export function PortalLayout() {
   const { customerId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
   const { signOut, userData } = useAuth();
+  
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
+  const [activeTour, setActiveTour] = useState('');
+  const [tourStep, setTourStep] = useState(0);
+
+  // Sync tour state with local storage to persist across navigations
+  useEffect(() => {
+    const savedTour = localStorage.getItem('wovn_active_tour') || '';
+    const savedStep = parseInt(localStorage.getItem('wovn_tour_step') || '0', 10);
+    if (savedTour) {
+      setActiveTour(savedTour);
+      setTourStep(savedStep);
+    }
+  }, []);
+
+  const handleStartTour = (tourId: string) => {
+    setActiveTour(tourId);
+    setTourStep(0);
+    localStorage.setItem('wovn_active_tour', tourId);
+    localStorage.setItem('wovn_tour_step', '0');
+  };
+
+  const handleNextTourStep = () => {
+    const nextStep = tourStep + 1;
+    setTourStep(nextStep);
+    localStorage.setItem('wovn_tour_step', nextStep.toString());
+  };
+
+  const handleBackTourStep = () => {
+    const prevStep = Math.max(0, tourStep - 1);
+    setTourStep(prevStep);
+    localStorage.setItem('wovn_tour_step', prevStep.toString());
+  };
+
+  const handleExitTour = () => {
+    setActiveTour('');
+    setTourStep(0);
+    localStorage.removeItem('wovn_active_tour');
+    localStorage.removeItem('wovn_tour_step');
+  };
 
   const handleCreateOrder = () => {
     navigate(customerId ? `/portal/${customerId}/create` : '/portal');
@@ -50,6 +93,7 @@ export function PortalLayout() {
           </div>
           
           <button 
+            data-tour="orders-tab"
             onClick={() => navigate(customerId ? `/portal/${customerId}` : '/portal')}
             className={`text-[13px] font-semibold tracking-wide pb-0.5 border-b-2 transition-all ${
               location.pathname.startsWith('/portal') && !location.pathname.endsWith('/create') && !location.pathname.endsWith('/quote') && !location.pathname.endsWith('/vault')
@@ -61,6 +105,7 @@ export function PortalLayout() {
           </button>
 
           <button 
+            data-tour="vault-tab"
             onClick={() => navigate(customerId ? `/portal/${customerId}/vault` : '/portal/vault')}
             className={`text-[13px] font-semibold tracking-wide pb-0.5 border-b-2 transition-all ${
               location.pathname.endsWith('/vault')
@@ -89,10 +134,19 @@ export function PortalLayout() {
           </button>
           
           <button 
+            data-tour="create-order-btn"
             onClick={handleCreateOrder}
-            className="bg-black text-white px-5 py-2.5 rounded-full text-xs font-bold tracking-wide hover:bg-black/80 hover:scale-105 active:scale-95 transition-all shadow-[0_4px_14px_0_rgb(0,0,0,0.15)]"
+            className="bg-black text-white px-5 py-2.5 rounded-full text-xs font-bold tracking-wide hover:bg-black/80 hover:scale-105 active:scale-95 transition-all shadow-[0_4px_14px_0_rgb(0,0,0,0.15)] mr-2"
           >
             Create Order +
+          </button>
+
+          <button 
+            onClick={() => setIsHelpOpen(true)}
+            className="w-10 h-10 rounded-full border border-black/20 text-neutral-500 hover:text-black flex items-center justify-center hover:bg-neutral-50 hover:scale-105 active:scale-95 transition-all shadow-[0_2px_8px_0_rgb(0,0,0,0.02)] cursor-pointer"
+            title="Portal Guide & Help Center"
+          >
+            <HelpCircle size={18} />
           </button>
         </div>
       </header>
@@ -101,6 +155,23 @@ export function PortalLayout() {
       <main className="py-12 px-10">
         <Outlet />
       </main>
+
+      <PortalHelpDrawer 
+        isOpen={isHelpOpen} 
+        onClose={() => setIsHelpOpen(false)} 
+        onStartTour={handleStartTour}
+      />
+
+      {activeTour && (
+        <PortalTourOverlay
+          activeTour={activeTour}
+          stepIndex={tourStep}
+          onNext={handleNextTourStep}
+          onBack={handleBackTourStep}
+          onExit={handleExitTour}
+          customerId={customerId || 'CUS-001'}
+        />
+      )}
     </div>
   );
 }

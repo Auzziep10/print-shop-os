@@ -294,8 +294,11 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
 
   return (
     <>
-      <div className={`max-w-[1600px] mx-auto flex flex-col gap-6 ${hideHeader ? 'mt-0' : 'mt-8'}`}>
-      {localOrders.map((order: any) => {
+      <div 
+        data-tour="orders-list"
+        className={`max-w-[1600px] mx-auto flex flex-col gap-6 ${hideHeader ? 'mt-0' : 'mt-8'}`}
+      >
+      {localOrders.map((order: any, idx: number) => {
         const isExpanded = expandedId === order.id;
         const isKitting = order.fulfillmentType === 'Kitting' || (!order.fulfillmentType && customer?.fulfillmentType === 'Kitting');
         const timelineSteps = isKitting 
@@ -353,6 +356,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
         return (
           <div 
             key={order.id} 
+            data-tour={idx === 0 ? "order-card-0" : undefined}
             className={`flex flex-col xl:flex-row gap-6 w-full items-start transition-transform ${draggedOrderId === order.id ? 'opacity-50 scale-95' : ''} ${dragOverOrderId === order.id ? 'border-t-4 border-brand-primary rounded-xl pt-2' : ''}`}
             onDragOver={(e) => overrideCustomerId && handleDragOverOrder(e, order.id)}
             onDrop={(e) => overrideCustomerId && handleDropOrder(e, order.id)}
@@ -444,7 +448,10 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                 </div>
 
                 {/* Right: Progress Tracker */}
-                <div className="flex-1 min-w-0 w-full pt-6 xl:pt-0 pb-4 xl:pb-0 relative">
+                 <div 
+                  data-tour={idx === 0 ? "status-badge-0" : undefined}
+                  className="flex-1 min-w-0 w-full pt-6 xl:pt-0 pb-4 xl:pb-0 relative"
+                >
                   {/* Subtle fade effect for mobile to indicate scrollability */}
                   <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-white to-transparent lg:hidden z-20 pointer-events-none rounded-r-[2rem]"></div>
                   

@@ -141,7 +141,10 @@ export function PortalAssetVault() {
           </p>
         </div>
         
-        <label className="bg-black text-white px-6 py-3.5 rounded-full text-[13px] font-bold tracking-wide hover:bg-neutral-800 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-md flex items-center gap-2 cursor-pointer">
+        <label 
+          data-tour="vault-upload-btn"
+          className="bg-black text-white px-6 py-3.5 rounded-full text-[13px] font-bold tracking-wide hover:bg-neutral-800 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-md flex items-center gap-2 cursor-pointer"
+        >
           <input type="file" className="hidden" onChange={handleFileUpload} accept="image/*,application/pdf,.ai,.eps,.psd,.cdr,.zip" />
           {isUploading ? (
             <Loader2 className="animate-spin" size={16} />
@@ -170,7 +173,7 @@ export function PortalAssetVault() {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mt-4">
-          {assets.map((asset) => (
+          {assets.map((asset, index) => (
             <div 
               key={asset.id} 
               className="bg-white rounded-3xl border border-neutral-200/60 shadow-[0_4px_16px_rgb(0,0,0,0.01)] hover:shadow-md hover:border-black/20 transition-all p-5 flex flex-col justify-between min-h-[220px] relative group"
@@ -214,6 +217,7 @@ export function PortalAssetVault() {
                   href={asset.url}
                   target="_blank"
                   rel="noreferrer"
+                  data-tour={index === 0 ? "vault-download-btn" : undefined}
                   className="flex items-center gap-1.5 text-xs font-bold text-neutral-500 hover:text-black transition-colors"
                 >
                   <Download size={14} /> Download

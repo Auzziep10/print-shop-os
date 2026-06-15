@@ -448,6 +448,7 @@ export function PortalCreateOrder() {
                     <div className="flex items-center gap-3">
                       <button
                         type="button"
+                        data-tour={index === 0 ? "customize-btn" : undefined}
                         onClick={() => setCustomizingItem(item)}
                         className="bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 text-neutral-800 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
                       >
@@ -483,7 +484,10 @@ export function PortalCreateOrder() {
                   </div>
 
                   {/* Sizing Matrix */}
-                  <div className="bg-neutral-50 rounded-xl p-4 flex flex-col items-start border border-neutral-200 gap-3">
+                  <div 
+                    data-tour={index === 0 ? "sizing-matrix" : undefined}
+                    className="bg-neutral-50 rounded-xl p-4 flex flex-col items-start border border-neutral-200 gap-3"
+                  >
                      <span className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Size Run</span>
                      <div className="flex flex-wrap gap-2 w-full">
                        {Object.keys(item.quantities).map((size) => (
@@ -509,6 +513,7 @@ export function PortalCreateOrder() {
               {/* Add Another Garment Button */}
               {hasWovnRack ? (
                 <button 
+                  data-tour="add-garment-btn"
                   onClick={() => {
                     setActiveLibraryTab('wovn');
                     setIsDrawerOpen(true);
@@ -522,6 +527,7 @@ export function PortalCreateOrder() {
                 </button>
               ) : (
                 <button 
+                  data-tour="add-garment-btn"
                   onClick={() => {
                     setActiveLibraryTab(suggestedItems.length > 0 ? 'suggested' : 'past');
                     setIsDrawerOpen(true);
@@ -540,7 +546,10 @@ export function PortalCreateOrder() {
 
         {/* Right Column: Order Summary (Sticky) */}
         <div className="lg:col-span-1">
-          <div className="sticky top-8 bg-neutral-50 rounded-3xl p-6 border border-neutral-200/60 min-h-[400px] flex flex-col">
+          <div 
+            data-tour="order-summary"
+            className="sticky top-8 bg-neutral-50 rounded-3xl p-6 border border-neutral-200/60 min-h-[400px] flex flex-col"
+          >
             <h3 className="font-serif text-xl text-neutral-900 border-b border-neutral-200 pb-4 mb-4">
               Order Summary
             </h3>
