@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ChevronRight, Loader2, PackageOpen, Building2, Search, Check, Clock, Box, X, Play, Pause, Activity, ExternalLink, Archive, Image as ImageIcon } from 'lucide-react';
+import { ChevronRight, Loader2, PackageOpen, Building2, Search, Check, Clock, Box, X, Play, Pause, Activity, ExternalLink, Archive, Image as ImageIcon, RotateCcw } from 'lucide-react';
 import { useOrders } from '../../hooks/useOrders';
 import { useAuth } from '../../contexts/AuthContext';
 import { db } from '../../lib/firebase';
@@ -243,6 +243,12 @@ export function Production({ isEmbed = false }: { isEmbed?: boolean }) {
      const currentCompleted = item.completedSizes || [];
      const inProgress = item.inProgressSizes || {};
      const receivedSizes = item.receivedSizes || [];
+     const returnedSizes = item.returnedSizes || [];
+     
+     if (returnedSizes.includes(size)) {
+         alert(`Size ${size} of ${item.style} is marked for return. Please right-click to unmark it first.`);
+         return;
+     }
      
      if (currentCompleted.includes(size)) {
          return; 
@@ -383,7 +389,19 @@ export function Production({ isEmbed = false }: { isEmbed?: boolean }) {
            i.id === item.id ? { ...i, receivedSizes: newReceived } : i
        );
        activityMessage = `Unmarked size ${size} for ${item.style} as received`;
-    } else if (action === 'pause_timer') {
+    } else if (action === 'mark_return') {
+        const newReturned = [...(item.returnedSizes || []), size];
+        updatedItems = updatedItems.map((i: any) => 
+            i.id === item.id ? { ...i, returnedSizes: newReturned } : i
+        );
+        activityMessage = `Marked size ${size} of ${item.style} for return`;
+     } else if (action === 'unmark_return') {
+        const newReturned = (item.returnedSizes || []).filter((s: string) => s !== size);
+        updatedItems = updatedItems.map((i: any) => 
+            i.id === item.id ? { ...i, returnedSizes: newReturned } : i
+        );
+        activityMessage = `Unmarked size ${size} of ${item.style} for return`;
+     } else if (action === 'pause_timer') {
        const newInProgress = { ...(item.inProgressSizes || {}) };
        const target = newInProgress[size];
        if (target && !target.paused) {
@@ -494,6 +512,7 @@ export function Production({ isEmbed = false }: { isEmbed?: boolean }) {
              const inProgress = item.inProgressSizes?.[size];
              const isPacked = isSizeFullyBoxed(orderContext, item, size, qty);
              const isReceived = item.receivedSizes?.includes(size);
+             const isReturned = item.returnedSizes?.includes(size);
 
              let colorClassTop = 'bg-neutral-300 text-neutral-600 group-hover/sizebtn:bg-neutral-400';
              let colorClassBottom = 'bg-white text-neutral-800';
@@ -523,6 +542,11 @@ export function Production({ isEmbed = false }: { isEmbed?: boolean }) {
                      iconContent = <Clock size={10} strokeWidth={3} className="animate-pulse ml-1 opacity-80 shrink-0" />;
                      wrapperClass = 'opacity-90 hover:opacity-100';
                  }
+             } else if (isReturned) {
+                 colorClassTop = 'bg-rose-500 text-white';
+                 colorClassBottom = 'bg-rose-50 text-rose-700';
+                 iconContent = <RotateCcw size={10} strokeWidth={3} className="ml-1 opacity-80 shrink-0" />;
+                 wrapperClass = 'opacity-90 hover:opacity-100';
              } else if (isReceived) {
                  colorClassTop = 'bg-indigo-600 text-white';
                  colorClassBottom = 'bg-indigo-50 text-indigo-700';
@@ -540,15 +564,20 @@ export function Production({ isEmbed = false }: { isEmbed?: boolean }) {
                  e.stopPropagation(); 
                  setContextMenu({ x: e.clientX, y: e.clientY, order: orderContext, item, size, qty }); 
                }}
-               title={isPacked ? "Packed in shipments." : isCompleted ? `Completed. Right-click to manage.` : inProgress ? (inProgress.paused ? "Timer paused. Right-click to resume!" : "Timer running. Click to complete!") : (isReceived ? "Click to start timer" : "Click to mark as received")}
+               title={isPacked ? "Packed in shipments." : isCompleted ? `Completed. Right-click to manage.` : inProgress ? (inProgress.paused ? "Timer paused. Right-click to resume!" : "Timer running. Click to complete!") : (isReturned ? "Marked for return. Right-click to manage." : (isReceived ? "Click to start timer" : "Click to mark as received"))}
              >
                {/* Hover hints */}
-               {!isReceived && !isCompleted && !isPacked && !inProgress && (
+               {isReturned && (
+                 <div className="absolute inset-0 bg-brand-primary/5 backdrop-blur-[1px] opacity-0 group-hover/sizebtn:opacity-100 transition-opacity z-10 flex flex-col items-center justify-center rounded-[8px] pointer-events-none">
+                    <RotateCcw size={20} className="text-brand-primary drop-shadow-md" strokeWidth={3} />
+                 </div>
+               )}
+               {!isReturned && !isReceived && !isCompleted && !isPacked && !inProgress && (
                  <div className="absolute inset-0 bg-brand-primary/5 backdrop-blur-[1px] opacity-0 group-hover/sizebtn:opacity-100 transition-opacity z-10 flex flex-col items-center justify-center rounded-[8px] pointer-events-none">
                     <Check size={20} className="text-brand-primary drop-shadow-md" strokeWidth={3} />
                  </div>
                )}
-               {isReceived && !isCompleted && !isPacked && !inProgress && (
+               {!isReturned && isReceived && !isCompleted && !isPacked && !inProgress && (
                  <div className="absolute inset-0 bg-brand-primary/5 backdrop-blur-[1px] opacity-0 group-hover/sizebtn:opacity-100 transition-opacity z-10 flex flex-col items-center justify-center rounded-[8px] pointer-events-none">
                     <Clock size={20} className="text-brand-primary drop-shadow-md" strokeWidth={3} />
                  </div>
@@ -1078,6 +1107,21 @@ export function Production({ isEmbed = false }: { isEmbed?: boolean }) {
                      className="text-left px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors flex items-center gap-2"
                    >
                      <Check size={14} strokeWidth={3} className="text-indigo-600" /> Mark Received
+                   </button>
+                 )}
+                 {contextMenu.item.returnedSizes?.includes(contextMenu.size) ? (
+                   <button 
+                     onClick={() => handleContextMenuAction('unmark_return')}
+                     className="text-left px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-rose-600 hover:bg-rose-50 rounded-lg transition-colors flex items-center gap-2"
+                   >
+                     <RotateCcw size={14} className="text-rose-600" /> Unmark Return
+                   </button>
+                 ) : (
+                   <button 
+                     onClick={() => handleContextMenuAction('mark_return')}
+                     className="text-left px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-rose-600 hover:bg-rose-50 rounded-lg transition-colors flex items-center gap-2"
+                   >
+                     <RotateCcw size={14} className="text-rose-600" /> Mark for Return
                    </button>
                  )}
                </>

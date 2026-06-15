@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { PillButton } from '../../components/ui/PillButton';
 import { PackingSlipsManager } from '../../components/Orders/PackingSlipsManager';
 import { TrackingModal } from '../../components/Orders/TrackingModal';
-import { ArrowLeft, MessageSquare, QrCode, Clock, Users, Download, Loader2, X, Edit3, Upload, Trash2, Plus, ChevronDown, Image as ImageIcon, Box, Printer, ExternalLink, ShoppingBag, Search, Check, Truck, GripVertical, Pause, Play, DollarSign, PackagePlus, Layers, CreditCard, Copy } from 'lucide-react';
+import { ArrowLeft, MessageSquare, QrCode, Clock, Users, Download, Loader2, X, Edit3, Upload, Trash2, Plus, ChevronDown, Image as ImageIcon, Box, Printer, ExternalLink, ShoppingBag, Search, Check, Truck, GripVertical, Pause, Play, DollarSign, PackagePlus, Layers, CreditCard, Copy, RotateCcw } from 'lucide-react';
 import QRCode from 'react-qr-code';
 import { StatusBadge, type StatusType } from '../../components/ui/StatusBadge';
 import { useAuth } from '../../contexts/AuthContext';
@@ -551,11 +551,17 @@ export function OrderDetail() {
      setQuickShipSizes({});
   };
 
-  const handleSizeClick = async (item: any, size: string, qty: number) => {
+   const handleSizeClick = async (item: any, size: string, qty: number) => {
       if (!id || !order) return;
       const currentCompleted = item.completedSizes || [];
       const inProgress = item.inProgressSizes || {};
       const receivedSizes = item.receivedSizes || [];
+      const returnedSizes = item.returnedSizes || [];
+      
+      if (returnedSizes.includes(size)) {
+          alert(`Size ${size} of ${item.style} is marked for return. Please right-click to unmark it first.`);
+          return;
+      }
       
       if (currentCompleted.includes(size)) {
           return; // Do nothing on left click if already complete. Use right-click menu to uncomplete.
@@ -679,13 +685,25 @@ export function OrderDetail() {
            i.id === item.id ? { ...i, receivedSizes: newReceived } : i
        );
        activityMessage = `Marked size ${size} for ${item.style} as received`;
-    } else if (action === 'unreceive') {
-       const newReceived = (item.receivedSizes || []).filter((s: string) => s !== size);
-       updatedItems = updatedItems.map((i: any) => 
-           i.id === item.id ? { ...i, receivedSizes: newReceived } : i
-       );
-       activityMessage = `Unmarked size ${size} for ${item.style} as received`;
-    } else if (action === 'pause_timer') {
+     } else if (action === 'unreceive') {
+        const newReceived = (item.receivedSizes || []).filter((s: string) => s !== size);
+        updatedItems = updatedItems.map((i: any) => 
+            i.id === item.id ? { ...i, receivedSizes: newReceived } : i
+        );
+        activityMessage = `Unmarked size ${size} for ${item.style} as received`;
+     } else if (action === 'mark_return') {
+        const newReturned = [...(item.returnedSizes || []), size];
+        updatedItems = updatedItems.map((i: any) => 
+            i.id === item.id ? { ...i, returnedSizes: newReturned } : i
+        );
+        activityMessage = `Marked size ${size} of ${item.style} for return`;
+     } else if (action === 'unmark_return') {
+        const newReturned = (item.returnedSizes || []).filter((s: string) => s !== size);
+        updatedItems = updatedItems.map((i: any) => 
+            i.id === item.id ? { ...i, returnedSizes: newReturned } : i
+        );
+        activityMessage = `Unmarked size ${size} of ${item.style} for return`;
+     } else if (action === 'pause_timer') {
        const newInProgress = { ...(item.inProgressSizes || {}) };
        const target = newInProgress[size];
        if (target && !target.paused) {
@@ -1424,6 +1442,7 @@ export function OrderDetail() {
                              const inProgress = item.inProgressSizes?.[size];
                              const isPacked = isSizeFullyBoxed(item, size, qty);
                              const isReceived = item.receivedSizes?.includes(size);
+                             const isReturned = item.returnedSizes?.includes(size);
 
                              let colorClassTop = 'bg-neutral-300 text-neutral-600 group-hover/sizebtn:bg-neutral-400';
                              let colorClassBottom = (qty > 0 ? 'bg-white text-neutral-800 group-hover/sizebtn:bg-neutral-50' : 'bg-white text-neutral-400');
@@ -1452,6 +1471,11 @@ export function OrderDetail() {
                                      topContent = <div className="flex items-center gap-[2px]"><Clock size={10} strokeWidth={3} className="animate-pulse" /> <span className="text-[10px] leading-none mb-[1px]">{size}</span></div>;
                                      wrapperClass = 'opacity-90 hover:opacity-100';
                                  }
+                             } else if (isReturned) {
+                                 colorClassTop = 'bg-rose-500 text-white';
+                                 colorClassBottom = 'bg-rose-50 text-rose-700';
+                                 topContent = <div className="flex items-center gap-[2px]"><RotateCcw size={10} strokeWidth={3} /> <span className="text-[10px] leading-none mb-[1px]">{size}</span></div>;
+                                 wrapperClass = 'opacity-90 hover:opacity-100';
                              } else if (isReceived) {
                                  colorClassTop = 'bg-indigo-600 text-white';
                                  colorClassBottom = 'bg-indigo-50 text-indigo-700';
@@ -1469,15 +1493,20 @@ export function OrderDetail() {
                                  e.stopPropagation(); 
                                  setContextMenu({ x: e.clientX, y: e.clientY, item, size, qty }); 
                                }}
-                               title={isPacked ? "Packed in shipments." : isCompleted ? `Completed. Right-click to manage.` : inProgress ? (inProgress.paused ? "Timer paused. Right-click to resume!" : "Timer running. Click to complete!") : (isReceived ? "Click to start timer" : "Click to mark as received")}
+                               title={isPacked ? "Packed in shipments." : isCompleted ? `Completed. Right-click to manage.` : inProgress ? (inProgress.paused ? "Timer paused. Right-click to resume!" : "Timer running. Click to complete!") : (isReturned ? "Marked for return. Right-click to manage." : (isReceived ? "Click to start timer" : "Click to mark as received"))}
                              >
                                {/* Hover hints */}
-                               {!isReceived && !isCompleted && !isPacked && !inProgress && (
+                               {isReturned && (
+                                 <div className="absolute inset-0 bg-brand-primary/5 backdrop-blur-[1px] opacity-0 group-hover/sizebtn:opacity-100 transition-opacity z-10 flex flex-col items-center justify-center rounded-[8px] pointer-events-none">
+                                    <RotateCcw size={20} className="text-brand-primary drop-shadow-md" strokeWidth={3} />
+                                 </div>
+                               )}
+                               {!isReturned && !isReceived && !isCompleted && !isPacked && !inProgress && (
                                  <div className="absolute inset-0 bg-brand-primary/5 backdrop-blur-[1px] opacity-0 group-hover/sizebtn:opacity-100 transition-opacity z-10 flex flex-col items-center justify-center rounded-[8px] pointer-events-none">
                                     <Check size={20} className="text-brand-primary drop-shadow-md" strokeWidth={3} />
                                  </div>
                                )}
-                               {isReceived && !isCompleted && !isPacked && !inProgress && (
+                               {!isReturned && isReceived && !isCompleted && !isPacked && !inProgress && (
                                  <div className="absolute inset-0 bg-brand-primary/5 backdrop-blur-[1px] opacity-0 group-hover/sizebtn:opacity-100 transition-opacity z-10 flex flex-col items-center justify-center rounded-[8px] pointer-events-none">
                                     <Clock size={20} className="text-brand-primary drop-shadow-md" strokeWidth={3} />
                                  </div>
@@ -1782,7 +1811,7 @@ export function OrderDetail() {
                             <input 
                                type="file"
                                id="receipt-upload"
-                               accept="image/*,application/pdf"
+                               accept="image/*,.pdf,application/pdf"
                                onChange={handleReceiptFileChange}
                                className="hidden"
                                disabled={isUploadingReceipt}
@@ -3385,6 +3414,22 @@ export function OrderDetail() {
                      className="text-left px-3 py-2.5 text-[11px] font-bold uppercase tracking-wider text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors flex items-center gap-2"
                    >
                      <Check size={14} strokeWidth={3} className="text-indigo-600" /> Mark Received
+                   </button>
+                 )}
+
+                 {contextMenu.item.returnedSizes?.includes(contextMenu.size) ? (
+                   <button 
+                     onClick={() => handleContextMenuAction('unmark_return')}
+                     className="text-left px-3 py-2.5 text-[11px] font-bold uppercase tracking-wider text-rose-600 hover:bg-rose-50 rounded-lg transition-colors flex items-center gap-2"
+                   >
+                     <RotateCcw size={14} className="text-rose-600" /> Unmark Return
+                   </button>
+                 ) : (
+                   <button 
+                     onClick={() => handleContextMenuAction('mark_return')}
+                     className="text-left px-3 py-2.5 text-[11px] font-bold uppercase tracking-wider text-rose-600 hover:bg-rose-50 rounded-lg transition-colors flex items-center gap-2"
+                   >
+                     <RotateCcw size={14} className="text-rose-600" /> Mark for Return
                    </button>
                  )}
                </>
