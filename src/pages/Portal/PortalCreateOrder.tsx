@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, PackagePlus, X, Trash2, ChevronDown, RotateCcw, Calendar, Loader2 } from 'lucide-react';
+import { ArrowLeft, PackagePlus, X, Trash2, ChevronDown, RotateCcw, Calendar, Loader2, Sparkles } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { db } from '../../lib/firebase';
 import { doc, getDoc, collection, query, where, getDocs, setDoc } from 'firebase/firestore';
+import { GarmentCustomizerModal } from '../../components/Portal/GarmentCustomizerModal';
 const findColorsInObj = (obj: any, maxDepth = 4): string[] | null => {
   if (!obj || typeof obj !== 'object' || maxDepth === 0) return null;
   const colorKeys = ['availableColors', 'available_colors', 'colors', 'Colors', 'color', 'Color', 'AvailableColors'];
@@ -66,6 +67,10 @@ export function PortalCreateOrder() {
   const [isLoadingPreviousOrders, setIsLoadingPreviousOrders] = useState(true);
   const [isRepeatModalOpen, setIsRepeatModalOpen] = useState(false);
   const [hasWovnRack, setHasWovnRack] = useState(false);
+  const [activeLibraryTab, setActiveLibraryTab] = useState('wovn');
+  const [suggestedItems, setSuggestedItems] = useState<any[]>([]);
+  const [pastGarments, setPastGarments] = useState<any[]>([]);
+  const [customizingItem, setCustomizingItem] = useState<any | null>(null);
 
   useEffect(() => {
     const fetchPreviousOrders = async () => {
@@ -87,6 +92,27 @@ export function PortalCreateOrder() {
           return timeB - timeA;
         });
         setPreviousOrders(ordersList);
+
+        // Compute unique past garments
+        const uniqueGarmentsMap: Record<string, any> = {};
+        ordersList.forEach((orderData) => {
+          if (orderData.items && Array.isArray(orderData.items)) {
+            orderData.items.forEach((item: any) => {
+              const styleKey = item.style || item.itemNum;
+              if (styleKey && !uniqueGarmentsMap[styleKey]) {
+                uniqueGarmentsMap[styleKey] = {
+                  id: item.id || `past-${Date.now()}-${Math.random()}`,
+                  style: item.style || 'Custom Garment',
+                  itemNum: item.itemNum || '',
+                  image: item.image || '',
+                  colors: item.color ? [item.color] : ['Custom Color'],
+                  price: parseFloat(item.price || 0)
+                };
+              }
+            });
+          }
+        });
+        setPastGarments(Object.values(uniqueGarmentsMap));
       } catch (err) {
         console.error("Failed to fetch previous orders", err);
       } finally {
@@ -158,6 +184,7 @@ export function PortalCreateOrder() {
           // Support both array and single string for backwards compatibility
           const deckIds = customerData.catalogLinkIds || (customerData.catalogLinkId ? [customerData.catalogLinkId] : []);
           setHasWovnRack(deckIds.length > 0);
+          setSuggestedItems(customerData.suggestedItems || []);
           
           if (deckIds.length > 0) {
             const fetchedArrays = await Promise.all(
@@ -256,8 +283,9 @@ export function PortalCreateOrder() {
              gender: item.gender || 'Unisex',
              qty: totalQty,
              image: item.image || '',
-             notes: '',
-             sizes: item.quantities
+             notes: item.logoPlacement ? `Mockup Placement: ${item.logoPlacement}` : '',
+             sizes: item.quantities,
+             artworks: item.logoUrl ? [{ url: item.logoUrl, originalUrl: item.logoUrl, name: item.logoName || 'Logo' }] : []
            }
         })
       };
@@ -358,12 +386,25 @@ export function PortalCreateOrder() {
               </div>
               
               <div className="mt-4 flex items-center justify-center gap-4 flex-wrap">
-                {hasWovnRack && (
+                {hasWovnRack ? (
                   <button 
-                    onClick={() => setIsDrawerOpen(true)}
-                    className="bg-black text-white px-8 py-3.5 rounded-full text-[13px] font-bold tracking-wide hover:bg-neutral-800 hover:scale-[1.02] transition-all shadow-md"
+                    onClick={() => {
+                      setActiveLibraryTab('wovn');
+                      setIsDrawerOpen(true);
+                    }}
+                    className="bg-black text-white px-8 py-3.5 rounded-full text-[13px] font-bold tracking-wide hover:bg-neutral-800 hover:scale-[1.02] transition-all shadow-md cursor-pointer"
                   >
                     + Add Garment from my "WOVN Rack"
+                  </button>
+                ) : (
+                  <button 
+                    onClick={() => {
+                      setActiveLibraryTab(suggestedItems.length > 0 ? 'suggested' : 'past');
+                      setIsDrawerOpen(true);
+                    }}
+                    className="bg-black text-white px-8 py-3.5 rounded-full text-[13px] font-bold tracking-wide hover:bg-neutral-800 hover:scale-[1.02] transition-all shadow-md cursor-pointer"
+                  >
+                    + Add Garment from Library
                   </button>
                 )}
                 {previousOrders.length > 0 && (
@@ -404,12 +445,21 @@ export function PortalCreateOrder() {
                         )}
                       </div>
                     </div>
-                    <button 
-                      onClick={() => handleRemoveItem(item.instanceId)}
-                      className="text-neutral-400 hover:text-red-500 transition-colors p-2"
-                    >
-                      <Trash2 size={18} />
-                    </button>
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setCustomizingItem(item)}
+                        className="bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 text-neutral-800 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
+                      >
+                        <Sparkles size={12} className="text-neutral-500" /> Customize
+                      </button>
+                      <button 
+                        onClick={() => handleRemoveItem(item.instanceId)}
+                        className="text-neutral-400 hover:text-red-500 transition-colors p-2"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
                   </div>
 
                   {/* Settings Grid for this item */}
@@ -417,7 +467,14 @@ export function PortalCreateOrder() {
                      <div className="flex flex-col gap-2">
                        <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Garment Color</label>
                        <div className="relative max-w-[300px]">
-                         <select className="w-full appearance-none bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-3 text-sm font-medium text-neutral-900 focus:outline-none focus:border-neutral-400 cursor-pointer">
+                         <select 
+                           value={item.selectedColor || ''}
+                           onChange={(e) => {
+                             const newCol = e.target.value;
+                             setOrderItems(prev => prev.map(o => o.instanceId === item.instanceId ? { ...o, selectedColor: newCol } : o));
+                           }}
+                           className="w-full appearance-none bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-3 text-sm font-medium text-neutral-900 focus:outline-none focus:border-neutral-400 cursor-pointer"
+                         >
                            {item.colors.map((c: string) => <option key={c} value={c}>{c}</option>)}
                          </select>
                          <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" size={16} />
@@ -450,15 +507,31 @@ export function PortalCreateOrder() {
               ))}
 
               {/* Add Another Garment Button */}
-              {hasWovnRack && (
+              {hasWovnRack ? (
                 <button 
-                  onClick={() => setIsDrawerOpen(true)}
-                  className="w-full bg-neutral-50 hover:bg-neutral-100 border-2 border-dashed border-neutral-200 rounded-3xl p-6 flex flex-col items-center justify-center text-neutral-500 hover:text-black transition-all group"
+                  onClick={() => {
+                    setActiveLibraryTab('wovn');
+                    setIsDrawerOpen(true);
+                  }}
+                  className="w-full bg-neutral-50 hover:bg-neutral-100 border-2 border-dashed border-neutral-200 rounded-3xl p-6 flex flex-col items-center justify-center text-neutral-500 hover:text-black transition-all group cursor-pointer"
                 >
                   <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform mb-3">
                     <PackagePlus size={20} strokeWidth={2} />
                   </div>
                   <span className="font-bold text-sm tracking-wide">Add Another Garment from my "WOVN Rack"</span>
+                </button>
+              ) : (
+                <button 
+                  onClick={() => {
+                    setActiveLibraryTab(suggestedItems.length > 0 ? 'suggested' : 'past');
+                    setIsDrawerOpen(true);
+                  }}
+                  className="w-full bg-neutral-50 hover:bg-neutral-100 border-2 border-dashed border-neutral-200 rounded-3xl p-6 flex flex-col items-center justify-center text-neutral-500 hover:text-black transition-all group cursor-pointer"
+                >
+                  <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform mb-3">
+                    <PackagePlus size={20} strokeWidth={2} />
+                  </div>
+                  <span className="font-bold text-sm tracking-wide">Add Another Garment from Library</span>
                 </button>
               )}
             </>
@@ -523,101 +596,235 @@ export function PortalCreateOrder() {
       {/* Slide-out Catalog Drawer */}
       {isDrawerOpen && (
         <div className="fixed inset-0 z-50 flex justify-end bg-black/20 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-[500px] h-full bg-white shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+          <div className="w-full max-w-[550px] h-full bg-white shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
             {/* Drawer Header */}
             <div className="px-8 py-6 border-b border-neutral-100 flex items-center justify-between bg-neutral-50/50">
               <div>
                 <h2 className="text-xl font-serif text-neutral-900">Your Catalog</h2>
-                <p className="text-sm font-medium text-neutral-500 mt-1">Select from your approved styles.</p>
+                <p className="text-sm font-medium text-neutral-500 mt-1">Select from your approved, suggested, or past styles.</p>
               </div>
               <button 
                 onClick={() => setIsDrawerOpen(false)}
-                className="w-10 h-10 rounded-full bg-white border border-neutral-200 flex items-center justify-center text-neutral-500 hover:text-black hover:border-black transition-colors shadow-sm"
+                className="w-10 h-10 rounded-full bg-white border border-neutral-200 flex items-center justify-center text-neutral-500 hover:text-black hover:border-black transition-colors shadow-sm cursor-pointer"
               >
                 <X size={20} />
               </button>
             </div>
+
+            {/* Drawer Tabs */}
+            <div className="flex gap-4 border-b border-neutral-100 px-8 py-3 overflow-x-auto shrink-0 bg-neutral-50/50">
+              {hasWovnRack && (
+                <button
+                  type="button"
+                  onClick={() => setActiveLibraryTab('wovn')}
+                  className={`text-sm font-bold pb-1.5 border-b-2 whitespace-nowrap transition-all cursor-pointer ${
+                    activeLibraryTab === 'wovn' 
+                      ? 'text-black border-black' 
+                      : 'text-neutral-400 border-transparent hover:text-black hover:border-black'
+                  }`}
+                >
+                  WOVN Rack ({customerDecks.reduce((acc, deck) => acc + (deck.items || deck.garments || []).length, 0)})
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setActiveLibraryTab('suggested')}
+                className={`text-sm font-bold pb-1.5 border-b-2 whitespace-nowrap transition-all cursor-pointer ${
+                  activeLibraryTab === 'suggested' 
+                    ? 'text-black border-black' 
+                    : 'text-neutral-400 border-transparent hover:text-black hover:border-black'
+                }`}
+              >
+                Suggested ({suggestedItems.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveLibraryTab('past')}
+                className={`text-sm font-bold pb-1.5 border-b-2 whitespace-nowrap transition-all cursor-pointer ${
+                  activeLibraryTab === 'past' 
+                    ? 'text-black border-black' 
+                    : 'text-neutral-400 border-transparent hover:text-black hover:border-black'
+                }`}
+              >
+                Past Garments ({pastGarments.length})
+              </button>
+            </div>
             
             {/* Drawer Content */}
-            <div className="flex-1 overflow-y-auto p-8 flex flex-col gap-8">
-              {isLoadingDecks ? (
-                <div className="flex items-center justify-center p-8">
-                  <div className="animate-spin w-8 h-8 border-4 border-black border-t-transparent rounded-full"></div>
-                </div>
-              ) : customerDecks.length === 0 ? (
-                <div className="flex flex-col items-center justify-center p-8 text-center text-neutral-500">
-                  <PackagePlus size={32} className="mb-4 text-neutral-300" />
-                  <p>No catalog decks connected for this client.</p>
-                  <p className="text-xs mt-2">Connect decks via the Edit Company panel.</p>
-                </div>
-              ) : (
-                customerDecks.map((deck) => (
-                  <div key={deck.id || deck.name} className="flex flex-col gap-4">
-                    <div className="bg-[#f0ebe1] rounded-2xl p-6 border border-[#e6e2db] flex flex-col justify-center items-center text-center">
-                       <h3 className="font-bold text-neutral-900 tracking-tight text-lg">{deck.name || "Catalog Deck"}</h3>
-                       {deck.name && (
-                         <p className="text-[#6b665c] font-bold mt-1 uppercase tracking-widest text-[10px]">Active Collection</p>
-                       )}
-                    </div>
-
-                    <div className="flex flex-col gap-3 mt-1">
-                      {(deck.items || deck.garments || []).map((item: any, idx: number) => {
-                        const style = item.garment_name || item.name || item.style || item.title || 'Unknown Style';
-                        const gender = item.gender || 'Unisex';
-                        const itemNum = item.itemNum || item.garment_id || item.sku || item.id || `GARMENT-${idx+1}`;
-                        
-                        let colors = findColorsInObj({ ...item }) || ['Custom Color'];
-                        if (colors.length === 0) colors = ['Custom Color'];
-                        
-                        let sizes = parseSizesFromItem(item, style);
-
-                        const image = item.mockup_image || item.mock_image || item.original_image || item.image || item.imageUrl || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
-                        
-                        // Rush fee markup logic (15% markup typical on Wovn)
-                        // Safely traverse stringified schema to detect nested booleans regardless of parent structure
-                        const deckStr = JSON.stringify(deck).toLowerCase();
-                        const itemStr = JSON.stringify(item).toLowerCase();
-                        const isRush = deckStr.includes('rush') || itemStr.includes('rush') || deckStr.includes('rush_fee') || itemStr.includes('rush_fee');
-                        
-                        const basePrice = parseFloat(item.msrp || item.price || item.unit_cost || 0);
-                        const price = isRush ? basePrice * 1.15 : basePrice;
-
-                        return (
-                          <div key={item.id || idx} className="group flex items-center gap-5 bg-white border border-neutral-200 hover:border-black transition-colors rounded-2xl p-4 cursor-pointer shadow-[0_2px_10px_rgb(0,0,0,0.02)] hover:shadow-md">
-                            <div className="w-16 h-16 rounded-xl overflow-hidden bg-neutral-50 border border-neutral-100 shrink-0">
-                              <img src={image} alt={style} className="w-full h-full object-cover mix-blend-multiply" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between mb-1">
-                                 <h4 className="font-bold text-neutral-900 text-[15px] truncate pr-2">{style}</h4>
-                                 <span className="text-[10px] font-bold text-neutral-600 bg-neutral-100 px-2 py-0.5 rounded-full shrink-0">{gender}</span>
-                              </div>
-                              {itemNum && itemNum.length < 15 && (
-                                <p className="text-xs font-semibold text-neutral-500">{itemNum}</p>
-                              )}
-                              {price > 0 && (
-                                  <p className="text-xs font-black text-black mt-1 flex items-center gap-2">
-                                      ${price.toFixed(2)}
-                                      {isRush && <span className="text-[9px] font-bold text-neutral-400 italic">includes rush fee</span>}
-                                  </p>
-                              )}
-                              <p className="text-xs text-neutral-400 font-medium mt-1 truncate">{colors.join(' • ')}</p>
-                            </div>
-                            <button 
-                              onClick={() => handleAddItem({ ...item, style, gender, itemNum, colors, sizes, image, price })}
-                              className="w-8 h-8 rounded-full bg-neutral-100 text-neutral-500 group-hover:bg-black group-hover:text-white flex items-center justify-center transition-colors shrink-0"
-                            >
-                               <PackagePlus size={16} strokeWidth={2.5} />
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </div>
+            <div className="flex-1 overflow-y-auto p-8 flex flex-col gap-6">
+              {activeLibraryTab === 'wovn' && (
+                isLoadingDecks ? (
+                  <div className="flex items-center justify-center p-8">
+                    <Loader2 className="animate-spin text-neutral-400" size={24} />
                   </div>
-                ))
+                ) : customerDecks.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center p-8 text-center text-neutral-500">
+                    <PackagePlus size={32} className="mb-4 text-neutral-300" />
+                    <p>No catalog decks connected for this client.</p>
+                  </div>
+                ) : (
+                  customerDecks.map((deck) => (
+                    <div key={deck.id || deck.name} className="flex flex-col gap-4 mb-4">
+                      <div className="bg-[#f0ebe1] rounded-2xl p-6 border border-[#e6e2db] flex flex-col justify-center items-center text-center">
+                         <h3 className="font-bold text-neutral-900 tracking-tight text-lg">{deck.name || "Catalog Deck"}</h3>
+                         {deck.name && (
+                           <p className="text-[#6b665c] font-bold mt-1 uppercase tracking-widest text-[10px]">Active Collection</p>
+                         )}
+                      </div>
+
+                      <div className="flex flex-col gap-3 mt-1">
+                        {(deck.items || deck.garments || []).map((item: any, idx: number) => {
+                          const style = item.garment_name || item.name || item.style || item.title || 'Unknown Style';
+                          const gender = item.gender || 'Unisex';
+                          const itemNum = item.itemNum || item.garment_id || item.sku || item.id || `GARMENT-${idx+1}`;
+                          
+                          let colors = findColorsInObj({ ...item }) || ['Custom Color'];
+                          if (colors.length === 0) colors = ['Custom Color'];
+                          
+                          let sizes = parseSizesFromItem(item, style);
+
+                          const image = item.mockup_image || item.mock_image || item.original_image || item.image || item.imageUrl || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
+                          
+                          const deckStr = JSON.stringify(deck).toLowerCase();
+                          const itemStr = JSON.stringify(item).toLowerCase();
+                          const isRush = deckStr.includes('rush') || itemStr.includes('rush') || deckStr.includes('rush_fee') || itemStr.includes('rush_fee');
+                          
+                          const basePrice = parseFloat(item.msrp || item.price || item.unit_cost || 0);
+                          const price = isRush ? basePrice * 1.15 : basePrice;
+
+                          return (
+                            <div key={item.id || idx} className="group flex items-center gap-5 bg-white border border-neutral-200 hover:border-black transition-colors rounded-2xl p-4 cursor-pointer shadow-[0_2px_10px_rgb(0,0,0,0.02)] hover:shadow-md">
+                              <div className="w-16 h-16 rounded-xl overflow-hidden bg-neutral-50 border border-neutral-100 shrink-0">
+                                <img src={image} alt={style} className="w-full h-full object-cover mix-blend-multiply" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between mb-1">
+                                   <h4 className="font-bold text-neutral-900 text-[15px] truncate pr-2">{style}</h4>
+                                   <span className="text-[10px] font-bold text-neutral-600 bg-neutral-100 px-2 py-0.5 rounded-full shrink-0">{gender}</span>
+                                </div>
+                                {itemNum && itemNum.length < 15 && (
+                                  <p className="text-xs font-semibold text-neutral-500">{itemNum}</p>
+                                )}
+                                {price > 0 && (
+                                    <p className="text-xs font-black text-black mt-1 flex items-center gap-2">
+                                        ${price.toFixed(2)}
+                                        {isRush && <span className="text-[9px] font-bold text-neutral-400 italic">includes rush fee</span>}
+                                    </p>
+                                )}
+                                <p className="text-xs text-neutral-400 font-medium mt-1 truncate">{colors.join(' • ')}</p>
+                              </div>
+                              <button 
+                                onClick={() => handleAddItem({ ...item, style, gender, itemNum, colors, sizes, image, price })}
+                                className="w-8 h-8 rounded-full bg-neutral-100 text-neutral-500 group-hover:bg-black group-hover:text-white flex items-center justify-center transition-colors shrink-0 cursor-pointer"
+                              >
+                                 <PackagePlus size={16} strokeWidth={2.5} />
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))
+                )
+              )}
+
+              {activeLibraryTab === 'suggested' && (
+                suggestedItems.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center p-8 text-center text-neutral-500">
+                    <PackagePlus size={32} className="mb-4 text-neutral-300" />
+                    <p>No suggested garments found.</p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-3">
+                    {suggestedItems.map((item, idx) => {
+                      const style = item.style || 'Custom Garment';
+                      const itemNum = item.itemNum || '';
+                      const colors = item.colors || ['Custom Color'];
+                      const sizes = item.sizes || ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'];
+                      const image = item.image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
+                      const price = parseFloat(item.price || 0);
+
+                      return (
+                        <div key={item.id || idx} className="group flex items-center gap-5 bg-white border border-neutral-200 hover:border-black transition-colors rounded-2xl p-4 cursor-pointer shadow-[0_2px_10px_rgb(0,0,0,0.02)] hover:shadow-md">
+                          <div className="w-16 h-16 rounded-xl overflow-hidden bg-neutral-50 border border-neutral-100 shrink-0">
+                            <img src={image} alt={style} className="w-full h-full object-cover mix-blend-multiply" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between mb-1">
+                               <h4 className="font-bold text-neutral-900 text-[15px] truncate pr-2">{style}</h4>
+                            </div>
+                            {itemNum && (
+                              <p className="text-xs font-semibold text-neutral-500">{itemNum}</p>
+                            )}
+                            {price > 0 && (
+                                <p className="text-xs font-black text-black mt-1">
+                                    ${price.toFixed(2)}
+                                </p>
+                            )}
+                            <p className="text-xs text-neutral-400 font-medium mt-1 truncate">{colors.join(' • ')}</p>
+                          </div>
+                          <button 
+                            onClick={() => handleAddItem({ ...item, style, itemNum, colors, sizes, image, price })}
+                            className="w-8 h-8 rounded-full bg-neutral-100 text-neutral-500 group-hover:bg-black group-hover:text-white flex items-center justify-center transition-colors shrink-0 cursor-pointer"
+                          >
+                             <PackagePlus size={16} strokeWidth={2.5} />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )
+              )}
+
+              {activeLibraryTab === 'past' && (
+                pastGarments.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center p-8 text-center text-neutral-500">
+                    <RotateCcw size={32} className="mb-4 text-neutral-300 animate-pulse" />
+                    <p>No past ordered garments found.</p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-3">
+                    {pastGarments.map((item, idx) => {
+                      const style = item.style || 'Custom Garment';
+                      const itemNum = item.itemNum || '';
+                      const colors = item.colors || ['Custom Color'];
+                      const sizes = item.sizes || ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'];
+                      const image = item.image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
+                      const price = parseFloat(item.price || 0);
+
+                      return (
+                        <div key={item.id || idx} className="group flex items-center gap-5 bg-white border border-neutral-200 hover:border-black transition-colors rounded-2xl p-4 cursor-pointer shadow-[0_2px_10px_rgb(0,0,0,0.02)] hover:shadow-md">
+                          <div className="w-16 h-16 rounded-xl overflow-hidden bg-neutral-50 border border-neutral-100 shrink-0">
+                            <img src={image} alt={style} className="w-full h-full object-cover mix-blend-multiply" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between mb-1">
+                               <h4 className="font-bold text-neutral-900 text-[15px] truncate pr-2">{style}</h4>
+                            </div>
+                            {itemNum && (
+                              <p className="text-xs font-semibold text-neutral-500">{itemNum}</p>
+                            )}
+                            {price > 0 && (
+                                <p className="text-xs font-black text-black mt-1">
+                                    ${price.toFixed(2)}
+                                </p>
+                            )}
+                            <p className="text-xs text-neutral-400 font-medium mt-1 truncate">{colors.join(' • ')}</p>
+                          </div>
+                          <button 
+                            onClick={() => handleAddItem({ ...item, style, itemNum, colors, sizes, image, price })}
+                            className="w-8 h-8 rounded-full bg-neutral-100 text-neutral-500 group-hover:bg-black group-hover:text-white flex items-center justify-center transition-colors shrink-0 cursor-pointer"
+                          >
+                             <PackagePlus size={16} strokeWidth={2.5} />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )
               )}
               
-              <button className="w-full bg-neutral-50 hover:bg-neutral-100 border-2 border-dashed border-neutral-200 rounded-xl py-4 flex items-center justify-center text-sm font-bold text-neutral-500 hover:text-black transition-all group mt-2 shrink-0">
+              <button className="w-full bg-neutral-50 hover:bg-neutral-100 border-2 border-dashed border-neutral-200 rounded-xl py-4 flex items-center justify-center text-sm font-bold text-neutral-500 hover:text-black transition-all group mt-2 shrink-0 cursor-pointer">
                 <PackagePlus size={18} className="mr-2 group-hover:scale-110 transition-transform" />
                 + Search Global Blank Catalog
               </button>
@@ -695,6 +902,33 @@ export function PortalCreateOrder() {
             </div>
           </div>
         </div>
+      )}
+      {customizingItem && (
+        <GarmentCustomizerModal
+          isOpen={!!customizingItem}
+          onClose={() => setCustomizingItem(null)}
+          garment={{
+            id: customizingItem.instanceId,
+            style: customizingItem.style,
+            image: customizingItem.image,
+            colors: customizingItem.colors || ['Custom Color'],
+            selectedColor: customizingItem.selectedColor
+          }}
+          customerId={customerId || 'CUS-001'}
+          onSave={(customizedData) => {
+            setOrderItems(prev => prev.map(item => item.instanceId === customizingItem.instanceId ? {
+              ...item,
+              style: customizedData.style,
+              selectedColor: customizedData.selectedColor,
+              image: customizedData.image,
+              customized: true,
+              logoPlacement: customizedData.logoPlacement,
+              logoUrl: customizedData.logoUrl,
+              logoName: customizedData.logoName,
+              colors: customizedData.colors || item.colors
+            } : item));
+          }}
+        />
       )}
 
     </div>

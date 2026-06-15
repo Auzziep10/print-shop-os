@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
-import { ArrowLeft, Mail, Phone, MapPin, Building2, ExternalLink, Plus, Loader2, Upload, X, Check, Edit3, ChevronRight, Trash2 } from 'lucide-react';
+import { ArrowLeft, Mail, Phone, MapPin, Building2, ExternalLink, Plus, Loader2, Upload, X, Check, Edit3, ChevronRight, Trash2, FileText } from 'lucide-react';
 
 import { storage, db } from '../../lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -102,6 +102,126 @@ export function CustomerDetail() {
       setNewContact({ name: '', role: '', email: '', viewAll: false });
     } catch (e) {
       console.error("Error adding contact user:", e);
+    }
+  };
+
+  const [suggestedItems, setSuggestedItems] = useState<any[]>([]);
+  const [assets, setAssets] = useState<any[]>([]);
+  const [isAddingSuggestedModalOpen, setIsAddingSuggestedModalOpen] = useState(false);
+  const [customSuggestedItem, setCustomSuggestedItem] = useState({
+    style: '',
+    itemNum: '',
+    description: '',
+    image: '',
+    colors: '',
+    price: ''
+  });
+  const [isUploadingLogoVault, setIsUploadingLogoVault] = useState(false);
+
+  const handleAddSuggestedItem = async (garmentToAdd?: any) => {
+    if (!id) return;
+    let itemObj: any = {};
+    if (garmentToAdd) {
+      itemObj = {
+        id: `sugg-${Date.now()}`,
+        style: garmentToAdd.style || garmentToAdd.name || garmentToAdd.garment_name || 'Suggested Garment',
+        itemNum: garmentToAdd.itemNum || garmentToAdd.garment_id || garmentToAdd.sku || '',
+        description: garmentToAdd.description || '',
+        image: garmentToAdd.image || garmentToAdd.original_image || garmentToAdd.mockup_image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200',
+        colors: garmentToAdd.colors || ['Custom Color'],
+        price: parseFloat(garmentToAdd.price || garmentToAdd.msrp || 0)
+      };
+    } else {
+      if (!customSuggestedItem.style) {
+        alert("Please enter at least a style or garment name.");
+        return;
+      }
+      itemObj = {
+        id: `sugg-${Date.now()}`,
+        style: customSuggestedItem.style,
+        itemNum: customSuggestedItem.itemNum || '',
+        description: customSuggestedItem.description || '',
+        image: customSuggestedItem.image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200',
+        colors: customSuggestedItem.colors ? customSuggestedItem.colors.split(',').map(s => s.trim()) : ['Custom Color'],
+        price: parseFloat(customSuggestedItem.price) || 0
+      };
+    }
+
+    const updated = [...suggestedItems, itemObj];
+    try {
+      await updateDoc(doc(db, 'customers', id), {
+        suggestedItems: updated
+      });
+      setSuggestedItems(updated);
+      setIsAddingSuggestedModalOpen(false);
+      setCustomSuggestedItem({ style: '', itemNum: '', description: '', image: '', colors: '', price: '' });
+      alert("Garment suggested to customer!");
+    } catch (err) {
+      console.error("Error adding suggested item:", err);
+      alert("Failed to suggest garment.");
+    }
+  };
+
+  const handleDeleteSuggestedItem = async (itemId: string) => {
+    if (!id) return;
+    if (!window.confirm("Remove this suggested garment?")) return;
+    
+    const updated = suggestedItems.filter(item => item.id !== itemId);
+    try {
+      await updateDoc(doc(db, 'customers', id), {
+        suggestedItems: updated
+      });
+      setSuggestedItems(updated);
+    } catch (err) {
+      console.error("Error deleting suggested item:", err);
+    }
+  };
+
+  const handleUploadLogoVault = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !id) return;
+
+    setIsUploadingLogoVault(true);
+    try {
+      const storageRef = ref(storage, `portal/${id}/vault/${Date.now()}_${file.name}`);
+      await uploadBytes(storageRef, file);
+      const downloadUrl = await getDownloadURL(storageRef);
+
+      const newAsset = {
+        id: `asset-${Date.now()}`,
+        name: file.name,
+        url: downloadUrl,
+        uploadedAt: new Date().toISOString()
+      };
+
+      const updated = [...assets, newAsset];
+      
+      await updateDoc(doc(db, 'customers', id), {
+        assets: updated
+      });
+
+      setAssets(updated);
+      alert("Logo uploaded to vault!");
+    } catch (err) {
+      console.error("Vault logo upload failed:", err);
+      alert("Failed to upload logo to vault.");
+    } finally {
+      setIsUploadingLogoVault(false);
+    }
+  };
+
+  const handleDeleteVaultLogo = async (assetId: string) => {
+    if (!id) return;
+    if (!window.confirm("Delete this logo from the customer vault?")) return;
+
+    const updated = assets.filter(a => a.id !== assetId);
+    try {
+      await updateDoc(doc(db, 'customers', id), {
+        assets: updated
+      });
+      setAssets(updated);
+    } catch (err) {
+      console.error("Error deleting vault logo:", err);
     }
   };
 
@@ -227,6 +347,8 @@ export function CustomerDetail() {
         if (d.exists()) {
           const data = d.data();
           setLiveCustomerData(data);
+          setSuggestedItems(data.suggestedItems || []);
+          setAssets(data.assets || []);
           
           if (data.logo) setLiveLogo(data.logo);
           
@@ -663,6 +785,103 @@ export function CustomerDetail() {
              </div>
           </div>
         )}
+
+        {/* Suggested Items & Asset Vault Row */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-4">
+          
+          {/* Suggested Items (Recommendations) */}
+          <div className="bg-white rounded-card border border-brand-border shadow-sm p-6 flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between border-b border-brand-border/60 pb-4 mb-4">
+                <div>
+                  <h2 className="font-serif text-2xl text-brand-primary">Suggested Garments</h2>
+                  <p className="text-xs text-brand-secondary mt-1">Items recommended for this customer to order or quote.</p>
+                </div>
+                <PillButton variant="outline" className="px-4 text-xs font-bold gap-1" onClick={() => setIsAddingSuggestedModalOpen(true)}>
+                  <Plus size={14} /> Add Suggestion
+                </PillButton>
+              </div>
+
+              {suggestedItems.length === 0 ? (
+                <div className="bg-brand-bg/50 rounded-xl p-8 text-center text-sm font-medium text-brand-secondary border border-dashed border-brand-border/60 my-4">
+                  No recommended garments yet. Click above to suggest some.
+                </div>
+              ) : (
+                <div className="space-y-3 max-h-[350px] overflow-y-auto pr-1">
+                  {suggestedItems.map((item) => (
+                    <div key={item.id} className="flex items-center gap-4 bg-brand-bg/30 border border-brand-border/60 rounded-2xl p-3 hover:border-brand-primary/20 transition-colors">
+                      <div className="w-12 h-12 bg-white border border-brand-border rounded-xl overflow-hidden flex items-center justify-center p-1 shrink-0">
+                        <img src={item.image} alt={item.style} className="max-w-full max-h-full object-contain mix-blend-multiply" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-bold text-neutral-900 text-sm truncate">{item.style}</h4>
+                        <p className="text-xs text-brand-secondary truncate mt-0.5">{item.itemNum || 'Custom Item'} • ${item.price.toFixed(2)}</p>
+                      </div>
+                      <button 
+                        onClick={() => handleDeleteSuggestedItem(item.id)}
+                        className="text-neutral-400 hover:text-red-500 transition-colors p-2 shrink-0"
+                        title="Remove Suggestion"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Customer Asset Vault */}
+          <div className="bg-white rounded-card border border-brand-border shadow-sm p-6 flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between border-b border-brand-border/60 pb-4 mb-4">
+                <div>
+                  <h2 className="font-serif text-2xl text-brand-primary">Customer Asset Vault</h2>
+                  <p className="text-xs text-brand-secondary mt-1">Saved logos and brand files for print layout.</p>
+                </div>
+                <label className="bg-white border border-brand-border hover:bg-neutral-50 px-4 py-2 rounded-xl text-xs font-bold text-neutral-900 shadow-sm transition-all flex items-center gap-1.5 cursor-pointer">
+                  <input type="file" className="hidden" onChange={handleUploadLogoVault} accept="image/*,application/pdf" />
+                  {isUploadingLogoVault ? (
+                    <Loader2 className="animate-spin" size={14} />
+                  ) : (
+                    <Upload size={14} />
+                  )}
+                  {isUploadingLogoVault ? "Uploading..." : "Upload Logo"}
+                </label>
+              </div>
+
+              {assets.length === 0 ? (
+                <div className="bg-brand-bg/50 rounded-xl p-8 text-center text-sm font-medium text-brand-secondary border border-dashed border-brand-border/60 my-4">
+                  No logos in vault yet. Upload files to save them for the customer.
+                </div>
+              ) : (
+                <div className="grid grid-cols-4 gap-3 max-h-[350px] overflow-y-auto pr-1">
+                  {assets.map((asset) => (
+                    <div key={asset.id} className="aspect-square rounded-xl border border-brand-border/60 p-1 bg-white relative group flex items-center justify-center">
+                      {asset.name.match(/\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i) ? (
+                        <img src={asset.url} alt={asset.name} className="max-w-full max-h-full object-contain mix-blend-multiply cursor-pointer" onClick={() => window.open(asset.url, '_blank')} title={asset.name} />
+                      ) : (
+                        <div className="flex flex-col items-center gap-0.5 cursor-pointer text-center" onClick={() => window.open(asset.url, '_blank')} title={asset.name}>
+                          <FileText size={18} className="text-neutral-500" />
+                          <span className="text-[8px] font-black uppercase text-neutral-500 truncate max-w-[45px]">{asset.name.split('.').pop() || 'FILE'}</span>
+                        </div>
+                      )}
+                      
+                      <button 
+                        onClick={() => handleDeleteVaultLogo(asset.id)}
+                        className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full bg-white border border-neutral-200 shadow-sm text-neutral-400 hover:text-red-500 hover:border-red-500 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Delete Logo"
+                      >
+                        <X size={12} strokeWidth={2.5} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+        </div>
 
         {/* Quotes using Portal Component */}
         <div className="mt-4">
@@ -1260,6 +1479,128 @@ export function CustomerDetail() {
         </div>
       )}
       
+      {/* Add Suggested Item Modal */}
+      {isAddingSuggestedModalOpen && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/40 backdrop-blur-sm p-6 animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-white max-w-lg w-full rounded-2xl shadow-2xl p-6 border border-brand-border flex flex-col">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="font-serif text-xl text-brand-primary">Add Suggested Garment</h3>
+              <button onClick={() => setIsAddingSuggestedModalOpen(false)} className="text-brand-secondary hover:text-brand-primary transition-colors bg-brand-bg border border-brand-border rounded-md p-1">
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-1">
+              
+              {/* Option A: Select from active customer decks */}
+              {customerDecks.length > 0 && (
+                <div className="flex flex-col gap-2.5">
+                  <h4 className="text-xs font-bold uppercase tracking-widest text-neutral-500">A. Suggest from Assigned Decks</h4>
+                  <div className="grid grid-cols-1 gap-2">
+                    {customerDecks.map((deck) => 
+                      (deck.items || deck.garments || []).map((item: any, idx: number) => {
+                        const style = item.garment_name || item.name || item.style || item.title || 'Unknown Style';
+                        const image = item.mockup_image || item.mock_image || item.original_image || item.image || item.imageUrl || '';
+                        return (
+                          <button
+                            key={idx}
+                            onClick={() => handleAddSuggestedItem({ ...item, style, image })}
+                            className="flex items-center gap-3 w-full p-2 border border-brand-border/60 hover:border-brand-primary/40 rounded-xl hover:bg-neutral-50 text-left transition-colors"
+                          >
+                            <div className="w-10 h-10 bg-white border rounded overflow-hidden flex items-center justify-center p-0.5 shrink-0">
+                              <img src={image} className="max-w-full max-h-full object-contain mix-blend-multiply" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-bold text-neutral-900 truncate">{style}</p>
+                              <p className="text-[10px] text-neutral-500 font-semibold">{item.itemNum || item.garment_id || ''}</p>
+                            </div>
+                            <span className="text-xs text-brand-primary font-bold pr-2">+ Suggest</span>
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Option B: Add completely custom suggested item */}
+              <div className="flex flex-col gap-4 border-t border-neutral-100 pt-6">
+                <h4 className="text-xs font-bold uppercase tracking-widest text-neutral-500">B. Add Custom Garment Recommendation</h4>
+                
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Garment Name/Style</label>
+                  <input 
+                    className="w-full bg-brand-bg border border-brand-border/60 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-brand-primary/30 font-medium" 
+                    value={customSuggestedItem.style} 
+                    onChange={e => setCustomSuggestedItem({...customSuggestedItem, style: e.target.value})} 
+                    placeholder="e.g. Classic Organic Tee"
+                  />
+                </div>
+                
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Item / SKU #</label>
+                  <input 
+                    className="w-full bg-brand-bg border border-brand-border/60 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-brand-primary/30 font-medium" 
+                    value={customSuggestedItem.itemNum} 
+                    onChange={e => setCustomSuggestedItem({...customSuggestedItem, itemNum: e.target.value})} 
+                    placeholder="e.g. Org-T01"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Description</label>
+                  <textarea 
+                    rows={2}
+                    className="w-full bg-brand-bg border border-brand-border/60 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-brand-primary/30 font-medium resize-none" 
+                    value={customSuggestedItem.description} 
+                    onChange={e => setCustomSuggestedItem({...customSuggestedItem, description: e.target.value})} 
+                    placeholder="Why this item is recommended..."
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Image URL</label>
+                  <input 
+                    className="w-full bg-brand-bg border border-brand-border/60 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-brand-primary/30 font-medium" 
+                    value={customSuggestedItem.image} 
+                    onChange={e => setCustomSuggestedItem({...customSuggestedItem, image: e.target.value})} 
+                    placeholder="Image URL link"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Price per Unit</label>
+                    <input 
+                      type="number"
+                      step="0.01"
+                      className="w-full bg-brand-bg border border-brand-border/60 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-brand-primary/30 font-medium" 
+                      value={customSuggestedItem.price} 
+                      onChange={e => setCustomSuggestedItem({...customSuggestedItem, price: e.target.value})} 
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Colors (Comma separated)</label>
+                    <input 
+                      className="w-full bg-brand-bg border border-brand-border/60 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-brand-primary/30 font-medium" 
+                      value={customSuggestedItem.colors} 
+                      onChange={e => setCustomSuggestedItem({...customSuggestedItem, colors: e.target.value})} 
+                      placeholder="e.g. Red, Blue, White"
+                    />
+                  </div>
+                </div>
+
+                <PillButton variant="filled" className="w-full justify-center py-3 mt-2" onClick={() => handleAddSuggestedItem()}>
+                  Suggest Custom Garment
+                </PillButton>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      )}
+
       <ShopifyImportModal 
          isOpen={isShopifyImportOpen}
          onClose={() => setIsShopifyImportOpen(false)}

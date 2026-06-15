@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, ChevronDown, Upload, Plus, Trash2, FileText } from 'lucide-react';
+import { ArrowLeft, ChevronDown, Upload, Plus, Trash2, FileText, Loader2, Sparkles } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { db, storage } from '../../lib/firebase';
-import { doc, getDoc, setDoc, query, collection, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, setDoc, query, collection, where, getDocs, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { GarmentCustomizerModal } from '../../components/Portal/GarmentCustomizerModal';
 
 export function PortalRequestQuote() {
   const navigate = useNavigate();
@@ -35,10 +36,17 @@ export function PortalRequestQuote() {
   const [notes, setNotes] = useState('');
   const [budgetTier, setBudgetTier] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [suggestedItems, setSuggestedItems] = useState<any[]>([]);
+  const [wovnRack, setWovnRack] = useState<any[]>([]);
+  const [pastGarments, setPastGarments] = useState<any[]>([]);
+  const [isLoadingLibrary, setIsLoadingLibrary] = useState(true);
+  const [activeLibraryTab, setActiveLibraryTab] = useState('wovn');
+  const [customizingProduct, setCustomizingProduct] = useState<any | null>(null);
 
   useEffect(() => {
     const fetchCustomer = async () => {
       if (!customerId) return;
+      setIsLoadingLibrary(true);
       try {
         const docRef = doc(db, 'customers', customerId);
         const docSnap = await getDoc(docRef);
@@ -58,9 +66,76 @@ export function PortalRequestQuote() {
             zip: data.shippingZip || data.billingZip || '',
             country: data.shippingCountry || data.billingCountry || 'US' // default to US if none exists
           });
+
+          // 1. Fetch Suggested Items
+          setSuggestedItems(data.suggestedItems || []);
+
+          // 2. Fetch WOVN Rack Items (Decks)
+          const deckIds = data.catalogLinkIds || (data.catalogLinkId ? [data.catalogLinkId] : []);
+          if (deckIds.length > 0) {
+            try {
+              const fetchedArrays = await Promise.all(
+                deckIds.map(async (deckId: string) => {
+                  try {
+                    const response = await fetch(`https://wovn-garment-catalog.vercel.app/api/decks?deckId=${deckId}`);
+                    if (response.ok) {
+                      return await response.json();
+                    }
+                  } catch (e) {
+                    console.error("Failed to fetch deck:", deckId, e);
+                  }
+                  return null;
+                })
+              );
+              
+              const validArrays = fetchedArrays.filter(d => d !== null && Array.isArray(d));
+              const flatDecks = validArrays.flat();
+              const allGarments = flatDecks.reduce((acc: any[], deck: any) => {
+                const itemsList = deck.items || deck.garments || [];
+                return [...acc, ...itemsList];
+              }, []);
+              
+              setWovnRack(allGarments);
+            } catch (deckErr) {
+              console.error("Error loading customer decks:", deckErr);
+            }
+          }
+
+          // 3. Fetch Past Ordered Garments
+          try {
+            const q = query(
+              collection(db, 'orders'),
+              where('customerId', '==', customerId)
+            );
+            const querySnapshot = await getDocs(q);
+            const uniqueGarmentsMap: Record<string, any> = {};
+            querySnapshot.forEach((docSnap) => {
+              const orderData = docSnap.data();
+              if (orderData.items && Array.isArray(orderData.items)) {
+                orderData.items.forEach((item: any) => {
+                  const styleKey = item.style || item.itemNum;
+                  if (styleKey && !uniqueGarmentsMap[styleKey]) {
+                    uniqueGarmentsMap[styleKey] = {
+                      id: item.id || `past-${Date.now()}-${Math.random()}`,
+                      style: item.style || 'Custom Garment',
+                      itemNum: item.itemNum || '',
+                      image: item.image || '',
+                      colors: item.color ? [item.color] : ['Custom Color'],
+                      price: parseFloat(item.price || 0)
+                    };
+                  }
+                });
+              }
+            });
+            setPastGarments(Object.values(uniqueGarmentsMap));
+          } catch (orderErr) {
+            console.error("Error loading past orders for quote:", orderErr);
+          }
         }
       } catch (err) {
         console.error("Error fetching customer", err);
+      } finally {
+        setIsLoadingLibrary(false);
       }
     };
     fetchCustomer();
@@ -71,7 +146,40 @@ export function PortalRequestQuote() {
   };
 
   const handleAddProduct = () => {
-    setProducts(prev => [...prev, { id: Date.now(), artworkUrl: null, artworkName: null, isUploading: false }]);
+    const qtyMap: Record<string, number> = {};
+    const defaultSizes = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'OSFA'];
+    defaultSizes.forEach(s => qtyMap[s] = 0);
+    setProducts(prev => [...prev, { id: Date.now(), garmentName: '', color: '', qty: 0, artworkUrl: null, artworkName: null, isUploading: false, sizes: qtyMap }]);
+  };
+
+  const handleAddProductFromLibrary = (item: any) => {
+    const style = item.style || item.garment_name || item.name || item.title || 'Custom Garment';
+    const image = item.image || item.original_image || item.mockup_image || item.mock_image || item.imageUrl || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
+    const colors = item.colors || ['Custom Color'];
+    
+    const qtyMap: Record<string, number> = {};
+    const defaultSizes = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'OSFA'];
+    defaultSizes.forEach(s => qtyMap[s] = 0);
+
+    const newProduct = {
+      id: Date.now() + Math.random(),
+      garmentName: style,
+      color: colors[0] || '',
+      qty: 0,
+      artworkUrl: image,
+      artworkName: 'Garment Artwork',
+      isUploading: false,
+      colors: colors,
+      sizes: qtyMap,
+      customized: false
+    };
+    
+    setProducts(prev => {
+      if (prev.length === 1 && !prev[0].garmentName && !prev[0].artworkUrl) {
+        return [newProduct];
+      }
+      return [...prev, newProduct];
+    });
   };
 
   const handleRemoveProduct = (id: number) => {
@@ -96,6 +204,26 @@ export function PortalRequestQuote() {
         artworkUrl: url,
         artworkName: file.name
       } : p));
+
+      // Save to Asset Vault automatically
+      try {
+        const newAsset = {
+          id: `asset-${Date.now()}`,
+          name: file.name,
+          url: url,
+          uploadedAt: new Date().toISOString()
+        };
+        const docRef = doc(db, 'customers', customerId);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          const currentAssets = docSnap.data().assets || [];
+          await updateDoc(docRef, {
+            assets: [...currentAssets, newAsset]
+          });
+        }
+      } catch (vaultErr) {
+        console.error("Auto vault save failed:", vaultErr);
+      }
     } catch (err) {
       console.error("Upload failed", err);
       setProducts(prev => prev.map((p: any) => p.id === productId ? { ...p, isUploading: false } : p));
@@ -152,16 +280,19 @@ export function PortalRequestQuote() {
         statusIndex: 0, // 0 = Request Created (Quote)
         date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric'}),
         createdAt: new Date().toISOString(),
-        items: products.map(p => ({
-           id: p.id || Date.now(),
-           style: p.garmentName || 'Custom Garment',
-           color: p.color || '',
-           qty: p.qty ? parseInt(p.qty) : 0,
-           image: p.artworkUrl || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200',
-           notes: '',
-           sizes: {},
-           artworks: p.artworkUrl ? [{ url: p.artworkUrl, originalUrl: p.artworkUrl, name: p.artworkName || 'Artwork' }] : []
-        })),
+        items: products.map(p => {
+           const sizeQtySum = p.sizes ? Object.values(p.sizes).reduce((acc: number, val: any) => acc + (parseInt(val.toString()) || 0), 0) : 0;
+           return {
+              id: p.id || Date.now(),
+              style: p.garmentName || 'Custom Garment',
+              color: p.color || '',
+              qty: sizeQtySum || p.qty || 0,
+              image: p.artworkUrl || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200',
+              notes: p.logoPlacement ? `Mockup Placement: ${p.logoPlacement}` : '',
+              sizes: p.sizes || {},
+              artworks: p.artworkUrl ? [{ url: p.artworkUrl, originalUrl: p.artworkUrl, name: p.artworkName || 'Artwork' }] : []
+           };
+        }),
         shippingAddress: {
            street1: shippingAddress.line1,
            city: shippingAddress.city,
@@ -317,6 +448,98 @@ export function PortalRequestQuote() {
             </div>
         </div>
 
+        {/* Library Selector */}
+        <div className="bg-white rounded-3xl p-8 shadow-[0_4px_24px_rgb(0,0,0,0.02)] border border-neutral-100 flex flex-col gap-6">
+          <div className="flex flex-col gap-1">
+            <h2 className="text-xl font-bold text-neutral-900">Select Garments from Library</h2>
+            <p className="text-sm text-neutral-500">Choose from suggested, past, or catalog garments to add to your quote request</p>
+          </div>
+          
+          <div className="flex gap-4 border-b border-neutral-100 pb-3 overflow-x-auto">
+            {['wovn', 'suggested', 'past'].map((tab) => {
+              const label = tab === 'wovn' ? 'WOVN Rack' : tab === 'suggested' ? 'Suggested Items' : 'Past Garments';
+              const count = tab === 'wovn' ? wovnRack.length : tab === 'suggested' ? suggestedItems.length : pastGarments.length;
+              return (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setActiveLibraryTab(tab)}
+                  className={`text-sm font-bold pb-2 border-b-2 whitespace-nowrap transition-all ${
+                    activeLibraryTab === tab 
+                      ? 'text-black border-black' 
+                      : 'text-neutral-400 border-transparent hover:text-black hover:border-black'
+                  }`}
+                >
+                  {label} ({count})
+                </button>
+              );
+            })}
+          </div>
+
+          {isLoadingLibrary ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="animate-spin text-neutral-400" size={24} />
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 max-h-[300px] overflow-y-auto pr-1">
+              {activeLibraryTab === 'wovn' && wovnRack.map((item, idx) => (
+                <div 
+                  key={item.id || idx} 
+                  onClick={() => handleAddProductFromLibrary(item)}
+                  className="group bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 hover:border-black/30 rounded-2xl p-4 flex flex-col items-center text-center cursor-pointer transition-all shadow-[0_2px_8px_rgb(0,0,0,0.01)] hover:shadow-md"
+                >
+                  <div className="w-16 h-16 bg-white border border-neutral-100 rounded-xl overflow-hidden flex items-center justify-center p-1 mb-2">
+                    <img src={item.image || item.original_image || item.mockup_image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200'} alt={item.style || item.name} className="max-w-full max-h-full object-contain mix-blend-multiply" />
+                  </div>
+                  <p className="font-bold text-xs text-neutral-900 truncate w-full">{item.style || item.name || item.garment_name}</p>
+                  <p className="text-[10px] text-neutral-500 truncate w-full mt-0.5">{item.itemNum || item.garment_id || 'Catalog'}</p>
+                  <span className="text-[10px] font-bold text-black mt-2 group-hover:scale-105 transition-transform">+ Add to Request</span>
+                </div>
+              ))}
+              
+              {activeLibraryTab === 'suggested' && suggestedItems.map((item, idx) => (
+                <div 
+                  key={item.id || idx} 
+                  onClick={() => handleAddProductFromLibrary(item)}
+                  className="group bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 hover:border-black/30 rounded-2xl p-4 flex flex-col items-center text-center cursor-pointer transition-all shadow-[0_2px_8px_rgb(0,0,0,0.01)] hover:shadow-md"
+                >
+                  <div className="w-16 h-16 bg-white border border-neutral-100 rounded-xl overflow-hidden flex items-center justify-center p-1 mb-2">
+                    <img src={item.image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200'} alt={item.style} className="max-w-full max-h-full object-contain mix-blend-multiply" />
+                  </div>
+                  <p className="font-bold text-xs text-neutral-900 truncate w-full">{item.style}</p>
+                  <p className="text-[10px] text-neutral-500 truncate w-full mt-0.5">{item.itemNum || 'Suggested'}</p>
+                  <span className="text-[10px] font-bold text-black mt-2 group-hover:scale-105 transition-transform">+ Add to Request</span>
+                </div>
+              ))}
+
+              {activeLibraryTab === 'past' && pastGarments.map((item, idx) => (
+                <div 
+                  key={item.id || idx} 
+                  onClick={() => handleAddProductFromLibrary(item)}
+                  className="group bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 hover:border-black/30 rounded-2xl p-4 flex flex-col items-center text-center cursor-pointer transition-all shadow-[0_2px_8px_rgb(0,0,0,0.01)] hover:shadow-md"
+                >
+                  <div className="w-16 h-16 bg-white border border-neutral-100 rounded-xl overflow-hidden flex items-center justify-center p-1 mb-2">
+                    <img src={item.image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200'} alt={item.style} className="max-w-full max-h-full object-contain mix-blend-multiply" />
+                  </div>
+                  <p className="font-bold text-xs text-neutral-900 truncate w-full">{item.style}</p>
+                  <p className="text-[10px] text-neutral-500 truncate w-full mt-0.5">{item.itemNum || 'Past Order'}</p>
+                  <span className="text-[10px] font-bold text-black mt-2 group-hover:scale-105 transition-transform">+ Add to Request</span>
+                </div>
+              ))}
+
+              {activeLibraryTab === 'wovn' && wovnRack.length === 0 && (
+                <p className="col-span-full text-center py-6 text-sm text-neutral-400 italic">No catalog garments linked.</p>
+              )}
+              {activeLibraryTab === 'suggested' && suggestedItems.length === 0 && (
+                <p className="col-span-full text-center py-6 text-sm text-neutral-400 italic">No suggested items recommendation found.</p>
+              )}
+              {activeLibraryTab === 'past' && pastGarments.length === 0 && (
+                <p className="col-span-full text-center py-6 text-sm text-neutral-400 italic">No past orders found to pull items from.</p>
+              )}
+            </div>
+          )}
+        </div>
+
         {/* Products */}
         <div className="flex flex-col gap-6">
             <div className="flex items-center justify-between">
@@ -336,11 +559,20 @@ export function PortalRequestQuote() {
                 <div key={product.id} className="bg-white rounded-3xl p-8 shadow-[0_4px_24px_rgb(0,0,0,0.02)] border border-neutral-100 flex flex-col gap-6 relative animate-in slide-in-from-bottom-4 fade-in duration-300">
                     <div className="flex items-center justify-between">
                         <h3 className="text-md font-bold text-neutral-900">Product {index + 1}</h3>
-                        {products.length > 1 && (
-                            <button onClick={() => handleRemoveProduct(product.id)} className="text-neutral-400 hover:text-red-500 transition-colors p-2">
-                                <Trash2 size={18} />
+                        <div className="flex items-center gap-3">
+                            <button
+                              type="button"
+                              onClick={() => setCustomizingProduct(product)}
+                              className="bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 text-neutral-800 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm"
+                            >
+                              <Sparkles size={12} className="text-neutral-500" /> Customize
                             </button>
-                        )}
+                            {products.length > 1 && (
+                                <button onClick={() => handleRemoveProduct(product.id)} className="text-neutral-400 hover:text-red-500 transition-colors p-2">
+                                    <Trash2 size={18} />
+                                </button>
+                            )}
+                        </div>
                     </div>
 
                     <div className="flex flex-col gap-6">
@@ -407,7 +639,20 @@ export function PortalRequestQuote() {
                                 {['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'OSFA'].map((size) => (
                                     <div key={size} className="flex flex-col gap-2">
                                         <label className="text-xs font-bold text-neutral-700">{size}</label>
-                                        <input type="number" min="0" placeholder="0" className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-3 text-sm text-neutral-900 focus:outline-none focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400 placeholder:text-neutral-400 transition-all" />
+                                        <input 
+                                            type="number" 
+                                            min="0" 
+                                            placeholder="0" 
+                                            value={product.sizes?.[size] || ''}
+                                            onChange={(e) => {
+                                                const val = parseInt(e.target.value) || 0;
+                                                setProducts(prev => prev.map((p: any) => p.id === product.id ? { 
+                                                    ...p, 
+                                                    sizes: { ...(p.sizes || {}), [size]: val } 
+                                                } : p));
+                                            }}
+                                            className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-3 text-sm text-neutral-900 focus:outline-none focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400 placeholder:text-neutral-400 transition-all" 
+                                        />
                                     </div>
                                 ))}
                             </div>
@@ -522,6 +767,33 @@ export function PortalRequestQuote() {
         </div>
 
       </div>
+      {customizingProduct && (
+        <GarmentCustomizerModal
+          isOpen={!!customizingProduct}
+          onClose={() => setCustomizingProduct(null)}
+          garment={{
+            id: customizingProduct.id,
+            style: customizingProduct.garmentName,
+            image: customizingProduct.artworkUrl,
+            colors: customizingProduct.colors || ['Custom Color'],
+            selectedColor: customizingProduct.color
+          }}
+          customerId={customerId || 'CUS-001'}
+          onSave={(customizedData) => {
+            setProducts(prev => prev.map(p => p.id === customizingProduct.id ? {
+              ...p,
+              garmentName: customizedData.style,
+              color: customizedData.selectedColor,
+              artworkUrl: customizedData.image,
+              artworkName: customizedData.logoName ? `Mockup with ${customizedData.logoName}` : 'Customized Mockup',
+              customized: true,
+              logoPlacement: customizedData.logoPlacement,
+              logoUrl: customizedData.logoUrl,
+              colors: customizedData.colors || p.colors
+            } : p));
+          }}
+        />
+      )}
     </div>
   );
 }

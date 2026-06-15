@@ -16,6 +16,7 @@ const Login = lazy(() => import('./pages/Auth/Login').then(m => ({ default: m.Lo
 const PortalOrders = lazy(() => import('./pages/Portal/PortalOrders').then(m => ({ default: m.PortalOrders })));
 const PortalCreateOrder = lazy(() => import('./pages/Portal/PortalCreateOrder').then(m => ({ default: m.PortalCreateOrder })));
 const PortalRequestQuote = lazy(() => import('./pages/Portal/PortalRequestQuote').then(m => ({ default: m.PortalRequestQuote })));
+const PortalAssetVault = lazy(() => import('./pages/Portal/PortalAssetVault').then(m => ({ default: m.PortalAssetVault })));
 const SeedData = lazy(() => import('./pages/Seed').then(m => ({ default: m.SeedData })));
 const Settings = lazy(() => import('./pages/Settings/Settings').then(m => ({ default: m.Settings })));
 const WaitingRoom = lazy(() => import('./pages/Auth/WaitingRoom').then(m => ({ default: m.WaitingRoom })));
@@ -123,9 +124,11 @@ function App() {
           <Route path="/portal" element={<PortalLayout />}>
             <Route index element={<PortalOrders />} />
             <Route path="quote" element={<PortalRequestQuote />} />
+            <Route path="vault" element={<PortalAssetVault />} />
             <Route path=":customerId" element={<PortalOrders />} />
             <Route path=":customerId/create" element={<PortalCreateOrder />} />
             <Route path=":customerId/quote" element={<PortalRequestQuote />} />
+            <Route path=":customerId/vault" element={<PortalAssetVault />} />
           </Route>
 
           {/* Protected Application Routes */}
