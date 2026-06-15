@@ -262,10 +262,10 @@ export function GarmentBrowser({ isOpen, onClose, onSelect }: GarmentBrowserProp
         {/* Filters Panel */}
         <div className="px-6 py-4 md:px-8 bg-neutral-50 border-b border-brand-border flex flex-col md:flex-row gap-4 justify-between items-stretch md:items-center shrink-0">
           {/* Search bar */}
-          <div className="relative flex-1 max-w-md">
+          <div className="relative w-full md:w-72 shrink-0">
             <input 
               type="text" 
-              placeholder="Search style numbers, brands, descriptions..."
+              placeholder="Search style numbers, brands..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               className="w-full bg-white border border-brand-border rounded-xl pl-10 pr-4 py-2.5 text-sm text-brand-primary focus:outline-none focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400 placeholder:text-neutral-400 transition-all font-medium"
@@ -274,7 +274,7 @@ export function GarmentBrowser({ isOpen, onClose, onSelect }: GarmentBrowserProp
           </div>
 
           {/* Brand Tabs */}
-          <div className="flex gap-1.5 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
+          <div className="flex-1 min-w-0 flex gap-1.5 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
             {brands.map(brand => (
               <button
                 key={brand}
