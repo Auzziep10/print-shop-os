@@ -1918,7 +1918,7 @@ export function OrderDetail() {
                                                       : 'bg-white border-brand-border text-brand-secondary hover:border-brand-primary hover:text-brand-primary'
                                                 }`}
                                              >
-                                                {sz}
+                                                {sz} ({item.sizes[sz]})
                                              </button>
                                           );
                                        })}
@@ -2078,7 +2078,7 @@ export function OrderDetail() {
                                                      }`}
                                                      title={isExplicitlyLinked ? `Linked to size ${sz}. Click to unlink.` : `Not explicitly linked. Click to link.`}
                                                   >
-                                                     {sz}
+                                                     {sz} ({matchedItem.sizes[sz]})
                                                   </button>
                                                );
                                             })}
