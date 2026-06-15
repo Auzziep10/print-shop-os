@@ -94,10 +94,14 @@ export function MockupCreator({
     const handleMouseMove = (e: MouseEvent) => {
       if (isDragging && containerRef.current) {
         const rect = containerRef.current.getBoundingClientRect();
-        const xPercent = ((e.clientX - rect.left) / rect.width) * 100;
-        const yPercent = ((e.clientY - rect.top) / rect.height) * 100;
-        const valX = Math.max(0, Math.min(100, Math.round(xPercent)));
-        const valY = Math.max(0, Math.min(100, Math.round(yPercent)));
+        const centerXPct = 50;
+        const centerYPct = 50;
+        const xPercentOfCard = ((e.clientX - rect.left) / rect.width) * 100;
+        const yPercentOfCard = ((e.clientY - rect.top) / rect.height) * 100;
+        
+        const scaleFactor = 1.3;
+        const valX = Math.max(0, Math.min(100, Math.round(centerXPct + (xPercentOfCard - centerXPct) / scaleFactor)));
+        const valY = Math.max(0, Math.min(100, Math.round(centerYPct + (yPercentOfCard - centerYPct) / scaleFactor)));
 
         if (activeTab === 'front') {
           setLogoPosFront({ x: valX, y: valY });
@@ -109,7 +113,8 @@ export function MockupCreator({
       if (isResizing && containerRef.current) {
         const rect = containerRef.current.getBoundingClientRect();
         const deltaX = e.clientX - resizeStartPos.current.x;
-        const newScale = resizeStartPos.current.scale + (2 * deltaX / rect.width);
+        const scaleFactor = 1.3;
+        const newScale = resizeStartPos.current.scale + (((2 * deltaX) / scaleFactor) / rect.width);
         const valScale = Math.max(0.05, Math.min(0.8, Math.round(newScale * 100) / 100));
 
         if (activeTab === 'front') {
@@ -203,7 +208,7 @@ export function MockupCreator({
 
   const handleSaveMockup = async () => {
     const hasFront = !!logoUrlFront;
-    const hasBack = !!logoUrlBack && !!garmentBackImageUrl;
+    const hasBack = !!logoUrlBack;
     const isSideBySide = hasFront && hasBack;
 
     if (!hasFront && !hasBack) {
@@ -265,9 +270,9 @@ export function MockupCreator({
 
       if (isSideBySide) {
         await drawSide(garmentImageUrl, logoUrlFront, logoPosFront, logoScaleFront, logoRotationFront, 0);
-        await drawSide(garmentBackImageUrl!, logoUrlBack, logoPosBack, logoScaleBack, logoRotationBack, 600);
+        await drawSide(garmentBackImageUrl || garmentImageUrl, logoUrlBack, logoPosBack, logoScaleBack, logoRotationBack, 600);
       } else if (hasBack) {
-        await drawSide(garmentBackImageUrl!, logoUrlBack, logoPosBack, logoScaleBack, logoRotationBack, 0);
+        await drawSide(garmentBackImageUrl || garmentImageUrl, logoUrlBack, logoPosBack, logoScaleBack, logoRotationBack, 0);
       } else {
         await drawSide(garmentImageUrl, logoUrlFront, logoPosFront, logoScaleFront, logoRotationFront, 0);
       }
@@ -316,98 +321,105 @@ export function MockupCreator({
         <div className="flex-1 bg-neutral-50 flex flex-col items-center justify-center p-4 md:p-6 relative overflow-y-auto border-b md:border-b-0 md:border-r border-neutral-100 gap-4 md:gap-6 animate-in fade-in duration-300 select-none">
           
           {/* Segmented View Selector */}
-          {garmentBackImageUrl && (
-            <div className="flex bg-neutral-200/50 p-1 rounded-2xl gap-1 shadow-inner shrink-0">
-              <button
-                type="button"
-                onClick={() => setActiveTab('front')}
-                className={`px-6 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                  activeTab === 'front'
-                    ? 'bg-white text-black shadow-sm'
-                    : 'text-neutral-500 hover:text-black'
-                }`}
-              >
-                Front View
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab('back')}
-                className={`px-6 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                  activeTab === 'back'
-                    ? 'bg-white text-black shadow-sm'
-                    : 'text-neutral-500 hover:text-black'
-                }`}
-              >
-                Back View
-              </button>
-            </div>
-          )}
+          <div className="flex bg-neutral-200/50 p-1 rounded-2xl gap-1 shadow-inner shrink-0">
+            <button
+              type="button"
+              onClick={() => setActiveTab('front')}
+              className={`px-6 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                activeTab === 'front'
+                  ? 'bg-white text-black shadow-sm'
+                  : 'text-neutral-500 hover:text-black'
+              }`}
+            >
+              Front View
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('back')}
+              className={`px-6 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                activeTab === 'back'
+                  ? 'bg-white text-black shadow-sm'
+                  : 'text-neutral-500 hover:text-black'
+              }`}
+            >
+              Back View {!garmentBackImageUrl && "(No Mockup)"}
+            </button>
+          </div>
 
           {/* Garment + Logo Wrapper */}
           <div 
             ref={containerRef}
-            className="relative h-full max-h-[80vh] aspect-[4/5] bg-white rounded-[2rem] shadow-lg border border-neutral-200/60 overflow-hidden flex items-center justify-center cursor-default shrink-0 transition-all duration-300 hover:shadow-xl p-4 md:p-6"
+            className="relative h-full max-h-[80vh] aspect-[4/5] bg-white rounded-[2rem] shadow-lg border border-neutral-200/60 overflow-hidden flex items-center justify-center cursor-default shrink-0 transition-all duration-300 hover:shadow-xl"
           >
-            {/* Proxied or direct garment image */}
-            <img 
-              src={proxiedGarmentUrl} 
-              alt={garmentName} 
-              className="max-w-full max-h-full object-contain pointer-events-none mix-blend-multiply"
-              draggable="false"
-            />
+            {/* Zoom Wrapper to enlarge shirt */}
+            <div className="relative w-full h-full flex items-center justify-center scale-[1.3]">
+              {/* Proxied or direct garment image */}
+              <img 
+                src={proxiedGarmentUrl} 
+                alt={garmentName} 
+                className="max-w-full max-h-full object-contain pointer-events-none mix-blend-multiply"
+                draggable="false"
+              />
 
-            {/* Logo Layer */}
-            {logoUrl && (
-              <div
-                onMouseDown={handleDragMouseDown}
-                style={{
-                  position: 'absolute',
-                  left: `${logoPos.x}%`,
-                  top: `${logoPos.y}%`,
-                  width: `${logoScale * 100}%`,
-                  transform: 'translate(-50%, -50%)',
-                  zIndex: 20
-                }}
-                className="absolute flex items-center justify-center border border-dashed border-black/40 group/logo select-none cursor-move p-1 bg-white/10 backdrop-blur-[0.5px]"
-              >
-                <img
-                  ref={logoRef}
-                  src={logoUrl}
-                  alt="Overlay logo"
+              {/* Logo Layer */}
+              {logoUrl && (
+                <div
+                  onMouseDown={handleDragMouseDown}
                   style={{
-                    transform: `rotate(${logoRotation}deg)`,
-                    width: '100%',
-                    height: 'auto'
+                    position: 'absolute',
+                    left: `${logoPos.x}%`,
+                    top: `${logoPos.y}%`,
+                    width: `${logoScale * 100}%`,
+                    transform: 'translate(-50%, -50%)',
+                    zIndex: 20
                   }}
-                  className="object-contain transition-shadow select-none pointer-events-none"
-                  draggable="false"
-                />
-                
-                {/* Resize Handle */}
-                <div 
-                  onMouseDown={handleResizeMouseDown}
-                  className="absolute bottom-[-6px] right-[-6px] w-3.5 h-3.5 bg-black border-2 border-white rounded-full cursor-se-resize shadow-md hover:scale-125 transition-transform z-30"
-                />
-              </div>
-            )}
-
-            {/* Empty Slate Instructions */}
-            {!logoUrl && (
-              <label className="absolute inset-0 bg-white/40 backdrop-blur-[1px] flex flex-col items-center justify-center p-6 text-center gap-3 cursor-pointer hover:bg-white/50 transition-all group rounded-[2rem]">
-                <input 
-                  type="file" 
-                  accept="image/png, image/jpeg, image/svg+xml" 
-                  onChange={handleLogoUpload} 
-                  className="hidden" 
-                />
-                <div className="w-10 h-10 bg-white border border-neutral-200 text-neutral-500 rounded-full flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
-                  <Upload size={16} className="group-hover:text-brand-primary transition-colors" />
+                  className="absolute flex items-center justify-center border border-dashed border-black/40 group/logo select-none cursor-move p-1 bg-white/10 backdrop-blur-[0.5px]"
+                >
+                  <img
+                    ref={logoRef}
+                    src={logoUrl}
+                    alt="Overlay logo"
+                    style={{
+                      transform: `rotate(${logoRotation}deg)`,
+                      width: '100%',
+                      height: 'auto'
+                    }}
+                    className="object-contain transition-shadow select-none pointer-events-none"
+                    draggable="false"
+                  />
+                  
+                  {/* Resize Handle */}
+                  <div 
+                    onMouseDown={handleResizeMouseDown}
+                    className="absolute bottom-[-6px] right-[-6px] w-3.5 h-3.5 bg-black border-2 border-white rounded-full cursor-se-resize shadow-md hover:scale-125 transition-transform z-30"
+                  />
                 </div>
-                <p className="text-sm font-bold text-neutral-700 group-hover:text-brand-primary transition-colors">No logo uploaded yet</p>
-                <p className="text-xs text-neutral-500 max-w-[200px] leading-relaxed">
-                  Click here or upload a transparent logo file on the right side to overlay on the shirt ({activeTab.toUpperCase()}).
-                </p>
-              </label>
+              )}
+
+              {/* Empty Slate Instructions */}
+              {!logoUrl && (
+                <label className="absolute inset-0 bg-white/40 backdrop-blur-[1px] flex flex-col items-center justify-center p-6 text-center gap-3 cursor-pointer hover:bg-white/50 transition-all group rounded-[2rem]">
+                  <input 
+                    type="file" 
+                    accept="image/png, image/jpeg, image/svg+xml" 
+                    onChange={handleLogoUpload} 
+                    className="hidden" 
+                  />
+                  <div className="w-15 h-15 bg-white border border-neutral-200 text-neutral-500 rounded-full flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
+                    <Upload size={16} className="group-hover:text-brand-primary transition-colors" />
+                  </div>
+                  <p className="text-sm font-bold text-neutral-700 group-hover:text-brand-primary transition-colors">No logo uploaded yet</p>
+                  <p className="text-xs text-neutral-500 max-w-[200px] leading-relaxed">
+                    Click here or upload a transparent logo file on the right side to overlay on the shirt ({activeTab.toUpperCase()}).
+                  </p>
+                </label>
+              )}
+            </div>
+            
+            {!garmentBackImageUrl && activeTab === 'back' && (
+              <span className="absolute bottom-4 left-4 text-[9px] font-bold uppercase tracking-widest text-neutral-400 bg-neutral-50 border border-neutral-200 px-2 py-0.5 rounded shadow-sm z-30">
+                USING FRONT IMAGE REFERENCE
+              </span>
             )}
           </div>
         </div>
