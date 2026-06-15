@@ -1890,8 +1890,10 @@ export function OrderDetail() {
                            {/* Size checklist */}
                            {selectedCostItemId && (() => {
                               const item = order.items?.find((i: any) => i.id === selectedCostItemId);
-                              if (!item?.sizes) return null;
-                              const sizes = Object.keys(item.sizes).sort((a, b) => sortSizes(a, b));
+                              const sizes = Object.entries(item.sizes)
+                                 .filter(([_, qty]: [string, any]) => (parseInt(qty) || 0) > 0)
+                                 .map(([sz]) => sz)
+                                 .sort((a, b) => sortSizes(a, b));
                               if (sizes.length === 0) return null;
                               return (
                                  <div className="mt-3 bg-neutral-50/50 border border-brand-border/60 p-3 rounded-lg">
@@ -2039,7 +2041,10 @@ export function OrderDetail() {
                                   {cost.itemId && (() => {
                                       const matchedItem = order.items?.find((i: any) => i.id === cost.itemId);
                                       if (!matchedItem) return null;
-                                      const sizes = Object.keys(matchedItem.sizes || {}).sort((a, b) => sortSizes(a, b));
+                                      const sizes = Object.entries(matchedItem.sizes || {})
+                                          .filter(([_, qty]: [string, any]) => (parseInt(qty) || 0) > 0)
+                                          .map(([sz]) => sz)
+                                          .sort((a, b) => sortSizes(a, b));
                                       if (sizes.length === 0) return null;
                                       return (
                                          <div className="flex items-center gap-1.5 mt-2.5 flex-wrap w-full">
