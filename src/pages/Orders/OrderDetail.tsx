@@ -111,7 +111,8 @@ export function OrderDetail() {
       receiptUrl: receiptUrl || null,
       receiptName: receiptName || null,
       createdAt: new Date().toISOString(),
-      itemId: selectedCostItemId || null
+      itemId: selectedCostItemId || null,
+      linkedSizes: selectedCostItemId ? selectedCostSizes : []
     };
     
     const currentCosts = order.costs || [];
@@ -147,6 +148,7 @@ export function OrderDetail() {
       setReceiptUrl('');
       setReceiptName('');
       setSelectedCostItemId('');
+      setSelectedCostSizes([]);
     } catch (err) {
       console.error("Error adding cost:", err);
       alert("Failed to save expense. Please try again.");
@@ -333,6 +335,7 @@ export function OrderDetail() {
   const [receiptName, setReceiptName] = useState('');
   const [isUploadingReceipt, setIsUploadingReceipt] = useState(false);
   const [selectedCostItemId, setSelectedCostItemId] = useState('');
+  const [selectedCostSizes, setSelectedCostSizes] = useState<string[]>([]);
   
   // Shopify Product Search
   const [shopifySearchQuery, setShopifySearchQuery] = useState('');
@@ -1351,7 +1354,10 @@ export function OrderDetail() {
                                       {itemExpenses.length > 0 && (
                                         <div 
                                           className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest bg-red-50 text-red-700 px-3 py-1.5 rounded-full border border-red-200 shrink-0 whitespace-nowrap shadow-sm cursor-help"
-                                          title={itemExpenses.map((c: any) => `${c.description}: $${parseFloat(c.amount).toFixed(2)}`).join('\n')}
+                                          title={itemExpenses.map((c: any) => {
+                                              const sizeText = c.linkedSizes && c.linkedSizes.length > 0 ? ` (Sizes: ${c.linkedSizes.join(', ')})` : ' (All Sizes)';
+                                              return `${c.description}${sizeText}: $${parseFloat(c.amount).toFixed(2)}`;
+                                           }).join('\n')}
                                         >
                                           <DollarSign size={12} strokeWidth={3} className="text-red-600 animate-pulse" />
                                           <span>Expenses: ${totalItemExpenses.toFixed(2)}</span>
@@ -1853,20 +1859,73 @@ export function OrderDetail() {
                        </div>
 
                        <div>
-                          <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1.5">Connect to Garment (Optional)</label>
-                          <select 
-                             value={selectedCostItemId}
-                             onChange={e => setSelectedCostItemId(e.target.value)}
-                             className="w-full bg-brand-bg border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary focus:bg-white outline-none transition-colors font-semibold"
-                          >
-                             <option value="" className="font-semibold text-brand-secondary">-- Select Garment --</option>
-                             {order.items?.map((item: any) => (
-                                <option key={item.id} value={item.id} className="font-semibold text-brand-primary">
-                                   {item.style} {item.gender && item.gender !== 'Unisex' ? `(${item.gender})` : ''} {item.color ? `- ${item.color}` : ''}
-                                </option>
-                             ))}
-                          </select>
-                       </div>
+                           <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1.5">Connect to Garment (Optional)</label>
+                           <div className="flex gap-2 items-center">
+                              {selectedCostItemId && (() => {
+                                 const item = order.items?.find((i: any) => i.id === selectedCostItemId);
+                                 if (!item?.image) return null;
+                                 return (
+                                    <div className="w-10 h-10 rounded-lg overflow-hidden border border-brand-border bg-neutral-100 flex items-center justify-center shrink-0 shadow-sm">
+                                       <img src={item.image} alt={item.style} className="w-full h-full object-contain p-0.5 mix-blend-multiply" />
+                                    </div>
+                                 );
+                              })()}
+                              <select 
+                                 value={selectedCostItemId}
+                                 onChange={e => {
+                                    setSelectedCostItemId(e.target.value);
+                                    setSelectedCostSizes([]);
+                                 }}
+                                 className="flex-1 bg-brand-bg border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary focus:bg-white outline-none transition-colors font-semibold"
+                              >
+                                 <option value="" className="font-semibold text-brand-secondary">-- Select Garment --</option>
+                                 {order.items?.map((item: any) => (
+                                    <option key={item.id} value={item.id} className="font-semibold text-brand-primary">
+                                       {item.style} {item.gender && item.gender !== 'Unisex' ? `(${item.gender})` : ''} {item.color ? `- ${item.color}` : ''}
+                                    </option>
+                                 ))}
+                              </select>
+                           </div>
+
+                           {/* Size checklist */}
+                           {selectedCostItemId && (() => {
+                              const item = order.items?.find((i: any) => i.id === selectedCostItemId);
+                              if (!item?.sizes) return null;
+                              const sizes = Object.keys(item.sizes).sort((a, b) => sortSizes(a, b));
+                              if (sizes.length === 0) return null;
+                              return (
+                                 <div className="mt-3 bg-neutral-50/50 border border-brand-border/60 p-3 rounded-lg">
+                                    <label className="block text-[9px] font-bold uppercase tracking-widest text-brand-secondary mb-2">Select Sizes to Link</label>
+                                    <div className="flex flex-wrap gap-1.5">
+                                       {sizes.map((sz: string) => {
+                                          const isSelected = selectedCostSizes.includes(sz);
+                                          return (
+                                             <button
+                                                key={sz}
+                                                type="button"
+                                                onClick={() => {
+                                                   if (isSelected) {
+                                                      setSelectedCostSizes(prev => prev.filter(s => s !== sz));
+                                                   } else {
+                                                      setSelectedCostSizes(prev => [...prev, sz]);
+                                                   }
+                                                }}
+                                                className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wide border transition-all ${
+                                                   isSelected
+                                                      ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm'
+                                                      : 'bg-white border-brand-border text-brand-secondary hover:border-brand-primary hover:text-brand-primary'
+                                                }`}
+                                             >
+                                                {sz}
+                                             </button>
+                                          );
+                                       })}
+                                    </div>
+                                    <p className="text-[9px] text-brand-secondary mt-2 italic">Leave empty to connect to all sizes.</p>
+                                 </div>
+                              );
+                           })()}
+                        </div>
                        
                        <div>
                          <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1.5">Receipt Attachment (Optional)</label>
@@ -1932,32 +1991,35 @@ export function OrderDetail() {
                                            PO/Order: {cost.supplierOrderNumber}
                                         </span>
                                      )}
-                                     {cost.itemId && (() => {
-                                        const matchedItem = order.items?.find((i: any) => i.id === cost.itemId);
-                                        if (!matchedItem) return null;
-                                        return (
-                                           <span className="font-semibold text-[11px] text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-md flex items-center gap-1">
-                                              <ShoppingBag size={10} /> Garment: {matchedItem.style} {matchedItem.color ? `(${matchedItem.color})` : ''}
-                                           </span>
-                                        );
-                                     })()}
-                                     <select
-                                        value={cost.itemId || ''}
-                                        onChange={async (e) => {
-                                           const newCosts = (order.costs || []).map((c: any) => 
-                                              c.id === cost.id ? { ...c, itemId: e.target.value || null } : c
+                                     
+                                     <div className="flex items-center gap-1.5">
+                                        {cost.itemId && (() => {
+                                           const matchedItem = order.items?.find((i: any) => i.id === cost.itemId);
+                                           if (!matchedItem?.image) return null;
+                                           return (
+                                              <div className="w-6 h-6 rounded bg-neutral-100 border border-brand-border flex items-center justify-center shrink-0 shadow-sm overflow-hidden" title={matchedItem.style}>
+                                                 <img src={matchedItem.image} alt={matchedItem.style} className="w-full h-full object-contain p-0.5 mix-blend-multiply" />
+                                              </div>
                                            );
-                                           await updateDoc(doc(db, 'orders', order.id), { costs: newCosts });
-                                        }}
-                                        className="bg-neutral-50 hover:bg-neutral-100 text-[10px] font-bold uppercase tracking-wider text-brand-secondary border border-brand-border rounded px-2 py-0.5 outline-none transition-colors max-w-[150px] truncate"
-                                     >
-                                        <option value="">Link to Garment...</option>
-                                        {order.items?.map((item: any) => (
-                                           <option key={item.id} value={item.id}>
-                                              {item.style} {item.color ? `(${item.color})` : ''}
-                                           </option>
-                                        ))}
-                                     </select>
+                                        })()}
+                                        <select
+                                           value={cost.itemId || ''}
+                                           onChange={async (e) => {
+                                              const newCosts = (order.costs || []).map((c: any) => 
+                                                 c.id === cost.id ? { ...c, itemId: e.target.value || null, linkedSizes: [] } : c
+                                              );
+                                              await updateDoc(doc(db, 'orders', order.id), { costs: newCosts });
+                                           }}
+                                           className="bg-neutral-50 hover:bg-neutral-100 text-[10px] font-bold uppercase tracking-wider text-brand-secondary border border-brand-border rounded px-2 py-0.5 outline-none transition-colors max-w-[150px] truncate"
+                                        >
+                                           <option value="">Link to Garment...</option>
+                                           {order.items?.map((item: any) => (
+                                              <option key={item.id} value={item.id}>
+                                                 {item.style} {item.color ? `(${item.color})` : ''}
+                                              </option>
+                                           ))}
+                                        </select>
+                                     </div>
                                      <span className="text-brand-border/60">•</span>
                                      <span>{new Date(cost.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                                      {cost.receiptUrl && (
@@ -1974,6 +2036,50 @@ export function OrderDetail() {
                                         </>
                                      )}
                                   </div>
+                                  {cost.itemId && (() => {
+                                      const matchedItem = order.items?.find((i: any) => i.id === cost.itemId);
+                                      if (!matchedItem) return null;
+                                      const sizes = Object.keys(matchedItem.sizes || {}).sort((a, b) => sortSizes(a, b));
+                                      if (sizes.length === 0) return null;
+                                      return (
+                                         <div className="flex items-center gap-1.5 mt-2.5 flex-wrap w-full">
+                                            <span className="text-[9px] font-extrabold uppercase tracking-widest text-brand-secondary mr-1">Linked Sizes:</span>
+                                            {sizes.map((sz: string) => {
+                                               const isExplicitlyLinked = cost.linkedSizes?.includes(sz);
+                                               const hasSelection = cost.linkedSizes && cost.linkedSizes.length > 0;
+                                               
+                                               return (
+                                                  <button
+                                                     key={sz}
+                                                     type="button"
+                                                     onClick={async () => {
+                                                        let newSizes = cost.linkedSizes ? [...cost.linkedSizes] : [];
+                                                        if (isExplicitlyLinked) {
+                                                           newSizes = newSizes.filter(s => s !== sz);
+                                                        } else {
+                                                           newSizes = [...newSizes, sz];
+                                                        }
+                                                        const newCosts = (order.costs || []).map((c: any) => 
+                                                           c.id === cost.id ? { ...c, linkedSizes: newSizes } : c
+                                                        );
+                                                        await updateDoc(doc(db, 'orders', order.id), { costs: newCosts });
+                                                     }}
+                                                     className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide border transition-all ${
+                                                        isExplicitlyLinked 
+                                                           ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm'
+                                                           : !hasSelection
+                                                              ? 'bg-indigo-50 border-indigo-100 text-indigo-700 hover:bg-indigo-100' 
+                                                              : 'bg-white border-brand-border text-brand-secondary hover:border-brand-primary hover:text-brand-primary'
+                                                     }`}
+                                                     title={isExplicitlyLinked ? `Linked to size ${sz}. Click to unlink.` : `Not explicitly linked. Click to link.`}
+                                                  >
+                                                     {sz}
+                                                  </button>
+                                               );
+                                            })}
+                                         </div>
+                                      );
+                                   })()}
                                </div>
                                
                                <div className="flex items-center gap-4 self-end sm:self-center shrink-0">
