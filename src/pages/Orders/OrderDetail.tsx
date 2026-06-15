@@ -719,6 +719,18 @@ export function OrderDetail() {
            } : i
        );
        activityMessage = `Unmarked size ${size} for ${item.style}`;
+    } else if (action === 'mark_ordered') {
+       const newOrdered = [...(item.orderedSizes || []), size];
+       updatedItems = updatedItems.map((i: any) => 
+           i.id === item.id ? { ...i, orderedSizes: newOrdered } : i
+       );
+       activityMessage = `Marked size ${size} for ${item.style} as ordered`;
+    } else if (action === 'unorder') {
+       const newOrdered = (item.orderedSizes || []).filter((s: string) => s !== size);
+       updatedItems = updatedItems.map((i: any) => 
+           i.id === item.id ? { ...i, orderedSizes: newOrdered } : i
+       );
+       activityMessage = `Unmarked size ${size} for ${item.style} as ordered`;
     } else if (action === 'mark_received') {
        const newReceived = [...(item.receivedSizes || []), size];
        updatedItems = updatedItems.map((i: any) => 
@@ -948,7 +960,8 @@ export function OrderDetail() {
         completedSizes: [],
         inProgressSizes: {},
         sizeStats: {},
-        receivedSizes: []
+        receivedSizes: [],
+        orderedSizes: []
       };
 
       existingItems.splice(index + 1, 0, duplicateItem);
@@ -1502,6 +1515,7 @@ export function OrderDetail() {
                              const isPacked = isSizeFullyBoxed(item, size, qty);
                              const isReceived = item.receivedSizes?.includes(size);
                              const isReturned = item.returnedSizes?.includes(size);
+                             const isOrdered = item.orderedSizes?.includes(size);
 
                              let colorClassTop = 'bg-neutral-300 text-neutral-600 group-hover/sizebtn:bg-neutral-400';
                              let colorClassBottom = (qty > 0 ? 'bg-white text-neutral-800 group-hover/sizebtn:bg-neutral-50' : 'bg-white text-neutral-400');
@@ -1540,6 +1554,11 @@ export function OrderDetail() {
                                  colorClassBottom = 'bg-indigo-50 text-indigo-700';
                                  topContent = <div className="flex items-center gap-[2px]"><Check size={10} strokeWidth={3} /> <span className="text-[10px] leading-none mb-[1px]">{size}</span></div>;
                                  wrapperClass = 'opacity-100 hover:-translate-y-0.5 hover:shadow-sm';
+                             } else if (isOrdered) {
+                                 colorClassTop = 'bg-amber-500 text-white';
+                                 colorClassBottom = 'bg-amber-50 text-amber-700';
+                                 topContent = <div className="flex items-center gap-[2px]"><ShoppingBag size={10} strokeWidth={3} /> <span className="text-[10px] leading-none mb-[1px]">{size}</span></div>;
+                                 wrapperClass = 'opacity-100 hover:-translate-y-0.5 hover:shadow-sm';
                              }
 
                              return (
@@ -1552,7 +1571,7 @@ export function OrderDetail() {
                                  e.stopPropagation(); 
                                  setContextMenu({ x: e.clientX, y: e.clientY, item, size, qty }); 
                                }}
-                               title={isPacked ? "Packed in shipments." : isCompleted ? `Completed. Right-click to manage.` : inProgress ? (inProgress.paused ? "Timer paused. Right-click to resume!" : "Timer running. Click to complete!") : (isReturned ? "Marked for return. Right-click to manage." : (isReceived ? "Click to start timer" : "Click to mark as received"))}
+                               title={isPacked ? "Packed in shipments." : isCompleted ? `Completed. Right-click to manage.` : inProgress ? (inProgress.paused ? "Timer paused. Right-click to resume!" : "Timer running. Click to complete!") : (isReturned ? "Marked for return. Right-click to manage." : (isReceived ? "Click to start timer" : (isOrdered ? "Ordered. Click to mark as received" : "Click to mark as received")))}
                              >
                                {/* Hover hints */}
                                {isReturned && (
@@ -1560,7 +1579,7 @@ export function OrderDetail() {
                                     <RotateCcw size={20} className="text-brand-primary drop-shadow-md" strokeWidth={3} />
                                  </div>
                                )}
-                               {!isReturned && !isReceived && !isCompleted && !isPacked && !inProgress && (
+                               {!isReturned && !isReceived && !isCompleted && !isPacked && !inProgress && !isOrdered && (
                                  <div className="absolute inset-0 bg-brand-primary/5 backdrop-blur-[1px] opacity-0 group-hover/sizebtn:opacity-100 transition-opacity z-10 flex flex-col items-center justify-center rounded-[8px] pointer-events-none">
                                     <Check size={20} className="text-brand-primary drop-shadow-md" strokeWidth={3} />
                                  </div>
@@ -1578,6 +1597,11 @@ export function OrderDetail() {
                                {!isCompleted && !isPacked && inProgress && inProgress.paused && (
                                  <div className="absolute inset-0 bg-brand-primary/5 backdrop-blur-[1px] opacity-0 group-hover/sizebtn:opacity-100 transition-opacity z-10 flex flex-col items-center justify-center rounded-[8px] pointer-events-none">
                                     <Play size={20} className="text-brand-primary drop-shadow-md" strokeWidth={3} />
+                                 </div>
+                               )}
+                               {isOrdered && !isReceived && !isCompleted && !isPacked && !inProgress && (
+                                 <div className="absolute inset-0 bg-brand-primary/5 backdrop-blur-[1px] opacity-0 group-hover/sizebtn:opacity-100 transition-opacity z-10 flex flex-col items-center justify-center rounded-[8px] pointer-events-none">
+                                    <Check size={20} className="text-brand-primary drop-shadow-md" strokeWidth={3} />
                                  </div>
                                )}
 
@@ -3718,6 +3742,22 @@ export function OrderDetail() {
 
             {!contextMenu.item.completedSizes?.includes(contextMenu.size) && !contextMenu.item.inProgressSizes?.[contextMenu.size] && (
                <>
+                 {contextMenu.item.orderedSizes?.includes(contextMenu.size) ? (
+                   <button 
+                     onClick={() => handleContextMenuAction('unorder')}
+                     className="text-left px-3 py-2.5 text-[11px] font-bold uppercase tracking-wider text-amber-600 hover:bg-amber-50 rounded-lg transition-colors flex items-center gap-2"
+                   >
+                     <X size={14} /> Unmark Ordered
+                   </button>
+                 ) : (
+                   <button 
+                     onClick={() => handleContextMenuAction('mark_ordered')}
+                     className="text-left px-3 py-2.5 text-[11px] font-bold uppercase tracking-wider text-amber-600 hover:bg-amber-50 rounded-lg transition-colors flex items-center gap-2"
+                   >
+                     <ShoppingBag size={14} className="text-amber-600" /> Mark Ordered
+                   </button>
+                 )}
+
                  {contextMenu.item.receivedSizes?.includes(contextMenu.size) ? (
                    <button 
                      onClick={() => handleContextMenuAction('unreceive')}
