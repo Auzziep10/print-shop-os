@@ -2,7 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../../lib/firebase';
-import { X, Upload, Loader2, Maximize, Move, Check, FileText } from 'lucide-react';
+import { X, Upload, Loader2, Check, FileText } from 'lucide-react';
+import { getSwatchColor } from '../shared/GarmentBrowser';
 
 interface GarmentCustomizerModalProps {
   isOpen: boolean;
@@ -36,6 +37,66 @@ export function GarmentCustomizerModal({
   const previewRef = useRef<HTMLDivElement>(null);
 
   const activeMockupImage = garment.images?.[selectedColor] || garment.image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
+
+  const [isDragging, setIsDragging] = useState(false);
+  const [isResizing, setIsResizing] = useState(false);
+  const dragStartPos = useRef({ x: 0, y: 0, offsetX: 50, offsetY: 45 });
+  const resizeStartPos = useRef({ x: 0, scale: 30 });
+
+  const handleDragMouseDown = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setIsDragging(true);
+    dragStartPos.current = {
+      x: e.clientX,
+      y: e.clientY,
+      offsetX,
+      offsetY
+    };
+  };
+
+  const handleResizeMouseDown = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setIsResizing(true);
+    resizeStartPos.current = {
+      x: e.clientX,
+      scale
+    };
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (isDragging && previewRef.current) {
+        const rect = previewRef.current.getBoundingClientRect();
+        const xPercent = ((e.clientX - rect.left) / rect.width) * 100;
+        const yPercent = ((e.clientY - rect.top) / rect.height) * 100;
+        setOffsetX(Math.max(0, Math.min(100, Math.round(xPercent))));
+        setOffsetY(Math.max(0, Math.min(100, Math.round(yPercent))));
+      }
+
+      if (isResizing) {
+        const deltaX = e.clientX - resizeStartPos.current.x;
+        const newScale = resizeStartPos.current.scale + (deltaX / 1.8);
+        setScale(Math.max(10, Math.min(100, Math.round(newScale))));
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+      setIsResizing(false);
+    };
+
+    if (isDragging || isResizing) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    }
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging, isResizing, scale, offsetX, offsetY]);
 
   // Initialize
   useEffect(() => {
@@ -227,11 +288,11 @@ export function GarmentCustomizerModal({
         {/* Content Body */}
         <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
           
-          {/* Left Panel: Preview (Canvas Overlay Simulation) */}
-          <div className="flex-1 bg-neutral-100/50 flex items-center justify-center p-6 relative overflow-hidden border-b md:border-b-0 md:border-r border-neutral-100">
+          {/* Left Panel: Preview & Color Swatches */}
+          <div className="flex-1 bg-neutral-100/50 flex flex-col items-center justify-center p-6 relative overflow-y-auto border-b md:border-b-0 md:border-r border-neutral-100 gap-6 animate-in fade-in duration-300">
             <div 
               ref={previewRef}
-              className="relative w-full max-w-[420px] aspect-square bg-white rounded-3xl border border-neutral-200/50 shadow-md p-4 flex items-center justify-center overflow-hidden"
+              className="relative w-full max-w-[400px] aspect-square bg-white rounded-3xl border border-neutral-200/50 shadow-md p-4 flex items-center justify-center overflow-hidden shrink-0"
             >
               {/* Main Garment Image */}
               <img 
@@ -243,7 +304,7 @@ export function GarmentCustomizerModal({
               {/* Logo Overlay */}
               {selectedLogo && isImageFile(selectedLogo.name) && (
                 <div 
-                  className="absolute pointer-events-none flex items-center justify-center border border-dashed border-neutral-400/30 transition-all duration-75"
+                  onMouseDown={handleDragMouseDown}
                   style={{
                     width: `${scale * 1.8}px`,
                     left: `${offsetX}%`,
@@ -251,27 +312,37 @@ export function GarmentCustomizerModal({
                     transform: 'translate(-50%, -50%)',
                     zIndex: 20
                   }}
+                  className="absolute flex items-center justify-center border border-dashed border-black/40 group/logo select-none cursor-move p-1"
                 >
                   <img 
                     src={selectedLogo.url} 
                     alt="Logo Overlay" 
                     className="max-w-full max-h-full object-contain pointer-events-none" 
                   />
+                  <div 
+                    onMouseDown={handleResizeMouseDown}
+                    className="absolute bottom-[-6px] right-[-6px] w-3 h-3 bg-black border border-white rounded-full cursor-se-resize shadow-sm hover:scale-125 transition-transform z-30"
+                  />
                 </div>
               )}
               
               {selectedLogo && !isImageFile(selectedLogo.name) && (
                 <div 
-                  className="absolute pointer-events-none bg-neutral-900/80 text-white rounded-xl px-3 py-2 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-md border border-white/20"
+                  onMouseDown={handleDragMouseDown}
                   style={{
                     left: `${offsetX}%`,
                     top: `${offsetY}%`,
                     transform: 'translate(-50%, -50%)',
                     zIndex: 20
                   }}
+                  className="absolute bg-neutral-900/80 text-white rounded-xl px-3 py-2 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-md border border-white/20 cursor-move select-none p-1 group/logo"
                 >
                   <FileText size={12} />
                   <span>{selectedLogo.name.split('.').pop() || 'FILE'}</span>
+                  <div 
+                    onMouseDown={handleResizeMouseDown}
+                    className="absolute bottom-[-6px] right-[-6px] w-3 h-3 bg-black border border-white rounded-full cursor-se-resize shadow-sm hover:scale-125 transition-transform z-30"
+                  />
                 </div>
               )}
 
@@ -279,105 +350,85 @@ export function GarmentCustomizerModal({
                 Placement: {placement}
               </span>
             </div>
-          </div>
 
-          {/* Right Panel: Controls */}
-          <div className="w-full md:w-[420px] overflow-y-auto p-8 flex flex-col gap-6">
-            
-            {/* Color Selector */}
+            {/* Circular Swatches below garment */}
             {garment.colors && garment.colors.length > 0 && (
-              <div className="flex flex-col gap-2.5">
-                <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Color Selection</label>
-                <div className="flex flex-wrap gap-2">
-                  {garment.colors.map((c: string) => (
-                    <button
-                      key={c}
-                      onClick={() => setSelectedColor(c)}
-                      className={`px-4 py-2 text-xs font-bold rounded-xl border transition-all ${
-                        selectedColor === c 
-                          ? 'bg-black text-white border-black shadow-sm' 
-                          : 'bg-white text-neutral-700 border-neutral-200 hover:border-black/30'
-                      }`}
-                    >
-                      {c}
-                    </button>
-                  ))}
+              <div className="w-full max-w-[400px] flex flex-col gap-2">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 text-center">
+                  Select Garment Color: <strong className="text-neutral-955">{selectedColor}</strong>
+                </span>
+                <div className="flex flex-wrap gap-2.5 justify-center max-h-[140px] overflow-y-auto p-1 custom-scrollbar">
+                  {garment.colors.map((c: string) => {
+                    const swatchHex = getSwatchColor(c, true);
+                    const isActive = selectedColor === c;
+                    const isWhite = c.toLowerCase() === 'white';
+                    
+                    return (
+                      <button
+                        key={c}
+                        type="button"
+                        title={c}
+                        onClick={() => setSelectedColor(c)}
+                        className={`w-6 h-6 rounded-full border transition-all relative cursor-pointer ${
+                          isActive 
+                            ? 'ring-2 ring-black ring-offset-2 scale-110 shadow-sm' 
+                            : 'border-neutral-300 hover:scale-105'
+                        }`}
+                        style={{ 
+                          backgroundColor: swatchHex.startsWith('linear-gradient') ? 'transparent' : swatchHex,
+                          backgroundImage: swatchHex.startsWith('linear-gradient') ? swatchHex : 'none',
+                          borderColor: isWhite ? '#D1D5DB' : 'transparent' 
+                        }}
+                      >
+                        {isActive && (
+                          <span className="absolute inset-0 flex items-center justify-center">
+                            <Check 
+                              size={12} 
+                              strokeWidth={3}
+                              className={c.toLowerCase() === 'white' || c.toLowerCase() === 'silver' || c.toLowerCase() === 'athletic heather' ? 'text-black' : 'text-white'} 
+                            />
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}
+          </div>
 
-            {/* Design Placement */}
+          {/* Right Panel: Controls */}
+          <div className="w-full md:w-[380px] overflow-y-auto p-8 flex flex-col gap-6 shrink-0 border-l border-neutral-150">
+            
+            {/* Design Placement Presets */}
             <div className="flex flex-col gap-2.5">
-              <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Logo Placement</label>
-              <div className="grid grid-cols-3 gap-2">
-                {['Front', 'Back', 'Left Chest', 'Right Chest', 'Sleeve', 'Pocket'].map((pos) => (
+              <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Logo Placement Presets</label>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { name: 'Center Front', pos: 'Front', x: 50, y: 45 },
+                  { name: 'Center Back', pos: 'Back', x: 50, y: 40 },
+                  { name: 'Left Chest', pos: 'Left Chest', x: 38, y: 32 },
+                  { name: 'Right Chest', pos: 'Right Chest', x: 62, y: 32 },
+                  { name: 'Left Sleeve', pos: 'Sleeve', x: 20, y: 35 },
+                  { name: 'Right Sleeve', pos: 'Sleeve', x: 80, y: 35 }
+                ].map((preset) => (
                   <button
-                    key={pos}
-                    onClick={() => setPlacement(pos)}
-                    className={`py-2 text-[11px] font-bold rounded-xl border transition-all ${
-                      placement === pos 
+                    key={preset.name}
+                    type="button"
+                    onClick={() => {
+                      setPlacement(preset.pos);
+                      setOffsetX(preset.x);
+                      setOffsetY(preset.y);
+                    }}
+                    className={`py-3 px-2 text-[11px] font-bold rounded-xl border transition-all cursor-pointer ${
+                      placement === preset.pos && offsetX === preset.x && offsetY === preset.y
                         ? 'bg-black text-white border-black shadow-sm' 
                         : 'bg-white text-neutral-600 border-neutral-200 hover:border-black/30'
                     }`}
                   >
-                    {pos}
+                    {preset.name}
                   </button>
                 ))}
-              </div>
-            </div>
-
-            {/* Position Sliders */}
-            <div className="flex flex-col gap-4 border-t border-neutral-100 pt-6">
-              <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Positioning Controls</label>
-              
-              <div className="space-y-4 px-1">
-                {/* Scale Slider */}
-                <div className="flex flex-col gap-1.5">
-                  <div className="flex justify-between text-xs font-bold text-neutral-600">
-                    <span className="flex items-center gap-1"><Maximize size={12} /> Size</span>
-                    <span>{scale}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="10"
-                    max="100"
-                    value={scale}
-                    onChange={(e) => setScale(Number(e.target.value))}
-                    className="w-full accent-black cursor-pointer"
-                  />
-                </div>
-
-                {/* Offset X Slider */}
-                <div className="flex flex-col gap-1.5">
-                  <div className="flex justify-between text-xs font-bold text-neutral-600">
-                    <span className="flex items-center gap-1"><Move size={12} /> Horizontal Position</span>
-                    <span>{offsetX}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={offsetX}
-                    onChange={(e) => setOffsetX(Number(e.target.value))}
-                    className="w-full accent-black cursor-pointer"
-                  />
-                </div>
-
-                {/* Offset Y Slider */}
-                <div className="flex flex-col gap-1.5">
-                  <div className="flex justify-between text-xs font-bold text-neutral-600">
-                    <span className="flex items-center gap-1"><Move size={12} className="rotate-90" /> Vertical Position</span>
-                    <span>{offsetY}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={offsetY}
-                    onChange={(e) => setOffsetY(Number(e.target.value))}
-                    className="w-full accent-black cursor-pointer"
-                  />
-                </div>
               </div>
             </div>
 

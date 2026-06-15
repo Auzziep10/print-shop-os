@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { X, Upload, RotateCw, Maximize2, Check, RefreshCw, AlignCenter, AlignLeft } from 'lucide-react';
+import { X, Upload, RotateCw, Check, RefreshCw, AlignCenter, AlignLeft } from 'lucide-react';
 import { storage } from '../../lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
@@ -36,11 +36,72 @@ export function MockupCreator({
   const [logoScale, setLogoScale] = useState(0.3); // default 30% of garment width
   const [logoRotation, setLogoRotation] = useState(0); // in degrees (0 - 360)
 
-  // Dragging states
+  // Dragging and resizing states
   const [isDragging, setIsDragging] = useState(false);
+  const [isResizing, setIsResizing] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const logoRef = useRef<HTMLImageElement>(null);
-  const dragStartOffset = useRef({ x: 0, y: 0 });
+  
+  const dragStartPos = useRef({ x: 0, y: 0, xPct: 50, yPct: 35 });
+  const resizeStartPos = useRef({ x: 0, scale: 0.3 });
+
+  const handleDragMouseDown = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setIsDragging(true);
+    dragStartPos.current = {
+      x: e.clientX,
+      y: e.clientY,
+      xPct: logoPos.x,
+      yPct: logoPos.y
+    };
+  };
+
+  const handleResizeMouseDown = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setIsResizing(true);
+    resizeStartPos.current = {
+      x: e.clientX,
+      scale: logoScale
+    };
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (isDragging && containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        const xPercent = ((e.clientX - rect.left) / rect.width) * 100;
+        const yPercent = ((e.clientY - rect.top) / rect.height) * 100;
+        setLogoPos({
+          x: Math.max(0, Math.min(100, Math.round(xPercent))),
+          y: Math.max(0, Math.min(100, Math.round(yPercent)))
+        });
+      }
+
+      if (isResizing && containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        const deltaX = e.clientX - resizeStartPos.current.x;
+        const newScale = resizeStartPos.current.scale + (2 * deltaX / rect.width);
+        setLogoScale(Math.max(0.05, Math.min(0.8, Math.round(newScale * 100) / 100)));
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+      setIsResizing(false);
+    };
+
+    if (isDragging || isResizing) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    }
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging, isResizing, logoScale, logoPos]);
 
   // Update logo url if initial logo changes
   useEffect(() => {
@@ -67,61 +128,6 @@ export function MockupCreator({
       alert('Failed to upload logo image.');
     } finally {
       setIsUploadingLogo(false);
-    }
-  };
-
-  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!logoUrl || !containerRef.current || !logoRef.current) return;
-    
-    // Check if clicking the logo or its container
-    const logoRect = logoRef.current.getBoundingClientRect();
-    const clickX = e.clientX;
-    const clickY = e.clientY;
-
-    if (
-      clickX >= logoRect.left &&
-      clickX <= logoRect.right &&
-      clickY >= logoRect.top &&
-      clickY <= logoRect.bottom
-    ) {
-      e.preventDefault();
-      setIsDragging(true);
-      (e.target as HTMLElement).setPointerCapture(e.pointerId);
-
-      // Find pointer offset relative to logo center (in pixels)
-      const logoCenterX = logoRect.left + logoRect.width / 2;
-      const logoCenterY = logoRect.top + logoRect.height / 2;
-      dragStartOffset.current = {
-        x: clickX - logoCenterX,
-        y: clickY - logoCenterY
-      };
-    }
-  };
-
-  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!isDragging || !containerRef.current || !logoUrl) return;
-
-    const containerRect = containerRef.current.getBoundingClientRect();
-    
-    // Calculate new center based on pointer position minus initial click offset
-    const newCenterX = e.clientX - containerRect.left - dragStartOffset.current.x;
-    const newCenterY = e.clientY - containerRect.top - dragStartOffset.current.y;
-
-    // Convert to percentage of container
-    const xPct = Math.max(0, Math.min(100, (newCenterX / containerRect.width) * 100));
-    const yPct = Math.max(0, Math.min(100, (newCenterY / containerRect.height) * 100));
-
-    setLogoPos({ x: xPct, y: yPct });
-  };
-
-  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (isDragging) {
-      setIsDragging(false);
-      try {
-        (e.target as HTMLElement).releasePointerCapture(e.pointerId);
-      } catch {
-        // Safe fallback if target doesn't support capture
-      }
     }
   };
 
@@ -281,10 +287,7 @@ export function MockupCreator({
           {/* Garment + Logo Wrapper */}
           <div 
             ref={containerRef}
-            onPointerDown={handlePointerDown}
-            onPointerMove={handlePointerMove}
-            onPointerUp={handlePointerUp}
-            className="w-full max-w-[360px] aspect-[4/5] relative bg-white rounded-2xl shadow-sm border border-neutral-200/60 overflow-hidden flex items-center justify-center cursor-move"
+            className="w-full max-w-[360px] aspect-[4/5] relative bg-white rounded-2xl shadow-sm border border-neutral-200/60 overflow-hidden flex items-center justify-center cursor-default"
           >
             {/* Proxied or direct garment image */}
             <img 
@@ -297,15 +300,16 @@ export function MockupCreator({
             {/* Logo Layer */}
             {logoUrl && (
               <div
+                onMouseDown={handleDragMouseDown}
                 style={{
                   position: 'absolute',
                   left: `${logoPos.x}%`,
                   top: `${logoPos.y}%`,
                   width: `${logoScale * 100}%`,
                   transform: 'translate(-50%, -50%)',
-                  pointerEvents: 'none' // Pointer events are handled by the container wrapper
+                  zIndex: 20
                 }}
-                className="flex items-center justify-center"
+                className="absolute flex items-center justify-center border border-dashed border-black/40 group/logo select-none cursor-move p-1"
               >
                 <img
                   ref={logoRef}
@@ -316,8 +320,14 @@ export function MockupCreator({
                     width: '100%',
                     height: 'auto'
                   }}
-                  className={`object-contain transition-shadow select-none ${isDragging ? 'ring-2 ring-brand-primary ring-offset-2 rounded-sm shadow-lg' : ''}`}
+                  className="object-contain transition-shadow select-none pointer-events-none"
                   draggable="false"
+                />
+                
+                {/* Resize Handle */}
+                <div 
+                  onMouseDown={handleResizeMouseDown}
+                  className="absolute bottom-[-6px] right-[-6px] w-3 h-3 bg-black border border-white rounded-full cursor-se-resize shadow-sm hover:scale-125 transition-transform z-30"
                 />
               </div>
             )}
@@ -390,24 +400,7 @@ export function MockupCreator({
             {/* Adjustments Section */}
             {logoUrl && (
               <div className="space-y-5 pt-4 border-t border-neutral-100">
-                <label className="text-xs font-bold text-neutral-700 uppercase tracking-wider block">2. Position & Size</label>
-
-                {/* Scale Slider */}
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="font-semibold text-neutral-600 flex items-center gap-1.5"><Maximize2 size={12}/> Logo Scale</span>
-                    <span className="font-bold text-neutral-700">{Math.round(logoScale * 100)}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0.05"
-                    max="0.8"
-                    step="0.01"
-                    value={logoScale}
-                    onChange={(e) => setLogoScale(parseFloat(e.target.value))}
-                    className="w-full h-1 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-brand-primary"
-                  />
-                </div>
+                <label className="text-xs font-bold text-neutral-700 uppercase tracking-wider block">2. Logo Adjustment</label>
 
                 {/* Rotate Slider */}
                 <div className="space-y-2">
