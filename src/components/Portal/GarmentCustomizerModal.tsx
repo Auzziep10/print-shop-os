@@ -35,6 +35,8 @@ export function GarmentCustomizerModal({
 
   const previewRef = useRef<HTMLDivElement>(null);
 
+  const activeMockupImage = garment.images?.[selectedColor] || garment.image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
+
   // Initialize
   useEffect(() => {
     if (garment) {
@@ -118,7 +120,7 @@ export function GarmentCustomizerModal({
       // Draw background/garment image
       const garmentImg = new Image();
       garmentImg.crossOrigin = "anonymous";
-      garmentImg.src = garment.image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
+      garmentImg.src = activeMockupImage;
       
       await new Promise((resolve, reject) => {
         garmentImg.onload = resolve;
@@ -233,7 +235,7 @@ export function GarmentCustomizerModal({
             >
               {/* Main Garment Image */}
               <img 
-                src={garment.image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200'} 
+                src={activeMockupImage} 
                 alt={garment.style} 
                 className="max-w-full max-h-full object-contain mix-blend-multiply select-none pointer-events-none" 
               />

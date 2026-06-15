@@ -282,7 +282,7 @@ export function PortalCreateOrder() {
              itemNum: item.itemNum || '',
              gender: item.gender || 'Unisex',
              qty: totalQty,
-             image: item.images?.[item.selectedColor] || item.image || '',
+             image: item.customized ? item.image : (item.images?.[item.selectedColor] || item.image || ''),
              notes: item.logoPlacement ? `Mockup Placement: ${item.logoPlacement}` : '',
              sizes: item.quantities,
              artworks: item.logoUrl ? [{ url: item.logoUrl, originalUrl: item.logoUrl, name: item.logoName || 'Logo' }] : []
@@ -432,7 +432,7 @@ export function PortalCreateOrder() {
                   <div className="flex items-start justify-between border-b border-neutral-100 pb-6">
                     <div className="flex gap-5 items-center">
                       <div className="w-20 h-20 rounded-xl overflow-hidden bg-neutral-50 border border-neutral-100 shrink-0">
-                         <img src={item.images?.[item.selectedColor] || item.image} alt={item.style} className="w-full h-full object-cover mix-blend-multiply" />
+                         <img src={item.customized ? item.image : (item.images?.[item.selectedColor] || item.image)} alt={item.style} className="w-full h-full object-cover mix-blend-multiply" />
                       </div>
                       <div>
                         <div className="flex items-center gap-2 mb-1">
@@ -920,6 +920,7 @@ export function PortalCreateOrder() {
             id: customizingItem.instanceId,
             style: customizingItem.style,
             image: customizingItem.image,
+            images: customizingItem.images || null,
             colors: customizingItem.colors || ['Custom Color'],
             selectedColor: customizingItem.selectedColor
           }}
