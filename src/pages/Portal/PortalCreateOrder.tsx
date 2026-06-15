@@ -65,6 +65,7 @@ export function PortalCreateOrder() {
   const [previousOrders, setPreviousOrders] = useState<any[]>([]);
   const [isLoadingPreviousOrders, setIsLoadingPreviousOrders] = useState(true);
   const [isRepeatModalOpen, setIsRepeatModalOpen] = useState(false);
+  const [hasWovnRack, setHasWovnRack] = useState(false);
 
   useEffect(() => {
     const fetchPreviousOrders = async () => {
@@ -156,6 +157,7 @@ export function PortalCreateOrder() {
           const customerData = customerDoc.data();
           // Support both array and single string for backwards compatibility
           const deckIds = customerData.catalogLinkIds || (customerData.catalogLinkId ? [customerData.catalogLinkId] : []);
+          setHasWovnRack(deckIds.length > 0);
           
           if (deckIds.length > 0) {
             const fetchedArrays = await Promise.all(
@@ -356,12 +358,14 @@ export function PortalCreateOrder() {
               </div>
               
               <div className="mt-4 flex items-center justify-center gap-4 flex-wrap">
-                <button 
-                  onClick={() => setIsDrawerOpen(true)}
-                  className="bg-black text-white px-8 py-3.5 rounded-full text-[13px] font-bold tracking-wide hover:bg-neutral-800 hover:scale-[1.02] transition-all shadow-md"
-                >
-                  + Add Garment from my "WOVN Rack"
-                </button>
+                {hasWovnRack && (
+                  <button 
+                    onClick={() => setIsDrawerOpen(true)}
+                    className="bg-black text-white px-8 py-3.5 rounded-full text-[13px] font-bold tracking-wide hover:bg-neutral-800 hover:scale-[1.02] transition-all shadow-md"
+                  >
+                    + Add Garment from my "WOVN Rack"
+                  </button>
+                )}
                 {previousOrders.length > 0 && (
                   <button 
                     onClick={() => setIsRepeatModalOpen(true)}
@@ -446,15 +450,17 @@ export function PortalCreateOrder() {
               ))}
 
               {/* Add Another Garment Button */}
-              <button 
-                onClick={() => setIsDrawerOpen(true)}
-                className="w-full bg-neutral-50 hover:bg-neutral-100 border-2 border-dashed border-neutral-200 rounded-3xl p-6 flex flex-col items-center justify-center text-neutral-500 hover:text-black transition-all group"
-              >
-                <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform mb-3">
-                  <PackagePlus size={20} strokeWidth={2} />
-                </div>
-                <span className="font-bold text-sm tracking-wide">Add Another Garment from my "WOVN Rack"</span>
-              </button>
+              {hasWovnRack && (
+                <button 
+                  onClick={() => setIsDrawerOpen(true)}
+                  className="w-full bg-neutral-50 hover:bg-neutral-100 border-2 border-dashed border-neutral-200 rounded-3xl p-6 flex flex-col items-center justify-center text-neutral-500 hover:text-black transition-all group"
+                >
+                  <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform mb-3">
+                    <PackagePlus size={20} strokeWidth={2} />
+                  </div>
+                  <span className="font-bold text-sm tracking-wide">Add Another Garment from my "WOVN Rack"</span>
+                </button>
+              )}
             </>
           )}
         </div>
