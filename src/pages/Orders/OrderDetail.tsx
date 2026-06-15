@@ -110,16 +110,25 @@ export function OrderDetail() {
       supplierOrderNumber: supplierOrderNumber.trim() || null,
       receiptUrl: receiptUrl || null,
       receiptName: receiptName || null,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      itemId: selectedCostItemId || null
     };
     
     const currentCosts = order.costs || [];
     const updatedCosts = [...currentCosts, newCost];
     
+    let matchedItemStyle = '';
+    if (selectedCostItemId) {
+      const matched = order.items?.find((i: any) => i.id === selectedCostItemId);
+      if (matched) {
+        matchedItemStyle = ` (Connected to ${matched.style})`;
+      }
+    }
+    
     const activity = {
       id: `act-${Date.now()}`,
       type: 'system',
-      message: `Recorded cost: ${newCost.description} ($${amountVal.toFixed(2)}) on card ${cardName}${newCost.supplierOrderNumber ? ` (Supplier Order #${newCost.supplierOrderNumber})` : ''}`,
+      message: `Recorded cost: ${newCost.description} ($${amountVal.toFixed(2)}) on card ${cardName}${newCost.supplierOrderNumber ? ` (Supplier Order #${newCost.supplierOrderNumber})` : ''}${matchedItemStyle}`,
       user: userData?.name || user?.displayName || user?.email?.split('@')[0] || 'Team Member',
       timestamp: new Date().toISOString()
     };
@@ -137,6 +146,7 @@ export function OrderDetail() {
       setSupplierOrderNumber('');
       setReceiptUrl('');
       setReceiptName('');
+      setSelectedCostItemId('');
     } catch (err) {
       console.error("Error adding cost:", err);
       alert("Failed to save expense. Please try again.");
@@ -322,6 +332,7 @@ export function OrderDetail() {
   const [receiptUrl, setReceiptUrl] = useState('');
   const [receiptName, setReceiptName] = useState('');
   const [isUploadingReceipt, setIsUploadingReceipt] = useState(false);
+  const [selectedCostItemId, setSelectedCostItemId] = useState('');
   
   // Shopify Product Search
   const [shopifySearchQuery, setShopifySearchQuery] = useState('');
@@ -1310,6 +1321,8 @@ export function OrderDetail() {
                                 {(() => {
                                   const itemBoxes = order.boxes?.filter((b: any) => b.items?.some((bi: any) => String(bi.id) === String(item.id))) || [];
                                   const hasCourierLabels = itemBoxes.some((b: any) => !!b.labelUrl);
+                                  const itemExpenses = order.costs?.filter((c: any) => c.itemId === item.id) || [];
+                                  const totalItemExpenses = itemExpenses.reduce((sum: number, c: any) => sum + (parseFloat(c.amount) || 0), 0);
                                   
                                   return (
                                     <div className="flex items-center flex-wrap gap-2 mt-3 min-w-0 w-full overflow-visible">
@@ -1335,6 +1348,15 @@ export function OrderDetail() {
                                       >
                                         <Plus size={12} strokeWidth={3} /> <span>Add Shipment</span>
                                       </button>
+                                      {itemExpenses.length > 0 && (
+                                        <div 
+                                          className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest bg-red-50 text-red-700 px-3 py-1.5 rounded-full border border-red-200 shrink-0 whitespace-nowrap shadow-sm cursor-help"
+                                          title={itemExpenses.map((c: any) => `${c.description}: $${parseFloat(c.amount).toFixed(2)}`).join('\n')}
+                                        >
+                                          <DollarSign size={12} strokeWidth={3} className="text-red-600 animate-pulse" />
+                                          <span>Expenses: ${totalItemExpenses.toFixed(2)}</span>
+                                        </div>
+                                      )}
                                       {itemBoxes.length > 0 && (
                                         <>
                                           <div className="group/print relative shrink-0 z-20">
@@ -1605,6 +1627,37 @@ export function OrderDetail() {
                                   </a>
                                );
                             })}
+                             {(() => {
+                                const itemExpenses = order.costs?.filter((c: any) => c.itemId === item.id) || [];
+                                if (itemExpenses.length === 0) return null;
+                                
+                                const totalItemExpenses = itemExpenses.reduce((sum: number, c: any) => sum + (parseFloat(c.amount) || 0), 0);
+                                
+                                const sizeQtySum = item.sizes ? Object.values(item.sizes).reduce((acc: number, val: any) => acc + (parseInt(val) || 0), 0) : 0;
+                                const safeQty = item.qty ? parseInt(item.qty.toString().replace(/[^0-9]/g, '')) || 0 : sizeQtySum || 0;
+                                
+                                let safePriceNum = 0;
+                                if (item.price !== undefined && item.price !== null) {
+                                    const pString = item.price.toString().replace(/[^0-9.]/g, '');
+                                    if (pString !== '') safePriceNum = parseFloat(pString);
+                                }
+                                
+                                const revenue = safeQty * safePriceNum;
+                                const netProfit = revenue - totalItemExpenses;
+                                const profitMargin = revenue > 0 ? (netProfit / revenue) * 100 : 0;
+                                
+                                return (
+                                   <>
+                                      <DataPill label="Garment Expenses" value={`$${totalItemExpenses.toFixed(2)}`} />
+                                      {revenue > 0 && (
+                                         <>
+                                            <DataPill label="Garment Profit" value={`$${netProfit.toFixed(2)}`} />
+                                            <DataPill label="Garment Margin" value={`${profitMargin.toFixed(1)}%`} />
+                                         </>
+                                      )}
+                                   </>
+                                );
+                             })()}
                          </div>
                       </div>
                    </div>
@@ -1798,6 +1851,22 @@ export function OrderDetail() {
                              required
                           />
                        </div>
+
+                       <div>
+                          <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1.5">Connect to Garment (Optional)</label>
+                          <select 
+                             value={selectedCostItemId}
+                             onChange={e => setSelectedCostItemId(e.target.value)}
+                             className="w-full bg-brand-bg border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary focus:bg-white outline-none transition-colors font-semibold"
+                          >
+                             <option value="" className="font-semibold text-brand-secondary">-- Select Garment --</option>
+                             {order.items?.map((item: any) => (
+                                <option key={item.id} value={item.id} className="font-semibold text-brand-primary">
+                                   {item.style} {item.gender && item.gender !== 'Unisex' ? `(${item.gender})` : ''} {item.color ? `- ${item.color}` : ''}
+                                </option>
+                             ))}
+                          </select>
+                       </div>
                        
                        <div>
                          <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1.5">Receipt Attachment (Optional)</label>
@@ -1863,6 +1932,32 @@ export function OrderDetail() {
                                            PO/Order: {cost.supplierOrderNumber}
                                         </span>
                                      )}
+                                     {cost.itemId && (() => {
+                                        const matchedItem = order.items?.find((i: any) => i.id === cost.itemId);
+                                        if (!matchedItem) return null;
+                                        return (
+                                           <span className="font-semibold text-[11px] text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-md flex items-center gap-1">
+                                              <ShoppingBag size={10} /> Garment: {matchedItem.style} {matchedItem.color ? `(${matchedItem.color})` : ''}
+                                           </span>
+                                        );
+                                     })()}
+                                     <select
+                                        value={cost.itemId || ''}
+                                        onChange={async (e) => {
+                                           const newCosts = (order.costs || []).map((c: any) => 
+                                              c.id === cost.id ? { ...c, itemId: e.target.value || null } : c
+                                           );
+                                           await updateDoc(doc(db, 'orders', order.id), { costs: newCosts });
+                                        }}
+                                        className="bg-neutral-50 hover:bg-neutral-100 text-[10px] font-bold uppercase tracking-wider text-brand-secondary border border-brand-border rounded px-2 py-0.5 outline-none transition-colors max-w-[150px] truncate"
+                                     >
+                                        <option value="">Link to Garment...</option>
+                                        {order.items?.map((item: any) => (
+                                           <option key={item.id} value={item.id}>
+                                              {item.style} {item.color ? `(${item.color})` : ''}
+                                           </option>
+                                        ))}
+                                     </select>
                                      <span className="text-brand-border/60">•</span>
                                      <span>{new Date(cost.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                                      {cost.receiptUrl && (
