@@ -13,6 +13,8 @@ import { ShoppingBag } from 'lucide-react';
 import { ShopifyImportModal } from '../../components/Orders/ShopifyImportModal';
 import { PortalOrders } from '../Portal/PortalOrders';
 import { useOrders } from '../../hooks/useOrders';
+import { GarmentBrowser, getSwatchColor } from '../../components/shared/GarmentBrowser';
+import { Shirt } from 'lucide-react';
 
 export function CustomerDetail() {
   const { id } = useParams();
@@ -117,6 +119,48 @@ export function CustomerDetail() {
     price: ''
   });
   const [isUploadingLogoVault, setIsUploadingLogoVault] = useState(false);
+  const [isUploadingMockup, setIsUploadingMockup] = useState(false);
+  const [isGarmentBrowserOpen, setIsGarmentBrowserOpen] = useState(false);
+  const [selectedSanMarProduct, setSelectedSanMarProduct] = useState<any | null>(null);
+  const [selectedColors, setSelectedColors] = useState<Record<string, boolean>>({});
+
+  const handleMockupUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !id) return;
+    setIsUploadingMockup(true);
+    try {
+      const storageRef = ref(storage, `suggested_items/${id}/${Date.now()}_${file.name}`);
+      await uploadBytes(storageRef, file);
+      const downloadUrl = await getDownloadURL(storageRef);
+      setCustomSuggestedItem(prev => ({ ...prev, image: downloadUrl }));
+      alert("Mockup uploaded successfully!");
+    } catch (err) {
+      console.error("Upload mockup failed:", err);
+      alert("Failed to upload mockup image.");
+    } finally {
+      setIsUploadingMockup(false);
+    }
+  };
+
+  const handleSelectSanMarGarment = (product: any, initialColor: string) => {
+    const swatchImg = product.images[initialColor];
+    const swatchUrl = swatchImg ? (typeof swatchImg === 'string' ? swatchImg : swatchImg.front) : '';
+    setCustomSuggestedItem({
+      style: `${product.brand} ${product.title}`.trim(),
+      itemNum: product.style,
+      description: product.description || '',
+      image: swatchUrl || (Object.values(product.images)[0] as any)?.front || (Object.values(product.images)[0] as any) || '',
+      colors: product.colors.join(', '),
+      price: product.price.toString()
+    });
+    setSelectedSanMarProduct(product);
+    const initialColors: Record<string, boolean> = {};
+    product.colors.forEach((c: string) => {
+      initialColors[c] = true;
+    });
+    setSelectedColors(initialColors);
+    setIsGarmentBrowserOpen(false);
+  };
 
   const handleAddSuggestedItem = async (garmentToAdd?: any) => {
     if (!id) return;
@@ -136,13 +180,37 @@ export function CustomerDetail() {
         alert("Please enter at least a style or garment name.");
         return;
       }
+
+      let finalColors = customSuggestedItem.colors ? customSuggestedItem.colors.split(',').map(s => s.trim()) : ['Custom Color'];
+      let imagesMap: Record<string, string> = {};
+      let mainImage = customSuggestedItem.image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
+
+      if (selectedSanMarProduct) {
+        const chosenColors = selectedSanMarProduct.colors.filter((c: string) => !!selectedColors[c]);
+        if (chosenColors.length > 0) {
+          finalColors = chosenColors;
+          chosenColors.forEach((color: string) => {
+            const imgSet = selectedSanMarProduct.images[color];
+            const url = imgSet ? (typeof imgSet === 'string' ? imgSet : imgSet.front) : '';
+            if (url) {
+              imagesMap[color] = url;
+            }
+          });
+          const defaultColor = chosenColors[0];
+          if (defaultColor && imagesMap[defaultColor]) {
+            mainImage = imagesMap[defaultColor];
+          }
+        }
+      }
+
       itemObj = {
         id: `sugg-${Date.now()}`,
         style: customSuggestedItem.style,
         itemNum: customSuggestedItem.itemNum || '',
         description: customSuggestedItem.description || '',
-        image: customSuggestedItem.image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200',
-        colors: customSuggestedItem.colors ? customSuggestedItem.colors.split(',').map(s => s.trim()) : ['Custom Color'],
+        image: mainImage,
+        colors: finalColors,
+        images: imagesMap,
         price: parseFloat(customSuggestedItem.price) || 0
       };
     }
@@ -155,6 +223,8 @@ export function CustomerDetail() {
       setSuggestedItems(updated);
       setIsAddingSuggestedModalOpen(false);
       setCustomSuggestedItem({ style: '', itemNum: '', description: '', image: '', colors: '', price: '' });
+      setSelectedSanMarProduct(null);
+      setSelectedColors({});
       alert("Garment suggested to customer!");
     } catch (err) {
       console.error("Error adding suggested item:", err);
@@ -1525,7 +1595,102 @@ export function CustomerDetail() {
 
               {/* Option B: Add completely custom suggested item */}
               <div className="flex flex-col gap-4 border-t border-neutral-100 pt-6">
-                <h4 className="text-xs font-bold uppercase tracking-widest text-neutral-500">B. Add Custom Garment Recommendation</h4>
+                <h4 className="text-xs font-bold uppercase tracking-widest text-neutral-500">B. Add custom or blanks catalog recommendation</h4>
+                
+                {/* SanMar selector button */}
+                <button
+                  type="button"
+                  onClick={() => setIsGarmentBrowserOpen(true)}
+                  className="flex items-center justify-center gap-2 w-full p-4 border border-dashed border-black/20 hover:border-black rounded-xl hover:bg-neutral-50 text-left transition-all text-xs font-bold text-neutral-700 cursor-pointer"
+                >
+                  <Shirt size={16} />
+                  Select Blank from SanMar Catalog
+                </button>
+
+                {selectedSanMarProduct && (
+                  <div className="flex items-center justify-between bg-neutral-50 border border-neutral-200/60 rounded-xl p-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-white border border-neutral-100 rounded overflow-hidden flex items-center justify-center p-0.5">
+                        <img 
+                          src={customSuggestedItem.image || (Object.values(selectedSanMarProduct.images)[0] as any)?.front || (Object.values(selectedSanMarProduct.images)[0] as any)} 
+                          className="max-w-full max-h-full object-contain mix-blend-multiply" 
+                        />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-neutral-900 truncate">Selected SanMar product</p>
+                        <p className="text-[10px] text-neutral-500 font-semibold">{selectedSanMarProduct.brand} {selectedSanMarProduct.style}</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedSanMarProduct(null);
+                        setSelectedColors({});
+                        setCustomSuggestedItem({ style: '', itemNum: '', description: '', image: '', colors: '', price: '' });
+                      }}
+                      className="text-xs font-bold text-red-500 hover:text-red-700 transition-colors cursor-pointer"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                )}
+
+                {selectedSanMarProduct && (
+                  <div className="flex flex-col gap-2 bg-neutral-50 p-4 border border-brand-border rounded-xl">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest">
+                        Choose Available Colors ({Object.values(selectedColors).filter(Boolean).length} selected)
+                      </span>
+                      <button 
+                        type="button" 
+                        onClick={() => {
+                          const allActive = Object.values(selectedColors).every(Boolean);
+                          const nextColors: Record<string, boolean> = {};
+                          selectedSanMarProduct.colors.forEach((c: string) => {
+                            nextColors[c] = !allActive;
+                          });
+                          setSelectedColors(nextColors);
+                        }}
+                        className="text-[10px] font-bold text-neutral-400 hover:text-black uppercase tracking-wider cursor-pointer"
+                      >
+                        Toggle All
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 max-h-[140px] overflow-y-auto pr-1 mt-1">
+                      {selectedSanMarProduct.colors.map((color: string) => {
+                        const isChecked = !!selectedColors[color];
+                        const swatchHex = getSwatchColor(color, true);
+                        return (
+                          <label 
+                            key={color} 
+                            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[11px] font-semibold cursor-pointer transition-all select-none ${
+                              isChecked 
+                                ? 'bg-white border-black shadow-sm text-neutral-900' 
+                                : 'bg-white border-neutral-200 text-neutral-400 hover:border-neutral-300 hover:text-neutral-600'
+                            }`}
+                          >
+                            <input 
+                              type="checkbox" 
+                              className="hidden" 
+                              checked={isChecked} 
+                              onChange={() => {
+                                setSelectedColors(prev => ({ ...prev, [color]: !prev[color] }));
+                              }} 
+                            />
+                            <span 
+                              className="w-3.5 h-3.5 rounded-full border border-neutral-200 shrink-0" 
+                              style={{
+                                backgroundColor: swatchHex.startsWith('linear-gradient') ? 'transparent' : swatchHex,
+                                backgroundImage: swatchHex.startsWith('linear-gradient') ? swatchHex : 'none',
+                              }}
+                            />
+                            <span>{color}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
                 
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Garment Name/Style</label>
@@ -1559,13 +1724,47 @@ export function CustomerDetail() {
                 </div>
 
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Image URL</label>
-                  <input 
-                    className="w-full bg-brand-bg border border-brand-border/60 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-brand-primary/30 font-medium" 
-                    value={customSuggestedItem.image} 
-                    onChange={e => setCustomSuggestedItem({...customSuggestedItem, image: e.target.value})} 
-                    placeholder="Image URL link"
-                  />
+                  <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Mockup Image</label>
+                  <div className="flex items-center gap-3">
+                    {customSuggestedItem.image && (
+                      <div className="w-14 h-14 border border-brand-border rounded-xl overflow-hidden bg-neutral-50 flex items-center justify-center p-1 relative shrink-0">
+                        <img src={customSuggestedItem.image} className="max-w-full max-h-full object-contain" />
+                        <button 
+                          type="button"
+                          onClick={() => setCustomSuggestedItem(prev => ({ ...prev, image: '' }))}
+                          className="absolute top-0 right-0 bg-red-500 text-white rounded-bl p-0.5 hover:bg-red-600 transition-colors"
+                          title="Remove mockup image"
+                        >
+                          <X size={10} />
+                        </button>
+                      </div>
+                    )}
+                    <div className="flex-1">
+                      <label className="flex items-center justify-center gap-2 border border-dashed border-neutral-300 hover:border-brand-primary/50 rounded-xl px-4 py-3 bg-neutral-50 hover:bg-neutral-100/50 cursor-pointer transition-all text-xs font-bold text-neutral-600">
+                        <input type="file" className="hidden" accept="image/*" onChange={handleMockupUpload} />
+                        {isUploadingMockup ? (
+                          <>
+                            <Loader2 size={14} className="animate-spin text-neutral-500" />
+                            <span>Uploading Mockup...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Upload size={14} />
+                            <span>{customSuggestedItem.image ? "Change Mockup File" : "Upload Mockup File"}</span>
+                          </>
+                        )}
+                      </label>
+                    </div>
+                  </div>
+                  <div className="relative">
+                    <span className="text-[10px] text-neutral-400 font-bold uppercase block my-1 text-center">or specify image URL</span>
+                    <input 
+                      className="w-full bg-brand-bg border border-brand-border/60 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-brand-primary/30 font-medium placeholder:text-neutral-400" 
+                      value={customSuggestedItem.image} 
+                      onChange={e => setCustomSuggestedItem({...customSuggestedItem, image: e.target.value})} 
+                      placeholder="Image URL link"
+                    />
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -1580,15 +1779,17 @@ export function CustomerDetail() {
                       placeholder="0.00"
                     />
                   </div>
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Colors (Comma separated)</label>
-                    <input 
-                      className="w-full bg-brand-bg border border-brand-border/60 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-brand-primary/30 font-medium" 
-                      value={customSuggestedItem.colors} 
-                      onChange={e => setCustomSuggestedItem({...customSuggestedItem, colors: e.target.value})} 
-                      placeholder="e.g. Red, Blue, White"
-                    />
-                  </div>
+                  {!selectedSanMarProduct && (
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Colors (Comma separated)</label>
+                      <input 
+                        className="w-full bg-brand-bg border border-brand-border/60 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-brand-primary/30 font-medium" 
+                        value={customSuggestedItem.colors} 
+                        onChange={e => setCustomSuggestedItem({...customSuggestedItem, colors: e.target.value})} 
+                        placeholder="e.g. Red, Blue, White"
+                      />
+                    </div>
+                  )}
                 </div>
 
                 <PillButton variant="filled" className="w-full justify-center py-3 mt-2" onClick={() => handleAddSuggestedItem()}>
@@ -1605,6 +1806,11 @@ export function CustomerDetail() {
          isOpen={isShopifyImportOpen}
          onClose={() => setIsShopifyImportOpen(false)}
          customerId={id || ''}
+      />
+      <GarmentBrowser 
+         isOpen={isGarmentBrowserOpen}
+         onClose={() => setIsGarmentBrowserOpen(false)}
+         onSelect={handleSelectSanMarGarment}
       />
       {/* Image Overlay */}
       {expandedImage && (
