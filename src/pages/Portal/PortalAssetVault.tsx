@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { db, storage } from '../../lib/firebase';
-import { Upload, Trash2, Download, Loader2, FileText, Image as ImageIcon, ArrowLeft, Plus } from 'lucide-react';
+import { Upload, Trash2, Download, Loader2, FileText, Image as ImageIcon, ArrowLeft, Plus, X } from 'lucide-react';
 
 export function PortalAssetVault() {
   const { customerId } = useParams();
@@ -14,6 +14,8 @@ export function PortalAssetVault() {
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [selectedAsset, setSelectedAsset] = useState<any | null>(null);
+  const [lightboxBg, setLightboxBg] = useState<'checkerboard' | 'dark' | 'light'>('checkerboard');
 
   useEffect(() => {
     const fetchCustomer = async () => {
@@ -180,12 +182,15 @@ export function PortalAssetVault() {
             >
               {/* Card Top: Preview or Icon */}
               <div className="flex-1 flex flex-col gap-4">
-                <div className="w-full h-32 bg-neutral-50 rounded-2xl overflow-hidden border border-neutral-100 flex items-center justify-center p-2 relative shadow-inner">
+                <div 
+                  onClick={() => isImageFile(asset.name) && setSelectedAsset(asset)}
+                  className={`w-full h-32 bg-checkerboard rounded-2xl overflow-hidden border border-neutral-100 flex items-center justify-center p-2 relative shadow-inner ${isImageFile(asset.name) ? 'cursor-zoom-in' : ''}`}
+                >
                   {isImageFile(asset.name) ? (
                     <img 
                       src={asset.url} 
                       alt={asset.name} 
-                      className="max-w-full max-h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300" 
+                      className="max-w-full max-h-full object-contain group-hover:scale-105 transition-transform duration-300" 
                     />
                   ) : (
                     <div className="flex flex-col items-center gap-2">
@@ -199,9 +204,15 @@ export function PortalAssetVault() {
 
                 <div className="px-1 min-w-0">
                   <h4 
-                    className="font-bold text-neutral-900 text-sm truncate pr-6 cursor-pointer"
+                    className="font-bold text-neutral-900 text-sm truncate pr-6 cursor-pointer hover:text-black/70 transition-colors"
                     title={asset.name}
-                    onClick={() => window.open(asset.url, '_blank')}
+                    onClick={() => {
+                      if (isImageFile(asset.name)) {
+                        setSelectedAsset(asset);
+                      } else {
+                        window.open(asset.url, '_blank');
+                      }
+                    }}
                   >
                     {asset.name}
                   </h4>
@@ -238,6 +249,94 @@ export function PortalAssetVault() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Lightbox Modal */}
+      {selectedAsset && (
+        <div 
+          className="fixed inset-0 z-[200] bg-black/90 backdrop-blur-md flex flex-col justify-between p-6 animate-in fade-in duration-200 pointer-events-auto"
+          onClick={() => setSelectedAsset(null)}
+        >
+          {/* Top Bar */}
+          <div 
+            className="flex items-center justify-between w-full z-10"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex flex-col gap-1 text-left">
+              <h3 className="text-white font-serif font-bold text-base md:text-lg select-all pr-4 break-all">
+                {selectedAsset.name}
+              </h3>
+              <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">
+                Uploaded {new Date(selectedAsset.uploadedAt).toLocaleDateString()}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3 shrink-0">
+              {/* Background Toggles */}
+              <div className="bg-neutral-800/80 border border-neutral-700/50 rounded-full p-1 flex items-center gap-1">
+                {(['checkerboard', 'dark', 'light'] as const).map((bgType) => (
+                  <button
+                    key={bgType}
+                    onClick={() => setLightboxBg(bgType)}
+                    className={`px-3 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase transition-all cursor-pointer ${
+                      lightboxBg === bgType
+                        ? 'bg-white text-black shadow-md'
+                        : 'text-neutral-400 hover:text-white'
+                    }`}
+                  >
+                    {bgType === 'checkerboard' ? 'Grid' : bgType}
+                  </button>
+                ))}
+              </div>
+
+              {/* Download */}
+              <a
+                href={selectedAsset.url}
+                download={selectedAsset.name}
+                target="_blank"
+                rel="noreferrer"
+                className="bg-neutral-800 hover:bg-neutral-700 text-white w-9 h-9 rounded-full flex items-center justify-center border border-neutral-700/50 transition-all cursor-pointer"
+                title="Download file"
+              >
+                <Download size={16} />
+              </a>
+
+              {/* Close */}
+              <button
+                onClick={() => setSelectedAsset(null)}
+                className="bg-white hover:bg-neutral-200 text-black w-9 h-9 rounded-full flex items-center justify-center transition-all shadow-md cursor-pointer"
+                title="Close"
+              >
+                <X size={18} />
+              </button>
+            </div>
+          </div>
+
+          {/* Center Image Viewport */}
+          <div className="flex-1 w-full flex items-center justify-center p-4 min-h-0">
+            <div 
+              className={`max-w-full max-h-[75vh] rounded-2xl p-4 md:p-8 flex items-center justify-center transition-all duration-300 relative shadow-2xl ${
+                lightboxBg === 'checkerboard'
+                  ? 'bg-checkerboard'
+                  : lightboxBg === 'dark'
+                  ? 'bg-neutral-900 border border-neutral-800'
+                  : 'bg-white'
+              }`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <img
+                src={selectedAsset.url}
+                alt={selectedAsset.name}
+                className="max-w-full max-h-[60vh] object-contain select-none pointer-events-auto rounded-lg"
+              />
+            </div>
+          </div>
+
+          {/* Bottom Bar / Close helper */}
+          <div className="text-center text-[10px] font-bold tracking-widest text-neutral-500 uppercase select-none pb-2">
+            Click anywhere outside the image to close
+          </div>
         </div>
       )}
     </div>
