@@ -96,6 +96,31 @@ export function OrderDetail() {
     }
   };
 
+  const getExpenseAllocation = (costObj: any, garmentId: string) => {
+     const connections = costObj.itemConnections || (costObj.itemId ? { [costObj.itemId]: costObj.linkedSizes || [] } : {});
+     if (!connections[garmentId]) return 0;
+     
+     // Calculate quantity for each connection
+     let targetQty = 0;
+     let totalQty = 0;
+     
+     Object.entries(connections).forEach(([itemId, sizes]: [string, any]) => {
+        const gItem = order?.items?.find((i: any) => i.id === itemId);
+        if (!gItem) return;
+        
+        const sizesArray = sizes && sizes.length > 0 ? sizes : Object.keys(gItem.sizes || {}).filter(s => (gItem.sizes[s] || 0) > 0);
+        const gQty = sizesArray.reduce((sum: number, sz: string) => sum + (parseInt(gItem.sizes[sz]) || 0), 0);
+        
+        if (itemId === garmentId) {
+           targetQty = gQty;
+        }
+        totalQty += gQty;
+     });
+     
+     if (totalQty <= 0) return 0;
+     return costObj.amount * (targetQty / totalQty);
+  };
+
   const handleAddCostSubmit = async () => {
     if (!id || !order || !costDescription.trim() || !costAmount || !costCardUsed.trim()) return;
     
@@ -111,18 +136,21 @@ export function OrderDetail() {
       receiptUrl: receiptUrl || null,
       receiptName: receiptName || null,
       createdAt: new Date().toISOString(),
-      itemId: selectedCostItemId || null,
-      linkedSizes: selectedCostItemId ? selectedCostSizes : []
+      itemConnections: selectedCostItems
     };
     
     const currentCosts = order.costs || [];
     const updatedCosts = [...currentCosts, newCost];
     
     let matchedItemStyle = '';
-    if (selectedCostItemId) {
-      const matched = order.items?.find((i: any) => i.id === selectedCostItemId);
-      if (matched) {
-        matchedItemStyle = ` (Connected to ${matched.style})`;
+    const connectedItemIds = Object.keys(selectedCostItems);
+    if (connectedItemIds.length > 0) {
+      const names = connectedItemIds.map(itemId => {
+         const matched = order.items?.find((i: any) => i.id === itemId);
+         return matched ? matched.style : '';
+      }).filter(Boolean);
+      if (names.length > 0) {
+         matchedItemStyle = ` (Connected to ${names.join(', ')})`;
       }
     }
     
@@ -147,8 +175,7 @@ export function OrderDetail() {
       setSupplierOrderNumber('');
       setReceiptUrl('');
       setReceiptName('');
-      setSelectedCostItemId('');
-      setSelectedCostSizes([]);
+      setSelectedCostItems({});
     } catch (err) {
       console.error("Error adding cost:", err);
       alert("Failed to save expense. Please try again.");
@@ -334,8 +361,7 @@ export function OrderDetail() {
   const [receiptUrl, setReceiptUrl] = useState('');
   const [receiptName, setReceiptName] = useState('');
   const [isUploadingReceipt, setIsUploadingReceipt] = useState(false);
-  const [selectedCostItemId, setSelectedCostItemId] = useState('');
-  const [selectedCostSizes, setSelectedCostSizes] = useState<string[]>([]);
+  const [selectedCostItems, setSelectedCostItems] = useState<Record<string, string[]>>({});
   
   // Shopify Product Search
   const [shopifySearchQuery, setShopifySearchQuery] = useState('');
@@ -1324,8 +1350,8 @@ export function OrderDetail() {
                                 {(() => {
                                   const itemBoxes = order.boxes?.filter((b: any) => b.items?.some((bi: any) => String(bi.id) === String(item.id))) || [];
                                   const hasCourierLabels = itemBoxes.some((b: any) => !!b.labelUrl);
-                                  const itemExpenses = order.costs?.filter((c: any) => c.itemId === item.id) || [];
-                                  const totalItemExpenses = itemExpenses.reduce((sum: number, c: any) => sum + (parseFloat(c.amount) || 0), 0);
+                                  const itemExpenses = order.costs?.filter((c: any) => getExpenseAllocation(c, item.id) > 0) || [];
+                                  const totalItemExpenses = itemExpenses.reduce((sum: number, c: any) => sum + getExpenseAllocation(c, item.id), 0);
                                   
                                   return (
                                     <div className="flex items-center flex-wrap gap-2 mt-3 min-w-0 w-full overflow-visible">
@@ -1355,8 +1381,13 @@ export function OrderDetail() {
                                         <div 
                                           className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest bg-red-50 text-red-700 px-3 py-1.5 rounded-full border border-red-200 shrink-0 whitespace-nowrap shadow-sm cursor-help"
                                           title={itemExpenses.map((c: any) => {
-                                              const sizeText = c.linkedSizes && c.linkedSizes.length > 0 ? ` (Sizes: ${c.linkedSizes.join(', ')})` : ' (All Sizes)';
-                                              return `${c.description}${sizeText}: $${parseFloat(c.amount).toFixed(2)}`;
+                                              const connections = c.itemConnections || (c.itemId ? { [c.itemId]: c.linkedSizes || [] } : {});
+                                              const linkedSizesForThisItem = connections[item.id] || [];
+                                              const sizeText = linkedSizesForThisItem.length > 0 ? ` (Sizes: ${linkedSizesForThisItem.join(', ')})` : ' (All Sizes)';
+                                              const allocatedAmount = getExpenseAllocation(c, item.id);
+                                              const pct = c.amount > 0 ? (allocatedAmount / c.amount) * 100 : 0;
+                                              const pctText = pct < 100 ? ` [Allocated ${pct.toFixed(0)}%]` : '';
+                                              return `${c.description}${sizeText}${pctText}: $${allocatedAmount.toFixed(2)}`;
                                            }).join('\n')}
                                         >
                                           <DollarSign size={12} strokeWidth={3} className="text-red-600 animate-pulse" />
@@ -1634,10 +1665,10 @@ export function OrderDetail() {
                                );
                             })}
                              {(() => {
-                                const itemExpenses = order.costs?.filter((c: any) => c.itemId === item.id) || [];
-                                if (itemExpenses.length === 0) return null;
-                                
-                                const totalItemExpenses = itemExpenses.reduce((sum: number, c: any) => sum + (parseFloat(c.amount) || 0), 0);
+                                 const itemExpenses = order.costs?.filter((c: any) => getExpenseAllocation(c, item.id) > 0) || [];
+                                 if (itemExpenses.length === 0) return null;
+                                 
+                                 const totalItemExpenses = itemExpenses.reduce((sum: number, c: any) => sum + getExpenseAllocation(c, item.id), 0);
                                 
                                 const sizeQtySum = item.sizes ? Object.values(item.sizes).reduce((acc: number, val: any) => acc + (parseInt(val) || 0), 0) : 0;
                                 const safeQty = item.qty ? parseInt(item.qty.toString().replace(/[^0-9]/g, '')) || 0 : sizeQtySum || 0;
@@ -1858,75 +1889,85 @@ export function OrderDetail() {
                           />
                        </div>
 
-                       <div>
-                           <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1.5">Connect to Garment (Optional)</label>
-                           <div className="flex gap-2 items-center">
-                              {selectedCostItemId && (() => {
-                                 const item = order.items?.find((i: any) => i.id === selectedCostItemId);
-                                 if (!item?.image) return null;
+                        <div>
+                           <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-2">Connect to Garments (Optional)</label>
+                           <div className="space-y-3 bg-neutral-50/50 border border-brand-border/60 p-3 rounded-lg max-h-[260px] overflow-y-auto custom-scrollbar">
+                              {order.items?.map((item: any) => {
+                                 const isConnected = !!selectedCostItems[item.id];
+                                 const itemSelectedSizes = selectedCostItems[item.id] || [];
+                                 const sizes = Object.entries(item.sizes || {})
+                                    .filter(([_, qty]: [string, any]) => (parseInt(qty) || 0) > 0)
+                                    .map(([sz]) => sz)
+                                    .sort((a, b) => sortSizes(a, b));
+                                 
                                  return (
-                                    <div className="w-10 h-10 rounded-lg overflow-hidden border border-brand-border bg-neutral-100 flex items-center justify-center shrink-0 shadow-sm">
-                                       <img src={item.image} alt={item.style} className="w-full h-full object-contain p-0.5 mix-blend-multiply" />
+                                    <div key={item.id} className="border-b border-brand-border/40 last:border-b-0 pb-3 last:pb-0">
+                                       <div className="flex items-center gap-2">
+                                          <input 
+                                             type="checkbox"
+                                             id={`form-link-${item.id}`}
+                                             checked={isConnected}
+                                             onChange={(e) => {
+                                                if (e.target.checked) {
+                                                   setSelectedCostItems(prev => ({ ...prev, [item.id]: [] }));
+                                                } else {
+                                                   setSelectedCostItems(prev => {
+                                                      const copy = { ...prev };
+                                                      delete copy[item.id];
+                                                      return copy;
+                                                   });
+                                                }
+                                             }}
+                                             className="rounded border-brand-border text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5"
+                                          />
+                                          {item.image && (
+                                             <div 
+                                                onClick={() => setExpandedImage({ src: item.image, alt: item.style })}
+                                                title="Click to view full screen"
+                                                className="w-7 h-7 rounded bg-neutral-100 border border-brand-border flex items-center justify-center shrink-0 cursor-pointer shadow-sm overflow-hidden"
+                                             >
+                                                <img src={item.image} alt={item.style} className="w-full h-full object-contain p-0.5 mix-blend-multiply pointer-events-none" />
+                                             </div>
+                                          )}
+                                          <label htmlFor={`form-link-${item.id}`} className="text-[11px] font-bold text-brand-primary cursor-pointer flex-1 select-none truncate">
+                                             {item.style} {item.gender && item.gender !== 'Unisex' ? `(${item.gender})` : ''} {item.color ? `- ${item.color}` : ''}
+                                          </label>
+                                       </div>
+                                       
+                                       {isConnected && sizes.length > 0 && (
+                                          <div className="mt-2 pl-6 flex flex-wrap gap-1 items-center">
+                                             <span className="text-[9px] font-extrabold uppercase tracking-widest text-brand-secondary mr-1">Sizes:</span>
+                                             {sizes.map((sz: string) => {
+                                                const isSzSelected = itemSelectedSizes.includes(sz);
+                                                return (
+                                                   <button
+                                                      key={sz}
+                                                      type="button"
+                                                      onClick={() => {
+                                                         setSelectedCostItems(prev => {
+                                                            const currentSizes = prev[item.id] || [];
+                                                            const nextSizes = currentSizes.includes(sz)
+                                                               ? currentSizes.filter(s => s !== sz)
+                                                               : [...currentSizes, sz];
+                                                            return { ...prev, [item.id]: nextSizes };
+                                                         });
+                                                      }}
+                                                      className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide border transition-all ${
+                                                         isSzSelected
+                                                            ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm'
+                                                            : 'bg-white border-brand-border text-brand-secondary hover:border-brand-primary hover:text-brand-primary'
+                                                      }`}
+                                                   >
+                                                      {sz} ({item.sizes[sz]})
+                                                   </button>
+                                                );
+                                             })}
+                                          </div>
+                                       )}
                                     </div>
                                  );
-                              })()}
-                              <select 
-                                 value={selectedCostItemId}
-                                 onChange={e => {
-                                    setSelectedCostItemId(e.target.value);
-                                    setSelectedCostSizes([]);
-                                 }}
-                                 className="flex-1 bg-brand-bg border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary focus:bg-white outline-none transition-colors font-semibold"
-                              >
-                                 <option value="" className="font-semibold text-brand-secondary">-- Select Garment --</option>
-                                 {order.items?.map((item: any) => (
-                                    <option key={item.id} value={item.id} className="font-semibold text-brand-primary">
-                                       {item.style} {item.gender && item.gender !== 'Unisex' ? `(${item.gender})` : ''} {item.color ? `- ${item.color}` : ''}
-                                    </option>
-                                 ))}
-                              </select>
+                              })}
                            </div>
-
-                           {/* Size checklist */}
-                           {selectedCostItemId && (() => {
-                              const item = order.items?.find((i: any) => i.id === selectedCostItemId);
-                              const sizes = Object.entries(item.sizes)
-                                 .filter(([_, qty]: [string, any]) => (parseInt(qty) || 0) > 0)
-                                 .map(([sz]) => sz)
-                                 .sort((a, b) => sortSizes(a, b));
-                              if (sizes.length === 0) return null;
-                              return (
-                                 <div className="mt-3 bg-neutral-50/50 border border-brand-border/60 p-3 rounded-lg">
-                                    <label className="block text-[9px] font-bold uppercase tracking-widest text-brand-secondary mb-2">Select Sizes to Link</label>
-                                    <div className="flex flex-wrap gap-1.5">
-                                       {sizes.map((sz: string) => {
-                                          const isSelected = selectedCostSizes.includes(sz);
-                                          return (
-                                             <button
-                                                key={sz}
-                                                type="button"
-                                                onClick={() => {
-                                                   if (isSelected) {
-                                                      setSelectedCostSizes(prev => prev.filter(s => s !== sz));
-                                                   } else {
-                                                      setSelectedCostSizes(prev => [...prev, sz]);
-                                                   }
-                                                }}
-                                                className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wide border transition-all ${
-                                                   isSelected
-                                                      ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm'
-                                                      : 'bg-white border-brand-border text-brand-secondary hover:border-brand-primary hover:text-brand-primary'
-                                                }`}
-                                             >
-                                                {sz} ({item.sizes[sz]})
-                                             </button>
-                                          );
-                                       })}
-                                    </div>
-                                    <p className="text-[9px] text-brand-secondary mt-2 italic">Leave empty to connect to all sizes.</p>
-                                 </div>
-                              );
-                           })()}
                         </div>
                        
                        <div>
@@ -1980,125 +2021,195 @@ export function OrderDetail() {
                       </div>
                    ) : (
                       <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                         {orderCosts.map((cost: any) => (
-                            <div key={cost.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 bg-white hover:bg-brand-bg/40 border border-brand-border rounded-xl transition-all shadow-sm gap-4">
-                               <div className="flex-1 min-w-0">
-                                  <h4 className="font-bold text-sm text-brand-primary truncate">{cost.description}</h4>
-                                  <div className="flex items-center gap-3 mt-1.5 text-xs text-brand-secondary flex-wrap">
-                                     <span className="flex items-center gap-1 font-semibold text-[11px] text-brand-primary bg-neutral-100 border border-brand-border px-2 py-0.5 rounded-md">
-                                        <CreditCard size={10} /> {cost.cardUsed}
-                                     </span>
-                                     {cost.supplierOrderNumber && (
-                                        <span className="font-semibold text-[11px] text-brand-primary bg-neutral-100 border border-brand-border px-2 py-0.5 rounded-md">
-                                           PO/Order: {cost.supplierOrderNumber}
-                                        </span>
-                                     )}
-                                     
-                                     <div className="flex items-center gap-1.5">
-                                        {cost.itemId && (() => {
-                                           const matchedItem = order.items?.find((i: any) => i.id === cost.itemId);
-                                           if (!matchedItem?.image) return null;
-                                           return (
-                                              <div className="w-6 h-6 rounded bg-neutral-100 border border-brand-border flex items-center justify-center shrink-0 shadow-sm overflow-hidden" title={matchedItem.style}>
-                                                 <img src={matchedItem.image} alt={matchedItem.style} className="w-full h-full object-contain p-0.5 mix-blend-multiply" />
-                                              </div>
-                                           );
-                                        })()}
-                                        <select
-                                           value={cost.itemId || ''}
-                                           onChange={async (e) => {
-                                              const newCosts = (order.costs || []).map((c: any) => 
-                                                 c.id === cost.id ? { ...c, itemId: e.target.value || null, linkedSizes: [] } : c
-                                              );
-                                              await updateDoc(doc(db, 'orders', order.id), { costs: newCosts });
-                                           }}
-                                           className="bg-neutral-50 hover:bg-neutral-100 text-[10px] font-bold uppercase tracking-wider text-brand-secondary border border-brand-border rounded px-2 py-0.5 outline-none transition-colors max-w-[150px] truncate"
-                                        >
-                                           <option value="">Link to Garment...</option>
-                                           {order.items?.map((item: any) => (
-                                              <option key={item.id} value={item.id}>
-                                                 {item.style} {item.color ? `(${item.color})` : ''}
-                                              </option>
-                                           ))}
-                                        </select>
-                                     </div>
-                                     <span className="text-brand-border/60">•</span>
-                                     <span>{new Date(cost.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                                     {cost.receiptUrl && (
-                                        <>
-                                           <span className="text-brand-border/60">•</span>
-                                           <a 
-                                              href={cost.receiptUrl} 
-                                              target="_blank" 
-                                              rel="noreferrer" 
-                                              className="flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md hover:bg-emerald-600 hover:text-white hover:border-emerald-600 transition-colors"
-                                           >
-                                              <Download size={10} strokeWidth={3} /> View Receipt
-                                           </a>
-                                        </>
-                                     )}
-                                  </div>
-                                  {cost.itemId && (() => {
-                                      const matchedItem = order.items?.find((i: any) => i.id === cost.itemId);
-                                      if (!matchedItem) return null;
-                                      const sizes = Object.entries(matchedItem.sizes || {})
-                                          .filter(([_, qty]: [string, any]) => (parseInt(qty) || 0) > 0)
-                                          .map(([sz]) => sz)
-                                          .sort((a, b) => sortSizes(a, b));
-                                      if (sizes.length === 0) return null;
-                                      return (
-                                         <div className="flex items-center gap-1.5 mt-2.5 flex-wrap w-full">
-                                            <span className="text-[9px] font-extrabold uppercase tracking-widest text-brand-secondary mr-1">Linked Sizes:</span>
-                                            {sizes.map((sz: string) => {
-                                               const isExplicitlyLinked = cost.linkedSizes?.includes(sz);
-                                               const hasSelection = cost.linkedSizes && cost.linkedSizes.length > 0;
-                                               
-                                               return (
-                                                  <button
-                                                     key={sz}
-                                                     type="button"
-                                                     onClick={async () => {
-                                                        let newSizes = cost.linkedSizes ? [...cost.linkedSizes] : [];
-                                                        if (isExplicitlyLinked) {
-                                                           newSizes = newSizes.filter(s => s !== sz);
-                                                        } else {
-                                                           newSizes = [...newSizes, sz];
-                                                        }
-                                                        const newCosts = (order.costs || []).map((c: any) => 
-                                                           c.id === cost.id ? { ...c, linkedSizes: newSizes } : c
-                                                        );
-                                                        await updateDoc(doc(db, 'orders', order.id), { costs: newCosts });
-                                                     }}
-                                                     className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide border transition-all ${
-                                                        isExplicitlyLinked 
-                                                           ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm'
-                                                           : !hasSelection
-                                                              ? 'bg-indigo-50 border-indigo-100 text-indigo-700 hover:bg-indigo-100' 
-                                                              : 'bg-white border-brand-border text-brand-secondary hover:border-brand-primary hover:text-brand-primary'
-                                                     }`}
-                                                     title={isExplicitlyLinked ? `Linked to size ${sz}. Click to unlink.` : `Not explicitly linked. Click to link.`}
+                          {orderCosts.map((cost: any) => {
+                             const connections = cost.itemConnections || (cost.itemId ? { [cost.itemId]: cost.linkedSizes || [] } : {});
+                             const connectedItemIds = Object.keys(connections);
+                             
+                             return (
+                                <div key={cost.id} className="flex flex-col p-4 bg-white hover:bg-brand-bg/40 border border-brand-border rounded-xl transition-all shadow-sm gap-3">
+                                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                                      <div className="flex-1 min-w-0">
+                                         <h4 className="font-bold text-sm text-brand-primary truncate">{cost.description}</h4>
+                                         <div className="flex items-center gap-3 mt-1.5 text-xs text-brand-secondary flex-wrap">
+                                            <span className="flex items-center gap-1 font-semibold text-[11px] text-brand-primary bg-neutral-100 border border-brand-border px-2 py-0.5 rounded-md">
+                                               <CreditCard size={10} /> {cost.cardUsed}
+                                            </span>
+                                            {cost.supplierOrderNumber && (
+                                               <span className="font-semibold text-[11px] text-brand-primary bg-neutral-100 border border-brand-border px-2 py-0.5 rounded-md">
+                                                  PO/Order: {cost.supplierOrderNumber}
+                                               </span>
+                                            )}
+                                            
+                                            <span>{new Date(cost.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                                            {cost.receiptUrl && (
+                                               <>
+                                                  <span className="text-brand-border/60">•</span>
+                                                  <a 
+                                                     href={cost.receiptUrl} 
+                                                     target="_blank" 
+                                                     rel="noreferrer" 
+                                                     className="flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md hover:bg-emerald-600 hover:text-white hover:border-emerald-600 transition-colors"
                                                   >
-                                                     {sz} ({matchedItem.sizes[sz]})
-                                                  </button>
+                                                     <Download size={10} strokeWidth={3} /> View Receipt
+                                                  </a>
+                                               </>
+                                            )}
+                                         </div>
+                                      </div>
+                                      
+                                      <div className="flex items-center gap-4 self-end sm:self-center shrink-0">
+                                         <span className="font-serif text-lg font-bold text-brand-primary">${parseFloat(cost.amount).toFixed(2)}</span>
+                                         <button 
+                                            onClick={() => handleDeleteCost(cost.id)} 
+                                            className="p-1.5 text-brand-secondary hover:text-red-500 hover:bg-red-50 transition-all rounded-lg border border-transparent hover:border-red-100"
+                                            title="Delete Expense"
+                                         >
+                                            <Trash2 size={15} />
+                                         </button>
+                                      </div>
+                                   </div>
+
+                                   {/* Connected Garments Section */}
+                                   <div className="border-t border-brand-border/40 pt-3 mt-1 space-y-3">
+                                      <div className="flex flex-wrap items-center justify-between gap-2">
+                                         <span className="text-[10px] font-extrabold uppercase tracking-widest text-brand-secondary">Linked Garments & Sizes:</span>
+                                         
+                                         {/* + Link Garment Dropdown */}
+                                         {(() => {
+                                            const unconnectedItems = order.items?.filter((item: any) => !connections[item.id]) || [];
+                                            if (unconnectedItems.length === 0) return null;
+                                            return (
+                                               <select
+                                                  value=""
+                                                  onChange={async (e) => {
+                                                     const selectedId = e.target.value;
+                                                     if (!selectedId) return;
+                                                     const newConnections = { ...connections, [selectedId]: [] };
+                                                     const newCosts = (order.costs || []).map((c: any) => 
+                                                        c.id === cost.id ? { ...c, itemConnections: newConnections, itemId: null, linkedSizes: null } : c
+                                                     );
+                                                     await updateDoc(doc(db, 'orders', order.id), { costs: newCosts });
+                                                  }}
+                                                  className="bg-neutral-50 hover:bg-neutral-100 text-[10px] font-bold uppercase tracking-wider text-brand-secondary border border-brand-border rounded px-2 py-1 outline-none transition-colors max-w-[180px] truncate"
+                                               >
+                                                  <option value="">+ Link Garment...</option>
+                                                  {unconnectedItems.map((item: any) => (
+                                                     <option key={item.id} value={item.id}>
+                                                        {item.style} {item.color ? `(${item.color})` : ''}
+                                                     </option>
+                                                  ))}
+                                               </select>
+                                            );
+                                         })()}
+                                      </div>
+
+                                      {connectedItemIds.length === 0 ? (
+                                         <div className="text-[11px] text-brand-secondary italic">No garments linked to this receipt yet.</div>
+                                      ) : (
+                                         <div className="space-y-2.5">
+                                            {connectedItemIds.map((itemId) => {
+                                               const matchedItem = order.items?.find((i: any) => i.id === itemId);
+                                               if (!matchedItem) return null;
+
+                                               const linkedSizes = connections[itemId] || [];
+                                               const sizes = Object.entries(matchedItem.sizes || {})
+                                                  .filter(([_, qty]: [string, any]) => (parseInt(qty) || 0) > 0)
+                                                  .map(([sz]) => sz)
+                                                  .sort((a, b) => sortSizes(a, b));
+
+                                               return (
+                                                  <div key={itemId} className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-neutral-50/50 border border-brand-border/60 p-2.5 rounded-lg">
+                                                     <div className="flex items-center gap-2.5 min-w-0">
+                                                        {matchedItem.image && (
+                                                           <div 
+                                                              onClick={() => setExpandedImage({ src: matchedItem.image, alt: matchedItem.style })}
+                                                              title="Click to view full screen"
+                                                              className="w-7 h-7 rounded bg-white border border-brand-border flex items-center justify-center shrink-0 cursor-pointer shadow-sm overflow-hidden hover:scale-[1.05] transition-transform"
+                                                           >
+                                                              <img src={matchedItem.image} alt={matchedItem.style} className="w-full h-full object-contain p-0.5 mix-blend-multiply pointer-events-none" />
+                                                           </div>
+                                                        )}
+                                                        <div className="min-w-0">
+                                                           <div className="text-[11px] font-bold text-brand-primary truncate">
+                                                              {matchedItem.style} {matchedItem.gender && matchedItem.gender !== 'Unisex' ? `(${matchedItem.gender})` : ''}
+                                                           </div>
+                                                           {matchedItem.color && (
+                                                              <div className="text-[9px] font-semibold text-brand-secondary truncate">
+                                                                 {matchedItem.color}
+                                                              </div>
+                                                           )}
+                                                        </div>
+                                                     </div>
+
+                                                     {/* Active Size Toggle Pills */}
+                                                     <div className="flex flex-wrap items-center gap-1.5 flex-1 md:justify-end">
+                                                        {sizes.length > 0 ? (
+                                                           sizes.map((sz: string) => {
+                                                              const isExplicitlyLinked = linkedSizes.includes(sz);
+                                                              const hasSelection = linkedSizes.length > 0;
+
+                                                              return (
+                                                                 <button
+                                                                    key={sz}
+                                                                    type="button"
+                                                                    onClick={async () => {
+                                                                       let newSizes = [...linkedSizes];
+                                                                       if (isExplicitlyLinked) {
+                                                                          newSizes = newSizes.filter(s => s !== sz);
+                                                                       } else {
+                                                                          newSizes = [...newSizes, sz];
+                                                                       }
+                                                                       const newConnections = { ...connections, [itemId]: newSizes };
+                                                                       const newCosts = (order.costs || []).map((c: any) => 
+                                                                          c.id === cost.id ? { ...c, itemConnections: newConnections, itemId: null, linkedSizes: null } : c
+                                                                       );
+                                                                       await updateDoc(doc(db, 'orders', order.id), { costs: newCosts });
+                                                                    }}
+                                                                    className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide border transition-all ${
+                                                                       isExplicitlyLinked 
+                                                                          ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm'
+                                                                          : !hasSelection
+                                                                             ? 'bg-indigo-50 border-indigo-100 text-indigo-700 hover:bg-indigo-100' 
+                                                                             : 'bg-white border-brand-border text-brand-secondary hover:border-brand-primary hover:text-brand-primary'
+                                                                    }`}
+                                                                    title={isExplicitlyLinked ? `Linked to size ${sz}. Click to unlink.` : `Not explicitly linked. Click to link.`}
+                                                                 >
+                                                                    {sz} ({matchedItem.sizes[sz]})
+                                                                 </button>
+                                                              );
+                                                           })
+                                                        ) : (
+                                                           <span className="text-[9px] text-brand-secondary italic">No sizes available</span>
+                                                        )}
+
+                                                        <span className="text-brand-border/60 mx-1 hidden md:inline">|</span>
+
+                                                        {/* Unlink button */}
+                                                        <button
+                                                           type="button"
+                                                           onClick={async () => {
+                                                              const newConnections = { ...connections };
+                                                              delete newConnections[itemId];
+                                                              const newCosts = (order.costs || []).map((c: any) => 
+                                                                 c.id === cost.id ? { ...c, itemConnections: newConnections, itemId: null, linkedSizes: null } : c
+                                                              );
+                                                              await updateDoc(doc(db, 'orders', order.id), { costs: newCosts });
+                                                           }}
+                                                           className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
+                                                           title={`Disconnect ${matchedItem.style} from this expense`}
+                                                        >
+                                                           <X size={13} strokeWidth={2.5} />
+                                                        </button>
+                                                     </div>
+                                                  </div>
                                                );
                                             })}
                                          </div>
-                                      );
-                                   })()}
-                               </div>
-                               
-                               <div className="flex items-center gap-4 self-end sm:self-center shrink-0">
-                                  <span className="font-serif text-lg font-bold text-brand-primary">${parseFloat(cost.amount).toFixed(2)}</span>
-                                  <button 
-                                     onClick={() => handleDeleteCost(cost.id)} 
-                                     className="p-1.5 text-brand-secondary hover:text-red-500 hover:bg-red-50 transition-all rounded-lg border border-transparent hover:border-red-100"
-                                     title="Delete Expense"
-                                  >
-                                     <Trash2 size={15} />
-                                  </button>
-                               </div>
-                            </div>
-                         ))}
+                                      )}
+                                   </div>
+                                </div>
+                             );
+                          })}
                       </div>
                    )}
                 </div>
