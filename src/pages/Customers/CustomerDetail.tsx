@@ -183,6 +183,7 @@ export function CustomerDetail() {
 
       let finalColors = customSuggestedItem.colors ? customSuggestedItem.colors.split(',').map(s => s.trim()) : ['Custom Color'];
       let imagesMap: Record<string, string> = {};
+      let backImagesMap: Record<string, string> = {};
       let mainImage = customSuggestedItem.image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
 
       if (selectedSanMarProduct) {
@@ -194,6 +195,10 @@ export function CustomerDetail() {
             const url = imgSet ? (typeof imgSet === 'string' ? imgSet : imgSet.front) : '';
             if (url) {
               imagesMap[color] = url;
+            }
+            const backUrl = imgSet && typeof imgSet !== 'string' ? imgSet.back : '';
+            if (backUrl) {
+              backImagesMap[color] = backUrl;
             }
           });
           const defaultColor = chosenColors[0];
@@ -211,6 +216,7 @@ export function CustomerDetail() {
         image: mainImage,
         colors: finalColors,
         images: imagesMap,
+        backImages: backImagesMap,
         price: parseFloat(customSuggestedItem.price) || 0
       };
     }

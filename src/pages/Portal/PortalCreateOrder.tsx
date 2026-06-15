@@ -921,6 +921,7 @@ export function PortalCreateOrder() {
             style: customizingItem.style,
             image: customizingItem.image,
             images: customizingItem.images || null,
+            backImages: customizingItem.backImages || null,
             colors: customizingItem.colors || ['Custom Color'],
             selectedColor: customizingItem.selectedColor
           }}
@@ -935,6 +936,8 @@ export function PortalCreateOrder() {
               logoPlacement: customizedData.logoPlacement,
               logoUrl: customizedData.logoUrl,
               logoName: customizedData.logoName,
+              logoUrlBack: customizedData.logoUrlBack,
+              logoNameBack: customizedData.logoNameBack,
               colors: customizedData.colors || item.colors
             } : item));
           }}

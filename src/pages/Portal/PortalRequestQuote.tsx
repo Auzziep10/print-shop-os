@@ -775,6 +775,8 @@ export function PortalRequestQuote() {
             id: customizingProduct.id,
             style: customizingProduct.garmentName,
             image: customizingProduct.artworkUrl,
+            images: customizingProduct.images || null,
+            backImages: customizingProduct.backImages || null,
             colors: customizingProduct.colors || ['Custom Color'],
             selectedColor: customizingProduct.color
           }}
@@ -789,6 +791,8 @@ export function PortalRequestQuote() {
               customized: true,
               logoPlacement: customizedData.logoPlacement,
               logoUrl: customizedData.logoUrl,
+              logoUrlBack: customizedData.logoUrlBack,
+              logoNameBack: customizedData.logoNameBack,
               colors: customizedData.colors || p.colors
             } : p));
           }}
