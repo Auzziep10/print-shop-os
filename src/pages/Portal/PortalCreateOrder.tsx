@@ -973,7 +973,8 @@ export function PortalCreateOrder() {
             <img 
               src={previewImageUrl} 
               alt="Mockup Preview" 
-              className="max-w-full max-h-[80vh] object-contain rounded-2xl select-none" 
+              style={{ width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: '80vh' }}
+              className="object-contain rounded-2xl select-none" 
             />
           </div>
         </div>
