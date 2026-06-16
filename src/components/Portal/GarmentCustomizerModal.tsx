@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../../lib/firebase';
-import { X, Upload, Loader2, Check, FileText, Sparkles } from 'lucide-react';
+import { X, Upload, Loader2, Check, FileText, Sparkles, RefreshCw } from 'lucide-react';
 import { generateRotatedGarment } from '../../lib/geminiService';
 import { getSwatchColor } from '../shared/GarmentBrowser';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
@@ -77,6 +77,7 @@ export function GarmentCustomizerModal({
 }: GarmentCustomizerModalProps) {
   const [activeTab, setActiveTab] = useState<'front' | 'back' | 'sleeve'>('front');
   const [isSleeveMirrored, setIsSleeveMirrored] = useState(false);
+  const [selectedColor, setSelectedColor] = useState<string>('Custom Color');
   const [isColorDropdownOpen, setIsColorDropdownOpen] = useState(false);
 
   // Vault/Assets
@@ -260,14 +261,11 @@ export function GarmentCustomizerModal({
     const colorLower = cleanColor.toLowerCase();
     
     let localLeftSleeve = null;
-    let localRightSleeve = null;
     if (styleCode === 'NL6210') {
       if (colorLower.includes('charcoal')) {
         localLeftSleeve = '/mockups/NL6210/left_sleeve.png';
-        localRightSleeve = '/mockups/NL6210/right_sleeve.png';
       } else if (colorLower.includes('black')) {
         localLeftSleeve = '/mockups/NL6210/black_left_sleeve.png';
-        localRightSleeve = '/mockups/NL6210/black_right_sleeve.png';
       }
     }
 

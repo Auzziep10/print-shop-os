@@ -86,7 +86,7 @@ export function MockupCreator({
   garmentImageUrl,
   garmentBackImageUrl,
   garmentLeftSleeveImageUrl,
-  garmentRightSleeveImageUrl,
+  // garmentRightSleeveImageUrl is unused and excluded from destructuring to avoid compiler errors
   garmentName,
   colorName,
   initialLogoUrl,
@@ -358,14 +358,11 @@ export function MockupCreator({
   const nameLower = cleanStyle.toLowerCase();
   
   let localLeftSleeve = null;
-  let localRightSleeve = null;
   if (nameLower.includes('nl6210')) {
     if (colorLower.includes('charcoal')) {
       localLeftSleeve = '/mockups/NL6210/left_sleeve.png';
-      localRightSleeve = '/mockups/NL6210/right_sleeve.png';
     } else if (colorLower.includes('black')) {
       localLeftSleeve = '/mockups/NL6210/black_left_sleeve.png';
-      localRightSleeve = '/mockups/NL6210/black_right_sleeve.png';
     }
   }
 
