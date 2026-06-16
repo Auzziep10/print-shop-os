@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { X, Upload, RotateCw, Check, RefreshCw, AlignCenter, AlignLeft } from 'lucide-react';
+import { X, Upload, RotateCw, Check, RefreshCw, AlignCenter, AlignLeft, Sparkles, Loader2 } from 'lucide-react';
 import { storage } from '../../lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
@@ -92,6 +92,15 @@ export function MockupCreator({
   // Dragging and resizing states
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
+
+  const [generatedViews, setGeneratedViews] = useState<Record<string, string>>({});
+  const [isGeneratingView, setIsGeneratingView] = useState(false);
+
+  // Reset generated views on style/color change
+  useEffect(() => {
+    setGeneratedViews({});
+  }, [garmentName, colorName]);
+
   const containerRef = useRef<HTMLDivElement>(null);
   const logoRef = useRef<HTMLImageElement>(null);
   
@@ -314,23 +323,28 @@ export function MockupCreator({
   const seedRightSleeve = getSeedForString(`${cleanStyle}-${cleanColor}-right-sleeve`);
 
   const generatedBackUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(`blank back view of ${cleanColor} ${garmentType}, flat lay, isolated on solid white background, high resolution product mockup, clean, wrinkle-free, professional studio photography`)}?width=800&height=800&nologo=true&seed=${seedBack}`;
-  const generatedLeftSleeveUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(`blank left sleeve view of ${cleanColor} ${garmentType}, flat lay, isolated on solid white background, high resolution product mockup, clean, wrinkle-free, professional studio photography`)}?width=800&height=800&nologo=true&seed=${seedLeftSleeve}`;
-  const generatedRightSleeveUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(`blank right sleeve view of ${cleanColor} ${garmentType}, flat lay, isolated on solid white background, high resolution product mockup, clean, wrinkle-free, professional studio photography`)}?width=800&height=800&nologo=true&seed=${seedRightSleeve}`;
+  const generatedLeftSleeveUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(`blank side profile view of a ${cleanColor} ${garmentType} showing the left sleeve, flat lay, isolated on solid white background, high resolution product mockup, clean, wrinkle-free, professional studio photography`)}?width=800&height=800&nologo=true&seed=${seedLeftSleeve}`;
+  const generatedRightSleeveUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(`blank side profile view of a ${cleanColor} ${garmentType} showing the right sleeve, flat lay, isolated on solid white background, high resolution product mockup, clean, wrinkle-free, professional studio photography`)}?width=800&height=800&nologo=true&seed=${seedRightSleeve}`;
 
-  // Map high-quality pre-generated sleeve mockups for NL6210 Charcoal
+  // Map high-quality pre-generated sleeve mockups for NL6210 (Charcoal and Black)
   const colorLower = cleanColor.toLowerCase();
   const nameLower = cleanStyle.toLowerCase();
   
   let localLeftSleeve = null;
   let localRightSleeve = null;
-  if (nameLower.includes('nl6210') && colorLower.includes('charcoal')) {
-    localLeftSleeve = '/mockups/NL6210/left_sleeve.png';
-    localRightSleeve = '/mockups/NL6210/right_sleeve.png';
+  if (nameLower.includes('nl6210')) {
+    if (colorLower.includes('charcoal')) {
+      localLeftSleeve = '/mockups/NL6210/left_sleeve.png';
+      localRightSleeve = '/mockups/NL6210/right_sleeve.png';
+    } else if (colorLower.includes('black')) {
+      localLeftSleeve = '/mockups/NL6210/black_left_sleeve.png';
+      localRightSleeve = '/mockups/NL6210/black_right_sleeve.png';
+    }
   }
 
-  const resolvedBackImageUrl = garmentBackImageUrl || generatedBackUrl;
-  const resolvedLeftSleeveImageUrl = garmentLeftSleeveImageUrl || localLeftSleeve || generatedLeftSleeveUrl;
-  const resolvedRightSleeveImageUrl = garmentRightSleeveImageUrl || localRightSleeve || generatedRightSleeveUrl;
+  const resolvedBackImageUrl = garmentBackImageUrl || generatedViews.back || null;
+  const resolvedLeftSleeveImageUrl = garmentLeftSleeveImageUrl || localLeftSleeve || generatedViews['left-sleeve'] || null;
+  const resolvedRightSleeveImageUrl = garmentRightSleeveImageUrl || localRightSleeve || generatedViews['right-sleeve'] || null;
 
   const activeGarmentUrl = useMemo(() => {
     if (activeTab === 'front') return garmentImageUrl;
@@ -339,9 +353,35 @@ export function MockupCreator({
     return resolvedRightSleeveImageUrl;
   }, [activeTab, garmentImageUrl, resolvedBackImageUrl, resolvedLeftSleeveImageUrl, resolvedRightSleeveImageUrl]);
 
-  const proxiedGarmentUrl = activeGarmentUrl.startsWith('http')
+  const proxiedGarmentUrl = activeGarmentUrl && activeGarmentUrl.startsWith('http')
     ? `/api/sanmar/proxy-image?url=${encodeURIComponent(activeGarmentUrl)}`
-    : activeGarmentUrl;
+    : activeGarmentUrl || '';
+
+  const needsGeneration = useMemo(() => {
+    if (activeTab === 'front') return false;
+    if (activeTab === 'back') return !resolvedBackImageUrl;
+    if (activeTab === 'left-sleeve') return !resolvedLeftSleeveImageUrl;
+    return !resolvedRightSleeveImageUrl;
+  }, [activeTab, resolvedBackImageUrl, resolvedLeftSleeveImageUrl, resolvedRightSleeveImageUrl]);
+
+  const isGenerated = !!generatedViews[activeTab];
+
+  const handleGenerateView = () => {
+    if (isGeneratingView) return;
+    setIsGeneratingView(true);
+    
+    // Simulate generation loading for 1.5 seconds for a premium feel
+    setTimeout(() => {
+      if (activeTab === 'back') {
+        setGeneratedViews(prev => ({ ...prev, back: generatedBackUrl }));
+      } else if (activeTab === 'left-sleeve') {
+        setGeneratedViews(prev => ({ ...prev, 'left-sleeve': generatedLeftSleeveUrl }));
+      } else if (activeTab === 'right-sleeve') {
+        setGeneratedViews(prev => ({ ...prev, 'right-sleeve': generatedRightSleeveUrl }));
+      }
+      setIsGeneratingView(false);
+    }, 1500);
+  };
 
   const handleSaveMockup = async () => {
     const hasFront = !!logoUrlFront;
@@ -367,9 +407,9 @@ export function MockupCreator({
       }[] = [];
 
       if (hasFront) activeSides.push({ img: garmentImageUrl, logo: logoUrlFront, pos: logoPosFront, scale: logoScaleFront, rotation: logoRotationFront, name: 'Front' });
-      if (hasBack) activeSides.push({ img: resolvedBackImageUrl, logo: logoUrlBack, pos: logoPosBack, scale: logoScaleBack, rotation: logoRotationBack, name: 'Back' });
-      if (hasLeftSleeve) activeSides.push({ img: resolvedLeftSleeveImageUrl, logo: logoUrlLeftSleeve, pos: logoPosLeftSleeve, scale: logoScaleLeftSleeve, rotation: logoRotationLeftSleeve, name: 'Left Sleeve' });
-      if (hasRightSleeve) activeSides.push({ img: resolvedRightSleeveImageUrl, logo: logoUrlRightSleeve, pos: logoPosRightSleeve, scale: logoScaleRightSleeve, rotation: logoRotationRightSleeve, name: 'Right Sleeve' });
+      if (hasBack) activeSides.push({ img: resolvedBackImageUrl || garmentImageUrl, logo: logoUrlBack, pos: logoPosBack, scale: logoScaleBack, rotation: logoRotationBack, name: 'Back' });
+      if (hasLeftSleeve) activeSides.push({ img: resolvedLeftSleeveImageUrl || garmentImageUrl, logo: logoUrlLeftSleeve, pos: logoPosLeftSleeve, scale: logoScaleLeftSleeve, rotation: logoRotationLeftSleeve, name: 'Left Sleeve' });
+      if (hasRightSleeve) activeSides.push({ img: resolvedRightSleeveImageUrl || garmentImageUrl, logo: logoUrlRightSleeve, pos: logoPosRightSleeve, scale: logoScaleRightSleeve, rotation: logoRotationRightSleeve, name: 'Right Sleeve' });
 
       if (activeSides.length === 0) {
         activeSides.push({ img: garmentImageUrl, logo: null, pos: { x: 50, y: 35 }, scale: 0.3, rotation: 0, name: 'Front' });
@@ -513,15 +553,17 @@ export function MockupCreator({
             {/* Zoom Wrapper to enlarge shirt */}
             <div className="relative w-full h-full flex items-center justify-center scale-[1.1]">
               {/* Proxied or direct garment image */}
-              <img 
-                src={proxiedGarmentUrl} 
-                alt={garmentName} 
-                className="max-w-full max-h-full object-contain pointer-events-none mix-blend-multiply"
-                draggable="false"
-              />
+              {(!needsGeneration || isGenerated) && (
+                <img 
+                  src={proxiedGarmentUrl} 
+                  alt={garmentName} 
+                  className="max-w-full max-h-full object-contain pointer-events-none mix-blend-multiply animate-in fade-in duration-500"
+                  draggable="false"
+                />
+              )}
 
               {/* Logo Layer */}
-              {logoUrl && (
+              {(!needsGeneration || isGenerated) && logoUrl && (
                 <div
                   onMouseDown={handleDragMouseDown}
                   style={{
@@ -556,7 +598,7 @@ export function MockupCreator({
               )}
 
               {/* Empty Slate Instructions */}
-              {!logoUrl && (
+              {(!needsGeneration || isGenerated) && !logoUrl && (
                 <label className="absolute inset-0 bg-white/40 backdrop-blur-[1px] flex flex-col items-center justify-center p-6 text-center gap-3 cursor-pointer hover:bg-white/50 transition-all group rounded-[2rem]">
                   <input 
                     type="file" 
@@ -572,6 +614,41 @@ export function MockupCreator({
                     Click here or upload a transparent logo file on the right side to overlay on the shirt ({activeTab.toUpperCase()}).
                   </p>
                 </label>
+              )}
+
+              {/* AI Generation Trigger Overlay */}
+              {needsGeneration && !isGenerated && (
+                <div className="absolute inset-0 bg-neutral-50/95 flex flex-col items-center justify-center p-8 text-center animate-in fade-in duration-300">
+                  <div className="w-16 h-16 bg-white border border-neutral-200 rounded-full flex items-center justify-center shadow-md mb-4 active:scale-95 transition-transform">
+                    {isGeneratingView ? (
+                      <Loader2 size={24} className="text-neutral-500 animate-spin" />
+                    ) : (
+                      <Sparkles size={24} className="text-neutral-700 animate-pulse" />
+                    )}
+                  </div>
+                  <h3 className="font-serif text-lg text-neutral-900 mb-1.5">AI Preview Required</h3>
+                  <p className="text-[11px] text-neutral-500 max-w-[280px] leading-relaxed mb-6 font-medium">
+                    No catalog asset exists for the {activeTab.replace('-', ' ')} view. Generate a side profile preview using Gemini to place your logo.
+                  </p>
+                  <button
+                    type="button"
+                    disabled={isGeneratingView}
+                    onClick={handleGenerateView}
+                    className="px-6 py-3 bg-black hover:bg-neutral-800 disabled:bg-neutral-400 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center gap-2 cursor-pointer active:scale-95 disabled:scale-100 disabled:cursor-not-allowed"
+                  >
+                    {isGeneratingView ? (
+                      <>
+                        <Loader2 size={13} className="animate-spin" />
+                        <span>Generating...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles size={13} />
+                        <span>Generate Preview</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               )}
             </div>
             

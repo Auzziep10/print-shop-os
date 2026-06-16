@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../../lib/firebase';
-import { X, Upload, Loader2, Check, FileText } from 'lucide-react';
+import { X, Upload, Loader2, Check, FileText, Sparkles } from 'lucide-react';
 import { getSwatchColor } from '../shared/GarmentBrowser';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
 
@@ -82,6 +82,14 @@ export function GarmentCustomizerModal({
   const [isUploading, setIsUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
+  const [generatedViews, setGeneratedViews] = useState<Record<string, string>>({});
+  const [isGeneratingView, setIsGeneratingView] = useState(false);
+
+  // Reset generated views on style/color change
+  useEffect(() => {
+    setGeneratedViews({});
+  }, [garment?.style, selectedColor]);
+
   const previewRef = useRef<HTMLDivElement>(null);
 
   // Helper getters/setters mapping to active view
@@ -149,11 +157,6 @@ export function GarmentCustomizerModal({
 
   // Case-insensitive image resolver
   const { frontImage, backImage, leftSleeveImage, rightSleeveImage } = useMemo(() => {
-    const styleStr = garment.style || garment.itemNum || '';
-    const titleStr = garment.title || '';
-    const catStr = garment.category || (catalogProduct ? catalogProduct.category : '');
-    const garmentType = getSingularCategory(catStr, titleStr || styleStr);
-
     if (!selectedColor) {
       return {
         frontImage: garment.image || '',
@@ -195,36 +198,28 @@ export function GarmentCustomizerModal({
       catalogBack = catalogColorVal?.back || null;
     }
 
-        const cleanColor = selectedColor.trim();
-    const cleanStyle = styleStr.trim();
-    const seedBack = getSeedForString(`${cleanStyle}-${cleanColor}-back`);
-    const seedLeftSleeve = getSeedForString(`${cleanStyle}-${cleanColor}-left-sleeve`);
-    const seedRightSleeve = getSeedForString(`${cleanStyle}-${cleanColor}-right-sleeve`);
+    const cleanColor = selectedColor.trim();
 
-    const encodedBackPrompt = encodeURIComponent(`blank back view of ${cleanColor} ${garmentType}, flat lay, isolated on solid white background, high resolution product mockup, clean, wrinkle-free, professional studio photography`);
-    const generatedBack = `https://image.pollinations.ai/prompt/${encodedBackPrompt}?width=800&height=800&nologo=true&seed=${seedBack}`;
-
-    const encodedLeftSleevePrompt = encodeURIComponent(`blank left sleeve view of ${cleanColor} ${garmentType}, flat lay, isolated on solid white background, high resolution product mockup, clean, wrinkle-free, professional studio photography`);
-    const generatedLeftSleeve = `https://image.pollinations.ai/prompt/${encodedLeftSleevePrompt}?width=800&height=800&nologo=true&seed=${seedLeftSleeve}`;
-
-    const encodedRightSleevePrompt = encodeURIComponent(`blank right sleeve view of ${cleanColor} ${garmentType}, flat lay, isolated on solid white background, high resolution product mockup, clean, wrinkle-free, professional studio photography`);
-    const generatedRightSleeve = `https://image.pollinations.ai/prompt/${encodedRightSleevePrompt}?width=800&height=800&nologo=true&seed=${seedRightSleeve}`;
-
-    // Map high-quality pre-generated sleeve mockups for NL6210 Charcoal
+    // Map high-quality pre-generated sleeve mockups for NL6210 (Charcoal and Black)
     const styleCode = catalogProduct ? catalogProduct.style.toUpperCase() : '';
     const colorLower = cleanColor.toLowerCase();
     
     let localLeftSleeve = null;
     let localRightSleeve = null;
-    if (styleCode === 'NL6210' && colorLower.includes('charcoal')) {
-      localLeftSleeve = '/mockups/NL6210/left_sleeve.png';
-      localRightSleeve = '/mockups/NL6210/right_sleeve.png';
+    if (styleCode === 'NL6210') {
+      if (colorLower.includes('charcoal')) {
+        localLeftSleeve = '/mockups/NL6210/left_sleeve.png';
+        localRightSleeve = '/mockups/NL6210/right_sleeve.png';
+      } else if (colorLower.includes('black')) {
+        localLeftSleeve = '/mockups/NL6210/black_left_sleeve.png';
+        localRightSleeve = '/mockups/NL6210/black_right_sleeve.png';
+      }
     }
 
     const finalFront = garmentFront || catalogFront || garment.image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
-    const finalBack = garmentBack || catalogBack || generatedBack;
-    const finalLeftSleeve = localLeftSleeve || generatedLeftSleeve;
-    const finalRightSleeve = localRightSleeve || generatedRightSleeve;
+    const finalBack = garmentBack || catalogBack || generatedViews.back || null;
+    const finalLeftSleeve = localLeftSleeve || generatedViews['left-sleeve'] || null;
+    const finalRightSleeve = localRightSleeve || generatedViews['right-sleeve'] || null;
 
     return { 
       frontImage: finalFront, 
@@ -232,7 +227,7 @@ export function GarmentCustomizerModal({
       leftSleeveImage: finalLeftSleeve,
       rightSleeveImage: finalRightSleeve
     };
-  }, [garment, selectedColor, catalogProduct]);
+  }, [garment, selectedColor, catalogProduct, generatedViews]);
 
   const activeMockupImage = useMemo(() => {
     if (activeTab === 'front') return frontImage;
@@ -247,6 +242,48 @@ export function GarmentCustomizerModal({
       ? `/api/sanmar/proxy-image?url=${encodeURIComponent(activeMockupImage)}`
       : activeMockupImage;
   }, [activeMockupImage]);
+
+  const needsGeneration = useMemo(() => {
+    if (activeTab === 'front') return false;
+    if (activeTab === 'back') return !backImage;
+    if (activeTab === 'left-sleeve') return !leftSleeveImage;
+    return !rightSleeveImage;
+  }, [activeTab, backImage, leftSleeveImage, rightSleeveImage]);
+
+  const isGenerated = !!generatedViews[activeTab];
+
+  const handleGenerateView = () => {
+    if (isGeneratingView) return;
+    setIsGeneratingView(true);
+    
+    // Simulate generation loading for 1.5 seconds for a premium feel
+    setTimeout(() => {
+      const styleStr = garment.style || garment.itemNum || '';
+      const titleStr = garment.title || '';
+      const catStr = garment.category || (catalogProduct ? catalogProduct.category : '');
+      const garmentType = getSingularCategory(catStr, titleStr || styleStr);
+      const cleanColor = selectedColor.trim();
+      const cleanStyle = styleStr.trim();
+      
+      if (activeTab === 'back') {
+        const seedBack = getSeedForString(`${cleanStyle}-${cleanColor}-back`);
+        const encodedBackPrompt = encodeURIComponent(`blank back view of ${cleanColor} ${garmentType}, flat lay, isolated on solid white background, high resolution product mockup, clean, wrinkle-free, professional studio photography`);
+        const url = `https://image.pollinations.ai/prompt/${encodedBackPrompt}?width=800&height=800&nologo=true&seed=${seedBack}`;
+        setGeneratedViews(prev => ({ ...prev, back: url }));
+      } else if (activeTab === 'left-sleeve') {
+        const seedLeftSleeve = getSeedForString(`${cleanStyle}-${cleanColor}-left-sleeve`);
+        const encodedLeftSleevePrompt = encodeURIComponent(`blank side profile view of a ${cleanColor} ${garmentType} showing the left sleeve, flat lay, isolated on solid white background, high resolution product mockup, clean, wrinkle-free, professional studio photography`);
+        const url = `https://image.pollinations.ai/prompt/${encodedLeftSleevePrompt}?width=800&height=800&nologo=true&seed=${seedLeftSleeve}`;
+        setGeneratedViews(prev => ({ ...prev, 'left-sleeve': url }));
+      } else if (activeTab === 'right-sleeve') {
+        const seedRightSleeve = getSeedForString(`${cleanStyle}-${cleanColor}-right-sleeve`);
+        const encodedRightSleevePrompt = encodeURIComponent(`blank side profile view of a ${cleanColor} ${garmentType} showing the right sleeve, flat lay, isolated on solid white background, high resolution product mockup, clean, wrinkle-free, professional studio photography`);
+        const url = `https://image.pollinations.ai/prompt/${encodedRightSleevePrompt}?width=800&height=800&nologo=true&seed=${seedRightSleeve}`;
+        setGeneratedViews(prev => ({ ...prev, 'right-sleeve': url }));
+      }
+      setIsGeneratingView(false);
+    }, 1500);
+  };
 
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
@@ -618,14 +655,16 @@ export function GarmentCustomizerModal({
             {/* Zoom Wrapper to enlarge shirt */}
             <div className="relative w-full h-full flex items-center justify-center scale-[1.1]">
               {/* Main Garment Image */}
-              <img 
-                src={proxiedActiveMockupImage} 
-                alt={garment.style} 
-                className="max-w-full max-h-full object-contain mix-blend-multiply select-none pointer-events-none" 
-              />
+              {(!needsGeneration || isGenerated) && (
+                <img 
+                  src={proxiedActiveMockupImage} 
+                  alt={garment.style} 
+                  className="max-w-full max-h-full object-contain mix-blend-multiply select-none pointer-events-none animate-in fade-in duration-500" 
+                />
+              )}
 
               {/* Logo Overlay */}
-              {selectedLogo && isImageFile(selectedLogo.name) && (
+              {(!needsGeneration || isGenerated) && selectedLogo && isImageFile(selectedLogo.name) && (
                 <div 
                   onMouseDown={handleDragMouseDown}
                   style={{
@@ -649,7 +688,7 @@ export function GarmentCustomizerModal({
                 </div>
               )}
               
-              {selectedLogo && !isImageFile(selectedLogo.name) && (
+              {(!needsGeneration || isGenerated) && selectedLogo && !isImageFile(selectedLogo.name) && (
                 <div 
                   onMouseDown={handleDragMouseDown}
                   style={{
@@ -666,6 +705,41 @@ export function GarmentCustomizerModal({
                     onMouseDown={handleResizeMouseDown}
                     className="absolute bottom-[-6px] right-[-6px] w-3.5 h-3.5 bg-black border-2 border-white rounded-full cursor-se-resize shadow-md hover:scale-125 transition-transform z-30"
                   />
+                </div>
+              )}
+
+              {/* AI Generation Trigger Overlay */}
+              {needsGeneration && !isGenerated && (
+                <div className="absolute inset-0 bg-neutral-50/95 flex flex-col items-center justify-center p-8 text-center animate-in fade-in duration-300">
+                  <div className="w-16 h-16 bg-white border border-neutral-200 rounded-full flex items-center justify-center shadow-md mb-4 active:scale-95 transition-transform">
+                    {isGeneratingView ? (
+                      <Loader2 size={24} className="text-neutral-500 animate-spin" />
+                    ) : (
+                      <Sparkles size={24} className="text-neutral-700 animate-pulse" />
+                    )}
+                  </div>
+                  <h3 className="font-serif text-lg text-neutral-900 mb-1.5">AI Preview Required</h3>
+                  <p className="text-[11px] text-neutral-500 max-w-[280px] leading-relaxed mb-6 font-medium">
+                    No catalog asset exists for the {activeTab.replace('-', ' ')} view. Generate a side profile preview using Gemini to place your logo.
+                  </p>
+                  <button
+                    type="button"
+                    disabled={isGeneratingView}
+                    onClick={handleGenerateView}
+                    className="px-6 py-3 bg-black hover:bg-neutral-800 disabled:bg-neutral-400 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center gap-2 cursor-pointer active:scale-95 disabled:scale-100 disabled:cursor-not-allowed"
+                  >
+                    {isGeneratingView ? (
+                      <>
+                        <Loader2 size={13} className="animate-spin" />
+                        <span>Generating...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles size={13} />
+                        <span>Generate Preview</span>
+                      </>
+                    )}
+                  </button>
                 </div>
               )}
             </div>
