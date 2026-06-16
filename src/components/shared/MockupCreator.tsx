@@ -490,13 +490,33 @@ export function MockupCreator({
           : garmentUrl;
 
         const garmentImg = await loadImg(proxiedUrl);
+
+        const W = 500 * scaleFactor;
+        const H = 500 * scaleFactor;
+        const r = garmentImg.naturalWidth / garmentImg.naturalHeight;
+        
+        let w_draw = W;
+        let h_draw = H;
+        let x_draw = 0;
+        let y_draw = 0;
+
+        if (r > 1) {
+          w_draw = W;
+          h_draw = W / r;
+          y_draw = (H - h_draw) / 2;
+        } else {
+          h_draw = H;
+          w_draw = H * r;
+          x_draw = (W - w_draw) / 2;
+        }
+
         ctx.save();
         if (sideName === 'Right Sleeve') {
           ctx.translate(canvasOffsetX + (50 * scaleFactor) + (250 * scaleFactor), (50 * scaleFactor) + (250 * scaleFactor));
           ctx.scale(-1, 1);
-          ctx.drawImage(garmentImg, -250 * scaleFactor, -250 * scaleFactor, 500 * scaleFactor, 500 * scaleFactor);
+          ctx.drawImage(garmentImg, -w_draw / 2, -h_draw / 2, w_draw, h_draw);
         } else {
-          ctx.drawImage(garmentImg, canvasOffsetX + (50 * scaleFactor), (50 * scaleFactor), 500 * scaleFactor, 500 * scaleFactor);
+          ctx.drawImage(garmentImg, canvasOffsetX + (50 * scaleFactor) + x_draw, (50 * scaleFactor) + y_draw, w_draw, h_draw);
         }
         ctx.restore();
 
