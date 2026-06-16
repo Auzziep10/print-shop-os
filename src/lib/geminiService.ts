@@ -1,13 +1,20 @@
 import { initializeApp, getApps } from "firebase/app";
 import { getAI, getGenerativeModel } from "firebase/ai";
 
+const getEnv = (key: string) => {
+  if (typeof import.meta !== 'undefined' && (import.meta as any).env) {
+    return (import.meta as any).env[key];
+  }
+  return undefined;
+};
+
 const firebaseConfig = {
-  apiKey: "AIzaSyD0J9_ecnLBHzSawxjCDRFnttqUUHAzFv8",
-  authDomain: "wovn-catalog.firebaseapp.com",
-  projectId: "wovn-catalog",
-  storageBucket: "wovn-catalog.firebasestorage.app",
-  messagingSenderId: "1072086232494",
-  appId: "1:1072086232494:web:b4f0c923770919b6152c3f"
+  apiKey: getEnv('VITE_FIREBASE_API_KEY'),
+  authDomain: getEnv('VITE_FIREBASE_AUTH_DOMAIN'),
+  projectId: getEnv('VITE_FIREBASE_PROJECT_ID'),
+  storageBucket: getEnv('VITE_FIREBASE_STORAGE_BUCKET'),
+  messagingSenderId: getEnv('VITE_FIREBASE_MESSAGING_SENDER_ID'),
+  appId: getEnv('VITE_FIREBASE_APP_ID')
 };
 
 const appName = "wovn-gemini";
