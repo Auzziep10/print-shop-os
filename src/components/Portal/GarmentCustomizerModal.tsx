@@ -726,7 +726,7 @@ export function GarmentCustomizerModal({
           {/* Garment Preview Container */}
           <div 
             ref={previewRef}
-            className="relative h-full max-h-[80vh] aspect-square bg-white rounded-[2rem] border border-neutral-200/50 shadow-lg flex items-center justify-center overflow-hidden shrink-0 transition-all duration-300 hover:shadow-xl animate-in zoom-in-95 duration-300"
+            className="relative flex-1 min-h-0 max-h-[calc(100vh-280px)] aspect-square bg-white rounded-[2rem] border border-neutral-200/50 shadow-lg flex items-center justify-center overflow-hidden transition-all duration-300 hover:shadow-xl animate-in zoom-in-95 duration-300"
           >
             {/* Zoom Wrapper to enlarge shirt */}
             <div className="relative w-full h-full flex items-center justify-center scale-[1.1]">

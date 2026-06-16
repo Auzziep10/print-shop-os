@@ -613,7 +613,7 @@ export function MockupCreator({
           {/* Garment + Logo Wrapper */}
           <div 
             ref={containerRef}
-            className="relative h-full max-h-[80vh] aspect-square bg-white rounded-[2rem] shadow-lg border border-neutral-200/60 overflow-hidden flex items-center justify-center cursor-default shrink-0 transition-all duration-300 hover:shadow-xl"
+            className="relative flex-1 min-h-0 max-h-[calc(100vh-260px)] aspect-square bg-white rounded-[2rem] shadow-lg border border-neutral-200/60 overflow-hidden flex items-center justify-center cursor-default transition-all duration-300 hover:shadow-xl"
           >
             {/* Zoom Wrapper to enlarge shirt */}
             <div className="relative w-full h-full flex items-center justify-center scale-[1.1]">
