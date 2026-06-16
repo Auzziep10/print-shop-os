@@ -344,40 +344,19 @@ export function GarmentCustomizerModal({
 
       if (activeTab === 'back') {
         const seedBack = getSeedForString(`${cleanStyle}-${cleanColor}-back`);
-        const promptText = `TASK: Rotate Garment & Ghost Mannequin 3D Effect
-CRITICAL CONSTRAINTS:
-1. COMPLETELY ROTATE THE GARMENT IN 3D SPACE TO DISPLAY THE: Back View of the ${cleanColor} ${garmentType}.
-2. DO NOT KEEP IT FACING THE SAME DIRECTION as the original front-facing image. Show what this ${garmentType} realistically looks like photographed from the back.
-3. GHOST MANNEQUIN EFFECT (CRITICAL): Transform the ${garmentType} into a 3D, filled-out shape as if worn by an invisible person. It MUST look like it has volume and depth (a "ghost mannequin" or "hollow" look), NOT flat-layed on a table.
-4. ISOLATE ON PURE WHITE (ULTRA-CRITICAL): The ${garmentType} MUST be completely isolated on a flat, solid, mathematically pure white background (HEX #FFFFFF). Absolutely NO shadows on the floor or wall. Every non-garment pixel MUST be exactly #FFFFFF.
-5. PRESERVE DETAILS: Keep the same exact fabric texture, collar style, sleeve style, proportions, and exact color as the forward-facing ${garmentType} shown in the reference image: ${absoluteFrontImage}.
-6. Do NOT add any logos or graphics. Just the blank ${cleanColor} ${garmentType}.`;
+        const promptText = `A professional studio product photo showing the back view of a blank, clean, wrinkle-free ${cleanColor} ${garmentType}, ghost mannequin 3D mockup effect, isolated on a flat solid mathematically pure white background HEX #FFFFFF, soft clean studio lighting.`;
         const encodedBackPrompt = encodeURIComponent(promptText);
         const url = `https://image.pollinations.ai/prompt/${encodedBackPrompt}?width=800&height=800&nologo=true&seed=${seedBack}${imageParam}`;
         setGeneratedViews(prev => ({ ...prev, back: url }));
       } else if (activeTab === 'left-sleeve') {
         const seedLeftSleeve = getSeedForString(`${cleanStyle}-${cleanColor}-left-sleeve`);
-        const promptText = `TASK: Rotate Garment & Ghost Mannequin 3D Effect
-CRITICAL CONSTRAINTS:
-1. COMPLETELY ROTATE THE GARMENT IN 3D SPACE TO DISPLAY THE: Left Sleeve Side Profile View of the ${cleanColor} ${garmentType} (rotated 90 degrees to the side, showing only the left sleeve profile).
-2. DO NOT KEEP IT FACING THE SAME DIRECTION as the original front-facing image. Show what this ${garmentType} realistically looks like photographed from the side profile perspective.
-3. GHOST MANNEQUIN EFFECT (CRITICAL): Transform the ${garmentType} into a 3D, filled-out shape as if worn by an invisible person. It MUST look like it has volume and depth (a "ghost mannequin" or "hollow" look) showing the sleeve side profile, NOT flat-layed on a table.
-4. ISOLATE ON PURE WHITE (ULTRA-CRITICAL): The ${garmentType} MUST be completely isolated on a flat, solid, mathematically pure white background (HEX #FFFFFF). Absolutely NO shadows on the floor or wall. Every non-garment pixel MUST be exactly #FFFFFF.
-5. PRESERVE DETAILS: Keep the same exact fabric texture, collar style, sleeve style, proportions, and exact color as the forward-facing ${garmentType} shown in the reference image: ${absoluteFrontImage}.
-6. Do NOT add any logos or graphics. Just the blank ${cleanColor} ${garmentType}.`;
+        const promptText = `A professional studio product photo showing a side profile view of the left sleeve of a blank, clean, wrinkle-free ${cleanColor} ${garmentType}, garment rotated 90 degrees to show only the side sleeve profile, ghost mannequin 3D mockup effect, isolated on a flat solid mathematically pure white background HEX #FFFFFF, soft clean studio lighting.`;
         const encodedLeftSleevePrompt = encodeURIComponent(promptText);
         const url = `https://image.pollinations.ai/prompt/${encodedLeftSleevePrompt}?width=800&height=800&nologo=true&seed=${seedLeftSleeve}${imageParam}`;
         setGeneratedViews(prev => ({ ...prev, 'left-sleeve': url }));
       } else if (activeTab === 'right-sleeve') {
         const seedRightSleeve = getSeedForString(`${cleanStyle}-${cleanColor}-right-sleeve`);
-        const promptText = `TASK: Rotate Garment & Ghost Mannequin 3D Effect
-CRITICAL CONSTRAINTS:
-1. COMPLETELY ROTATE THE GARMENT IN 3D SPACE TO DISPLAY THE: Right Sleeve Side Profile View of the ${cleanColor} ${garmentType} (rotated 90 degrees to the side, showing only the right sleeve profile).
-2. DO NOT KEEP IT FACING THE SAME DIRECTION as the original front-facing image. Show what this ${garmentType} realistically looks like photographed from the side profile perspective.
-3. GHOST MANNEQUIN EFFECT (CRITICAL): Transform the ${garmentType} into a 3D, filled-out shape as if worn by an invisible person. It MUST look like it has volume and depth (a "ghost mannequin" or "hollow" look) showing the sleeve side profile, NOT flat-layed on a table.
-4. ISOLATE ON PURE WHITE (ULTRA-CRITICAL): The ${garmentType} MUST be completely isolated on a flat, solid, mathematically pure white background (HEX #FFFFFF). Absolutely NO shadows on the floor or wall. Every non-garment pixel MUST be exactly #FFFFFF.
-5. PRESERVE DETAILS: Keep the same exact fabric texture, collar style, sleeve style, proportions, and exact color as the forward-facing ${garmentType} shown in the reference image: ${absoluteFrontImage}.
-6. Do NOT add any logos or graphics. Just the blank ${cleanColor} ${garmentType}.`;
+        const promptText = `A professional studio product photo showing a side profile view of the right sleeve of a blank, clean, wrinkle-free ${cleanColor} ${garmentType}, garment rotated 90 degrees to show only the side sleeve profile, ghost mannequin 3D mockup effect, isolated on a flat solid mathematically pure white background HEX #FFFFFF, soft clean studio lighting.`;
         const encodedRightSleevePrompt = encodeURIComponent(promptText);
         const url = `https://image.pollinations.ai/prompt/${encodedRightSleevePrompt}?width=800&height=800&nologo=true&seed=${seedRightSleeve}${imageParam}`;
         setGeneratedViews(prev => ({ ...prev, 'right-sleeve': url }));
