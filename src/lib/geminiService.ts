@@ -9,12 +9,12 @@ const getEnv = (key: string) => {
 };
 
 const firebaseConfig = {
-  apiKey: getEnv('VITE_FIREBASE_API_KEY'),
-  authDomain: getEnv('VITE_FIREBASE_AUTH_DOMAIN'),
-  projectId: getEnv('VITE_FIREBASE_PROJECT_ID'),
-  storageBucket: getEnv('VITE_FIREBASE_STORAGE_BUCKET'),
-  messagingSenderId: getEnv('VITE_FIREBASE_MESSAGING_SENDER_ID'),
-  appId: getEnv('VITE_FIREBASE_APP_ID')
+  apiKey: getEnv('VITE_FIREBASE_API_KEY') || "AIzaSyD0J9_ecnLBHzSawxjCDRFnttqUUHAzFv8",
+  authDomain: getEnv('VITE_FIREBASE_AUTH_DOMAIN') || "wovn-catalog.firebaseapp.com",
+  projectId: getEnv('VITE_FIREBASE_PROJECT_ID') || "wovn-catalog",
+  storageBucket: getEnv('VITE_FIREBASE_STORAGE_BUCKET') || "wovn-catalog.firebasestorage.app",
+  messagingSenderId: getEnv('VITE_FIREBASE_MESSAGING_SENDER_ID') || "1072086232494",
+  appId: getEnv('VITE_FIREBASE_APP_ID') || "1:1072086232494:web:b4f0c923770919b6152c3f"
 };
 
 const appName = "wovn-gemini";
@@ -49,29 +49,31 @@ async function toBase64(url: string): Promise<{ data: string; mimeType: string }
 async function ensureSolidBackground(imageUrlOrBase64: string): Promise<string> {
   let src = imageUrlOrBase64;
   if (src.startsWith('http')) {
-    try {
-      const { data, mimeType } = await toBase64(src);
-      src = `data:${mimeType};base64,${data}`;
-    } catch (e) {
-      console.warn("Failed to fetch image for background fill", e);
-    }
+    const { data, mimeType } = await toBase64(src);
+    src = `data:${mimeType};base64,${data}`;
   }
 
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return resolve(src);
-      ctx.fillStyle = '#FFFFFF';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, 0, 0);
-      resolve(canvas.toDataURL('image/jpeg', 1.0));
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          throw new Error("Could not get 2D context");
+        }
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL('image/jpeg', 1.0));
+      } catch (err) {
+        reject(err);
+      }
     };
-    img.onerror = () => resolve(src);
+    img.onerror = (e) => reject(new Error("Failed to load image element"));
     img.src = src;
   });
 }
