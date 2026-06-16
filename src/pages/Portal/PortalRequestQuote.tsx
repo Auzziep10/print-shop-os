@@ -164,6 +164,7 @@ export function PortalRequestQuote() {
     const newProduct = {
       id: Date.now() + Math.random(),
       garmentName: style,
+      itemNum: item.itemNum || item.garment_id || item.sku || item.id || '',
       color: colors[0] || '',
       qty: 0,
       artworkUrl: image,
@@ -774,6 +775,7 @@ export function PortalRequestQuote() {
           garment={{
             id: customizingProduct.id,
             style: customizingProduct.garmentName,
+            itemNum: customizingProduct.itemNum,
             image: customizingProduct.artworkUrl,
             images: customizingProduct.images || null,
             backImages: customizingProduct.backImages || null,

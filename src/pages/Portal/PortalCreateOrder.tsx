@@ -919,6 +919,7 @@ export function PortalCreateOrder() {
           garment={{
             id: customizingItem.instanceId,
             style: customizingItem.style,
+            itemNum: customizingItem.itemNum,
             image: customizingItem.image,
             images: customizingItem.images || null,
             backImages: customizingItem.backImages || null,

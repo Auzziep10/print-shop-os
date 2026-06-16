@@ -2,6 +2,59 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { X, Upload, RotateCw, Check, RefreshCw, AlignCenter, AlignLeft, Sparkles, Loader2 } from 'lucide-react';
 import { storage } from '../../lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import sanmarCatalogJson from '../../data/sanmar-catalog.json';
+
+const sanmarCatalog = sanmarCatalogJson as any[];
+
+const findFuzzyColorKey = (catalogImages: Record<string, any>, targetColor: string): string | null => {
+  if (!targetColor || !catalogImages) return null;
+  
+  const normalize = (color: string) => {
+    return color
+      .toLowerCase()
+      .replace(/\bgrey\b/g, 'gray')
+      .trim();
+  };
+
+  const targetLower = normalize(targetColor);
+  if (!targetLower) return null;
+
+  const keys = Object.keys(catalogImages);
+
+  // 1. Exact match (case-insensitive & grey/gray normalized)
+  let found = keys.find((k) => normalize(k) === targetLower);
+  if (found) return found;
+
+  // 2. Substring check: catalog key contains target or target contains catalog key
+  found = keys.find((k) => {
+    const kNorm = normalize(k);
+    return kNorm.includes(targetLower) || targetLower.includes(kNorm);
+  });
+  if (found) return found;
+
+  // 3. Token overlap matching
+  const targetWords = targetLower.split(/[\s\/\-_]+/).filter((w) => w && w !== 'and' && w !== 'with');
+  if (targetWords.length > 0) {
+    let bestKey: string | null = null;
+    let maxOverlap = 0;
+    
+    for (const key of keys) {
+      const keyNorm = normalize(key);
+      const keyWords = keyNorm.split(/[\s\/\-_]+/).filter((w) => w && w !== 'and' && w !== 'with');
+      const overlap = targetWords.filter((w) => keyWords.includes(w)).length;
+      if (overlap > maxOverlap) {
+        maxOverlap = overlap;
+        bestKey = key;
+      }
+    }
+    if (bestKey && maxOverlap > 0) {
+      return bestKey;
+    }
+  }
+
+  return null;
+};
+
 
 const getSingularCategory = (garmentName: string = '') => {
   const text = garmentName.toLowerCase();
@@ -318,6 +371,34 @@ export function MockupCreator({
   const cleanColor = colorName.trim();
   const cleanStyle = garmentName.trim();
 
+  // Find product in catalog as fallback for images
+  const catalogProduct = useMemo(() => {
+    if (!garmentName) return null;
+    
+    // First try exact match
+    let found = sanmarCatalog.find(
+      (p) => p.style.toLowerCase() === garmentName.toLowerCase()
+    );
+    if (found) return found;
+
+    // Try finding a catalog style code that is contained within the garmentName
+    const sortedCatalog = [...sanmarCatalog].sort((a, b) => b.style.length - a.style.length);
+    found = sortedCatalog.find(
+      (p) => garmentName.toLowerCase().includes(p.style.toLowerCase())
+    );
+    return found || null;
+  }, [garmentName]);
+
+  const catalogBack = useMemo(() => {
+    if (catalogProduct && colorName) {
+      const catalogImages = catalogProduct.images || {};
+      const catalogImgKey = findFuzzyColorKey(catalogImages, colorName);
+      const catalogColorVal = catalogImgKey ? catalogImages[catalogImgKey] : null;
+      return catalogColorVal?.back || null;
+    }
+    return null;
+  }, [catalogProduct, colorName]);
+
   const seedBack = getSeedForString(`${cleanStyle}-${cleanColor}-back`);
   const seedLeftSleeve = getSeedForString(`${cleanStyle}-${cleanColor}-left-sleeve`);
   const seedRightSleeve = getSeedForString(`${cleanStyle}-${cleanColor}-right-sleeve`);
@@ -342,7 +423,16 @@ export function MockupCreator({
     }
   }
 
-  const resolvedBackImageUrl = garmentBackImageUrl || generatedViews.back || null;
+  let localBackImage = garmentBackImageUrl || null;
+  if (localBackImage && catalogBack) {
+    const gBackLower = localBackImage.toLowerCase();
+    const gFrontLower = (garmentImageUrl || '').toLowerCase();
+    if (gBackLower === gFrontLower || (gBackLower.includes('_front') && !catalogBack.toLowerCase().includes('_front'))) {
+      localBackImage = null;
+    }
+  }
+
+  const resolvedBackImageUrl = localBackImage || catalogBack || generatedViews.back || null;
   const resolvedLeftSleeveImageUrl = garmentLeftSleeveImageUrl || localLeftSleeve || generatedViews['left-sleeve'] || null;
   const resolvedRightSleeveImageUrl = garmentRightSleeveImageUrl || localRightSleeve || generatedViews['right-sleeve'] || null;
 

@@ -28,6 +28,56 @@ const getSeedForString = (str: string) => {
   return Math.abs(hash) % 100000;
 };
 
+const findFuzzyColorKey = (catalogImages: Record<string, any>, targetColor: string): string | null => {
+  if (!targetColor || !catalogImages) return null;
+  
+  const normalize = (color: string) => {
+    return color
+      .toLowerCase()
+      .replace(/\bgrey\b/g, 'gray')
+      .trim();
+  };
+
+  const targetLower = normalize(targetColor);
+  if (!targetLower) return null;
+
+  const keys = Object.keys(catalogImages);
+
+  // 1. Exact match (case-insensitive & grey/gray normalized)
+  let found = keys.find((k) => normalize(k) === targetLower);
+  if (found) return found;
+
+  // 2. Substring check: catalog key contains target or target contains catalog key
+  found = keys.find((k) => {
+    const kNorm = normalize(k);
+    return kNorm.includes(targetLower) || targetLower.includes(kNorm);
+  });
+  if (found) return found;
+
+  // 3. Token overlap matching
+  const targetWords = targetLower.split(/[\s\/\-_]+/).filter((w) => w && w !== 'and' && w !== 'with');
+  if (targetWords.length > 0) {
+    let bestKey: string | null = null;
+    let maxOverlap = 0;
+    
+    for (const key of keys) {
+      const keyNorm = normalize(key);
+      const keyWords = keyNorm.split(/[\s\/\-_]+/).filter((w) => w && w !== 'and' && w !== 'with');
+      const overlap = targetWords.filter((w) => keyWords.includes(w)).length;
+      if (overlap > maxOverlap) {
+        maxOverlap = overlap;
+        bestKey = key;
+      }
+    }
+    if (bestKey && maxOverlap > 0) {
+      return bestKey;
+    }
+  }
+
+  return null;
+};
+
+
 interface GarmentCustomizerModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -137,22 +187,31 @@ export function GarmentCustomizerModal({
 
   // Find product in catalog as fallback for images
   const catalogProduct = useMemo(() => {
-    const styleStr = garment.style || garment.itemNum || '';
-    if (!styleStr) return null;
-    
-    // First try exact match
-    let found = sanmarCatalog.find(
-      (p) => p.style.toLowerCase() === styleStr.toLowerCase()
-    );
-    if (found) return found;
+    const styleName = (garment.style || '').trim().toLowerCase();
+    const itemNum = (garment.itemNum || '').trim().toLowerCase();
+    if (!styleName && !itemNum) return null;
 
-    // Try finding a catalog style code that is contained within the styleStr (e.g., "NL6210" in the title string)
-    // Sort catalog by style length descending so that we match longer style codes first
-    const sortedCatalog = [...sanmarCatalog].sort((a, b) => b.style.length - a.style.length);
-    found = sortedCatalog.find(
-      (p) => styleStr.toLowerCase().includes(p.style.toLowerCase())
-    );
-    return found || null;
+    const findMatch = (query: string) => {
+      if (!query) return null;
+      // 1. Exact match
+      let found = sanmarCatalog.find(
+        (p) => p.style.toLowerCase() === query
+      );
+      if (found) return found;
+
+      // 2. Contains match
+      const sortedCatalog = [...sanmarCatalog].sort((a, b) => b.style.length - a.style.length);
+      found = sortedCatalog.find(
+        (p) => {
+          const pStyle = p.style.toLowerCase();
+          return query.includes(pStyle) || pStyle.includes(query);
+        }
+      );
+      return found || null;
+    };
+
+    // Try matching by itemNum (SKU style code) first as it is more specific, then styleName
+    return findMatch(itemNum) || findMatch(styleName) || null;
   }, [garment.style, garment.itemNum]);
 
   // Case-insensitive image resolver
@@ -168,9 +227,7 @@ export function GarmentCustomizerModal({
 
     // 1. Resolve from garment.images case-insensitively
     const garmentImages = garment.images || {};
-    const garmentImgKey = Object.keys(garmentImages).find(
-      (k) => k.toLowerCase() === selectedColor.toLowerCase()
-    );
+    const garmentImgKey = findFuzzyColorKey(garmentImages, selectedColor);
     const garmentColorVal = garmentImgKey ? garmentImages[garmentImgKey] : null;
 
     const garmentFront = garmentColorVal?.front || (typeof garmentColorVal === 'string' ? garmentColorVal : null);
@@ -178,9 +235,7 @@ export function GarmentCustomizerModal({
 
     // 2. Resolve garment.backImages case-insensitively
     const garmentBackImages = garment.backImages || {};
-    const garmentBackImgKey = Object.keys(garmentBackImages).find(
-      (k) => k.toLowerCase() === selectedColor.toLowerCase()
-    );
+    const garmentBackImgKey = findFuzzyColorKey(garmentBackImages, selectedColor);
     if (garmentBackImgKey) {
       garmentBack = garmentBackImages[garmentBackImgKey];
     }
@@ -190,12 +245,19 @@ export function GarmentCustomizerModal({
     let catalogBack = null;
     if (catalogProduct) {
       const catalogImages = catalogProduct.images || {};
-      const catalogImgKey = Object.keys(catalogImages).find(
-        (k) => k.toLowerCase() === selectedColor.toLowerCase()
-      );
+      const catalogImgKey = findFuzzyColorKey(catalogImages, selectedColor);
       const catalogColorVal = catalogImgKey ? catalogImages[catalogImgKey] : null;
       catalogFront = catalogColorVal?.front || (typeof catalogColorVal === 'string' ? catalogColorVal : null);
       catalogBack = catalogColorVal?.back || null;
+    }
+
+    // Defensive fallback: if garmentBack is identical to garmentFront or is clearly a front image, and we have a distinct catalogBack, use catalogBack instead
+    if (garmentBack && catalogBack) {
+      const gBackLower = garmentBack.toLowerCase();
+      const gFrontLower = (garmentFront || '').toLowerCase();
+      if (gBackLower === gFrontLower || (gBackLower.includes('_front') && !catalogBack.toLowerCase().includes('_front'))) {
+        garmentBack = null;
+      }
     }
 
     const cleanColor = selectedColor.trim();
