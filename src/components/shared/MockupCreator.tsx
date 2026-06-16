@@ -3,6 +3,7 @@ import { X, Upload, RotateCw, Check, RefreshCw, AlignCenter, AlignLeft, Sparkles
 import { storage } from '../../lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
+import { generateRotatedGarment } from '../../lib/geminiService';
 
 const sanmarCatalog = sanmarCatalogJson as any[];
 
@@ -56,25 +57,6 @@ const findFuzzyColorKey = (catalogImages: Record<string, any>, targetColor: stri
 };
 
 
-const getSingularCategory = (garmentName: string = '') => {
-  const text = garmentName.toLowerCase();
-  if (text.includes('hoodie') || text.includes('hooded')) return 'hoodie';
-  if (text.includes('sweatshirt') || text.includes('crewneck')) return 'crewneck sweatshirt';
-  if (text.includes('long sleeve') || text.includes('longsleeve')) return 'long sleeve shirt';
-  if (text.includes('polo')) return 'polo shirt';
-  if (text.includes('t-shirt') || text.includes('tee') || text.includes('tshirt')) return 't-shirt';
-  if (text.includes('hat') || text.includes('cap')) return 'trucker cap';
-  if (text.includes('jacket')) return 'jacket';
-  return 'apparel';
-};
-
-const getSeedForString = (str: string) => {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = str.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return Math.abs(hash) % 100000;
-};
 
 interface MockupCreatorProps {
   isOpen: boolean;
@@ -367,7 +349,6 @@ export function MockupCreator({
     }
   };
 
-  const garmentType = getSingularCategory(garmentName);
   const cleanColor = colorName.trim();
   const cleanStyle = garmentName.trim();
 
@@ -399,22 +380,7 @@ export function MockupCreator({
     return null;
   }, [catalogProduct, colorName]);
 
-  const seedBack = getSeedForString(`${cleanStyle}-${cleanColor}-back`);
-  const seedLeftSleeve = getSeedForString(`${cleanStyle}-${cleanColor}-left-sleeve`);
-  const seedRightSleeve = getSeedForString(`${cleanStyle}-${cleanColor}-right-sleeve`);
-
-  const absoluteFrontImage = garmentImageUrl ? (garmentImageUrl.startsWith('http') ? garmentImageUrl : `${window.location.origin}${garmentImageUrl}`) : '';
-  const imageParam = absoluteFrontImage ? `&image=${encodeURIComponent(absoluteFrontImage)}` : '';
-
-  const backPromptText = `A professional studio product photo showing the back view of a blank, clean, wrinkle-free ${cleanColor} ${garmentType}, ghost mannequin 3D mockup effect, isolated on a flat solid mathematically pure white background HEX #FFFFFF, soft clean studio lighting.`;
-
-  const leftSleevePromptText = `A professional studio product photo showing a side profile view of the left sleeve of a blank, clean, wrinkle-free ${cleanColor} ${garmentType}, garment rotated 90 degrees to show only the side sleeve profile, ghost mannequin 3D mockup effect, isolated on a flat solid mathematically pure white background HEX #FFFFFF, soft clean studio lighting.`;
-
-  const rightSleevePromptText = `A professional studio product photo showing a side profile view of the right sleeve of a blank, clean, wrinkle-free ${cleanColor} ${garmentType}, garment rotated 90 degrees to show only the side sleeve profile, ghost mannequin 3D mockup effect, isolated on a flat solid mathematically pure white background HEX #FFFFFF, soft clean studio lighting.`;
-
-  const generatedBackUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(backPromptText)}?width=800&height=800&nologo=true&seed=${seedBack}${imageParam}`;
-  const generatedLeftSleeveUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(leftSleevePromptText)}?width=800&height=800&nologo=true&seed=${seedLeftSleeve}${imageParam}`;
-  const generatedRightSleeveUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(rightSleevePromptText)}?width=800&height=800&nologo=true&seed=${seedRightSleeve}${imageParam}`;
+  // Pollinations URLs removed since we are calling Gemini API directly
 
   // Map high-quality pre-generated sleeve mockups for NL6210 (Charcoal and Black)
   const colorLower = cleanColor.toLowerCase();
@@ -465,21 +431,35 @@ export function MockupCreator({
 
   const isGenerated = !!generatedViews[activeTab];
 
-  const handleGenerateView = () => {
-    if (isGeneratingView) return;
+  const handleGenerateView = async () => {
+    if (isGeneratingView || !garmentImageUrl) return;
     setIsGeneratingView(true);
     
-    // Simulate generation loading for 1.5 seconds for a premium feel
-    setTimeout(() => {
+    try {
+      let viewAngleStr = '';
       if (activeTab === 'back') {
-        setGeneratedViews(prev => ({ ...prev, back: generatedBackUrl }));
+        viewAngleStr = 'Back View';
       } else if (activeTab === 'left-sleeve') {
-        setGeneratedViews(prev => ({ ...prev, 'left-sleeve': generatedLeftSleeveUrl }));
+        viewAngleStr = 'Left Side View';
       } else if (activeTab === 'right-sleeve') {
-        setGeneratedViews(prev => ({ ...prev, 'right-sleeve': generatedRightSleeveUrl }));
+        viewAngleStr = 'Right Side View';
       }
+      
+      const generatedImageUrl = await generateRotatedGarment(garmentImageUrl, viewAngleStr);
+      
+      if (activeTab === 'back') {
+        setGeneratedViews(prev => ({ ...prev, back: generatedImageUrl }));
+      } else if (activeTab === 'left-sleeve') {
+        setGeneratedViews(prev => ({ ...prev, 'left-sleeve': generatedImageUrl }));
+      } else if (activeTab === 'right-sleeve') {
+        setGeneratedViews(prev => ({ ...prev, 'right-sleeve': generatedImageUrl }));
+      }
+    } catch (err) {
+      console.error("Failed to generate rotated garment view with Gemini:", err);
+      alert("Failed to recreate view. Please try again.");
+    } finally {
       setIsGeneratingView(false);
-    }, 1500);
+    }
   };
 
   const handleSaveMockup = async () => {
