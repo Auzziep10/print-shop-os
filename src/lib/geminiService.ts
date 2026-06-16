@@ -1,13 +1,6 @@
 import { initializeApp, getApps } from "firebase/app";
 import { getAI, getGenerativeModel } from "firebase/ai";
 
-const getEnv = (key: string) => {
-  if (typeof import.meta !== 'undefined' && (import.meta as any).env) {
-    return (import.meta as any).env[key];
-  }
-  return undefined;
-};
-
 const firebaseConfig = {
   apiKey: "AIzaSyD0J9_ecnLBHzSawxjCDRFnttqUUHAzFv8",
   authDomain: "wovn-catalog.firebaseapp.com",
@@ -73,7 +66,7 @@ async function ensureSolidBackground(imageUrlOrBase64: string): Promise<string> 
         reject(err);
       }
     };
-    img.onerror = (e) => reject(new Error("Failed to load image element"));
+    img.onerror = () => reject(new Error("Failed to load image element"));
     img.src = src;
   });
 }
