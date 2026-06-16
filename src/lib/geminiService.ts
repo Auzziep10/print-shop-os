@@ -9,12 +9,12 @@ const getEnv = (key: string) => {
 };
 
 const firebaseConfig = {
-  apiKey: getEnv('VITE_FIREBASE_API_KEY') || "AIzaSyD0J9_ecnLBHzSawxjCDRFnttqUUHAzFv8",
-  authDomain: getEnv('VITE_FIREBASE_AUTH_DOMAIN') || "wovn-catalog.firebaseapp.com",
-  projectId: getEnv('VITE_FIREBASE_PROJECT_ID') || "wovn-catalog",
-  storageBucket: getEnv('VITE_FIREBASE_STORAGE_BUCKET') || "wovn-catalog.firebasestorage.app",
-  messagingSenderId: getEnv('VITE_FIREBASE_MESSAGING_SENDER_ID') || "1072086232494",
-  appId: getEnv('VITE_FIREBASE_APP_ID') || "1:1072086232494:web:b4f0c923770919b6152c3f"
+  apiKey: "AIzaSyD0J9_ecnLBHzSawxjCDRFnttqUUHAzFv8",
+  authDomain: "wovn-catalog.firebaseapp.com",
+  projectId: "wovn-catalog",
+  storageBucket: "wovn-catalog.firebasestorage.app",
+  messagingSenderId: "1072086232494",
+  appId: "1:1072086232494:web:b4f0c923770919b6152c3f"
 };
 
 const appName = "wovn-gemini";
