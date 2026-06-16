@@ -626,9 +626,9 @@ export function MockupCreator({
                       <Sparkles size={24} className="text-neutral-700 animate-pulse" />
                     )}
                   </div>
-                  <h3 className="font-serif text-lg text-neutral-900 mb-1.5">AI Preview Required</h3>
+                  <h3 className="font-serif text-lg text-neutral-900 mb-1.5">Preview Required</h3>
                   <p className="text-[11px] text-neutral-500 max-w-[280px] leading-relaxed mb-6 font-medium">
-                    No catalog asset exists for the {activeTab.replace('-', ' ')} view. Generate a side profile preview using Gemini to place your logo.
+                    No catalog asset exists for the {activeTab.replace('-', ' ')} view. Generate a side profile preview to place your logo.
                   </p>
                   <button
                     type="button"
