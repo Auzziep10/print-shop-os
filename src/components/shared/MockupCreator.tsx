@@ -443,13 +443,21 @@ export function MockupCreator({
         });
       };
 
-      const drawSide = async (garmentUrl: string, logoSrc: string | null, pos: { x: number; y: number }, scaleVal: number, rotationVal: number, canvasOffsetX: number) => {
+      const drawSide = async (garmentUrl: string, logoSrc: string | null, pos: { x: number; y: number }, scaleVal: number, rotationVal: number, canvasOffsetX: number, sideName: string) => {
         const proxiedUrl = garmentUrl.startsWith('http')
           ? `/api/sanmar/proxy-image?url=${encodeURIComponent(garmentUrl)}`
           : garmentUrl;
 
         const garmentImg = await loadImg(proxiedUrl);
-        ctx.drawImage(garmentImg, canvasOffsetX + 50, 50, 500, 500);
+        ctx.save();
+        if (sideName === 'Right Sleeve') {
+          ctx.translate(canvasOffsetX + 50 + 250, 50 + 250);
+          ctx.scale(-1, 1);
+          ctx.drawImage(garmentImg, -250, -250, 500, 500);
+        } else {
+          ctx.drawImage(garmentImg, canvasOffsetX + 50, 50, 500, 500);
+        }
+        ctx.restore();
 
         if (logoSrc) {
           const logoImg = await loadImg(logoSrc);
@@ -470,7 +478,7 @@ export function MockupCreator({
 
       for (let i = 0; i < activeSides.length; i++) {
         const side = activeSides[i];
-        await drawSide(side.img, side.logo, side.pos, side.scale, side.rotation, i * panelWidth);
+        await drawSide(side.img, side.logo, side.pos, side.scale, side.rotation, i * panelWidth, side.name);
       }
 
       canvas.toBlob(async (blob) => {
@@ -557,6 +565,7 @@ export function MockupCreator({
                 <img 
                   src={proxiedGarmentUrl} 
                   alt={garmentName} 
+                  style={{ transform: activeTab === 'right-sleeve' ? 'scaleX(-1)' : 'none' }}
                   className="max-w-full max-h-full object-contain pointer-events-none mix-blend-multiply animate-in fade-in duration-500"
                   draggable="false"
                 />

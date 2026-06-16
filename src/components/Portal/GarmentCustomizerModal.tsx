@@ -498,12 +498,21 @@ export function GarmentCustomizerModal({
         });
       };
 
-      const drawSide = async (garmentSrc: string, logoAsset: any, scaleVal: number, offX: number, offY: number, canvasOffsetX: number) => {
+      const drawSide = async (garmentSrc: string, logoAsset: any, scaleVal: number, offX: number, offY: number, canvasOffsetX: number, sideName: string) => {
         const proxiedGarmentSrc = garmentSrc.startsWith('http')
           ? `/api/sanmar/proxy-image?url=${encodeURIComponent(garmentSrc)}`
           : garmentSrc;
         const garmentImg = await loadImg(proxiedGarmentSrc);
-        ctx.drawImage(garmentImg, canvasOffsetX + 50, 50, 500, 500);
+
+        ctx.save();
+        if (sideName === 'Right Sleeve') {
+          ctx.translate(canvasOffsetX + 50 + 250, 50 + 250);
+          ctx.scale(-1, 1);
+          ctx.drawImage(garmentImg, -250, -250, 500, 500);
+        } else {
+          ctx.drawImage(garmentImg, canvasOffsetX + 50, 50, 500, 500);
+        }
+        ctx.restore();
 
         if (logoAsset) {
           const logoImg = await loadImg(logoAsset.url);
@@ -521,7 +530,7 @@ export function GarmentCustomizerModal({
 
       for (let i = 0; i < activeSides.length; i++) {
         const side = activeSides[i];
-        await drawSide(side.img, side.logo, side.scale, side.offX, side.offY, i * panelWidth);
+        await drawSide(side.img, side.logo, side.scale, side.offX, side.offY, i * panelWidth, side.name);
       }
 
       const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
@@ -659,6 +668,7 @@ export function GarmentCustomizerModal({
                 <img 
                   src={proxiedActiveMockupImage} 
                   alt={garment.style} 
+                  style={{ transform: activeTab === 'right-sleeve' ? 'scaleX(-1)' : 'none' }}
                   className="max-w-full max-h-full object-contain mix-blend-multiply select-none pointer-events-none animate-in fade-in duration-500" 
                 />
               )}
