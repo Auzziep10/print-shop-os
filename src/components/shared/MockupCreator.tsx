@@ -605,7 +605,7 @@ export function MockupCreator({
                 }`}
               >
                 <RefreshCw size={13} className={isSleeveMirrored ? "animate-spin" : ""} style={{ animationIterationCount: 1, animationDuration: '0.4s' }} />
-                <span>{isSleeveMirrored ? 'Right Sleeve (Mirrored)' : 'Left Sleeve (Standard)'}</span>
+                <span>{isSleeveMirrored ? 'Mirrored View' : 'Standard View'}</span>
               </button>
             )}
           </div>
@@ -719,7 +719,7 @@ export function MockupCreator({
             </div>
             
             <span className="absolute bottom-4 left-4 text-[9px] font-bold uppercase tracking-widest text-neutral-400 bg-neutral-50 border border-neutral-200 px-2 py-0.5 rounded shadow-sm z-30">
-              Active Placement: {activeTab === 'sleeve' ? (isSleeveMirrored ? 'RIGHT SLEEVE' : 'LEFT SLEEVE') : activeTab.toUpperCase()}
+              Active Placement: {activeTab === 'sleeve' ? (isSleeveMirrored ? 'SLEEVE (MIRRORED)' : 'SLEEVE') : activeTab.toUpperCase()}
             </span>
           </div>
         </div>
@@ -742,7 +742,7 @@ export function MockupCreator({
                     <img src={logoUrl} className="w-full h-full object-contain" alt="Logo preview" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <span className="text-xs font-bold text-neutral-700 block truncate">Logo Active ({activeTab === 'sleeve' ? (isSleeveMirrored ? 'RIGHT SLEEVE' : 'LEFT SLEEVE') : activeTab.toUpperCase()})</span>
+                    <span className="text-xs font-bold text-neutral-700 block truncate">Logo Active ({activeTab === 'sleeve' ? (isSleeveMirrored ? 'SLEEVE (MIRRORED)' : 'SLEEVE') : activeTab.toUpperCase()})</span>
                     <label className="text-xs text-brand-primary hover:text-brand-primary/80 font-bold cursor-pointer inline-block mt-0.5">
                       Change File
                       <input type="file" accept="image/png, image/jpeg, image/svg+xml" onChange={handleLogoUpload} className="hidden" />

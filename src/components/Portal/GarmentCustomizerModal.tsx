@@ -718,7 +718,7 @@ export function GarmentCustomizerModal({
                 }`}
               >
                 <RefreshCw size={13} className={isSleeveMirrored ? "animate-spin" : ""} style={{ animationIterationCount: 1, animationDuration: '0.4s' }} />
-                <span>{isSleeveMirrored ? 'Right Sleeve (Mirrored)' : 'Left Sleeve (Standard)'}</span>
+                <span>{isSleeveMirrored ? 'Mirrored View' : 'Standard View'}</span>
               </button>
             )}
           </div>
@@ -822,7 +822,7 @@ export function GarmentCustomizerModal({
             </div>
 
             <span className="absolute bottom-4 left-4 text-[9px] font-bold uppercase tracking-widest text-neutral-400 bg-neutral-50 border border-neutral-200 px-2 py-0.5 rounded shadow-sm z-30">
-              Active Placement: {activeTab === 'sleeve' ? (isSleeveMirrored ? 'RIGHT SLEEVE' : 'LEFT SLEEVE') : activeTab.toUpperCase()}
+              Active Placement: {activeTab === 'sleeve' ? (isSleeveMirrored ? 'SLEEVE (MIRRORED)' : 'SLEEVE') : activeTab.toUpperCase()}
             </span>
           </div>
         </div>
