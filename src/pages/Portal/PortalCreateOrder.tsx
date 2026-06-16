@@ -71,6 +71,7 @@ export function PortalCreateOrder() {
   const [suggestedItems, setSuggestedItems] = useState<any[]>([]);
   const [pastGarments, setPastGarments] = useState<any[]>([]);
   const [customizingItem, setCustomizingItem] = useState<any | null>(null);
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchPreviousOrders = async () => {
@@ -431,8 +432,12 @@ export function PortalCreateOrder() {
                 <div key={item.instanceId} className="bg-white rounded-3xl p-6 shadow-[0_4px_24px_rgb(0,0,0,0.02)] border border-neutral-100 flex flex-col gap-6 animate-in slide-in-from-bottom-4 fade-in duration-300">
                   <div className="flex items-start justify-between border-b border-neutral-100 pb-6">
                     <div className="flex gap-5 items-center">
-                      <div className="w-20 h-20 rounded-xl overflow-hidden bg-neutral-50 border border-neutral-100 shrink-0">
-                         <img src={item.customized ? item.image : (item.images?.[item.selectedColor] || item.image)} alt={item.style} className="w-full h-full object-cover mix-blend-multiply" />
+                      <div 
+                        onClick={() => setPreviewImageUrl(item.customized ? item.image : (item.images?.[item.selectedColor] || item.image))}
+                        className="w-20 h-20 rounded-xl overflow-hidden bg-neutral-50 border border-neutral-100 shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+                        title="Click to view full image"
+                      >
+                         <img src={item.customized ? item.image : (item.images?.[item.selectedColor] || item.image)} alt={item.style} className="w-full h-full object-cover mix-blend-multiply animate-in fade-in duration-300" />
                       </div>
                       <div>
                         <div className="flex items-center gap-2 mb-1">
@@ -947,6 +952,31 @@ export function PortalCreateOrder() {
             } : item));
           }}
         />
+      )}
+
+      {/* Lightbox Image Preview Modal */}
+      {previewImageUrl && (
+        <div 
+          className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={() => setPreviewImageUrl(null)}
+        >
+          <div 
+            className="relative max-w-[90vw] max-h-[90vh] bg-white rounded-[2rem] p-3 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex items-center justify-center border border-neutral-200/50"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button 
+              onClick={() => setPreviewImageUrl(null)}
+              className="absolute top-6 right-6 w-10 h-10 rounded-full bg-white/90 hover:bg-white text-neutral-800 hover:text-black flex items-center justify-center shadow-lg transition-all z-50 cursor-pointer border border-neutral-100 hover:scale-105"
+            >
+              <X size={20} />
+            </button>
+            <img 
+              src={previewImageUrl} 
+              alt="Mockup Preview" 
+              className="max-w-full max-h-[80vh] object-contain rounded-2xl select-none" 
+            />
+          </div>
+        </div>
       )}
 
     </div>
