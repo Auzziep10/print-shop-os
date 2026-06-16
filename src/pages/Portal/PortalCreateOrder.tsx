@@ -961,8 +961,16 @@ export function PortalCreateOrder() {
           onClick={() => setPreviewImageUrl(null)}
         >
           <div 
-            className="relative max-w-[90vw] max-h-[90vh] bg-white rounded-[2rem] p-3 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex items-center justify-center border border-neutral-200/50"
+            className="relative max-w-[90vw] max-h-[90vh] bg-white rounded-[2rem] p-3 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex items-center justify-center border border-neutral-200/50 cursor-crosshair"
             onClick={(e) => e.stopPropagation()}
+            onMouseMove={(e) => {
+              const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
+              const x = (e.clientX - left) / width;
+              const y = (e.clientY - top) / height;
+              const img = e.currentTarget.querySelector('img');
+              if (img) img.style.transformOrigin = `${x * 100}% ${y * 100}%`;
+            }}
+            title="Hover to zoom"
           >
             <button 
               onClick={() => setPreviewImageUrl(null)}
@@ -974,7 +982,7 @@ export function PortalCreateOrder() {
               src={previewImageUrl} 
               alt="Mockup Preview" 
               style={{ width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: '80vh' }}
-              className="object-contain rounded-2xl select-none" 
+              className="object-contain rounded-2xl select-none transition-transform duration-200 ease-out hover:scale-[2]" 
             />
           </div>
         </div>
