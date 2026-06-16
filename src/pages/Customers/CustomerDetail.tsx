@@ -933,9 +933,9 @@ export function CustomerDetail() {
               ) : (
                 <div className="grid grid-cols-4 gap-3 max-h-[350px] overflow-y-auto pr-1">
                   {assets.map((asset) => (
-                    <div key={asset.id} className="aspect-square rounded-xl border border-brand-border/60 p-1 bg-white relative group flex items-center justify-center">
+                    <div key={asset.id} className="aspect-square rounded-xl border border-brand-border/60 p-1 bg-checkerboard relative group flex items-center justify-center">
                       {asset.name.match(/\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i) ? (
-                        <img src={asset.url} alt={asset.name} className="max-w-full max-h-full object-contain mix-blend-multiply cursor-pointer" onClick={() => window.open(asset.url, '_blank')} title={asset.name} />
+                        <img src={asset.url} alt={asset.name} className="max-w-full max-h-full object-contain cursor-pointer" onClick={() => window.open(asset.url, '_blank')} title={asset.name} />
                       ) : (
                         <div className="flex flex-col items-center gap-0.5 cursor-pointer text-center" onClick={() => window.open(asset.url, '_blank')} title={asset.name}>
                           <FileText size={18} className="text-neutral-500" />

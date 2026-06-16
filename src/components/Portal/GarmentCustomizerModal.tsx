@@ -939,13 +939,13 @@ export function GarmentCustomizerModal({
                     <button
                       key={asset.id}
                       onClick={() => setSelectedLogo(asset)}
-                      className={`aspect-square rounded-xl overflow-hidden border flex items-center justify-center p-1 bg-white relative transition-all ${
+                      className={`aspect-square rounded-xl overflow-hidden border flex items-center justify-center p-1 bg-checkerboard relative transition-all ${
                         isSelected ? 'border-black ring-2 ring-black scale-[0.98]' : 'border-neutral-200 hover:border-neutral-450'
                       }`}
                       title={asset.name}
                     >
                       {isImageFile(asset.name) ? (
-                        <img src={asset.url} alt={asset.name} className="max-w-full max-h-full object-contain mix-blend-multiply" />
+                        <img src={asset.url} alt={asset.name} className="max-w-full max-h-full object-contain" />
                       ) : (
                         <FileText size={18} className="text-neutral-500" />
                       )}
