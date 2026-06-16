@@ -24,11 +24,15 @@ const app = existingApp || initializeApp(firebaseConfig, appName);
 const ai = getAI(app);
 
 async function toBase64(url: string): Promise<{ data: string; mimeType: string }> {
-  // Use local proxy to avoid CORS errors for external SanMar URLs
-  const proxiedUrl = url.startsWith('http') 
+  // Use local proxy to avoid CORS errors for external SanMar URLs, unless same-origin
+  const isSameOrigin = typeof window !== 'undefined' && url.startsWith(window.location.origin);
+  const proxiedUrl = (url.startsWith('http') && !isSameOrigin) 
     ? `/api/sanmar/proxy-image?url=${encodeURIComponent(url)}` 
     : url;
   const response = await fetch(proxiedUrl);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch image proxy status: ${response.status}`);
+  }
   const blob = await response.blob();
   const mimeType = blob.type;
   return new Promise((resolve, reject) => {

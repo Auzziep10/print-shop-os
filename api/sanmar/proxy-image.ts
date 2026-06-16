@@ -14,13 +14,26 @@ export default async function handler(req: Request) {
     return new Response(JSON.stringify({ error: 'URL parameter is required' }), { status: 400 });
   }
 
+  let host = '';
+  try {
+    const parsed = new URL(imageUrl);
+    host = parsed.host;
+  } catch (e) {
+    return new Response(JSON.stringify({ error: 'Invalid URL' }), { status: 400 });
+  }
+
   // Validate allowed domains to prevent open SSRF vulnerability
   const isAllowedDomain = 
-    imageUrl.startsWith('https://images.sanmar.com/') || 
-    imageUrl.startsWith('https://cdnm.sanmar.com/') ||
-    imageUrl.startsWith('https://image.pollinations.ai/');
+    host === 'images.sanmar.com' || 
+    host === 'cdnm.sanmar.com' ||
+    host === 'image.pollinations.ai' ||
+    host === 'firebasestorage.googleapis.com' ||
+    host === 'images.unsplash.com' ||
+    host.endsWith('.vercel.app') ||
+    host === 'wovn-garment-catalog.vercel.app';
+
   if (!isAllowedDomain) {
-    return new Response(JSON.stringify({ error: 'Domain not allowed in proxy' }), { status: 400 });
+    return new Response(JSON.stringify({ error: 'Domain not allowed in proxy: ' + host }), { status: 400 });
   }
 
   try {
