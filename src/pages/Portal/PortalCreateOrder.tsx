@@ -938,6 +938,10 @@ export function PortalCreateOrder() {
               logoName: customizedData.logoName,
               logoUrlBack: customizedData.logoUrlBack,
               logoNameBack: customizedData.logoNameBack,
+              logoUrlLeftSleeve: customizedData.logoUrlLeftSleeve || null,
+              logoNameLeftSleeve: customizedData.logoNameLeftSleeve || null,
+              logoUrlRightSleeve: customizedData.logoUrlRightSleeve || null,
+              logoNameRightSleeve: customizedData.logoNameRightSleeve || null,
               colors: customizedData.colors || item.colors
             } : item));
           }}

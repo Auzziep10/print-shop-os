@@ -8,6 +8,26 @@ import sanmarCatalogJson from '../../data/sanmar-catalog.json';
 
 const sanmarCatalog = sanmarCatalogJson as any[];
 
+const getSingularCategory = (category: string = '', title: string = '') => {
+  const text = (category + ' ' + title).toLowerCase();
+  if (text.includes('hoodie') || text.includes('hooded')) return 'hoodie';
+  if (text.includes('sweatshirt') || text.includes('crewneck')) return 'crewneck sweatshirt';
+  if (text.includes('long sleeve') || text.includes('longsleeve')) return 'long sleeve shirt';
+  if (text.includes('polo')) return 'polo shirt';
+  if (text.includes('t-shirt') || text.includes('tee') || text.includes('tshirt')) return 't-shirt';
+  if (text.includes('hat') || text.includes('cap')) return 'trucker cap';
+  if (text.includes('jacket')) return 'jacket';
+  return 'apparel';
+};
+
+const getSeedForString = (str: string) => {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return Math.abs(hash) % 100000;
+};
+
 interface GarmentCustomizerModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -24,7 +44,7 @@ export function GarmentCustomizerModal({
   onSave
 }: GarmentCustomizerModalProps) {
   const [selectedColor, setSelectedColor] = useState('');
-  const [activeTab, setActiveTab] = useState<'front' | 'back'>('front');
+  const [activeTab, setActiveTab] = useState<'front' | 'back' | 'left-sleeve' | 'right-sleeve'>('front');
   const [isColorDropdownOpen, setIsColorDropdownOpen] = useState(false);
 
   // Vault/Assets
@@ -45,38 +65,67 @@ export function GarmentCustomizerModal({
   const [offsetYBack, setOffsetYBack] = useState(40);
   const [placementBack, setPlacementBack] = useState('Back');
 
+  // Logo overlay states for Left Sleeve
+  const [selectedLogoLeftSleeve, setSelectedLogoLeftSleeve] = useState<any | null>(null);
+  const [scaleLeftSleeve, setScaleLeftSleeve] = useState(30);
+  const [offsetXLeftSleeve, setOffsetXLeftSleeve] = useState(50);
+  const [offsetYLeftSleeve, setOffsetYLeftSleeve] = useState(50);
+  const [placementLeftSleeve, setPlacementLeftSleeve] = useState('Left Sleeve');
+
+  // Logo overlay states for Right Sleeve
+  const [selectedLogoRightSleeve, setSelectedLogoRightSleeve] = useState<any | null>(null);
+  const [scaleRightSleeve, setScaleRightSleeve] = useState(30);
+  const [offsetXRightSleeve, setOffsetXRightSleeve] = useState(50);
+  const [offsetYRightSleeve, setOffsetYRightSleeve] = useState(50);
+  const [placementRightSleeve, setPlacementRightSleeve] = useState('Right Sleeve');
+
   const [isUploading, setIsUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   const previewRef = useRef<HTMLDivElement>(null);
 
   // Helper getters/setters mapping to active view
-  const selectedLogo = activeTab === 'front' ? selectedLogoFront : selectedLogoBack;
+  const selectedLogo = useMemo(() => {
+    if (activeTab === 'front') return selectedLogoFront;
+    if (activeTab === 'back') return selectedLogoBack;
+    if (activeTab === 'left-sleeve') return selectedLogoLeftSleeve;
+    return selectedLogoRightSleeve;
+  }, [activeTab, selectedLogoFront, selectedLogoBack, selectedLogoLeftSleeve, selectedLogoRightSleeve]);
   
   const setSelectedLogo = (asset: any) => {
     if (activeTab === 'front') setSelectedLogoFront(asset);
-    else setSelectedLogoBack(asset);
+    else if (activeTab === 'back') setSelectedLogoBack(asset);
+    else if (activeTab === 'left-sleeve') setSelectedLogoLeftSleeve(asset);
+    else setSelectedLogoRightSleeve(asset);
   };
 
-  const scale = activeTab === 'front' ? scaleFront : scaleBack;
-  const offsetX = activeTab === 'front' ? offsetXFront : offsetXBack;
-  const offsetY = activeTab === 'front' ? offsetYFront : offsetYBack;
-  const placement = activeTab === 'front' ? placementFront : placementBack;
+  const scale = useMemo(() => {
+    if (activeTab === 'front') return scaleFront;
+    if (activeTab === 'back') return scaleBack;
+    if (activeTab === 'left-sleeve') return scaleLeftSleeve;
+    return scaleRightSleeve;
+  }, [activeTab, scaleFront, scaleBack, scaleLeftSleeve, scaleRightSleeve]);
 
-  const setOffsetX = (val: number) => {
-    if (activeTab === 'front') setOffsetXFront(val);
-    else setOffsetXBack(val);
-  };
+  const offsetX = useMemo(() => {
+    if (activeTab === 'front') return offsetXFront;
+    if (activeTab === 'back') return offsetXBack;
+    if (activeTab === 'left-sleeve') return offsetXLeftSleeve;
+    return offsetXRightSleeve;
+  }, [activeTab, offsetXFront, offsetXBack, offsetXLeftSleeve, offsetXRightSleeve]);
 
-  const setOffsetY = (val: number) => {
-    if (activeTab === 'front') setOffsetYFront(val);
-    else setOffsetYBack(val);
-  };
+  const offsetY = useMemo(() => {
+    if (activeTab === 'front') return offsetYFront;
+    if (activeTab === 'back') return offsetYBack;
+    if (activeTab === 'left-sleeve') return offsetYLeftSleeve;
+    return offsetYRightSleeve;
+  }, [activeTab, offsetYFront, offsetYBack, offsetYLeftSleeve, offsetYRightSleeve]);
 
-  const setPlacement = (val: string) => {
-    if (activeTab === 'front') setPlacementFront(val);
-    else setPlacementBack(val);
-  };
+  const placement = useMemo(() => {
+    if (activeTab === 'front') return placementFront;
+    if (activeTab === 'back') return placementBack;
+    if (activeTab === 'left-sleeve') return placementLeftSleeve;
+    return placementRightSleeve;
+  }, [activeTab, placementFront, placementBack, placementLeftSleeve, placementRightSleeve]);
 
   // Find product in catalog as fallback for images
   const catalogProduct = useMemo(() => {
@@ -90,8 +139,20 @@ export function GarmentCustomizerModal({
   }, [garment.style, garment.itemNum]);
 
   // Case-insensitive image resolver
-  const { frontImage, backImage } = useMemo(() => {
-    if (!selectedColor) return { frontImage: garment.image || '', backImage: null };
+  const { frontImage, backImage, leftSleeveImage, rightSleeveImage } = useMemo(() => {
+    const styleStr = garment.style || garment.itemNum || '';
+    const titleStr = garment.title || '';
+    const catStr = garment.category || (catalogProduct ? catalogProduct.category : '');
+    const garmentType = getSingularCategory(catStr, titleStr || styleStr);
+
+    if (!selectedColor) {
+      return {
+        frontImage: garment.image || '',
+        backImage: null,
+        leftSleeveImage: null,
+        rightSleeveImage: null
+      };
+    }
 
     // 1. Resolve from garment.images case-insensitively
     const garmentImages = garment.images || {};
@@ -125,13 +186,38 @@ export function GarmentCustomizerModal({
       catalogBack = catalogColorVal?.back || null;
     }
 
-    const finalFront = garmentFront || catalogFront || garment.image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
-    const finalBack = garmentBack || catalogBack || null;
+    const cleanColor = selectedColor.trim();
+    const cleanStyle = styleStr.trim();
+    const seedBack = getSeedForString(`${cleanStyle}-${cleanColor}-back`);
+    const seedLeftSleeve = getSeedForString(`${cleanStyle}-${cleanColor}-left-sleeve`);
+    const seedRightSleeve = getSeedForString(`${cleanStyle}-${cleanColor}-right-sleeve`);
 
-    return { frontImage: finalFront, backImage: finalBack };
+    const encodedBackPrompt = encodeURIComponent(`blank back view of ${cleanColor} ${garmentType}, flat lay, isolated on solid white background, high resolution product mockup, clean, wrinkle-free, professional studio photography`);
+    const generatedBack = `https://image.pollinations.ai/prompt/${encodedBackPrompt}?width=800&height=800&nologo=true&seed=${seedBack}`;
+
+    const encodedLeftSleevePrompt = encodeURIComponent(`blank left sleeve view of ${cleanColor} ${garmentType}, flat lay, isolated on solid white background, high resolution product mockup, clean, wrinkle-free, professional studio photography`);
+    const generatedLeftSleeve = `https://image.pollinations.ai/prompt/${encodedLeftSleevePrompt}?width=800&height=800&nologo=true&seed=${seedLeftSleeve}`;
+
+    const encodedRightSleevePrompt = encodeURIComponent(`blank right sleeve view of ${cleanColor} ${garmentType}, flat lay, isolated on solid white background, high resolution product mockup, clean, wrinkle-free, professional studio photography`);
+    const generatedRightSleeve = `https://image.pollinations.ai/prompt/${encodedRightSleevePrompt}?width=800&height=800&nologo=true&seed=${seedRightSleeve}`;
+
+    const finalFront = garmentFront || catalogFront || garment.image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
+    const finalBack = garmentBack || catalogBack || generatedBack;
+
+    return { 
+      frontImage: finalFront, 
+      backImage: finalBack,
+      leftSleeveImage: generatedLeftSleeve,
+      rightSleeveImage: generatedRightSleeve
+    };
   }, [garment, selectedColor, catalogProduct]);
 
-  const activeMockupImage = activeTab === 'front' ? frontImage : (backImage || frontImage);
+  const activeMockupImage = useMemo(() => {
+    if (activeTab === 'front') return frontImage;
+    if (activeTab === 'back') return backImage || frontImage;
+    if (activeTab === 'left-sleeve') return leftSleeveImage || frontImage;
+    return rightSleeveImage || frontImage;
+  }, [activeTab, frontImage, backImage, leftSleeveImage, rightSleeveImage]);
 
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
@@ -178,9 +264,15 @@ export function GarmentCustomizerModal({
         if (activeTab === 'front') {
           setOffsetXFront(valX);
           setOffsetYFront(valY);
-        } else {
+        } else if (activeTab === 'back') {
           setOffsetXBack(valX);
           setOffsetYBack(valY);
+        } else if (activeTab === 'left-sleeve') {
+          setOffsetXLeftSleeve(valX);
+          setOffsetYLeftSleeve(valY);
+        } else {
+          setOffsetXRightSleeve(valX);
+          setOffsetYRightSleeve(valY);
         }
       }
 
@@ -193,8 +285,12 @@ export function GarmentCustomizerModal({
         
         if (activeTab === 'front') {
           setScaleFront(valScale);
-        } else {
+        } else if (activeTab === 'back') {
           setScaleBack(valScale);
+        } else if (activeTab === 'left-sleeve') {
+          setScaleLeftSleeve(valScale);
+        } else {
+          setScaleRightSleeve(valScale);
         }
       }
     };
@@ -289,17 +385,42 @@ export function GarmentCustomizerModal({
     try {
       const hasFront = !!selectedLogoFront;
       const hasBack = !!selectedLogoBack;
-      const isSideBySide = hasFront && hasBack;
+      const hasLeftSleeve = !!selectedLogoLeftSleeve;
+      const hasRightSleeve = !!selectedLogoRightSleeve;
+
+      // Collect all sides that are customized
+      const activeSides: {
+        img: string;
+        logo: any;
+        scale: number;
+        offX: number;
+        offY: number;
+        name: string;
+      }[] = [];
+
+      if (hasFront) activeSides.push({ img: frontImage, logo: selectedLogoFront, scale: scaleFront, offX: offsetXFront, offY: offsetYFront, name: 'Front' });
+      if (hasBack) activeSides.push({ img: backImage || frontImage, logo: selectedLogoBack, scale: scaleBack, offX: offsetXBack, offY: offsetYBack, name: 'Back' });
+      if (hasLeftSleeve) activeSides.push({ img: leftSleeveImage || frontImage, logo: selectedLogoLeftSleeve, scale: scaleLeftSleeve, offX: offsetXLeftSleeve, offY: offsetYLeftSleeve, name: 'Left Sleeve' });
+      if (hasRightSleeve) activeSides.push({ img: rightSleeveImage || frontImage, logo: selectedLogoRightSleeve, scale: scaleRightSleeve, offX: offsetXRightSleeve, offY: offsetYRightSleeve, name: 'Right Sleeve' });
+
+      // If nothing is customized, default to front view
+      if (activeSides.length === 0) {
+        activeSides.push({ img: frontImage, logo: null, scale: 30, offX: 50, offY: 45, name: 'Front' });
+      }
+
+      const panelWidth = 600;
+      const canvasWidth = panelWidth * activeSides.length;
+      const canvasHeight = 600;
 
       const canvas = document.createElement('canvas');
-      canvas.width = isSideBySide ? 1200 : 600;
-      canvas.height = 600;
+      canvas.width = canvasWidth;
+      canvas.height = canvasHeight;
       const ctx = canvas.getContext('2d');
 
       if (!ctx) throw new Error("Could not get 2D context");
 
       ctx.fillStyle = '#FFFFFF';
-      ctx.fillRect(0, 0, canvas.width, 600);
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       const loadImg = (src: string): Promise<HTMLImageElement> => {
         return new Promise((resolve, reject) => {
@@ -332,13 +453,9 @@ export function GarmentCustomizerModal({
         }
       };
 
-      if (isSideBySide) {
-        await drawSide(frontImage, selectedLogoFront, scaleFront, offsetXFront, offsetYFront, 0);
-        await drawSide(backImage || frontImage, selectedLogoBack, scaleBack, offsetXBack, offsetYBack, 600);
-      } else if (hasBack) {
-        await drawSide(backImage || frontImage, selectedLogoBack, scaleBack, offsetXBack, offsetYBack, 0);
-      } else {
-        await drawSide(frontImage, selectedLogoFront, scaleFront, offsetXFront, offsetYFront, 0);
+      for (let i = 0; i < activeSides.length; i++) {
+        const side = activeSides[i];
+        await drawSide(side.img, side.logo, side.scale, side.offX, side.offY, i * panelWidth);
       }
 
       const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
@@ -348,26 +465,38 @@ export function GarmentCustomizerModal({
       await uploadBytes(compositeRef, blob);
       const downloadUrl = await getDownloadURL(compositeRef);
 
+      const placementParts: string[] = [];
+      if (hasFront) placementParts.push(`Front: ${placementFront}`);
+      if (hasBack) placementParts.push(`Back: ${placementBack}`);
+      if (hasLeftSleeve) placementParts.push(`Left Sleeve: ${placementLeftSleeve}`);
+      if (hasRightSleeve) placementParts.push(`Right Sleeve: ${placementRightSleeve}`);
+
       onSave({
         ...garment,
         selectedColor,
         image: downloadUrl,
         customized: true,
-        logoPlacement: selectedLogoFront && selectedLogoBack
-          ? `Front: ${placementFront}, Back: ${placementBack}`
-          : selectedLogoBack
-            ? `Back: ${placementBack}`
-            : `Front: ${placementFront}`,
+        logoPlacement: placementParts.join(', ') || 'Front',
         logoUrl: selectedLogoFront?.url || null,
         logoName: selectedLogoFront?.name || null,
         logoUrlBack: selectedLogoBack?.url || null,
         logoNameBack: selectedLogoBack?.name || null,
+        logoUrlLeftSleeve: selectedLogoLeftSleeve?.url || null,
+        logoNameLeftSleeve: selectedLogoLeftSleeve?.name || null,
+        logoUrlRightSleeve: selectedLogoRightSleeve?.url || null,
+        logoNameRightSleeve: selectedLogoRightSleeve?.name || null,
         customScaleFront: scaleFront,
         customOffsetXFront: offsetXFront,
         customOffsetYFront: offsetYFront,
         customScaleBack: scaleBack,
         customOffsetXBack: offsetXBack,
-        customOffsetYBack: offsetYBack
+        customOffsetYBack: offsetYBack,
+        customScaleLeftSleeve: scaleLeftSleeve,
+        customOffsetXLeftSleeve: offsetXLeftSleeve,
+        customOffsetYLeftSleeve: offsetYLeftSleeve,
+        customScaleRightSleeve: scaleRightSleeve,
+        customOffsetXRightSleeve: offsetXRightSleeve,
+        customOffsetYRightSleeve: offsetYRightSleeve
       });
 
       onClose();
@@ -375,19 +504,25 @@ export function GarmentCustomizerModal({
       console.error("Failed to generate and save mockup:", err);
       alert("Error generating customized preview. Using original garment image.");
       
+      const placementParts: string[] = [];
+      if (selectedLogoFront) placementParts.push(`Front: ${placementFront}`);
+      if (selectedLogoBack) placementParts.push(`Back: ${placementBack}`);
+      if (selectedLogoLeftSleeve) placementParts.push(`Left Sleeve: ${placementLeftSleeve}`);
+      if (selectedLogoRightSleeve) placementParts.push(`Right Sleeve: ${placementRightSleeve}`);
+
       onSave({
         ...garment,
         selectedColor,
         customized: true,
-        logoPlacement: selectedLogoFront && selectedLogoBack
-          ? `Front: ${placementFront}, Back: ${placementBack}`
-          : selectedLogoBack
-            ? `Back: ${placementBack}`
-            : `Front: ${placementFront}`,
+        logoPlacement: placementParts.join(', ') || 'Front',
         logoUrl: selectedLogoFront?.url || null,
         logoName: selectedLogoFront?.name || null,
         logoUrlBack: selectedLogoBack?.url || null,
-        logoNameBack: selectedLogoBack?.name || null
+        logoNameBack: selectedLogoBack?.name || null,
+        logoUrlLeftSleeve: selectedLogoLeftSleeve?.url || null,
+        logoNameLeftSleeve: selectedLogoLeftSleeve?.name || null,
+        logoUrlRightSleeve: selectedLogoRightSleeve?.url || null,
+        logoNameRightSleeve: selectedLogoRightSleeve?.name || null
       });
       onClose();
     } finally {
@@ -424,29 +559,26 @@ export function GarmentCustomizerModal({
         <div className="flex-1 bg-neutral-50 flex flex-col items-center justify-center p-4 md:p-6 relative overflow-y-auto border-b md:border-b-0 md:border-r border-neutral-100 gap-4 md:gap-6 animate-in fade-in duration-300">
           
           {/* Segmented View Selector */}
-          <div className="flex bg-neutral-200/50 p-1 rounded-2xl gap-1 shadow-inner shrink-0">
-            <button
-              type="button"
-              onClick={() => setActiveTab('front')}
-              className={`px-6 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                activeTab === 'front'
-                  ? 'bg-white text-black shadow-sm'
-                  : 'text-neutral-500 hover:text-black'
-              }`}
-            >
-              Front View
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('back')}
-              className={`px-6 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                activeTab === 'back'
-                  ? 'bg-white text-black shadow-sm'
-                  : 'text-neutral-500 hover:text-black'
-              }`}
-            >
-              Back View {!backImage && "(No Mockup)"}
-            </button>
+          <div className="flex bg-neutral-200/50 p-1 rounded-2xl gap-1 shadow-inner shrink-0 flex-wrap justify-center">
+            {[
+              { id: 'front', label: 'Front View' },
+              { id: 'back', label: 'Back View' },
+              { id: 'left-sleeve', label: 'Left Sleeve' },
+              { id: 'right-sleeve', label: 'Right Sleeve' }
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id as any)}
+                className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  activeTab === tab.id
+                    ? 'bg-white text-black shadow-sm'
+                    : 'text-neutral-500 hover:text-black'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
 
           {/* Garment Preview Container */}
@@ -510,7 +642,7 @@ export function GarmentCustomizerModal({
             </div>
 
             <span className="absolute bottom-4 left-4 text-[9px] font-bold uppercase tracking-widest text-neutral-400 bg-neutral-50 border border-neutral-200 px-2 py-0.5 rounded shadow-sm z-30">
-              Placement: {placement} ({activeTab.toUpperCase()}){!backImage && activeTab === 'back' && " - USING FRONT IMAGE REFERENCE"}
+              Placement: {placement} ({activeTab.toUpperCase()})
             </span>
           </div>
         </div>
@@ -604,21 +736,17 @@ export function GarmentCustomizerModal({
                 { name: 'Center Back', pos: 'Back', x: 50, y: 40, tab: 'back' },
                 { name: 'Left Chest', pos: 'Left Chest', x: 38, y: 32, tab: 'front' },
                 { name: 'Right Chest', pos: 'Right Chest', x: 62, y: 32, tab: 'front' },
-                { name: 'Left Sleeve', pos: 'Sleeve', x: 20, y: 35 },
-                { name: 'Right Sleeve', pos: 'Sleeve', x: 80, y: 35 }
+                { name: 'Left Sleeve', pos: 'Left Sleeve', x: 50, y: 50, tab: 'left-sleeve' },
+                { name: 'Right Sleeve', pos: 'Right Sleeve', x: 50, y: 50, tab: 'right-sleeve' }
               ].map((preset) => {
-                const isPresetActive = activeTab === (preset.tab || activeTab) && placement === preset.pos && offsetX === preset.x && offsetY === preset.y;
-                const isBackDisabled = false;
+                const isPresetActive = activeTab === preset.tab && placement === preset.pos && offsetX === preset.x && offsetY === preset.y;
 
                 return (
                   <button
                     key={preset.name}
                     type="button"
-                    disabled={isBackDisabled}
                     onClick={() => {
-                      if (preset.tab) {
-                        setActiveTab(preset.tab as 'front' | 'back');
-                      }
+                      setActiveTab(preset.tab as any);
                       if (preset.tab === 'front') {
                         setOffsetXFront(preset.x);
                         setOffsetYFront(preset.y);
@@ -627,13 +755,17 @@ export function GarmentCustomizerModal({
                         setOffsetXBack(preset.x);
                         setOffsetYBack(preset.y);
                         setPlacementBack(preset.pos);
-                      } else {
-                        setOffsetX(preset.x);
-                        setOffsetY(preset.y);
-                        setPlacement(preset.pos);
+                      } else if (preset.tab === 'left-sleeve') {
+                        setOffsetXLeftSleeve(preset.x);
+                        setOffsetYLeftSleeve(preset.y);
+                        setPlacementLeftSleeve(preset.pos);
+                      } else if (preset.tab === 'right-sleeve') {
+                        setOffsetXRightSleeve(preset.x);
+                        setOffsetYRightSleeve(preset.y);
+                        setPlacementRightSleeve(preset.pos);
                       }
                     }}
-                    className={`py-3 px-2 text-[11px] font-bold rounded-xl border transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
+                    className={`py-3 px-2 text-[11px] font-bold rounded-xl border transition-all cursor-pointer ${
                       isPresetActive
                         ? 'bg-black text-white border-black shadow-sm' 
                         : 'bg-white text-neutral-600 border-neutral-200 hover:border-black/30'
