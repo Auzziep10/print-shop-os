@@ -219,6 +219,13 @@ export function GarmentCustomizerModal({
     return rightSleeveImage || frontImage;
   }, [activeTab, frontImage, backImage, leftSleeveImage, rightSleeveImage]);
 
+  const proxiedActiveMockupImage = useMemo(() => {
+    if (!activeMockupImage) return '';
+    return activeMockupImage.startsWith('http')
+      ? `/api/sanmar/proxy-image?url=${encodeURIComponent(activeMockupImage)}`
+      : activeMockupImage;
+  }, [activeMockupImage]);
+
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
   const dragStartPos = useRef({ x: 0, y: 0, offsetX: 50, offsetY: 45 });
@@ -590,7 +597,7 @@ export function GarmentCustomizerModal({
             <div className="relative w-full h-full flex items-center justify-center scale-[1.1]">
               {/* Main Garment Image */}
               <img 
-                src={activeMockupImage} 
+                src={proxiedActiveMockupImage} 
                 alt={garment.style} 
                 className="max-w-full max-h-full object-contain mix-blend-multiply select-none pointer-events-none" 
               />
