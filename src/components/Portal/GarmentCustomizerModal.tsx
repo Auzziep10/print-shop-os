@@ -89,28 +89,28 @@ export function GarmentCustomizerModal({
   const [scaleFront, setScaleFront] = useState(30);
   const [offsetXFront, setOffsetXFront] = useState(50);
   const [offsetYFront, setOffsetYFront] = useState(45);
-  const [placementFront, setPlacementFront] = useState('Front');
+  const placementFront = 'Front';
 
   // Logo overlay states for Back
   const [selectedLogoBack, setSelectedLogoBack] = useState<any | null>(null);
   const [scaleBack, setScaleBack] = useState(30);
   const [offsetXBack, setOffsetXBack] = useState(50);
   const [offsetYBack, setOffsetYBack] = useState(40);
-  const [placementBack, setPlacementBack] = useState('Back');
+  const placementBack = 'Back';
 
   // Logo overlay states for Left Sleeve
   const [selectedLogoLeftSleeve, setSelectedLogoLeftSleeve] = useState<any | null>(null);
   const [scaleLeftSleeve, setScaleLeftSleeve] = useState(30);
   const [offsetXLeftSleeve, setOffsetXLeftSleeve] = useState(50);
   const [offsetYLeftSleeve, setOffsetYLeftSleeve] = useState(50);
-  const [placementLeftSleeve, setPlacementLeftSleeve] = useState('Left Sleeve');
+  const placementLeftSleeve = 'Left Sleeve';
 
   // Logo overlay states for Right Sleeve
   const [selectedLogoRightSleeve, setSelectedLogoRightSleeve] = useState<any | null>(null);
   const [scaleRightSleeve, setScaleRightSleeve] = useState(30);
   const [offsetXRightSleeve, setOffsetXRightSleeve] = useState(50);
   const [offsetYRightSleeve, setOffsetYRightSleeve] = useState(50);
-  const [placementRightSleeve, setPlacementRightSleeve] = useState('Right Sleeve');
+  const placementRightSleeve = 'Right Sleeve';
 
   const [isUploading, setIsUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -170,15 +170,6 @@ export function GarmentCustomizerModal({
     }
     return 50;
   }, [activeTab, isSleeveMirrored, offsetYFront, offsetYBack, offsetYLeftSleeve, offsetYRightSleeve]);
-
-  const placement = useMemo(() => {
-    if (activeTab === 'front') return placementFront;
-    if (activeTab === 'back') return placementBack;
-    if (activeTab === 'sleeve') {
-      return isSleeveMirrored ? placementRightSleeve : placementLeftSleeve;
-    }
-    return '';
-  }, [activeTab, isSleeveMirrored, placementFront, placementBack, placementLeftSleeve, placementRightSleeve]);
 
   // Find product in catalog as fallback for images
   const catalogProduct = useMemo(() => {
