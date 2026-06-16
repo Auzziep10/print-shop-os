@@ -283,6 +283,18 @@ export function GarmentCustomizerModal({
     const finalLeftSleeve = localLeftSleeve || generatedViews['left-sleeve'] || null;
     const finalRightSleeve = localRightSleeve || generatedViews['right-sleeve'] || null;
 
+    console.log("GARMENT_CUSTOMIZER_DEBUG:", {
+      garment,
+      catalogProduct,
+      selectedColor,
+      garmentFront,
+      garmentBack,
+      catalogFront,
+      catalogBack,
+      finalFront,
+      finalBack
+    });
+
     return { 
       frontImage: finalFront, 
       backImage: finalBack,
@@ -680,6 +692,12 @@ export function GarmentCustomizerModal({
         <div>
           <h2 className="text-xl font-serif text-neutral-900">Garment Customizer</h2>
           <p className="text-xs font-semibold text-neutral-500 mt-0.5">Customize {garment.style || 'style'}</p>
+          <div className="text-[9px] text-neutral-400 font-mono mt-1 flex flex-col gap-0.5">
+            <div>Style: {garment.style || 'None'}</div>
+            <div>ItemNum: {garment.itemNum || 'None'}</div>
+            <div>Catalog Match: {catalogProduct ? `${catalogProduct.brand} ${catalogProduct.style}` : 'None'}</div>
+            <div className="truncate max-w-[400px]">Back Image: {backImage || 'None'}</div>
+          </div>
         </div>
         <button 
           onClick={onClose} 
