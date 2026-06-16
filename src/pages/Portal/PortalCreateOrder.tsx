@@ -957,11 +957,11 @@ export function PortalCreateOrder() {
       {/* Lightbox Image Preview Modal */}
       {previewImageUrl && (
         <div 
-          className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+          className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200"
           onClick={() => setPreviewImageUrl(null)}
         >
           <div 
-            className="relative max-w-[90vw] max-h-[90vh] bg-white rounded-[2rem] p-3 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex items-center justify-center border border-neutral-200/50 cursor-crosshair"
+            className="relative w-full max-w-[95vw] md:max-w-5xl h-[60vh] md:h-[80vh] bg-white rounded-[2rem] p-6 md:p-10 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex items-center justify-center border border-neutral-200/50 cursor-crosshair"
             onClick={(e) => e.stopPropagation()}
             onMouseMove={(e) => {
               const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
@@ -981,8 +981,7 @@ export function PortalCreateOrder() {
             <img 
               src={previewImageUrl} 
               alt="Mockup Preview" 
-              style={{ width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: '80vh' }}
-              className="object-contain rounded-2xl select-none transition-transform duration-200 ease-out hover:scale-[2]" 
+              className="w-full h-full object-contain rounded-2xl select-none transition-transform duration-200 ease-out hover:scale-[2]" 
             />
           </div>
         </div>

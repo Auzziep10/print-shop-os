@@ -455,9 +455,10 @@ export function MockupCreator({
         activeSides.push({ img: garmentImageUrl, logo: null, pos: { x: 50, y: 35 }, scale: 0.3, rotation: 0, name: 'Front' });
       }
 
-      const panelWidth = 600;
+      const scaleFactor = 3;
+      const panelWidth = 600 * scaleFactor;
       const canvasWidth = panelWidth * activeSides.length;
-      const canvasHeight = 600;
+      const canvasHeight = 600 * scaleFactor;
 
       const canvas = document.createElement('canvas');
       canvas.width = canvasWidth;
@@ -491,22 +492,22 @@ export function MockupCreator({
         const garmentImg = await loadImg(proxiedUrl);
         ctx.save();
         if (sideName === 'Right Sleeve') {
-          ctx.translate(canvasOffsetX + 50 + 250, 50 + 250);
+          ctx.translate(canvasOffsetX + (50 * scaleFactor) + (250 * scaleFactor), (50 * scaleFactor) + (250 * scaleFactor));
           ctx.scale(-1, 1);
-          ctx.drawImage(garmentImg, -250, -250, 500, 500);
+          ctx.drawImage(garmentImg, -250 * scaleFactor, -250 * scaleFactor, 500 * scaleFactor, 500 * scaleFactor);
         } else {
-          ctx.drawImage(garmentImg, canvasOffsetX + 50, 50, 500, 500);
+          ctx.drawImage(garmentImg, canvasOffsetX + (50 * scaleFactor), (50 * scaleFactor), 500 * scaleFactor, 500 * scaleFactor);
         }
         ctx.restore();
 
         if (logoSrc) {
           const logoImg = await loadImg(logoSrc);
-          const uiLogoW = 500 * scaleVal;
+          const uiLogoW = (500 * scaleFactor) * scaleVal;
           const logoAspect = logoImg.naturalHeight / logoImg.naturalWidth;
           const logoH = uiLogoW * logoAspect;
 
-          const logoCenterX = canvasOffsetX + 50 + (pos.x / 100) * 500;
-          const logoCenterY = 50 + (pos.y / 100) * 500;
+          const logoCenterX = canvasOffsetX + (50 * scaleFactor) + (pos.x / 100) * (500 * scaleFactor);
+          const logoCenterY = (50 * scaleFactor) + (pos.y / 100) * (500 * scaleFactor);
 
           ctx.save();
           ctx.translate(logoCenterX, logoCenterY);

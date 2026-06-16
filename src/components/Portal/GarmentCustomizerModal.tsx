@@ -524,9 +524,10 @@ export function GarmentCustomizerModal({
         activeSides.push({ img: frontImage, logo: null, scale: 30, offX: 50, offY: 45, name: 'Front' });
       }
 
-      const panelWidth = 600;
+      const scaleFactor = 3;
+      const panelWidth = 600 * scaleFactor;
       const canvasWidth = panelWidth * activeSides.length;
-      const canvasHeight = 600;
+      const canvasHeight = 600 * scaleFactor;
 
       const canvas = document.createElement('canvas');
       canvas.width = canvasWidth;
@@ -556,23 +557,23 @@ export function GarmentCustomizerModal({
 
         ctx.save();
         if (sideName === 'Right Sleeve') {
-          ctx.translate(canvasOffsetX + 50 + 250, 50 + 250);
+          ctx.translate(canvasOffsetX + (50 * scaleFactor) + (250 * scaleFactor), (50 * scaleFactor) + (250 * scaleFactor));
           ctx.scale(-1, 1);
-          ctx.drawImage(garmentImg, -250, -250, 500, 500);
+          ctx.drawImage(garmentImg, -250 * scaleFactor, -250 * scaleFactor, 500 * scaleFactor, 500 * scaleFactor);
         } else {
-          ctx.drawImage(garmentImg, canvasOffsetX + 50, 50, 500, 500);
+          ctx.drawImage(garmentImg, canvasOffsetX + (50 * scaleFactor), (50 * scaleFactor), 500 * scaleFactor, 500 * scaleFactor);
         }
         ctx.restore();
 
         if (logoAsset) {
           const logoImg = await loadImg(logoAsset.url);
-          const maxLogoSize = 180;
+          const maxLogoSize = 180 * scaleFactor;
           const logoWidth = maxLogoSize * (scaleVal / 100);
           const aspect = logoImg.height / logoImg.width;
           const logoHeight = logoWidth * aspect;
 
-          const xPos = canvasOffsetX + 50 + (500 * (offX / 100)) - (logoWidth / 2);
-          const yPos = 50 + (500 * (offY / 100)) - (logoHeight / 2);
+          const xPos = canvasOffsetX + (50 * scaleFactor) + ((500 * scaleFactor) * (offX / 100)) - (logoWidth / 2);
+          const yPos = (50 * scaleFactor) + ((500 * scaleFactor) * (offY / 100)) - (logoHeight / 2);
 
           ctx.drawImage(logoImg, xPos, yPos, logoWidth, logoHeight);
         }
