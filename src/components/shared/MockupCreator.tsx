@@ -406,9 +406,36 @@ export function MockupCreator({
   const absoluteFrontImage = garmentImageUrl ? (garmentImageUrl.startsWith('http') ? garmentImageUrl : `${window.location.origin}${garmentImageUrl}`) : '';
   const imageParam = absoluteFrontImage ? `&image=${encodeURIComponent(absoluteFrontImage)}` : '';
 
-  const generatedBackUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(`blank back view of a ${cleanColor} ${garmentType}, matching the exact color, fabric texture, style, and lighting of the forward-facing front view shirt shown in the reference image: ${absoluteFrontImage}, flat lay, isolated on a solid white background, high resolution product mockup, clean, wrinkle-free, professional studio photography`)}?width=800&height=800&nologo=true&seed=${seedBack}${imageParam}`;
-  const generatedLeftSleeveUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(`blank side profile view of a ${cleanColor} ${garmentType} showing the left sleeve, rotated 90 degrees to show only the side sleeve profile, matching the exact color, fabric texture, style, and lighting of the forward-facing front view shirt shown in the reference image: ${absoluteFrontImage}, flat lay or ghost mannequin photography, isolated on a solid white background, high resolution product mockup, clean, wrinkle-free, professional studio photography`)}?width=800&height=800&nologo=true&seed=${seedLeftSleeve}${imageParam}`;
-  const generatedRightSleeveUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(`blank side profile view of a ${cleanColor} ${garmentType} showing the right sleeve, rotated 90 degrees to show only the side sleeve profile, matching the exact color, fabric texture, style, and lighting of the forward-facing front view shirt shown in the reference image: ${absoluteFrontImage}, flat lay or ghost mannequin photography, isolated on a solid white background, high resolution product mockup, clean, wrinkle-free, professional studio photography`)}?width=800&height=800&nologo=true&seed=${seedRightSleeve}${imageParam}`;
+  const backPromptText = `TASK: Rotate Garment & Ghost Mannequin 3D Effect
+CRITICAL CONSTRAINTS:
+1. COMPLETELY ROTATE THE GARMENT IN 3D SPACE TO DISPLAY THE: Back View of the ${cleanColor} ${garmentType}.
+2. DO NOT KEEP IT FACING THE SAME DIRECTION as the original front-facing image. Show what this ${garmentType} realistically looks like photographed from the back.
+3. GHOST MANNEQUIN EFFECT (CRITICAL): Transform the ${garmentType} into a 3D, filled-out shape as if worn by an invisible person. It MUST look like it has volume and depth (a "ghost mannequin" or "hollow" look), NOT flat-layed on a table.
+4. ISOLATE ON PURE WHITE (ULTRA-CRITICAL): The ${garmentType} MUST be completely isolated on a flat, solid, mathematically pure white background (HEX #FFFFFF). Absolutely NO shadows on the floor or wall. Every non-garment pixel MUST be exactly #FFFFFF.
+5. PRESERVE DETAILS: Keep the same exact fabric texture, collar style, sleeve style, proportions, and exact color as the forward-facing ${garmentType} shown in the reference image: ${absoluteFrontImage}.
+6. Do NOT add any logos or graphics. Just the blank ${cleanColor} ${garmentType}.`;
+
+  const leftSleevePromptText = `TASK: Rotate Garment & Ghost Mannequin 3D Effect
+CRITICAL CONSTRAINTS:
+1. COMPLETELY ROTATE THE GARMENT IN 3D SPACE TO DISPLAY THE: Left Sleeve Side Profile View of the ${cleanColor} ${garmentType} (rotated 90 degrees to the side, showing only the left sleeve profile).
+2. DO NOT KEEP IT FACING THE SAME DIRECTION as the original front-facing image. Show what this ${garmentType} realistically looks like photographed from the side profile perspective.
+3. GHOST MANNEQUIN EFFECT (CRITICAL): Transform the ${garmentType} into a 3D, filled-out shape as if worn by an invisible person. It MUST look like it has volume and depth (a "ghost mannequin" or "hollow" look) showing the sleeve side profile, NOT flat-layed on a table.
+4. ISOLATE ON PURE WHITE (ULTRA-CRITICAL): The ${garmentType} MUST be completely isolated on a flat, solid, mathematically pure white background (HEX #FFFFFF). Absolutely NO shadows on the floor or wall. Every non-garment pixel MUST be exactly #FFFFFF.
+5. PRESERVE DETAILS: Keep the same exact fabric texture, collar style, sleeve style, proportions, and exact color as the forward-facing ${garmentType} shown in the reference image: ${absoluteFrontImage}.
+6. Do NOT add any logos or graphics. Just the blank ${cleanColor} ${garmentType}.`;
+
+  const rightSleevePromptText = `TASK: Rotate Garment & Ghost Mannequin 3D Effect
+CRITICAL CONSTRAINTS:
+1. COMPLETELY ROTATE THE GARMENT IN 3D SPACE TO DISPLAY THE: Right Sleeve Side Profile View of the ${cleanColor} ${garmentType} (rotated 90 degrees to the side, showing only the right sleeve profile).
+2. DO NOT KEEP IT FACING THE SAME DIRECTION as the original front-facing image. Show what this ${garmentType} realistically looks like photographed from the side profile perspective.
+3. GHOST MANNEQUIN EFFECT (CRITICAL): Transform the ${garmentType} into a 3D, filled-out shape as if worn by an invisible person. It MUST look like it has volume and depth (a "ghost mannequin" or "hollow" look) showing the sleeve side profile, NOT flat-layed on a table.
+4. ISOLATE ON PURE WHITE (ULTRA-CRITICAL): The ${garmentType} MUST be completely isolated on a flat, solid, mathematically pure white background (HEX #FFFFFF). Absolutely NO shadows on the floor or wall. Every non-garment pixel MUST be exactly #FFFFFF.
+5. PRESERVE DETAILS: Keep the same exact fabric texture, collar style, sleeve style, proportions, and exact color as the forward-facing ${garmentType} shown in the reference image: ${absoluteFrontImage}.
+6. Do NOT add any logos or graphics. Just the blank ${cleanColor} ${garmentType}.`;
+
+  const generatedBackUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(backPromptText)}?width=800&height=800&nologo=true&seed=${seedBack}${imageParam}`;
+  const generatedLeftSleeveUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(leftSleevePromptText)}?width=800&height=800&nologo=true&seed=${seedLeftSleeve}${imageParam}`;
+  const generatedRightSleeveUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(rightSleevePromptText)}?width=800&height=800&nologo=true&seed=${seedRightSleeve}${imageParam}`;
 
   // Map high-quality pre-generated sleeve mockups for NL6210 (Charcoal and Black)
   const colorLower = cleanColor.toLowerCase();
