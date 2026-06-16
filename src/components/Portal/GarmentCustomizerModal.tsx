@@ -279,7 +279,7 @@ export function GarmentCustomizerModal({
     }
 
     const finalFront = garmentFront || catalogFront || garment.image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
-    const finalBack = garmentBack || catalogBack || generatedViews.back || null;
+    const finalBack = garmentBack || generatedViews.back || catalogBack || null;
     const finalLeftSleeve = localLeftSleeve || generatedViews['left-sleeve'] || null;
     const finalRightSleeve = localRightSleeve || generatedViews['right-sleeve'] || null;
 
@@ -692,12 +692,7 @@ export function GarmentCustomizerModal({
         <div>
           <h2 className="text-xl font-serif text-neutral-900">Garment Customizer</h2>
           <p className="text-xs font-semibold text-neutral-500 mt-0.5">Customize {garment.style || 'style'}</p>
-          <div className="text-[9px] text-neutral-400 font-mono mt-1 flex flex-col gap-0.5">
-            <div>Style: {garment.style || 'None'}</div>
-            <div>ItemNum: {garment.itemNum || 'None'}</div>
-            <div>Catalog Match: {catalogProduct ? `${catalogProduct.brand} ${catalogProduct.style}` : 'None'}</div>
-            <div className="truncate max-w-[400px]">Back Image: {backImage || 'None'}</div>
-          </div>
+
         </div>
         <button 
           onClick={onClose} 
@@ -764,7 +759,7 @@ export function GarmentCustomizerModal({
                     transform: 'translate(-50%, -50%)',
                     zIndex: 20
                   }}
-                  className="absolute flex items-center justify-center border border-dashed border-black/40 group/logo select-none cursor-move p-1 bg-white/10 backdrop-blur-[0.5px]"
+                  className="absolute flex items-center justify-center border border-dashed border-black/40 group/logo select-none cursor-move p-1 bg-transparent"
                 >
                   <img 
                     src={selectedLogo.url} 

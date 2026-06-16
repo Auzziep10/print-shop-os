@@ -673,7 +673,7 @@ export function MockupCreator({
                     transform: 'translate(-50%, -50%)',
                     zIndex: 20
                   }}
-                  className="absolute flex items-center justify-center border border-dashed border-black/40 group/logo select-none cursor-move p-1 bg-white/10 backdrop-blur-[0.5px]"
+                  className="absolute flex items-center justify-center border border-dashed border-black/40 group/logo select-none cursor-move p-1 bg-transparent"
                 >
                   <img
                     ref={logoRef}
