@@ -99,7 +99,7 @@ export function MockupCreator({
         const xPercentOfCard = ((e.clientX - rect.left) / rect.width) * 100;
         const yPercentOfCard = ((e.clientY - rect.top) / rect.height) * 100;
         
-        const scaleFactor = 1.3;
+        const scaleFactor = 1.1;
         const valX = Math.max(0, Math.min(100, Math.round(centerXPct + (xPercentOfCard - centerXPct) / scaleFactor)));
         const valY = Math.max(0, Math.min(100, Math.round(centerYPct + (yPercentOfCard - centerYPct) / scaleFactor)));
 
@@ -113,7 +113,7 @@ export function MockupCreator({
       if (isResizing && containerRef.current) {
         const rect = containerRef.current.getBoundingClientRect();
         const deltaX = e.clientX - resizeStartPos.current.x;
-        const scaleFactor = 1.3;
+        const scaleFactor = 1.1;
         const newScale = resizeStartPos.current.scale + (((2 * deltaX) / scaleFactor) / rect.width);
         const valScale = Math.max(0.05, Math.min(0.8, Math.round(newScale * 100) / 100));
 
@@ -349,10 +349,10 @@ export function MockupCreator({
           {/* Garment + Logo Wrapper */}
           <div 
             ref={containerRef}
-            className="relative h-full max-h-[80vh] aspect-[4/5] bg-white rounded-[2rem] shadow-lg border border-neutral-200/60 overflow-hidden flex items-center justify-center cursor-default shrink-0 transition-all duration-300 hover:shadow-xl"
+            className="relative h-full max-h-[80vh] aspect-square bg-white rounded-[2rem] shadow-lg border border-neutral-200/60 overflow-hidden flex items-center justify-center cursor-default shrink-0 transition-all duration-300 hover:shadow-xl"
           >
             {/* Zoom Wrapper to enlarge shirt */}
-            <div className="relative w-full h-full flex items-center justify-center scale-[1.3]">
+            <div className="relative w-full h-full flex items-center justify-center scale-[1.1]">
               {/* Proxied or direct garment image */}
               <img 
                 src={proxiedGarmentUrl} 

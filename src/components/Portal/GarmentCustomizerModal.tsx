@@ -171,7 +171,7 @@ export function GarmentCustomizerModal({
         const xPercentOfCard = ((e.clientX - rect.left) / rect.width) * 100;
         const yPercentOfCard = ((e.clientY - rect.top) / rect.height) * 100;
         
-        const scaleFactor = 1.3;
+        const scaleFactor = 1.1;
         const valX = Math.max(0, Math.min(100, Math.round(centerXPct + (xPercentOfCard - centerXPct) / scaleFactor)));
         const valY = Math.max(0, Math.min(100, Math.round(centerYPct + (yPercentOfCard - centerYPct) / scaleFactor)));
         
@@ -187,7 +187,7 @@ export function GarmentCustomizerModal({
       if (isResizing) {
         const deltaX = e.clientX - resizeStartPos.current.x;
         const containerWidth = resizeStartPos.current.containerWidth || 500;
-        const scaleFactor = 1.3;
+        const scaleFactor = 1.1;
         const newScale = resizeStartPos.current.scale + (((2 * deltaX) / scaleFactor) / (containerWidth * 0.0036));
         const valScale = Math.max(10, Math.min(100, Math.round(newScale)));
         
@@ -452,10 +452,10 @@ export function GarmentCustomizerModal({
           {/* Garment Preview Container */}
           <div 
             ref={previewRef}
-            className="relative h-full max-h-[80vh] aspect-[4/5] bg-white rounded-[2rem] border border-neutral-200/50 shadow-lg flex items-center justify-center overflow-hidden shrink-0 transition-all duration-300 hover:shadow-xl animate-in zoom-in-95 duration-300"
+            className="relative h-full max-h-[80vh] aspect-square bg-white rounded-[2rem] border border-neutral-200/50 shadow-lg flex items-center justify-center overflow-hidden shrink-0 transition-all duration-300 hover:shadow-xl animate-in zoom-in-95 duration-300"
           >
             {/* Zoom Wrapper to enlarge shirt */}
-            <div className="relative w-full h-full flex items-center justify-center scale-[1.3]">
+            <div className="relative w-full h-full flex items-center justify-center scale-[1.1]">
               {/* Main Garment Image */}
               <img 
                 src={activeMockupImage} 
