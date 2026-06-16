@@ -317,9 +317,20 @@ export function MockupCreator({
   const generatedLeftSleeveUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(`blank left sleeve view of ${cleanColor} ${garmentType}, flat lay, isolated on solid white background, high resolution product mockup, clean, wrinkle-free, professional studio photography`)}?width=800&height=800&nologo=true&seed=${seedLeftSleeve}`;
   const generatedRightSleeveUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(`blank right sleeve view of ${cleanColor} ${garmentType}, flat lay, isolated on solid white background, high resolution product mockup, clean, wrinkle-free, professional studio photography`)}?width=800&height=800&nologo=true&seed=${seedRightSleeve}`;
 
+  // Map high-quality pre-generated sleeve mockups for NL6210 Charcoal
+  const colorLower = cleanColor.toLowerCase();
+  const nameLower = cleanStyle.toLowerCase();
+  
+  let localLeftSleeve = null;
+  let localRightSleeve = null;
+  if (nameLower.includes('nl6210') && colorLower.includes('charcoal')) {
+    localLeftSleeve = '/mockups/NL6210/left_sleeve.png';
+    localRightSleeve = '/mockups/NL6210/right_sleeve.png';
+  }
+
   const resolvedBackImageUrl = garmentBackImageUrl || generatedBackUrl;
-  const resolvedLeftSleeveImageUrl = garmentLeftSleeveImageUrl || generatedLeftSleeveUrl;
-  const resolvedRightSleeveImageUrl = garmentRightSleeveImageUrl || generatedRightSleeveUrl;
+  const resolvedLeftSleeveImageUrl = garmentLeftSleeveImageUrl || localLeftSleeve || generatedLeftSleeveUrl;
+  const resolvedRightSleeveImageUrl = garmentRightSleeveImageUrl || localRightSleeve || generatedRightSleeveUrl;
 
   const activeGarmentUrl = useMemo(() => {
     if (activeTab === 'front') return garmentImageUrl;

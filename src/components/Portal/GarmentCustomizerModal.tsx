@@ -131,11 +131,20 @@ export function GarmentCustomizerModal({
   const catalogProduct = useMemo(() => {
     const styleStr = garment.style || garment.itemNum || '';
     if (!styleStr) return null;
-    return sanmarCatalog.find(
-      (p) => 
-        p.style.toLowerCase() === styleStr.toLowerCase() || 
-        p.title.toLowerCase().includes(styleStr.toLowerCase())
-    ) || null;
+    
+    // First try exact match
+    let found = sanmarCatalog.find(
+      (p) => p.style.toLowerCase() === styleStr.toLowerCase()
+    );
+    if (found) return found;
+
+    // Try finding a catalog style code that is contained within the styleStr (e.g., "NL6210" in the title string)
+    // Sort catalog by style length descending so that we match longer style codes first
+    const sortedCatalog = [...sanmarCatalog].sort((a, b) => b.style.length - a.style.length);
+    found = sortedCatalog.find(
+      (p) => styleStr.toLowerCase().includes(p.style.toLowerCase())
+    );
+    return found || null;
   }, [garment.style, garment.itemNum]);
 
   // Case-insensitive image resolver
@@ -186,7 +195,7 @@ export function GarmentCustomizerModal({
       catalogBack = catalogColorVal?.back || null;
     }
 
-    const cleanColor = selectedColor.trim();
+        const cleanColor = selectedColor.trim();
     const cleanStyle = styleStr.trim();
     const seedBack = getSeedForString(`${cleanStyle}-${cleanColor}-back`);
     const seedLeftSleeve = getSeedForString(`${cleanStyle}-${cleanColor}-left-sleeve`);
@@ -201,14 +210,27 @@ export function GarmentCustomizerModal({
     const encodedRightSleevePrompt = encodeURIComponent(`blank right sleeve view of ${cleanColor} ${garmentType}, flat lay, isolated on solid white background, high resolution product mockup, clean, wrinkle-free, professional studio photography`);
     const generatedRightSleeve = `https://image.pollinations.ai/prompt/${encodedRightSleevePrompt}?width=800&height=800&nologo=true&seed=${seedRightSleeve}`;
 
+    // Map high-quality pre-generated sleeve mockups for NL6210 Charcoal
+    const styleCode = catalogProduct ? catalogProduct.style.toUpperCase() : '';
+    const colorLower = cleanColor.toLowerCase();
+    
+    let localLeftSleeve = null;
+    let localRightSleeve = null;
+    if (styleCode === 'NL6210' && colorLower.includes('charcoal')) {
+      localLeftSleeve = '/mockups/NL6210/left_sleeve.png';
+      localRightSleeve = '/mockups/NL6210/right_sleeve.png';
+    }
+
     const finalFront = garmentFront || catalogFront || garment.image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
     const finalBack = garmentBack || catalogBack || generatedBack;
+    const finalLeftSleeve = localLeftSleeve || generatedLeftSleeve;
+    const finalRightSleeve = localRightSleeve || generatedRightSleeve;
 
     return { 
       frontImage: finalFront, 
       backImage: finalBack,
-      leftSleeveImage: generatedLeftSleeve,
-      rightSleeveImage: generatedRightSleeve
+      leftSleeveImage: finalLeftSleeve,
+      rightSleeveImage: finalRightSleeve
     };
   }, [garment, selectedColor, catalogProduct]);
 
