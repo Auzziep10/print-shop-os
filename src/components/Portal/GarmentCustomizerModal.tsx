@@ -89,18 +89,47 @@ export function GarmentCustomizerModal({
     ) || null;
   }, [garment.style, garment.itemNum]);
 
-  // Image source path resolver
-  const frontImage = garment.images?.[selectedColor]?.front || 
-                     garment.images?.[selectedColor] || 
-                     catalogProduct?.images?.[selectedColor]?.front || 
-                     catalogProduct?.images?.[selectedColor] || 
-                     garment.image || 
-                     'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
+  // Case-insensitive image resolver
+  const { frontImage, backImage } = useMemo(() => {
+    if (!selectedColor) return { frontImage: garment.image || '', backImage: null };
 
-  const backImage = garment.backImages?.[selectedColor] || 
-                    garment.images?.[selectedColor]?.back || 
-                    catalogProduct?.images?.[selectedColor]?.back || 
-                    null;
+    // 1. Resolve from garment.images case-insensitively
+    const garmentImages = garment.images || {};
+    const garmentImgKey = Object.keys(garmentImages).find(
+      (k) => k.toLowerCase() === selectedColor.toLowerCase()
+    );
+    const garmentColorVal = garmentImgKey ? garmentImages[garmentImgKey] : null;
+
+    const garmentFront = garmentColorVal?.front || (typeof garmentColorVal === 'string' ? garmentColorVal : null);
+    let garmentBack = garmentColorVal?.back || null;
+
+    // 2. Resolve garment.backImages case-insensitively
+    const garmentBackImages = garment.backImages || {};
+    const garmentBackImgKey = Object.keys(garmentBackImages).find(
+      (k) => k.toLowerCase() === selectedColor.toLowerCase()
+    );
+    if (garmentBackImgKey) {
+      garmentBack = garmentBackImages[garmentBackImgKey];
+    }
+
+    // 3. Fallback to catalogProduct case-insensitively if front/back are missing
+    let catalogFront = null;
+    let catalogBack = null;
+    if (catalogProduct) {
+      const catalogImages = catalogProduct.images || {};
+      const catalogImgKey = Object.keys(catalogImages).find(
+        (k) => k.toLowerCase() === selectedColor.toLowerCase()
+      );
+      const catalogColorVal = catalogImgKey ? catalogImages[catalogImgKey] : null;
+      catalogFront = catalogColorVal?.front || (typeof catalogColorVal === 'string' ? catalogColorVal : null);
+      catalogBack = catalogColorVal?.back || null;
+    }
+
+    const finalFront = garmentFront || catalogFront || garment.image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
+    const finalBack = garmentBack || catalogBack || null;
+
+    return { frontImage: finalFront, backImage: finalBack };
+  }, [garment, selectedColor, catalogProduct]);
 
   const activeMockupImage = activeTab === 'front' ? frontImage : (backImage || frontImage);
 
