@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { X, Upload, RotateCw, Check, RefreshCw, AlignCenter, AlignLeft, Sparkles, Loader2 } from 'lucide-react';
+import { X, Upload, RotateCw, Check, RefreshCw, Sparkles, Loader2 } from 'lucide-react';
 import { storage } from '../../lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
@@ -102,7 +102,8 @@ export function MockupCreator({
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<'front' | 'back' | 'left-sleeve' | 'right-sleeve'>('front');
+  const [activeTab, setActiveTab] = useState<'front' | 'back' | 'sleeve'>('front');
+  const [isSleeveMirrored, setIsSleeveMirrored] = useState(false);
 
   // Position, scale, and rotation states for Front
   const [logoPosFront, setLogoPosFront] = useState({ x: 50, y: 35 });
@@ -146,43 +147,55 @@ export function MockupCreator({
   const logoUrl = useMemo(() => {
     if (activeTab === 'front') return logoUrlFront;
     if (activeTab === 'back') return logoUrlBack;
-    if (activeTab === 'left-sleeve') return logoUrlLeftSleeve;
-    return logoUrlRightSleeve;
-  }, [activeTab, logoUrlFront, logoUrlBack, logoUrlLeftSleeve, logoUrlRightSleeve]);
+    if (activeTab === 'sleeve') {
+      return isSleeveMirrored ? logoUrlRightSleeve : logoUrlLeftSleeve;
+    }
+    return null;
+  }, [activeTab, isSleeveMirrored, logoUrlFront, logoUrlBack, logoUrlLeftSleeve, logoUrlRightSleeve]);
 
   const setLogoUrl = (url: string | null) => {
     if (activeTab === 'front') setLogoUrlFront(url);
     else if (activeTab === 'back') setLogoUrlBack(url);
-    else if (activeTab === 'left-sleeve') setLogoUrlLeftSleeve(url);
-    else setLogoUrlRightSleeve(url);
+    else if (activeTab === 'sleeve') {
+      if (isSleeveMirrored) setLogoUrlRightSleeve(url);
+      else setLogoUrlLeftSleeve(url);
+    }
   };
 
   const logoPos = useMemo(() => {
     if (activeTab === 'front') return logoPosFront;
     if (activeTab === 'back') return logoPosBack;
-    if (activeTab === 'left-sleeve') return logoPosLeftSleeve;
-    return logoPosRightSleeve;
-  }, [activeTab, logoPosFront, logoPosBack, logoPosLeftSleeve, logoPosRightSleeve]);
+    if (activeTab === 'sleeve') {
+      return isSleeveMirrored ? logoPosRightSleeve : logoPosLeftSleeve;
+    }
+    return { x: 50, y: 50 };
+  }, [activeTab, isSleeveMirrored, logoPosFront, logoPosBack, logoPosLeftSleeve, logoPosRightSleeve]);
 
   const logoScale = useMemo(() => {
     if (activeTab === 'front') return logoScaleFront;
     if (activeTab === 'back') return logoScaleBack;
-    if (activeTab === 'left-sleeve') return logoScaleLeftSleeve;
-    return logoScaleRightSleeve;
-  }, [activeTab, logoScaleFront, logoScaleBack, logoScaleLeftSleeve, logoScaleRightSleeve]);
+    if (activeTab === 'sleeve') {
+      return isSleeveMirrored ? logoScaleRightSleeve : logoScaleLeftSleeve;
+    }
+    return 0.3;
+  }, [activeTab, isSleeveMirrored, logoScaleFront, logoScaleBack, logoScaleLeftSleeve, logoScaleRightSleeve]);
 
   const logoRotation = useMemo(() => {
     if (activeTab === 'front') return logoRotationFront;
     if (activeTab === 'back') return logoRotationBack;
-    if (activeTab === 'left-sleeve') return logoRotationLeftSleeve;
-    return logoRotationRightSleeve;
-  }, [activeTab, logoRotationFront, logoRotationBack, logoRotationLeftSleeve, logoRotationRightSleeve]);
+    if (activeTab === 'sleeve') {
+      return isSleeveMirrored ? logoRotationRightSleeve : logoRotationLeftSleeve;
+    }
+    return 0;
+  }, [activeTab, isSleeveMirrored, logoRotationFront, logoRotationBack, logoRotationLeftSleeve, logoRotationRightSleeve]);
 
   const setLogoRotation = (deg: number) => {
     if (activeTab === 'front') setLogoRotationFront(deg);
     else if (activeTab === 'back') setLogoRotationBack(deg);
-    else if (activeTab === 'left-sleeve') setLogoRotationLeftSleeve(deg);
-    else setLogoRotationRightSleeve(deg);
+    else if (activeTab === 'sleeve') {
+      if (isSleeveMirrored) setLogoRotationRightSleeve(deg);
+      else setLogoRotationLeftSleeve(deg);
+    }
   };
 
   const handleDragMouseDown = (e: React.MouseEvent) => {
@@ -224,10 +237,12 @@ export function MockupCreator({
           setLogoPosFront({ x: valX, y: valY });
         } else if (activeTab === 'back') {
           setLogoPosBack({ x: valX, y: valY });
-        } else if (activeTab === 'left-sleeve') {
-          setLogoPosLeftSleeve({ x: valX, y: valY });
-        } else {
-          setLogoPosRightSleeve({ x: valX, y: valY });
+        } else if (activeTab === 'sleeve') {
+          if (isSleeveMirrored) {
+            setLogoPosRightSleeve({ x: valX, y: valY });
+          } else {
+            setLogoPosLeftSleeve({ x: valX, y: valY });
+          }
         }
       }
 
@@ -242,10 +257,12 @@ export function MockupCreator({
           setLogoScaleFront(valScale);
         } else if (activeTab === 'back') {
           setLogoScaleBack(valScale);
-        } else if (activeTab === 'left-sleeve') {
-          setLogoScaleLeftSleeve(valScale);
-        } else {
-          setLogoScaleRightSleeve(valScale);
+        } else if (activeTab === 'sleeve') {
+          if (isSleeveMirrored) {
+            setLogoScaleRightSleeve(valScale);
+          } else {
+            setLogoScaleLeftSleeve(valScale);
+          }
         }
       }
     };
@@ -300,52 +317,6 @@ export function MockupCreator({
       alert('Failed to upload logo image.');
     } finally {
       setIsUploadingLogo(false);
-    }
-  };
-
-  const applyPreset = (preset: 'center' | 'left' | 'reset') => {
-    if (activeTab === 'front') {
-      if (preset === 'center') {
-        setLogoPosFront({ x: 50, y: 35 });
-        setLogoScaleFront(0.3);
-      } else if (preset === 'left') {
-        setLogoPosFront({ x: 38, y: 30 });
-        setLogoScaleFront(0.18);
-      } else {
-        setLogoPosFront({ x: 50, y: 35 });
-        setLogoScaleFront(0.3);
-        setLogoRotationFront(0);
-      }
-    } else if (activeTab === 'back') {
-      if (preset === 'center') {
-        setLogoPosBack({ x: 50, y: 40 });
-        setLogoScaleBack(0.3);
-      } else if (preset === 'left') {
-        setLogoPosBack({ x: 38, y: 30 });
-        setLogoScaleBack(0.18);
-      } else {
-        setLogoPosBack({ x: 50, y: 40 });
-        setLogoScaleBack(0.3);
-        setLogoRotationBack(0);
-      }
-    } else if (activeTab === 'left-sleeve') {
-      if (preset === 'center' || preset === 'left') {
-        setLogoPosLeftSleeve({ x: 50, y: 50 });
-        setLogoScaleLeftSleeve(0.3);
-      } else {
-        setLogoPosLeftSleeve({ x: 50, y: 50 });
-        setLogoScaleLeftSleeve(0.3);
-        setLogoRotationLeftSleeve(0);
-      }
-    } else {
-      if (preset === 'center' || preset === 'left') {
-        setLogoPosRightSleeve({ x: 50, y: 50 });
-        setLogoScaleRightSleeve(0.3);
-      } else {
-        setLogoPosRightSleeve({ x: 50, y: 50 });
-        setLogoScaleRightSleeve(0.3);
-        setLogoRotationRightSleeve(0);
-      }
     }
   };
 
@@ -408,15 +379,13 @@ export function MockupCreator({
   }
 
   const resolvedBackImageUrl = localBackImage || catalogBack || generatedViews.back || null;
-  const resolvedLeftSleeveImageUrl = garmentLeftSleeveImageUrl || localLeftSleeve || generatedViews['left-sleeve'] || null;
-  const resolvedRightSleeveImageUrl = garmentRightSleeveImageUrl || localRightSleeve || generatedViews['right-sleeve'] || null;
+  const resolvedSleeveImageUrl = garmentLeftSleeveImageUrl || localLeftSleeve || generatedViews['sleeve'] || null;
 
   const activeGarmentUrl = useMemo(() => {
     if (activeTab === 'front') return garmentImageUrl;
     if (activeTab === 'back') return resolvedBackImageUrl;
-    if (activeTab === 'left-sleeve') return resolvedLeftSleeveImageUrl;
-    return resolvedRightSleeveImageUrl;
-  }, [activeTab, garmentImageUrl, resolvedBackImageUrl, resolvedLeftSleeveImageUrl, resolvedRightSleeveImageUrl]);
+    return resolvedSleeveImageUrl;
+  }, [activeTab, garmentImageUrl, resolvedBackImageUrl, resolvedSleeveImageUrl]);
 
   const proxiedGarmentUrl = activeGarmentUrl && activeGarmentUrl.startsWith('http')
     ? `/api/sanmar/proxy-image?url=${encodeURIComponent(activeGarmentUrl)}`
@@ -425,9 +394,8 @@ export function MockupCreator({
   const needsGeneration = useMemo(() => {
     if (activeTab === 'front') return false;
     if (activeTab === 'back') return !resolvedBackImageUrl;
-    if (activeTab === 'left-sleeve') return !resolvedLeftSleeveImageUrl;
-    return !resolvedRightSleeveImageUrl;
-  }, [activeTab, resolvedBackImageUrl, resolvedLeftSleeveImageUrl, resolvedRightSleeveImageUrl]);
+    return !resolvedSleeveImageUrl;
+  }, [activeTab, resolvedBackImageUrl, resolvedSleeveImageUrl]);
 
   const isGenerated = !!generatedViews[activeTab];
 
@@ -439,20 +407,16 @@ export function MockupCreator({
       let viewAngleStr = '';
       if (activeTab === 'back') {
         viewAngleStr = 'Back View';
-      } else if (activeTab === 'left-sleeve') {
+      } else if (activeTab === 'sleeve') {
         viewAngleStr = 'Left Side View';
-      } else if (activeTab === 'right-sleeve') {
-        viewAngleStr = 'Right Side View';
       }
       
       const generatedImageUrl = await generateRotatedGarment(garmentImageUrl, viewAngleStr);
       
       if (activeTab === 'back') {
         setGeneratedViews(prev => ({ ...prev, back: generatedImageUrl }));
-      } else if (activeTab === 'left-sleeve') {
-        setGeneratedViews(prev => ({ ...prev, 'left-sleeve': generatedImageUrl }));
-      } else if (activeTab === 'right-sleeve') {
-        setGeneratedViews(prev => ({ ...prev, 'right-sleeve': generatedImageUrl }));
+      } else if (activeTab === 'sleeve') {
+        setGeneratedViews(prev => ({ ...prev, sleeve: generatedImageUrl }));
       }
     } catch (err) {
       console.error("Failed to generate rotated garment view with Gemini:", err);
@@ -487,8 +451,8 @@ export function MockupCreator({
 
       if (hasFront) activeSides.push({ img: garmentImageUrl, logo: logoUrlFront, pos: logoPosFront, scale: logoScaleFront, rotation: logoRotationFront, name: 'Front' });
       if (hasBack) activeSides.push({ img: resolvedBackImageUrl || garmentImageUrl, logo: logoUrlBack, pos: logoPosBack, scale: logoScaleBack, rotation: logoRotationBack, name: 'Back' });
-      if (hasLeftSleeve) activeSides.push({ img: resolvedLeftSleeveImageUrl || garmentImageUrl, logo: logoUrlLeftSleeve, pos: logoPosLeftSleeve, scale: logoScaleLeftSleeve, rotation: logoRotationLeftSleeve, name: 'Left Sleeve' });
-      if (hasRightSleeve) activeSides.push({ img: resolvedRightSleeveImageUrl || garmentImageUrl, logo: logoUrlRightSleeve, pos: logoPosRightSleeve, scale: logoScaleRightSleeve, rotation: logoRotationRightSleeve, name: 'Right Sleeve' });
+      if (hasLeftSleeve) activeSides.push({ img: resolvedSleeveImageUrl || garmentImageUrl, logo: logoUrlLeftSleeve, pos: logoPosLeftSleeve, scale: logoScaleLeftSleeve, rotation: logoRotationLeftSleeve, name: 'Left Sleeve' });
+      if (hasRightSleeve) activeSides.push({ img: resolvedSleeveImageUrl || garmentImageUrl, logo: logoUrlRightSleeve, pos: logoPosRightSleeve, scale: logoScaleRightSleeve, rotation: logoRotationRightSleeve, name: 'Right Sleeve' });
 
       if (activeSides.length === 0) {
         activeSides.push({ img: garmentImageUrl, logo: null, pos: { x: 50, y: 35 }, scale: 0.3, rotation: 0, name: 'Front' });
@@ -609,27 +573,44 @@ export function MockupCreator({
         {/* Left Side: Dynamic Canvas Workspace */}
         <div className="flex-1 bg-neutral-50 flex flex-col items-center justify-center p-4 md:p-6 relative overflow-y-auto border-b md:border-b-0 md:border-r border-neutral-100 gap-4 md:gap-6 animate-in fade-in duration-300 select-none">
           
-          {/* Segmented View Selector */}
-          <div className="flex bg-neutral-200/50 p-1 rounded-2xl gap-1 shadow-inner shrink-0 flex-wrap justify-center">
-            {[
-              { id: 'front', label: 'Front View' },
-              { id: 'back', label: 'Back View' },
-              { id: 'left-sleeve', label: 'Left Sleeve' },
-              { id: 'right-sleeve', label: 'Right Sleeve' }
-            ].map((tab) => (
+          {/* Tab Selector & Mirroring Actions */}
+          <div className="flex items-center gap-4 shrink-0 flex-wrap justify-center">
+            {/* Segmented View Selector */}
+            <div className="flex bg-neutral-200/50 p-1 rounded-2xl gap-1 shadow-inner flex-wrap justify-center">
+              {[
+                { id: 'front', label: 'Front View' },
+                { id: 'back', label: 'Back View' },
+                { id: 'sleeve', label: 'Sleeve' }
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id as any)}
+                  className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    activeTab === tab.id
+                      ? 'bg-white text-black shadow-sm'
+                      : 'text-neutral-500 hover:text-black'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {activeTab === 'sleeve' && (
               <button
-                key={tab.id}
                 type="button"
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                  activeTab === tab.id
-                    ? 'bg-white text-black shadow-sm'
-                    : 'text-neutral-500 hover:text-black'
+                onClick={() => setIsSleeveMirrored(prev => !prev)}
+                className={`px-4 py-2.5 rounded-2xl border text-xs font-bold flex items-center gap-2 transition-all cursor-pointer shadow-sm ${
+                  isSleeveMirrored 
+                    ? 'bg-black text-white border-black hover:bg-neutral-800' 
+                    : 'bg-white text-neutral-700 border-neutral-200 hover:bg-neutral-50'
                 }`}
               >
-                {tab.label}
+                <RefreshCw size={13} className={isSleeveMirrored ? "animate-spin" : ""} style={{ animationIterationCount: 1, animationDuration: '0.4s' }} />
+                <span>{isSleeveMirrored ? 'Right Sleeve (Mirrored)' : 'Left Sleeve (Standard)'}</span>
               </button>
-            ))}
+            )}
           </div>
 
           {/* Garment + Logo Wrapper */}
@@ -644,7 +625,7 @@ export function MockupCreator({
                 <img 
                   src={proxiedGarmentUrl} 
                   alt={garmentName} 
-                  style={{ transform: activeTab === 'right-sleeve' ? 'scaleX(-1)' : 'none' }}
+                  style={{ transform: (activeTab === 'sleeve' && isSleeveMirrored) ? 'scaleX(-1)' : 'none' }}
                   className="max-w-full max-h-full object-contain pointer-events-none mix-blend-multiply animate-in fade-in duration-500"
                   draggable="false"
                 />
@@ -741,7 +722,7 @@ export function MockupCreator({
             </div>
             
             <span className="absolute bottom-4 left-4 text-[9px] font-bold uppercase tracking-widest text-neutral-400 bg-neutral-50 border border-neutral-200 px-2 py-0.5 rounded shadow-sm z-30">
-              Active Placement: {activeTab.toUpperCase()}
+              Active Placement: {activeTab === 'sleeve' ? (isSleeveMirrored ? 'RIGHT SLEEVE' : 'LEFT SLEEVE') : activeTab.toUpperCase()}
             </span>
           </div>
         </div>
@@ -764,7 +745,7 @@ export function MockupCreator({
                     <img src={logoUrl} className="w-full h-full object-contain" alt="Logo preview" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <span className="text-xs font-bold text-neutral-700 block truncate">Logo Active ({activeTab.toUpperCase()})</span>
+                    <span className="text-xs font-bold text-neutral-700 block truncate">Logo Active ({activeTab === 'sleeve' ? (isSleeveMirrored ? 'RIGHT SLEEVE' : 'LEFT SLEEVE') : activeTab.toUpperCase()})</span>
                     <label className="text-xs text-brand-primary hover:text-brand-primary/80 font-bold cursor-pointer inline-block mt-0.5">
                       Change File
                       <input type="file" accept="image/png, image/jpeg, image/svg+xml" onChange={handleLogoUpload} className="hidden" />
@@ -801,31 +782,6 @@ export function MockupCreator({
                     onChange={(e) => setLogoRotation(parseInt(e.target.value))}
                     className="w-full h-1 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-brand-primary"
                   />
-                </div>
-
-                {/* Placement Presets */}
-                <div className="space-y-2">
-                  <span className="text-[11px] font-bold text-neutral-400 block uppercase tracking-wider">Presets</span>
-                  <div className="grid grid-cols-3 gap-2">
-                    <button
-                      onClick={() => applyPreset('center')}
-                      className="px-2.5 py-2 bg-neutral-50 hover:bg-neutral-100 text-neutral-700 border border-neutral-200 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                    >
-                      <AlignCenter size={13} /> Center
-                    </button>
-                    <button
-                      onClick={() => applyPreset('left')}
-                      className="px-2.5 py-2 bg-neutral-50 hover:bg-neutral-100 text-neutral-700 border border-neutral-200 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                    >
-                      <AlignLeft size={13} /> Left Chest
-                    </button>
-                    <button
-                      onClick={() => applyPreset('reset')}
-                      className="px-2.5 py-2 bg-neutral-50 hover:bg-neutral-100 text-neutral-700 border border-neutral-200 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                    >
-                      <RefreshCw size={13} /> Reset
-                    </button>
-                  </div>
                 </div>
               </div>
             )}

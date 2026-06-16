@@ -75,8 +75,8 @@ export function GarmentCustomizerModal({
   customerId,
   onSave
 }: GarmentCustomizerModalProps) {
-  const [selectedColor, setSelectedColor] = useState('');
-  const [activeTab, setActiveTab] = useState<'front' | 'back' | 'left-sleeve' | 'right-sleeve'>('front');
+  const [activeTab, setActiveTab] = useState<'front' | 'back' | 'sleeve'>('front');
+  const [isSleeveMirrored, setIsSleeveMirrored] = useState(false);
   const [isColorDropdownOpen, setIsColorDropdownOpen] = useState(false);
 
   // Vault/Assets
@@ -128,44 +128,56 @@ export function GarmentCustomizerModal({
   const selectedLogo = useMemo(() => {
     if (activeTab === 'front') return selectedLogoFront;
     if (activeTab === 'back') return selectedLogoBack;
-    if (activeTab === 'left-sleeve') return selectedLogoLeftSleeve;
-    return selectedLogoRightSleeve;
-  }, [activeTab, selectedLogoFront, selectedLogoBack, selectedLogoLeftSleeve, selectedLogoRightSleeve]);
+    if (activeTab === 'sleeve') {
+      return isSleeveMirrored ? selectedLogoRightSleeve : selectedLogoLeftSleeve;
+    }
+    return null;
+  }, [activeTab, isSleeveMirrored, selectedLogoFront, selectedLogoBack, selectedLogoLeftSleeve, selectedLogoRightSleeve]);
   
   const setSelectedLogo = (asset: any) => {
     if (activeTab === 'front') setSelectedLogoFront(asset);
     else if (activeTab === 'back') setSelectedLogoBack(asset);
-    else if (activeTab === 'left-sleeve') setSelectedLogoLeftSleeve(asset);
-    else setSelectedLogoRightSleeve(asset);
+    else if (activeTab === 'sleeve') {
+      if (isSleeveMirrored) setSelectedLogoRightSleeve(asset);
+      else setSelectedLogoLeftSleeve(asset);
+    }
   };
 
   const scale = useMemo(() => {
     if (activeTab === 'front') return scaleFront;
     if (activeTab === 'back') return scaleBack;
-    if (activeTab === 'left-sleeve') return scaleLeftSleeve;
-    return scaleRightSleeve;
-  }, [activeTab, scaleFront, scaleBack, scaleLeftSleeve, scaleRightSleeve]);
+    if (activeTab === 'sleeve') {
+      return isSleeveMirrored ? scaleRightSleeve : scaleLeftSleeve;
+    }
+    return 30;
+  }, [activeTab, isSleeveMirrored, scaleFront, scaleBack, scaleLeftSleeve, scaleRightSleeve]);
 
   const offsetX = useMemo(() => {
     if (activeTab === 'front') return offsetXFront;
     if (activeTab === 'back') return offsetXBack;
-    if (activeTab === 'left-sleeve') return offsetXLeftSleeve;
-    return offsetXRightSleeve;
-  }, [activeTab, offsetXFront, offsetXBack, offsetXLeftSleeve, offsetXRightSleeve]);
+    if (activeTab === 'sleeve') {
+      return isSleeveMirrored ? offsetXRightSleeve : offsetXLeftSleeve;
+    }
+    return 50;
+  }, [activeTab, isSleeveMirrored, offsetXFront, offsetXBack, offsetXLeftSleeve, offsetXRightSleeve]);
 
   const offsetY = useMemo(() => {
     if (activeTab === 'front') return offsetYFront;
     if (activeTab === 'back') return offsetYBack;
-    if (activeTab === 'left-sleeve') return offsetYLeftSleeve;
-    return offsetYRightSleeve;
-  }, [activeTab, offsetYFront, offsetYBack, offsetYLeftSleeve, offsetYRightSleeve]);
+    if (activeTab === 'sleeve') {
+      return isSleeveMirrored ? offsetYRightSleeve : offsetYLeftSleeve;
+    }
+    return 50;
+  }, [activeTab, isSleeveMirrored, offsetYFront, offsetYBack, offsetYLeftSleeve, offsetYRightSleeve]);
 
   const placement = useMemo(() => {
     if (activeTab === 'front') return placementFront;
     if (activeTab === 'back') return placementBack;
-    if (activeTab === 'left-sleeve') return placementLeftSleeve;
-    return placementRightSleeve;
-  }, [activeTab, placementFront, placementBack, placementLeftSleeve, placementRightSleeve]);
+    if (activeTab === 'sleeve') {
+      return isSleeveMirrored ? placementRightSleeve : placementLeftSleeve;
+    }
+    return '';
+  }, [activeTab, isSleeveMirrored, placementFront, placementBack, placementLeftSleeve, placementRightSleeve]);
 
   // Find product in catalog as fallback for images
   const catalogProduct = useMemo(() => {
@@ -197,13 +209,12 @@ export function GarmentCustomizerModal({
   }, [garment.style, garment.itemNum]);
 
   // Case-insensitive image resolver
-  const { frontImage, backImage, leftSleeveImage, rightSleeveImage } = useMemo(() => {
+  const { frontImage, backImage, sleeveImage } = useMemo(() => {
     if (!selectedColor) {
       return {
         frontImage: garment.image || '',
         backImage: null,
-        leftSleeveImage: null,
-        rightSleeveImage: null
+        sleeveImage: null
       };
     }
 
@@ -262,8 +273,7 @@ export function GarmentCustomizerModal({
 
     const finalFront = garmentFront || catalogFront || garment.image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
     const finalBack = garmentBack || generatedViews.back || catalogBack || null;
-    const finalLeftSleeve = localLeftSleeve || generatedViews['left-sleeve'] || null;
-    const finalRightSleeve = localRightSleeve || generatedViews['right-sleeve'] || null;
+    const finalSleeve = localLeftSleeve || generatedViews['sleeve'] || null;
 
     console.log("GARMENT_CUSTOMIZER_DEBUG:", {
       garment,
@@ -280,17 +290,15 @@ export function GarmentCustomizerModal({
     return { 
       frontImage: finalFront, 
       backImage: finalBack,
-      leftSleeveImage: finalLeftSleeve,
-      rightSleeveImage: finalRightSleeve
+      sleeveImage: finalSleeve
     };
   }, [garment, selectedColor, catalogProduct, generatedViews]);
 
   const activeMockupImage = useMemo(() => {
     if (activeTab === 'front') return frontImage;
     if (activeTab === 'back') return backImage || frontImage;
-    if (activeTab === 'left-sleeve') return leftSleeveImage || frontImage;
-    return rightSleeveImage || frontImage;
-  }, [activeTab, frontImage, backImage, leftSleeveImage, rightSleeveImage]);
+    return sleeveImage || frontImage;
+  }, [activeTab, frontImage, backImage, sleeveImage]);
 
   const proxiedActiveMockupImage = useMemo(() => {
     if (!activeMockupImage) return '';
@@ -302,9 +310,8 @@ export function GarmentCustomizerModal({
   const needsGeneration = useMemo(() => {
     if (activeTab === 'front') return false;
     if (activeTab === 'back') return !backImage;
-    if (activeTab === 'left-sleeve') return !leftSleeveImage;
-    return !rightSleeveImage;
-  }, [activeTab, backImage, leftSleeveImage, rightSleeveImage]);
+    return !sleeveImage;
+  }, [activeTab, backImage, sleeveImage]);
 
   const isGenerated = !!generatedViews[activeTab];
 
@@ -316,20 +323,16 @@ export function GarmentCustomizerModal({
       let viewAngleStr = '';
       if (activeTab === 'back') {
         viewAngleStr = 'Back View';
-      } else if (activeTab === 'left-sleeve') {
+      } else if (activeTab === 'sleeve') {
         viewAngleStr = 'Left Side View';
-      } else if (activeTab === 'right-sleeve') {
-        viewAngleStr = 'Right Side View';
       }
       
       const generatedImageUrl = await generateRotatedGarment(frontImage, viewAngleStr);
       
       if (activeTab === 'back') {
         setGeneratedViews(prev => ({ ...prev, back: generatedImageUrl }));
-      } else if (activeTab === 'left-sleeve') {
-        setGeneratedViews(prev => ({ ...prev, 'left-sleeve': generatedImageUrl }));
-      } else if (activeTab === 'right-sleeve') {
-        setGeneratedViews(prev => ({ ...prev, 'right-sleeve': generatedImageUrl }));
+      } else if (activeTab === 'sleeve') {
+        setGeneratedViews(prev => ({ ...prev, sleeve: generatedImageUrl }));
       }
     } catch (err) {
       console.error("Failed to generate rotated garment view with Gemini:", err);
@@ -387,12 +390,14 @@ export function GarmentCustomizerModal({
         } else if (activeTab === 'back') {
           setOffsetXBack(valX);
           setOffsetYBack(valY);
-        } else if (activeTab === 'left-sleeve') {
-          setOffsetXLeftSleeve(valX);
-          setOffsetYLeftSleeve(valY);
-        } else {
-          setOffsetXRightSleeve(valX);
-          setOffsetYRightSleeve(valY);
+        } else if (activeTab === 'sleeve') {
+          if (isSleeveMirrored) {
+            setOffsetXRightSleeve(valX);
+            setOffsetYRightSleeve(valY);
+          } else {
+            setOffsetXLeftSleeve(valX);
+            setOffsetYLeftSleeve(valY);
+          }
         }
       }
 
@@ -407,10 +412,12 @@ export function GarmentCustomizerModal({
           setScaleFront(valScale);
         } else if (activeTab === 'back') {
           setScaleBack(valScale);
-        } else if (activeTab === 'left-sleeve') {
-          setScaleLeftSleeve(valScale);
-        } else {
-          setScaleRightSleeve(valScale);
+        } else if (activeTab === 'sleeve') {
+          if (isSleeveMirrored) {
+            setScaleRightSleeve(valScale);
+          } else {
+            setScaleLeftSleeve(valScale);
+          }
         }
       }
     };
@@ -520,8 +527,8 @@ export function GarmentCustomizerModal({
 
       if (hasFront) activeSides.push({ img: frontImage, logo: selectedLogoFront, scale: scaleFront, offX: offsetXFront, offY: offsetYFront, name: 'Front' });
       if (hasBack) activeSides.push({ img: backImage || frontImage, logo: selectedLogoBack, scale: scaleBack, offX: offsetXBack, offY: offsetYBack, name: 'Back' });
-      if (hasLeftSleeve) activeSides.push({ img: leftSleeveImage || frontImage, logo: selectedLogoLeftSleeve, scale: scaleLeftSleeve, offX: offsetXLeftSleeve, offY: offsetYLeftSleeve, name: 'Left Sleeve' });
-      if (hasRightSleeve) activeSides.push({ img: rightSleeveImage || frontImage, logo: selectedLogoRightSleeve, scale: scaleRightSleeve, offX: offsetXRightSleeve, offY: offsetYRightSleeve, name: 'Right Sleeve' });
+      if (hasLeftSleeve) activeSides.push({ img: sleeveImage || frontImage, logo: selectedLogoLeftSleeve, scale: scaleLeftSleeve, offX: offsetXLeftSleeve, offY: offsetYLeftSleeve, name: 'Left Sleeve' });
+      if (hasRightSleeve) activeSides.push({ img: sleeveImage || frontImage, logo: selectedLogoRightSleeve, scale: scaleRightSleeve, offX: offsetXRightSleeve, offY: offsetYRightSleeve, name: 'Right Sleeve' });
 
       // If nothing is customized, default to front view
       if (activeSides.length === 0) {
@@ -688,27 +695,43 @@ export function GarmentCustomizerModal({
         {/* Left Panel: Preview Workspace */}
         <div className="flex-1 bg-neutral-50 flex flex-col items-center justify-center p-4 md:p-6 relative overflow-y-auto border-b md:border-b-0 md:border-r border-neutral-100 gap-4 md:gap-6 animate-in fade-in duration-300">
           
-          {/* Segmented View Selector */}
-          <div className="flex bg-neutral-200/50 p-1 rounded-2xl gap-1 shadow-inner shrink-0 flex-wrap justify-center">
-            {[
-              { id: 'front', label: 'Front View' },
-              { id: 'back', label: 'Back View' },
-              { id: 'left-sleeve', label: 'Left Sleeve' },
-              { id: 'right-sleeve', label: 'Right Sleeve' }
-            ].map((tab) => (
+          {/* Segmented View Selector + Mirror Toggle */}
+          <div className="flex items-center gap-4 shrink-0 flex-wrap justify-center">
+            <div className="flex bg-neutral-200/50 p-1 rounded-2xl gap-1 shadow-inner">
+              {[
+                { id: 'front', label: 'Front View' },
+                { id: 'back', label: 'Back View' },
+                { id: 'sleeve', label: 'Sleeve' }
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id as any)}
+                  className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    activeTab === tab.id
+                      ? 'bg-white text-black shadow-sm'
+                      : 'text-neutral-500 hover:text-black'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {activeTab === 'sleeve' && (
               <button
-                key={tab.id}
                 type="button"
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                  activeTab === tab.id
-                    ? 'bg-white text-black shadow-sm'
-                    : 'text-neutral-500 hover:text-black'
+                onClick={() => setIsSleeveMirrored(prev => !prev)}
+                className={`px-4 py-2.5 rounded-2xl border text-xs font-bold flex items-center gap-2 transition-all cursor-pointer shadow-sm ${
+                  isSleeveMirrored 
+                    ? 'bg-black text-white border-black hover:bg-neutral-800' 
+                    : 'bg-white text-neutral-700 border-neutral-200 hover:bg-neutral-50'
                 }`}
               >
-                {tab.label}
+                <RefreshCw size={13} className={isSleeveMirrored ? "animate-spin" : ""} style={{ animationIterationCount: 1, animationDuration: '0.4s' }} />
+                <span>{isSleeveMirrored ? 'Right Sleeve (Mirrored)' : 'Left Sleeve (Standard)'}</span>
               </button>
-            ))}
+            )}
           </div>
 
           {/* Garment Preview Container */}
@@ -723,7 +746,7 @@ export function GarmentCustomizerModal({
                 <img 
                   src={proxiedActiveMockupImage} 
                   alt={garment.style} 
-                  style={{ transform: activeTab === 'right-sleeve' ? 'scaleX(-1)' : 'none' }}
+                  style={{ transform: (activeTab === 'sleeve' && isSleeveMirrored) ? 'scaleX(-1)' : 'none' }}
                   className="max-w-full max-h-full object-contain mix-blend-multiply select-none pointer-events-none animate-in fade-in duration-500" 
                 />
               )}
@@ -810,7 +833,7 @@ export function GarmentCustomizerModal({
             </div>
 
             <span className="absolute bottom-4 left-4 text-[9px] font-bold uppercase tracking-widest text-neutral-400 bg-neutral-50 border border-neutral-200 px-2 py-0.5 rounded shadow-sm z-30">
-              Placement: {placement} ({activeTab.toUpperCase()})
+              Active Placement: {activeTab === 'sleeve' ? (isSleeveMirrored ? 'RIGHT SLEEVE' : 'LEFT SLEEVE') : activeTab.toUpperCase()}
             </span>
           </div>
         </div>
@@ -895,56 +918,7 @@ export function GarmentCustomizerModal({
             </div>
           )}
 
-          {/* Design Placement Presets */}
-          <div className="flex flex-col gap-2.5">
-            <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Logo Placement Presets</label>
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                { name: 'Center Front', pos: 'Front', x: 50, y: 45, tab: 'front' },
-                { name: 'Center Back', pos: 'Back', x: 50, y: 40, tab: 'back' },
-                { name: 'Left Chest', pos: 'Left Chest', x: 38, y: 32, tab: 'front' },
-                { name: 'Right Chest', pos: 'Right Chest', x: 62, y: 32, tab: 'front' },
-                { name: 'Left Sleeve', pos: 'Left Sleeve', x: 50, y: 50, tab: 'left-sleeve' },
-                { name: 'Right Sleeve', pos: 'Right Sleeve', x: 50, y: 50, tab: 'right-sleeve' }
-              ].map((preset) => {
-                const isPresetActive = activeTab === preset.tab && placement === preset.pos && offsetX === preset.x && offsetY === preset.y;
 
-                return (
-                  <button
-                    key={preset.name}
-                    type="button"
-                    onClick={() => {
-                      setActiveTab(preset.tab as any);
-                      if (preset.tab === 'front') {
-                        setOffsetXFront(preset.x);
-                        setOffsetYFront(preset.y);
-                        setPlacementFront(preset.pos);
-                      } else if (preset.tab === 'back') {
-                        setOffsetXBack(preset.x);
-                        setOffsetYBack(preset.y);
-                        setPlacementBack(preset.pos);
-                      } else if (preset.tab === 'left-sleeve') {
-                        setOffsetXLeftSleeve(preset.x);
-                        setOffsetYLeftSleeve(preset.y);
-                        setPlacementLeftSleeve(preset.pos);
-                      } else if (preset.tab === 'right-sleeve') {
-                        setOffsetXRightSleeve(preset.x);
-                        setOffsetYRightSleeve(preset.y);
-                        setPlacementRightSleeve(preset.pos);
-                      }
-                    }}
-                    className={`py-3 px-2 text-[11px] font-bold rounded-xl border transition-all cursor-pointer ${
-                      isPresetActive
-                        ? 'bg-black text-white border-black shadow-sm' 
-                        : 'bg-white text-neutral-600 border-neutral-200 hover:border-black/30'
-                    }`}
-                  >
-                    {preset.name}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
 
           {/* Logo Vault Selection */}
           <div className="flex flex-col gap-3 border-t border-neutral-100 pt-6">
