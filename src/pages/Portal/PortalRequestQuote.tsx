@@ -793,21 +793,29 @@ export function PortalRequestQuote() {
                         onMouseEnter={() => setHoveredProductId(product.id)}
                         onMouseLeave={() => setHoveredProductId(null)}
                         onClick={() => setExpandedImage(product.artworkUrl || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200')}
-                        className="w-16 h-16 rounded-xl overflow-hidden bg-neutral-50 border border-neutral-100 shrink-0 relative flex items-center justify-start cursor-zoom-in"
+                        className={`w-16 h-16 rounded-xl overflow-hidden bg-neutral-50 border border-neutral-100 shrink-0 relative flex items-center ${isCustomized ? 'justify-start' : 'justify-center'} cursor-zoom-in`}
                         title="Click to expand mockup"
                       >
-                        <img 
-                          src={product.artworkUrl || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200'} 
-                          alt={product.garmentName} 
-                          style={{
-                            width: isCustomized ? `${N * 100}%` : '100%',
-                            height: '100%',
-                            maxWidth: 'none',
-                            transform: isCustomized ? `translateX(-${translatePercentage}%)` : 'none',
-                            transition: 'transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
-                          }}
-                          className={`${isCustomized ? 'object-cover' : 'object-contain'} mix-blend-multiply select-none`}
-                        />
+                        {isCustomized ? (
+                          <img 
+                            src={product.artworkUrl || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200'} 
+                            alt={product.garmentName} 
+                            style={{
+                              width: `${N * 100}%`,
+                              height: '100%',
+                              maxWidth: 'none',
+                              transform: `translateX(-${translatePercentage}%)`,
+                              transition: 'transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
+                            }}
+                            className="object-cover mix-blend-multiply select-none p-1"
+                          />
+                        ) : (
+                          <img 
+                            src={product.artworkUrl || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200'} 
+                            alt={product.garmentName} 
+                            className="w-full h-full object-contain mix-blend-multiply select-none p-1"
+                          />
+                        )}
                       </div>
 
                       {/* Garment Details & Placement summary */}

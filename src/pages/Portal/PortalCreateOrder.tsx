@@ -419,15 +419,7 @@ export function PortalCreateOrder() {
                     + Add Garment from Library
                   </button>
                 )}
-                {previousOrders.length > 0 && (
-                  <button 
-                    onClick={() => setIsRepeatModalOpen(true)}
-                    className="bg-[#f0ebe1] text-neutral-900 border border-[#e6e2db] px-8 py-3.5 rounded-full text-[13px] font-bold tracking-wide hover:bg-[#e6e2db] hover:scale-[1.02] transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <RotateCcw size={14} />
-                    Repeat Previous Order
-                  </button>
-                )}
+
                 <button 
                   onClick={() => navigate(customerId ? `/portal/${customerId}/quote` : '/portal/quote')}
                   className="bg-white text-neutral-900 border border-neutral-200 px-8 py-3.5 rounded-full text-[13px] font-bold tracking-wide hover:bg-neutral-50 hover:border-neutral-300 hover:scale-[1.02] transition-all shadow-sm"
@@ -468,7 +460,7 @@ export function PortalCreateOrder() {
                                 transform: item.customized ? `translateX(-${translatePercentage}%)` : 'none',
                                 transition: 'transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
                               }}
-                              className="object-cover mix-blend-multiply select-none animate-in fade-in duration-300" 
+                              className={`${item.customized ? 'object-cover' : 'object-contain'} mix-blend-multiply select-none animate-in fade-in duration-300 p-1`}
                             />
                           </div>
                         );
@@ -731,8 +723,8 @@ export function PortalCreateOrder() {
 
                           return (
                             <div key={item.id || idx} className="group flex items-center gap-5 bg-white border border-neutral-200 hover:border-black transition-colors rounded-2xl p-4 cursor-pointer shadow-[0_2px_10px_rgb(0,0,0,0.02)] hover:shadow-md">
-                              <div className="w-16 h-16 rounded-xl overflow-hidden bg-neutral-50 border border-neutral-100 shrink-0">
-                                <img src={image} alt={style} className="w-full h-full object-cover mix-blend-multiply" />
+                              <div className="w-16 h-16 rounded-xl overflow-hidden bg-neutral-50 border border-neutral-100 shrink-0 flex items-center justify-center">
+                                <img src={image} alt={style} className="w-full h-full object-contain p-1 mix-blend-multiply" />
                               </div>
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center justify-between mb-1">
@@ -778,8 +770,8 @@ export function PortalCreateOrder() {
 
                       return (
                         <div key={item.id || idx} className="group flex items-center gap-5 bg-white border border-neutral-200 hover:border-black transition-colors rounded-2xl p-4 cursor-pointer shadow-[0_2px_10px_rgb(0,0,0,0.02)] hover:shadow-md">
-                          <div className="w-16 h-16 rounded-xl overflow-hidden bg-neutral-50 border border-neutral-100 shrink-0">
-                            <img src={image} alt={style} className="w-full h-full object-cover mix-blend-multiply" />
+                          <div className="w-16 h-16 rounded-xl overflow-hidden bg-neutral-50 border border-neutral-100 shrink-0 flex items-center justify-center">
+                            <img src={image} alt={style} className="w-full h-full object-contain p-1 mix-blend-multiply" />
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between mb-1">
@@ -822,8 +814,8 @@ export function PortalCreateOrder() {
 
                       return (
                         <div key={item.id || idx} className="group flex items-center gap-5 bg-white border border-neutral-200 hover:border-black transition-colors rounded-2xl p-4 cursor-pointer shadow-[0_2px_10px_rgb(0,0,0,0.02)] hover:shadow-md">
-                          <div className="w-16 h-16 rounded-xl overflow-hidden bg-neutral-50 border border-neutral-100 shrink-0">
-                            <img src={image} alt={style} className="w-full h-full object-cover mix-blend-multiply" />
+                          <div className="w-16 h-16 rounded-xl overflow-hidden bg-neutral-50 border border-neutral-100 shrink-0 flex items-center justify-center">
+                            <img src={image} alt={style} className="w-full h-full object-contain p-1 mix-blend-multiply" />
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between mb-1">

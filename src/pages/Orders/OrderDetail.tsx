@@ -1418,30 +1418,37 @@ export function OrderDetail() {
                                 onMouseEnter={() => setHoveredItemId(item.id)}
                                 onMouseLeave={() => setHoveredItemId(null)}
                                 onClick={() => item.image && setExpandedImage({ src: item.image, alt: item.style })}
-                                className={`w-14 h-14 rounded-[14px] overflow-hidden shrink-0 flex items-center justify-start ${item.image ? 'bg-transparent cursor-zoom-in' : 'bg-brand-bg/50 border border-brand-border/50'}`}
+                                className={`w-14 h-14 rounded-[14px] overflow-hidden shrink-0 flex items-center ${item.customized ? 'justify-start' : 'justify-center'} ${item.image ? 'bg-transparent cursor-zoom-in' : 'bg-brand-bg/50 border border-brand-border/50'}`}
                                 title={item.image ? "Click to view full screen" : "No image provided"}
                               >
                                 {item.image ? (
-                                  (() => {
-                                    const N = getActiveSidesCountForOrderItem(item);
-                                    const isHovered = hoveredItemId === item.id;
-                                    const translatePercentage = isHovered && N > 1 ? (100 / N) : 0;
-                                    const isCustomized = item.customized;
-                                    return (
-                                      <img 
-                                        src={item.image} 
-                                        alt={item.style} 
-                                        style={{
-                                          width: isCustomized ? `${N * 100}%` : '100%',
-                                          height: '100%',
-                                          maxWidth: 'none',
-                                          transform: isCustomized ? `translateX(-${translatePercentage}%)` : 'none',
-                                          transition: 'transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
-                                        }}
-                                        className={`${isCustomized ? 'object-cover' : 'object-contain'} mix-blend-multiply p-1 select-none pointer-events-none`} 
-                                      />
-                                    );
-                                  })()
+                                  item.customized ? (
+                                    (() => {
+                                      const N = getActiveSidesCountForOrderItem(item);
+                                      const isHovered = hoveredItemId === item.id;
+                                      const translatePercentage = isHovered && N > 1 ? (100 / N) : 0;
+                                      return (
+                                        <img 
+                                          src={item.image} 
+                                          alt={item.style} 
+                                          style={{
+                                            width: `${N * 100}%`,
+                                            height: '100%',
+                                            maxWidth: 'none',
+                                            transform: `translateX(-${translatePercentage}%)`,
+                                            transition: 'transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
+                                          }}
+                                          className="object-cover mix-blend-multiply p-1 select-none pointer-events-none" 
+                                        />
+                                      );
+                                    })()
+                                  ) : (
+                                    <img 
+                                      src={item.image} 
+                                      alt={item.style} 
+                                      className="w-full h-full object-contain mix-blend-multiply p-1 select-none pointer-events-none" 
+                                    />
+                                  )
                                 ) : (
                                   <Box size={24} className="text-brand-secondary/40" />
                                 )}
@@ -4045,8 +4052,8 @@ export function OrderDetail() {
                             }}
                             className="group flex items-center gap-5 bg-white border border-brand-border hover:border-brand-primary transition-colors rounded-2xl p-4 cursor-pointer shadow-sm hover:shadow-md hover:-translate-y-0.5"
                           >
-                            <div className="w-16 h-16 rounded-[14px] overflow-hidden bg-transparent shrink-0">
-                              <img src={image} alt={style} className="w-full h-full object-contain mix-blend-multiply" />
+                            <div className="w-16 h-16 rounded-[14px] overflow-hidden bg-transparent shrink-0 flex items-center justify-center">
+                              <img src={image} alt={style} className="w-full h-full object-contain p-1 mix-blend-multiply" />
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center justify-between mb-1">

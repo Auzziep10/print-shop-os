@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, Search, HelpCircle, ArrowRight, Play, BookOpen, Clock, ShieldAlert, Award } from 'lucide-react';
+import { X, Search, HelpCircle, ArrowRight, Play, BookOpen, Clock, ShieldAlert, Award, User } from 'lucide-react';
 
 interface PortalHelpDrawerProps {
   isOpen: boolean;
@@ -31,7 +31,8 @@ export function PortalHelpDrawer({ isOpen, onClose, onStartTour }: PortalHelpDra
       icon: <BookOpen size={20} className="text-emerald-500" />,
       steps: [
         'Click the "+ Create Order" or "Request Quote" buttons.',
-        'Choose items from your "WOVN Rack", "Suggested Items" (curated by us), or "Past Garments".',
+        'Choose items from your "Design Your Rack" collections, "Suggested Items" (curated by us), or "Past Garments".',
+        'Click on any garment card image to open the Interactive Lightbox. Hover over the large image to zoom in and inspect details.',
         'Specify your required quantities by size (XS, S, M, L, XL, etc.) and color.',
         'Upload your design mockup or select an artwork file from your Asset Vault.',
         'Click "Submit Quote Request". We will draft pricing and mockups for your review.'
@@ -60,7 +61,20 @@ export function PortalHelpDrawer({ isOpen, onClose, onStartTour }: PortalHelpDra
         'In the customizer modal, pick your desired garment color and logo placement (e.g., Left Chest).',
         'Select a logo from your Asset Vault, or upload a new one directly.',
         'Adjust the Size, Horizontal, and Vertical position sliders to align the logo on the garment.',
-        'Click "Save Customization" to automatically render and save your custom composite mockup!'
+        'Click "Save Customization" to automatically render and save your custom composite mockup!',
+        'Click on your customized garment thumbnail to view the high-resolution multi-view mockup with zoom magnification.'
+      ]
+    },
+    {
+      id: 'profile',
+      title: 'Managing Your Profile',
+      description: 'Customize your company name, email, phone number, and shipping address.',
+      icon: <User size={20} className="text-pink-500" />,
+      steps: [
+        'Click the profile circle button in the top right corner of the navigation bar.',
+        'Select "Account Settings" from the dropdown menu.',
+        'Update your primary contact name, company name, email, phone number, or shipping address fields.',
+        'Click "Save Settings" to update your profile. Log out securely using the "Log Out" link in the same profile dropdown.'
       ]
     }
   ];
