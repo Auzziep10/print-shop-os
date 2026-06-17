@@ -248,6 +248,68 @@ export function PortalTourOverlay({
     };
   }, [currentStep.target, isCorrectPath, location.pathname, stepIndex]);
 
+  // Elevate active target element or its topmost positioned ancestor above the tour backdrop
+  useEffect(() => {
+    if (!isCorrectPath || !currentStep.target) return;
+
+    const el = document.querySelector(`[data-tour="${currentStep.target}"]`) as HTMLElement;
+    if (!el) return;
+
+    // Save original styles of the target element
+    const originalElPosition = el.style.position;
+    const originalElZIndex = el.style.zIndex;
+    const originalElPointerEvents = el.style.pointerEvents;
+
+    // Make sure target has pointer events enabled
+    el.style.pointerEvents = 'auto';
+
+    let elevatedAncestor: HTMLElement | null = null;
+    let originalAncestorZIndex = '';
+    let originalAncestorPosition = '';
+
+    // Walk up the DOM to find the topmost positioned wrapper (e.g. modal overlay, dropdown container)
+    let current: HTMLElement | null = el;
+    while (current && current !== document.body) {
+      const style = window.getComputedStyle(current);
+      if (
+        current.classList.contains('profile-dropdown-container') ||
+        (style.zIndex !== 'auto' && style.zIndex !== '0') ||
+        style.position === 'fixed' ||
+        style.position === 'absolute' ||
+        style.position === 'relative'
+      ) {
+        elevatedAncestor = current;
+      }
+      current = current.parentElement;
+    }
+
+    const elementToElevate = elevatedAncestor || el;
+    const isTarget = elementToElevate === el;
+
+    if (!isTarget) {
+      originalAncestorZIndex = elementToElevate.style.zIndex;
+      originalAncestorPosition = elementToElevate.style.position;
+    }
+
+    const computedStyle = window.getComputedStyle(elementToElevate);
+    if (computedStyle.position === 'static') {
+      elementToElevate.style.position = 'relative';
+    }
+    elementToElevate.style.zIndex = '150';
+
+    return () => {
+      if (el) {
+        el.style.position = originalElPosition;
+        el.style.zIndex = originalElZIndex;
+        el.style.pointerEvents = originalElPointerEvents;
+      }
+      if (elementToElevate && elementToElevate !== el) {
+        elementToElevate.style.zIndex = originalAncestorZIndex;
+        elementToElevate.style.position = originalAncestorPosition;
+      }
+    };
+  }, [currentStep.target, isCorrectPath, stepIndex]);
+
   // Position tooltip relative to target rect
   useEffect(() => {
     if (!rect) {
