@@ -83,6 +83,38 @@ export function PortalTourOverlay({
           position: 'bottom',
           requiredPath: `/portal/${customerId}/create`,
           pathName: 'Create Order Builder'
+        },
+        {
+          target: 'quote-library',
+          title: 'Step 3: Select Garments from Library',
+          content: 'Choose from suggested, past, or catalog garments to add to your quote request.',
+          position: 'top',
+          requiredPath: `/portal/${customerId}/quote`,
+          pathName: 'Request Quote Form'
+        },
+        {
+          target: 'quote-items',
+          title: 'Step 4: Specify Quantities & Colors',
+          content: 'In the products list, specify the required quantities by size and select your colors.',
+          position: 'top',
+          requiredPath: `/portal/${customerId}/quote`,
+          pathName: 'Request Quote Form'
+        },
+        {
+          target: 'quote-upload',
+          title: 'Step 5: Upload Artwork File',
+          content: 'Upload your design mockup file (PDF, AI, PNG, JPEG, ZIP) or select a file from your Asset Vault.',
+          position: 'top',
+          requiredPath: `/portal/${customerId}/quote`,
+          pathName: 'Request Quote Form'
+        },
+        {
+          target: 'quote-submit',
+          title: 'Step 6: Submit Quote Request',
+          content: 'Click the "Submit Quote Request" button to submit your specifications. We will draft pricing and mockups for your review.',
+          position: 'top',
+          requiredPath: `/portal/${customerId}/quote`,
+          pathName: 'Request Quote Form'
         }
       ]
     },

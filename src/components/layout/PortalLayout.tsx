@@ -199,12 +199,6 @@ export function PortalLayout() {
 
         {/* Right Nav Options */}
         <div className="flex items-center gap-6">
-          <div className="flex flex-col gap-1.5 cursor-pointer group">
-            <div className="w-5 h-0.5 bg-black rounded-full group-hover:bg-gray-600 transition-colors"></div>
-            <div className="w-5 h-0.5 bg-black rounded-full group-hover:bg-gray-600 transition-colors"></div>
-            <div className="w-3 h-0.5 bg-black rounded-full group-hover:bg-gray-600 transition-colors"></div>
-          </div>
-          
           <button 
             data-tour="orders-tab"
             onClick={() => navigate(customerId ? `/portal/${customerId}` : '/portal')}

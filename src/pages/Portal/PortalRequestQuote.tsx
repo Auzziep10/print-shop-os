@@ -575,7 +575,7 @@ export function PortalRequestQuote() {
         </div>
 
         {/* Library Selector */}
-        <div className="bg-white rounded-3xl p-8 shadow-[0_4px_24px_rgb(0,0,0,0.02)] border border-neutral-100 flex flex-col gap-6">
+        <div data-tour="quote-library" className="bg-white rounded-3xl p-8 shadow-[0_4px_24px_rgb(0,0,0,0.02)] border border-neutral-100 flex flex-col gap-6">
           <div className="flex flex-col gap-1">
             <h2 className="text-xl font-bold text-neutral-900">Select Garments from Library</h2>
             <p className="text-sm text-neutral-500">Choose from suggested, past, or catalog garments to add to your quote request</p>
@@ -762,7 +762,7 @@ export function PortalRequestQuote() {
         </div>
 
         {/* Products */}
-        <div className="flex flex-col gap-6">
+        <div data-tour="quote-items" className="flex flex-col gap-6">
             <div className="flex items-center justify-between">
                 <div className="flex flex-col gap-1">
                     <h2 className="text-xl font-bold text-neutral-900">Products</h2>
@@ -943,7 +943,7 @@ export function PortalRequestQuote() {
                         </div>
 
                         {/* Manual Artwork File Uploader */}
-                        <div className="flex flex-col gap-2">
+                        <div data-tour="quote-upload" className="flex flex-col gap-2">
                           <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Artwork File</label>
                           {product.isUploading ? (
                             <div className="border border-dashed border-neutral-200 rounded-xl p-6 flex flex-col items-center justify-center text-center gap-2 bg-neutral-50">
@@ -1011,7 +1011,7 @@ export function PortalRequestQuote() {
 
         {/* Actions */}
         <div className="flex items-center gap-4 mt-4">
-            <button disabled={isSubmitting} onClick={handleSubmit} className="flex-1 bg-black text-white py-4 rounded-xl text-sm font-bold tracking-wide hover:bg-neutral-800 transition-all shadow-md flex justify-center items-center gap-2">
+            <button data-tour="quote-submit" disabled={isSubmitting} onClick={handleSubmit} className="flex-1 bg-black text-white py-4 rounded-xl text-sm font-bold tracking-wide hover:bg-neutral-800 transition-all shadow-md flex justify-center items-center gap-2">
                 {isSubmitting ? (
                    <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div>
                 ) : (

@@ -100,7 +100,40 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
         }
         return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
       });
-      setLocalOrders(sorted);
+
+      const activeTour = localStorage.getItem('wovn_active_tour') || '';
+      if (sorted.length === 0 && activeTour === 'tracking') {
+        const mockOrder = {
+          id: 'mock-order-tutorial',
+          portalId: 'TUTORIAL-01',
+          title: 'Mock Order (Tutorial)',
+          statusIndex: 5, // Sourcing / Production
+          fulfillmentType: 'Standard',
+          createdAt: new Date().toISOString(),
+          paymentStatus: 'paid',
+          items: [
+            {
+              id: 'mock-item-1',
+              garmentName: 'Mock Hooded Sweatshirt (TUTORIAL)',
+              qty: 48,
+              customized: true,
+              logoUrl: 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200'
+            }
+          ],
+          activities: [
+            {
+              id: 'act-1',
+              type: 'system',
+              message: 'Mock Order created for tutorial tracking.',
+              user: 'System',
+              timestamp: new Date().toISOString()
+            }
+          ]
+        };
+        setLocalOrders([mockOrder]);
+      } else {
+        setLocalOrders(sorted);
+      }
     }
   }, [orders, filterType]);
 
@@ -276,7 +309,8 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
     );
   }
 
-  if (orders.length === 0) {
+  const activeTour = localStorage.getItem('wovn_active_tour') || '';
+  if (orders.length === 0 && activeTour !== 'tracking') {
     return (
       <div className="max-w-[800px] mx-auto mt-24 flex flex-col items-center justify-center text-center gap-6">
         <div className="w-24 h-24 bg-gray-50 rounded-full flex items-center justify-center text-gray-300 border border-gray-100">
