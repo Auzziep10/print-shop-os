@@ -373,10 +373,10 @@ export function PortalCreateOrder() {
 
       <div className="flex flex-col gap-2">
         <h1 className="text-4xl font-serif text-neutral-900 tracking-tight flex items-center gap-4">
-          Create New Order
+          Create New Quote Request
         </h1>
         <p className="text-neutral-500 font-medium text-sm max-w-xl leading-relaxed">
-          Use the builder below to select garments, upload artwork, and construct your order. We'll provide real-time pricing and mockups as you go.
+          Use the builder below to select garments, upload artwork, and construct your request. We'll generate mockups and calculate pricing for your review.
         </p>
       </div>
 
@@ -479,9 +479,6 @@ export function PortalCreateOrder() {
                           <h3 className="text-lg font-bold text-neutral-900">{item.style}</h3>
                         </div>
                         <p className="text-sm font-semibold text-neutral-500">{item.itemNum}</p>
-                        {item.price > 0 && (
-                            <p className="text-sm font-bold text-black mt-1 bg-neutral-50 inline-block px-2 py-0.5 rounded border border-neutral-200 shadow-sm">${parseFloat(item.price).toFixed(2)} / unit</p>
-                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
@@ -620,20 +617,12 @@ export function PortalCreateOrder() {
                 <span>Total Items</span>
                 <span>{orderItems.length} styles</span>
               </div>
-              <div className="flex justify-between items-center text-lg font-black text-neutral-900">
-                <span>Estimated Total</span>
-                <span>${orderItems.reduce((sum, item) => {
-                   const totalQty = Object.values(item.quantities as Record<string, number>).reduce((q, val) => q + val, 0);
-                   return sum + (totalQty * (parseFloat(item.price) || 0));
-                }, 0).toFixed(2)}</span>
-              </div>
-              
               <button 
                 onClick={handleSubmitOrder}
                 disabled={orderItems.length === 0 || isSubmitting} 
                 className={`w-full mt-4 py-3.5 rounded-xl text-sm font-bold transition-all ${orderItems.length > 0 && !isSubmitting ? 'bg-black text-white hover:bg-neutral-800 shadow-md transform active:scale-[0.98]' : 'bg-neutral-200 text-neutral-400 cursor-not-allowed'}`}
               >
-                {isSubmitting ? 'Submitting...' : 'Submit Order'}
+                {isSubmitting ? 'Submitting...' : 'Submit Quote Request'}
               </button>
             </div>
           </div>
@@ -753,12 +742,7 @@ export function PortalCreateOrder() {
                                 {itemNum && itemNum.length < 15 && (
                                   <p className="text-xs font-semibold text-neutral-500">{itemNum}</p>
                                 )}
-                                {price > 0 && (
-                                    <p className="text-xs font-black text-black mt-1 flex items-center gap-2">
-                                        ${price.toFixed(2)}
-                                        {isRush && <span className="text-[9px] font-bold text-neutral-400 italic">includes rush fee</span>}
-                                    </p>
-                                )}
+
                                 <p className="text-xs text-neutral-400 font-medium mt-1 truncate">{colors.join(' • ')}</p>
                               </div>
                               <button 
@@ -804,11 +788,7 @@ export function PortalCreateOrder() {
                             {itemNum && (
                               <p className="text-xs font-semibold text-neutral-500">{itemNum}</p>
                             )}
-                            {price > 0 && (
-                                <p className="text-xs font-black text-black mt-1">
-                                    ${price.toFixed(2)}
-                                </p>
-                            )}
+
                             <p className="text-xs text-neutral-400 font-medium mt-1 truncate">{colors.join(' • ')}</p>
                           </div>
                           <button 
