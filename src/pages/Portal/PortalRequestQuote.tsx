@@ -626,18 +626,18 @@ export function PortalRequestQuote() {
               <Loader2 className="animate-spin text-neutral-400" size={24} />
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-h-[550px] overflow-y-auto pr-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-h-[600px] overflow-y-auto pr-1">
               {activeLibraryTab === 'rack' && activeRackItems.map((item, idx) => (
                 <div 
                   key={item.id || `${item.style}-${idx}`} 
                   onClick={() => handleAddProductFromLibrary(item)}
                   className="group bg-white hover:bg-neutral-50/50 border border-neutral-200 hover:border-neutral-400 rounded-2xl p-4 flex flex-col items-center justify-between cursor-pointer transition-all hover:shadow-md relative"
                 >
-                  <div className="w-full h-40 bg-neutral-50 rounded-xl overflow-hidden flex items-center justify-center p-2 mb-3 relative">
+                  <div className="w-full h-60 flex items-center justify-center mb-2 relative">
                     <img 
                       src={getGarmentImage(item)} 
                       alt={item.title || item.style} 
-                      className="max-w-full max-h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300" 
+                      className="max-w-full max-h-full object-contain mix-blend-multiply group-hover:scale-110 transition-transform duration-300" 
                     />
                   </div>
                   <div className="w-full flex flex-col items-center">
@@ -654,11 +654,11 @@ export function PortalRequestQuote() {
                   onClick={() => handleAddProductFromLibrary(item)}
                   className="group bg-white hover:bg-neutral-50/50 border border-neutral-200 hover:border-neutral-400 rounded-2xl p-4 flex flex-col items-center justify-between cursor-pointer transition-all hover:shadow-md relative"
                 >
-                  <div className="w-full h-40 bg-neutral-50 rounded-xl overflow-hidden flex items-center justify-center p-2 mb-3 relative">
+                  <div className="w-full h-60 flex items-center justify-center mb-2 relative">
                     <img 
                       src={item.image || item.original_image || item.mockup_image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200'} 
                       alt={item.style || item.name} 
-                      className="max-w-full max-h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300" 
+                      className="max-w-full max-h-full object-contain mix-blend-multiply group-hover:scale-110 transition-transform duration-300" 
                     />
                   </div>
                   <div className="w-full flex flex-col items-center">
@@ -675,11 +675,11 @@ export function PortalRequestQuote() {
                   onClick={() => handleAddProductFromLibrary(item)}
                   className="group bg-white hover:bg-neutral-50/50 border border-neutral-200 hover:border-neutral-400 rounded-2xl p-4 flex flex-col items-center justify-between cursor-pointer transition-all hover:shadow-md relative"
                 >
-                  <div className="w-full h-40 bg-neutral-50 rounded-xl overflow-hidden flex items-center justify-center p-2 mb-3 relative">
+                  <div className="w-full h-60 flex items-center justify-center mb-2 relative">
                     <img 
                       src={item.image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200'} 
                       alt={item.style} 
-                      className="max-w-full max-h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300" 
+                      className="max-w-full max-h-full object-contain mix-blend-multiply group-hover:scale-110 transition-transform duration-300" 
                     />
                   </div>
                   <div className="w-full flex flex-col items-center">
@@ -696,11 +696,11 @@ export function PortalRequestQuote() {
                   onClick={() => handleAddProductFromLibrary(item)}
                   className="group bg-white hover:bg-neutral-50/50 border border-neutral-200 hover:border-neutral-400 rounded-2xl p-4 flex flex-col items-center justify-between cursor-pointer transition-all hover:shadow-md relative"
                 >
-                  <div className="w-full h-40 bg-neutral-50 rounded-xl overflow-hidden flex items-center justify-center p-2 mb-3 relative">
+                  <div className="w-full h-60 flex items-center justify-center mb-2 relative">
                     <img 
                       src={item.image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200'} 
                       alt={item.style} 
-                      className="max-w-full max-h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300" 
+                      className="max-w-full max-h-full object-contain mix-blend-multiply group-hover:scale-110 transition-transform duration-300" 
                     />
                   </div>
                   <div className="w-full flex flex-col items-center">
