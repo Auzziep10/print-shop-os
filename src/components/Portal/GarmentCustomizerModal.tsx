@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../../lib/firebase';
-import { X, Upload, Loader2, Check, FileText, Sparkles, RefreshCw } from 'lucide-react';
+import { X, Upload, Loader2, Check, FileText, Sparkles, RefreshCw, Type, Image as ImageIcon, Sliders, Trash2, Bold, Italic } from 'lucide-react';
 import { generateRotatedGarment } from '../../lib/geminiService';
 import { getSwatchColor } from '../shared/GarmentBrowser';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
@@ -89,6 +89,7 @@ export function GarmentCustomizerModal({
   const [scaleFront, setScaleFront] = useState(30);
   const [offsetXFront, setOffsetXFront] = useState(50);
   const [offsetYFront, setOffsetYFront] = useState(45);
+  const [rotationFront, setRotationFront] = useState(0);
   const placementFront = 'Front';
 
   // Logo overlay states for Back
@@ -96,6 +97,7 @@ export function GarmentCustomizerModal({
   const [scaleBack, setScaleBack] = useState(30);
   const [offsetXBack, setOffsetXBack] = useState(50);
   const [offsetYBack, setOffsetYBack] = useState(40);
+  const [rotationBack, setRotationBack] = useState(0);
   const placementBack = 'Back';
 
   // Logo overlay states for Left Sleeve
@@ -103,6 +105,7 @@ export function GarmentCustomizerModal({
   const [scaleLeftSleeve, setScaleLeftSleeve] = useState(30);
   const [offsetXLeftSleeve, setOffsetXLeftSleeve] = useState(50);
   const [offsetYLeftSleeve, setOffsetYLeftSleeve] = useState(50);
+  const [rotationLeftSleeve, setRotationLeftSleeve] = useState(0);
   const placementLeftSleeve = 'Left Sleeve';
 
   // Logo overlay states for Right Sleeve
@@ -110,7 +113,15 @@ export function GarmentCustomizerModal({
   const [scaleRightSleeve, setScaleRightSleeve] = useState(30);
   const [offsetXRightSleeve, setOffsetXRightSleeve] = useState(50);
   const [offsetYRightSleeve, setOffsetYRightSleeve] = useState(50);
+  const [rotationRightSleeve, setRotationRightSleeve] = useState(0);
   const placementRightSleeve = 'Right Sleeve';
+
+  const [activeDesignerTab, setActiveDesignerTab] = useState<'upload' | 'text'>('upload');
+  const [textInput, setTextInput] = useState('');
+  const [textFont, setTextFont] = useState('Graduate');
+  const [textColor, setTextColor] = useState('#FFFFFF');
+  const [textBold, setTextBold] = useState(true);
+  const [textItalic, setTextItalic] = useState(false);
 
   const [isUploading, setIsUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -170,6 +181,76 @@ export function GarmentCustomizerModal({
     }
     return 50;
   }, [activeTab, isSleeveMirrored, offsetYFront, offsetYBack, offsetYLeftSleeve, offsetYRightSleeve]);
+
+  const rotation = useMemo(() => {
+    if (activeTab === 'front') return rotationFront;
+    if (activeTab === 'back') return rotationBack;
+    if (activeTab === 'sleeve') {
+      return isSleeveMirrored ? rotationRightSleeve : rotationLeftSleeve;
+    }
+    return 0;
+  }, [activeTab, isSleeveMirrored, rotationFront, rotationBack, rotationLeftSleeve, rotationRightSleeve]);
+
+  const setRotation = (val: number) => {
+    if (activeTab === 'front') setRotationFront(val);
+    else if (activeTab === 'back') setRotationBack(val);
+    else if (activeTab === 'sleeve') {
+      if (isSleeveMirrored) setRotationRightSleeve(val);
+      else setRotationLeftSleeve(val);
+    }
+  };
+
+  const setScale = (val: number) => {
+    if (activeTab === 'front') setScaleFront(val);
+    else if (activeTab === 'back') setScaleBack(val);
+    else if (activeTab === 'sleeve') {
+      if (isSleeveMirrored) setScaleRightSleeve(val);
+      else setScaleLeftSleeve(val);
+    }
+  };
+
+  const handleClearPlacement = () => {
+    setSelectedLogo(null);
+    if (activeTab === 'front') {
+      setScaleFront(30);
+      setRotationFront(0);
+      setOffsetXFront(50);
+      setOffsetYFront(45);
+    } else if (activeTab === 'back') {
+      setScaleBack(30);
+      setRotationBack(0);
+      setOffsetXBack(50);
+      setOffsetYBack(45);
+    } else if (activeTab === 'sleeve') {
+      if (isSleeveMirrored) {
+        setScaleRightSleeve(30);
+        setRotationRightSleeve(0);
+        setOffsetXRightSleeve(50);
+        setOffsetYRightSleeve(50);
+      } else {
+        setScaleLeftSleeve(30);
+        setRotationLeftSleeve(0);
+        setOffsetXLeftSleeve(50);
+        setOffsetYLeftSleeve(50);
+      }
+    }
+    if (activeDesignerTab === 'text') {
+      setTextInput('');
+    }
+  };
+
+  const SUPPORTED_FONTS = [
+    { name: 'Varsity Block', value: 'Graduate' },
+    { name: 'Modern Athletic', value: 'Oswald' },
+    { name: 'Fun Script', value: 'Pacifico' },
+    { name: 'Heavy Marker', value: 'Permanent Marker' },
+    { name: 'Bold Retro', value: 'Bungee' },
+    { name: 'Vintage Cursive', value: 'Lobster' },
+    { name: 'Compressed Sans', value: 'Squada One' },
+    { name: 'Elegant Roman', value: 'Cinzel' },
+    { name: 'Classic Serif', value: '"Playfair Display"' },
+    { name: 'Clean Sans-Serif', value: 'Inter' }
+  ];
 
   // Find product in catalog as fallback for images
   const catalogProduct = useMemo(() => {
@@ -330,6 +411,67 @@ export function GarmentCustomizerModal({
       setIsGeneratingView(false);
     }
   };
+
+  // Synchronize designer inputs if active logo is a text logo
+  useEffect(() => {
+    if (selectedLogo && selectedLogo.isText) {
+      if (textInput !== selectedLogo.textString) setTextInput(selectedLogo.textString);
+      if (textFont !== selectedLogo.font) setTextFont(selectedLogo.font);
+      if (textColor !== selectedLogo.color) setTextColor(selectedLogo.color);
+      if (textBold !== selectedLogo.bold) setTextBold(selectedLogo.bold);
+      if (textItalic !== selectedLogo.italic) setTextItalic(selectedLogo.italic);
+      if (activeDesignerTab !== 'text') setActiveDesignerTab('text');
+    }
+  }, [selectedLogo]);
+
+  // Real-time canvas text generation
+  useEffect(() => {
+    if (!textInput.trim()) {
+      if (selectedLogo && selectedLogo.isText) {
+        setSelectedLogo(null);
+      }
+      return;
+    }
+
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const fontStyle = `${textItalic ? 'italic' : ''} ${textBold ? 'bold' : ''} 100px ${textFont}`.trim();
+    ctx.font = fontStyle;
+    
+    const text = textInput.trim();
+    const metrics = ctx.measureText(text);
+    const textWidth = Math.max(100, Math.ceil(metrics.width) + 40);
+    const textHeight = 160;
+
+    canvas.width = textWidth;
+    canvas.height = textHeight;
+
+    ctx.font = fontStyle;
+    ctx.fillStyle = textColor;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+
+    const dataUrl = canvas.toDataURL('image/png');
+    
+    const textAsset = {
+      id: `text-${activeTab}-${isSleeveMirrored ? 'right' : 'left'}`,
+      name: `Text: ${text}`,
+      url: dataUrl,
+      isText: true,
+      textString: text,
+      font: textFont,
+      color: textColor,
+      bold: textBold,
+      italic: textItalic
+    };
+
+    setSelectedLogo(textAsset);
+  }, [textInput, textFont, textColor, textBold, textItalic, activeTab, isSleeveMirrored]);
 
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
@@ -511,17 +653,18 @@ export function GarmentCustomizerModal({
         scale: number;
         offX: number;
         offY: number;
+        rotation: number;
         name: string;
       }[] = [];
 
-      if (hasFront) activeSides.push({ img: frontImage, logo: selectedLogoFront, scale: scaleFront, offX: offsetXFront, offY: offsetYFront, name: 'Front' });
-      if (hasBack) activeSides.push({ img: backImage || frontImage, logo: selectedLogoBack, scale: scaleBack, offX: offsetXBack, offY: offsetYBack, name: 'Back' });
-      if (hasLeftSleeve) activeSides.push({ img: sleeveImage || frontImage, logo: selectedLogoLeftSleeve, scale: scaleLeftSleeve, offX: offsetXLeftSleeve, offY: offsetYLeftSleeve, name: 'Left Sleeve' });
-      if (hasRightSleeve) activeSides.push({ img: sleeveImage || frontImage, logo: selectedLogoRightSleeve, scale: scaleRightSleeve, offX: offsetXRightSleeve, offY: offsetYRightSleeve, name: 'Right Sleeve' });
+      if (hasFront) activeSides.push({ img: frontImage, logo: selectedLogoFront, scale: scaleFront, offX: offsetXFront, offY: offsetYFront, rotation: rotationFront, name: 'Front' });
+      if (hasBack) activeSides.push({ img: backImage || frontImage, logo: selectedLogoBack, scale: scaleBack, offX: offsetXBack, offY: offsetYBack, rotation: rotationBack, name: 'Back' });
+      if (hasLeftSleeve) activeSides.push({ img: sleeveImage || frontImage, logo: selectedLogoLeftSleeve, scale: scaleLeftSleeve, offX: offsetXLeftSleeve, offY: offsetYLeftSleeve, rotation: rotationLeftSleeve, name: 'Left Sleeve' });
+      if (hasRightSleeve) activeSides.push({ img: sleeveImage || frontImage, logo: selectedLogoRightSleeve, scale: scaleRightSleeve, offX: offsetXRightSleeve, offY: offsetYRightSleeve, rotation: rotationRightSleeve, name: 'Right Sleeve' });
 
       // If nothing is customized, default to front view
       if (activeSides.length === 0) {
-        activeSides.push({ img: frontImage, logo: null, scale: 30, offX: 50, offY: 45, name: 'Front' });
+        activeSides.push({ img: frontImage, logo: null, scale: 30, offX: 50, offY: 45, rotation: 0, name: 'Front' });
       }
 
       const scaleFactor = 3;
@@ -549,7 +692,7 @@ export function GarmentCustomizerModal({
         });
       };
 
-      const drawSide = async (garmentSrc: string, logoAsset: any, scaleVal: number, offX: number, offY: number, canvasOffsetX: number, sideName: string) => {
+      const drawSide = async (garmentSrc: string, logoAsset: any, scaleVal: number, offX: number, offY: number, rotationVal: number, canvasOffsetX: number, sideName: string) => {
         const proxiedGarmentSrc = garmentSrc.startsWith('http')
           ? `/api/sanmar/proxy-image?url=${encodeURIComponent(garmentSrc)}`
           : garmentSrc;
@@ -591,16 +734,20 @@ export function GarmentCustomizerModal({
           const aspect = logoImg.height / logoImg.width;
           const logoHeight = logoWidth * aspect;
 
-          const xPos = canvasOffsetX + (50 * scaleFactor) + ((500 * scaleFactor) * (offX / 100)) - (logoWidth / 2);
-          const yPos = (50 * scaleFactor) + ((500 * scaleFactor) * (offY / 100)) - (logoHeight / 2);
+          const logoCenterX = canvasOffsetX + (50 * scaleFactor) + ((500 * scaleFactor) * (offX / 100));
+          const logoCenterY = (50 * scaleFactor) + ((500 * scaleFactor) * (offY / 100));
 
-          ctx.drawImage(logoImg, xPos, yPos, logoWidth, logoHeight);
+          ctx.save();
+          ctx.translate(logoCenterX, logoCenterY);
+          ctx.rotate((rotationVal * Math.PI) / 180);
+          ctx.drawImage(logoImg, -logoWidth / 2, -logoHeight / 2, logoWidth, logoHeight);
+          ctx.restore();
         }
       };
 
       for (let i = 0; i < activeSides.length; i++) {
         const side = activeSides[i];
-        await drawSide(side.img, side.logo, side.scale, side.offX, side.offY, i * panelWidth, side.name);
+        await drawSide(side.img, side.logo, side.scale, side.offX, side.offY, side.rotation, i * panelWidth, side.name);
       }
 
       const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
@@ -633,15 +780,19 @@ export function GarmentCustomizerModal({
         customScaleFront: scaleFront,
         customOffsetXFront: offsetXFront,
         customOffsetYFront: offsetYFront,
+        customRotationFront: rotationFront,
         customScaleBack: scaleBack,
         customOffsetXBack: offsetXBack,
         customOffsetYBack: offsetYBack,
+        customRotationBack: rotationBack,
         customScaleLeftSleeve: scaleLeftSleeve,
         customOffsetXLeftSleeve: offsetXLeftSleeve,
         customOffsetYLeftSleeve: offsetYLeftSleeve,
+        customRotationLeftSleeve: rotationLeftSleeve,
         customScaleRightSleeve: scaleRightSleeve,
         customOffsetXRightSleeve: offsetXRightSleeve,
-        customOffsetYRightSleeve: offsetYRightSleeve
+        customOffsetYRightSleeve: offsetYRightSleeve,
+        customRotationRightSleeve: rotationRightSleeve
       });
 
       onClose();
@@ -761,14 +912,14 @@ export function GarmentCustomizerModal({
               )}
 
               {/* Logo Overlay */}
-              {(!needsGeneration || isGenerated) && selectedLogo && isImageFile(selectedLogo.name) && (
+              {(!needsGeneration || isGenerated) && selectedLogo && (selectedLogo.isText || isImageFile(selectedLogo.name)) && (
                 <div 
                   onMouseDown={handleDragMouseDown}
                   style={{
                     width: `${scale * 0.36}%`,
                     left: `${offsetX}%`,
                     top: `${offsetY}%`,
-                    transform: 'translate(-50%, -50%)',
+                    transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
                     zIndex: 20
                   }}
                   className="absolute flex items-center justify-center border border-dashed border-black/40 group/logo select-none cursor-move p-1 bg-transparent"
@@ -785,13 +936,13 @@ export function GarmentCustomizerModal({
                 </div>
               )}
               
-              {(!needsGeneration || isGenerated) && selectedLogo && !isImageFile(selectedLogo.name) && (
+              {(!needsGeneration || isGenerated) && selectedLogo && !(selectedLogo.isText || isImageFile(selectedLogo.name)) && (
                 <div 
                   onMouseDown={handleDragMouseDown}
                   style={{
                     left: `${offsetX}%`,
                     top: `${offsetY}%`,
-                    transform: 'translate(-50%, -50%)',
+                    transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
                     zIndex: 20
                   }}
                   className="absolute bg-neutral-900/80 text-white rounded-xl px-3.5 py-2 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-md border border-white/20 cursor-move select-none p-1 group/logo"
@@ -929,52 +1080,244 @@ export function GarmentCustomizerModal({
 
 
 
-          {/* Logo Vault Selection */}
-          <div className="flex flex-col gap-3 border-t border-neutral-100 pt-6">
-            <div className="flex justify-between items-center">
-              <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Select Logo</label>
-              <label className="text-xs font-bold text-neutral-600 hover:text-black cursor-pointer flex items-center gap-1">
-                <input type="file" className="hidden" onChange={handleFileUpload} accept="image/*,application/pdf" />
-                <Upload size={12} /> Upload New
-              </label>
+          {/* Logo / Text Mode Tabs */}
+          <div className="flex flex-col gap-4 border-t border-neutral-100 pt-6">
+            <div className="flex bg-neutral-100 p-1 rounded-xl gap-1">
+              <button
+                type="button"
+                onClick={() => setActiveDesignerTab('upload')}
+                className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  activeDesignerTab === 'upload'
+                    ? 'bg-white text-black shadow-sm'
+                    : 'text-neutral-500 hover:text-black'
+                }`}
+              >
+                <ImageIcon size={13} />
+                <span>Logo File</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveDesignerTab('text')}
+                className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  activeDesignerTab === 'text'
+                    ? 'bg-white text-black shadow-sm'
+                    : 'text-neutral-500 hover:text-black'
+                }`}
+              >
+                <Type size={13} />
+                <span>Custom Text</span>
+              </button>
             </div>
 
-            {isLoadingAssets ? (
-              <div className="flex justify-center py-6 text-neutral-400">
-                <Loader2 className="animate-spin" size={20} />
+            {/* Upload/Vault Content */}
+            {activeDesignerTab === 'upload' && (
+              <div className="flex flex-col gap-3">
+                <div className="flex justify-between items-center">
+                  <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Logo Vault</label>
+                  <label className="text-xs font-bold text-neutral-600 hover:text-black cursor-pointer flex items-center gap-1">
+                    <input type="file" className="hidden" onChange={handleFileUpload} accept="image/*,application/pdf" />
+                    <Upload size={12} /> Upload New
+                  </label>
+                </div>
+
+                {isLoadingAssets ? (
+                  <div className="flex justify-center py-6 text-neutral-400">
+                    <Loader2 className="animate-spin" size={20} />
+                  </div>
+                ) : assets.length === 0 ? (
+                  <div className="bg-neutral-50 rounded-2xl p-4 text-center border border-dashed border-neutral-200">
+                    <p className="text-xs font-semibold text-neutral-500">No logos saved in your vault.</p>
+                    <label className="text-xs font-bold text-black hover:underline cursor-pointer mt-1 inline-block">
+                      <input type="file" className="hidden" onChange={handleFileUpload} accept="image/*,application/pdf" />
+                      Upload logo to begin
+                    </label>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-4 gap-2.5 max-h-[160px] overflow-y-auto pr-1">
+                    {assets.map((asset) => {
+                      const isSelected = selectedLogo?.id === asset.id;
+                      return (
+                        <button
+                          key={asset.id}
+                          onClick={() => setSelectedLogo(asset)}
+                          className={`aspect-square rounded-xl overflow-hidden border flex items-center justify-center p-1 bg-checkerboard relative transition-all ${
+                            isSelected ? 'border-black ring-2 ring-black scale-[0.98]' : 'border-neutral-200 hover:border-neutral-450'
+                          }`}
+                          title={asset.name}
+                        >
+                          {isImageFile(asset.name) ? (
+                            <img src={asset.url} alt={asset.name} className="max-w-full max-h-full object-contain" />
+                          ) : (
+                            <FileText size={18} className="text-neutral-500" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-            ) : assets.length === 0 ? (
-              <div className="bg-neutral-50 rounded-2xl p-4 text-center border border-dashed border-neutral-200">
-                <p className="text-xs font-semibold text-neutral-500">No logos saved in your vault.</p>
-                <label className="text-xs font-bold text-black hover:underline cursor-pointer mt-1 inline-block">
-                  <input type="file" className="hidden" onChange={handleFileUpload} accept="image/*,application/pdf" />
-                  Upload logo to begin
-                </label>
-              </div>
-            ) : (
-              <div className="grid grid-cols-4 gap-2.5 max-h-[220px] overflow-y-auto pr-1">
-                {assets.map((asset) => {
-                  const isSelected = selectedLogo?.id === asset.id;
-                  return (
-                    <button
-                      key={asset.id}
-                      onClick={() => setSelectedLogo(asset)}
-                      className={`aspect-square rounded-xl overflow-hidden border flex items-center justify-center p-1 bg-checkerboard relative transition-all ${
-                        isSelected ? 'border-black ring-2 ring-black scale-[0.98]' : 'border-neutral-200 hover:border-neutral-450'
-                      }`}
-                      title={asset.name}
+            )}
+
+            {/* Custom Text Content */}
+            {activeDesignerTab === 'text' && (
+              <div className="flex flex-col gap-4">
+                {/* Text Input */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Your Text</label>
+                  <input
+                    type="text"
+                    value={textInput}
+                    onChange={(e) => setTextInput(e.target.value)}
+                    placeholder="Enter custom text..."
+                    className="w-full bg-neutral-50 border border-neutral-200 hover:border-neutral-300 focus:border-black focus:bg-white rounded-xl px-4 py-2.5 text-sm font-bold transition-all outline-none animate-in fade-in duration-200"
+                  />
+                </div>
+
+                {/* Font and Style Row */}
+                <div className="grid grid-cols-12 gap-2">
+                  {/* Font Dropdown */}
+                  <div className="col-span-8 flex flex-col gap-1.5">
+                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Font</label>
+                    <select
+                      value={textFont}
+                      onChange={(e) => setTextFont(e.target.value)}
+                      className="w-full bg-neutral-50 border border-neutral-200 hover:border-neutral-300 focus:border-black focus:bg-white rounded-xl px-3 py-2.5 text-xs font-bold transition-all outline-none"
                     >
-                      {isImageFile(asset.name) ? (
-                        <img src={asset.url} alt={asset.name} className="max-w-full max-h-full object-contain" />
-                      ) : (
-                        <FileText size={18} className="text-neutral-500" />
-                      )}
-                    </button>
-                  );
-                })}
+                      {SUPPORTED_FONTS.map((font) => (
+                        <option key={font.value} value={font.value} style={{ fontFamily: font.value }}>
+                          {font.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Font Styles (Bold / Italic) */}
+                  <div className="col-span-4 flex flex-col gap-1.5">
+                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-500 text-center">Style</label>
+                    <div className="flex border border-neutral-200 rounded-xl overflow-hidden h-[38px] p-0.5 bg-neutral-50">
+                      <button
+                        type="button"
+                        onClick={() => setTextBold(b => !b)}
+                        className={`flex-1 flex items-center justify-center rounded-lg transition-all cursor-pointer ${
+                          textBold ? 'bg-black text-white' : 'text-neutral-500 hover:text-black hover:bg-neutral-200/50'
+                        }`}
+                        title="Bold"
+                      >
+                        <Bold size={13} strokeWidth={3} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTextItalic(i => !i)}
+                        className={`flex-1 flex items-center justify-center rounded-lg transition-all cursor-pointer ${
+                          textItalic ? 'bg-black text-white' : 'text-neutral-500 hover:text-black hover:bg-neutral-200/50'
+                        }`}
+                        title="Italic"
+                      >
+                        <Italic size={13} strokeWidth={3} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Color Selection */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Text Color</label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[
+                      { name: 'White', hex: '#FFFFFF' },
+                      { name: 'Black', hex: '#000000' },
+                      { name: 'Red', hex: '#E11D48' },
+                      { name: 'Royal', hex: '#1D4ED8' },
+                      { name: 'Navy', hex: '#1E3A8A' },
+                      { name: 'Gold', hex: '#F59E0B' },
+                      { name: 'Green', hex: '#15803D' },
+                      { name: 'Grey', hex: '#6B7280' },
+                    ].map((col) => {
+                      const isColSelected = textColor.toLowerCase() === col.hex.toLowerCase();
+                      return (
+                        <button
+                          key={col.hex}
+                          type="button"
+                          onClick={() => setTextColor(col.hex)}
+                          className={`w-6 h-6 rounded-full border relative flex items-center justify-center transition-all hover:scale-110 cursor-pointer ${
+                            isColSelected ? 'border-black ring-1 ring-black scale-105' : 'border-neutral-300'
+                          }`}
+                          style={{ backgroundColor: col.hex }}
+                          title={col.name}
+                        >
+                          {isColSelected && (
+                            <Check size={10} className={col.hex === '#FFFFFF' ? 'text-black' : 'text-white'} strokeWidth={4} />
+                          )}
+                        </button>
+                      );
+                    })}
+                    {/* Custom Color Picker Swatch */}
+                    <div className="relative w-6 h-6 rounded-full border border-neutral-300 overflow-hidden hover:scale-110 transition-transform">
+                      <input
+                        type="color"
+                        value={textColor}
+                        onChange={(e) => setTextColor(e.target.value)}
+                        className="absolute inset-0 w-[200%] h-[200%] -translate-x-[25%] -translate-y-[25%] cursor-pointer border-0 p-0"
+                        title="Custom Color"
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
           </div>
+
+          {/* Adjustments Section (visible only when selectedLogo exists) */}
+          {selectedLogo && (
+            <div className="flex flex-col gap-4 border-t border-neutral-100 pt-6 animate-in fade-in duration-200">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold uppercase tracking-widest text-neutral-500 flex items-center gap-1.5">
+                  <Sliders size={13} />
+                  <span>Logo Adjustments</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={handleClearPlacement}
+                  className="text-[10px] font-bold text-red-500 hover:text-red-700 flex items-center gap-1 cursor-pointer transition-all hover:underline"
+                >
+                  <Trash2 size={11} />
+                  <span>Clear Placement</span>
+                </button>
+              </div>
+
+              {/* Scale Slider */}
+              <div className="flex flex-col gap-1">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-neutral-500 font-semibold">Scale</span>
+                  <span className="font-bold text-neutral-800">{Math.round(scale)}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="10"
+                  max="150"
+                  value={scale}
+                  onChange={(e) => setScale(Number(e.target.value))}
+                  className="w-full h-1.5 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-black"
+                />
+              </div>
+
+              {/* Rotation Slider */}
+              <div className="flex flex-col gap-1">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-neutral-500 font-semibold">Rotation</span>
+                  <span className="font-bold text-neutral-800">{rotation}°</span>
+                </div>
+                <input
+                  type="range"
+                  min="-180"
+                  max="180"
+                  value={rotation}
+                  onChange={(e) => setRotation(Number(e.target.value))}
+                  className="w-full h-1.5 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-black"
+                />
+              </div>
+            </div>
+          )}
 
         </div>
       </div>
@@ -1001,6 +1344,10 @@ export function GarmentCustomizerModal({
         </button>
       </div>
 
+      {/* Invisible font prefetch helper */}
+      <div style={{ opacity: 0, position: 'absolute', pointerEvents: 'none', height: 0, overflow: 'hidden' }}>
+        {SUPPORTED_FONTS.map(f => <span key={f.value} style={{ fontFamily: f.value }}>a</span>)}
+      </div>
     </div>
   );
 }

@@ -453,7 +453,9 @@ export function PortalCreateOrder() {
                             onClick={() => setPreviewImageUrl(srcUrl)}
                             onMouseEnter={() => setHoveredItemId(item.instanceId)}
                             onMouseLeave={() => setHoveredItemId(null)}
-                            className="w-20 h-20 rounded-xl overflow-hidden bg-neutral-50 border border-neutral-100 shrink-0 cursor-pointer flex items-center justify-center relative group"
+                            className={`w-20 h-20 rounded-xl overflow-hidden bg-neutral-50 border border-neutral-100 shrink-0 cursor-pointer flex items-center relative group ${
+                              item.customized ? 'justify-start' : 'justify-center'
+                            }`}
                             title="Hover to slide mockup, click to view full screen"
                           >
                             <img 
