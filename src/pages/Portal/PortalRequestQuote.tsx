@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { ArrowLeft, ChevronDown, Upload, Plus, Trash2, FileText, Loader2, Sparkles } from 'lucide-react';
+import { ArrowLeft, ChevronDown, Upload, Plus, Trash2, FileText, Loader2, Sparkles, X } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { db, storage } from '../../lib/firebase';
 import { doc, getDoc, setDoc, query, collection, where, getDocs, updateDoc } from 'firebase/firestore';
@@ -61,6 +61,7 @@ export function PortalRequestQuote() {
   const [hoveredProductId, setHoveredProductId] = useState<number | null>(null);
   const [showShipping, setShowShipping] = useState(false);
   const [showOnBehalf, setShowOnBehalf] = useState(false);
+  const [expandedImage, setExpandedImage] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchCustomer = async () => {
@@ -633,7 +634,14 @@ export function PortalRequestQuote() {
                   onClick={() => handleAddProductFromLibrary(item)}
                   className="group bg-white hover:bg-neutral-50/50 border border-neutral-200 hover:border-neutral-400 rounded-2xl p-4 flex flex-col items-center justify-between cursor-pointer transition-all hover:shadow-md relative"
                 >
-                  <div className="w-full h-60 flex items-center justify-center mb-2 relative">
+                  <div 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setExpandedImage(getGarmentImage(item));
+                    }}
+                    className="w-full h-60 flex items-center justify-center mb-2 relative cursor-zoom-in"
+                    title="Click to expand mockup"
+                  >
                     <img 
                       src={getGarmentImage(item)} 
                       alt={item.title || item.style} 
@@ -654,9 +662,16 @@ export function PortalRequestQuote() {
                   onClick={() => handleAddProductFromLibrary(item)}
                   className="group bg-white hover:bg-neutral-50/50 border border-neutral-200 hover:border-neutral-400 rounded-2xl p-4 flex flex-col items-center justify-between cursor-pointer transition-all hover:shadow-md relative"
                 >
-                  <div className="w-full h-60 flex items-center justify-center mb-2 relative">
+                  <div 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setExpandedImage(item.image || item.original_image || item.mockup_image || item.mock_image || item.imageUrl || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200');
+                    }}
+                    className="w-full h-60 flex items-center justify-center mb-2 relative cursor-zoom-in"
+                    title="Click to expand mockup"
+                  >
                     <img 
-                      src={item.image || item.original_image || item.mockup_image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200'} 
+                      src={item.image || item.original_image || item.mockup_image || item.mock_image || item.imageUrl || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200'} 
                       alt={item.style || item.name} 
                       className="max-w-full max-h-full object-contain mix-blend-multiply group-hover:scale-110 transition-transform duration-300" 
                     />
@@ -675,7 +690,14 @@ export function PortalRequestQuote() {
                   onClick={() => handleAddProductFromLibrary(item)}
                   className="group bg-white hover:bg-neutral-50/50 border border-neutral-200 hover:border-neutral-400 rounded-2xl p-4 flex flex-col items-center justify-between cursor-pointer transition-all hover:shadow-md relative"
                 >
-                  <div className="w-full h-60 flex items-center justify-center mb-2 relative">
+                  <div 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setExpandedImage(item.image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200');
+                    }}
+                    className="w-full h-60 flex items-center justify-center mb-2 relative cursor-zoom-in"
+                    title="Click to expand mockup"
+                  >
                     <img 
                       src={item.image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200'} 
                       alt={item.style} 
@@ -696,7 +718,14 @@ export function PortalRequestQuote() {
                   onClick={() => handleAddProductFromLibrary(item)}
                   className="group bg-white hover:bg-neutral-50/50 border border-neutral-200 hover:border-neutral-400 rounded-2xl p-4 flex flex-col items-center justify-between cursor-pointer transition-all hover:shadow-md relative"
                 >
-                  <div className="w-full h-60 flex items-center justify-center mb-2 relative">
+                  <div 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setExpandedImage(item.image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200');
+                    }}
+                    className="w-full h-60 flex items-center justify-center mb-2 relative cursor-zoom-in"
+                    title="Click to expand mockup"
+                  >
                     <img 
                       src={item.image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200'} 
                       alt={item.style} 
@@ -758,8 +787,9 @@ export function PortalRequestQuote() {
                       <div 
                         onMouseEnter={() => setHoveredProductId(product.id)}
                         onMouseLeave={() => setHoveredProductId(null)}
-                        className="w-16 h-16 rounded-xl overflow-hidden bg-neutral-50 border border-neutral-100 shrink-0 relative flex items-center justify-start cursor-pointer"
-                        title="Hover to slide mockup"
+                        onClick={() => setExpandedImage(product.artworkUrl || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200')}
+                        className="w-16 h-16 rounded-xl overflow-hidden bg-neutral-50 border border-neutral-100 shrink-0 relative flex items-center justify-start cursor-zoom-in"
+                        title="Click to expand mockup"
                       >
                         <img 
                           src={product.artworkUrl || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200'} 
@@ -910,7 +940,17 @@ export function PortalRequestQuote() {
                           ) : product.artworkUrl && product.artworkUrl !== 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200' ? (
                             <div className="border border-neutral-200 rounded-xl p-4 flex items-center justify-between gap-3 bg-neutral-50 relative group">
                               <div className="flex items-center gap-3 min-w-0">
-                                <div className="w-10 h-10 rounded-lg overflow-hidden bg-white border border-neutral-200 flex items-center justify-center p-1 shrink-0">
+                                <div 
+                                  onClick={() => {
+                                    if (product.artworkUrl && product.artworkUrl.match(/\.(jpeg|jpg|gif|png|webp)(\?.*)?$/i)) {
+                                      setExpandedImage(product.artworkUrl);
+                                    }
+                                  }}
+                                  className={`w-10 h-10 rounded-lg overflow-hidden bg-white border border-neutral-200 flex items-center justify-center p-1 shrink-0 ${
+                                    product.artworkUrl && product.artworkUrl.match(/\.(jpeg|jpg|gif|png|webp)(\?.*)?$/i) ? 'cursor-zoom-in hover:opacity-85' : ''
+                                  }`}
+                                  title={product.artworkUrl && product.artworkUrl.match(/\.(jpeg|jpg|gif|png|webp)(\?.*)?$/i) ? 'Click to expand artwork' : undefined}
+                                >
                                    {product.artworkUrl.match(/\.(jpeg|jpg|gif|png|webp)(\?.*)?$/i) ? (
                                       <img src={product.artworkUrl} alt={product.artworkName || 'Artwork'} className="max-w-full max-h-full object-contain" />
                                    ) : (
@@ -1012,6 +1052,27 @@ export function PortalRequestQuote() {
             } : p));
           }}
         />
+      )}
+      {expandedImage && (
+        <div 
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => setExpandedImage(null)}
+        >
+          <div className="relative max-w-3xl max-h-[85vh] w-full flex items-center justify-center">
+            <button 
+              onClick={() => setExpandedImage(null)}
+              className="absolute -top-12 right-0 bg-white/10 hover:bg-white/20 text-white rounded-full p-2.5 transition-all focus:outline-none"
+            >
+              <X size={20} />
+            </button>
+            <img 
+              src={expandedImage} 
+              alt="Expanded Preview" 
+              className="max-w-full max-h-[80vh] object-contain rounded-2xl shadow-2xl bg-white p-4"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+        </div>
       )}
     </div>
   );
