@@ -64,6 +64,17 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
   const [draggedOrderId, setDraggedOrderId] = useState<string | null>(null);
   const [dragOverOrderId, setDragOverOrderId] = useState<string | null>(null);
   const [payingOrder, setPayingOrder] = useState<any | null>(null);
+  const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
+
+  const getActiveSidesCountForOrderItem = (item: any) => {
+    if (!item.customized) return 1;
+    let count = 0;
+    if (item.logoUrl) count++;
+    if (item.logoUrlBack) count++;
+    if (item.logoUrlLeftSleeve) count++;
+    if (item.logoUrlRightSleeve) count++;
+    return count || 1;
+  };
 
   const handleApproveOrder = async (e: React.MouseEvent, orderId: string) => {
     e.stopPropagation();
@@ -556,16 +567,48 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                        {/* Left Side: Visual & Specs */}
                        <div className={`flex flex-col lg:flex-row lg:items-center gap-4 flex-1 min-w-0 ${hideHeader ? 'pr-2' : ''}`}>
                         {/* Product Visual */}
-                        <div className="flex items-center gap-4 w-auto shrink-0 pr-4 min-w-[240px]">
-                          <div 
-                            className={`w-14 h-14 rounded-[14px] overflow-hidden shrink-0 bg-transparent cursor-pointer hover:scale-[1.05] transition-transform ${hideHeader ? 'flex items-center justify-center' : ''}`}
-                            onClick={() => setExpandedImage({ src: item.image, alt: item.style })}
-                            title="Click to view full screen"
-                          >
-                            <img src={item.image} alt={item.style} className="w-full h-full object-contain mix-blend-multiply p-1 pointer-events-none" />
-                          </div>
-                          
-                          <div className="flex flex-col lg:flex-row lg:items-center gap-3 lg:gap-5 w-full">
+                         <div className="flex items-center gap-4 w-auto shrink-0 pr-4 min-w-[240px]">
+                           <div 
+                             onMouseEnter={() => setHoveredItemId(item.id)}
+                             onMouseLeave={() => setHoveredItemId(null)}
+                             onClick={() => item.image && setExpandedImage({ src: item.image, alt: item.style })}
+                             className={`w-14 h-14 rounded-[14px] overflow-hidden shrink-0 flex items-center ${item.customized ? 'justify-start' : 'justify-center'} ${item.image ? 'bg-transparent cursor-pointer hover:scale-[1.05] transition-transform' : 'bg-neutral-50 border border-neutral-100'}`}
+                             title={item.image ? "Click to view full screen" : "No image provided"}
+                           >
+                             {item.image ? (
+                               item.customized ? (
+                                 (() => {
+                                   const N = getActiveSidesCountForOrderItem(item);
+                                   const isHovered = hoveredItemId === item.id;
+                                   const translatePercentage = isHovered && N > 1 ? (100 / N) : 0;
+                                   return (
+                                     <img 
+                                       src={item.image} 
+                                       alt={item.style} 
+                                       style={{
+                                         width: `${N * 100}%`,
+                                         height: '100%',
+                                         maxWidth: 'none',
+                                         transform: `translateX(-${translatePercentage}%)`,
+                                         transition: 'transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
+                                       }}
+                                       className="object-cover mix-blend-multiply p-1 select-none pointer-events-none" 
+                                     />
+                                   );
+                                 })()
+                               ) : (
+                                 <img 
+                                   src={item.image} 
+                                   alt={item.style} 
+                                   className="w-full h-full object-contain mix-blend-multiply p-1 select-none pointer-events-none" 
+                                 />
+                               )
+                             ) : (
+                               <Box size={24} className="text-neutral-300" />
+                             )}
+                           </div>
+                           
+                           <div className="flex flex-col lg:flex-row lg:items-center gap-3 lg:gap-5 w-full">
                              <div className="flex flex-col justify-center">
                                <h4 className="font-bold text-gray-900 text-[15px]">{item.style}</h4>
                                <p className="text-xs font-semibold text-gray-500 mt-0.5">
