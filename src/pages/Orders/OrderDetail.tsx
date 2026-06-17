@@ -280,6 +280,17 @@ export function OrderDetail() {
   const [dragOverItemId, setDragOverItemId] = useState<string | null>(null);
   const [draggableItemId, setDraggableItemId] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, item: any, size: string, qty: number } | null>(null);
+  const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
+
+  const getActiveSidesCountForOrderItem = (item: any) => {
+    if (!item.customized) return 1;
+    let count = 0;
+    if (item.logoUrl) count++;
+    if (item.logoUrlBack) count++;
+    if (item.logoUrlLeftSleeve) count++;
+    if (item.logoUrlRightSleeve) count++;
+    return count || 1;
+  };
 
   const [isPalletOptimizerOpen, setIsPalletOptimizerOpen] = useState(false);
   const [isDeckModalOpen, setIsDeckModalOpen] = useState(false);
@@ -1404,12 +1415,33 @@ export function OrderDetail() {
                            {/* Product Visual */}
                             <div className="flex items-start gap-4 min-w-[240px] flex-1 min-w-0">
                               <div 
-                                className={`w-14 h-14 rounded-[14px] overflow-hidden shrink-0 flex items-center justify-center ${item.image ? 'bg-transparent cursor-pointer hover:scale-[1.05] transition-transform' : 'bg-brand-bg/50 border border-brand-border/50'}`}
+                                onMouseEnter={() => setHoveredItemId(item.id)}
+                                onMouseLeave={() => setHoveredItemId(null)}
                                 onClick={() => item.image && setExpandedImage({ src: item.image, alt: item.style })}
+                                className={`w-14 h-14 rounded-[14px] overflow-hidden shrink-0 flex items-center justify-start ${item.image ? 'bg-transparent cursor-zoom-in' : 'bg-brand-bg/50 border border-brand-border/50'}`}
                                 title={item.image ? "Click to view full screen" : "No image provided"}
                               >
                                 {item.image ? (
-                                  <img src={item.image} alt={item.style} className="w-full h-full object-contain mix-blend-multiply p-1 pointer-events-none" />
+                                  (() => {
+                                    const N = getActiveSidesCountForOrderItem(item);
+                                    const isHovered = hoveredItemId === item.id;
+                                    const translatePercentage = isHovered && N > 1 ? (100 / N) : 0;
+                                    const isCustomized = item.customized;
+                                    return (
+                                      <img 
+                                        src={item.image} 
+                                        alt={item.style} 
+                                        style={{
+                                          width: isCustomized ? `${N * 100}%` : '100%',
+                                          height: '100%',
+                                          maxWidth: 'none',
+                                          transform: isCustomized ? `translateX(-${translatePercentage}%)` : 'none',
+                                          transition: 'transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
+                                        }}
+                                        className="object-cover mix-blend-multiply p-1 select-none pointer-events-none" 
+                                      />
+                                    );
+                                  })()
                                 ) : (
                                   <Box size={24} className="text-brand-secondary/40" />
                                 )}
@@ -3648,17 +3680,17 @@ export function OrderDetail() {
       {/* Image Overlay */}
       {expandedImage && (
         <div 
-          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/30 backdrop-blur-md p-6 animate-in fade-in duration-200" 
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm p-6 animate-in fade-in duration-200" 
           onClick={() => setExpandedImage(null)}
         >
            <button 
-             className="absolute top-6 right-6 text-white/70 hover:text-white transition-colors p-2 bg-black/20 hover:bg-black/40 rounded-full" 
+             className="absolute top-6 right-6 text-neutral-800 hover:text-black hover:scale-105 transition-all p-2 bg-white rounded-full shadow-lg border border-neutral-100 z-50 cursor-pointer" 
              onClick={() => setExpandedImage(null)}
            >
-             <X size={24} />
+             <X size={20} />
            </button>
            <div 
-             className="relative w-full max-w-3xl aspect-[4/3] max-h-[85vh] rounded-[2rem] overflow-hidden cursor-crosshair bg-white shadow-[0_30px_100px_-20px_rgba(0,0,0,0.6)] animate-in zoom-in-95 duration-200 flex items-center justify-center border border-white/20"
+             className="relative max-w-4xl max-h-[85vh] w-full bg-white rounded-[2rem] p-6 md:p-10 shadow-2xl overflow-hidden flex items-center justify-center border border-neutral-200/50 cursor-crosshair animate-in zoom-in-95 duration-200"
              onClick={(e) => e.stopPropagation()}
              onMouseMove={(e) => {
                const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
@@ -3672,7 +3704,8 @@ export function OrderDetail() {
              <img 
                src={expandedImage.src} 
                alt={expandedImage.alt} 
-               className="w-full h-full object-contain mix-blend-multiply transition-transform duration-200 ease-out hover:scale-[2] p-8 md:p-12" 
+               style={{ width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: '70vh' }}
+               className="rounded-2xl select-none transition-transform duration-200 ease-out hover:scale-[2]" 
              />
            </div>
         </div>
