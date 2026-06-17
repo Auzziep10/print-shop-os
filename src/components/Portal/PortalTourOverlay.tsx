@@ -256,6 +256,25 @@ export function PortalTourOverlay({
     }
   }, [location.pathname, stepIndex, tour, currentStep, onNext, onBack]);
 
+  // Auto-sync customize tour steps when customizer modal opens/closes
+  useEffect(() => {
+    if (activeTour !== 'customize') return;
+
+    const checkModalState = () => {
+      const saveBtn = document.querySelector('[data-tour="save-customization-btn"]');
+      if (stepIndex === 3 && saveBtn) {
+        onNext();
+      } else if (stepIndex === 4 && !saveBtn) {
+        onBack();
+      }
+    };
+
+    checkModalState();
+
+    const interval = setInterval(checkModalState, 200);
+    return () => clearInterval(interval);
+  }, [activeTour, stepIndex, onNext, onBack]);
+
   // Sync window size on resize
   useEffect(() => {
     const handleResize = () => {
