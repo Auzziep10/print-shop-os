@@ -72,6 +72,7 @@ export function PortalCreateOrder() {
   const [pastGarments, setPastGarments] = useState<any[]>([]);
   const [customizingItem, setCustomizingItem] = useState<any | null>(null);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+  const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchPreviousOrders = async () => {
@@ -337,6 +338,16 @@ export function PortalCreateOrder() {
     setOrderItems(prev => prev.filter(item => item.instanceId !== instanceId));
   };
 
+  const getActiveSidesCount = (item: any) => {
+    if (!item.customized) return 1;
+    let count = 0;
+    if (item.logoUrl) count++;
+    if (item.logoUrlBack) count++;
+    if (item.logoUrlLeftSleeve) count++;
+    if (item.logoUrlRightSleeve) count++;
+    return count || 1;
+  };
+
   return (
     <div className="max-w-[1200px] mx-auto w-full flex flex-col gap-8 animate-in fade-in zoom-in-95 duration-300">
       {/* Header Area */}
@@ -432,13 +443,34 @@ export function PortalCreateOrder() {
                 <div key={item.instanceId} className="bg-white rounded-3xl p-6 shadow-[0_4px_24px_rgb(0,0,0,0.02)] border border-neutral-100 flex flex-col gap-6 animate-in slide-in-from-bottom-4 fade-in duration-300">
                   <div className="flex items-start justify-between border-b border-neutral-100 pb-6">
                     <div className="flex gap-5 items-center">
-                      <div 
-                        onClick={() => setPreviewImageUrl(item.customized ? item.image : (item.images?.[item.selectedColor] || item.image))}
-                        className="w-20 h-20 rounded-xl overflow-hidden bg-neutral-50 border border-neutral-100 shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
-                        title="Click to view full image"
-                      >
-                         <img src={item.customized ? item.image : (item.images?.[item.selectedColor] || item.image)} alt={item.style} className="w-full h-full object-cover mix-blend-multiply animate-in fade-in duration-300" />
-                      </div>
+                      {(() => {
+                        const N = getActiveSidesCount(item);
+                        const isHovered = hoveredItemId === item.instanceId;
+                        const translatePercentage = isHovered && N > 1 ? (100 / N) : 0;
+                        const srcUrl = item.customized ? item.image : (item.images?.[item.selectedColor] || item.image);
+                        return (
+                          <div 
+                            onClick={() => setPreviewImageUrl(srcUrl)}
+                            onMouseEnter={() => setHoveredItemId(item.instanceId)}
+                            onMouseLeave={() => setHoveredItemId(null)}
+                            className="w-20 h-20 rounded-xl overflow-hidden bg-neutral-50 border border-neutral-100 shrink-0 cursor-pointer flex items-center justify-center relative group"
+                            title="Hover to slide mockup, click to view full screen"
+                          >
+                            <img 
+                              src={srcUrl} 
+                              alt={item.style} 
+                              style={{
+                                width: item.customized ? `${N * 100}%` : '100%',
+                                height: '100%',
+                                maxWidth: 'none',
+                                transform: item.customized ? `translateX(-${translatePercentage}%)` : 'none',
+                                transition: 'transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
+                              }}
+                              className="object-cover mix-blend-multiply select-none animate-in fade-in duration-300" 
+                            />
+                          </div>
+                        );
+                      })()}
                       <div>
                         <div className="flex items-center gap-2 mb-1">
                           <span className="w-6 h-6 rounded-full bg-neutral-100 flex items-center justify-center text-[10px] font-bold text-neutral-400 shrink-0">{index + 1}</span>
