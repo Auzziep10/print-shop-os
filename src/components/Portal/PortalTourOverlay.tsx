@@ -143,7 +143,7 @@ export function PortalTourOverlay({
           target: 'profile-btn',
           title: 'Step 1: Profile Dropdown',
           content: 'Click your profile circle in the top right to open your account settings dropdown.',
-          position: 'bottom',
+          position: 'left',
           requiredPath: `/portal/${customerId}`,
           pathName: 'Orders Dashboard'
         },
@@ -393,87 +393,91 @@ export function PortalTourOverlay({
   };
 
   return (
-    <div className="fixed inset-0 z-[140] pointer-events-none">
+    <>
       {/* Darkened & Blurred Mask Layer */}
-      <div 
-        className="absolute inset-0 bg-black/60 backdrop-blur-[2px] pointer-events-auto transition-all duration-300"
-        style={{ clipPath: getClipPath() }}
-      ></div>
+      <div className="fixed inset-0 z-[140] pointer-events-none">
+        <div 
+          className="absolute inset-0 bg-black/60 backdrop-blur-[2px] pointer-events-auto transition-all duration-300"
+          style={{ clipPath: getClipPath() }}
+        ></div>
+      </div>
 
       {/* Floating Tooltip Card */}
-      <div 
-        ref={tooltipRef}
-        style={tooltipStyle}
-        className="w-[340px] bg-white rounded-3xl p-6 shadow-2xl border border-neutral-100 pointer-events-auto flex flex-col gap-4 animate-in zoom-in-95 duration-200"
-      >
-        <div className="flex justify-between items-start">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 bg-neutral-100 px-2 py-0.5 rounded">
-            {tour.title}
-          </span>
-          <button 
-            onClick={onExit}
-            className="text-neutral-400 hover:text-black transition-colors"
-            title="Exit Tour"
-          >
-            <X size={16} />
-          </button>
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <h4 className="font-bold text-neutral-900 text-sm">{currentStep.title}</h4>
-          <p className="text-xs text-neutral-600 leading-relaxed">{currentStep.content}</p>
-        </div>
-
-        {/* Redirect prompt if on wrong page */}
-        {!isCorrectPath && actualRequiredPath && (
-          <div className="bg-[#f0ebe1] rounded-2xl p-4 border border-[#e6e2db] flex flex-col gap-2">
-            <p className="text-[11px] font-semibold text-neutral-800 flex items-center gap-1">
-              <CornerDownRight size={12} />
-              This step requires the {currentStep.pathName}.
-            </p>
+      <div className="fixed inset-0 z-[200] pointer-events-none">
+        <div 
+          ref={tooltipRef}
+          style={tooltipStyle}
+          className="w-[340px] bg-white rounded-3xl p-6 shadow-2xl border border-neutral-100 pointer-events-auto flex flex-col gap-4 animate-in zoom-in-95 duration-200"
+        >
+          <div className="flex justify-between items-start">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 bg-neutral-100 px-2 py-0.5 rounded">
+              {tour.title}
+            </span>
             <button 
-              onClick={handleRedirect}
-              className="bg-black text-white hover:bg-neutral-800 px-4 py-2 rounded-xl text-[10px] font-bold tracking-wide transition-all w-fit cursor-pointer flex items-center gap-1"
+              onClick={onExit}
+              className="text-neutral-400 hover:text-black transition-colors"
+              title="Exit Tour"
             >
-              <Play size={8} fill="white" />
-              Go to {currentStep.pathName}
+              <X size={16} />
             </button>
           </div>
-        )}
 
-        <div className="flex items-center justify-between border-t border-neutral-100 pt-4 mt-1">
-          <span className="text-[10px] font-bold text-neutral-400">
-            Step {stepIndex + 1} of {tour.steps.length}
-          </span>
+          <div className="flex flex-col gap-1.5">
+            <h4 className="font-bold text-neutral-900 text-sm">{currentStep.title}</h4>
+            <p className="text-xs text-neutral-600 leading-relaxed">{currentStep.content}</p>
+          </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              disabled={stepIndex === 0}
-              onClick={onBack}
-              className="w-8 h-8 rounded-full border border-neutral-200 flex items-center justify-center text-neutral-500 hover:text-black hover:border-black disabled:opacity-30 disabled:hover:text-neutral-500 disabled:hover:border-neutral-200 transition-colors cursor-pointer"
-            >
-              <ChevronLeft size={16} />
-            </button>
-
-            {stepIndex < tour.steps.length - 1 ? (
-              <button
-                disabled={!isCorrectPath}
-                onClick={onNext}
-                className="bg-black hover:bg-neutral-800 text-white w-8 h-8 rounded-full flex items-center justify-center transition-colors disabled:opacity-30 disabled:hover:bg-black cursor-pointer"
+          {/* Redirect prompt if on wrong page */}
+          {!isCorrectPath && actualRequiredPath && (
+            <div className="bg-[#f0ebe1] rounded-2xl p-4 border border-[#e6e2db] flex flex-col gap-2">
+              <p className="text-[11px] font-semibold text-neutral-800 flex items-center gap-1">
+                <CornerDownRight size={12} />
+                This step requires the {currentStep.pathName}.
+              </p>
+              <button 
+                onClick={handleRedirect}
+                className="bg-black text-white hover:bg-neutral-800 px-4 py-2 rounded-xl text-[10px] font-bold tracking-wide transition-all w-fit cursor-pointer flex items-center gap-1"
               >
-                <ChevronRight size={16} />
+                <Play size={8} fill="white" />
+                Go to {currentStep.pathName}
               </button>
-            ) : (
+            </div>
+          )}
+
+          <div className="flex items-center justify-between border-t border-neutral-100 pt-4 mt-1">
+            <span className="text-[10px] font-bold text-neutral-400">
+              Step {stepIndex + 1} of {tour.steps.length}
+            </span>
+
+            <div className="flex items-center gap-2">
               <button
-                onClick={onExit}
-                className="bg-black hover:bg-neutral-800 text-white px-4 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                disabled={stepIndex === 0}
+                onClick={onBack}
+                className="w-8 h-8 rounded-full border border-neutral-200 flex items-center justify-center text-neutral-500 hover:text-black hover:border-black disabled:opacity-30 disabled:hover:text-neutral-500 disabled:hover:border-neutral-200 transition-colors cursor-pointer"
               >
-                Done
+                <ChevronLeft size={16} />
               </button>
-            )}
+
+              {stepIndex < tour.steps.length - 1 ? (
+                <button
+                  disabled={!isCorrectPath}
+                  onClick={onNext}
+                  className="bg-black hover:bg-neutral-800 text-white w-8 h-8 rounded-full flex items-center justify-center transition-colors disabled:opacity-30 disabled:hover:bg-black cursor-pointer"
+                >
+                  <ChevronRight size={16} />
+                </button>
+              ) : (
+                <button
+                  onClick={onExit}
+                  className="bg-black hover:bg-neutral-800 text-white px-4 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                >
+                  Done
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
