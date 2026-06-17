@@ -177,6 +177,29 @@ export function PortalTourOverlay({
   const actualRequiredPath = currentStep.requiredPath;
   const isCorrectPath = actualRequiredPath ? location.pathname === actualRequiredPath : true;
 
+  // Auto-sync step index if user navigates routes manually (e.g. clicking buttons or using browser back/forward)
+  useEffect(() => {
+    if (!tour || !currentStep) return;
+    
+    // Only auto-sync if we are NOT on the correct path for the current step
+    const currentStepPath = currentStep.requiredPath;
+    if (currentStepPath && location.pathname !== currentStepPath) {
+      // Check if next step matches the new path
+      const nextStep = tour.steps[stepIndex + 1];
+      if (nextStep && nextStep.requiredPath && location.pathname === nextStep.requiredPath) {
+        onNext();
+        return;
+      }
+      
+      // Check if previous step matches the new path
+      const prevStep = tour.steps[stepIndex - 1];
+      if (prevStep && prevStep.requiredPath && location.pathname === prevStep.requiredPath) {
+        onBack();
+        return;
+      }
+    }
+  }, [location.pathname, stepIndex, tour, currentStep, onNext, onBack]);
+
   // Sync window size on resize
   useEffect(() => {
     const handleResize = () => {
