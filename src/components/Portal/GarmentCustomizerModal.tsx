@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../../lib/firebase';
-import { X, Upload, Loader2, Check, FileText, Sparkles, RefreshCw, Type, Image as ImageIcon, Sliders, Trash2, Bold, Italic } from 'lucide-react';
+import { X, Upload, Loader2, Check, FileText, Sparkles, RefreshCw, Type, Image as ImageIcon, Sliders, Trash2, Bold, Italic, Search, Shirt } from 'lucide-react';
 import { generateRotatedGarment } from '../../lib/geminiService';
 import { getSwatchColor } from '../shared/GarmentBrowser';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
@@ -66,6 +66,7 @@ interface GarmentCustomizerModalProps {
   garment: any; // style, itemNum, image, colors, etc.
   customerId: string;
   onSave: (customizedGarment: any) => void;
+  showCatalogSearch?: boolean;
 }
 
 export function GarmentCustomizerModal({
@@ -73,12 +74,58 @@ export function GarmentCustomizerModal({
   onClose,
   garment,
   customerId,
-  onSave
+  onSave,
+  showCatalogSearch = false
 }: GarmentCustomizerModalProps) {
   const [activeTab, setActiveTab] = useState<'front' | 'back' | 'sleeve'>('front');
   const [isSleeveMirrored, setIsSleeveMirrored] = useState(false);
   const [selectedColor, setSelectedColor] = useState<string>('Custom Color');
   const [isColorDropdownOpen, setIsColorDropdownOpen] = useState(false);
+  const [activeGarment, setActiveGarment] = useState<any>(garment);
+
+  // Catalog search states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearchResultsOpen, setIsSearchResultsOpen] = useState(false);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+  
+  // Guard against resetting selected color on same-garment prop updates
+  const lastGarmentIdRef = useRef<string | null>(null);
+
+  // Sync activeGarment when prop garment changes
+  useEffect(() => {
+    if (garment) {
+      const activeId = activeGarment?.id || activeGarment?.itemNum || activeGarment?.style;
+      const propId = garment.id || garment.itemNum || garment.style;
+      if (activeId !== propId) {
+        setActiveGarment(garment);
+      }
+    }
+  }, [garment]);
+
+  // Sync selectedColor when activeGarment changes (e.g. on catalog style swap)
+  useEffect(() => {
+    if (activeGarment) {
+      const activeId = activeGarment.id || activeGarment.itemNum || activeGarment.style;
+      if (lastGarmentIdRef.current !== activeId) {
+        lastGarmentIdRef.current = activeId;
+        setSelectedColor(activeGarment.selectedColor || activeGarment.colors?.[0] || 'Custom Color');
+      }
+    }
+  }, [activeGarment]);
+
+  // Filter products for catalog search
+  const filteredCatalogProducts = useMemo(() => {
+    if (!searchQuery.trim()) return [];
+    const lowerQuery = searchQuery.toLowerCase().trim();
+    return sanmarCatalog.filter((product: any) => {
+      return (
+        product.style?.toLowerCase().includes(lowerQuery) ||
+        product.title?.toLowerCase().includes(lowerQuery) ||
+        product.brand?.toLowerCase().includes(lowerQuery) ||
+        product.category?.toLowerCase().includes(lowerQuery)
+      );
+    }).slice(0, 10);
+  }, [searchQuery]);
 
   // Vault/Assets
   const [assets, setAssets] = useState<any[]>([]);
@@ -132,7 +179,7 @@ export function GarmentCustomizerModal({
   // Reset generated views on style/color change
   useEffect(() => {
     setGeneratedViews({});
-  }, [garment?.style, selectedColor]);
+  }, [activeGarment?.style, selectedColor]);
 
   const previewRef = useRef<HTMLDivElement>(null);
 
@@ -254,8 +301,8 @@ export function GarmentCustomizerModal({
 
   // Find product in catalog as fallback for images
   const catalogProduct = useMemo(() => {
-    const styleName = (garment.style || '').trim().toLowerCase();
-    const itemNum = (garment.itemNum || '').trim().toLowerCase();
+    const styleName = (activeGarment?.style || '').trim().toLowerCase();
+    const itemNum = (activeGarment?.itemNum || '').trim().toLowerCase();
     if (!styleName && !itemNum) return null;
 
     const findMatch = (query: string) => {
@@ -279,20 +326,20 @@ export function GarmentCustomizerModal({
 
     // Try matching by itemNum (SKU style code) first as it is more specific, then styleName
     return findMatch(itemNum) || findMatch(styleName) || null;
-  }, [garment.style, garment.itemNum]);
+  }, [activeGarment?.style, activeGarment?.itemNum]);
 
   // Case-insensitive image resolver
   const { frontImage, backImage, sleeveImage } = useMemo(() => {
     if (!selectedColor) {
       return {
-        frontImage: garment.image || '',
+        frontImage: activeGarment?.image || '',
         backImage: null,
         sleeveImage: null
       };
     }
 
     // 1. Resolve from garment.images case-insensitively
-    const garmentImages = garment.images || {};
+    const garmentImages = activeGarment?.images || {};
     const garmentImgKey = findFuzzyColorKey(garmentImages, selectedColor);
     const garmentColorVal = garmentImgKey ? garmentImages[garmentImgKey] : null;
 
@@ -300,7 +347,7 @@ export function GarmentCustomizerModal({
     let garmentBack = garmentColorVal?.back || null;
 
     // 2. Resolve garment.backImages case-insensitively
-    const garmentBackImages = garment.backImages || {};
+    const garmentBackImages = activeGarment?.backImages || {};
     const garmentBackImgKey = findFuzzyColorKey(garmentBackImages, selectedColor);
     if (garmentBackImgKey) {
       garmentBack = garmentBackImages[garmentBackImgKey];
@@ -341,12 +388,12 @@ export function GarmentCustomizerModal({
       }
     }
 
-    const finalFront = garmentFront || catalogFront || garment.image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
+    const finalFront = garmentFront || catalogFront || activeGarment?.image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
     const finalBack = garmentBack || generatedViews.back || catalogBack || null;
     const finalSleeve = localLeftSleeve || generatedViews['sleeve'] || null;
 
     console.log("GARMENT_CUSTOMIZER_DEBUG:", {
-      garment,
+      activeGarment,
       catalogProduct,
       selectedColor,
       garmentFront,
@@ -362,7 +409,7 @@ export function GarmentCustomizerModal({
       backImage: finalBack,
       sleeveImage: finalSleeve
     };
-  }, [garment, selectedColor, catalogProduct, generatedViews]);
+  }, [activeGarment, selectedColor, catalogProduct, generatedViews]);
 
   const activeMockupImage = useMemo(() => {
     if (activeTab === 'front') return frontImage;
@@ -600,7 +647,7 @@ export function GarmentCustomizerModal({
     fetchAssets();
   }, [customerId, isOpen]);
 
-  if (!isOpen || !garment) return null;
+  if (!isOpen || !activeGarment) return null;
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -764,7 +811,7 @@ export function GarmentCustomizerModal({
       if (hasRightSleeve) placementParts.push(`Right Sleeve: ${placementRightSleeve}`);
 
       onSave({
-        ...garment,
+        ...activeGarment,
         selectedColor,
         image: downloadUrl,
         customized: true,
@@ -807,7 +854,7 @@ export function GarmentCustomizerModal({
       if (selectedLogoRightSleeve) placementParts.push(`Right Sleeve: ${placementRightSleeve}`);
 
       onSave({
-        ...garment,
+        ...activeGarment,
         selectedColor,
         customized: true,
         logoPlacement: placementParts.join(', ') || 'Front',
@@ -838,7 +885,7 @@ export function GarmentCustomizerModal({
       <div className="px-8 py-5 border-b border-neutral-100 flex items-center justify-between bg-neutral-50/50 shrink-0">
         <div>
           <h2 className="text-xl font-serif text-neutral-900">Garment Customizer</h2>
-          <p className="text-xs font-semibold text-neutral-500 mt-0.5">Customize {garment.style || 'style'}</p>
+          <p className="text-xs font-semibold text-neutral-500 mt-0.5">Customize {activeGarment.style || 'style'}</p>
 
         </div>
         <button 
@@ -905,7 +952,7 @@ export function GarmentCustomizerModal({
               {(!needsGeneration || isGenerated) && (
                 <img 
                   src={proxiedActiveMockupImage} 
-                  alt={garment.style} 
+                  alt={activeGarment.style} 
                   style={{ transform: (activeTab === 'sleeve' && isSleeveMirrored) ? 'scaleX(-1)' : 'none' }}
                   className="max-w-full max-h-full object-contain mix-blend-multiply select-none pointer-events-none animate-in fade-in duration-500" 
                 />
@@ -1001,8 +1048,108 @@ export function GarmentCustomizerModal({
         {/* Right Panel: Controls */}
         <div className="w-full md:w-[420px] overflow-y-auto p-8 flex flex-col gap-6 shrink-0 border-l border-neutral-150 bg-white shadow-sm">
           
+          {showCatalogSearch && (
+            <div ref={searchContainerRef} className="flex flex-col gap-2 border-b border-neutral-100 pb-6 relative">
+              <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Change Garment Style</label>
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Search SanMar catalog..."
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setIsSearchResultsOpen(true);
+                  }}
+                  onFocus={() => setIsSearchResultsOpen(true)}
+                  className="w-full bg-neutral-50 border border-neutral-200 hover:border-neutral-300 focus:border-black focus:bg-white rounded-xl pl-10 pr-10 py-3 text-sm font-bold transition-all outline-none"
+                />
+                <Search className="absolute left-3.5 top-3.5 text-neutral-400" size={16} />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery('');
+                      setIsSearchResultsOpen(false);
+                    }}
+                    className="absolute right-3.5 top-3.5 p-0.5 rounded-full text-neutral-400 hover:text-neutral-600 hover:bg-neutral-200/50 cursor-pointer transition-colors"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+
+              {isSearchResultsOpen && searchQuery.trim() !== '' && (
+                <>
+                  <div 
+                    className="fixed inset-0 z-[110]" 
+                    onClick={() => setIsSearchResultsOpen(false)}
+                  />
+                  <div className="absolute left-0 right-0 top-full mt-2 bg-white border border-neutral-200 rounded-xl shadow-xl max-h-[300px] overflow-y-auto z-[115] p-1.5 flex flex-col gap-1 custom-scrollbar animate-in fade-in slide-in-from-top-2 duration-200">
+                    {filteredCatalogProducts.length === 0 ? (
+                      <div className="px-4 py-3 text-xs font-semibold text-neutral-500 text-center">
+                        No garments found
+                      </div>
+                    ) : (
+                      filteredCatalogProducts.map((product) => {
+                        const firstColor = product.colors?.[0] || '';
+                        const imageSet = product.images?.[firstColor] || Object.values(product.images || {})[0];
+                        const previewImgUrl = imageSet ? (typeof imageSet === 'string' ? imageSet : imageSet.front) : '';
+
+                        return (
+                          <button
+                            key={product.style}
+                            type="button"
+                            onClick={() => {
+                              setActiveGarment({
+                                id: activeGarment.id,
+                                style: product.title,
+                                itemNum: product.style,
+                                image: previewImgUrl,
+                                images: product.images,
+                                backImages: product.backImages || null,
+                                colors: product.colors,
+                                selectedColor: firstColor
+                              });
+                              setSearchQuery('');
+                              setIsSearchResultsOpen(false);
+                            }}
+                            className="w-full flex items-center gap-3 px-3 py-2 hover:bg-neutral-50 rounded-lg text-left transition-colors cursor-pointer border border-transparent hover:border-neutral-100"
+                          >
+                            <div className="w-10 h-12 bg-neutral-50 border border-neutral-150 rounded flex items-center justify-center p-1 shrink-0 overflow-hidden">
+                              {previewImgUrl ? (
+                                <img
+                                  src={previewImgUrl}
+                                  alt={product.style}
+                                  className="max-w-full max-h-full object-contain mix-blend-multiply"
+                                />
+                              ) : (
+                                <Shirt size={16} className="text-neutral-400" />
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5 mb-0.5">
+                                <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest leading-none">{product.brand}</span>
+                                <span className="text-[9px] bg-neutral-100 text-neutral-600 font-bold px-1.5 py-0.25 rounded uppercase leading-none">{product.style}</span>
+                              </div>
+                              <h5 className="text-xs font-bold text-neutral-800 truncate leading-snug">
+                                {product.title.replace(`${product.brand} `, '').replace(/®/g, '').trim()}
+                              </h5>
+                              <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-wide">
+                                {product.colors?.length || 0} colors • ${product.price?.toFixed(2) || '0.00'}
+                              </span>
+                            </div>
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
           {/* Garment Color Selection Dropdown */}
-          {garment.colors && garment.colors.length > 0 && (
+          {activeGarment.colors && activeGarment.colors.length > 0 && (
             <div className="flex flex-col gap-2 border-b border-neutral-100 pb-6">
               <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Garment Color</label>
               
@@ -1038,7 +1185,7 @@ export function GarmentCustomizerModal({
                     />
                     
                     <div className="absolute left-0 right-0 mt-2 bg-white border border-neutral-200 rounded-xl shadow-xl max-h-[240px] overflow-y-auto z-[115] p-1.5 flex flex-col gap-0.5 custom-scrollbar animate-in fade-in slide-in-from-top-2 duration-200">
-                      {garment.colors.map((c: string) => {
+                      {activeGarment.colors.map((c: string) => {
                         const isSelected = selectedColor === c;
                         const swatchHex = getSwatchColor(c, true);
                         return (

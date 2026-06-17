@@ -4044,6 +4044,7 @@ export function OrderDetail() {
         <GarmentCustomizerModal
           isOpen={!!customizingItem}
           onClose={() => setCustomizingItem(null)}
+          showCatalogSearch={true}
           garment={{
             id: customizingItem.id,
             style: customizingItem.style || customizingItem.garmentName || 'Custom Garment',
@@ -4059,6 +4060,7 @@ export function OrderDetail() {
             setEditItemObj((prev: any) => ({
               ...prev,
               style: customizedData.style,
+              itemNum: customizedData.itemNum || '',
               color: customizedData.selectedColor,
               image: customizedData.image,
               customized: true,
@@ -4071,7 +4073,9 @@ export function OrderDetail() {
               logoNameLeftSleeve: customizedData.logoNameLeftSleeve || null,
               logoUrlRightSleeve: customizedData.logoUrlRightSleeve || null,
               logoNameRightSleeve: customizedData.logoNameRightSleeve || null,
-              colors: customizedData.colors || prev.colors
+              colors: customizedData.colors || prev.colors,
+              images: customizedData.images || null,
+              backImages: customizedData.backImages || null
             }));
           }}
         />
