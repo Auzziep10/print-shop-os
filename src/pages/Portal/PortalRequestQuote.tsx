@@ -853,6 +853,7 @@ export function PortalRequestQuote() {
                     <div className="flex items-center gap-2 self-end md:self-auto">
                       <button
                         type="button"
+                        data-tour={index === 0 ? "open-mockup-creator" : undefined}
                         onClick={() => setCustomizingProduct(product)}
                         className="bg-neutral-900 hover:bg-neutral-800 text-white px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
                       >

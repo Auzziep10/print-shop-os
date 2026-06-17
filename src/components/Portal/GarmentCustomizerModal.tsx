@@ -1478,6 +1478,7 @@ export function GarmentCustomizerModal({
           Cancel
         </button>
         <button 
+          data-tour="save-customization-btn"
           disabled={isSaving || isUploading}
           onClick={handleSave}
           className="bg-black text-white px-6 py-3 rounded-xl text-xs font-bold hover:bg-neutral-800 transition-all shadow-md flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"

@@ -406,7 +406,7 @@ export function PortalCreateOrder() {
                     }}
                     className="bg-black text-white px-8 py-3.5 rounded-full text-[13px] font-bold tracking-wide hover:bg-neutral-800 hover:scale-[1.02] transition-all shadow-md cursor-pointer"
                   >
-                    + Add Garment from my "WOVN Rack"
+                    + Add Garment from Library
                   </button>
                 ) : (
                   <button 
@@ -551,7 +551,7 @@ export function PortalCreateOrder() {
                   <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform mb-3">
                     <PackagePlus size={20} strokeWidth={2} />
                   </div>
-                  <span className="font-bold text-sm tracking-wide">Add Another Garment from my "WOVN Rack"</span>
+                  <span className="font-bold text-sm tracking-wide">Add Another Garment from Library</span>
                 </button>
               ) : (
                 <button 
@@ -652,7 +652,7 @@ export function PortalCreateOrder() {
                       : 'text-neutral-400 border-transparent hover:text-black hover:border-black'
                   }`}
                 >
-                  WOVN Rack ({customerDecks.reduce((acc, deck) => acc + (deck.items || deck.garments || []).length, 0)})
+                  Approved Library ({customerDecks.reduce((acc, deck) => acc + (deck.items || deck.garments || []).length, 0)})
                 </button>
               )}
               <button

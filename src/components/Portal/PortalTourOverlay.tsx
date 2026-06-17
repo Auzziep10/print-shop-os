@@ -145,26 +145,50 @@ export function PortalTourOverlay({
         {
           target: 'create-order-btn',
           title: 'Step 1: Open Order Builder',
-          content: 'First, navigate to the Order Builder page.',
+          content: 'First, click the "+ Create Order" button in the header.',
           position: 'bottom',
           requiredPath: `/portal/${customerId}`,
           pathName: 'Orders Dashboard'
         },
         {
-          target: 'add-garment-btn',
-          title: 'Step 2: Add a Garment',
-          content: 'Click here to choose from your approved WOVN Rack, Suggested items, or Past ordered garments.',
-          position: 'top',
+          target: 'request-quote-link',
+          title: 'Step 2: Choose Request Quote',
+          content: 'Click the "Request Quote" button to open the custom quote request builder.',
+          position: 'bottom',
           requiredPath: `/portal/${customerId}/create`,
           pathName: 'Create Order Builder'
         },
         {
-          target: 'customize-btn',
-          title: 'Step 3: Open Customizer',
-          content: 'Once you add a garment, click this "Customize" button to visually place and scale your logos.',
-          position: 'bottom',
-          requiredPath: `/portal/${customerId}/create`,
-          pathName: 'Create Order Builder'
+          target: 'quote-library',
+          title: 'Step 3: Add Garment from Library',
+          content: 'Select a library tab and click "+ Add to Request" on any garment card to add it to your products list.',
+          position: 'top',
+          requiredPath: `/portal/${customerId}/quote`,
+          pathName: 'Request Quote Form'
+        },
+        {
+          target: 'open-mockup-creator',
+          title: 'Step 4: Open Mockup Creator',
+          content: 'Click "Open Mockup Creator" on your added product card to open the visual customizer workspace.',
+          position: 'top',
+          requiredPath: `/portal/${customerId}/quote`,
+          pathName: 'Request Quote Form'
+        },
+        {
+          target: 'save-customization-btn',
+          title: 'Step 5: Place Logos & Save',
+          content: 'Select your garment color, upload or pick your logo from your vault, drag to position it, and click "Save Customization" to generate your mockups.',
+          position: 'top',
+          requiredPath: `/portal/${customerId}/quote`,
+          pathName: 'Request Quote Form'
+        },
+        {
+          target: 'quote-submit',
+          title: 'Step 6: Submit Quote Request',
+          content: 'Fill out your sizes, upload any additional design files, and click "Submit Quote Request" to send your specifications to our team.',
+          position: 'top',
+          requiredPath: `/portal/${customerId}/quote`,
+          pathName: 'Request Quote Form'
         }
       ]
     },
