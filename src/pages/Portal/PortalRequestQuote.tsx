@@ -1058,18 +1058,29 @@ export function PortalRequestQuote() {
           className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 animate-in fade-in duration-200"
           onClick={() => setExpandedImage(null)}
         >
-          <div className="relative max-w-3xl max-h-[85vh] w-full flex items-center justify-center">
+          <div 
+            className="relative max-w-3xl max-h-[85vh] w-full bg-white rounded-[2rem] p-6 md:p-10 shadow-2xl overflow-hidden flex items-center justify-center border border-neutral-200/50 cursor-crosshair"
+            onClick={(e) => e.stopPropagation()}
+            onMouseMove={(e) => {
+              const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
+              const x = (e.clientX - left) / width;
+              const y = (e.clientY - top) / height;
+              const img = e.currentTarget.querySelector('img');
+              if (img) img.style.transformOrigin = `${x * 100}% ${y * 100}%`;
+            }}
+            title="Hover to zoom"
+          >
             <button 
               onClick={() => setExpandedImage(null)}
-              className="absolute -top-12 right-0 bg-white/10 hover:bg-white/20 text-white rounded-full p-2.5 transition-all focus:outline-none"
+              className="absolute top-6 right-6 w-10 h-10 rounded-full bg-white/90 hover:bg-white text-neutral-800 hover:text-black flex items-center justify-center shadow-lg transition-all z-50 cursor-pointer border border-neutral-100 hover:scale-105"
             >
               <X size={20} />
             </button>
             <img 
               src={expandedImage} 
               alt="Expanded Preview" 
-              className="max-w-full max-h-[80vh] object-contain rounded-2xl shadow-2xl bg-white p-4"
-              onClick={(e) => e.stopPropagation()}
+              style={{ width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: '70vh' }}
+              className="rounded-2xl select-none transition-transform duration-200 ease-out hover:scale-[2]" 
             />
           </div>
         </div>
