@@ -806,7 +806,7 @@ export function PortalRequestQuote() {
                             transform: isCustomized ? `translateX(-${translatePercentage}%)` : 'none',
                             transition: 'transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
                           }}
-                          className="object-cover mix-blend-multiply select-none"
+                          className={`${isCustomized ? 'object-cover' : 'object-contain'} mix-blend-multiply select-none`}
                         />
                       </div>
 

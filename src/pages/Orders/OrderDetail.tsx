@@ -1438,7 +1438,7 @@ export function OrderDetail() {
                                           transform: isCustomized ? `translateX(-${translatePercentage}%)` : 'none',
                                           transition: 'transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
                                         }}
-                                        className="object-cover mix-blend-multiply p-1 select-none pointer-events-none" 
+                                        className={`${isCustomized ? 'object-cover' : 'object-contain'} mix-blend-multiply p-1 select-none pointer-events-none`} 
                                       />
                                     );
                                   })()
