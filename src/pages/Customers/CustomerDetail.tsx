@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
@@ -21,6 +21,29 @@ export function CustomerDetail() {
   const navigate = useNavigate();
   
   const { orders } = useOrders(id);
+
+  const pastGarments = useMemo(() => {
+    if (!orders) return [];
+    const uniqueGarmentsMap: Record<string, any> = {};
+    orders.forEach((orderData) => {
+      if (orderData.items && Array.isArray(orderData.items)) {
+        orderData.items.forEach((item: any) => {
+          const styleKey = item.style || item.itemNum;
+          if (styleKey && !uniqueGarmentsMap[styleKey]) {
+            uniqueGarmentsMap[styleKey] = {
+              id: item.id || `past-${Date.now()}-${Math.random()}`,
+              style: item.style || 'Custom Garment',
+              itemNum: item.itemNum || '',
+              image: item.image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200',
+              colors: item.colors || (item.color ? [item.color] : ['Custom Color']),
+              price: parseFloat(item.price || 0)
+            };
+          }
+        });
+      }
+    });
+    return Object.values(uniqueGarmentsMap);
+  }, [orders]);
 
   const [liveLogo, setLiveLogo] = useState<string | null>(null);
   const [liveCustomerData, setLiveCustomerData] = useState<any>({});
@@ -108,6 +131,7 @@ export function CustomerDetail() {
   };
 
   const [suggestedItems, setSuggestedItems] = useState<any[]>([]);
+  const [activeGarmentTab, setActiveGarmentTab] = useState<'suggested' | 'past'>('suggested');
   const [assets, setAssets] = useState<any[]>([]);
   const [isAddingSuggestedModalOpen, setIsAddingSuggestedModalOpen] = useState(false);
   const [customSuggestedItem, setCustomSuggestedItem] = useState({
@@ -868,41 +892,126 @@ export function CustomerDetail() {
           {/* Suggested Items (Recommendations) */}
           <div className="bg-white rounded-card border border-brand-border shadow-sm p-6 flex flex-col justify-between">
             <div>
-              <div className="flex items-center justify-between border-b border-brand-border/60 pb-4 mb-4">
-                <div>
-                  <h2 className="font-serif text-2xl text-brand-primary">Suggested Garments</h2>
-                  <p className="text-xs text-brand-secondary mt-1">Items recommended for this customer to order or quote.</p>
+              <div className="flex flex-col gap-3 border-b border-brand-border/60 pb-4 mb-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex gap-4">
+                    <button
+                      onClick={() => setActiveGarmentTab('suggested')}
+                      className={`font-serif text-2xl pb-1 border-b-2 transition-all cursor-pointer ${
+                        activeGarmentTab === 'suggested'
+                          ? 'text-brand-primary border-brand-primary font-bold'
+                          : 'text-brand-secondary border-transparent hover:text-brand-primary'
+                      }`}
+                    >
+                      Suggested ({suggestedItems.length})
+                    </button>
+                    <button
+                      onClick={() => setActiveGarmentTab('past')}
+                      className={`font-serif text-2xl pb-1 border-b-2 transition-all cursor-pointer ${
+                        activeGarmentTab === 'past'
+                          ? 'text-brand-primary border-brand-primary font-bold'
+                          : 'text-brand-secondary border-transparent hover:text-brand-primary'
+                      }`}
+                    >
+                      Past Ordered ({pastGarments.length})
+                    </button>
+                  </div>
+                  {activeGarmentTab === 'suggested' && (
+                    <PillButton variant="outline" className="px-4 text-xs font-bold gap-1 cursor-pointer" onClick={() => setIsAddingSuggestedModalOpen(true)}>
+                      <Plus size={14} /> Add Suggestion
+                    </PillButton>
+                  )}
                 </div>
-                <PillButton variant="outline" className="px-4 text-xs font-bold gap-1" onClick={() => setIsAddingSuggestedModalOpen(true)}>
-                  <Plus size={14} /> Add Suggestion
-                </PillButton>
+                <p className="text-xs text-brand-secondary">
+                  {activeGarmentTab === 'suggested' 
+                    ? 'Items recommended for this customer to order or quote.' 
+                    : 'Garments previously ordered by this customer.'}
+                </p>
               </div>
 
-              {suggestedItems.length === 0 ? (
-                <div className="bg-brand-bg/50 rounded-xl p-8 text-center text-sm font-medium text-brand-secondary border border-dashed border-brand-border/60 my-4">
-                  No recommended garments yet. Click above to suggest some.
-                </div>
+              {activeGarmentTab === 'suggested' ? (
+                suggestedItems.length === 0 ? (
+                  <div className="bg-brand-bg/50 rounded-xl p-8 text-center text-sm font-medium text-brand-secondary border border-dashed border-brand-border/60 my-4">
+                    No recommended garments yet. Click above to suggest some.
+                  </div>
+                ) : (
+                  <div className="space-y-3 max-h-[350px] overflow-y-auto pr-1">
+                    {suggestedItems.map((item) => (
+                      <div key={item.id} className="flex items-center gap-4 bg-brand-bg/30 border border-brand-border/60 rounded-2xl p-3 hover:border-brand-primary/20 transition-colors">
+                        <div className="w-12 h-12 bg-white border border-brand-border rounded-xl overflow-hidden flex items-center justify-center p-1 shrink-0">
+                          <img src={item.image} alt={item.style} className="max-w-full max-h-full object-contain mix-blend-multiply" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-bold text-neutral-900 text-sm truncate">{item.style}</h4>
+                          <p className="text-xs text-brand-secondary truncate mt-0.5">{item.itemNum || 'Custom Item'} • ${item.price.toFixed(2)}</p>
+                        </div>
+                        <button 
+                          onClick={() => handleDeleteSuggestedItem(item.id)}
+                          className="text-neutral-400 hover:text-red-500 transition-colors p-2 shrink-0 cursor-pointer"
+                          title="Remove Suggestion"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )
               ) : (
-                <div className="space-y-3 max-h-[350px] overflow-y-auto pr-1">
-                  {suggestedItems.map((item) => (
-                    <div key={item.id} className="flex items-center gap-4 bg-brand-bg/30 border border-brand-border/60 rounded-2xl p-3 hover:border-brand-primary/20 transition-colors">
-                      <div className="w-12 h-12 bg-white border border-brand-border rounded-xl overflow-hidden flex items-center justify-center p-1 shrink-0">
-                        <img src={item.image} alt={item.style} className="max-w-full max-h-full object-contain mix-blend-multiply" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-bold text-neutral-900 text-sm truncate">{item.style}</h4>
-                        <p className="text-xs text-brand-secondary truncate mt-0.5">{item.itemNum || 'Custom Item'} • ${item.price.toFixed(2)}</p>
-                      </div>
-                      <button 
-                        onClick={() => handleDeleteSuggestedItem(item.id)}
-                        className="text-neutral-400 hover:text-red-500 transition-colors p-2 shrink-0"
-                        title="Remove Suggestion"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
+                pastGarments.length === 0 ? (
+                  <div className="bg-brand-bg/50 rounded-xl p-8 text-center text-sm font-medium text-brand-secondary border border-dashed border-brand-border/60 my-4">
+                    No past garments found for this customer.
+                  </div>
+                ) : (
+                  <div className="space-y-3 max-h-[350px] overflow-y-auto pr-1">
+                    {pastGarments.map((item: any, idx: number) => {
+                      const isAlreadySuggested = suggestedItems.some((s: any) => s.itemNum === item.itemNum || s.style === item.style);
+                      return (
+                        <div key={item.id || idx} className="flex items-center gap-4 bg-brand-bg/30 border border-brand-border/60 rounded-2xl p-3 hover:border-brand-primary/20 transition-colors">
+                          <div className="w-12 h-12 bg-white border border-brand-border rounded-xl overflow-hidden flex items-center justify-center p-1 shrink-0">
+                            <img src={item.image} alt={item.style} className="max-w-full max-h-full object-contain mix-blend-multiply" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-bold text-neutral-900 text-sm truncate">{item.style}</h4>
+                            <p className="text-xs text-brand-secondary truncate mt-0.5">{item.itemNum || 'Past Item'} {item.price > 0 ? `• $${item.price.toFixed(2)}` : ''}</p>
+                          </div>
+                          {!isAlreadySuggested ? (
+                            <button
+                              onClick={async () => {
+                                try {
+                                  const updated = [...suggestedItems, {
+                                    id: `sugg-${Date.now()}`,
+                                    style: item.style,
+                                    itemNum: item.itemNum,
+                                    image: item.image,
+                                    price: item.price || 0,
+                                    colors: item.colors || ['Custom Color'],
+                                    description: ''
+                                  }];
+                                  await updateDoc(doc(db, 'customers', id!), {
+                                    suggestedItems: updated
+                                  });
+                                  setSuggestedItems(updated);
+                                  alert("Garment suggested to customer!");
+                                } catch (err) {
+                                  console.error("Error suggesting past item:", err);
+                                  alert("Failed to suggest garment.");
+                                }
+                              }}
+                              className="text-xs font-bold text-brand-primary hover:text-black border border-brand-border hover:border-black bg-white px-2.5 py-1 rounded-lg shadow-sm transition-all shrink-0 cursor-pointer"
+                              title="Suggest to client"
+                            >
+                              + Suggest
+                            </button>
+                          ) : (
+                            <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full shrink-0">
+                              Suggested
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )
               )}
             </div>
           </div>

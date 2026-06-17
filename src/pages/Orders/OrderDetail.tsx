@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { PillButton } from '../../components/ui/PillButton';
 import { PackingSlipsManager } from '../../components/Orders/PackingSlipsManager';
 import { TrackingModal } from '../../components/Orders/TrackingModal';
-import { ArrowLeft, MessageSquare, QrCode, Clock, Users, Download, Loader2, X, Edit3, Upload, Trash2, Plus, ChevronDown, Image as ImageIcon, Box, Printer, ExternalLink, ShoppingBag, Search, Check, Truck, GripVertical, Pause, Play, DollarSign, PackagePlus, Layers, CreditCard, Copy, RotateCcw } from 'lucide-react';
+import { ArrowLeft, MessageSquare, QrCode, Clock, Users, Download, Loader2, X, Edit3, Upload, Trash2, Plus, ChevronDown, Image as ImageIcon, Box, Printer, ExternalLink, ShoppingBag, Search, Check, Truck, GripVertical, Pause, Play, DollarSign, PackagePlus, Layers, CreditCard, Copy, RotateCcw, Sparkles } from 'lucide-react';
 import QRCode from 'react-qr-code';
 import { StatusBadge, type StatusType } from '../../components/ui/StatusBadge';
 import { useAuth } from '../../contexts/AuthContext';
@@ -14,6 +14,9 @@ import { doc, setDoc, getDoc, updateDoc, collection, getDocs, query, where, onSn
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { getTrackingLink, normalizeUser } from '../../lib/utils';
 import { PalletPickOptimizerModal } from '../../components/Inventory/PalletPickOptimizerModal';
+import { GarmentCustomizerModal } from '../../components/Portal/GarmentCustomizerModal';
+import sanmarCatalogJson from '../../data/sanmar-catalog.json';
+const sanmarCatalog = sanmarCatalogJson as any[];
 
 const SIZE_ORDER = ['XXS', 'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL', 'OSFA'];
 
@@ -373,6 +376,7 @@ export function OrderDetail() {
   
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [tempTitle, setTempTitle] = useState('');
+  const [customizingItem, setCustomizingItem] = useState<any | null>(null);
 
   const handleSaveTitle = async () => {
     if (!id || !tempTitle.trim() || !order) return;
@@ -3226,12 +3230,34 @@ export function OrderDetail() {
                              <span className="text-xs font-medium">No main image</span>
                            </div>
                          )}
-                       </div>
-                       <label className="cursor-pointer bg-white border border-brand-border rounded-lg py-2.5 flex items-center justify-center gap-2 hover:bg-brand-bg transition-colors text-sm font-semibold text-brand-primary shadow-sm hover:shadow">
-                         {isUploadingMain ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
-                         {isUploadingMain ? 'Uploading...' : 'Upload Mockup'}
-                         <input type="file" className="hidden" accept="image/*" onChange={handleMainImageUpload} disabled={isUploadingMain} />
-                       </label>
+                       </div>                        <div className="flex flex-col sm:flex-row gap-2">
+                          <label className="flex-1 cursor-pointer bg-white border border-brand-border rounded-lg py-2.5 flex items-center justify-center gap-2 hover:bg-brand-bg transition-colors text-sm font-semibold text-brand-primary shadow-sm hover:shadow">
+                            {isUploadingMain ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+                            {isUploadingMain ? 'Uploading...' : 'Upload Mockup'}
+                            <input type="file" className="hidden" accept="image/*" onChange={handleMainImageUpload} disabled={isUploadingMain} />
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const catalogItem = sanmarCatalog.find((i: any) => i.style === editItemObj.itemNum || i.style === editItemObj.style);
+                              setCustomizingItem({
+                                id: editItemObj.id,
+                                style: editItemObj.style,
+                                garmentName: editItemObj.style,
+                                itemNum: editItemObj.itemNum,
+                                image: editItemObj.image,
+                                images: catalogItem?.images || editItemObj.images || null,
+                                backImages: catalogItem?.backImages || editItemObj.backImages || null,
+                                colors: catalogItem?.colors || editItemObj.colors || ['Custom Color'],
+                                color: editItemObj.color || 'Custom Color'
+                              });
+                            }}
+                            className="flex-1 bg-neutral-900 hover:bg-neutral-800 text-white rounded-lg py-2.5 flex items-center justify-center gap-2 transition-all shadow-sm text-sm font-semibold cursor-pointer"
+                          >
+                            <Sparkles size={16} className="text-white animate-pulse" />
+                            <span>Mockup Creator</span>
+                          </button>
+                        </div>
                      </div>
                      
                      <div className="h-px bg-brand-border w-full"></div>
@@ -4012,6 +4038,43 @@ export function OrderDetail() {
             </div>
           </div>
         </div>
+      )}
+
+      {customizingItem && (
+        <GarmentCustomizerModal
+          isOpen={!!customizingItem}
+          onClose={() => setCustomizingItem(null)}
+          garment={{
+            id: customizingItem.id,
+            style: customizingItem.style || customizingItem.garmentName || 'Custom Garment',
+            itemNum: customizingItem.itemNum || '',
+            image: customizingItem.image || '',
+            images: customizingItem.images || null,
+            backImages: customizingItem.backImages || null,
+            colors: customizingItem.colors || ['Custom Color'],
+            selectedColor: customizingItem.color || 'Custom Color'
+          }}
+          customerId={order?.customerId || 'CUS-001'}
+          onSave={(customizedData) => {
+            setEditItemObj((prev: any) => ({
+              ...prev,
+              style: customizedData.style,
+              color: customizedData.selectedColor,
+              image: customizedData.image,
+              customized: true,
+              logoPlacement: customizedData.logoPlacement,
+              logoUrl: customizedData.logoUrl,
+              logoName: customizedData.logoName,
+              logoUrlBack: customizedData.logoUrlBack,
+              logoNameBack: customizedData.logoNameBack,
+              logoUrlLeftSleeve: customizedData.logoUrlLeftSleeve || null,
+              logoNameLeftSleeve: customizedData.logoNameLeftSleeve || null,
+              logoUrlRightSleeve: customizedData.logoUrlRightSleeve || null,
+              logoNameRightSleeve: customizedData.logoNameRightSleeve || null,
+              colors: customizedData.colors || prev.colors
+            }));
+          }}
+        />
       )}
 
     </div>
