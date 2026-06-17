@@ -1,6 +1,7 @@
 import { tokens } from '../../lib/tokens';
 import { Settings as SettingsIcon } from 'lucide-react';
 import { UsersTab } from './UsersTab';
+import { PermissionsTab } from './PermissionsTab';
 import { BusinessTab } from './BusinessTab';
 import { AppsTab } from './AppsTab';
 import { StorefrontCatalogTab } from './StorefrontCatalogTab';
@@ -13,10 +14,10 @@ export function Settings() {
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get('tab') || 'users';
   const setActiveTab = (tab: string) => setSearchParams({ tab });
-  const { userData } = useAuth();
+  const { hasPermission } = useAuth();
   
-  // Only Admin or Leadership can access settings
-  if (userData?.role !== 'Admin' && userData?.role !== 'Leadership') {
+  // Only users with manageSettings permission can view settings
+  if (!hasPermission('manageSettings')) {
     return (
       <div className={tokens.layout.container}>
         <div className="p-12 text-center text-brand-secondary border border-brand-border rounded-card bg-white mt-6 shrink-0">
@@ -54,6 +55,16 @@ export function Settings() {
               }`}
             >
               User Management
+            </button>
+            <button
+              onClick={() => setActiveTab('permissions')}
+              className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+                activeTab === 'permissions' 
+                  ? 'bg-brand-primary text-white' 
+                  : 'text-brand-secondary hover:bg-brand-bg hover:text-brand-primary'
+              }`}
+            >
+              Role Permissions
             </button>
             <button
               onClick={() => setActiveTab('business')}
@@ -111,6 +122,7 @@ export function Settings() {
         {/* Content */}
         <div className="flex-1 bg-white border border-brand-border rounded-xl p-6 shadow-sm min-w-0">
           {activeTab === 'users' && <UsersTab />}
+          {activeTab === 'permissions' && <PermissionsTab />}
           {activeTab === 'business' && <BusinessTab />}
           {activeTab === 'apps' && <AppsTab />}
           {activeTab === 'storefront-catalog' && <StorefrontCatalogTab />}

@@ -95,7 +95,7 @@ export function Sidebar({ onClose }: SidebarProps) {
     return () => unsub();
   }, []);
 
-  const { userData } = useAuth();
+  const { userData, hasPermission } = useAuth();
   const isAdmin = userData?.role === 'Admin';
 
   const [isInventoryExpanded, setIsInventoryExpanded] = useState<boolean>(false);
@@ -151,11 +151,11 @@ export function Sidebar({ onClose }: SidebarProps) {
   };
 
   const navItems = [
-    { label: 'Dashboard', icon: LayoutDashboard, path: '/' },
-    { label: 'Orders/Quotes', icon: Layers, path: '/orders' },
-    { label: 'Customers', icon: Users, path: '/customers' },
-    { label: 'Inventory', icon: Package, path: '/inventory' },
-    { label: 'Team', icon: UsersRound, path: '/team' },
+    ...(hasPermission('viewDashboard') ? [{ label: 'Dashboard', icon: LayoutDashboard, path: '/' }] : []),
+    ...(hasPermission('manageOrders') ? [{ label: 'Orders/Quotes', icon: Layers, path: '/orders' }] : []),
+    ...(hasPermission('manageCustomers') ? [{ label: 'Customers', icon: Users, path: '/customers' }] : []),
+    ...(hasPermission('manageInventory') ? [{ label: 'Inventory', icon: Package, path: '/inventory' }] : []),
+    ...(hasPermission('manageTeam') ? [{ label: 'Team', icon: UsersRound, path: '/team' }] : []),
   ];
 
   return (
@@ -440,15 +440,17 @@ export function Sidebar({ onClose }: SidebarProps) {
         )}
       </nav>
 
-      <div className="p-4 border-t border-brand-border">
-        <Link 
-          to="/settings"
-          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-brand-secondary hover:text-brand-primary hover:bg-brand-muted transition-colors"
-        >
-          <Settings size={18} strokeWidth={1.5} />
-          Settings
-        </Link>
-      </div>
+      {hasPermission('manageSettings') && (
+        <div className="p-4 border-t border-brand-border">
+          <Link 
+            to="/settings"
+            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-brand-secondary hover:text-brand-primary hover:bg-brand-muted transition-colors"
+          >
+            <Settings size={18} strokeWidth={1.5} />
+            Settings
+          </Link>
+        </div>
+      )}
     </aside>
   );
 }

@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut as firebaseSignOut, type User } from 'firebase/auth';
-import { collection, query, where, getDocs, doc, setDoc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, setDoc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 
 export type UserRole = 'Staff' | 'Manager' | 'Leadership' | 'Admin' | 'Client' | 'Pending';
@@ -18,12 +18,70 @@ export interface UserData {
   website?: string;
 }
 
+export type PermissionKey = 'viewDashboard' | 'manageOrders' | 'manageCustomers' | 'manageInventory' | 'manageTeam' | 'manageSettings';
+
+export type RolePermissions = Record<PermissionKey, boolean>;
+export type PermissionsData = Record<UserRole, RolePermissions>;
+
+export const DEFAULT_PERMISSIONS: PermissionsData = {
+  Admin: {
+    viewDashboard: true,
+    manageOrders: true,
+    manageCustomers: true,
+    manageInventory: true,
+    manageTeam: true,
+    manageSettings: true,
+  },
+  Leadership: {
+    viewDashboard: true,
+    manageOrders: true,
+    manageCustomers: true,
+    manageInventory: true,
+    manageTeam: true,
+    manageSettings: true,
+  },
+  Manager: {
+    viewDashboard: true,
+    manageOrders: true,
+    manageCustomers: true,
+    manageInventory: true,
+    manageTeam: true,
+    manageSettings: false,
+  },
+  Staff: {
+    viewDashboard: true,
+    manageOrders: true,
+    manageCustomers: true,
+    manageInventory: true,
+    manageTeam: true,
+    manageSettings: false,
+  },
+  Client: {
+    viewDashboard: false,
+    manageOrders: false,
+    manageCustomers: false,
+    manageInventory: false,
+    manageTeam: false,
+    manageSettings: false,
+  },
+  Pending: {
+    viewDashboard: false,
+    manageOrders: false,
+    manageCustomers: false,
+    manageInventory: false,
+    manageTeam: false,
+    manageSettings: false,
+  },
+};
+
 interface AuthContextType {
   user: User | null;
   userData: UserData | null;
   loading: boolean;
   signInWithGoogle: () => Promise<any>;
   signOut: () => Promise<void>;
+  permissions: PermissionsData | null;
+  hasPermission: (permission: PermissionKey) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -31,7 +89,39 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [userData, setUserData] = useState<UserData | null>(null);
+  const [permissions, setPermissions] = useState<PermissionsData | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Subscribe to role permissions
+  useEffect(() => {
+    if (!user) {
+      setPermissions(null);
+      return;
+    }
+
+    const unsub = onSnapshot(doc(db, 'settings', 'permissions'), async (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data().roles as PermissionsData;
+        setPermissions(data);
+      } else {
+        setPermissions(DEFAULT_PERMISSIONS);
+        // Seed default permissions if logged in user is Admin or Leadership
+        if (userData && (userData.role === 'Admin' || userData.role === 'Leadership')) {
+          try {
+            await setDoc(doc(db, 'settings', 'permissions'), { roles: DEFAULT_PERMISSIONS });
+            console.log("Seeded default permissions in Firestore.");
+          } catch (err) {
+            console.error("Failed to seed default permissions:", err);
+          }
+        }
+      }
+    }, (err) => {
+      console.error("Error loading role permissions:", err);
+      setPermissions(DEFAULT_PERMISSIONS);
+    });
+
+    return () => unsub();
+  }, [user, userData?.role]);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && window.location.search.includes('bypassAuth=true')) {
@@ -150,12 +240,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const hasPermission = (permission: PermissionKey): boolean => {
+    if (!userData) return false;
+    // Safety check: Admin always has access to all permissions
+    if (userData.role === 'Admin') return true;
+
+    const rolePermissions = permissions?.[userData.role];
+    if (rolePermissions) {
+      return !!rolePermissions[permission];
+    }
+
+    // Fallback to hardcoded defaults
+    return !!DEFAULT_PERMISSIONS[userData.role]?.[permission];
+  };
+
   const value = {
     user,
     userData,
     loading,
     signInWithGoogle,
     signOut,
+    permissions,
+    hasPermission,
   };
 
   return (
@@ -172,3 +278,4 @@ export function useAuth() {
   }
   return context;
 }
+

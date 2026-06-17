@@ -14,7 +14,7 @@ import { normalizeUser } from '../../lib/utils';
 
 export function Dashboard() {
   const navigate = useNavigate();
-  const { userData } = useAuth();
+  const { userData, hasPermission } = useAuth();
   const { orders } = useOrders();
   const [liveMeetings, setLiveMeetings] = useState<any[]>([]);
 
@@ -44,12 +44,12 @@ export function Dashboard() {
   const [metricsTimeFilter, setMetricsTimeFilter] = useState<string>('Today');
 
   useEffect(() => {
-    if (userData && (userData.role === 'Admin' || userData.role === 'Manager')) {
+    if (userData && (userData.role === 'Admin' || hasPermission('manageSettings'))) {
       setRoleView('Manager / Admin');
     } else {
       setRoleView('Production Staff');
     }
-  }, [userData]);
+  }, [userData, hasPermission]);
 
   useEffect(() => {
     getDocs(collection(db, 'customers')).then(snap => {
@@ -325,6 +325,7 @@ export function Dashboard() {
   const newQuoteRequests = orders.filter(o => o.statusIndex === 0 && !o.isProjectGroup && o.customerId !== 'Shopify Temporary');
   const pendingApprovalOrders = orders.filter(o => o.statusIndex === 1 && !o.isProjectGroup && o.customerId !== 'Shopify Temporary');
   const newApprovedOrders = orders.filter(o => o.statusIndex === 3 && !o.isProjectGroup && o.customerId !== 'Shopify Temporary');
+  const sourcingOrders = orders.filter(o => o.statusIndex === 4 && !o.isProjectGroup && o.customerId !== 'Shopify Temporary');
   
   const todayDateStr = new Date().toISOString().split('T')[0];
   const completedTodayOrders = orders.filter(o => {
@@ -338,6 +339,7 @@ export function Dashboard() {
       case 'New Quotes': return newQuoteRequests;
       case 'Pending Approval': return pendingApprovalOrders;
       case 'New Orders': return newApprovedOrders;
+      case 'Sourcing': return sourcingOrders;
       case 'In Production': return productionOrders;
       case 'Completed Today': return completedTodayOrders;
       default: return [];
@@ -348,6 +350,7 @@ export function Dashboard() {
     { label: 'New Quotes', value: newQuoteRequests.length.toString(), trend: newQuoteRequests.length > 0 ? 'Requires attention' : 'All clear' },
     { label: 'Pending Approval', value: pendingApprovalOrders.length.toString(), trend: pendingApprovalOrders.length > 0 ? 'Urgent' : 'All clear' },
     { label: 'New Orders', value: newApprovedOrders.length.toString(), trend: newApprovedOrders.length > 0 ? 'Assign to floor' : 'All clear' },
+    { label: 'Sourcing', value: sourcingOrders.length.toString(), trend: sourcingOrders.length > 0 ? 'Awaiting blanks' : 'All clear' },
     { label: 'In Production', value: productionOrders.length.toString(), trend: 'On schedule' },
     { label: 'Completed Today', value: completedTodayOrders.length.toString(), trend: 'Great work' }
   ];

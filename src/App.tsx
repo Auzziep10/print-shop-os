@@ -2,7 +2,7 @@ import { Suspense, lazy } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AppLayout } from './components/layout/AppLayout';
 import { PortalLayout } from './components/layout/PortalLayout';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { AuthProvider, useAuth, type PermissionKey } from './contexts/AuthContext';
 
 // Lazy-loaded page components
 const Dashboard = lazy(() => import('./pages/Dashboard/Dashboard').then(m => ({ default: m.Dashboard })));
@@ -51,6 +51,35 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
   }
   
   return user ? <>{children}</> : <Navigate to="/login" state={{ from: location }} replace />;
+}
+
+function PermissionGuard({ permission, children }: { permission: PermissionKey; children: React.ReactNode }) {
+  const { hasPermission, loading } = useAuth();
+  
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center bg-brand-bg text-brand-secondary font-serif">Loading...</div>;
+  }
+  
+  if (!hasPermission(permission)) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-brand-bg p-6 text-center animate-in fade-in duration-300">
+        <div className="bg-white border border-brand-border rounded-xl p-8 max-w-md shadow-sm">
+          <h2 className="text-2xl font-serif text-brand-primary mb-2">Access Denied</h2>
+          <p className="text-sm text-brand-secondary mb-6 leading-relaxed">
+            You do not have permission to view this section of the workspace. Please contact your system administrator to adjust your role settings.
+          </p>
+          <a
+            href="/"
+            className="inline-flex items-center justify-center px-6 py-2.5 bg-brand-primary text-white rounded-full text-sm font-medium hover:bg-black transition-colors"
+          >
+            Return to Dashboard
+          </a>
+        </div>
+      </div>
+    );
+  }
+  
+  return <>{children}</>;
 }
 
 function App() {
@@ -138,24 +167,60 @@ function App() {
             </PrivateRoute>
           }>
             {/* Main Dashboard Index */}
-            <Route index element={<Dashboard />} />
+            <Route index element={
+              <PermissionGuard permission="viewDashboard">
+                <Dashboard />
+              </PermissionGuard>
+            } />
           
           <Route path="orders">
-            <Route index element={<OrdersList />} />
-            <Route path=":id" element={<OrderDetail />} />
+            <Route index element={
+              <PermissionGuard permission="manageOrders">
+                <OrdersList />
+              </PermissionGuard>
+            } />
+            <Route path=":id" element={
+              <PermissionGuard permission="manageOrders">
+                <OrderDetail />
+              </PermissionGuard>
+            } />
           </Route>
           <Route path="customers">
-            <Route index element={<CustomersList />} />
-            <Route path=":id" element={<CustomerDetail />} />
+            <Route index element={
+              <PermissionGuard permission="manageCustomers">
+                <CustomersList />
+              </PermissionGuard>
+            } />
+            <Route path=":id" element={
+              <PermissionGuard permission="manageCustomers">
+                <CustomerDetail />
+              </PermissionGuard>
+            } />
           </Route>
           <Route path="production" element={<Navigate to="/orders?tab=production" replace />} />
           <Route path="artwork" element={<Navigate to="/orders?tab=production&sub=artwork" replace />} />
-          <Route path="inventory" element={<Inventory />} />
-          <Route path="team" element={<Team />} />
-          <Route path="team/meetings" element={<TeamMeetingsPage />} />
+          <Route path="inventory" element={
+            <PermissionGuard permission="manageInventory">
+              <Inventory />
+            </PermissionGuard>
+          } />
+          <Route path="team" element={
+            <PermissionGuard permission="manageTeam">
+              <Team />
+            </PermissionGuard>
+          } />
+          <Route path="team/meetings" element={
+            <PermissionGuard permission="manageTeam">
+              <TeamMeetingsPage />
+            </PermissionGuard>
+          } />
           <Route path="signatures" element={<Navigate to="/settings?tab=signatures" replace />} />
             <Route path="reports" element={<Navigate to="/orders?tab=reports" replace />} />
-            <Route path="settings" element={<Settings />} />
+            <Route path="settings" element={
+              <PermissionGuard permission="manageSettings">
+                <Settings />
+              </PermissionGuard>
+            } />
           </Route>
         </Routes>
       </Suspense>
