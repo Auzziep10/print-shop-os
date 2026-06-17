@@ -19,7 +19,47 @@ const sortSizes = (a: string, b: string) => {
   return iA - iB;
 };
 
+const formatDisplayDate = (dateStr: string | undefined | null): string => {
+  if (!dateStr) return 'TBD';
+  
+  try {
+    let parsedDate: Date;
+    
+    if (dateStr.includes('/')) {
+      const parts = dateStr.split('/');
+      if (parts.length === 3) {
+        let month = parseInt(parts[0], 10) - 1;
+        let day = parseInt(parts[1], 10);
+        let year = parseInt(parts[2], 10);
+        if (year < 100) {
+          year += 2000;
+        }
+        parsedDate = new Date(year, month, day);
+      } else {
+        parsedDate = new Date(dateStr);
+      }
+    } else {
+      if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        parsedDate = new Date(dateStr + 'T12:00:00');
+      } else {
+        parsedDate = new Date(dateStr);
+      }
+    }
 
+    if (isNaN(parsedDate.getTime())) {
+      return dateStr;
+    }
+
+    return parsedDate.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+  } catch (err) {
+    console.error("Error formatting date:", dateStr, err);
+    return dateStr;
+  }
+};
 
 // Helper component for the little gray pills in the items breakdown
 const DataPill = ({ label, value }: { label: string, value: string }) => (
@@ -522,7 +562,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                               
                               {/* Completion Date (Floating over the last item naturally if complete, or mock placing it over received for layout) */}
                               {isLastStep && (
-                                 <span className="absolute -top-7 text-[12px] font-bold text-neutral-900 w-24 text-center">{order.date}</span>
+                                 <span className="absolute -top-7 text-[12px] font-bold text-neutral-900 w-24 text-center">{formatDisplayDate(order.date)}</span>
                               )}
                             </div>
                           );
