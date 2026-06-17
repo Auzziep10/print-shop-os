@@ -64,11 +64,31 @@ export function PortalLayout() {
     const handleClickOutside = (event: MouseEvent) => {
       if (isProfileDropdownOpen && !(event.target as Element).closest('.profile-dropdown-container')) {
         setIsProfileDropdownOpen(false);
+        if (activeTour === 'profile') {
+          setTourStep(0);
+          localStorage.setItem('wovn_tour_step', '0');
+        }
       }
     };
     document.addEventListener('click', handleClickOutside);
     return () => document.removeEventListener('click', handleClickOutside);
-  }, [isProfileDropdownOpen]);
+  }, [isProfileDropdownOpen, activeTour]);
+
+  // Synchronize tour step with dropdown/modal state when in profile tour
+  useEffect(() => {
+    if (activeTour !== 'profile') return;
+
+    if (tourStep === 0) {
+      setIsProfileDropdownOpen(false);
+      setIsProfileModalOpen(false);
+    } else if (tourStep === 1) {
+      setIsProfileDropdownOpen(true);
+      setIsProfileModalOpen(false);
+    } else if (tourStep === 2) {
+      setIsProfileDropdownOpen(false);
+      setIsProfileModalOpen(true);
+    }
+  }, [tourStep, activeTour]);
 
   const handleSaveProfile = async () => {
     if (!customerId) return;
@@ -96,6 +116,9 @@ export function PortalLayout() {
         shippingZip: editZip,
       }));
       setIsProfileModalOpen(false);
+      if (activeTour === 'profile') {
+        handleExitTour();
+      }
       alert("Settings saved successfully!");
     } catch (err) {
       console.error("Error saving customer profile:", err);
@@ -233,7 +256,14 @@ export function PortalLayout() {
           <div className="relative profile-dropdown-container">
             <button 
               data-tour="profile-btn"
-              onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
+              onClick={() => {
+                const nextState = !isProfileDropdownOpen;
+                setIsProfileDropdownOpen(nextState);
+                if (activeTour === 'profile') {
+                  setTourStep(nextState ? 1 : 0);
+                  localStorage.setItem('wovn_tour_step', nextState ? '1' : '0');
+                }
+              }}
               className="w-10 h-10 rounded-full border border-black/20 overflow-hidden bg-neutral-100 flex items-center justify-center cursor-pointer hover:border-black hover:scale-105 active:scale-95 transition-all shadow-[0_2px_8px_0_rgb(0,0,0,0.02)] shrink-0"
               title="Account & Settings"
             >
@@ -259,6 +289,10 @@ export function PortalLayout() {
                   onClick={() => {
                     setIsProfileDropdownOpen(false);
                     setIsProfileModalOpen(true);
+                    if (activeTour === 'profile') {
+                      setTourStep(2);
+                      localStorage.setItem('wovn_tour_step', '2');
+                    }
                   }}
                   className="w-full px-4 py-2.5 text-left text-xs font-bold uppercase tracking-wider text-neutral-700 hover:bg-neutral-50 hover:text-black flex items-center gap-2.5 transition-colors cursor-pointer"
                 >
@@ -319,7 +353,12 @@ export function PortalLayout() {
                 <p className="text-xs text-neutral-400 font-semibold uppercase tracking-wider mt-1">Customize your customer profile</p>
               </div>
               <button 
-                onClick={() => setIsProfileModalOpen(false)}
+                onClick={() => {
+                  setIsProfileModalOpen(false);
+                  if (activeTour === 'profile') {
+                    handleExitTour();
+                  }
+                }}
                 className="w-10 h-10 rounded-full border border-black/10 hover:border-black flex items-center justify-center hover:bg-neutral-50 transition-colors cursor-pointer"
               >
                 <X size={16} />
