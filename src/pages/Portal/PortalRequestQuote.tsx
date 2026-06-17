@@ -626,23 +626,25 @@ export function PortalRequestQuote() {
               <Loader2 className="animate-spin text-neutral-400" size={24} />
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 max-h-[300px] overflow-y-auto pr-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-h-[550px] overflow-y-auto pr-1">
               {activeLibraryTab === 'rack' && activeRackItems.map((item, idx) => (
                 <div 
                   key={item.id || `${item.style}-${idx}`} 
                   onClick={() => handleAddProductFromLibrary(item)}
-                  className="group bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 hover:border-black/30 rounded-2xl p-4 flex flex-col items-center text-center cursor-pointer transition-all shadow-[0_2px_8px_rgb(0,0,0,0.01)] hover:shadow-md"
+                  className="group bg-white hover:bg-neutral-50/50 border border-neutral-200 hover:border-neutral-400 rounded-2xl p-4 flex flex-col items-center justify-between cursor-pointer transition-all hover:shadow-md relative"
                 >
-                  <div className="w-16 h-16 bg-white border border-neutral-100 rounded-xl overflow-hidden flex items-center justify-center p-1 mb-2">
+                  <div className="w-full h-40 bg-neutral-50 rounded-xl overflow-hidden flex items-center justify-center p-2 mb-3 relative">
                     <img 
                       src={getGarmentImage(item)} 
                       alt={item.title || item.style} 
-                      className="max-w-full max-h-full object-contain mix-blend-multiply" 
+                      className="max-w-full max-h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300" 
                     />
                   </div>
-                  <p className="font-bold text-xs text-neutral-900 truncate w-full">{item.title || item.style}</p>
-                  <p className="text-[10px] text-neutral-500 truncate w-full mt-0.5">{item.style || 'Catalog'}</p>
-                  <span className="text-[10px] font-bold text-black mt-2 group-hover:scale-105 transition-transform">+ Add to Request</span>
+                  <div className="w-full flex flex-col items-center">
+                    <p className="font-bold text-sm text-neutral-900 truncate w-full text-center">{item.title || item.style}</p>
+                    <p className="text-[10px] text-neutral-400 font-semibold uppercase tracking-wider truncate w-full text-center mt-0.5">{item.style || 'Catalog'}</p>
+                  </div>
+                  <span className="text-xs font-bold text-neutral-800 bg-neutral-100 group-hover:bg-black group-hover:text-white px-3 py-1.5 rounded-lg transition-all mt-3 w-full text-center">+ Add to Request</span>
                 </div>
               ))}
 
@@ -650,14 +652,20 @@ export function PortalRequestQuote() {
                 <div 
                   key={item.id || idx} 
                   onClick={() => handleAddProductFromLibrary(item)}
-                  className="group bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 hover:border-black/30 rounded-2xl p-4 flex flex-col items-center text-center cursor-pointer transition-all shadow-[0_2px_8px_rgb(0,0,0,0.01)] hover:shadow-md"
+                  className="group bg-white hover:bg-neutral-50/50 border border-neutral-200 hover:border-neutral-400 rounded-2xl p-4 flex flex-col items-center justify-between cursor-pointer transition-all hover:shadow-md relative"
                 >
-                  <div className="w-16 h-16 bg-white border border-neutral-100 rounded-xl overflow-hidden flex items-center justify-center p-1 mb-2">
-                    <img src={item.image || item.original_image || item.mockup_image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200'} alt={item.style || item.name} className="max-w-full max-h-full object-contain mix-blend-multiply" />
+                  <div className="w-full h-40 bg-neutral-50 rounded-xl overflow-hidden flex items-center justify-center p-2 mb-3 relative">
+                    <img 
+                      src={item.image || item.original_image || item.mockup_image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200'} 
+                      alt={item.style || item.name} 
+                      className="max-w-full max-h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300" 
+                    />
                   </div>
-                  <p className="font-bold text-xs text-neutral-900 truncate w-full">{item.style || item.name || item.garment_name}</p>
-                  <p className="text-[10px] text-neutral-500 truncate w-full mt-0.5">{item.itemNum || item.garment_id || 'Catalog'}</p>
-                  <span className="text-[10px] font-bold text-black mt-2 group-hover:scale-105 transition-transform">+ Add to Request</span>
+                  <div className="w-full flex flex-col items-center">
+                    <p className="font-bold text-sm text-neutral-900 truncate w-full text-center">{item.style || item.name || item.garment_name}</p>
+                    <p className="text-[10px] text-neutral-400 font-semibold uppercase tracking-wider truncate w-full text-center mt-0.5">{item.itemNum || item.garment_id || 'Catalog'}</p>
+                  </div>
+                  <span className="text-xs font-bold text-neutral-800 bg-neutral-100 group-hover:bg-black group-hover:text-white px-3 py-1.5 rounded-lg transition-all mt-3 w-full text-center">+ Add to Request</span>
                 </div>
               ))}
               
@@ -665,14 +673,20 @@ export function PortalRequestQuote() {
                 <div 
                   key={item.id || idx} 
                   onClick={() => handleAddProductFromLibrary(item)}
-                  className="group bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 hover:border-black/30 rounded-2xl p-4 flex flex-col items-center text-center cursor-pointer transition-all shadow-[0_2px_8px_rgb(0,0,0,0.01)] hover:shadow-md"
+                  className="group bg-white hover:bg-neutral-50/50 border border-neutral-200 hover:border-neutral-400 rounded-2xl p-4 flex flex-col items-center justify-between cursor-pointer transition-all hover:shadow-md relative"
                 >
-                  <div className="w-16 h-16 bg-white border border-neutral-100 rounded-xl overflow-hidden flex items-center justify-center p-1 mb-2">
-                    <img src={item.image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200'} alt={item.style} className="max-w-full max-h-full object-contain mix-blend-multiply" />
+                  <div className="w-full h-40 bg-neutral-50 rounded-xl overflow-hidden flex items-center justify-center p-2 mb-3 relative">
+                    <img 
+                      src={item.image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200'} 
+                      alt={item.style} 
+                      className="max-w-full max-h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300" 
+                    />
                   </div>
-                  <p className="font-bold text-xs text-neutral-900 truncate w-full">{item.style}</p>
-                  <p className="text-[10px] text-neutral-500 truncate w-full mt-0.5">{item.itemNum || 'Suggested'}</p>
-                  <span className="text-[10px] font-bold text-black mt-2 group-hover:scale-105 transition-transform">+ Add to Request</span>
+                  <div className="w-full flex flex-col items-center">
+                    <p className="font-bold text-sm text-neutral-900 truncate w-full text-center">{item.style}</p>
+                    <p className="text-[10px] text-neutral-400 font-semibold uppercase tracking-wider truncate w-full text-center mt-0.5">{item.itemNum || 'Suggested'}</p>
+                  </div>
+                  <span className="text-xs font-bold text-neutral-800 bg-neutral-100 group-hover:bg-black group-hover:text-white px-3 py-1.5 rounded-lg transition-all mt-3 w-full text-center">+ Add to Request</span>
                 </div>
               ))}
 
@@ -680,14 +694,20 @@ export function PortalRequestQuote() {
                 <div 
                   key={item.id || idx} 
                   onClick={() => handleAddProductFromLibrary(item)}
-                  className="group bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 hover:border-black/30 rounded-2xl p-4 flex flex-col items-center text-center cursor-pointer transition-all shadow-[0_2px_8px_rgb(0,0,0,0.01)] hover:shadow-md"
+                  className="group bg-white hover:bg-neutral-50/50 border border-neutral-200 hover:border-neutral-400 rounded-2xl p-4 flex flex-col items-center justify-between cursor-pointer transition-all hover:shadow-md relative"
                 >
-                  <div className="w-16 h-16 bg-white border border-neutral-100 rounded-xl overflow-hidden flex items-center justify-center p-1 mb-2">
-                    <img src={item.image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200'} alt={item.style} className="max-w-full max-h-full object-contain mix-blend-multiply" />
+                  <div className="w-full h-40 bg-neutral-50 rounded-xl overflow-hidden flex items-center justify-center p-2 mb-3 relative">
+                    <img 
+                      src={item.image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200'} 
+                      alt={item.style} 
+                      className="max-w-full max-h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300" 
+                    />
                   </div>
-                  <p className="font-bold text-xs text-neutral-900 truncate w-full">{item.style}</p>
-                  <p className="text-[10px] text-neutral-500 truncate w-full mt-0.5">{item.itemNum || 'Past Order'}</p>
-                  <span className="text-[10px] font-bold text-black mt-2 group-hover:scale-105 transition-transform">+ Add to Request</span>
+                  <div className="w-full flex flex-col items-center">
+                    <p className="font-bold text-sm text-neutral-900 truncate w-full text-center">{item.style}</p>
+                    <p className="text-[10px] text-neutral-400 font-semibold uppercase tracking-wider truncate w-full text-center mt-0.5">{item.itemNum || 'Past Order'}</p>
+                  </div>
+                  <span className="text-xs font-bold text-neutral-800 bg-neutral-100 group-hover:bg-black group-hover:text-white px-3 py-1.5 rounded-lg transition-all mt-3 w-full text-center">+ Add to Request</span>
                 </div>
               ))}
 
