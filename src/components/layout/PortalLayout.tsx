@@ -232,6 +232,7 @@ export function PortalLayout() {
           {/* Profile Dropdown */}
           <div className="relative profile-dropdown-container">
             <button 
+              data-tour="profile-btn"
               onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
               className="w-10 h-10 rounded-full border border-black/20 overflow-hidden bg-neutral-100 flex items-center justify-center cursor-pointer hover:border-black hover:scale-105 active:scale-95 transition-all shadow-[0_2px_8px_0_rgb(0,0,0,0.02)] shrink-0"
               title="Account & Settings"
@@ -254,6 +255,7 @@ export function PortalLayout() {
                 </div>
                 
                 <button
+                  data-tour="profile-settings-btn"
                   onClick={() => {
                     setIsProfileDropdownOpen(false);
                     setIsProfileModalOpen(true);
@@ -325,7 +327,7 @@ export function PortalLayout() {
             </div>
 
             {/* Modal Body / Form */}
-            <div className="p-8 max-h-[70vh] overflow-y-auto flex flex-col gap-6">
+            <div data-tour="profile-modal-fields" className="p-8 max-h-[70vh] overflow-y-auto flex flex-col gap-6">
               {/* Basic Info */}
               <div className="flex flex-col gap-4">
                 <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-widest border-b border-neutral-50 pb-1">Basic Information</h3>

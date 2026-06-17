@@ -135,6 +135,35 @@ export function PortalTourOverlay({
           pathName: 'Create Order Builder'
         }
       ]
+    },
+    profile: {
+      title: 'Managing Your Profile',
+      steps: [
+        {
+          target: 'profile-btn',
+          title: 'Step 1: Profile Dropdown',
+          content: 'Click your profile circle in the top right to open your account settings dropdown.',
+          position: 'bottom',
+          requiredPath: `/portal/${customerId}`,
+          pathName: 'Orders Dashboard'
+        },
+        {
+          target: 'profile-settings-btn',
+          title: 'Step 2: Account Settings',
+          content: 'Click "Account Settings" in the dropdown to customize your contact info, email, phone, and shipping address.',
+          position: 'left',
+          requiredPath: `/portal/${customerId}`,
+          pathName: 'Orders Dashboard'
+        },
+        {
+          target: 'profile-modal-fields',
+          title: 'Step 3: Edit & Save Settings',
+          content: 'Update your company details or shipping address fields, then click "Save Settings" to persist changes directly to your account.',
+          position: 'top',
+          requiredPath: `/portal/${customerId}`,
+          pathName: 'Orders Dashboard'
+        }
+      ]
     }
   };
 
