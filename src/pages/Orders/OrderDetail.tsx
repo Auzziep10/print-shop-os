@@ -371,6 +371,30 @@ export function OrderDetail() {
 
   const order = orders.find(o => o.id === id); // Need order reference earlier
   
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [tempTitle, setTempTitle] = useState('');
+
+  const handleSaveTitle = async () => {
+    if (!id || !tempTitle.trim() || !order) return;
+    try {
+      const activity = {
+        id: `act-${Date.now()}`,
+        type: 'system',
+        message: `Order title updated to "${tempTitle.trim()}".`,
+        user: user?.email || 'System',
+        timestamp: new Date().toISOString()
+      };
+      await setDoc(doc(db, 'orders', id), {
+        title: tempTitle.trim(),
+        activities: [activity, ...(order.activities || [])]
+      }, { merge: true });
+      setIsEditingTitle(false);
+    } catch (err) {
+      console.error("Failed to update order title", err);
+      alert("Failed to update order title. Please try again.");
+    }
+  };
+
   const [liveCustomer, setLiveCustomer] = useState<any>(null);
   const [fetchingCustomer, setFetchingCustomer] = useState(true);
 
@@ -1167,7 +1191,48 @@ export function OrderDetail() {
           <div className="bg-white p-8 rounded-card border border-brand-border shadow-sm">
             <div className="flex flex-col lg:flex-row justify-between lg:items-start mb-6 gap-6">
                 <div>
-                  <h1 className="font-serif text-4xl text-brand-primary mb-2 line-clamp-2 md:line-clamp-none leading-tight">{order.title || 'Untitled Order'}</h1>
+                  {isEditingTitle ? (
+                    <div className="flex items-center gap-3 mb-2 flex-wrap">
+                      <input 
+                        type="text"
+                        value={tempTitle}
+                        onChange={(e) => setTempTitle(e.target.value)}
+                        onKeyDown={async (e) => {
+                          if (e.key === 'Enter') {
+                            await handleSaveTitle();
+                          } else if (e.key === 'Escape') {
+                            setIsEditingTitle(false);
+                          }
+                        }}
+                        autoFocus
+                        className="font-serif text-4xl text-brand-primary border-b border-brand-primary/40 focus:border-brand-primary focus:outline-none bg-transparent max-w-full leading-tight py-0.5"
+                      />
+                      <button 
+                        onClick={handleSaveTitle}
+                        className="bg-black hover:bg-neutral-800 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-sm shrink-0 cursor-pointer"
+                      >
+                        Save
+                      </button>
+                      <button 
+                        onClick={() => setIsEditingTitle(false)}
+                        className="bg-white border border-neutral-200 hover:bg-neutral-50 text-neutral-800 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-sm shrink-0 cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <h1 
+                      onClick={() => {
+                        setTempTitle(order.title || 'Untitled Order');
+                        setIsEditingTitle(true);
+                      }}
+                      className="font-serif text-4xl text-brand-primary mb-2 line-clamp-2 md:line-clamp-none leading-tight cursor-pointer hover:opacity-80 transition-opacity flex items-center gap-2 group"
+                      title="Click to edit order name"
+                    >
+                      {order.title || 'Untitled Order'}
+                      <Edit3 size={18} className="text-neutral-300 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                    </h1>
+                  )}
                   {order.customerId ? (
                     <Link 
                       to={`/customers/${order.customerId}`}

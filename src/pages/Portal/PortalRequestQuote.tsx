@@ -274,24 +274,29 @@ export function PortalRequestQuote() {
         artworkName: file.name
       } : p));
 
-      // Save to Asset Vault automatically
-      try {
-        const newAsset = {
-          id: `asset-${Date.now()}`,
-          name: file.name,
-          url: url,
-          uploadedAt: new Date().toISOString()
-        };
-        const docRef = doc(db, 'customers', customerId);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          const currentAssets = docSnap.data().assets || [];
-          await updateDoc(docRef, {
-            assets: [...currentAssets, newAsset]
-          });
+      // Save to Asset Vault automatically (only if it's an artwork/logo, i.e., NOT a custom garment mockup)
+      const targetProduct = products.find((p: any) => p.id === productId);
+      const isCustomGarment = targetProduct && !targetProduct.itemNum;
+
+      if (!isCustomGarment) {
+        try {
+          const newAsset = {
+            id: `asset-${Date.now()}`,
+            name: file.name,
+            url: url,
+            uploadedAt: new Date().toISOString()
+          };
+          const docRef = doc(db, 'customers', customerId);
+          const docSnap = await getDoc(docRef);
+          if (docSnap.exists()) {
+            const currentAssets = docSnap.data().assets || [];
+            await updateDoc(docRef, {
+              assets: [...currentAssets, newAsset]
+            });
+          }
+        } catch (vaultErr) {
+          console.error("Auto vault save failed:", vaultErr);
         }
-      } catch (vaultErr) {
-        console.error("Auto vault save failed:", vaultErr);
       }
     } catch (err) {
       console.error("Upload failed", err);
