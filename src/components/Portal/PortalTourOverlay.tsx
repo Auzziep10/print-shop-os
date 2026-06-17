@@ -159,7 +159,7 @@ export function PortalTourOverlay({
           target: 'profile-modal-fields',
           title: 'Step 3: Edit & Save Settings',
           content: 'Update your company details or shipping address fields, then click "Save Settings" to persist changes directly to your account.',
-          position: 'top',
+          position: 'left',
           requiredPath: `/portal/${customerId}`,
           pathName: 'Orders Dashboard'
         }
