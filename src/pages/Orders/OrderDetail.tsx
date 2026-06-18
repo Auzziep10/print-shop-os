@@ -41,7 +41,7 @@ const DataPill = ({ label, value }: { label: string, value: string }) => (
 export function OrderDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user, userData } = useAuth();
+  const { user, userData, hasPermission } = useAuth();
   const { orders, loading } = useOrders();
 
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -1324,10 +1324,12 @@ export function OrderDetail() {
                     </div>
                   )}
                </div>
-               <div>
-                  <span className="text-xs text-brand-secondary font-medium uppercase tracking-wider block mb-1">Est. Total</span>
-                  <span className="font-serif text-lg">{totalFormatted}</span>
-               </div>
+               {hasPermission('viewPricing') && (
+                 <div>
+                    <span className="text-xs text-brand-secondary font-medium uppercase tracking-wider block mb-1">Est. Total</span>
+                    <span className="font-serif text-lg">{totalFormatted}</span>
+                 </div>
+               )}
             </div>
           </div>
         </div>
@@ -1760,18 +1762,22 @@ export function OrderDetail() {
                                       {safeQty}
                                     </div>
                                   </div>
-                                  <div className="w-16 text-center flex flex-col overflow-hidden">
-                                    <div className="bg-neutral-300 text-neutral-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">Price</div>
-                                    <div className="bg-neutral-50 text-neutral-800 text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center truncate px-1">
-                                      {safePriceNum > 0 ? `$${safePriceNum.toFixed(2)}` : (item.price || '-')}
-                                    </div>
-                                  </div>
-                                  <div className="w-20 text-center flex flex-col overflow-hidden">
-                                    <div className="bg-neutral-300 text-neutral-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">Total</div>
-                                    <div className="bg-neutral-50 text-neutral-800 text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center truncate px-1">
-                                      {safeTotalStr}
-                                    </div>
-                                  </div>
+                                  {hasPermission('viewPricing') && (
+                                    <>
+                                      <div className="w-16 text-center flex flex-col overflow-hidden">
+                                        <div className="bg-neutral-300 text-neutral-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">Price</div>
+                                        <div className="bg-neutral-50 text-neutral-800 text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center truncate px-1">
+                                          {safePriceNum > 0 ? `$${safePriceNum.toFixed(2)}` : (item.price || '-')}
+                                        </div>
+                                      </div>
+                                      <div className="w-20 text-center flex flex-col overflow-hidden">
+                                        <div className="bg-neutral-300 text-neutral-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">Total</div>
+                                        <div className="bg-neutral-50 text-neutral-800 text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center truncate px-1">
+                                          {safeTotalStr}
+                                        </div>
+                                      </div>
+                                    </>
+                                  )}
                                 </>
                               );
                            })()}
@@ -1927,7 +1933,8 @@ export function OrderDetail() {
           <PackingSlipsManager order={order} onEditTracking={setTrackingBoxId} />
           
           {/* Costs & Receipts Tracker Section */}
-          <div className="bg-white p-6 rounded-card border border-brand-border shadow-sm mt-8">
+          {hasPermission('viewPricing') && (
+            <div className="bg-white p-6 rounded-card border border-brand-border shadow-sm mt-8">
              <div className="flex justify-between items-center mb-6 pb-2 border-b border-brand-border">
                 <div className="flex items-center gap-2">
                    <DollarSign className="text-brand-primary animate-pulse" size={22} />
@@ -2347,6 +2354,7 @@ export function OrderDetail() {
                 </div>
              </div>
           </div>
+          )}
           
           {/* Bottom Grid: Team and Activity Feed */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">

@@ -49,6 +49,11 @@ const PERMISSIONS_META: PermissionMeta[] = [
     key: 'manageSettings',
     label: 'Manage Settings',
     description: 'Configure integrations, storefront catalogs, team members, and role permissions.'
+  },
+  {
+    key: 'viewPricing',
+    label: 'Pricing Visibility',
+    description: 'Permits viewing prices, quotes amounts, item unit costs, and financial calculations.'
   }
 ];
 
@@ -143,90 +148,68 @@ export function PermissionsTab() {
         </p>
       </div>
 
-      <div className="border border-brand-border rounded-xl overflow-hidden bg-white shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-brand-bg/50 border-b border-brand-border">
-                <th className="p-4 text-xs font-bold uppercase tracking-widest text-brand-secondary w-48">User Role</th>
-                {PERMISSIONS_META.map(p => (
-                  <th key={p.key} className="p-4 text-xs font-bold uppercase tracking-widest text-brand-secondary text-center min-w-[120px] max-w-[150px]">
-                    <div className="flex flex-col items-center">
-                      <span className="truncate max-w-full">{p.label}</span>
-                    </div>
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-brand-border">
-              {ROLES.map(role => {
-                const isAdmin = role === 'Admin';
-                
-                return (
-                  <tr key={role} className="hover:bg-brand-bg/10 transition-colors">
-                    <td className="p-4 align-middle">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-brand-primary">{role}</span>
-                        {isAdmin && (
-                          <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-brand-primary text-white uppercase tracking-wider">
-                            System Root
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-[10px] text-brand-secondary mt-0.5">
-                        {role === 'Client' ? 'Client portal interface' : role === 'Pending' ? 'Waiting room restriction' : 'Shop floor staff'}
-                      </p>
-                    </td>
-                    
-                    {PERMISSIONS_META.map(p => {
-                      const isChecked = isAdmin ? true : !!permissions[role]?.[p.key];
-                      
-                      return (
-                        <td key={p.key} className="p-4 text-center align-middle">
-                          <div className="flex justify-center">
-                            {isAdmin ? (
-                              <div className="relative flex items-center justify-center w-11 h-6 bg-brand-primary/10 rounded-full opacity-60 cursor-not-allowed border border-brand-primary/25" title="Admin role has absolute permissions.">
-                                <span className="absolute left-1 w-4 h-4 bg-brand-primary rounded-full transform translate-x-5 flex items-center justify-center">
-                                  <Lock size={8} className="text-white" />
-                                </span>
-                              </div>
-                            ) : (
-                              <button
-                                onClick={() => handleToggle(role, p.key)}
-                                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out outline-none ${
-                                  isChecked ? 'bg-brand-primary' : 'bg-neutral-200'
-                                }`}
-                              >
-                                <span
-                                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                                    isChecked ? 'translate-x-5' : 'translate-x-0'
-                                  }`}
-                                />
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      );
-                    })}
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {ROLES.map(role => {
+          const isAdmin = role === 'Admin';
+          
+          return (
+            <div key={role} className="bg-white border border-brand-border rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between pb-3 border-b border-brand-border/50">
+                  <div>
+                    <h3 className="font-bold text-lg text-brand-primary">{role}</h3>
+                    <p className="text-xs text-brand-secondary mt-0.5">
+                      {role === 'Client' ? 'Client portal interface' : role === 'Pending' ? 'Waiting room restriction' : 'Shop floor staff'}
+                    </p>
+                  </div>
+                  {isAdmin && (
+                    <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[9px] font-bold bg-brand-primary text-white uppercase tracking-wider">
+                      System Root
+                    </span>
+                  )}
+                </div>
 
-      {/* Detail list showing what each permission does */}
-      <div className="bg-brand-bg/30 rounded-xl p-6 border border-brand-border space-y-4">
-        <h3 className="text-xs font-bold uppercase tracking-widest text-brand-primary">Permission Explanations</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {PERMISSIONS_META.map(p => (
-            <div key={p.key} className="space-y-1">
-              <h4 className="text-xs font-bold text-brand-primary">{p.label}</h4>
-              <p className="text-xs text-brand-secondary leading-relaxed">{p.description}</p>
+                <div className="divide-y divide-brand-border/40 mt-3">
+                  {PERMISSIONS_META.map(p => {
+                    const isChecked = isAdmin ? true : !!permissions[role]?.[p.key];
+                    
+                    return (
+                      <div key={p.key} className="py-3.5 flex items-start justify-between gap-4">
+                        <div className="flex flex-col min-w-0">
+                          <span className="text-xs font-bold text-brand-primary">{p.label}</span>
+                          <span className="text-[10px] text-brand-secondary mt-0.5 leading-relaxed">{p.description}</span>
+                        </div>
+                        <div className="shrink-0 pt-0.5">
+                          {isAdmin ? (
+                            <div className="relative flex items-center justify-center w-11 h-6 bg-brand-primary/10 rounded-full opacity-60 cursor-not-allowed border border-brand-primary/25" title="Admin role has absolute permissions.">
+                              <span className="absolute left-1 w-4 h-4 bg-brand-primary rounded-full transform translate-x-5 flex items-center justify-center">
+                                <Lock size={8} className="text-white" />
+                              </span>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleToggle(role, p.key)}
+                              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out outline-none ${
+                                isChecked ? 'bg-brand-primary' : 'bg-neutral-200'
+                              }`}
+                            >
+                              <span
+                                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                                  isChecked ? 'translate-x-5' : 'translate-x-0'
+                                }`}
+                              />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
-          ))}
-        </div>
+          );
+        })}
       </div>
 
       {/* Save Button Bar */}

@@ -9,8 +9,10 @@ import { doc, updateDoc, collection, getDocs } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { ProductionCalendar } from '../Dashboard/ProductionCalendar';
 import { Production } from '../Production/Production';
+import { useAuth } from '../../contexts/AuthContext';
 
 export function OrdersList() {
+  const { hasPermission } = useAuth();
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const { orders, loading } = useOrders();
@@ -203,7 +205,7 @@ export function OrdersList() {
             <div>Title</div>
             <div>Status</div>
             <div className="text-right">Items</div>
-            <div className="text-right">Est. Total</div>
+            <div className="text-right">{hasPermission('viewPricing') ? 'Total Price' : ''}</div>
             <div className="text-right pr-4">Due Date</div>
             <div></div>
           </div>
@@ -266,7 +268,7 @@ export function OrdersList() {
                   <div className="text-right text-sm font-medium text-brand-primary">{totalItems} qt</div>
                   <div className="text-right text-sm font-serif text-brand-primary flex items-center justify-end gap-1.5">
                      {order.paymentStatus === 'paid' && <div title="Paid"><Check size={14} className="text-emerald-500" strokeWidth={3} /></div>}
-                     {totalFormatted}
+                     {hasPermission('viewPricing') ? totalFormatted : ''}
                   </div>
                   <div className="text-right pr-4 text-sm font-medium text-brand-secondary group-hover:text-brand-primary transition-colors">{order.date}</div>
                   <div className="flex justify-end">

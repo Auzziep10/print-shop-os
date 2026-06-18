@@ -18,7 +18,7 @@ export interface UserData {
   website?: string;
 }
 
-export type PermissionKey = 'viewDashboard' | 'manageOrders' | 'manageCustomers' | 'manageInventory' | 'manageTeam' | 'manageSettings';
+export type PermissionKey = 'viewDashboard' | 'manageOrders' | 'manageCustomers' | 'manageInventory' | 'manageTeam' | 'manageSettings' | 'viewPricing';
 
 export type RolePermissions = Record<PermissionKey, boolean>;
 export type PermissionsData = Record<UserRole, RolePermissions>;
@@ -31,6 +31,7 @@ export const DEFAULT_PERMISSIONS: PermissionsData = {
     manageInventory: true,
     manageTeam: true,
     manageSettings: true,
+    viewPricing: true,
   },
   Leadership: {
     viewDashboard: true,
@@ -39,6 +40,7 @@ export const DEFAULT_PERMISSIONS: PermissionsData = {
     manageInventory: true,
     manageTeam: true,
     manageSettings: true,
+    viewPricing: true,
   },
   Manager: {
     viewDashboard: true,
@@ -47,6 +49,7 @@ export const DEFAULT_PERMISSIONS: PermissionsData = {
     manageInventory: true,
     manageTeam: true,
     manageSettings: false,
+    viewPricing: true,
   },
   Staff: {
     viewDashboard: true,
@@ -55,6 +58,7 @@ export const DEFAULT_PERMISSIONS: PermissionsData = {
     manageInventory: true,
     manageTeam: true,
     manageSettings: false,
+    viewPricing: true,
   },
   Client: {
     viewDashboard: false,
@@ -63,6 +67,7 @@ export const DEFAULT_PERMISSIONS: PermissionsData = {
     manageInventory: false,
     manageTeam: false,
     manageSettings: false,
+    viewPricing: true,
   },
   Pending: {
     viewDashboard: false,
@@ -71,6 +76,7 @@ export const DEFAULT_PERMISSIONS: PermissionsData = {
     manageInventory: false,
     manageTeam: false,
     manageSettings: false,
+    viewPricing: false,
   },
 };
 

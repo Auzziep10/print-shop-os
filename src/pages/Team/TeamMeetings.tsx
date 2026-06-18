@@ -20,6 +20,7 @@ import {
   FolderOpen,
   ChevronDown,
   ChevronRight,
+  ChevronLeft,
   Pencil,
   Settings
 } from 'lucide-react';
@@ -569,6 +570,13 @@ export function TeamMeetings() {
   const [templateNameInput, setTemplateNameInput] = useState('');
   const [templateAttendeesInput, setTemplateAttendeesInput] = useState<string[]>([]);
   const [templateSectionsInput, setTemplateSectionsInput] = useState<string[]>(['']);
+  const [templateVisibleRolesInput, setTemplateVisibleRolesInput] = useState<string[]>([]);
+
+  // View mode and calendar states
+  const [viewMode, setViewMode] = useState<'feed' | 'calendar'>('feed');
+  const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
+  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+  const [newVisibleRoles, setNewVisibleRoles] = useState<string[]>([]);
 
   // Editing states
   const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
@@ -820,6 +828,13 @@ export function TeamMeetings() {
     return () => unsubTemplates();
   }, []);
 
+  const visibleTemplates = templates.filter(t => {
+    const userRole = userData?.role || 'Pending';
+    if (userRole === 'Admin') return true;
+    if (!t.visibleRoles || t.visibleRoles.length === 0) return true;
+    return t.visibleRoles.includes(userRole);
+  });
+
   const handleToggleActionItem = async (meetingId: string, index: number) => {
     if (!selectedMeeting) return;
     const updatedItems = [...selectedMeeting.actionItems];
@@ -1039,7 +1054,8 @@ export function TeamMeetings() {
         name: templateNameInput.trim(),
         attendees: templateAttendeesInput,
         sections: filteredSections,
-        enableCapacityCheckin: templateEnableCapacityCheckin
+        enableCapacityCheckin: templateEnableCapacityCheckin,
+        visibleRoles: templateVisibleRolesInput
       };
 
       if (editingTemplateId) {
@@ -1059,6 +1075,7 @@ export function TeamMeetings() {
       setTemplateAttendeesInput([]);
       setTemplateSectionsInput(['']);
       setTemplateEnableCapacityCheckin(true);
+      setTemplateVisibleRolesInput([]);
     } catch (err) {
       console.error("Failed to save template", err);
       alert("Failed to save template. Please try again.");
@@ -1071,6 +1088,7 @@ export function TeamMeetings() {
     setTemplateAttendeesInput(template.attendees || []);
     setTemplateSectionsInput(template.sections || ['']);
     setTemplateEnableCapacityCheckin(template.enableCapacityCheckin !== false);
+    setTemplateVisibleRolesInput(template.visibleRoles || []);
   };
 
   const handleCancelEditTemplate = () => {
@@ -1079,6 +1097,7 @@ export function TeamMeetings() {
     setTemplateAttendeesInput([]);
     setTemplateSectionsInput(['']);
     setTemplateEnableCapacityCheckin(true);
+    setTemplateVisibleRolesInput([]);
   };
 
   const handleDeleteTemplate = async (templateId: string) => {
@@ -1109,6 +1128,7 @@ export function TeamMeetings() {
     setNewAttendees(meeting.attendees || []);
     setNewActionItems(meeting.actionItems || []);
     setNewEnableCapacityCheckin(meeting.enableCapacityCheckin !== false);
+    setNewVisibleRoles(meeting.visibleRoles || []);
     
     // If it has sections, load them. Otherwise initialize from template or empty
     if (meeting.sections && meeting.sections.length > 0) {
@@ -1166,6 +1186,7 @@ export function TeamMeetings() {
         capacityScores: capacityCheckins,
         status: statusType,
         enableCapacityCheckin: newEnableCapacityCheckin,
+        visibleRoles: selectedTemplateId ? newVisibleRoles : [],
         totalAmount: Math.round((capacityCheckins.reduce((sum: number, c: any) => sum + (c.score || 0), 0) / (capacityCheckins.length || 1)) * 10) / 10
       };
 
@@ -1199,6 +1220,7 @@ export function TeamMeetings() {
       setSelectedTemplateId('');
       setMeetingSections([]);
       setNewEnableCapacityCheckin(true);
+      setNewVisibleRoles([]);
       setIsEditingMeeting(false);
       setEditingMeetingId(null);
       setIsNewModalOpen(false);
@@ -1320,6 +1342,7 @@ export function TeamMeetings() {
             sections: (template.sections || []).map((s: string) => ({ name: s, notes: '' })),
             templateId: template.id,
             templateName: template.name,
+            visibleRoles: template.visibleRoles || [],
             attendees: template.attendees || [],
             actionItems: [],
             capacityScores: [],
@@ -1493,6 +1516,16 @@ export function TeamMeetings() {
     if (m.status === 'scheduled' && m.date > todayDateStr && !showFutureMeetings) {
       return false;
     }
+    
+    // Role-based visibility check
+    const userRole = userData?.role || 'Pending';
+    if (userRole !== 'Admin') {
+      const visibleRoles = m.visibleRoles || (m.templateId ? templates.find(t => t.id === m.templateId)?.visibleRoles : null);
+      if (visibleRoles && visibleRoles.length > 0 && !visibleRoles.includes(userRole)) {
+        return false;
+      }
+    }
+
     return (
       m.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       m.notes.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -1530,7 +1563,7 @@ export function TeamMeetings() {
     const groups: Record<string, { name: string; meetings: any[] }> = {};
     
     // Initialize templates in groups
-    templates.forEach(t => {
+    visibleTemplates.forEach(t => {
       groups[t.id] = { name: t.name, meetings: [] };
     });
     // Add "Custom / Ad-hoc" group
@@ -1556,8 +1589,210 @@ export function TeamMeetings() {
     }));
   };
 
+  const renderCalendarView = () => {
+    const months = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+
+    const getDaysInMonth = (y: number, m: number) => new Date(y, m + 1, 0).getDate();
+    const getFirstDayOfMonth = (y: number, m: number) => new Date(y, m, 1).getDay();
+
+    const daysInMonth = getDaysInMonth(currentYear, currentMonth);
+    const firstDayIndex = getFirstDayOfMonth(currentYear, currentMonth);
+
+    // Filter meetings for this calendar month & year
+    const calendarMeetings = meetings.filter(m => {
+      // Role-based visibility check
+      const userRole = userData?.role || 'Pending';
+      if (userRole !== 'Admin') {
+        const visibleRoles = m.visibleRoles || (m.templateId ? templates.find(t => t.id === m.templateId)?.visibleRoles : null);
+        if (visibleRoles && visibleRoles.length > 0 && !visibleRoles.includes(userRole)) {
+          return false;
+        }
+      }
+      return true;
+    });
+
+    const handlePrevMonth = () => {
+      if (currentMonth === 0) {
+        setCurrentMonth(11);
+        setCurrentYear(prev => prev - 1);
+      } else {
+        setCurrentMonth(prev => prev - 1);
+      }
+    };
+
+    const handleNextMonth = () => {
+      if (currentMonth === 11) {
+        setCurrentMonth(0);
+        setCurrentYear(prev => prev + 1);
+      } else {
+        setCurrentMonth(prev => prev + 1);
+      }
+    };
+
+    const dayHeaders = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+    const cells = [];
+    for (let i = 0; i < firstDayIndex; i++) {
+      cells.push({ day: null, dateStr: null });
+    }
+    for (let d = 1; d <= daysInMonth; d++) {
+      const monthStr = String(currentMonth + 1).padStart(2, '0');
+      const dayStr = String(d).padStart(2, '0');
+      const dateStr = `${currentYear}-${monthStr}-${dayStr}`;
+      cells.push({ day: d, dateStr });
+    }
+
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    return (
+      <div className="flex flex-col gap-4">
+        {/* Calendar Header Controls */}
+        <div className="flex justify-between items-center border-b border-[#ded8ce] pb-4 bg-white shrink-0">
+          <div className="flex items-center gap-1">
+            <h3 className="font-serif text-xl font-bold text-brand-primary">
+              {months[currentMonth]} {currentYear}
+            </h3>
+            <span className="text-[10px] uppercase font-bold text-brand-secondary px-2.5 py-1 rounded-full bg-brand-bg border border-brand-border ml-2">
+              {calendarMeetings.length} Total Logs
+            </span>
+          </div>
+          <div className="flex gap-1.5">
+            <button
+              onClick={handlePrevMonth}
+              className="p-1.5 border border-[#ded8ce] rounded-lg hover:bg-neutral-50 transition-colors cursor-pointer text-brand-primary"
+              title="Previous Month"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <button
+              onClick={() => {
+                const today = new Date();
+                setCurrentMonth(today.getMonth());
+                setCurrentYear(today.getFullYear());
+              }}
+              className="py-1 px-3 text-[10px] font-bold border border-[#ded8ce] rounded-lg hover:bg-neutral-50 transition-colors cursor-pointer text-brand-primary"
+            >
+              Today
+            </button>
+            <button
+              onClick={handleNextMonth}
+              className="p-1.5 border border-[#ded8ce] rounded-lg hover:bg-neutral-50 transition-colors cursor-pointer text-brand-primary"
+              title="Next Month"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        </div>
+
+        {/* Calendar Grid */}
+        <div className="grid grid-cols-7 gap-2">
+          {/* Day Headers */}
+          {dayHeaders.map(day => (
+            <div key={day} className="text-center text-[10px] font-bold uppercase tracking-wider text-brand-secondary py-1 bg-brand-bg/40 border border-brand-border/40 rounded-md">
+              {day}
+            </div>
+          ))}
+
+          {/* Grid Cells */}
+          {cells.map((cell, idx) => {
+            if (!cell.day || !cell.dateStr) {
+              return <div key={`empty-${idx}`} className="min-h-[110px] bg-neutral-50/20 border border-brand-border/20 rounded-[14px]" />;
+            }
+
+            const dayMeetings = calendarMeetings.filter(m => m.date === cell.dateStr);
+            const isToday = cell.dateStr === todayStr;
+
+            return (
+              <div
+                key={cell.dateStr}
+                className={`min-h-[110px] p-2 rounded-[14px] border bg-white flex flex-col gap-1.5 transition-all group ${
+                  isToday 
+                    ? 'border-black ring-1 ring-black shadow-sm' 
+                    : 'border-[#ded8ce] hover:border-neutral-400'
+                }`}
+              >
+                <div className="flex justify-between items-center">
+                  <span className={`text-[10px] font-bold ${isToday ? 'text-black' : 'text-neutral-400 font-medium'}`}>
+                    {cell.day}
+                  </span>
+                  {isToday && (
+                    <span className="text-[8px] font-extrabold uppercase tracking-widest text-black bg-neutral-100 px-1 rounded">
+                      Today
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex-1 flex flex-col gap-1 overflow-y-auto max-h-[85px] custom-scrollbar pr-0.5 animate-in fade-in duration-300">
+                  {dayMeetings.map(meet => {
+                    let badgeColor = 'bg-neutral-50 text-neutral-800 border-neutral-200 hover:border-neutral-400';
+                    if (meet.status === 'live') {
+                      badgeColor = 'bg-red-50 text-red-700 border-red-200 hover:border-red-400';
+                    } else if (meet.status === 'scheduled') {
+                      badgeColor = 'bg-blue-50 text-blue-700 border-blue-200 hover:border-blue-400';
+                    } else {
+                      badgeColor = 'bg-green-50 text-green-700 border-green-200 hover:border-green-400';
+                    }
+
+                    const displayTitle = meet.templateId && meet.templateName 
+                      ? meet.templateName 
+                      : meet.title;
+
+                    return (
+                      <button
+                        key={meet.id}
+                        onClick={() => {
+                          setSelectedMeeting(meet);
+                          setViewMode('feed');
+                          setMobileActiveTab('detail');
+                        }}
+                        className={`text-[9px] font-bold py-1 px-1.5 rounded-lg border w-full text-left truncate transition-all ${badgeColor}`}
+                        title={displayTitle}
+                      >
+                        {meet.status === 'live' && <span className="w-1.5 h-1.5 rounded-full bg-red-600 inline-block mr-1 animate-pulse" />}
+                        {displayTitle}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start animate-in fade-in zoom-in-95 duration-300">
+    <div className="flex flex-col gap-6 w-full">
+      {/* View Mode Tab Switcher */}
+      <div className="flex border-b border-[#ded8ce] pb-px">
+        <button
+          onClick={() => setViewMode('feed')}
+          className={`pb-2 px-4 text-xs font-bold uppercase tracking-wider transition-colors border-b-2 ${
+            viewMode === 'feed' 
+              ? 'border-black text-black font-extrabold' 
+              : 'border-transparent text-brand-secondary hover:text-brand-primary'
+          }`}
+        >
+          Meetings Log & Feed
+        </button>
+        <button
+          onClick={() => setViewMode('calendar')}
+          className={`pb-2 px-4 text-xs font-bold uppercase tracking-wider transition-colors border-b-2 ${
+            viewMode === 'calendar' 
+              ? 'border-black text-black font-extrabold' 
+              : 'border-transparent text-brand-secondary hover:text-brand-primary'
+          }`}
+        >
+          Calendar View
+        </button>
+      </div>
+
+      {viewMode === 'feed' ? (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start animate-in fade-in zoom-in-95 duration-300">
       
       {/* Left Column: Meetings Sidebar List */}
       <div className={`lg:col-span-1 flex flex-col gap-4 ${mobileActiveTab === 'list' ? 'flex' : 'hidden lg:flex'}`}>
@@ -2296,6 +2531,12 @@ export function TeamMeetings() {
           </div>
         )}
       </div>
+      </div>
+      ) : (
+        <div className="bg-white border border-[#ded8ce] rounded-[18px] p-6 shadow-sm animate-in fade-in zoom-in-95 duration-300">
+          {renderCalendarView()}
+        </div>
+      )}
 
       {/* Record New Meeting Modal */}
       {isNewModalOpen && (
@@ -2353,16 +2594,19 @@ export function TeamMeetings() {
                               setMeetingSections((t.sections || []).map((sec: string) => ({ name: sec, notes: '' })));
                               // Prepopulate the capacity check-in setting from template
                               setNewEnableCapacityCheckin(t.enableCapacityCheckin !== false);
+                              // Set visibleRoles
+                              setNewVisibleRoles(t.visibleRoles || []);
                             }
                           } else {
                             // Reset to custom
                             setMeetingSections([]);
+                            setNewVisibleRoles([]);
                           }
                         }}
                         className="w-full bg-[#fcfbf9] border border-[#ded8ce] rounded-lg px-4 py-2.5 text-sm focus:border-brand-primary outline-none cursor-pointer font-bold text-brand-primary"
                       >
                         <option value="">-- Custom / Ad-hoc Meeting --</option>
-                        {templates.map(t => (
+                        {visibleTemplates.map(t => (
                           <option key={t.id} value={t.id}>{t.name}</option>
                         ))}
                       </select>
@@ -2983,6 +3227,36 @@ export function TeamMeetings() {
                   <label htmlFor="templateEnableCapacityCheckin" className="text-[10px] font-bold uppercase tracking-widest text-[#171717] cursor-pointer select-none">
                     Enable Capacity Check-in (Call Score) for meetings under this template
                   </label>
+                </div>
+
+                {/* Visible to Roles Toggle List */}
+                <div className="space-y-1.5">
+                  <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary">Visible to Roles (Leave empty for everyone)</label>
+                  <div className="flex flex-wrap gap-1.5 p-2 bg-white border border-[#ded8ce] rounded-lg min-h-[40px]">
+                    {['Admin', 'Leadership', 'Manager', 'Staff'].map(role => {
+                      const isSelected = templateVisibleRolesInput.includes(role);
+                      return (
+                        <button
+                          key={role}
+                          type="button"
+                          onClick={() => {
+                            if (isSelected) {
+                              setTemplateVisibleRolesInput(prev => prev.filter(r => r !== role));
+                            } else {
+                              setTemplateVisibleRolesInput(prev => [...prev, role]);
+                            }
+                          }}
+                          className={`text-[9px] px-2.5 py-1 rounded-full font-bold border transition-colors ${
+                            isSelected 
+                              ? 'bg-black text-white border-black' 
+                              : 'bg-white text-brand-primary border-[#ded8ce] hover:border-neutral-400'
+                          }`}
+                        >
+                          {role}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 {/* Default Attendees */}
