@@ -1415,12 +1415,12 @@ export function OrderDetail() {
                          </div>
                          <div className="flex flex-col xl:flex-row xl:items-center gap-6 xl:gap-8 flex-1 min-w-0 pr-4">
                            {/* Product Visual */}
-                            <div className="flex items-start gap-4 min-w-[240px] flex-1 min-w-0">
+                             <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5 sm:gap-6 flex-1 min-w-0 w-full text-center sm:text-left">
                               <div 
                                 onMouseEnter={() => setHoveredItemId(item.id)}
                                 onMouseLeave={() => setHoveredItemId(null)}
                                 onClick={() => item.image && setExpandedImage({ src: item.image, alt: item.style })}
-                                className={`w-14 h-14 rounded-[14px] overflow-hidden shrink-0 flex items-center ${item.customized ? 'justify-start' : 'justify-center'} ${item.image ? 'bg-transparent cursor-zoom-in' : 'bg-brand-bg/50 border border-brand-border/50'}`}
+                                className={`w-36 h-36 sm:w-20 sm:h-20 rounded-2xl overflow-hidden shrink-0 flex items-center ${item.customized ? 'justify-start' : 'justify-center'} ${item.image ? 'bg-neutral-50/50 cursor-zoom-in' : 'bg-brand-bg/50 border border-brand-border/50'} shadow-sm border border-brand-border/40 hover:shadow-md transition-all`}
                                 title={item.image ? "Click to view full screen" : "No image provided"}
                               >
                                 {item.image ? (
@@ -1455,8 +1455,8 @@ export function OrderDetail() {
                                   <Box size={24} className="text-brand-secondary/40" />
                                 )}
                               </div>
-                             <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2">
+                             <div className="flex-1 min-w-0 w-full flex flex-col items-center sm:items-start">
+                                <div className="flex items-center justify-center sm:justify-start gap-2 w-full">
                                   <h4 className="font-bold text-gray-900 text-[15px]">{item.style}</h4>
                                   {item.shopifyOrder && (
                                     <span className="text-[9px] font-bold uppercase tracking-wider text-blue-600 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded shadow-sm">
@@ -1477,7 +1477,7 @@ export function OrderDetail() {
                                   const totalItemExpenses = itemExpenses.reduce((sum: number, c: any) => sum + getExpenseAllocation(c, item.id), 0);
                                   
                                   return (
-                                    <div className="flex items-center flex-wrap gap-2 mt-3 min-w-0 w-full overflow-visible">
+                                    <div className="flex items-center justify-center sm:justify-start flex-wrap gap-2 mt-3 min-w-0 w-full overflow-visible">
                                       {itemBoxes.length > 0 && (
                                         <button 
                                           onClick={(e) => {
@@ -1615,10 +1615,10 @@ export function OrderDetail() {
                          </div>
                        </div>
 
-                       {/* Right Side: Sizing & Pricing */}
-                       <div className="flex flex-wrap lg:flex-nowrap items-end lg:items-center gap-4 shrink-0">
-                         {/* Sizing Grid Area */}
-                         <div className="flex items-stretch gap-[2px] bg-neutral-200 p-[3px] rounded-xl font-sans shrink-0">
+                        {/* Right Side: Sizing & Pricing */}
+                        <div className="flex flex-col sm:flex-row items-center sm:items-end lg:items-center gap-4 w-full xl:w-auto shrink-0 justify-center xl:justify-end mt-4 xl:mt-0">
+                          {/* Sizing Grid Area */}
+                          <div className="flex items-stretch gap-[2px] bg-neutral-200 p-[3px] rounded-xl font-sans overflow-x-auto max-w-full scrollbar-none shrink-0 sm:shrink">
                            {item.sizes && Object.entries(item.sizes).sort(([a], [b]) => sortSizes(a, b)).map(([size, qty]: [string, any]) => {
                              const isCompleted = item.completedSizes?.includes(size);
                              const inProgress = item.inProgressSizes?.[size];
