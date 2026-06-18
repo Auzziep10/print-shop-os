@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ArrowLeft, PackagePlus, X, Trash2, ChevronDown, RotateCcw, Calendar, Loader2, Sparkles } from 'lucide-react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { db } from '../../lib/firebase';
 import { doc, getDoc, collection, query, where, getDocs, setDoc } from 'firebase/firestore';
 import { GarmentCustomizerModal } from '../../components/Portal/GarmentCustomizerModal';
@@ -58,6 +58,7 @@ const parseSizesFromItem = (item: any, style = ''): string[] => {
 export function PortalCreateOrder() {
   const navigate = useNavigate();
   const { customerId } = useParams();
+  const location = useLocation();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [orderItems, setOrderItems] = useState<any[]>([]);
   const [customerDecks, setCustomerDecks] = useState<any[]>([]);
@@ -73,6 +74,79 @@ export function PortalCreateOrder() {
   const [customizingItem, setCustomizingItem] = useState<any | null>(null);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
+
+  const [pendingPreselected, setPendingPreselected] = useState<any[] | null>(null);
+
+  useEffect(() => {
+    if (location.state?.preselectedItems && Array.isArray(location.state.preselectedItems)) {
+      setPendingPreselected(location.state.preselectedItems);
+      // Clear location state to avoid repeating on reload
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
+
+  const mapPrevItemToBuilderItem = (item: any, decks: any[]) => {
+    const quantities = item.sizes || {};
+    
+    const matchingCatalogGarment = decks.find(dItem => 
+      (dItem.garment_id || dItem.sku || dItem.id) === item.itemNum ||
+      (dItem.garment_name || dItem.name || dItem.style || dItem.title) === item.style
+    );
+    
+    let colors = ['Custom Color'];
+    if (matchingCatalogGarment) {
+      const catalogColors = findColorsInObj({ ...matchingCatalogGarment });
+      if (catalogColors && catalogColors.length > 0) {
+        colors = catalogColors;
+      }
+    } else if (item.color) {
+      colors = [item.color];
+    }
+    
+    const sizes = parseSizesFromItem(matchingCatalogGarment || {}, item.style || '');
+    
+    const quantitiesMap: any = {};
+    sizes.forEach((s: string) => {
+      quantitiesMap[s] = 0;
+    });
+    
+    Object.keys(quantities).forEach((s: string) => {
+      quantitiesMap[s] = quantities[s] || 0;
+    });
+
+    const artwork = item.artworks?.[0] || {};
+
+    return {
+      instanceId: Math.random().toString(36).substring(7),
+      style: item.style || 'Custom Garment',
+      itemNum: item.itemNum || '',
+      gender: item.gender || 'Unisex',
+      price: item.price || 0,
+      image: item.image || '',
+      colors: colors,
+      selectedColor: item.color || colors[0],
+      quantities: quantitiesMap,
+      sizes: sizes,
+      customized: item.customized || false,
+      logoPlacement: item.notes?.replace('Mockup Placement: ', '') || '',
+      logoUrl: artwork.url || item.logoUrl || null,
+      logoName: artwork.name || item.logoName || null,
+      logoUrlBack: item.logoUrlBack || null,
+      logoNameBack: item.logoNameBack || null,
+      logoUrlLeftSleeve: item.logoUrlLeftSleeve || null,
+      logoNameLeftSleeve: item.logoNameLeftSleeve || null,
+      logoUrlRightSleeve: item.logoUrlRightSleeve || null,
+      logoNameRightSleeve: item.logoNameRightSleeve || null
+    };
+  };
+
+  useEffect(() => {
+    if (pendingPreselected && !isLoadingDecks) {
+      const mapped = pendingPreselected.map(item => mapPrevItemToBuilderItem(item, customerDecks));
+      setOrderItems(prev => [...prev, ...mapped]);
+      setPendingPreselected(null);
+    }
+  }, [pendingPreselected, isLoadingDecks, customerDecks]);
 
   useEffect(() => {
     const fetchPreviousOrders = async () => {
