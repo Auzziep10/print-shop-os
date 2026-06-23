@@ -274,14 +274,9 @@ const generateFinalSheetsForPrintAndCut = async (
     customerName: string,
     shippingAddress: any,
 ): Promise<{ printDataUrl: string; cutDataUrl: string }> => {
-    const BASE_DPI = 300;
     const HEADER_HEIGHT_INCHES = 1;
     const MARGIN_INCHES = 1.0; // 1 inch margin on all sides to hold Graphtec registration marks
-    
-    const HEADER_HEIGHT_PX = HEADER_HEIGHT_INCHES * BASE_DPI; // 300px
-    const MARGIN_PX = MARGIN_INCHES * BASE_DPI; // 300px
-    const HEADER_TO_DESIGN_GAP = 0.5 * BASE_DPI; // 150px
-    const yOffset = HEADER_HEIGHT_PX + MARGIN_PX + HEADER_TO_DESIGN_GAP; // 750px
+    const HEADER_TO_DESIGN_GAP_INCHES = 0.5;
 
     const isVinyl = isVinylItem(orderItem);
 
@@ -292,24 +287,22 @@ const generateFinalSheetsForPrintAndCut = async (
     let sheetContentHeightInches: number;
 
     const SPACING_INCHES = 0.25;
-    const SPACING_PX = SPACING_INCHES * BASE_DPI;
-    const maxSheetWidthPx = designWidthInches * BASE_DPI;
 
     // Define placement instances for auto-repeated single transfer layout
     interface Placement {
         url: string;
-        x: number;
-        y: number;
-        wPx: number;
-        hPx: number;
+        x: number; // inches
+        y: number; // inches
+        w: number; // inches
+        h: number; // inches
     }
-    const placements: Placement[] = [];
+    const rawPlacements: Placement[] = [];
 
     if (isSingleTransferLayout) {
         const instances: Array<{
             url: string;
-            wPx: number;
-            hPx: number;
+            w: number;
+            h: number;
         }> = [];
 
         const artworks = orderItem.artworks || [];
@@ -322,8 +315,8 @@ const generateFinalSheetsForPrintAndCut = async (
                 for (let i = 0; i < qty; i++) {
                     instances.push({
                         url,
-                        wPx: w * BASE_DPI,
-                        hPx: h * BASE_DPI
+                        w,
+                        h
                     });
                 }
             });
@@ -335,14 +328,14 @@ const generateFinalSheetsForPrintAndCut = async (
             for (let i = 0; i < qty; i++) {
                 instances.push({
                     url,
-                    wPx: w * BASE_DPI,
-                    hPx: h * BASE_DPI
+                    w,
+                    h
                 });
             }
         }
 
         // Sort instances by height descending for optimal shelf packing
-        instances.sort((a, b) => b.hPx - a.hPx);
+        instances.sort((a, b) => b.h - a.h);
 
         // Shelf packing algorithm
         interface Shelf {
@@ -355,15 +348,15 @@ const generateFinalSheetsForPrintAndCut = async (
         instances.forEach(inst => {
             let placed = false;
             for (const shelf of shelves) {
-                if (shelf.currentX + inst.wPx <= maxSheetWidthPx) {
-                    placements.push({
+                if (shelf.currentX + inst.w <= designWidthInches) {
+                    rawPlacements.push({
                         url: inst.url,
                         x: shelf.currentX,
                         y: shelf.y,
-                        wPx: inst.wPx,
-                        hPx: inst.hPx
+                        w: inst.w,
+                        h: inst.h
                     });
-                    shelf.currentX += inst.wPx + SPACING_PX;
+                    shelf.currentX += inst.w + SPACING_INCHES;
                     placed = true;
                     break;
                 }
@@ -371,33 +364,62 @@ const generateFinalSheetsForPrintAndCut = async (
 
             if (!placed) {
                 const newY = shelves.length === 0 
-                    ? SPACING_PX 
-                    : shelves[shelves.length - 1].y + shelves[shelves.length - 1].height + SPACING_PX;
+                    ? SPACING_INCHES 
+                    : shelves[shelves.length - 1].y + shelves[shelves.length - 1].height + SPACING_INCHES;
                 
                 shelves.push({
                     y: newY,
-                    height: inst.hPx,
-                    currentX: inst.wPx + SPACING_PX
+                    height: inst.h,
+                    currentX: inst.w + SPACING_INCHES
                 });
 
-                placements.push({
+                rawPlacements.push({
                     url: inst.url,
                     x: 0,
                     y: newY,
-                    wPx: inst.wPx,
-                    hPx: inst.hPx
+                    w: inst.w,
+                    h: inst.h
                 });
             }
         });
 
-        const totalContentHeightPx = shelves.length === 0 
+        const totalContentHeightInches = shelves.length === 0 
             ? 0 
-            : shelves[shelves.length - 1].y + shelves[shelves.length - 1].height + SPACING_PX;
+            : shelves[shelves.length - 1].y + shelves[shelves.length - 1].height + SPACING_INCHES;
         
-        sheetContentHeightInches = totalContentHeightPx / BASE_DPI;
+        sheetContentHeightInches = totalContentHeightInches;
     } else {
         sheetContentHeightInches = orderItem.sheetHeight || 24;
     }
+
+    // Now calculate dynamic DPI to stay within browser canvas limits (max height 30,000px)
+    const finalCanvasHeightInches = sheetContentHeightInches + HEADER_HEIGHT_INCHES + (2 * MARGIN_INCHES) + HEADER_TO_DESIGN_GAP_INCHES;
+    let BASE_DPI = 300;
+    if (finalCanvasHeightInches * 300 > 30000) {
+        BASE_DPI = Math.min(300, Math.max(72, Math.floor(30000 / finalCanvasHeightInches)));
+        console.log(`Scaling down DPI to ${BASE_DPI} to keep canvas height within safe limits (${Math.floor(finalCanvasHeightInches * BASE_DPI)}px)`);
+    }
+
+    const HEADER_HEIGHT_PX = HEADER_HEIGHT_INCHES * BASE_DPI; // 300px at 300 DPI
+    const MARGIN_PX = MARGIN_INCHES * BASE_DPI; // 300px at 300 DPI
+    const HEADER_TO_DESIGN_GAP = HEADER_TO_DESIGN_GAP_INCHES * BASE_DPI; // 150px at 300 DPI
+    const yOffset = HEADER_HEIGHT_PX + MARGIN_PX + HEADER_TO_DESIGN_GAP;
+
+    // Convert placements from inches to pixel positions
+    interface PixelPlacement {
+        url: string;
+        x: number;
+        y: number;
+        wPx: number;
+        hPx: number;
+    }
+    const placements: PixelPlacement[] = rawPlacements.map(p => ({
+        url: p.url,
+        x: p.x * BASE_DPI,
+        y: p.y * BASE_DPI,
+        wPx: p.w * BASE_DPI,
+        hPx: p.h * BASE_DPI
+    }));
 
     const finalCanvasWidth = (designWidthInches + (2 * MARGIN_INCHES)) * BASE_DPI;
     const finalCanvasHeight = (sheetContentHeightInches * BASE_DPI) + HEADER_HEIGHT_PX + (2 * MARGIN_PX) + HEADER_TO_DESIGN_GAP;
