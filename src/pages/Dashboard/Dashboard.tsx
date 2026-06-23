@@ -44,12 +44,12 @@ export function Dashboard() {
   const [metricsTimeFilter, setMetricsTimeFilter] = useState<string>('Today');
 
   useEffect(() => {
-    if (userData && (userData.role === 'Admin' || hasPermission('manageSettings'))) {
+    if (userData && ['Admin', 'Leadership', 'Manager'].includes(userData.role)) {
       setRoleView('Manager / Admin');
     } else {
       setRoleView('Production Staff');
     }
-  }, [userData, hasPermission]);
+  }, [userData]);
 
   useEffect(() => {
     getDocs(collection(db, 'customers')).then(snap => {
@@ -366,13 +366,15 @@ export function Dashboard() {
           </p>
         </div>
         
-        <div>
-           <SegmentedControl 
-             options={['Production Staff', 'Manager / Admin']} 
-             value={roleView} 
-             onChange={setRoleView} 
-           />
-        </div>
+        {userData && ['Admin', 'Leadership', 'Manager'].includes(userData.role) && (
+          <div>
+             <SegmentedControl 
+               options={['Production Staff', 'Manager / Admin']} 
+               value={roleView} 
+               onChange={setRoleView} 
+             />
+          </div>
+        )}
       </div>
       
       {/* Live Meeting Alert Banner */}

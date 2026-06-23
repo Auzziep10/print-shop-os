@@ -193,7 +193,7 @@ function LandingNav({
   const dark = !scrolled; // over hero = light text, after hero = ink on cream
   const role = userData?.role;
   const isClient = role === 'Client';
-  const isStaff = role === 'Admin' || role === 'Staff' || role === 'Leadership';
+  const isStaff = role ? ['Admin', 'Leadership', 'Manager', 'Staff', 'Printer'].includes(role) : false;
 
   const ghostBtn = `font-inter cursor-pointer rounded-full border px-4 py-2 text-[10px] font-bold uppercase tracking-[0.2em] transition-colors ${
     dark

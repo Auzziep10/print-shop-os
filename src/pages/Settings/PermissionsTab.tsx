@@ -11,7 +11,7 @@ import { Shield, Lock, Save, Loader2, Check } from 'lucide-react';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
 
-const ROLES: UserRole[] = ['Admin', 'Leadership', 'Manager', 'Staff', 'Client', 'Pending'];
+const ROLES: UserRole[] = ['Admin', 'Leadership', 'Manager', 'Staff', 'Printer', 'Client', 'Pending'];
 
 interface PermissionMeta {
   key: PermissionKey;

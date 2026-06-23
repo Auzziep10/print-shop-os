@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { collection, onSnapshot, addDoc, updateDoc, doc, deleteDoc, query, where, getDocs } from 'firebase/firestore';
-import { db } from '../../lib/firebase';
+import { collection, onSnapshot, addDoc, updateDoc, doc, deleteDoc, query, where, getDocs, serverTimestamp } from 'firebase/firestore';
+import { db, chronoDb, chronoAuth } from '../../lib/firebase';
+import { signInAnonymously } from 'firebase/auth';
 import { useAuth } from '../../contexts/AuthContext';
 import { PillButton } from '../../components/ui/PillButton';
 import { 
@@ -68,7 +69,12 @@ const MOCK_MEETINGS_CATALOG = [
         status: 'Optimal Zone',
         confidence: 'Green',
         notes: 'Good energy, but workload is getting high with the new rush orders.',
-        categories: { workload: 7, urgency: 6, stress: 5, availability: 6, friction: 7 }
+        categories: { workload: 7, urgency: 6, stress: 5, availability: 6, friction: 7 },
+        priorities: [
+          { text: 'Finish production layout', completed: false, chronoTaskId: 'mock-task-1' },
+          { text: 'Review SanMar apparel catalog pricing', completed: true, chronoTaskId: 'mock-task-2' },
+          { text: 'Coordinate rush order shipping times', completed: false, chronoTaskId: 'mock-task-3' }
+        ]
       },
       {
         memberId: 'usr-2',
@@ -77,7 +83,11 @@ const MOCK_MEETINGS_CATALOG = [
         status: 'Optimal Zone',
         confidence: 'Green',
         notes: 'No blockers, waiting on Shopify developer account credentials.',
-        categories: { workload: 6, urgency: 5, stress: 5, availability: 5, friction: 6 }
+        categories: { workload: 6, urgency: 5, stress: 5, availability: 5, friction: 6 },
+        priorities: [
+          { text: 'Sync shopify orders database webhook', completed: true, chronoTaskId: 'mock-task-4' },
+          { text: 'Resolve developer credentials', completed: false, chronoTaskId: 'mock-task-5' }
+        ]
       },
       {
         memberId: 'usr-3',
@@ -86,7 +96,11 @@ const MOCK_MEETINGS_CATALOG = [
         status: 'Comfortable',
         confidence: 'Green',
         notes: 'Calm day. Finished stock checks early.',
-        categories: { workload: 5, urgency: 4, stress: 4, availability: 6, friction: 5 }
+        categories: { workload: 5, urgency: 4, stress: 4, availability: 6, friction: 5 },
+        priorities: [
+          { text: 'Count blank hoodies stock levels', completed: true, chronoTaskId: 'mock-task-6' },
+          { text: 'Re-organize print shop vinyl racks', completed: false, chronoTaskId: 'mock-task-7' }
+        ]
       }
     ]
   },
@@ -117,7 +131,11 @@ const MOCK_MEETINGS_CATALOG = [
         status: 'Constrained',
         confidence: 'Yellow',
         notes: 'Waiting on client approvals, blocked on several quotes.',
-        categories: { workload: 8, urgency: 8, stress: 7, availability: 8, friction: 5 }
+        categories: { workload: 8, urgency: 8, stress: 7, availability: 8, friction: 5 },
+        priorities: [
+          { text: 'Get client proofs approved', completed: false, chronoTaskId: 'mock-task-8' },
+          { text: 'Call support for SanMar shipping delay', completed: false, chronoTaskId: 'mock-task-9' }
+        ]
       },
       {
         memberId: 'usr-3',
@@ -126,7 +144,11 @@ const MOCK_MEETINGS_CATALOG = [
         status: 'Optimal Zone',
         confidence: 'Green',
         notes: 'Smooth progress on warehouse mapping.',
-        categories: { workload: 5, urgency: 5, stress: 5, availability: 5, friction: 5 }
+        categories: { workload: 5, urgency: 5, stress: 5, availability: 5, friction: 5 },
+        priorities: [
+          { text: 'Complete warehouse aisle mapping', completed: true, chronoTaskId: 'mock-task-10' },
+          { text: 'Update order spreadsheets', completed: false, chronoTaskId: 'mock-task-11' }
+        ]
       }
     ]
   }
@@ -546,6 +568,9 @@ export function TeamMeetings() {
   const [checkinFriction, setCheckinFriction] = useState(5);
   const [checkinConfidence, setCheckinConfidence] = useState('Green');
   const [checkinNotes, setCheckinNotes] = useState('');
+  const [checkinPriority1, setCheckinPriority1] = useState('');
+  const [checkinPriority2, setCheckinPriority2] = useState('');
+  const [checkinPriority3, setCheckinPriority3] = useState('');
 
   // Live pre-meeting check-in states
   const [myWorkload, setMyWorkload] = useState(5);
@@ -555,6 +580,9 @@ export function TeamMeetings() {
   const [myFriction, setMyFriction] = useState(5);
   const [myConfidence, setMyConfidence] = useState('Green');
   const [myNotes, setMyNotes] = useState('');
+  const [myPriority1, setMyPriority1] = useState('');
+  const [myPriority2, setMyPriority2] = useState('');
+  const [myPriority3, setMyPriority3] = useState('');
 
   // Loading indicator for simulated Google Meet Sync
   const [isSyncing, setIsSyncing] = useState(false);
@@ -565,6 +593,9 @@ export function TeamMeetings() {
   const [meetingSections, setMeetingSections] = useState<any[]>([]);
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
   const [expandedTemplates, setExpandedTemplates] = useState<Record<string, boolean>>({});
+  const [chronoTasks, setChronoTasks] = useState<any[]>([]);
+  const [chronoUsers, setChronoUsers] = useState<any[]>([]);
+  const [selectedSeriesId, setSelectedSeriesId] = useState<string | null>(null);
 
   // Template Form states
   const [templateNameInput, setTemplateNameInput] = useState('');
@@ -664,6 +695,10 @@ export function TeamMeetings() {
         setMyFriction(existing.categories?.friction ?? 5);
         setMyConfidence(existing.confidence ?? 'Green');
         setMyNotes(existing.notes ?? '');
+        const getPriorityText = (p: any) => p ? (typeof p === 'object' ? p.text : p) : '';
+        setMyPriority1(getPriorityText(existing.priorities?.[0]));
+        setMyPriority2(getPriorityText(existing.priorities?.[1]));
+        setMyPriority3(getPriorityText(existing.priorities?.[2]));
       } else {
         // Reset to default
         setMyWorkload(5);
@@ -673,9 +708,51 @@ export function TeamMeetings() {
         setMyFriction(5);
         setMyConfidence('Green');
         setMyNotes('');
+        setMyPriority1('');
+        setMyPriority2('');
+        setMyPriority3('');
       }
     }
   }, [selectedMeeting, userData]);
+
+  // Synchronize with Chronotrack-ai (daily tasks planner)
+  useEffect(() => {
+    const isBypass = typeof window !== 'undefined' && window.location.search.includes('bypassAuth=true');
+    if (isBypass) return;
+
+    let unsubChronoUsers = () => {};
+    let unsubChronoTasks = () => {};
+
+    const initChrono = async () => {
+      try {
+        await signInAnonymously(chronoAuth);
+        
+        unsubChronoUsers = onSnapshot(collection(chronoDb, 'users'), (snap) => {
+          const list: any[] = [];
+          snap.forEach(d => {
+            list.push({ id: d.id, ...d.data() });
+          });
+          setChronoUsers(list);
+        });
+
+        unsubChronoTasks = onSnapshot(collection(chronoDb, 'shiftSchedules'), (snap) => {
+          const list: any[] = [];
+          snap.forEach(d => {
+            list.push({ id: d.id, ...d.data() });
+          });
+          setChronoTasks(list);
+        });
+      } catch (err) {
+        console.error("Failed to initialize Chronotrack sync:", err);
+      }
+    };
+    initChrono();
+
+    return () => {
+      unsubChronoUsers();
+      unsubChronoTasks();
+    };
+  }, []);
 
   // Fetch users and meetings from Firestore
   useEffect(() => {
@@ -3233,7 +3310,7 @@ export function TeamMeetings() {
                 <div className="space-y-1.5">
                   <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary">Visible to Roles (Leave empty for everyone)</label>
                   <div className="flex flex-wrap gap-1.5 p-2 bg-white border border-[#ded8ce] rounded-lg min-h-[40px]">
-                    {['Admin', 'Leadership', 'Manager', 'Staff'].map(role => {
+                    {['Admin', 'Leadership', 'Manager', 'Staff', 'Printer'].map(role => {
                       const isSelected = templateVisibleRolesInput.includes(role);
                       return (
                         <button

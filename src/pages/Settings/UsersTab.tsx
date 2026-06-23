@@ -27,7 +27,7 @@ export function UsersTab() {
   const [phone, setPhone] = useState('');
   const [companyName, setCompanyName] = useState('');
 
-  const ROLES: UserRole[] = ['Staff', 'Manager', 'Leadership', 'Admin', 'Client', 'Pending'];
+  const ROLES: UserRole[] = ['Staff', 'Printer', 'Manager', 'Leadership', 'Admin', 'Client', 'Pending'];
 
   const fetchData = async () => {
     try {

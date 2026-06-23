@@ -1455,7 +1455,7 @@ export function PublicQuoteRequest() {
                         >
                           View Portal
                         </button>
-                      ) : (userData?.role === 'Admin' || userData?.role === 'Staff' || userData?.role === 'Leadership') ? (
+                      ) : (userData && ['Admin', 'Leadership', 'Manager', 'Staff', 'Printer'].includes(userData.role)) ? (
                         <button
                           onClick={() => navigate('/orders')}
                           className="px-4 py-1.5 bg-zinc-955 text-white rounded-lg text-xs font-bold hover:bg-zinc-900 transition-all shadow-xs cursor-pointer"
@@ -1702,7 +1702,7 @@ export function PublicQuoteRequest() {
                       >
                         <span>View Portal</span>
                       </button>
-                    ) : (userData?.role === 'Admin' || userData?.role === 'Staff' || userData?.role === 'Leadership') ? (
+                    ) : (userData && ['Admin', 'Leadership', 'Manager', 'Staff', 'Printer'].includes(userData.role)) ? (
                       <button
                         onClick={() => navigate('/orders')}
                         className="flex items-center justify-center gap-1.5 px-4 h-9 bg-neutral-900 text-white rounded-xl text-xs font-bold hover:bg-neutral-800 transition-all shadow-xs"
