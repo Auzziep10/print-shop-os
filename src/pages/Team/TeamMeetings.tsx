@@ -1064,8 +1064,28 @@ export function TeamMeetings() {
 
       if (taskId) {
         try {
+          const startHour = 9 + i;
+          const endHour = startHour + 1;
+          const savedDate = new Date(dateStr + "T00:00:00");
+          const startDate = new Date(savedDate);
+          startDate.setHours(startHour, 0, 0, 0);
+          const endDate = new Date(savedDate);
+          endDate.setHours(endHour, 0, 0, 0);
+
+          const weekStr = getWeekString(savedDate);
+          const monthStr = `${savedDate.getFullYear()}-${String(savedDate.getMonth() + 1).padStart(2, '0')}`;
+
           await updateDoc(doc(chronoDb, 'shiftSchedules', taskId), {
+            id: taskId,
+            scheduleId: 'timeline-planner',
             title: text,
+            assignedTo: chronoUserId || '',
+            date: dateStr,
+            startTime: startDate.toISOString(),
+            endTime: endDate.toISOString(),
+            priority: 'medium',
+            week: weekStr,
+            month: monthStr,
             updatedAt: serverTimestamp()
           });
         } catch (e) {

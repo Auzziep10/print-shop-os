@@ -735,106 +735,139 @@ export function TimelinePlanner({ activeRange = 'Day' }: TimelinePlannerProps) {
                 );
              }
 
-             return activeMembers.map((member) => (
-              <div key={member.id} data-member-id={member.id} className="grid grid-cols-[200px_1fr] border-b border-brand-border/50 group transition-colors hover:bg-brand-bg/30">
-                <div className="p-4 flex items-center gap-3 border-r border-brand-border/50 bg-white group-hover:bg-brand-bg/50 transition-colors relative z-20">
-                  <span className="w-8 h-8 rounded-full bg-brand-bg border border-brand-border flex items-center justify-center text-[11px] font-bold tracking-wider text-brand-primary shadow-sm">
-                    {member.initials}
-                  </span>
-                  <span className="text-sm font-semibold text-brand-primary truncate">{member.name}</span>
-                </div>
+             return activeMembers.map((member) => {
+                const displayTasks = filteredTasks.map(t => {
+                   if (dragState && dragState.taskId === t.id) {
+                      return { ...t, start: dragState.currentStart, duration: dragState.currentDuration, memberId: dragState.currentMemberId };
+                   }
+                   return t;
+                });
                 
-                {/* Timeline Track */}
-                <div 
-                  className={`relative min-h-[70px] py-3 ${isManagerOrAdmin ? 'cursor-crosshair' : 'cursor-default'}`} 
-                  onClick={() => { if (isManagerOrAdmin && !taskInteractionRef.current && !isDraggingRef.current) handleOpenModal(member.id); }}
-                >
-                  {/* Background grid lines */}
-                  <div className="absolute inset-0 flex">
-                     {columns.map((col) => (
-                       <div 
-                         key={col.id} 
-                         className={`flex-1 border-l border-brand-border/50 border-dashed transition-colors group-hover:border-brand-border ${isManagerOrAdmin ? 'hover:bg-brand-primary/5' : ''}`} 
-                         onClick={(e) => { 
-                            e.stopPropagation(); 
-                            if (isManagerOrAdmin && !taskInteractionRef.current && !isDraggingRef.current) handleOpenModal(member.id, col.startVal); 
-                         }}
-                       ></div>
-                     ))}
-                  </div>
+                const memberTasks = displayTasks.filter(t => t.memberId === member.id && (t.range === activeRange || (!t.range && activeRange === 'Day')));
+                
+                // Sort tasks chronologically for deterministic stacking
+                const sortedTasks = [...memberTasks].sort((a, b) => (a.start || 0) - (b.start || 0));
+                
+                // Stacking algorithm: assign each overlapping task to a vertical lane
+                const overlaps = new Map<string, number>();
+                const lanes: number[] = []; // Stores the end time of the last task in each lane
+                
+                sortedTasks.forEach(task => {
+                   const start = task.start || 0;
+                   const end = start + (task.duration || 0);
+                   
+                   // Find the first lane where the last task ends before or at this task's start time
+                   let laneIndex = lanes.findIndex(laneEnd => laneEnd <= start);
+                   if (laneIndex === -1) {
+                      // No lane available, create a new one
+                      laneIndex = lanes.length;
+                   }
+                   lanes[laneIndex] = end;
+                   overlaps.set(task.id, laneIndex);
+                });
+                
+                const maxLane = Math.max(0, lanes.length - 1);
 
-                  {/* Tasks */}
-                  {(() => {
-                    const displayTasks = filteredTasks.map(t => {
-                       if (dragState && dragState.taskId === t.id) {
-                          return { ...t, start: dragState.currentStart, duration: dragState.currentDuration, memberId: dragState.currentMemberId };
-                       }
-                       return t;
-                    });
+                return (
+                  <div key={member.id} data-member-id={member.id} className="grid grid-cols-[200px_1fr] border-b border-brand-border/50 group transition-colors hover:bg-brand-bg/30">
+                    <div className="p-4 flex items-center gap-3 border-r border-brand-border/50 bg-white group-hover:bg-brand-bg/50 transition-colors relative z-20">
+                      <span className="w-8 h-8 rounded-full bg-brand-bg border border-brand-border flex items-center justify-center text-[11px] font-bold tracking-wider text-brand-primary shadow-sm">
+                        {member.initials}
+                      </span>
+                      <span className="text-sm font-semibold text-brand-primary truncate">{member.name}</span>
+                    </div>
                     
-                    return displayTasks.filter(t => t.memberId === member.id && (t.range === activeRange || (!t.range && activeRange === 'Day'))).map((task) => {
-                      const unitWidth = 100 / columns.length;
-                      const left = (task.start - startOffset) * unitWidth;
-                      const width = task.duration * unitWidth;
-                      const isDragging = dragState?.taskId === task.id;
-                      
-                      return (
-                        <div 
-                          key={task.id}
-                          data-task-id={task.id}
-                          onClick={(e) => e.stopPropagation()}
-                          onDoubleClick={(e) => { 
-                             if (!isManagerOrAdmin) return;
-                             e.stopPropagation(); 
-                             handleEditTask(task); 
-                          }}
-                          onMouseDown={(e) => {
-                             if (!isManagerOrAdmin) return;
-                             taskInteractionRef.current = true;
-                             if ((e.target as HTMLElement).getAttribute('data-resize-handle')) return;
-                             setDragState({
-                               taskId: task.id, type: 'move', startX: e.clientX, startY: e.clientY,
-                               initialStart: task.start, initialDuration: task.duration, initialMemberId: task.memberId,
-                               currentStart: task.start, currentDuration: task.duration, currentMemberId: task.memberId
-                             });
-                          }}
-                          className={`absolute h-[42px] rounded-lg text-white px-3 flex flex-col justify-center shadow-sm overflow-hidden border border-black/10 ${task.color} ${isDragging ? 'opacity-80 shadow-2xl scale-[1.02] z-50 cursor-grabbing' : 'z-20'} ${isManagerOrAdmin ? 'cursor-grab active:cursor-grabbing hover:shadow-md hover:scale-[1.01] hover:-translate-y-0.5' : 'cursor-default'}`}
-                          style={{ 
-                            left: `${Math.max(0, left)}%`, 
-                            width: `calc(${width}% - 6px)`, 
-                            top: `14px`,
-                            transition: isDragging ? 'none' : 'all 0.2s ease-in-out'
-                          }}
-                        >
-                          <span className="font-semibold text-xs truncate leading-tight tracking-wide pointer-events-none">{task.title}</span>
-                          <span className="text-[9px] opacity-80 uppercase font-bold tracking-widest mt-0.5 pointer-events-none">
-                            {formatTaskTime(task.start, activeRange)} - {formatTaskTime(task.start + task.duration, activeRange)}
-                          </span>
+                    {/* Timeline Track */}
+                    <div 
+                      className={`relative ${isManagerOrAdmin ? 'cursor-crosshair' : 'cursor-default'}`} 
+                      style={{ 
+                        minHeight: '70px',
+                        height: `${70 + maxLane * 48}px`,
+                        paddingTop: '12px',
+                        paddingBottom: '12px',
+                        transition: dragState ? 'none' : 'height 0.2s ease-in-out'
+                      }}
+                      onClick={() => { if (isManagerOrAdmin && !taskInteractionRef.current && !isDraggingRef.current) handleOpenModal(member.id); }}
+                    >
+                      {/* Background grid lines */}
+                      <div className="absolute inset-0 flex">
+                         {columns.map((col) => (
+                           <div 
+                             key={col.id} 
+                             className={`flex-1 border-l border-brand-border/50 border-dashed transition-colors group-hover:border-brand-border ${isManagerOrAdmin ? 'hover:bg-brand-primary/5' : ''}`} 
+                             onClick={(e) => { 
+                                e.stopPropagation(); 
+                                if (isManagerOrAdmin && !taskInteractionRef.current && !isDraggingRef.current) handleOpenModal(member.id, col.startVal); 
+                             }}
+                           ></div>
+                         ))}
+                      </div>
 
-                          {isManagerOrAdmin && (
-                            <div 
-                               data-resize-handle="true"
-                               className="absolute right-0 top-0 bottom-0 w-3 cursor-ew-resize hover:bg-white/30 transition-colors flex flex-col justify-center items-center opacity-0 hover:opacity-100 group-hover:opacity-100"
-                               onMouseDown={(e) => {
-                                  e.stopPropagation();
-                                  taskInteractionRef.current = true;
-                                  setDragState({
-                                    taskId: task.id, type: 'resize', startX: e.clientX, startY: e.clientY,
-                                    initialStart: task.start, initialDuration: task.duration, initialMemberId: task.memberId,
-                                    currentStart: task.start, currentDuration: task.duration, currentMemberId: task.memberId
-                                  });
-                               }}
-                            >
-                               <div className="w-[3px] h-3 border-l border-r border-white/50 pointer-events-none"></div>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    });
-                  })()}
-                </div>
-              </div>
-             ));
+                      {/* Tasks */}
+                      {memberTasks.map((task) => {
+                        const unitWidth = 100 / columns.length;
+                        const left = (task.start - startOffset) * unitWidth;
+                        const width = task.duration * unitWidth;
+                        const isDragging = dragState?.taskId === task.id;
+                        const overlapIndex = overlaps.get(task.id) || 0;
+                        
+                        return (
+                          <div 
+                            key={task.id}
+                            data-task-id={task.id}
+                            onClick={(e) => e.stopPropagation()}
+                            onDoubleClick={(e) => { 
+                               if (!isManagerOrAdmin) return;
+                               e.stopPropagation(); 
+                               handleEditTask(task); 
+                            }}
+                            onMouseDown={(e) => {
+                               if (!isManagerOrAdmin) return;
+                               taskInteractionRef.current = true;
+                               if ((e.target as HTMLElement).getAttribute('data-resize-handle')) return;
+                               setDragState({
+                                 taskId: task.id, type: 'move', startX: e.clientX, startY: e.clientY,
+                                 initialStart: task.start, initialDuration: task.duration, initialMemberId: task.memberId,
+                                 currentStart: task.start, currentDuration: task.duration, currentMemberId: task.memberId
+                               });
+                            }}
+                            className={`absolute h-[42px] rounded-lg text-white px-3 flex flex-col justify-center shadow-sm overflow-hidden border border-black/10 ${task.color} ${isDragging ? 'opacity-80 shadow-2xl scale-[1.02] z-50 cursor-grabbing' : 'z-20'} ${isManagerOrAdmin ? 'cursor-grab active:cursor-grabbing hover:shadow-md hover:scale-[1.01] hover:-translate-y-0.5' : 'cursor-default'}`}
+                            style={{ 
+                              left: `${Math.max(0, left)}%`, 
+                              width: `calc(${width}% - 6px)`, 
+                              top: `${14 + overlapIndex * 48}px`,
+                              transition: isDragging ? 'none' : 'all 0.2s ease-in-out'
+                            }}
+                          >
+                            <span className="font-semibold text-xs truncate leading-tight tracking-wide pointer-events-none">{task.title}</span>
+                            <span className="text-[9px] opacity-80 uppercase font-bold tracking-widest mt-0.5 pointer-events-none">
+                              {formatTaskTime(task.start, activeRange)} - {formatTaskTime(task.start + task.duration, activeRange)}
+                            </span>
+
+                            {isManagerOrAdmin && (
+                              <div 
+                                 data-resize-handle="true"
+                                 className="absolute right-0 top-0 bottom-0 w-3 cursor-ew-resize hover:bg-white/30 transition-colors flex flex-col justify-center items-center opacity-0 hover:opacity-100 group-hover:opacity-100"
+                                 onMouseDown={(e) => {
+                                    e.stopPropagation();
+                                    taskInteractionRef.current = true;
+                                    setDragState({
+                                      taskId: task.id, type: 'resize', startX: e.clientX, startY: e.clientY,
+                                      initialStart: task.start, initialDuration: task.duration, initialMemberId: task.memberId,
+                                      currentStart: task.start, currentDuration: task.duration, currentMemberId: task.memberId
+                                    });
+                                 }}
+                              >
+                                 <div className="w-[3px] h-3 border-l border-r border-white/50 pointer-events-none"></div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+             });
           })()}
         </div>
         )}
