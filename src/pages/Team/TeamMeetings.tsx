@@ -1087,8 +1087,6 @@ export function TeamMeetings() {
     return resultPriorities;
   };
 
-
-
   const handleTogglePriorityCompleted = async (meetingId: string, memberId: string, priorityIndex: number, currentVal: boolean) => {
     const meet = meetings.find(m => m.id === meetingId);
     if (!meet) return;
@@ -1142,7 +1140,6 @@ export function TeamMeetings() {
       }
     }
   };
-
   const handleSubmitMyCheckin = async () => {
     if (!selectedMeeting || !userData) return;
 

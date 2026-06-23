@@ -5,13 +5,16 @@ import { PillButton } from '../../components/ui/PillButton';
 import { PackingSlipsManager } from '../../components/Orders/PackingSlipsManager';
 import { TrackingModal } from '../../components/Orders/TrackingModal';
 import { ArrowLeft, MessageSquare, QrCode, Clock, Users, Download, Loader2, X, Edit3, Upload, Trash2, Plus, ChevronDown, Image as ImageIcon, Box, Printer, ExternalLink, ShoppingBag, Search, Check, Truck, GripVertical, Pause, Play, DollarSign, PackagePlus, Layers, CreditCard, Copy, RotateCcw, Sparkles } from 'lucide-react';
-import QRCode from 'react-qr-code';
+import ReactQRCode from 'react-qr-code';
+import QRCodeLib from 'qrcode';
+import JSZip from 'jszip';
+import FileSaver from 'file-saver';
 import { StatusBadge, type StatusType } from '../../components/ui/StatusBadge';
 import { useAuth } from '../../contexts/AuthContext';
 import { useOrders } from '../../hooks/useOrders';
 import { db, storage } from '../../lib/firebase';
 import { doc, setDoc, getDoc, updateDoc, collection, getDocs, query, where, onSnapshot, deleteDoc } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytes, getDownloadURL, uploadString } from 'firebase/storage';
 import { getTrackingLink, normalizeUser } from '../../lib/utils';
 import { PalletPickOptimizerModal } from '../../components/Inventory/PalletPickOptimizerModal';
 import { GarmentCustomizerModal } from '../../components/Portal/GarmentCustomizerModal';
@@ -37,6 +40,672 @@ const DataPill = ({ label, value }: { label: string, value: string }) => (
     <span className="text-xs text-neutral-800 font-semibold leading-none truncate w-full text-center">{value}</span>
   </div>
 );
+
+// Utility to draw solid black Graphtec Type 1 registration marks (L-marks) in the 4 corners of the sheet's printable area
+const drawGraphtecRegistrationMarks = (
+    ctx: CanvasRenderingContext2D,
+    width: number,
+    height: number,
+    topOffset: number,
+    drawBackground: boolean = false
+) => {
+    const BASE_DPI = 300;
+    const margin = 0.5 * BASE_DPI; // 150px (0.5 inch safety margin)
+    const markLength = 0.5 * BASE_DPI; // 150px (12.7 mm mark line length)
+    const thickness = 0.04 * BASE_DPI; // 12px (approx 1.0 mm line thickness)
+    const padding = 0.15 * BASE_DPI; // 45px (0.15 inch padding for the white background squares)
+
+    const xLeft = margin;
+    const xRight = width - margin;
+    const yTop = topOffset;
+    const yBottom = height - margin;
+
+    if (drawBackground) {
+        ctx.fillStyle = 'white';
+        
+        // 1. Top-Left White Background
+        ctx.fillRect(
+            xLeft - padding,
+            yTop - padding,
+            markLength + (2 * padding),
+            markLength + (2 * padding)
+        );
+
+        // 2. Top-Right White Background
+        ctx.fillRect(
+            xRight - markLength - padding,
+            yTop - padding,
+            markLength + (2 * padding),
+            markLength + (2 * padding)
+        );
+
+        // 3. Bottom-Left White Background
+        ctx.fillRect(
+            xLeft - padding,
+            yBottom - markLength - padding,
+            markLength + (2 * padding),
+            markLength + (2 * padding)
+        );
+
+        // 4. Bottom-Right White Background
+        ctx.fillRect(
+            xRight - markLength - padding,
+            yBottom - markLength - padding,
+            markLength + (2 * padding),
+            markLength + (2 * padding)
+        );
+    }
+
+    ctx.fillStyle = 'black';
+
+    // 1. Top-Left L-Mark (Corner pointing down-right)
+    ctx.fillRect(xLeft, yTop, markLength, thickness);
+    ctx.fillRect(xLeft, yTop, thickness, markLength);
+
+    // 2. Top-Right L-Mark (Corner pointing down-left)
+    ctx.fillRect(xRight - markLength, yTop, markLength, thickness);
+    ctx.fillRect(xRight - thickness, yTop, thickness, markLength);
+
+    // 3. Bottom-Left L-Mark (Corner pointing up-right)
+    ctx.fillRect(xLeft, yBottom - thickness, markLength, thickness);
+    ctx.fillRect(xLeft, yBottom - markLength, thickness, markLength);
+
+    // 4. Bottom-Right L-Mark (Corner pointing up-left)
+    ctx.fillRect(xRight - markLength, yBottom - thickness, markLength, thickness);
+    ctx.fillRect(xRight - thickness, yBottom - markLength, thickness, markLength);
+};
+
+// Calculates a safe padding margin around an artwork that prevents it from overlapping adjacent cut lines
+const calculateSafePadding = (
+    currentArt: any,
+    allArtworks: any[],
+    targetPadding: number
+): number => {
+    let safePadding = targetPadding;
+
+    const currentCenterX = currentArt.x + currentArt.width / 2;
+    const currentCenterY = currentArt.y + currentArt.height / 2;
+
+    for (const other of allArtworks) {
+        if (other.id === currentArt.id) continue;
+
+        const otherCenterX = other.x + other.width / 2;
+        const otherCenterY = other.y + other.height / 2;
+
+        const dx = Math.abs(currentCenterX - otherCenterX);
+        const dy = Math.abs(currentCenterY - otherCenterY);
+
+        const gapX = dx - (currentArt.width + other.width) / 2;
+        const gapY = dy - (currentArt.height + other.height) / 2;
+
+        let distance = 0;
+        if (gapX > 0 && gapY > 0) {
+            distance = Math.sqrt(gapX * gapX + gapY * gapY);
+        } else if (gapX > 0) {
+            distance = gapX;
+        } else if (gapY > 0) {
+            distance = gapY;
+        } else {
+            distance = 0;
+        }
+
+        const distancePx = distance * 300; // 300 DPI
+        
+        // If they are closer than 2 * targetPadding, cap the padding to half the distance (with 12px physical cut line safety gap)
+        if (distancePx < 2 * targetPadding) {
+            const halfDist = Math.max(0, (distancePx - 12) / 2);
+            if (halfDist < safePadding) {
+                safePadding = halfDist;
+            }
+        }
+    }
+
+    return safePadding;
+};
+
+const isVinylItem = (item: any): boolean => {
+    const name = (item.sheetSizeName || '').toLowerCase();
+    return name.includes('(vinyl)') || name.includes('elevated flex');
+};
+
+// Helper function to trace contour paths from a canvas image (e.g. for vinyl vector outlines)
+const findContourPaths = (canvas: HTMLCanvasElement): string[] => {
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return [];
+    const width = canvas.width;
+    const height = canvas.height;
+    const imgData = ctx.getImageData(0, 0, width, height);
+    const data = imgData.data;
+
+    const isSolid = (x: number, y: number): boolean => {
+        if (x < 0 || x >= width || y < 0 || y >= height) return false;
+        return data[(y * width + x) * 4 + 3] > 30; // Alpha threshold
+    };
+
+    const visited = new Uint8Array(width * height);
+    const paths: string[] = [];
+
+    // Direction offsets for Moore neighborhood
+    const dx = [-1, 0, 1, 1, 1, 0, -1, -1];
+    const dy = [-1, -1, -1, 0, 1, 1, 1, 0];
+
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            const idx = y * width + x;
+            if (isSolid(x, y) && !visited[idx]) {
+                let isBoundary = false;
+                for (let i = 0; i < 8; i++) {
+                    if (!isSolid(x + dx[i], y + dy[i])) {
+                        isBoundary = true;
+                        break;
+                    }
+                }
+
+                if (isBoundary) {
+                    const points: {x: number; y: number}[] = [];
+                    let currX = x;
+                    let currY = y;
+                    let prevX = x;
+                    let prevY = y - 1;
+                    
+                    let startX = currX;
+                    let startY = currY;
+                    let count = 0;
+                    const maxPoints = width * height;
+
+                    while (count < maxPoints) {
+                        points.push({ x: currX, y: currY });
+                        visited[currY * width + currX] = 1;
+
+                        let entryDir = -1;
+                        for (let d = 0; d < 8; d++) {
+                            if (currX + dx[d] === prevX && currY + dy[d] === prevY) {
+                                entryDir = d;
+                                break;
+                            }
+                        }
+
+                        let foundNext = false;
+                        let nextX = -1;
+                        let nextY = -1;
+                        
+                        for (let i = 1; i <= 8; i++) {
+                            const d = (entryDir + i) % 8;
+                            const tx = currX + dx[d];
+                            const ty = currY + dy[d];
+                            if (isSolid(tx, ty)) {
+                                nextX = tx;
+                                nextY = ty;
+                                foundNext = true;
+                                break;
+                            }
+                        }
+
+                        if (!foundNext || (nextX === startX && nextY === startY)) {
+                            break;
+                        }
+
+                        prevX = currX;
+                        prevY = currY;
+                        currX = nextX;
+                        currY = nextY;
+                        count++;
+                    }
+
+                    if (points.length >= 3) {
+                        let pathD = `M ${points[0].x} ${points[0].y}`;
+                        for (let i = 1; i < points.length; i++) {
+                            pathD += ` L ${points[i].x} ${points[i].y}`;
+                        }
+                        pathD += ' Z';
+                        paths.push(pathD);
+                    }
+                }
+            }
+        }
+    }
+    return paths;
+};
+
+// Generates both print-ready sheet (artworks + marks + header) and cut-ready sheet (cut paths + marks + header)
+const generateFinalSheetsForPrintAndCut = async (
+    orderItem: any,
+    orderId: string,
+    customerName: string,
+    shippingAddress: any,
+): Promise<{ printDataUrl: string; cutDataUrl: string }> => {
+    const BASE_DPI = 300;
+    const HEADER_HEIGHT_INCHES = 1;
+    const MARGIN_INCHES = 1.0; // 1 inch margin on all sides to hold Graphtec registration marks
+    
+    const HEADER_HEIGHT_PX = HEADER_HEIGHT_INCHES * BASE_DPI; // 300px
+    const MARGIN_PX = MARGIN_INCHES * BASE_DPI; // 300px
+    const HEADER_TO_DESIGN_GAP = 0.5 * BASE_DPI; // 150px
+    const yOffset = HEADER_HEIGHT_PX + MARGIN_PX + HEADER_TO_DESIGN_GAP; // 750px
+
+    const isVinyl = isVinylItem(orderItem);
+
+    let sourceImageUrl = orderItem.originalSheetUrl || orderItem.image || '';
+    let isSingleTransferLayout = orderItem.sheetSizeName === 'Single Design Transfer';
+    const isAutoLayout = (orderItem.sheetSizeName || '').toLowerCase().includes('auto-layout');
+    
+    let designWidthInches = isSingleTransferLayout ? 22 : (orderItem.sheetWidth || 22);
+    let sheetContentHeightInches: number;
+
+    if (isSingleTransferLayout) {
+        const SPACING_INCHES = 0.25;
+        const itemWidthInches = orderItem.sheetWidth || 3.5;
+        const itemHeightInches = orderItem.sheetHeight || 3.5;
+
+        const itemsPerRow = Math.floor((22 + SPACING_INCHES) / (itemWidthInches + SPACING_INCHES));
+        const numRows = Math.ceil(orderItem.quantity / itemsPerRow);
+
+        sheetContentHeightInches = (itemHeightInches * numRows) + (SPACING_INCHES * (numRows + 1));
+    } else {
+        sheetContentHeightInches = orderItem.sheetHeight || 24;
+    }
+    
+    const finalCanvasWidth = (designWidthInches + (2 * MARGIN_INCHES)) * BASE_DPI; // e.g. 24 inches for a 22 inch design area
+    const finalCanvasHeight = (sheetContentHeightInches * BASE_DPI) + HEADER_HEIGHT_PX + (2 * MARGIN_PX) + HEADER_TO_DESIGN_GAP;
+
+    const sourceImage = new window.Image();
+    sourceImage.crossOrigin = 'anonymous';
+    await new Promise((resolve, reject) => {
+        sourceImage.onload = resolve;
+        sourceImage.onerror = reject;
+        sourceImage.src = sourceImageUrl;
+    });
+
+    // 1. Create PRINT Canvas
+    const printCanvas = document.createElement('canvas');
+    printCanvas.width = finalCanvasWidth;
+    printCanvas.height = finalCanvasHeight;
+    const printCtx = printCanvas.getContext('2d');
+    if (!printCtx) throw new Error('No print context');
+
+    // 2. Create CUT Canvas
+    const cutCanvas = document.createElement('canvas');
+    cutCanvas.width = finalCanvasWidth;
+    cutCanvas.height = finalCanvasHeight;
+    const cutCtx = cutCanvas.getContext('2d');
+    if (!cutCtx) throw new Error('No cut context');
+
+    cutCtx.fillStyle = 'white';
+    cutCtx.fillRect(0, 0, finalCanvasWidth, finalCanvasHeight);
+
+    const designCanvas = document.createElement('canvas');
+    designCanvas.width = designWidthInches * BASE_DPI;
+    designCanvas.height = sheetContentHeightInches * BASE_DPI;
+    const designCtx = designCanvas.getContext('2d');
+    if (!designCtx) throw new Error('No design context');
+
+    // --- Draw Main Content ---
+    if (isSingleTransferLayout) {
+        const SPACING_INCHES = 0.25;
+        const itemWidthInches = orderItem.sheetWidth || 3.5;
+        const itemHeightInches = orderItem.sheetHeight || 3.5;
+        const itemsPerRow = Math.floor((22 + SPACING_INCHES) / (itemWidthInches + SPACING_INCHES));
+
+        let currentX = MARGIN_PX + (SPACING_INCHES * BASE_DPI);
+        let currentY = yOffset + (SPACING_INCHES * BASE_DPI);
+        let placedItems = 0;
+
+        for (let i = 0; i < orderItem.quantity; i++) {
+            if (placedItems > 0 && placedItems % itemsPerRow === 0) {
+                currentX = MARGIN_PX + (SPACING_INCHES * BASE_DPI);
+                currentY += (itemHeightInches + SPACING_INCHES) * BASE_DPI;
+            }
+
+            printCtx.drawImage(
+                sourceImage,
+                currentX,
+                currentY,
+                itemWidthInches * BASE_DPI,
+                itemHeightInches * BASE_DPI
+            );
+
+            designCtx.drawImage(
+                sourceImage,
+                currentX - MARGIN_PX,
+                currentY - yOffset,
+                itemWidthInches * BASE_DPI,
+                itemHeightInches * BASE_DPI
+            );
+
+            if (!isVinyl) {
+                // Draw black outline around each item for DTF plotter cutter
+                cutCtx.strokeStyle = 'black';
+                cutCtx.lineWidth = 6;
+                const paddingPx = 0.08 * BASE_DPI; // 24px (~2mm) margin
+                cutCtx.strokeRect(
+                    currentX - paddingPx,
+                    currentY - paddingPx,
+                    (itemWidthInches * BASE_DPI) + (2 * paddingPx),
+                    (itemHeightInches * BASE_DPI) + (2 * paddingPx)
+                );
+            }
+
+            currentX += (itemWidthInches + SPACING_INCHES) * BASE_DPI;
+            placedItems++;
+        }
+    } else {
+        // --- Standard Gang Sheet ---
+        const artworks = orderItem.artworks || [];
+
+        if (isAutoLayout && artworks.length > 0) {
+            artworks.forEach((art: any) => {
+                const artX = art.x * BASE_DPI;
+                const artY = art.y * BASE_DPI;
+                const artW = art.width * BASE_DPI;
+                const artH = art.height * BASE_DPI;
+
+                printCtx.drawImage(
+                    sourceImage,
+                    artX + MARGIN_PX,
+                    artY + yOffset,
+                    artW,
+                    artH
+                );
+
+                designCtx.drawImage(
+                    sourceImage,
+                    artX,
+                    artY,
+                    artW,
+                    artH
+                );
+            });
+        } else {
+            printCtx.drawImage(
+                sourceImage, 
+                MARGIN_PX, 
+                yOffset, 
+                designWidthInches * BASE_DPI, 
+                (orderItem.sheetHeight || 24) * BASE_DPI
+            );
+
+            designCtx.drawImage(
+                sourceImage,
+                0,
+                0,
+                designWidthInches * BASE_DPI,
+                (orderItem.sheetHeight || 24) * BASE_DPI
+            );
+        }
+
+        if (!isVinyl) {
+            cutCtx.strokeStyle = 'black';
+            cutCtx.lineWidth = 6;
+
+            const artworks = orderItem.artworks || [];
+            if (artworks.length > 0 && isAutoLayout) {
+                artworks.forEach((art: any) => {
+                    const centerX = (art.x + art.width / 2) * BASE_DPI + MARGIN_PX;
+                    const centerY = (art.y + art.height / 2) * BASE_DPI + yOffset;
+
+                    const targetPadding = 0.08 * BASE_DPI;
+                    const safePadding = calculateSafePadding(art, artworks, targetPadding);
+
+                    cutCtx.save();
+                    cutCtx.translate(centerX, centerY);
+                    cutCtx.rotate((art.rotation || 0) * Math.PI / 180);
+
+                    const wPx = art.width * BASE_DPI + (2 * safePadding);
+                    const hPx = art.height * BASE_DPI + (2 * safePadding);
+                    cutCtx.strokeRect(-wPx / 2, -hPx / 2, wPx, hPx);
+
+                    cutCtx.restore();
+                });
+            } else {
+                const contentMargin = 0.25 * BASE_DPI;
+                cutCtx.strokeRect(
+                    MARGIN_PX + contentMargin,
+                    yOffset + contentMargin,
+                    (designWidthInches * BASE_DPI) - (contentMargin * 2),
+                    ((orderItem.sheetHeight || 24) * BASE_DPI) - (contentMargin * 2)
+                );
+            }
+        }
+    }
+
+    if (isVinyl) {
+        designCtx.globalCompositeOperation = 'source-in';
+        designCtx.fillStyle = 'black';
+        designCtx.fillRect(0, 0, designCanvas.width, designCanvas.height);
+        cutCtx.drawImage(designCanvas, MARGIN_PX, yOffset);
+    }
+
+    // --- Draw Headers and QR Codes ---
+    const origin = window.location.origin;
+    const qrUrl = `${origin}/admin?orderId=${orderId}`;
+    const qrCodeDataUrl = await QRCodeLib.toDataURL(qrUrl, { width: HEADER_HEIGHT_PX - 20, margin: 1 });
+    
+    const qrImg = new window.Image();
+    await new Promise(resolve => { qrImg.onload = resolve; qrImg.src = qrCodeDataUrl; });
+
+    const FONT_SIZE_LARGE = BASE_DPI / 4;
+    const FONT_SIZE_MEDIUM = BASE_DPI / 6;
+    const FONT_SIZE_SMALL = BASE_DPI / 8;
+
+    const drawHeader = (ctx: CanvasRenderingContext2D, isCut: boolean) => {
+        const headerY = 1.0 * BASE_DPI;
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, headerY, finalCanvasWidth, HEADER_HEIGHT_PX);
+        
+        const contentStartX = (0.5 * BASE_DPI) + (0.5 * BASE_DPI) + 50; 
+        
+        if (!isCut) {
+            ctx.drawImage(qrImg, contentStartX, headerY + 10);
+        }
+
+        ctx.fillStyle = 'black';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+
+        const textX = isCut ? contentStartX : contentStartX + (HEADER_HEIGHT_PX - 20) + 20;
+
+        let textY = headerY + 15;
+        ctx.font = `bold ${FONT_SIZE_LARGE}px Arial`;
+        ctx.fillText(`Order: ${orderId}`, textX, textY);
+        textY += FONT_SIZE_LARGE + 15;
+        
+        ctx.font = `bold ${FONT_SIZE_MEDIUM}px Arial`;
+        ctx.fillText(`To: ${customerName}`, textX, textY);
+        textY += FONT_SIZE_MEDIUM + 10;
+        
+        ctx.font = `${FONT_SIZE_SMALL}px Arial`;
+        const shipToName = shippingAddress ? `${shippingAddress.street || ''}, ${shippingAddress.city || ''}, ${shippingAddress.state || ''} ${shippingAddress.zip || ''}` : 'Pickup';
+        ctx.fillText(`Ship To: ${shipToName}`, textX, textY);
+        textY += FONT_SIZE_SMALL + 15;
+        
+        const sheetDescription = isSingleTransferLayout
+            ? `${orderItem.quantity} x (${orderItem.sheetWidth || 3.5}" x ${orderItem.sheetHeight || 3.5}")`
+            : `${orderItem.sheetWidth || 22}" x ${orderItem.sheetHeight || 24}" Sheet`;
+        ctx.fillText(`Sheet: ${sheetDescription}`, textX, textY);
+    };
+
+    drawHeader(printCtx, false);
+
+    drawGraphtecRegistrationMarks(printCtx, finalCanvasWidth, finalCanvasHeight, 0.5 * BASE_DPI, true);
+    drawGraphtecRegistrationMarks(cutCtx, finalCanvasWidth, finalCanvasHeight, 0.5 * BASE_DPI, false);
+
+    // --- Generate SVG Cut File ---
+    let svgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="${finalCanvasWidth}" height="${finalCanvasHeight}" viewBox="0 0 ${finalCanvasWidth} ${finalCanvasHeight}">\n`;
+    svgContent += `  <!-- Background -->\n`;
+    svgContent += `  <rect width="${finalCanvasWidth}" height="${finalCanvasHeight}" fill="white" />\n`;
+
+    const margin = 0.5 * BASE_DPI;
+    const markLength = 0.5 * BASE_DPI;
+    const thickness = 0.04 * BASE_DPI;
+    const xLeft = margin;
+    const xRight = finalCanvasWidth - margin;
+    const yTop = 0.5 * BASE_DPI;
+    const yBottom = finalCanvasHeight - margin;
+
+    svgContent += `  <!-- Graphtec Registration Marks -->\n`;
+    svgContent += `  <rect x="${xLeft}" y="${yTop}" width="${markLength}" height="${thickness}" fill="black" />\n`;
+    svgContent += `  <rect x="${xLeft}" y="${yTop}" width="${thickness}" height="${markLength}" fill="black" />\n`;
+    svgContent += `  <rect x="${xRight - markLength}" y="${yTop}" width="${markLength}" height="${thickness}" fill="black" />\n`;
+    svgContent += `  <rect x="${xRight - thickness}" y="${yTop}" width="${thickness}" height="${markLength}" fill="black" />\n`;
+    svgContent += `  <rect x="${xLeft}" y="${yBottom - thickness}" width="${markLength}" height="${thickness}" fill="black" />\n`;
+    svgContent += `  <rect x="${xLeft}" y="${yBottom - markLength}" width="${thickness}" height="${markLength}" fill="black" />\n`;
+    svgContent += `  <rect x="${xRight - markLength}" y="${yBottom - thickness}" width="${markLength}" height="${thickness}" fill="black" />\n`;
+    svgContent += `  <rect x="${xRight - thickness}" y="${yBottom - markLength}" width="${thickness}" height="${markLength}" fill="black" />\n`;
+
+    svgContent += `  <!-- Cut Paths -->\n`;
+    if (!isVinyl) {
+        if (isSingleTransferLayout) {
+            const SPACING_INCHES = 0.25;
+            const itemWidthInches = orderItem.sheetWidth || 3.5;
+            const itemHeightInches = orderItem.sheetHeight || 3.5;
+            const itemsPerRow = Math.floor((22 + SPACING_INCHES) / (itemWidthInches + SPACING_INCHES));
+
+            let currentX = MARGIN_PX + (SPACING_INCHES * BASE_DPI);
+            let currentY = yOffset + (SPACING_INCHES * BASE_DPI);
+            let placedItems = 0;
+
+            for (let i = 0; i < orderItem.quantity; i++) {
+                if (placedItems > 0 && placedItems % itemsPerRow === 0) {
+                    currentX = MARGIN_PX + (SPACING_INCHES * BASE_DPI);
+                    currentY += (itemHeightInches + SPACING_INCHES) * BASE_DPI;
+                }
+
+                const paddingPx = 0.08 * BASE_DPI;
+                const rectX = currentX - paddingPx;
+                const rectY = currentY - paddingPx;
+                const rectW = (itemWidthInches * BASE_DPI) + (2 * paddingPx);
+                const rectH = (itemHeightInches * BASE_DPI) + (2 * paddingPx);
+
+                svgContent += `  <rect x="${rectX}" y="${rectY}" width="${rectW}" height="${rectH}" fill="none" stroke="black" stroke-width="6" />\n`;
+
+                currentX += (itemWidthInches + SPACING_INCHES) * BASE_DPI;
+                placedItems++;
+            }
+        } else {
+            const artworks = orderItem.artworks || [];
+            if (artworks.length > 0 && isAutoLayout) {
+                artworks.forEach((art: any) => {
+                    const centerX = (art.x + art.width / 2) * BASE_DPI + MARGIN_PX;
+                    const centerY = (art.y + art.height / 2) * BASE_DPI + yOffset;
+
+                    const targetPadding = 0.08 * BASE_DPI;
+                    const safePadding = calculateSafePadding(art, artworks, targetPadding);
+
+                    const wPx = art.width * BASE_DPI + (2 * safePadding);
+                    const hPx = art.height * BASE_DPI + (2 * safePadding);
+
+                    const rotation = art.rotation || 0;
+                    const rx = centerX - wPx / 2;
+                    const ry = centerY - hPx / 2;
+
+                    svgContent += `  <rect x="${rx}" y="${ry}" width="${wPx}" height="${hPx}" fill="none" stroke="black" stroke-width="6" transform="rotate(${rotation}, ${centerX}, ${centerY})" />\n`;
+                });
+            } else {
+                const contentMargin = 0.25 * BASE_DPI;
+                const rectX = MARGIN_PX + contentMargin;
+                const rectY = yOffset + contentMargin;
+                const rectW = (designWidthInches * BASE_DPI) - (contentMargin * 2);
+                const rectH = ((orderItem.sheetHeight || 24) * BASE_DPI) - (contentMargin * 2);
+                svgContent += `  <rect x="${rectX}" y="${rectY}" width="${rectW}" height="${rectH}" fill="none" stroke="black" stroke-width="6" />\n`;
+            }
+        }
+    } else {
+        let traceWidth = 400;
+        let traceHeight = 400;
+        let contourPaths: string[] = [];
+
+        const imgW = sourceImage.naturalWidth || sourceImage.width || 400;
+        const imgH = sourceImage.naturalHeight || sourceImage.height || 400;
+        
+        const maxDim = 400;
+        if (imgW > imgH) {
+            traceWidth = maxDim;
+            traceHeight = Math.round(maxDim * imgH / imgW);
+        } else {
+            traceHeight = maxDim;
+            traceWidth = Math.round(maxDim * imgW / imgH);
+        }
+
+        const traceCanvas = document.createElement('canvas');
+        traceCanvas.width = traceWidth;
+        traceCanvas.height = traceHeight;
+        const traceCtx = traceCanvas.getContext('2d');
+        if (traceCtx) {
+            traceCtx.drawImage(sourceImage, 0, 0, traceWidth, traceHeight);
+            contourPaths = findContourPaths(traceCanvas);
+        }
+
+        if (isSingleTransferLayout) {
+            const SPACING_INCHES = 0.25;
+            const itemWidthInches = orderItem.sheetWidth || 3.5;
+            const itemHeightInches = orderItem.sheetHeight || 3.5;
+            const itemsPerRow = Math.floor((22 + SPACING_INCHES) / (itemWidthInches + SPACING_INCHES));
+
+            let currentX = MARGIN_PX + (SPACING_INCHES * BASE_DPI);
+            let currentY = yOffset + (SPACING_INCHES * BASE_DPI);
+            let placedItems = 0;
+
+            for (let i = 0; i < orderItem.quantity; i++) {
+                if (placedItems > 0 && placedItems % itemsPerRow === 0) {
+                    currentX = MARGIN_PX + (SPACING_INCHES * BASE_DPI);
+                    currentY += (itemHeightInches + SPACING_INCHES) * BASE_DPI;
+                }
+
+                const artW = itemWidthInches * BASE_DPI;
+                const artH = itemHeightInches * BASE_DPI;
+                const centerX = currentX + artW / 2;
+                const centerY = currentY + artH / 2;
+
+                const scaleX = artW / traceWidth;
+                const scaleY = artH / traceHeight;
+
+                svgContent += `  <g transform="translate(${centerX}, ${centerY}) scale(${scaleX}, ${scaleY}) translate(${-traceWidth / 2}, ${-traceHeight / 2})">\n`;
+                contourPaths.forEach(d => {
+                    svgContent += `    <path d="${d}" fill="black" stroke="black" stroke-width="${6 / Math.max(scaleX, scaleY)}" stroke-linejoin="round" />\n`;
+                });
+                svgContent += `  </g>\n`;
+
+                currentX += (itemWidthInches + SPACING_INCHES) * BASE_DPI;
+                placedItems++;
+            }
+        } else {
+            const artworks = orderItem.artworks || [];
+            if (artworks.length > 0 && isAutoLayout) {
+                artworks.forEach((art: any) => {
+                    const centerX = (art.x + art.width / 2) * BASE_DPI + MARGIN_PX;
+                    const centerY = (art.y + art.height / 2) * BASE_DPI + yOffset;
+                    const artW = art.width * BASE_DPI;
+                    const artH = art.height * BASE_DPI;
+
+                    const scaleX = artW / traceWidth;
+                    const scaleY = artH / traceHeight;
+                    const rotation = art.rotation || 0;
+
+                    svgContent += `  <g transform="translate(${centerX}, ${centerY}) rotate(${rotation}) scale(${scaleX}, ${scaleY}) translate(${-traceWidth / 2}, ${-traceHeight / 2})">\n`;
+                    contourPaths.forEach(d => {
+                        svgContent += `    <path d="${d}" fill="black" stroke="black" stroke-width="${6 / Math.max(scaleX, scaleY)}" stroke-linejoin="round" />\n`;
+                    });
+                    svgContent += `  </g>\n`;
+                });
+            } else {
+                const contentMargin = 0.25 * BASE_DPI;
+                const rectX = MARGIN_PX + contentMargin;
+                const rectY = yOffset + contentMargin;
+                const rectW = (designWidthInches * BASE_DPI) - (contentMargin * 2);
+                const rectH = ((orderItem.sheetHeight || 24) * BASE_DPI) - (contentMargin * 2);
+                svgContent += `  <rect x="${rectX}" y="${rectY}" width="${rectW}" height="${rectH}" fill="black" />\n`;
+            }
+        }
+    }
+
+    svgContent += `</svg>`;
+    const cutDataUrl = 'data:image/svg+xml;base64,' + window.btoa(unescape(encodeURIComponent(svgContent)));
+
+    return {
+        printDataUrl: printCanvas.toDataURL('image/png'),
+        cutDataUrl: cutDataUrl
+    };
+};
 
 export function OrderDetail() {
   const { id } = useParams();
@@ -275,6 +944,10 @@ export function OrderDetail() {
   const [isItemSaving, setIsItemSaving] = useState(false);
   const [isUploadingMain, setIsUploadingMain] = useState(false);
   const [isUploadingRef, setIsUploadingRef] = useState(false);
+  const [isUploadingGang, setIsUploadingGang] = useState(false);
+  const [isZipping, setIsZipping] = useState(false);
+  const [generatingItemId, setGeneratingItemId] = useState<string | null>(null);
+  const [previewMode, setPreviewMode] = useState<Record<string, 'print' | 'cut'>>({});
   const [trackingBoxId, setTrackingBoxId] = useState<string | null>(null);
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
   const [dragOverItemId, setDragOverItemId] = useState<string | null>(null);
@@ -901,6 +1574,124 @@ export function OrderDetail() {
     }
   };
 
+  const handleGangSheetUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !editItemObj) return;
+    setIsUploadingGang(true);
+    try {
+      const storageRef = ref(storage, `orders/${id}/items/${editItemObj.id}/gang-${Date.now()}`);
+      await uploadBytes(storageRef, file);
+      const url = await getDownloadURL(storageRef);
+      setEditItemObj((prev: any) => ({ 
+        ...prev, 
+        image: url,
+        originalSheetUrl: url,
+        artworks: [{ 
+          id: `art-${Date.now()}`,
+          name: file.name, 
+          imageUrl: url, 
+          url: url, 
+          originalUrl: url, 
+          x: 0, 
+          y: 0, 
+          width: prev.sheetWidth || 22, 
+          height: prev.sheetHeight || 24, 
+          rotation: 0 
+        }]
+      }));
+    } catch (err) {
+      console.error('Failed to upload gang sheet artwork', err);
+    } finally {
+      setIsUploadingGang(false);
+    }
+  };
+
+  const handleGeneratePrintFile = async (item: any) => {
+    if (!id || !order) return;
+    setGeneratingItemId(item.id);
+    try {
+      const { printDataUrl, cutDataUrl } = await generateFinalSheetsForPrintAndCut(
+        item,
+        order.id,
+        order.customerName || 'Customer',
+        order.shippingAddress || null
+      );
+      
+      const printStorageRef = ref(storage, `production-sheets/${id}/${item.id}-print.png`);
+      const cutStorageRef = ref(storage, `production-sheets/${id}/${item.id}-cut.svg`);
+      
+      await uploadString(printStorageRef, printDataUrl, 'data_url');
+      await uploadString(cutStorageRef, cutDataUrl, 'data_url');
+      
+      const printReadyUrl = await getDownloadURL(printStorageRef);
+      const cutReadyUrl = await getDownloadURL(cutStorageRef);
+      
+      const updatedItems = order.items.map((i: any) => {
+        if (i.id === item.id) {
+          return { ...i, printReadyUrl, cutReadyUrl };
+        }
+        return i;
+      });
+      
+      await updateDoc(doc(db, 'orders', id), { items: updatedItems });
+    } catch (err) {
+      console.error('Error generating print/cut files:', err);
+      alert('Failed to generate print files: ' + (err as Error).message);
+    } finally {
+      setGeneratingItemId(null);
+    }
+  };
+
+  const handleDownloadAllZip = async () => {
+    if (!id || !order) return;
+    setIsZipping(true);
+    try {
+      const zip = new JSZip();
+      let hasFiles = false;
+
+      // Find all gang sheet items in this order
+      const gangSheetItems = (order.items || []).filter((item: any) => item.itemType === 'gang_sheet');
+
+      for (const item of gangSheetItems) {
+        if (item.printReadyUrl) {
+          try {
+            const printRes = await fetch(item.printReadyUrl);
+            const printBlob = await printRes.blob();
+            const filenamePrint = `${order.id}-${item.id}-print.png`;
+            zip.file(filenamePrint, printBlob);
+            hasFiles = true;
+          } catch (err) {
+            console.error(`Failed to fetch print file for item ${item.id}`, err);
+          }
+        }
+        if (item.cutReadyUrl) {
+          try {
+            const cutRes = await fetch(item.cutReadyUrl);
+            const cutBlob = await cutRes.blob();
+            const filenameCut = `${order.id}-${item.id}-cut.svg`;
+            zip.file(filenameCut, cutBlob);
+            hasFiles = true;
+          } catch (err) {
+            console.error(`Failed to fetch cut file for item ${item.id}`, err);
+          }
+        }
+      }
+
+      if (!hasFiles) {
+        alert("No generated production assets found to download.");
+        return;
+      }
+
+      const content = await zip.generateAsync({ type: 'blob' });
+      FileSaver.saveAs(content, `order-${order.id}-production-assets.zip`);
+    } catch (err) {
+      console.error("Failed to generate ZIP:", err);
+      alert("Failed to generate ZIP archive: " + (err as Error).message);
+    } finally {
+      setIsZipping(false);
+    }
+  };
+
   const handleSaveItemEdit = async () => {
     if (!id || !editItemObj) return;
     setIsItemSaving(true);
@@ -911,14 +1702,24 @@ export function OrderDetail() {
       // Calculate new qty 
       const finalQty = editItemObj.itemType === 'service' 
         ? (editItemObj.qty || 1) 
-        : (editItemObj.sizes ? Object.values(editItemObj.sizes).reduce((acc: number, val: any) => acc + (parseInt(val) || 0), 0) : 0);
+        : (editItemObj.itemType === 'gang_sheet'
+           ? (editItemObj.quantity || 1)
+           : (editItemObj.sizes ? Object.values(editItemObj.sizes).reduce((acc: number, val: any) => acc + (parseInt(val) || 0), 0) : 0));
       const numericPrice = parseFloat((editItemObj.price || '0').toString().replace(/[^0-9.]/g, ''));
       const lineTotal = `$${(finalQty * numericPrice).toFixed(2)}`;
 
       const finalItem = {
         ...editItemObj,
         qty: finalQty,
-        total: lineTotal
+        total: lineTotal,
+        ...(editItemObj.itemType === 'gang_sheet' ? {
+           sheetWidth: Number(editItemObj.sheetWidth || 22),
+           sheetHeight: Number(editItemObj.sheetHeight || 24),
+           sheetSizeName: editItemObj.sheetSizeName || 'Single Design Transfer',
+           sheetPrice: numericPrice,
+           originalSheetUrl: editItemObj.originalSheetUrl || editItemObj.image || '',
+           quantity: finalQty
+        } : {})
       };
 
       const existingItems = orderData.items || [];
@@ -1457,7 +2258,14 @@ export function OrderDetail() {
                               </div>
                              <div className="flex-1 min-w-0 w-full flex flex-col items-center sm:items-start">
                                 <div className="flex items-center justify-center sm:justify-start gap-2 w-full">
-                                  <h4 className="font-bold text-gray-900 text-[15px]">{item.style}</h4>
+                                  <h4 className="font-bold text-gray-900 text-[15px]">
+                                    {item.itemType === 'gang_sheet' ? `${item.sheetSizeName || 'DTF Gang Sheet'}` : item.style}
+                                  </h4>
+                                  {item.itemType === 'gang_sheet' && (
+                                    <span className="text-[9px] font-bold uppercase tracking-wider text-orange-600 bg-orange-50 border border-orange-200 px-2 py-0.5 rounded shadow-sm">
+                                      DTF
+                                    </span>
+                                  )}
                                   {item.shopifyOrder && (
                                     <span className="text-[9px] font-bold uppercase tracking-wider text-blue-600 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded shadow-sm">
                                       {item.shopifyOrder}
@@ -1465,8 +2273,9 @@ export function OrderDetail() {
                                   )}
                                 </div>
                                 <p className="text-xs font-semibold text-gray-500 mt-0.5">
-                                   {item.gender && item.gender !== 'Unisex' ? `${item.gender} ` : ''} 
-                                   {item.color ? (item.gender && item.gender !== 'Unisex' ? `- ${item.color}` : item.color) : ''}
+                                   {item.itemType === 'gang_sheet' 
+                                     ? `${item.style ? `${item.style} • ` : ''}${item.sheetWidth}" x ${item.sheetHeight}"` 
+                                     : `${item.gender && item.gender !== 'Unisex' ? `${item.gender} ` : ''}${item.color ? (item.gender && item.gender !== 'Unisex' ? `- ${item.color}` : item.color) : ''}`}
                                 </p>
                                 
                                 {/* Dropdown Chevron for Item Boxes under Garment Name */}
@@ -1896,7 +2705,7 @@ export function OrderDetail() {
                                      title="Click to Print Thermal Label" 
                                      onClick={(e) => { e.stopPropagation(); window.open(`/print/label/${order.id}/${box.id}`, '_blank', 'width=600,height=800'); }}
                                    >
-                                     <QRCode value={publicUrl} size={36} />
+                                     <ReactQRCode value={publicUrl} size={36} />
                                    </div>
                                    <div className="flex flex-col gap-1.5 min-w-[100px]">
                                      {box.trackingCarrier && box.trackingCarrier !== 'Pickup' && box.trackingNumber && (
@@ -1929,6 +2738,138 @@ export function OrderDetail() {
                )}
             </div>
           </div>
+
+          {/* Production Assets Section */}
+          {order.items?.some((item: any) => item.itemType === 'gang_sheet') && (
+            <div className="bg-white p-6 rounded-card border border-brand-border shadow-sm mt-8">
+              <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-6 pb-2 border-b border-brand-border">
+                <div className="flex items-center gap-2">
+                  <Printer className="text-brand-primary" size={22} />
+                  <h2 className={tokens.typography.h2}>Production Assets</h2>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <PillButton 
+                    variant="outline" 
+                    onClick={handleDownloadAllZip}
+                    className="gap-2" 
+                    disabled={isZipping || !order.items?.some((item: any) => item.printReadyUrl || item.cutReadyUrl)}
+                  >
+                    {isZipping ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+                    Download All Sheets (ZIP)
+                  </PillButton>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {order.items
+                  ?.filter((item: any) => item.itemType === 'gang_sheet')
+                  .map((item: any) => {
+                    const isPrintReady = !!(item.printReadyUrl && item.cutReadyUrl);
+                    const currentPreviewMode = previewMode[item.id] || 'print';
+                    const activePreviewUrl = currentPreviewMode === 'print' ? (item.printReadyUrl || item.originalSheetUrl || item.image) : (item.cutReadyUrl || item.originalSheetUrl || item.image);
+
+                    return (
+                      <div key={item.id} className="bg-neutral-900 text-white rounded-2xl border border-neutral-800 p-5 flex flex-col gap-4 shadow-xl">
+                        {/* Card Header */}
+                        <div className="flex justify-between items-start gap-4">
+                          <div>
+                            <h3 className="font-bold text-sm text-neutral-100">{item.style || 'DTF Gang Sheet'}</h3>
+                            <p className="text-[11px] font-semibold text-neutral-400 mt-0.5">
+                              {item.sheetSizeName || 'DTF Gang Sheet'} • {item.sheetWidth}" x {item.sheetHeight}" • {item.quantity} {item.quantity === 1 ? 'Sheet' : 'Sheets'}
+                            </p>
+                          </div>
+                          {isPrintReady ? (
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 bg-emerald-950 border border-emerald-800 px-2 py-0.5 rounded shadow-sm">
+                              Print Ready
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-amber-950 border border-amber-800 px-2 py-0.5 rounded shadow-sm">
+                              Not Generated
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Preview Box */}
+                        <div className="relative aspect-[3/4] w-full bg-neutral-950 border border-neutral-800 rounded-xl overflow-hidden flex items-center justify-center bg-checkerboard">
+                          {activePreviewUrl ? (
+                            <img 
+                              src={activePreviewUrl} 
+                              alt="Layout Preview" 
+                              className="w-full h-full object-contain p-4 hover:scale-105 transition-transform duration-300 cursor-zoom-in"
+                              onClick={() => setExpandedImage({ src: activePreviewUrl, alt: `${item.style} - ${currentPreviewMode}` })}
+                            />
+                          ) : (
+                            <div className="flex flex-col items-center gap-2 text-neutral-500 text-center p-6">
+                              <ImageIcon size={32} />
+                              <span className="text-xs font-semibold">No Artwork Preview Available</span>
+                            </div>
+                          )}
+
+                          {/* Layer Control Badge */}
+                          {isPrintReady && (
+                            <div className="absolute top-3 left-3 bg-neutral-900/90 border border-neutral-800 rounded-lg p-0.5 flex shadow-lg">
+                              <button
+                                onClick={() => setPreviewMode(prev => ({ ...prev, [item.id]: 'print' }))}
+                                className={`text-[10px] uppercase font-bold tracking-wider px-2 py-1 rounded-md transition-all ${currentPreviewMode === 'print' ? 'bg-white text-black shadow-sm' : 'text-neutral-400 hover:text-white'}`}
+                              >
+                                Print
+                              </button>
+                              <button
+                                onClick={() => setPreviewMode(prev => ({ ...prev, [item.id]: 'cut' }))}
+                                className={`text-[10px] uppercase font-bold tracking-wider px-2 py-1 rounded-md transition-all ${currentPreviewMode === 'cut' ? 'bg-white text-black shadow-sm' : 'text-neutral-400 hover:text-white'}`}
+                              >
+                                Cut Line
+                              </button>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Actions Footer */}
+                        <div className="flex flex-col gap-2 mt-auto">
+                          <button
+                            onClick={() => handleGeneratePrintFile(item)}
+                            disabled={generatingItemId === item.id}
+                            className="w-full bg-white hover:bg-neutral-100 text-black py-2.5 rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 disabled:opacity-50"
+                          >
+                            {generatingItemId === item.id ? (
+                              <>
+                                <Loader2 size={14} className="animate-spin" />
+                                <span>Generating Canvas...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Sparkles size={14} />
+                                <span>{isPrintReady ? 'Regenerate Production Files' : 'Generate Production Files'}</span>
+                              </>
+                            )}
+                          </button>
+                          <div className="grid grid-cols-2 gap-2">
+                            <a
+                              href={item.printReadyUrl || '#'}
+                              target="_blank"
+                              rel="noreferrer"
+                              className={`flex items-center justify-center gap-1.5 text-[11px] font-bold text-center border py-2 rounded-xl transition-all ${item.printReadyUrl ? 'border-neutral-800 text-neutral-300 bg-neutral-850 hover:bg-neutral-800 hover:text-white shadow-sm' : 'border-neutral-800/40 text-neutral-600 bg-neutral-900 pointer-events-none'}`}
+                            >
+                              <Download size={12} />
+                              <span>Print PNG</span>
+                            </a>
+                            <a
+                              href={item.cutReadyUrl || '#'}
+                              target="_blank"
+                              rel="noreferrer"
+                              className={`flex items-center justify-center gap-1.5 text-[11px] font-bold text-center border py-2 rounded-xl transition-all ${item.cutReadyUrl ? 'border-neutral-800 text-neutral-300 bg-neutral-850 hover:bg-neutral-800 hover:text-white shadow-sm' : 'border-neutral-800/40 text-neutral-600 bg-neutral-900 pointer-events-none'}`}
+                            >
+                              <Download size={12} />
+                              <span>Cut SVG</span>
+                            </a>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+          )}
           
           <PackingSlipsManager order={order} onEditTracking={setTrackingBoxId} />
           
@@ -3171,8 +4112,7 @@ export function OrderDetail() {
           <div className="bg-brand-bg max-w-[95vw] xl:max-w-[1400px] w-full rounded-2xl overflow-hidden shadow-2xl flex flex-col border border-brand-border my-auto">
             <div className="p-6 border-b border-brand-border flex justify-between items-center bg-white">
               <div className="flex items-center gap-4">
-                <h3 className="font-serif text-2xl text-brand-primary">Edit Item Specs</h3>
-                <div className="flex bg-neutral-100 p-1 rounded-lg">
+                <h3 className="font-serif text-2xl text-brand-primary">Edit Item Specs</h3>                 <div className="flex bg-neutral-100 p-1 rounded-lg">
                   <button 
                     onClick={() => setEditItemObj({...editItemObj, itemType: 'garment'})} 
                     className={`px-3 py-1.5 text-xs font-bold uppercase tracking-wider rounded-md transition-all ${(!editItemObj.itemType || editItemObj.itemType === 'garment') ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}
@@ -3184,6 +4124,20 @@ export function OrderDetail() {
                     className={`px-3 py-1.5 text-xs font-bold uppercase tracking-wider rounded-md transition-all ${editItemObj.itemType === 'service' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}
                   >
                     Service / Misc
+                  </button>
+                  <button 
+                    onClick={() => setEditItemObj({
+                      ...editItemObj, 
+                      itemType: 'gang_sheet',
+                      sheetSizeName: editItemObj.sheetSizeName || 'Single Design Transfer',
+                      sheetWidth: editItemObj.sheetWidth || 22,
+                      sheetHeight: editItemObj.sheetHeight || 24,
+                      quantity: editItemObj.quantity || editItemObj.qty || 1,
+                      price: editItemObj.price || '$0.00'
+                    })} 
+                    className={`px-3 py-1.5 text-xs font-bold uppercase tracking-wider rounded-md transition-all ${editItemObj.itemType === 'gang_sheet' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}
+                  >
+                    DTF Gang Sheet
                   </button>
                 </div>
               </div>
@@ -3353,141 +4307,248 @@ export function OrderDetail() {
                 </div>
               )}
 
-              {/* Right Column: Data Fields & Sizing */}
-              <div className={(!editItemObj.itemType || editItemObj.itemType === 'garment') ? "lg:col-span-8 flex flex-col gap-8" : "lg:col-span-12 flex flex-col gap-8 max-w-3xl mx-auto w-full"}>
-                 
-                 {/* Top Row: Basic Info Grid */}
-                 <div className="flex flex-col gap-3">
-                   <label className="text-xs font-bold uppercase tracking-widest text-brand-secondary">Core Details</label>
-                   <div className={`grid ${(!editItemObj.itemType || editItemObj.itemType === 'garment') ? 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-4' : 'grid-cols-1 md:grid-cols-2'} gap-4 bg-white p-5 rounded-xl border border-brand-border shadow-sm`}>
-                     {(!editItemObj.itemType || editItemObj.itemType === 'garment') && (
-                       <div className="flex flex-col gap-1.5">
-                         <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Gender</label>
-                         <select 
-                           value={editItemObj.gender || ''}
-                           onChange={(e) => setEditItemObj({...editItemObj, gender: e.target.value})}
-                           className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-2.5 font-serif text-brand-primary focus:border-brand-primary focus:bg-white focus:outline-none transition-all outline-none cursor-pointer"
-                         >
-                           <option value="" disabled>Select</option>
-                           <option value="Male">Male</option>
-                           <option value="Female">Female</option>
-                           <option value="Accessories">Accessories</option>
-                           <option value="Unisex">Unisex</option>
-                         </select>
-                       </div>
-                     )}
-                     <div className="flex flex-col gap-1.5">
-                       <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">{editItemObj.itemType === 'service' ? 'Service / Item Name' : 'Garment Style'}</label>
-                       <input 
-                         type="text" 
-                         value={editItemObj.style || ''}
-                         onChange={(e) => setEditItemObj({...editItemObj, style: e.target.value})}
-                         className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-2.5 text-sm focus:border-brand-primary focus:bg-white focus:outline-none transition-all"
-                         placeholder={editItemObj.itemType === 'service' ? "e.g. Storage, Transportation" : "e.g. Pique Polo"}
-                       />
-                     </div>
-                     {(!editItemObj.itemType || editItemObj.itemType === 'garment') && (
-                       <div className="flex flex-col gap-1.5">
-                         <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Item #</label>
-                         <input 
-                           type="text" 
-                           value={editItemObj.itemNum || ''}
-                           onChange={(e) => setEditItemObj({...editItemObj, itemNum: e.target.value})}
-                           className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-2.5 text-sm focus:border-brand-primary focus:bg-white focus:outline-none transition-all font-mono"
-                         />
-                       </div>
-                     )}
-                     <div className="flex flex-col gap-1.5">
-                       <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">{editItemObj.itemType === 'service' ? 'Description' : 'Garment Color'}</label>
-                       <input 
-                         type="text" 
-                         value={editItemObj.color || ''}
-                         onChange={(e) => setEditItemObj({...editItemObj, color: e.target.value})}
-                         className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-2.5 text-sm focus:border-brand-primary focus:bg-white focus:outline-none transition-all"
-                       />
-                     </div>
-                     {editItemObj.itemType === 'service' && (
-                       <div className="flex flex-col gap-1.5">
-                         <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Quantity</label>
-                         <input 
-                           type="number" 
-                           min="1"
-                           value={editItemObj.qty || ''}
-                           onChange={(e) => setEditItemObj({...editItemObj, qty: parseInt(e.target.value) || 1})}
-                           className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-2.5 text-sm focus:border-brand-primary focus:bg-white focus:outline-none transition-all"
-                         />
-                       </div>
-                     )}
-                   </div>
+              {editItemObj.itemType === 'gang_sheet' && (
+                 <div className="lg:col-span-4 flex flex-col gap-6">
+                    <div className="flex items-center justify-between pointer-events-none">
+                       <label className="text-xs font-bold uppercase tracking-widest text-brand-secondary">Gang Sheet Artwork</label>
+                    </div>
+                    <div className="bg-white rounded-xl border border-brand-border p-5 flex flex-col gap-5 shadow-sm">
+                      <div className="flex flex-col gap-3">
+                        <span className="text-xs font-semibold text-brand-primary flex items-center gap-2">
+                          <ImageIcon size={14}/> 
+                          {editItemObj.sheetSizeName === 'Single Design Transfer' ? 'Single Design' : 'Pre-built Sheet'}
+                        </span>
+                        <div className="w-full aspect-square bg-neutral-100 border border-brand-border rounded-lg flex items-center justify-center overflow-hidden bg-checkerboard">
+                          {editItemObj.image || editItemObj.originalSheetUrl ? (
+                            <img src={editItemObj.image || editItemObj.originalSheetUrl} alt="Artwork preview" className="w-full h-full object-contain p-2 hover:scale-105 transition-transform cursor-crosshair" onClick={() => setExpandedImage({ src: editItemObj.image || editItemObj.originalSheetUrl, alt: "Artwork preview" })} />
+                          ) : (
+                            <div className="flex flex-col items-center gap-2 text-brand-secondary/50">
+                              <ImageIcon size={32} />
+                              <span className="text-xs font-medium">No artwork uploaded</span>
+                            </div>
+                          )}
+                        </div>
+                        <label className="cursor-pointer bg-white border border-brand-border rounded-lg py-2.5 flex items-center justify-center gap-2 hover:bg-brand-bg transition-colors text-sm font-semibold text-brand-primary shadow-sm hover:shadow">
+                          {isUploadingGang ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+                          {isUploadingGang ? 'Uploading...' : 'Upload Artwork'}
+                          <input type="file" className="hidden" accept="image/*" onChange={handleGangSheetUpload} disabled={isUploadingGang} />
+                        </label>
+                      </div>
+                    </div>
                  </div>
+               )}
 
-                 {/* Middle Row: Price & Logos Grid */}
-                 <div className={`grid grid-cols-1 ${(!editItemObj.itemType || editItemObj.itemType === 'garment') ? 'xl:grid-cols-2' : ''} gap-8`}>
-                   {(!editItemObj.itemType || editItemObj.itemType === 'garment') && (
-                     <div className="flex flex-col gap-3">
-                       <label className="text-xs font-bold uppercase tracking-widest text-brand-secondary">Decoration Options (Logos)</label>
-                       <div className="bg-white p-5 rounded-xl border border-brand-border shadow-sm flex flex-col gap-3 h-full justify-center">
-                          {[0, 1, 2].map(idx => (
-                            <div key={idx} className="flex gap-2 items-center relative">
-                               <div className="relative flex-1">
-                                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-300 w-4">{idx + 1}.</span>
+               {/* Right Column: Data Fields & Sizing */}
+               <div className={(!editItemObj.itemType || editItemObj.itemType === 'garment' || editItemObj.itemType === 'gang_sheet') ? "lg:col-span-8 flex flex-col gap-8" : "lg:col-span-12 flex flex-col gap-8 max-w-3xl mx-auto w-full"}>
+                  {/* Top Row: Basic Info Grid */}
+                  <div className="flex flex-col gap-3">
+                    <label className="text-xs font-bold uppercase tracking-widest text-brand-secondary">Core Details</label>
+                    {editItemObj.itemType === 'gang_sheet' ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-white p-5 rounded-xl border border-brand-border shadow-sm">
+                        <div className="flex flex-col gap-1.5 sm:col-span-2">
+                          <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Layout Name / Description</label>
+                          <input 
+                            type="text" 
+                            value={editItemObj.style || ''}
+                            onChange={(e) => setEditItemObj({...editItemObj, style: e.target.value})}
+                            className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-2.5 text-sm focus:border-brand-primary focus:bg-white focus:outline-none transition-all"
+                            placeholder="e.g. Back Print Verizon Transfers, custom gang sheet"
+                          />
+                        </div>
+                        <div className="flex flex-col gap-1.5 sm:col-span-2">
+                          <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Layout Type</label>
+                          <select 
+                            value={editItemObj.sheetSizeName || 'Single Design Transfer'}
+                            onChange={(e) => setEditItemObj({...editItemObj, sheetSizeName: e.target.value})}
+                            className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-2.5 font-serif text-brand-primary focus:border-brand-primary focus:bg-white focus:outline-none transition-all outline-none cursor-pointer"
+                          >
+                            <option value="Single Design Transfer">Single Design Transfer (Auto-Repeat)</option>
+                            <option value="Standard Gang Sheet">Standard Gang Sheet (Pre-built)</option>
+                          </select>
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                          <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">
+                            {editItemObj.sheetSizeName === 'Single Design Transfer' ? 'Design Width (Inches)' : 'Sheet Width (Inches)'}
+                          </label>
+                          <input 
+                            type="number" 
+                            step="0.1"
+                            value={editItemObj.sheetWidth || ''}
+                            onChange={(e) => setEditItemObj({...editItemObj, sheetWidth: parseFloat(e.target.value) || 22})}
+                            className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-2.5 text-sm focus:border-brand-primary focus:bg-white focus:outline-none transition-all"
+                          />
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                          <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">
+                            {editItemObj.sheetSizeName === 'Single Design Transfer' ? 'Design Height (Inches)' : 'Sheet Height (Inches)'}
+                          </label>
+                          <input 
+                            type="number" 
+                            step="0.1"
+                            value={editItemObj.sheetHeight || ''}
+                            onChange={(e) => setEditItemObj({...editItemObj, sheetHeight: parseFloat(e.target.value) || 24})}
+                            className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-2.5 text-sm focus:border-brand-primary focus:bg-white focus:outline-none transition-all"
+                          />
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                          <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">
+                            {editItemObj.sheetSizeName === 'Single Design Transfer' ? 'Copies Needed' : 'Number of Sheets'}
+                          </label>
+                          <input 
+                            type="number" 
+                            min="1"
+                            value={editItemObj.quantity || ''}
+                            onChange={(e) => setEditItemObj({...editItemObj, quantity: parseInt(e.target.value) || 1})}
+                            className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-2.5 text-sm focus:border-brand-primary focus:bg-white focus:outline-none transition-all font-bold text-brand-primary"
+                          />
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                          <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Unit Price ($)</label>
+                          <div className="relative">
+                            <DollarSign size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                            <input 
+                              type="text" 
+                              value={editItemObj.price || ''}
+                              onChange={(e) => setEditItemObj({...editItemObj, price: e.target.value})}
+                              className="w-full bg-brand-bg/50 border border-brand-border rounded-lg pl-9 pr-4 py-2.5 text-sm focus:border-brand-primary focus:bg-white focus:outline-none transition-all font-bold text-brand-primary"
+                              placeholder="0.00"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className={`grid ${(!editItemObj.itemType || editItemObj.itemType === 'garment') ? 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-4' : 'grid-cols-1 md:grid-cols-2'} gap-4 bg-white p-5 rounded-xl border border-brand-border shadow-sm`}>
+                        {(!editItemObj.itemType || editItemObj.itemType === 'garment') && (
+                          <div className="flex flex-col gap-1.5">
+                            <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Gender</label>
+                            <select 
+                              value={editItemObj.gender || ''}
+                              onChange={(e) => setEditItemObj({...editItemObj, gender: e.target.value})}
+                              className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-2.5 font-serif text-brand-primary focus:border-brand-primary focus:bg-white focus:outline-none transition-all outline-none cursor-pointer"
+                            >
+                              <option value="" disabled>Select</option>
+                              <option value="Male">Male</option>
+                              <option value="Female">Female</option>
+                              <option value="Accessories">Accessories</option>
+                              <option value="Unisex">Unisex</option>
+                            </select>
+                          </div>
+                        )}
+                        <div className="flex flex-col gap-1.5">
+                          <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">{editItemObj.itemType === 'service' ? 'Service / Item Name' : 'Garment Style'}</label>
+                          <input 
+                            type="text" 
+                            value={editItemObj.style || ''}
+                            onChange={(e) => setEditItemObj({...editItemObj, style: e.target.value})}
+                            className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-2.5 text-sm focus:border-brand-primary focus:bg-white focus:outline-none transition-all"
+                            placeholder={editItemObj.itemType === 'service' ? "e.g. Storage, Transportation" : "e.g. Pique Polo"}
+                          />
+                        </div>
+                        {(!editItemObj.itemType || editItemObj.itemType === 'garment') && (
+                          <div className="flex flex-col gap-1.5">
+                            <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Item #</label>
+                            <input 
+                              type="text" 
+                              value={editItemObj.itemNum || ''}
+                              onChange={(e) => setEditItemObj({...editItemObj, itemNum: e.target.value})}
+                              className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-2.5 text-sm focus:border-brand-primary focus:bg-white focus:outline-none transition-all font-mono"
+                            />
+                          </div>
+                        )}
+                        <div className="flex flex-col gap-1.5">
+                          <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">{editItemObj.itemType === 'service' ? 'Description' : 'Garment Color'}</label>
+                          <input 
+                            type="text" 
+                            value={editItemObj.color || ''}
+                            onChange={(e) => setEditItemObj({...editItemObj, color: e.target.value})}
+                            className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-2.5 text-sm focus:border-brand-primary focus:bg-white focus:outline-none transition-all"
+                          />
+                        </div>
+                        {editItemObj.itemType === 'service' && (
+                          <div className="flex flex-col gap-1.5">
+                            <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Quantity</label>
+                            <input 
+                              type="number" 
+                              min="1"
+                              value={editItemObj.qty || ''}
+                              onChange={(e) => setEditItemObj({...editItemObj, qty: parseInt(e.target.value) || 1})}
+                              className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-2.5 text-sm focus:border-brand-primary focus:bg-white focus:outline-none transition-all"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Middle Row: Price & Logos Grid */}
+                  {editItemObj.itemType !== 'gang_sheet' && (
+                    <div className={`grid grid-cols-1 ${(!editItemObj.itemType || editItemObj.itemType === 'garment') ? 'xl:grid-cols-2' : ''} gap-8`}>
+                      {(!editItemObj.itemType || editItemObj.itemType === 'garment') && (
+                        <div className="flex flex-col gap-3">
+                          <label className="text-xs font-bold uppercase tracking-widest text-brand-secondary">Decoration Options (Logos)</label>
+                          <div className="bg-white p-5 rounded-xl border border-brand-border shadow-sm flex flex-col gap-3 h-full justify-center">
+                             {[0, 1, 2].map(idx => (
+                               <div key={idx} className="flex gap-2 items-center relative">
+                                  <div className="relative flex-1">
+                                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-300 w-4">{idx + 1}.</span>
+                                     <input 
+                                       type="text" 
+                                       placeholder={`e.g. Left Chest`}
+                                       value={editItemObj.logos?.[idx] || ''}
+                                       onChange={(e) => {
+                                         const newLogos = [...(editItemObj.logos || [])];
+                                         newLogos[idx] = e.target.value;
+                                         setEditItemObj({...editItemObj, logos: newLogos});
+                                       }}
+                                       className="w-full bg-brand-bg/50 border border-brand-border rounded-lg pl-9 pr-4 py-2.5 text-sm focus:border-brand-primary focus:bg-white focus:outline-none transition-all"
+                                     />
+                                  </div>
+                                  <label className="shrink-0 flex items-center justify-center bg-brand-bg border border-brand-border rounded-lg px-3 py-2.5 cursor-pointer hover:bg-neutral-100 transition-colors tooltip-trigger relative group min-w-[46px]">
+                                     {editItemObj.artworks?.[idx]?.url ? <Check size={16} className="text-green-600" /> : <Upload size={16} className="text-brand-secondary" />}
+                                     <input type="file" className="hidden" accept=".ai,.eps,.pdf,.svg,.png" onChange={async (e) => {
+                                         const file = e.target.files?.[0];
+                                         if (!file) return;
+                                         const storageRef = ref(storage, `orders/${id}/items/${editItemObj.id || 'new'}/art-${idx}-${Date.now()}`);
+                                         await uploadBytes(storageRef, file);
+                                         const url = await getDownloadURL(storageRef);
+                                         const newArtworks = [...(editItemObj.artworks || [])];
+                                         newArtworks[idx] = { name: file.name, url, originalUrl: url };
+                                         setEditItemObj((prev: any) => ({...prev, artworks: newArtworks}));
+                                     }} />
+                                     <div className="absolute right-0 bottom-full mb-2 bg-gray-900 text-white text-[10px] uppercase font-bold px-2 py-1 rounded hidden group-hover:block whitespace-nowrap shadow-xl z-50">
+                                         {editItemObj.artworks?.[idx]?.name ? editItemObj.artworks[idx].name : 'Upload Vector Art'}
+                                     </div>
+                                  </label>
+                               </div>
+                             ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      <div className="flex flex-col gap-3">
+                        <label className="text-xs font-bold uppercase tracking-widest text-brand-secondary">Pricing Strategy</label>
+                        <div className="bg-white p-5 rounded-xl border border-brand-border shadow-sm flex flex-col gap-4 h-full">
+                          <div className="flex flex-col gap-1.5">
+                              <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Price Per Item ($)</label>
+                              <div className="relative">
+                                  <DollarSign size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                                   <input 
                                     type="text" 
-                                    placeholder={`e.g. Left Chest`}
-                                    value={editItemObj.logos?.[idx] || ''}
-                                    onChange={(e) => {
-                                      const newLogos = [...(editItemObj.logos || [])];
-                                      newLogos[idx] = e.target.value;
-                                      setEditItemObj({...editItemObj, logos: newLogos});
-                                    }}
-                                    className="w-full bg-brand-bg/50 border border-brand-border rounded-lg pl-9 pr-4 py-2.5 text-sm focus:border-brand-primary focus:bg-white focus:outline-none transition-all"
+                                    value={editItemObj.price || ''}
+                                    onChange={(e) => setEditItemObj({...editItemObj, price: e.target.value})}
+                                    className="w-full bg-brand-bg/50 border border-brand-border rounded-lg pl-9 pr-4 py-3 text-lg font-bold focus:border-brand-primary focus:bg-white focus:outline-none transition-all text-brand-primary"
+                                    placeholder="0.00"
                                   />
-                               </div>
-                               <label className="shrink-0 flex items-center justify-center bg-brand-bg border border-brand-border rounded-lg px-3 py-2.5 cursor-pointer hover:bg-neutral-100 transition-colors tooltip-trigger relative group min-w-[46px]">
-                                  {editItemObj.artworks?.[idx]?.url ? <Check size={16} className="text-green-600" /> : <Upload size={16} className="text-brand-secondary" />}
-                                  <input type="file" className="hidden" accept=".ai,.eps,.pdf,.svg,.png" onChange={async (e) => {
-                                      const file = e.target.files?.[0];
-                                      if (!file) return;
-                                      const storageRef = ref(storage, `orders/${id}/items/${editItemObj.id || 'new'}/art-${idx}-${Date.now()}`);
-                                      await uploadBytes(storageRef, file);
-                                      const url = await getDownloadURL(storageRef);
-                                      const newArtworks = [...(editItemObj.artworks || [])];
-                                      newArtworks[idx] = { name: file.name, url, originalUrl: url };
-                                      setEditItemObj((prev: any) => ({...prev, artworks: newArtworks}));
-                                  }} />
-                                  <div className="absolute right-0 bottom-full mb-2 bg-gray-900 text-white text-[10px] uppercase font-bold px-2 py-1 rounded hidden group-hover:block whitespace-nowrap shadow-xl z-50">
-                                      {editItemObj.artworks?.[idx]?.name ? editItemObj.artworks[idx].name : 'Upload Vector Art'}
-                                  </div>
-                               </label>
-                            </div>
-                          ))}
-                       </div>
-                     </div>
-                   )}
-                   
-                   <div className="flex flex-col gap-3">
-                     <label className="text-xs font-bold uppercase tracking-widest text-brand-secondary">Pricing Strategy</label>
-                     <div className="bg-white p-5 rounded-xl border border-brand-border shadow-sm flex flex-col gap-4 h-full">
-                       <div className="flex flex-col gap-1.5">
-                           <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Price Per Item ($)</label>
-                           <div className="relative">
-                               <DollarSign size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                               <input 
-                                 type="text" 
-                                 value={editItemObj.price || ''}
-                                 onChange={(e) => setEditItemObj({...editItemObj, price: e.target.value})}
-                                 className="w-full bg-brand-bg/50 border border-brand-border rounded-lg pl-9 pr-4 py-3 text-lg font-bold focus:border-brand-primary focus:bg-white focus:outline-none transition-all text-brand-primary"
-                                 placeholder="0.00"
-                               />
-                           </div>
-                       </div>
-                       <div className="bg-brand-bg rounded-lg p-3 border border-brand-border flex items-start gap-3 mt-auto">
-                           <Clock size={16} className="text-brand-secondary shrink-0 mt-0.5" />
-                           <p className="text-xs font-medium text-brand-secondary leading-relaxed">Ensure prices are accurate and reflect final agreed-upon rates for complete decoration and fulfillment packages per unit.</p>
-                       </div>
-                     </div>
-                   </div>
-                 </div>
+                              </div>
+                          </div>
+                          <div className="bg-brand-bg rounded-lg p-3 border border-brand-border flex items-start gap-3 mt-auto">
+                              <Clock size={16} className="text-brand-secondary shrink-0 mt-0.5" />
+                              <p className="text-xs font-medium text-brand-secondary leading-relaxed">Ensure prices are accurate and reflect final agreed-upon rates for complete decoration and fulfillment packages per unit.</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                  {(!editItemObj.itemType || editItemObj.itemType === 'garment') && (
                    <>
