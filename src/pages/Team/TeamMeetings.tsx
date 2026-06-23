@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { collection, onSnapshot, addDoc, updateDoc, doc, deleteDoc, query, where, getDocs, serverTimestamp } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, updateDoc, doc, deleteDoc, query, where, getDocs, serverTimestamp, setDoc } from 'firebase/firestore';
 import { db, chronoDb, chronoAuth } from '../../lib/firebase';
 import { signInAnonymously } from 'firebase/auth';
 import { useAuth } from '../../contexts/AuthContext';
@@ -1025,6 +1025,18 @@ export function TeamMeetings() {
     return { text, completed };
   };
 
+  const getWeekString = (date: Date) => {
+    const target = new Date(date.valueOf());
+    const dayNr = (date.getDay() + 6) % 7;
+    target.setDate(target.getDate() - dayNr + 3);
+    const firstThursday = target.valueOf();
+    target.setMonth(0, 1);
+    if (target.getDay() !== 4) {
+      target.setMonth(0, 1 + ((4 - target.getDay()) + 7) % 7);
+    }
+    return `${target.getFullYear()}-W${String(Math.ceil((firstThursday - target.valueOf()) / 604800000) + 1).padStart(2, '0')}`;
+  };
+
   const syncPriorityTasksToChrono = async (memberName: string, dateStr: string, prioritiesInput: string[], existingCheckin: any) => {
     const isBypass = typeof window !== 'undefined' && window.location.search.includes('bypassAuth=true');
     if (isBypass) {
@@ -1061,12 +1073,32 @@ export function TeamMeetings() {
         }
       } else {
         try {
-          const docRef = await addDoc(collection(chronoDb, 'shiftSchedules'), {
+          // Default times: Priority 1 is 9-10 AM, Priority 2 is 10-11 AM, Priority 3 is 11 AM-12 PM
+          const startHour = 9 + i;
+          const endHour = startHour + 1;
+          const savedDate = new Date(dateStr + "T00:00:00");
+          const startDate = new Date(savedDate);
+          startDate.setHours(startHour, 0, 0, 0);
+          const endDate = new Date(savedDate);
+          endDate.setHours(endHour, 0, 0, 0);
+
+          const weekStr = getWeekString(savedDate);
+          const monthStr = `${savedDate.getFullYear()}-${String(savedDate.getMonth() + 1).padStart(2, '0')}`;
+
+          const docRef = doc(collection(chronoDb, 'shiftSchedules'));
+          await setDoc(docRef, {
+            id: docRef.id,
+            scheduleId: 'timeline-planner',
             title: text,
             status: 'pending',
             assignedTo: chronoUserId || '',
             date: dateStr,
+            startTime: startDate.toISOString(),
+            endTime: endDate.toISOString(),
             color: 'bg-blue-500',
+            priority: 'medium',
+            week: weekStr,
+            month: monthStr,
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
             source: 'meeting-priority'

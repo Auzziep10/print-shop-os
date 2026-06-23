@@ -6,10 +6,14 @@ import { Calendar, Users, Plus } from 'lucide-react';
 import { TimelinePlanner, OPEN_NEW_TASK_EVENT } from './TimelinePlanner';
 import { useNavigate } from 'react-router-dom';
 
+import { useAuth } from '../../contexts/AuthContext';
+
 export function Team() {
   const [activeView, setActiveView] = useState('Timeline');
   const [activeRange, setActiveRange] = useState('Day');
   const navigate = useNavigate();
+  const { userData } = useAuth();
+  const isManagerOrAdmin = userData?.role === 'Admin' || userData?.role === 'Leadership' || userData?.role === 'Manager';
 
   return (
     <div className={tokens.layout.container}>
@@ -36,15 +40,19 @@ export function Team() {
             value={activeView} 
             onChange={setActiveView} 
           />
-          <div className="w-px h-8 bg-brand-border mx-2"></div>
-          <PillButton variant="outline" className="gap-2" onClick={() => navigate('/settings')}>
-            <Users size={16} />
-            Manage Teams
-          </PillButton>
-          <PillButton variant="filled" className="gap-2" onClick={() => window.dispatchEvent(new CustomEvent(OPEN_NEW_TASK_EVENT))}>
-            <Plus size={16} />
-            New Task
-          </PillButton>
+          {isManagerOrAdmin && (
+            <>
+              <div className="w-px h-8 bg-brand-border mx-2"></div>
+              <PillButton variant="outline" className="gap-2" onClick={() => navigate('/settings')}>
+                <Users size={16} />
+                Manage Teams
+              </PillButton>
+              <PillButton variant="filled" className="gap-2" onClick={() => window.dispatchEvent(new CustomEvent(OPEN_NEW_TASK_EVENT))}>
+                <Plus size={16} />
+                New Task
+              </PillButton>
+            </>
+          )}
         </div>
       </div>
 

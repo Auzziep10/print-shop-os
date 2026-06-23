@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { tokens } from '../../lib/tokens';
-import { collection, query, onSnapshot, addDoc, updateDoc, doc, deleteDoc, serverTimestamp, getDocs } from 'firebase/firestore';
+import { collection, query, onSnapshot, addDoc, updateDoc, doc, deleteDoc, serverTimestamp, getDocs, setDoc } from 'firebase/firestore';
 import { signInAnonymously } from 'firebase/auth';
 import { db, chronoDb, chronoAuth } from '../../lib/firebase';
 import { useOrders } from '../../hooks/useOrders';
+import { useAuth } from '../../contexts/AuthContext';
 import { Plus, X, Loader2, Clock, Trash2, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
 
 const getWeekString = (d: Date) => {
@@ -27,6 +28,7 @@ interface TeamMember {
   id: string;
   name: string;
   initials: string;
+  email?: string;
 }
 
 export const OPEN_NEW_TASK_EVENT = 'open-new-timeline-task';
@@ -83,6 +85,38 @@ export function TimelinePlanner({ activeRange = 'Day' }: TimelinePlannerProps) {
   const [loading, setLoading] = useState(true);
   const { orders } = useOrders();
   const [customers, setCustomers] = useState<Record<string, any>>({});
+  const { userData } = useAuth();
+  const isManagerOrAdmin = userData?.role === 'Admin' || userData?.role === 'Leadership' || userData?.role === 'Manager';
+
+  const myChronoMember = useMemo(() => {
+    if (!userData) return null;
+    const userEmail = userData.email.toLowerCase();
+    let found = members.find(m => m.email === userEmail);
+    if (!found) {
+      found = members.find(m => m.name.toLowerCase() === userData.name.toLowerCase());
+    }
+    return found || null;
+  }, [members, userData]);
+
+  const filteredTasks = useMemo(() => {
+    if (isManagerOrAdmin) return tasks;
+    if (!myChronoMember) return [];
+    return tasks.filter(t => t.memberId === myChronoMember.id);
+  }, [tasks, isManagerOrAdmin, myChronoMember]);
+
+  const displayMembers = useMemo(() => {
+    if (isManagerOrAdmin) {
+      return members;
+    }
+    return myChronoMember ? [myChronoMember] : [];
+  }, [isManagerOrAdmin, members, myChronoMember]);
+
+  const activeMembers = useMemo(() => {
+    if (isManagerOrAdmin) {
+      return displayMembers.filter(m => filteredTasks.some(t => t.memberId === m.id && (t.range === activeRange || (!t.range && activeRange === 'Day'))));
+    }
+    return displayMembers;
+  }, [isManagerOrAdmin, displayMembers, filteredTasks, activeRange]);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<TimelineTask | null>(null);
@@ -274,7 +308,12 @@ export function TimelinePlanner({ activeRange = 'Day' }: TimelinePlannerProps) {
         if (data.role !== 'Client') {
           const name = data.name || `${data.firstName || ''} ${data.lastName || ''}`.trim() || 'Unknown Staff';
           const initials = name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase();
-          staff.push({ id: doc.id, name, initials });
+          staff.push({ 
+            id: doc.id, 
+            name, 
+            initials,
+            email: data.email ? data.email.toLowerCase() : undefined
+          });
         }
       });
       // Sort alphabetically
@@ -425,9 +464,10 @@ export function TimelinePlanner({ activeRange = 'Day' }: TimelinePlannerProps) {
           assignedTo: formData.memberIds[0] // Update single task if editing
         });
       } else {
-        // Create duplicate tasks for each selected member when assigning multiple
         for (const mId of formData.memberIds) {
-          await addDoc(collection(chronoDb, 'shiftSchedules'), {
+          const docRef = doc(collection(chronoDb, 'shiftSchedules'));
+          await setDoc(docRef, {
+            id: docRef.id,
             ...baseTaskData,
             assignedTo: mId,
             createdAt: serverTimestamp()
@@ -573,19 +613,21 @@ export function TimelinePlanner({ activeRange = 'Day' }: TimelinePlannerProps) {
           <p className="text-xs text-brand-secondary mt-1 tracking-wide">Organize staff schedules and dictate daily tasks.</p>
         </div>
         
-        <form onSubmit={handleSmartAssign} className="relative flex-1 w-full max-w-lg xl:mx-4 shrink-0 transition-opacity">
-           <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-brand-primary">
-              <Sparkles size={14} />
-           </div>
-           <input
-             type="text"
-             value={smartInput}
-             onChange={e => setSmartInput(e.target.value)}
-             placeholder="Smart assign... e.g. 'Austin to wash floor'"
-             className="block w-full pl-9 pr-3 py-2 border border-brand-border rounded-pill text-xs font-semibold placeholder-brand-secondary/60 focus:outline-none focus:ring-1 focus:ring-brand-primary focus:border-brand-primary transition-all shadow-sm bg-white"
-           />
-           <button type="submit" className="hidden"></button>
-        </form>
+        {isManagerOrAdmin && (
+          <form onSubmit={handleSmartAssign} className="relative flex-1 w-full max-w-lg xl:mx-4 shrink-0 transition-opacity">
+             <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-brand-primary">
+                <Sparkles size={14} />
+             </div>
+             <input
+               type="text"
+               value={smartInput}
+               onChange={e => setSmartInput(e.target.value)}
+               placeholder="Smart assign... e.g. 'Austin to wash floor'"
+               className="block w-full pl-9 pr-3 py-2 border border-brand-border rounded-pill text-xs font-semibold placeholder-brand-secondary/60 focus:outline-none focus:ring-1 focus:ring-brand-primary focus:border-brand-primary transition-all shadow-sm bg-white"
+             />
+             <button type="submit" className="hidden"></button>
+          </form>
+        )}
 
         <div className="flex items-center gap-3 w-full xl:w-auto xl:justify-end">
           <div className="flex items-center bg-white border border-brand-border rounded-lg p-1 shadow-sm shrink-0">
@@ -597,12 +639,14 @@ export function TimelinePlanner({ activeRange = 'Day' }: TimelinePlannerProps) {
              </span>
              <button onClick={() => adjustDate(activeRange === 'Day' ? 1 : (activeRange === 'Week' ? 7 : 30))} className="p-1 hover:bg-brand-bg rounded"><ChevronRight size={16}/></button>
           </div>
-          <button 
-            onClick={() => handleOpenModal()}
-            className="bg-brand-primary text-white text-xs font-semibold px-4 py-2 rounded-pill uppercase tracking-wider flex items-center gap-2 hover:bg-black transition-colors shadow-sm shrink-0"
-          >
-            <Plus size={14} /> Assign Task
-          </button>
+          {isManagerOrAdmin && (
+            <button 
+              onClick={() => handleOpenModal()}
+              className="bg-brand-primary text-white text-xs font-semibold px-4 py-2 rounded-pill uppercase tracking-wider flex items-center gap-2 hover:bg-black transition-colors shadow-sm shrink-0"
+            >
+              <Plus size={14} /> Assign Task
+            </button>
+          )}
         </div>
       </div>
 
@@ -616,12 +660,12 @@ export function TimelinePlanner({ activeRange = 'Day' }: TimelinePlannerProps) {
             </div>
             <div className="grid grid-cols-7 grid-rows-5 bg-brand-border gap-[1px]">
               {Array.from({length: 35}).map((_, i) => {
-                const dayTasks = tasks.filter(t => t.range === 'Month' && i >= t.start && i < t.start + t.duration);
+                const dayTasks = filteredTasks.filter(t => t.range === 'Month' && i >= t.start && i < t.start + t.duration);
                 return (
                    <div 
                      key={i} 
-                     onClick={() => handleOpenModal(undefined, i)}
-                     className="bg-white min-h-[140px] p-2 hover:bg-brand-bg/30 transition-colors cursor-crosshair flex flex-col group relative"
+                     onClick={() => { if (isManagerOrAdmin) handleOpenModal(undefined, i); }}
+                     className={`bg-white min-h-[140px] p-2 hover:bg-brand-bg/30 transition-colors flex flex-col group relative ${isManagerOrAdmin ? 'cursor-crosshair' : 'cursor-default'}`}
                    >
                       <div className="text-[11px] font-bold text-brand-secondary mb-1.5 group-hover:text-brand-primary transition-colors">{i + 1 <= 31 ? i + 1 : ''}</div>
                       <div className="flex flex-col gap-1 overflow-y-auto custom-scrollbar flex-1 pr-1">
@@ -630,8 +674,8 @@ export function TimelinePlanner({ activeRange = 'Day' }: TimelinePlannerProps) {
                           return (
                             <div 
                                key={task.id} 
-                               onClick={(e) => { e.stopPropagation(); handleEditTask(task); }}
-                               className={`text-white text-[10px] px-1.5 py-1 rounded shadow-sm truncate font-semibold cursor-pointer hover:scale-[1.02] transition-transform ${task.color}`}
+                               onClick={(e) => { e.stopPropagation(); if (isManagerOrAdmin) handleEditTask(task); }}
+                               className={`text-white text-[10px] px-1.5 py-1 rounded shadow-sm truncate font-semibold transition-transform ${task.color} ${isManagerOrAdmin ? 'cursor-pointer hover:scale-[1.02]' : 'cursor-default'}`}
                             >
                                <span className="font-bold opacity-80 mr-1">{member?.initials}</span>
                                {task.title}
@@ -673,8 +717,6 @@ export function TimelinePlanner({ activeRange = 'Day' }: TimelinePlannerProps) {
 
           {/* Member Rows */}
           {(() => {
-             const activeMembers = members.filter(m => tasks.some(t => t.memberId === m.id && (t.range === activeRange || (!t.range && activeRange === 'Day'))));
-             
              if (activeMembers.length === 0) {
                 return (
                   <div className="p-12 text-center flex flex-col items-center justify-center border-b border-brand-border/50">
@@ -682,7 +724,13 @@ export function TimelinePlanner({ activeRange = 'Day' }: TimelinePlannerProps) {
                        <Clock size={24} />
                     </div>
                     <h3 className="text-sm font-bold text-brand-primary mb-1">Clear Schedule</h3>
-                    <p className="text-xs text-brand-secondary">No tasks assigned for this timeframe.<br/>Use the **Smart Assign** bar above to instantly direct your team!</p>
+                    <p className="text-xs text-brand-secondary">
+                      {isManagerOrAdmin ? (
+                        <>No tasks assigned for this timeframe.<br/>Use the **Smart Assign** bar above to instantly direct your team!</>
+                      ) : (
+                        <>No tasks assigned to you for this timeframe.</>
+                      )}
+                    </p>
                   </div>
                 );
              }
@@ -697,20 +745,27 @@ export function TimelinePlanner({ activeRange = 'Day' }: TimelinePlannerProps) {
                 </div>
                 
                 {/* Timeline Track */}
-                <div className="relative min-h-[70px] py-3 cursor-crosshair" onClick={() => { if (!taskInteractionRef.current && !isDraggingRef.current) handleOpenModal(member.id); }}>
+                <div 
+                  className={`relative min-h-[70px] py-3 ${isManagerOrAdmin ? 'cursor-crosshair' : 'cursor-default'}`} 
+                  onClick={() => { if (isManagerOrAdmin && !taskInteractionRef.current && !isDraggingRef.current) handleOpenModal(member.id); }}
+                >
                   {/* Background grid lines */}
                   <div className="absolute inset-0 flex">
                      {columns.map((col) => (
-                       <div key={col.id} className="flex-1 border-l border-brand-border/50 border-dashed hover:bg-brand-primary/5 transition-colors group-hover:border-brand-border" onClick={(e) => { 
-                          e.stopPropagation(); 
-                          if (!taskInteractionRef.current && !isDraggingRef.current) handleOpenModal(member.id, col.startVal); 
-                       }}></div>
+                       <div 
+                         key={col.id} 
+                         className={`flex-1 border-l border-brand-border/50 border-dashed transition-colors group-hover:border-brand-border ${isManagerOrAdmin ? 'hover:bg-brand-primary/5' : ''}`} 
+                         onClick={(e) => { 
+                            e.stopPropagation(); 
+                            if (isManagerOrAdmin && !taskInteractionRef.current && !isDraggingRef.current) handleOpenModal(member.id, col.startVal); 
+                         }}
+                       ></div>
                      ))}
                   </div>
 
                   {/* Tasks */}
                   {(() => {
-                    const displayTasks = tasks.map(t => {
+                    const displayTasks = filteredTasks.map(t => {
                        if (dragState && dragState.taskId === t.id) {
                           return { ...t, start: dragState.currentStart, duration: dragState.currentDuration, memberId: dragState.currentMemberId };
                        }
@@ -729,12 +784,13 @@ export function TimelinePlanner({ activeRange = 'Day' }: TimelinePlannerProps) {
                           data-task-id={task.id}
                           onClick={(e) => e.stopPropagation()}
                           onDoubleClick={(e) => { 
+                             if (!isManagerOrAdmin) return;
                              e.stopPropagation(); 
                              handleEditTask(task); 
                           }}
                           onMouseDown={(e) => {
+                             if (!isManagerOrAdmin) return;
                              taskInteractionRef.current = true;
-                             // Default drag (move) action unless they precisely click the resize handle
                              if ((e.target as HTMLElement).getAttribute('data-resize-handle')) return;
                              setDragState({
                                taskId: task.id, type: 'move', startX: e.clientX, startY: e.clientY,
@@ -742,12 +798,12 @@ export function TimelinePlanner({ activeRange = 'Day' }: TimelinePlannerProps) {
                                currentStart: task.start, currentDuration: task.duration, currentMemberId: task.memberId
                              });
                           }}
-                          className={`absolute h-[42px] rounded-lg text-white px-3 flex flex-col justify-center shadow-sm cursor-grab active:cursor-grabbing hover:shadow-md hover:scale-[1.01] hover:-translate-y-0.5 transition-all overflow-hidden border border-black/10 ${task.color} ${isDragging ? 'opacity-80 shadow-2xl scale-[1.02] z-50 cursor-grabbing' : 'z-20'}`}
+                          className={`absolute h-[42px] rounded-lg text-white px-3 flex flex-col justify-center shadow-sm overflow-hidden border border-black/10 ${task.color} ${isDragging ? 'opacity-80 shadow-2xl scale-[1.02] z-50 cursor-grabbing' : 'z-20'} ${isManagerOrAdmin ? 'cursor-grab active:cursor-grabbing hover:shadow-md hover:scale-[1.01] hover:-translate-y-0.5' : 'cursor-default'}`}
                           style={{ 
                             left: `${Math.max(0, left)}%`, 
                             width: `calc(${width}% - 6px)`, 
                             top: `14px`,
-                            transition: isDragging ? 'none' : 'all 0.2s ease-in-out' // Disable CSS transition while dragging for responsiveness
+                            transition: isDragging ? 'none' : 'all 0.2s ease-in-out'
                           }}
                         >
                           <span className="font-semibold text-xs truncate leading-tight tracking-wide pointer-events-none">{task.title}</span>
@@ -755,21 +811,23 @@ export function TimelinePlanner({ activeRange = 'Day' }: TimelinePlannerProps) {
                             {formatTaskTime(task.start, activeRange)} - {formatTaskTime(task.start + task.duration, activeRange)}
                           </span>
 
-                          <div 
-                             data-resize-handle="true"
-                             className="absolute right-0 top-0 bottom-0 w-3 cursor-ew-resize hover:bg-white/30 transition-colors flex flex-col justify-center items-center opacity-0 hover:opacity-100 group-hover:opacity-100"
-                             onMouseDown={(e) => {
-                                e.stopPropagation();
-                                taskInteractionRef.current = true;
-                                setDragState({
-                                  taskId: task.id, type: 'resize', startX: e.clientX, startY: e.clientY,
-                                  initialStart: task.start, initialDuration: task.duration, initialMemberId: task.memberId,
-                                  currentStart: task.start, currentDuration: task.duration, currentMemberId: task.memberId
-                                });
-                             }}
-                          >
-                             <div className="w-[3px] h-3 border-l border-r border-white/50 pointer-events-none"></div>
-                          </div>
+                          {isManagerOrAdmin && (
+                            <div 
+                               data-resize-handle="true"
+                               className="absolute right-0 top-0 bottom-0 w-3 cursor-ew-resize hover:bg-white/30 transition-colors flex flex-col justify-center items-center opacity-0 hover:opacity-100 group-hover:opacity-100"
+                               onMouseDown={(e) => {
+                                  e.stopPropagation();
+                                  taskInteractionRef.current = true;
+                                  setDragState({
+                                    taskId: task.id, type: 'resize', startX: e.clientX, startY: e.clientY,
+                                    initialStart: task.start, initialDuration: task.duration, initialMemberId: task.memberId,
+                                    currentStart: task.start, currentDuration: task.duration, currentMemberId: task.memberId
+                                  });
+                               }}
+                            >
+                               <div className="w-[3px] h-3 border-l border-r border-white/50 pointer-events-none"></div>
+                            </div>
+                          )}
                         </div>
                       );
                     });
@@ -794,46 +852,48 @@ export function TimelinePlanner({ activeRange = 'Day' }: TimelinePlannerProps) {
       </div>
 
       {/* Unassigned Orders Tray */}
-      <div className="p-5 border-t border-brand-border bg-white flex flex-col gap-3">
-        <h3 className="text-[10px] font-bold text-brand-secondary uppercase tracking-widest">Active Orders (Click to Assign)</h3>
-        <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar flex-nowrap">
-          {orders.filter(o => o.statusIndex !== undefined && o.statusIndex >= 0 && o.statusIndex <= 6).length === 0 ? (
-            <span className="text-sm text-brand-muted italic">No active orders right now.</span>
-          ) : (
-            orders.filter(o => o.statusIndex !== undefined && o.statusIndex >= 0 && o.statusIndex <= 6).map(order => {
-              const companyName = customers[order.customerId]?.company || customers[order.customerId]?.name || order.customerId || 'Unknown Client';
-              const displayId = order.portalId || order.id.substring(0, 8);
-              return (
-                <button 
-                  key={order.id} 
-                  onClick={() => {
-                     setFormData({
-                       memberIds: members.length > 0 ? [members[0].id] : [],
-                       title: `#${displayId} - ${companyName}`,
-                       start: startOffset.toString(),
-                       duration: activeRange === 'Day' ? '1' : activeRange === 'Week' ? '1' : '1',
-                       color: 'bg-blue-500',
-                       orderId: order.id,
-                       range: activeRange,
-                       date: activeDateStr
-                     });
-                     setEditingTask(null);
-                     setIsModalOpen(true);
-                  }}
-                  className="flex-shrink-0 bg-brand-bg/50 border border-brand-border rounded-lg p-3 text-left hover:border-brand-primary hover:shadow-sm transition-all min-w-[220px] max-w-[220px] group cursor-copy"
-                >
-                  <div className="flex justify-between items-start mb-1">
-                    <div className="text-[10px] font-bold text-brand-secondary uppercase tracking-wider group-hover:text-brand-primary transition-colors truncate">#{displayId}</div>
-                    <span className="text-[9px] bg-white border border-brand-border px-1.5 py-0.5 rounded-sm font-bold text-brand-secondary shrink-0 ml-2">Assign +</span>
-                  </div>
-                  <div className="text-sm font-semibold text-brand-primary truncate">{companyName}</div>
-                  <div className="text-xs text-brand-secondary truncate">{order.title || 'Standard Order'}</div>
-                </button>
-              );
-            })
-          )}
+      {isManagerOrAdmin && (
+        <div className="p-5 border-t border-brand-border bg-white flex flex-col gap-3">
+          <h3 className="text-[10px] font-bold text-brand-secondary uppercase tracking-widest">Active Orders (Click to Assign)</h3>
+          <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar flex-nowrap">
+            {orders.filter(o => o.statusIndex !== undefined && o.statusIndex >= 0 && o.statusIndex <= 6).length === 0 ? (
+              <span className="text-sm text-brand-muted italic">No active orders right now.</span>
+            ) : (
+              orders.filter(o => o.statusIndex !== undefined && o.statusIndex >= 0 && o.statusIndex <= 6).map(order => {
+                const companyName = customers[order.customerId]?.company || customers[order.customerId]?.name || order.customerId || 'Unknown Client';
+                const displayId = order.portalId || order.id.substring(0, 8);
+                return (
+                  <button 
+                    key={order.id} 
+                    onClick={() => {
+                       setFormData({
+                         memberIds: members.length > 0 ? [members[0].id] : [],
+                         title: `#${displayId} - ${companyName}`,
+                         start: startOffset.toString(),
+                         duration: activeRange === 'Day' ? '1' : activeRange === 'Week' ? '1' : '1',
+                         color: 'bg-blue-500',
+                         orderId: order.id,
+                         range: activeRange,
+                         date: activeDateStr
+                       });
+                       setEditingTask(null);
+                       setIsModalOpen(true);
+                    }}
+                    className="flex-shrink-0 bg-brand-bg/50 border border-brand-border rounded-lg p-3 text-left hover:border-brand-primary hover:shadow-sm transition-all min-w-[220px] max-w-[220px] group cursor-copy"
+                  >
+                    <div className="flex justify-between items-start mb-1">
+                      <div className="text-[10px] font-bold text-brand-secondary uppercase tracking-wider group-hover:text-brand-primary transition-colors truncate">#{displayId}</div>
+                      <span className="text-[9px] bg-white border border-brand-border px-1.5 py-0.5 rounded-sm font-bold text-brand-secondary shrink-0 ml-2">Assign +</span>
+                    </div>
+                    <div className="text-sm font-semibold text-brand-primary truncate">{companyName}</div>
+                    <div className="text-xs text-brand-secondary truncate">{order.title || 'Standard Order'}</div>
+                  </button>
+                );
+              })
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Task Modal */}
       {isModalOpen && (
