@@ -14,7 +14,7 @@ import { normalizeUser } from '../../lib/utils';
 
 export function Dashboard() {
   const navigate = useNavigate();
-  const { userData, hasPermission } = useAuth();
+  const { userData } = useAuth();
   const { orders } = useOrders();
   const [liveMeetings, setLiveMeetings] = useState<any[]>([]);
 

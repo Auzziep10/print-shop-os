@@ -1,9 +1,12 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { db } from '../../lib/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { Loader2, CheckCircle2, ShieldCheck, FileText, Smartphone, ArrowRight } from 'lucide-react';
 
 export function SmsConsent() {
+  const [searchParams] = useSearchParams();
+  const isEmbed = searchParams.get('embed') === 'true';
   const [activeTab, setActiveTab] = useState<'form' | 'privacy' | 'terms'>('form');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -69,19 +72,21 @@ export function SmsConsent() {
   };
 
   return (
-    <div className="min-h-screen bg-brand-bg flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 font-sans">
-      <div className="max-w-2xl w-full space-y-8">
+    <div className={isEmbed ? "w-full font-sans p-1" : "min-h-screen bg-brand-bg flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 font-sans"}>
+      <div className={isEmbed ? "w-full space-y-4" : "max-w-2xl w-full space-y-8"}>
         
         {/* Branding & Logo */}
-        <div className="flex flex-col items-center">
-          <img src="/wovn-production-logo.png" alt="WOVN" className="h-12 w-auto mb-2 opacity-90" />
-          <h2 className="text-3xl font-serif tracking-tight text-brand-primary text-center">
-            SMS Consent & Notifications
-          </h2>
-          <p className="mt-2 text-sm text-brand-secondary text-center max-w-md">
-            Stay updated with real-time text message alerts, confirmations, and reminders for your print projects.
-          </p>
-        </div>
+        {!isEmbed && (
+          <div className="flex flex-col items-center">
+            <img src="/wovn-production-logo.png" alt="WOVN" className="h-12 w-auto mb-2 opacity-90" />
+            <h2 className="text-3xl font-serif tracking-tight text-brand-primary text-center">
+              SMS Consent & Notifications
+            </h2>
+            <p className="mt-2 text-sm text-brand-secondary text-center max-w-md">
+              Stay updated with real-time text message alerts, confirmations, and reminders for your print projects.
+            </p>
+          </div>
+        )}
 
         {/* Tab Navigation */}
         <div className="flex border-b border-brand-border justify-center gap-1.5 sm:gap-4">
@@ -118,7 +123,7 @@ export function SmsConsent() {
         </div>
 
         {/* Main Card Container */}
-        <div className="bg-white border border-brand-border rounded-card shadow-sm p-6 sm:p-10 animate-in fade-in duration-300">
+        <div className={isEmbed ? "animate-in fade-in duration-300" : "bg-white border border-brand-border rounded-card shadow-sm p-6 sm:p-10 animate-in fade-in duration-300"}>
           
           {/* Tab 1: Opt-In Form */}
           {activeTab === 'form' && (
@@ -387,9 +392,11 @@ export function SmsConsent() {
         </div>
 
         {/* Footer info */}
-        <p className="text-[10px] text-center text-brand-secondary/60">
-          WOVN • 2300 West End Ave, Nashville, TN 37203
-        </p>
+        {!isEmbed && (
+          <p className="text-[10px] text-center text-brand-secondary/60">
+            WOVN • 2300 West End Ave, Nashville, TN 37203
+          </p>
+        )}
 
       </div>
     </div>

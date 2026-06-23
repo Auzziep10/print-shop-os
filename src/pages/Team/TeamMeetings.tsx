@@ -597,6 +597,7 @@ export function TeamMeetings() {
   const [chronoUsers, setChronoUsers] = useState<any[]>([]);
   const [selectedSeriesId, setSelectedSeriesId] = useState<string | null>(null);
 
+
   // Template Form states
   const [templateNameInput, setTemplateNameInput] = useState('');
   const [templateAttendeesInput, setTemplateAttendeesInput] = useState<string[]>([]);
@@ -936,7 +937,7 @@ export function TeamMeetings() {
     setNewActionItems(prev => prev.filter((_, i) => i !== index));
   };
 
-  const handleAddCheckin = () => {
+  const handleAddCheckin = async () => {
     if (!checkinMemberId) return;
     const member = teamMembers.find(u => u.id === checkinMemberId) || { name: 'Unknown Member' };
     
@@ -954,6 +955,14 @@ export function TeamMeetings() {
 
     const status = getStatus(score);
 
+    // Sync priorities
+    const syncedPriorities = await syncPriorityTasksToChrono(
+      member.name,
+      newDate || new Date().toISOString().split('T')[0],
+      [checkinPriority1, checkinPriority2, checkinPriority3],
+      null
+    );
+
     const newCheckin = {
       memberId: checkinMemberId,
       memberName: member.name,
@@ -967,12 +976,13 @@ export function TeamMeetings() {
         stress: checkinStress,
         availability: checkinAvailability,
         friction: checkinFriction
-      }
+      },
+      priorities: syncedPriorities
     };
 
     setCapacityCheckins((prev: any[]) => [...prev.filter(c => c.memberId !== checkinMemberId), newCheckin]);
 
-    // Reset check-in sliders
+    // Reset check-in sliders & priorities
     setCheckinMemberId('');
     setCheckinWorkload(5);
     setCheckinUrgency(5);
@@ -981,10 +991,156 @@ export function TeamMeetings() {
     setCheckinFriction(5);
     setCheckinConfidence('Green');
     setCheckinNotes('');
+    setCheckinPriority1('');
+    setCheckinPriority2('');
+    setCheckinPriority3('');
   };
 
   const handleRemoveCheckin = (memberId: string) => {
     setCapacityCheckins(prev => prev.filter(c => c.memberId !== memberId));
+  };
+
+  const getChronoUserId = (memberName: string) => {
+    const member = teamMembers.find(m => m.name === memberName);
+    const email = member?.email;
+    if (email) {
+      const matched = chronoUsers.find(u => u.email?.toLowerCase() === email.toLowerCase());
+      if (matched) return matched.id;
+    }
+    const matchedByName = chronoUsers.find(u => u.name?.toLowerCase() === memberName.toLowerCase() || u.displayName?.toLowerCase() === memberName.toLowerCase());
+    return matchedByName?.id || null;
+  };
+
+  const getPriorityStatus = (priority: any) => {
+    if (!priority) return { text: '', completed: false };
+    const text = typeof priority === 'object' ? priority.text : priority;
+    let completed = typeof priority === 'object' ? priority.completed : false;
+    
+    if (priority && typeof priority === 'object' && priority.chronoTaskId) {
+      const task = chronoTasks.find(t => t.id === priority.chronoTaskId);
+      if (task) {
+        completed = task.status === 'completed';
+      }
+    }
+    return { text, completed };
+  };
+
+  const syncPriorityTasksToChrono = async (memberName: string, dateStr: string, prioritiesInput: string[], existingCheckin: any) => {
+    const isBypass = typeof window !== 'undefined' && window.location.search.includes('bypassAuth=true');
+    if (isBypass) {
+      return prioritiesInput.map((p, idx) => {
+        const existingP = existingCheckin?.priorities?.[idx];
+        return {
+          text: p.trim(),
+          completed: existingP && typeof existingP === 'object' ? existingP.completed : false
+        };
+      }).filter(p => p.text !== '');
+    }
+
+    const chronoUserId = getChronoUserId(memberName);
+    const resultPriorities = [];
+
+    for (let i = 0; i < prioritiesInput.length; i++) {
+      const text = prioritiesInput[i].trim();
+      if (!text) continue;
+
+      const existingP = existingCheckin?.priorities?.[i];
+      const existingTaskId = existingP && typeof existingP === 'object' ? existingP.chronoTaskId : null;
+      const existingCompleted = existingP && typeof existingP === 'object' ? existingP.completed : false;
+
+      let taskId = existingTaskId;
+
+      if (taskId) {
+        try {
+          await updateDoc(doc(chronoDb, 'shiftSchedules', taskId), {
+            title: text,
+            updatedAt: serverTimestamp()
+          });
+        } catch (e) {
+          console.error("Failed to update chrono task", e);
+        }
+      } else {
+        try {
+          const docRef = await addDoc(collection(chronoDb, 'shiftSchedules'), {
+            title: text,
+            status: 'pending',
+            assignedTo: chronoUserId || '',
+            date: dateStr,
+            color: 'bg-blue-500',
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+            source: 'meeting-priority'
+          });
+          taskId = docRef.id;
+        } catch (e) {
+          console.error("Failed to create chrono task", e);
+        }
+      }
+
+      resultPriorities.push({
+        text,
+        completed: existingCompleted,
+        chronoTaskId: taskId
+      });
+    }
+
+    return resultPriorities;
+  };
+
+
+
+  const handleTogglePriorityCompleted = async (meetingId: string, memberId: string, priorityIndex: number, currentVal: boolean) => {
+    const meet = meetings.find(m => m.id === meetingId);
+    if (!meet) return;
+
+    let chronoTaskIdToUpdate = null;
+    const updatedScores = meet.capacityScores.map((scoreObj: any) => {
+      if (scoreObj.memberId === memberId || scoreObj.memberName === memberId) {
+        const updatedPriorities = [...(scoreObj.priorities || [])];
+        const p = updatedPriorities[priorityIndex];
+        
+        let text = '';
+        let taskId = null;
+        if (p && typeof p === 'object') {
+          text = p.text;
+          taskId = p.chronoTaskId;
+        } else if (p && typeof p === 'string') {
+          text = p;
+        }
+        
+        chronoTaskIdToUpdate = taskId;
+        updatedPriorities[priorityIndex] = {
+          text,
+          completed: !currentVal,
+          chronoTaskId: taskId
+        };
+        return { ...scoreObj, priorities: updatedPriorities };
+      }
+      return scoreObj;
+    });
+
+    setMeetings(prev => prev.map(m => m.id === meetingId ? { ...m, capacityScores: updatedScores } : m));
+    if (selectedMeeting && selectedMeeting.id === meetingId) {
+      setSelectedMeeting((prev: any) => ({ ...prev, capacityScores: updatedScores }));
+    }
+
+    const isBypass = typeof window !== 'undefined' && window.location.search.includes('bypassAuth=true');
+    if (!isBypass) {
+      try {
+        await updateDoc(doc(db, 'meetings', meetingId), {
+          capacityScores: updatedScores
+        });
+        
+        if (chronoTaskIdToUpdate) {
+          await updateDoc(doc(chronoDb, 'shiftSchedules', chronoTaskIdToUpdate), {
+            status: !currentVal ? 'completed' : 'pending',
+            updatedAt: serverTimestamp()
+          });
+        }
+      } catch (err) {
+        console.error("Failed to update priority/task completion status", err);
+      }
+    }
   };
 
   const handleSubmitMyCheckin = async () => {
@@ -1002,25 +1158,35 @@ export function TeamMeetings() {
       return "Unsustainable";
     };
 
-    const myCheckinObj = {
-      memberId: userData.id || userData.uid || '',
-      memberName: userData.name || 'Unknown Member',
-      score,
-      status: getStatus(score),
-      confidence: myConfidence || 'Green',
-      notes: myNotes?.trim() || 'No blockers noted.',
-      categories: {
-        workload: myWorkload ?? 5,
-        urgency: myUrgency ?? 5,
-        stress: myStress ?? 5,
-        availability: myAvailability ?? 5,
-        friction: myFriction ?? 5
-      }
-    };
+    const currentUserId = userData.id || userData.uid || '';
+    const existingScores = selectedMeeting.capacityScores || [];
+    const existing = existingScores.find((c: any) => c.memberName === userData.name || c.memberId === currentUserId);
 
     try {
-      const existingScores = selectedMeeting.capacityScores || [];
-      const currentUserId = userData.id || userData.uid || '';
+      const syncedPriorities = await syncPriorityTasksToChrono(
+        userData.name || 'Unknown Member',
+        selectedMeeting.date,
+        [myPriority1, myPriority2, myPriority3],
+        existing
+      );
+
+      const myCheckinObj = {
+        memberId: currentUserId,
+        memberName: userData.name || 'Unknown Member',
+        score,
+        status: getStatus(score),
+        confidence: myConfidence || 'Green',
+        notes: myNotes?.trim() || 'No blockers noted.',
+        categories: {
+          workload: myWorkload ?? 5,
+          urgency: myUrgency ?? 5,
+          stress: myStress ?? 5,
+          availability: myAvailability ?? 5,
+          friction: myFriction ?? 5
+        },
+        priorities: syncedPriorities
+      };
+
       const updatedScores = [
         ...existingScores.filter((c: any) => c.memberName !== userData.name && c.memberId !== currentUserId),
         myCheckinObj
@@ -1842,6 +2008,305 @@ export function TeamMeetings() {
     );
   };
 
+  const renderSeriesDashboard = () => {
+    if (!selectedSeriesId) return null;
+
+    const seriesMeetings = meetings
+      .filter(m => m.templateId === selectedSeriesId)
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const template = templates.find(t => t.id === selectedSeriesId);
+    if (!template) return null;
+
+    // Aggregated stats
+    const totalMeetings = seriesMeetings.length;
+    
+    let totalCheckins = 0;
+    let avgCapacity = 0;
+    let capacityCount = 0;
+    let completedPrioritiesCount = 0;
+    let totalPrioritiesCount = 0;
+    const contributors = new Set<string>();
+
+    seriesMeetings.forEach(m => {
+      if (m.capacityScores) {
+        m.capacityScores.forEach((c: any) => {
+          totalCheckins++;
+          avgCapacity += c.score || 0;
+          capacityCount++;
+          contributors.add(c.memberName);
+          if (c.priorities) {
+            c.priorities.forEach((p: any) => {
+              totalPrioritiesCount++;
+              const { completed } = getPriorityStatus(p);
+              if (completed) {
+                completedPrioritiesCount++;
+              }
+            });
+          }
+        });
+      }
+    });
+
+    const averageCapacityScore = capacityCount > 0 
+      ? Math.round((avgCapacity / capacityCount) * 10) / 10 
+      : 5.0;
+
+    const completionRate = totalPrioritiesCount > 0 
+      ? Math.round((completedPrioritiesCount / totalPrioritiesCount) * 100) 
+      : 0;
+
+    const contributorsCount = contributors.size;
+
+    // Get latest priorities for each member
+    // We scan meetings from newest to oldest
+    const latestMemberPriorities: Record<string, { meetingId: string; meetingTitle: string; date: string; priorities: any[] }> = {};
+    
+    // Sort meetings descending for latest priorities scan
+    const meetingsDesc = [...seriesMeetings].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    meetingsDesc.forEach(m => {
+      if (m.capacityScores) {
+        m.capacityScores.forEach((c: any) => {
+          if (c.priorities && c.priorities.some((p: any) => p && (typeof p === 'object' ? p.text : p).trim()) && !latestMemberPriorities[c.memberName]) {
+            latestMemberPriorities[c.memberName] = {
+              meetingId: m.id,
+              meetingTitle: m.title,
+              date: m.date,
+              priorities: c.priorities
+            };
+          }
+        });
+      }
+    });
+
+    // Chart data (chronological average capacity)
+    const chartData = seriesMeetings.map(m => {
+      const scores = m.capacityScores || [];
+      const total = scores.reduce((sum: number, c: any) => sum + (c.score || 0), 0);
+      const avg = scores.length > 0 ? Math.round((total / scores.length) * 10) / 10 : null;
+      return {
+        date: m.date,
+        avgScore: avg,
+        title: m.title
+      };
+    }).filter(d => d.avgScore !== null);
+
+    return (
+      <div className="bg-[#f7f4ef] p-6 md:p-8 rounded-[18px] border border-[#ded8ce] shadow-sm flex flex-col gap-6 animate-in fade-in duration-300">
+        
+        {/* Mobile Back Button */}
+        <div className="lg:hidden flex items-center mb-1">
+          <button
+            type="button"
+            onClick={() => setSelectedSeriesId(null)}
+            className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-extrabold text-neutral-500 hover:text-black transition-colors py-1.5 px-3 rounded-full bg-brand-bg border border-[#ded8ce] shadow-sm cursor-pointer"
+          >
+            ← Back to Meetings List
+          </button>
+        </div>
+
+        {/* Dashboard Header */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-brand-border pb-6">
+          <div className="space-y-1">
+            <span className="text-[10px] uppercase font-bold text-brand-secondary tracking-widest flex items-center gap-1">
+              <FolderOpen size={12} className="text-neutral-400" />
+              Meeting Series Dashboard
+            </span>
+            <h1 className="font-serif text-2xl md:text-3xl text-brand-primary leading-tight">
+              {template.name} Series
+            </h1>
+            <p className="text-xs text-brand-secondary leading-relaxed">
+              Global overview and aggregated team priorities for this standup/review template series.
+            </p>
+          </div>
+          <button
+            onClick={() => setSelectedSeriesId(null)}
+            className="text-brand-secondary hover:text-brand-primary text-xs uppercase tracking-wider font-semibold p-1.5 bg-white border border-[#ded8ce] rounded-full shadow-sm cursor-pointer"
+            title="Close Dashboard"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Metrics Grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="bg-white border border-[#ded8ce] rounded-[18px] p-4 shadow-sm flex flex-col justify-between">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-[#666] mb-2 block">Total Meetings</span>
+            <span className="font-serif text-2xl font-black text-[#171717]">{totalMeetings}</span>
+          </div>
+          <div className="bg-white border border-[#ded8ce] rounded-[18px] p-4 shadow-sm flex flex-col justify-between">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-[#666] mb-2 block">Avg Team Capacity</span>
+            <span className="font-serif text-2xl font-black text-[#171717]">{averageCapacityScore.toFixed(1)}</span>
+          </div>
+          <div className="bg-white border border-[#ded8ce] rounded-[18px] p-4 shadow-sm flex flex-col justify-between">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-[#666] mb-2 block">Priority Completion</span>
+            <span className="font-serif text-2xl font-black text-[#171717]">{completionRate}%</span>
+          </div>
+          <div className="bg-white border border-[#ded8ce] rounded-[18px] p-4 shadow-sm flex flex-col justify-between">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-[#666] mb-2 block">Active Members</span>
+            <span className="font-serif text-2xl font-black text-[#171717]">{contributorsCount}</span>
+          </div>
+        </div>
+
+        {/* Capacity Trend Chart (SVG) */}
+        {chartData.length > 0 && (
+          <div className="bg-white border border-[#ded8ce] rounded-[18px] p-5 shadow-sm space-y-3">
+            <h4 className="text-xs font-extrabold text-[#171717] uppercase tracking-wider">Capacity Score Trend</h4>
+            <div className="w-full h-32 flex items-end relative pt-4">
+              {/* Grid lines */}
+              <div className="absolute inset-0 flex flex-col justify-between pointer-events-none text-[8px] text-neutral-400 font-bold border-b border-neutral-100">
+                <div className="border-b border-neutral-100/50 pb-0.5">10.0 (Overloaded)</div>
+                <div className="border-b border-neutral-100/50 pb-0.5">5.5 (Optimal)</div>
+                <div className="pb-0.5">1.0 (Light)</div>
+              </div>
+
+              {chartData.length > 1 ? (
+                <svg className="w-full h-full" viewBox="0 0 500 100" preserveAspectRatio="none">
+                  {/* Draw SVG line and fill */}
+                  {(() => {
+                    const points = chartData.map((d, index) => {
+                      const x = (index / (chartData.length - 1)) * 460 + 20;
+                      // score range is 1 to 10
+                      const y = 90 - ((d.avgScore! - 1) / 9) * 80;
+                      return { x, y };
+                    });
+                    
+                    const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+                    const areaPath = `${linePath} L ${points[points.length - 1].x} 95 L ${points[0].x} 95 Z`;
+
+                    return (
+                      <>
+                        <path d={areaPath} fill="url(#grad)" opacity="0.15" />
+                        <path d={linePath} fill="none" stroke="#171717" strokeWidth="2.5" strokeLinecap="round" />
+                        <defs>
+                          <linearGradient id="grad" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" stopColor="#171717" />
+                            <stop offset="100%" stopColor="#fff" />
+                          </linearGradient>
+                        </defs>
+                        {points.map((p, i) => (
+                          <g key={i} className="group/dot cursor-pointer">
+                            <circle cx={p.x} cy={p.y} r="4" fill="#171717" stroke="#fff" strokeWidth="1.5" />
+                            <circle cx={p.x} cy={p.y} r="8" fill="transparent" />
+                            {/* Simple SVG Tooltip */}
+                            <title>{chartData[i].date}: {chartData[i].avgScore?.toFixed(1)} Capacity</title>
+                          </g>
+                        ))}
+                      </>
+                    );
+                  })()}
+                </svg>
+              ) : (
+                <div className="w-full text-center text-xs text-brand-secondary italic pb-4">Not enough data to render trend graph.</div>
+              )}
+            </div>
+            {chartData.length > 1 && (
+              <div className="flex justify-between text-[8px] font-bold text-brand-secondary uppercase tracking-widest px-2">
+                <span>{chartData[0].date}</span>
+                <span>{chartData[chartData.length - 1].date}</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Dashboard Tabs for Priorities */}
+        <div className="bg-white border border-[#ded8ce] rounded-[18px] p-5 shadow-sm space-y-4">
+          <div className="flex justify-between items-center border-b border-[#ded8ce]/60 pb-3">
+            <h3 className="text-xs font-black uppercase tracking-widest text-brand-primary">Team Priorities Tracker</h3>
+          </div>
+
+          {/* Active Priorities Grid */}
+          <div className="space-y-4">
+            {Object.keys(latestMemberPriorities).length === 0 ? (
+              <p className="text-xs text-brand-secondary italic text-center py-6">No priorities submitted in this meeting series yet.</p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {Object.entries(latestMemberPriorities).map(([name, data]) => {
+                  const doneCount = data.priorities.filter((p: any) => getPriorityStatus(p).completed).length;
+                  
+                  return (
+                    <div key={name} className="border border-[#ded8ce] rounded-[14px] p-4 bg-[#fcfbf9]/40 flex flex-col gap-3">
+                      <div className="flex justify-between items-start border-b border-[#ded8ce]/30 pb-2">
+                        <div>
+                          <span className="font-bold text-xs text-brand-primary">{name}</span>
+                          <div className="text-[8px] uppercase font-semibold text-brand-secondary">
+                            Latest: {formatLocalDate(data.date, { month: 'short', day: 'numeric' })}
+                          </div>
+                        </div>
+                        <span className="text-[8px] font-semibold text-brand-secondary px-2 py-0.5 rounded-full bg-brand-bg border border-brand-border">
+                          {doneCount}/{data.priorities.length} Done
+                        </span>
+                      </div>
+
+                      <div className="flex flex-col gap-2">
+                        {data.priorities.map((p: any, idx: number) => {
+                          const { text, completed } = getPriorityStatus(p);
+                          if (!text.trim()) return null;
+
+                          return (
+                            <label key={idx} className="flex items-start gap-2.5 cursor-pointer select-none text-xs text-brand-primary group">
+                              <input
+                                type="checkbox"
+                                checked={completed}
+                                onChange={() => handleTogglePriorityCompleted(data.meetingId, name, idx, completed)}
+                                className="mt-0.5 w-3.5 h-3.5 accent-[#171717] rounded border-[#ded8ce] cursor-pointer animate-in zoom-in-50"
+                              />
+                              <span className={`leading-tight ${completed ? 'line-through text-neutral-400 font-medium' : 'text-neutral-800'}`}>
+                                {text}
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Historical Logs Accordion/Feed */}
+        <div className="bg-white border border-[#ded8ce] rounded-[18px] p-5 shadow-sm space-y-3">
+          <h4 className="text-xs font-extrabold text-[#171717] uppercase tracking-wider">Historical priorities log</h4>
+          <div className="divide-y divide-[#ded8ce]/30 max-h-[300px] overflow-y-auto custom-scrollbar pr-1">
+            {seriesMeetings.map(m => {
+              const scoresWithPriorities = (m.capacityScores || []).filter((c: any) => c.priorities && c.priorities.some((p: any) => getPriorityStatus(p).text.trim()));
+              if (scoresWithPriorities.length === 0) return null;
+
+              return (
+                <div key={m.id} className="py-3 first:pt-0 last:pb-0">
+                  <span className="text-[10px] font-bold text-brand-secondary block mb-2">
+                    {formatLocalDate(m.date, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })} • {m.title}
+                  </span>
+                  <div className="flex flex-col gap-2.5">
+                    {scoresWithPriorities.map((c: any) => (
+                      <div key={c.memberId} className="pl-3 border-l-2 border-[#171717]/10 flex flex-col gap-1">
+                        <span className="text-[10px] font-bold text-neutral-700">{c.memberName}:</span>
+                        <ul className="list-disc list-inside space-y-0.5 pl-1.5">
+                          {c.priorities
+                            .filter((p: any) => p && getPriorityStatus(p).text.trim())
+                            .map((p: any, idx: number) => {
+                              const { text, completed } = getPriorityStatus(p);
+                              return (
+                                <li key={idx} className={`text-[10px] leading-relaxed ${completed ? 'line-through text-neutral-400' : 'text-neutral-600'}`}>
+                                  {text}
+                                </li>
+                              );
+                            })}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+      </div>
+    );
+  };
+
   return (
     <div className="flex flex-col gap-6 w-full">
       {/* View Mode Tab Switcher */}
@@ -1935,22 +2400,44 @@ export function TeamMeetings() {
                 const isExpanded = expandedTemplates[groupId] !== false;
                 return (
                   <div key={groupId} className="flex flex-col gap-2 border-b border-[#ded8ce]/30 pb-3 last:border-0 last:pb-0">
-                    <button
-                      onClick={() => toggleTemplateExpansion(groupId)}
-                      className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-brand-secondary hover:text-brand-primary transition-colors py-1 px-1.5 w-full text-left"
-                    >
-                      <span className="flex items-center gap-1.5">
+                    <div className="flex items-center justify-between py-1 px-1.5 w-full border-b border-[#ded8ce]/30">
+                      <button
+                        onClick={() => toggleTemplateExpansion(groupId)}
+                        className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-brand-secondary hover:text-brand-primary transition-colors text-left flex-1"
+                      >
                         {isExpanded ? (
                           <FolderOpen size={12} className="text-neutral-400 shrink-0" />
                         ) : (
                           <Folder size={12} className="text-neutral-400 shrink-0" />
                         )}
-                        {group.name} ({group.meetings.length})
-                      </span>
-                      <span className="text-neutral-400">
-                        {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-                      </span>
-                    </button>
+                        <span>{group.name}</span>
+                        <span className="text-[10px] text-neutral-400">({group.meetings.length})</span>
+                      </button>
+                      
+                      <div className="flex items-center gap-2">
+                        {groupId !== 'custom' && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedSeriesId(groupId);
+                              setSelectedMeeting(null);
+                              setMobileActiveTab('detail');
+                            }}
+                            className={`text-[9px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full border transition-all cursor-pointer ${
+                              selectedSeriesId === groupId 
+                                ? 'bg-[#111] text-white border-black shadow-sm' 
+                                : 'bg-white text-brand-secondary border-[#ded8ce] hover:border-neutral-400 hover:shadow-sm'
+                            }`}
+                          >
+                            Dashboard
+                          </button>
+                        )}
+                        <button onClick={() => toggleTemplateExpansion(groupId)} className="text-neutral-400">
+                          {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                        </button>
+                      </div>
+                    </div>
                     {isExpanded && (
                       <div className="flex flex-col gap-2 pl-2 animate-in fade-in duration-200">
                         {group.meetings.map((meet) => {
@@ -1967,7 +2454,10 @@ export function TeamMeetings() {
                           return (
                             <div 
                               key={meet.id} 
-                              onClick={() => setSelectedMeeting(meet)}
+                              onClick={() => {
+                                setSelectedMeeting(meet);
+                                setSelectedSeriesId(null);
+                              }}
                               className={`p-3.5 rounded-[18px] border transition-all cursor-pointer bg-white flex flex-col gap-2 ${isActive ? 'border-black border-2' : 'border-[#ded8ce] hover:border-neutral-400 shadow-sm'}`}
                             >
                               {(() => {
@@ -2308,6 +2798,23 @@ export function TeamMeetings() {
                                 "{c.notes}"
                               </p>
                             )}
+                            {c.priorities && c.priorities.some((p: any) => p && (typeof p === 'object' ? p.text : p).trim()) && (
+                              <div className="text-[10px] text-[#171717] bg-[#f7f4ef]/40 border border-[#ded8ce]/40 p-2.5 rounded-[12px]">
+                                <div className="font-bold text-[8px] uppercase tracking-wider text-brand-secondary mb-1">Daily Priorities:</div>
+                                <ul className="list-decimal list-inside space-y-0.5 text-[#333]">
+                                  {c.priorities
+                                    .filter((p: any) => p && (typeof p === 'object' ? p.text : p).trim())
+                                    .map((p: any, idx: number) => {
+                                      const { text, completed } = getPriorityStatus(p);
+                                      return (
+                                        <li key={idx} className={`truncate ${completed ? 'line-through text-neutral-400' : ''}`}>
+                                          {text}
+                                        </li>
+                                      );
+                                    })}
+                                </ul>
+                              </div>
+                            )}
                             {/* Categories details */}
                             {c.categories && (
                               <div className="grid grid-cols-5 gap-1 text-center border-t border-[#ded8ce]/50 pt-2 text-[8px] font-bold text-brand-secondary">
@@ -2600,11 +3107,13 @@ export function TeamMeetings() {
             </div>
 
           </div>
+        ) : selectedSeriesId ? (
+          renderSeriesDashboard()
         ) : (
           <div className="bg-white p-12 text-center text-brand-secondary border border-[#ded8ce] rounded-[18px] shadow-sm flex flex-col justify-center items-center min-h-[40vh] gap-3">
             <FileText size={40} className="text-brand-secondary/40" />
             <h3 className="font-serif text-lg font-bold text-brand-primary">No Meeting Selected</h3>
-            <p className="text-xs text-brand-secondary max-w-xs mx-auto">Select a meeting log from the sidebar or click "Record Meeting" to construct a new report.</p>
+            <p className="text-xs text-brand-secondary max-w-xs mx-auto">Select a meeting log from the sidebar, click a template's "Dashboard" button, or click "Record Meeting" to construct a new report.</p>
           </div>
         )}
       </div>
@@ -3069,6 +3578,34 @@ export function TeamMeetings() {
                             onChange={e => setCheckinNotes(e.target.value)}
                             className="w-full bg-neutral-50/50 border border-[#ded8ce] rounded-lg p-3 text-sm focus:border-brand-primary outline-none min-h-[70px]"
                           />
+                        </div>
+
+                        {/* Priorities Check-in */}
+                        <div>
+                          <label className="block text-xs font-bold uppercase tracking-widest text-brand-secondary mb-1.5">3 Priorities for the Day</label>
+                          <div className="space-y-2">
+                            <input
+                              type="text"
+                              value={checkinPriority1}
+                              onChange={e => setCheckinPriority1(e.target.value)}
+                              placeholder="Priority 1"
+                              className="w-full bg-[#fcfbf9] border border-[#ded8ce] rounded-lg px-3 py-2 text-xs focus:border-brand-primary outline-none"
+                            />
+                            <input
+                              type="text"
+                              value={checkinPriority2}
+                              onChange={e => setCheckinPriority2(e.target.value)}
+                              placeholder="Priority 2"
+                              className="w-full bg-[#fcfbf9] border border-[#ded8ce] rounded-lg px-3 py-2 text-xs focus:border-brand-primary outline-none"
+                            />
+                            <input
+                              type="text"
+                              value={checkinPriority3}
+                              onChange={e => setCheckinPriority3(e.target.value)}
+                              placeholder="Priority 3"
+                              className="w-full bg-[#fcfbf9] border border-[#ded8ce] rounded-lg px-3 py-2 text-xs focus:border-brand-primary outline-none"
+                            />
+                          </div>
                         </div>
 
                         <button
@@ -3711,6 +4248,29 @@ export function TeamMeetings() {
               );
             })()}
 
+            {/* 3 Priorities for the Day Card */}
+            <div className="bg-white border border-[#ded8ce] rounded-[18px] p-6 shadow-sm space-y-3">
+              <label className="font-bold text-sm text-[#171717] block font-serif">3 Priorities for the Day</label>
+              <div className="space-y-2.5">
+                {[
+                  { val: myPriority1, setVal: setMyPriority1, num: 1, placeholder: "First priority..." },
+                  { val: myPriority2, setVal: setMyPriority2, num: 2, placeholder: "Second priority..." },
+                  { val: myPriority3, setVal: setMyPriority3, num: 3, placeholder: "Third priority..." }
+                ].map(item => (
+                  <div key={item.num} className="flex items-center gap-3">
+                    <span className="w-5 h-5 rounded-full bg-[#f0ebe3] border border-[#ded8ce] flex items-center justify-center text-[10px] font-bold text-[#171717] shrink-0">{item.num}</span>
+                    <input
+                      type="text"
+                      value={item.val}
+                      onChange={e => item.setVal(e.target.value)}
+                      placeholder={item.placeholder}
+                      className="flex-1 border border-[#ded8ce] rounded-[10px] px-3 py-2 text-xs outline-none focus:border-black transition-colors font-sans text-[#171717]"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
             {/* Notes & Blockers Card */}
             <div className="bg-white border border-[#ded8ce] rounded-[18px] p-6 shadow-sm space-y-2">
               <label className="font-bold text-sm text-[#171717] block">Notes / blockers / asks</label>
@@ -3870,6 +4430,29 @@ export function TeamMeetings() {
               <p className="text-xs text-[#555] bg-[#f7f4ef]/40 border border-brand-border/40 p-3 rounded-lg italic leading-relaxed whitespace-pre-wrap font-sans">
                 "{viewingCheckin.notes || 'No blockers or notes reported.'}"
               </p>
+            </div>
+
+            {/* Priorities */}
+            <div className="bg-white border border-[#ded8ce] rounded-[18px] p-5 shadow-sm space-y-2">
+              <span className="text-xs font-bold text-[#171717] block">Daily Priorities</span>
+              {viewingCheckin.priorities && viewingCheckin.priorities.some((p: any) => p && (typeof p === 'object' ? p.text : p).trim()) ? (
+                <ol className="list-decimal list-inside space-y-1.5 text-xs text-[#333] bg-[#f7f4ef]/40 border border-brand-border/40 p-3 rounded-lg font-sans">
+                  {viewingCheckin.priorities
+                    .filter((p: any) => p && (typeof p === 'object' ? p.text : p).trim())
+                    .map((p: any, idx: number) => {
+                      const { text, completed } = getPriorityStatus(p);
+                      return (
+                        <li key={idx} className={`leading-relaxed ${completed ? 'line-through text-neutral-400' : ''}`}>
+                          {text}
+                        </li>
+                      );
+                    })}
+                </ol>
+              ) : (
+                <p className="text-xs text-[#666] bg-[#f7f4ef]/40 border border-brand-border/40 p-3 rounded-lg italic font-sans text-center">
+                  No priorities reported.
+                </p>
+              )}
             </div>
 
             {/* Close Button */}
