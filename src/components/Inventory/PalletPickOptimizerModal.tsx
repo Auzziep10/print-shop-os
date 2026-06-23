@@ -204,7 +204,7 @@ export function PalletPickOptimizerModal({ isOpen, onClose, preSelectedOrder, on
        const palletPicks: any[] = [];
 
        selectedPallet.boxes?.forEach((box: any) => {
-          const boxPicks: any[] = [];
+          const tempPicks: any[] = [];
           
           box.items?.forEach((invItem: any) => {
              if (invItem.quantity <= 0) return;
@@ -215,7 +215,7 @@ export function PalletPickOptimizerModal({ isOpen, onClose, preSelectedOrder, on
                    invItem.quantity -= pickQty;
                    need.unresolved -= pickQty;
 
-                   boxPicks.push({
+                   tempPicks.push({
                       boxId: box.id,
                       boxName: box.name,
                       style: need.style,
@@ -230,6 +230,22 @@ export function PalletPickOptimizerModal({ isOpen, onClose, preSelectedOrder, on
                    });
                 }
              });
+          });
+
+          // Consolidate picks by style, size, color, and SKU
+          const boxPicks: any[] = [];
+          tempPicks.forEach((pick: any) => {
+             const existing = boxPicks.find((p: any) => 
+                p.style === pick.style && 
+                p.size === pick.size && 
+                (p.sku || '').toLowerCase() === (pick.sku || '').toLowerCase() &&
+                (p.color || '').toLowerCase() === (pick.color || '').toLowerCase()
+             );
+             if (existing) {
+                existing.qty += pick.qty;
+             } else {
+                boxPicks.push(pick);
+             }
           });
 
           if (boxPicks.length > 0) {
@@ -582,7 +598,7 @@ export function PalletPickOptimizerModal({ isOpen, onClose, preSelectedOrder, on
 
         // Calculate remaining items in box after picking
         const remainingItems = (originalBox.items || []).map((item: any) => {
-          const matchingPick = box.picks.find((p: any) => {
+          const matchingPicks = box.picks.filter((p: any) => {
             if (p.invItemName && p.invItemSize && p.invItemSku) {
               return p.invItemName === item.name &&
                      p.invItemSize === item.size &&
@@ -592,7 +608,9 @@ export function PalletPickOptimizerModal({ isOpen, onClose, preSelectedOrder, on
                    p.size === item.size && 
                    (p.sku || '').toLowerCase() === (item.sku || '').toLowerCase();
           });
-          const pickedQty = (matchingPick && !selectedOrder.isArchivedPick) ? matchingPick.qty : 0;
+          const pickedQty = (matchingPicks.length > 0 && !selectedOrder.isArchivedPick)
+            ? matchingPicks.reduce((sum: number, p: any) => sum + p.qty, 0)
+            : 0;
           return {
             ...item,
             quantity: item.quantity - pickedQty
@@ -787,8 +805,8 @@ export function PalletPickOptimizerModal({ isOpen, onClose, preSelectedOrder, on
 
           // Update items in this box
           const updatedItems = (b.items || []).map((item: any) => {
-            // Find if there is a matching pick
-            const matchingPick = group.picks.find(p => {
+            // Find all matching picks and sum their quantities
+            const matchingPicks = group.picks.filter(p => {
               if (p.invItemName && p.invItemSize && p.invItemSku) {
                 return p.invItemName === item.name &&
                        p.invItemSize === item.size &&
@@ -799,8 +817,9 @@ export function PalletPickOptimizerModal({ isOpen, onClose, preSelectedOrder, on
                      (p.sku || '').toLowerCase() === (item.sku || '').toLowerCase();
             });
 
-            if (matchingPick) {
-              const newQty = item.quantity - matchingPick.qty;
+            if (matchingPicks.length > 0) {
+              const pickedQty = matchingPicks.reduce((sum: number, p: any) => sum + p.qty, 0);
+              const newQty = item.quantity - pickedQty;
               return {
                 ...item,
                 quantity: newQty
