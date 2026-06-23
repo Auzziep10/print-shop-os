@@ -285,36 +285,151 @@ const generateFinalSheetsForPrintAndCut = async (
 
     const isVinyl = isVinylItem(orderItem);
 
-    let sourceImageUrl = orderItem.originalSheetUrl || orderItem.image || '';
     let isSingleTransferLayout = orderItem.sheetSizeName === 'Single Design Transfer';
     const isAutoLayout = (orderItem.sheetSizeName || '').toLowerCase().includes('auto-layout');
     
     let designWidthInches = isSingleTransferLayout ? 22 : (orderItem.sheetWidth || 22);
     let sheetContentHeightInches: number;
 
+    const SPACING_INCHES = 0.25;
+    const SPACING_PX = SPACING_INCHES * BASE_DPI;
+    const maxSheetWidthPx = designWidthInches * BASE_DPI;
+
+    // Define placement instances for auto-repeated single transfer layout
+    interface Placement {
+        url: string;
+        x: number;
+        y: number;
+        wPx: number;
+        hPx: number;
+    }
+    const placements: Placement[] = [];
+
     if (isSingleTransferLayout) {
-        const SPACING_INCHES = 0.25;
-        const itemWidthInches = orderItem.sheetWidth || 3.5;
-        const itemHeightInches = orderItem.sheetHeight || 3.5;
+        const instances: Array<{
+            url: string;
+            wPx: number;
+            hPx: number;
+        }> = [];
 
-        const itemsPerRow = Math.floor((22 + SPACING_INCHES) / (itemWidthInches + SPACING_INCHES));
-        const numRows = Math.ceil(orderItem.quantity / itemsPerRow);
+        const artworks = orderItem.artworks || [];
+        if (artworks.length > 0) {
+            artworks.forEach((art: any) => {
+                const qty = parseInt(art.quantity) || 1;
+                const w = parseFloat(art.width) || 3.5;
+                const h = parseFloat(art.height) || 3.5;
+                const url = art.url || art.imageUrl || art.originalUrl || orderItem.originalSheetUrl || orderItem.image || '';
+                for (let i = 0; i < qty; i++) {
+                    instances.push({
+                        url,
+                        wPx: w * BASE_DPI,
+                        hPx: h * BASE_DPI
+                    });
+                }
+            });
+        } else {
+            const qty = parseInt(orderItem.quantity) || 1;
+            const w = parseFloat(orderItem.sheetWidth) || 3.5;
+            const h = parseFloat(orderItem.sheetHeight) || 3.5;
+            const url = orderItem.originalSheetUrl || orderItem.image || '';
+            for (let i = 0; i < qty; i++) {
+                instances.push({
+                    url,
+                    wPx: w * BASE_DPI,
+                    hPx: h * BASE_DPI
+                });
+            }
+        }
 
-        sheetContentHeightInches = (itemHeightInches * numRows) + (SPACING_INCHES * (numRows + 1));
+        // Sort instances by height descending for optimal shelf packing
+        instances.sort((a, b) => b.hPx - a.hPx);
+
+        // Shelf packing algorithm
+        interface Shelf {
+            y: number;
+            height: number;
+            currentX: number;
+        }
+        const shelves: Shelf[] = [];
+
+        instances.forEach(inst => {
+            let placed = false;
+            for (const shelf of shelves) {
+                if (shelf.currentX + inst.wPx <= maxSheetWidthPx) {
+                    placements.push({
+                        url: inst.url,
+                        x: shelf.currentX,
+                        y: shelf.y,
+                        wPx: inst.wPx,
+                        hPx: inst.hPx
+                    });
+                    shelf.currentX += inst.wPx + SPACING_PX;
+                    placed = true;
+                    break;
+                }
+            }
+
+            if (!placed) {
+                const newY = shelves.length === 0 
+                    ? SPACING_PX 
+                    : shelves[shelves.length - 1].y + shelves[shelves.length - 1].height + SPACING_PX;
+                
+                shelves.push({
+                    y: newY,
+                    height: inst.hPx,
+                    currentX: inst.wPx + SPACING_PX
+                });
+
+                placements.push({
+                    url: inst.url,
+                    x: 0,
+                    y: newY,
+                    wPx: inst.wPx,
+                    hPx: inst.hPx
+                });
+            }
+        });
+
+        const totalContentHeightPx = shelves.length === 0 
+            ? 0 
+            : shelves[shelves.length - 1].y + shelves[shelves.length - 1].height + SPACING_PX;
+        
+        sheetContentHeightInches = totalContentHeightPx / BASE_DPI;
     } else {
         sheetContentHeightInches = orderItem.sheetHeight || 24;
     }
-    
-    const finalCanvasWidth = (designWidthInches + (2 * MARGIN_INCHES)) * BASE_DPI; // e.g. 24 inches for a 22 inch design area
+
+    const finalCanvasWidth = (designWidthInches + (2 * MARGIN_INCHES)) * BASE_DPI;
     const finalCanvasHeight = (sheetContentHeightInches * BASE_DPI) + HEADER_HEIGHT_PX + (2 * MARGIN_PX) + HEADER_TO_DESIGN_GAP;
 
-    const sourceImage = new window.Image();
-    sourceImage.crossOrigin = 'anonymous';
-    await new Promise((resolve, reject) => {
-        sourceImage.onload = resolve;
-        sourceImage.onerror = reject;
-        sourceImage.src = sourceImageUrl;
-    });
+    // Preload all unique images
+    const loadedImages: Record<string, HTMLImageElement> = {};
+    const urlsToLoad = new Set<string>();
+
+    if (isSingleTransferLayout) {
+        placements.forEach(p => {
+            if (p.url) urlsToLoad.add(p.url);
+        });
+    } else {
+        const url = orderItem.originalSheetUrl || orderItem.image || '';
+        if (url) urlsToLoad.add(url);
+    }
+
+    for (const url of Array.from(urlsToLoad)) {
+        const img = new window.Image();
+        img.crossOrigin = 'anonymous';
+        await new Promise((resolve) => {
+            img.onload = () => {
+                loadedImages[url] = img;
+                resolve(null);
+            };
+            img.onerror = (err) => {
+                console.error('Failed to load image:', url, err);
+                resolve(null);
+            };
+            img.src = url;
+        });
+    }
 
     // 1. Create PRINT Canvas
     const printCanvas = document.createElement('canvas');
@@ -341,36 +456,17 @@ const generateFinalSheetsForPrintAndCut = async (
 
     // --- Draw Main Content ---
     if (isSingleTransferLayout) {
-        const SPACING_INCHES = 0.25;
-        const itemWidthInches = orderItem.sheetWidth || 3.5;
-        const itemHeightInches = orderItem.sheetHeight || 3.5;
-        const itemsPerRow = Math.floor((22 + SPACING_INCHES) / (itemWidthInches + SPACING_INCHES));
+        placements.forEach(p => {
+            const printX = p.x + MARGIN_PX;
+            const printY = p.y + yOffset;
+            const designX = p.x;
+            const designY = p.y;
 
-        let currentX = MARGIN_PX + (SPACING_INCHES * BASE_DPI);
-        let currentY = yOffset + (SPACING_INCHES * BASE_DPI);
-        let placedItems = 0;
-
-        for (let i = 0; i < orderItem.quantity; i++) {
-            if (placedItems > 0 && placedItems % itemsPerRow === 0) {
-                currentX = MARGIN_PX + (SPACING_INCHES * BASE_DPI);
-                currentY += (itemHeightInches + SPACING_INCHES) * BASE_DPI;
+            const img = loadedImages[p.url];
+            if (img) {
+                printCtx.drawImage(img, printX, printY, p.wPx, p.hPx);
+                designCtx.drawImage(img, designX, designY, p.wPx, p.hPx);
             }
-
-            printCtx.drawImage(
-                sourceImage,
-                currentX,
-                currentY,
-                itemWidthInches * BASE_DPI,
-                itemHeightInches * BASE_DPI
-            );
-
-            designCtx.drawImage(
-                sourceImage,
-                currentX - MARGIN_PX,
-                currentY - yOffset,
-                itemWidthInches * BASE_DPI,
-                itemHeightInches * BASE_DPI
-            );
 
             if (!isVinyl) {
                 // Draw black outline around each item for DTF plotter cutter
@@ -378,66 +474,40 @@ const generateFinalSheetsForPrintAndCut = async (
                 cutCtx.lineWidth = 6;
                 const paddingPx = 0.08 * BASE_DPI; // 24px (~2mm) margin
                 cutCtx.strokeRect(
-                    currentX - paddingPx,
-                    currentY - paddingPx,
-                    (itemWidthInches * BASE_DPI) + (2 * paddingPx),
-                    (itemHeightInches * BASE_DPI) + (2 * paddingPx)
+                    printX - paddingPx,
+                    printY - paddingPx,
+                    p.wPx + (2 * paddingPx),
+                    p.hPx + (2 * paddingPx)
                 );
             }
-
-            currentX += (itemWidthInches + SPACING_INCHES) * BASE_DPI;
-            placedItems++;
-        }
+        });
     } else {
         // --- Standard Gang Sheet ---
         const artworks = orderItem.artworks || [];
+        const sourceUrl = orderItem.originalSheetUrl || orderItem.image || '';
+        const sourceImage = loadedImages[sourceUrl];
 
-        if (isAutoLayout && artworks.length > 0) {
-            artworks.forEach((art: any) => {
-                const artX = art.x * BASE_DPI;
-                const artY = art.y * BASE_DPI;
-                const artW = art.width * BASE_DPI;
-                const artH = art.height * BASE_DPI;
+        if (sourceImage) {
+            if (isAutoLayout && artworks.length > 0) {
+                artworks.forEach((art: any) => {
+                    const artX = art.x * BASE_DPI;
+                    const artY = art.y * BASE_DPI;
+                    const artW = art.width * BASE_DPI;
+                    const artH = art.height * BASE_DPI;
 
-                printCtx.drawImage(
-                    sourceImage,
-                    artX + MARGIN_PX,
-                    artY + yOffset,
-                    artW,
-                    artH
-                );
-
-                designCtx.drawImage(
-                    sourceImage,
-                    artX,
-                    artY,
-                    artW,
-                    artH
-                );
-            });
-        } else {
-            printCtx.drawImage(
-                sourceImage, 
-                MARGIN_PX, 
-                yOffset, 
-                designWidthInches * BASE_DPI, 
-                (orderItem.sheetHeight || 24) * BASE_DPI
-            );
-
-            designCtx.drawImage(
-                sourceImage,
-                0,
-                0,
-                designWidthInches * BASE_DPI,
-                (orderItem.sheetHeight || 24) * BASE_DPI
-            );
+                    printCtx.drawImage(sourceImage, artX + MARGIN_PX, artY + yOffset, artW, artH);
+                    designCtx.drawImage(sourceImage, artX, artY, artW, artH);
+                });
+            } else {
+                printCtx.drawImage(sourceImage, MARGIN_PX, yOffset, designWidthInches * BASE_DPI, (orderItem.sheetHeight || 24) * BASE_DPI);
+                designCtx.drawImage(sourceImage, 0, 0, designWidthInches * BASE_DPI, (orderItem.sheetHeight || 24) * BASE_DPI);
+            }
         }
 
-        if (!isVinyl) {
+        if (!isVinyl && sourceImage) {
             cutCtx.strokeStyle = 'black';
             cutCtx.lineWidth = 6;
 
-            const artworks = orderItem.artworks || [];
             if (artworks.length > 0 && isAutoLayout) {
                 artworks.forEach((art: any) => {
                     const centerX = (art.x + art.width / 2) * BASE_DPI + MARGIN_PX;
@@ -519,7 +589,7 @@ const generateFinalSheetsForPrintAndCut = async (
         textY += FONT_SIZE_SMALL + 15;
         
         const sheetDescription = isSingleTransferLayout
-            ? `${orderItem.quantity} x (${orderItem.sheetWidth || 3.5}" x ${orderItem.sheetHeight || 3.5}")`
+            ? `Multi-logo Auto-repeat Sheet`
             : `${orderItem.sheetWidth || 22}" x ${orderItem.sheetHeight || 24}" Sheet`;
         ctx.fillText(`Sheet: ${sheetDescription}`, textX, textY);
     };
@@ -554,135 +624,76 @@ const generateFinalSheetsForPrintAndCut = async (
 
     svgContent += `  <!-- Cut Paths -->\n`;
     if (!isVinyl) {
-        if (isSingleTransferLayout) {
-            const SPACING_INCHES = 0.25;
-            const itemWidthInches = orderItem.sheetWidth || 3.5;
-            const itemHeightInches = orderItem.sheetHeight || 3.5;
-            const itemsPerRow = Math.floor((22 + SPACING_INCHES) / (itemWidthInches + SPACING_INCHES));
-
-            let currentX = MARGIN_PX + (SPACING_INCHES * BASE_DPI);
-            let currentY = yOffset + (SPACING_INCHES * BASE_DPI);
-            let placedItems = 0;
-
-            for (let i = 0; i < orderItem.quantity; i++) {
-                if (placedItems > 0 && placedItems % itemsPerRow === 0) {
-                    currentX = MARGIN_PX + (SPACING_INCHES * BASE_DPI);
-                    currentY += (itemHeightInches + SPACING_INCHES) * BASE_DPI;
-                }
-
-                const paddingPx = 0.08 * BASE_DPI;
-                const rectX = currentX - paddingPx;
-                const rectY = currentY - paddingPx;
-                const rectW = (itemWidthInches * BASE_DPI) + (2 * paddingPx);
-                const rectH = (itemHeightInches * BASE_DPI) + (2 * paddingPx);
-
-                svgContent += `  <rect x="${rectX}" y="${rectY}" width="${rectW}" height="${rectH}" fill="none" stroke="black" stroke-width="6" />\n`;
-
-                currentX += (itemWidthInches + SPACING_INCHES) * BASE_DPI;
-                placedItems++;
-            }
-        } else {
-            const artworks = orderItem.artworks || [];
-            if (artworks.length > 0 && isAutoLayout) {
-                artworks.forEach((art: any) => {
-                    const centerX = (art.x + art.width / 2) * BASE_DPI + MARGIN_PX;
-                    const centerY = (art.y + art.height / 2) * BASE_DPI + yOffset;
-
-                    const targetPadding = 0.08 * BASE_DPI;
-                    const safePadding = calculateSafePadding(art, artworks, targetPadding);
-
-                    const wPx = art.width * BASE_DPI + (2 * safePadding);
-                    const hPx = art.height * BASE_DPI + (2 * safePadding);
-
-                    const rotation = art.rotation || 0;
-                    const rx = centerX - wPx / 2;
-                    const ry = centerY - hPx / 2;
-
-                    svgContent += `  <rect x="${rx}" y="${ry}" width="${wPx}" height="${hPx}" fill="none" stroke="black" stroke-width="6" transform="rotate(${rotation}, ${centerX}, ${centerY})" />\n`;
-                });
-            } else {
-                const contentMargin = 0.25 * BASE_DPI;
-                const rectX = MARGIN_PX + contentMargin;
-                const rectY = yOffset + contentMargin;
-                const rectW = (designWidthInches * BASE_DPI) - (contentMargin * 2);
-                const rectH = ((orderItem.sheetHeight || 24) * BASE_DPI) - (contentMargin * 2);
-                svgContent += `  <rect x="${rectX}" y="${rectY}" width="${rectW}" height="${rectH}" fill="none" stroke="black" stroke-width="6" />\n`;
-            }
-        }
-    } else {
-        let traceWidth = 400;
-        let traceHeight = 400;
-        let contourPaths: string[] = [];
-
-        const imgW = sourceImage.naturalWidth || sourceImage.width || 400;
-        const imgH = sourceImage.naturalHeight || sourceImage.height || 400;
+        const uniqueContourPaths: Record<string, { paths: string[]; width: number; height: number }> = {};
         
-        const maxDim = 400;
-        if (imgW > imgH) {
-            traceWidth = maxDim;
-            traceHeight = Math.round(maxDim * imgH / imgW);
-        } else {
-            traceHeight = maxDim;
-            traceWidth = Math.round(maxDim * imgW / imgH);
-        }
+        for (const url of Array.from(urlsToLoad)) {
+            const img = loadedImages[url];
+            if (!img) continue;
 
-        const traceCanvas = document.createElement('canvas');
-        traceCanvas.width = traceWidth;
-        traceCanvas.height = traceHeight;
-        const traceCtx = traceCanvas.getContext('2d');
-        if (traceCtx) {
-            traceCtx.drawImage(sourceImage, 0, 0, traceWidth, traceHeight);
-            contourPaths = findContourPaths(traceCanvas);
+            let traceWidth = 400;
+            let traceHeight = 400;
+            const imgW = img.naturalWidth || img.width || 400;
+            const imgH = img.naturalHeight || img.height || 400;
+            
+            const maxDim = 400;
+            if (imgW > imgH) {
+                traceWidth = maxDim;
+                traceHeight = Math.round(maxDim * imgH / imgW);
+            } else {
+                traceHeight = maxDim;
+                traceWidth = Math.round(maxDim * imgW / imgH);
+            }
+
+            const traceCanvas = document.createElement('canvas');
+            traceCanvas.width = traceWidth;
+            traceCanvas.height = traceHeight;
+            const traceCtx = traceCanvas.getContext('2d');
+            let contourPaths: string[] = [];
+            if (traceCtx) {
+                traceCtx.drawImage(img, 0, 0, traceWidth, traceHeight);
+                contourPaths = findContourPaths(traceCanvas);
+            }
+            uniqueContourPaths[url] = { paths: contourPaths, width: traceWidth, height: traceHeight };
         }
 
         if (isSingleTransferLayout) {
-            const SPACING_INCHES = 0.25;
-            const itemWidthInches = orderItem.sheetWidth || 3.5;
-            const itemHeightInches = orderItem.sheetHeight || 3.5;
-            const itemsPerRow = Math.floor((22 + SPACING_INCHES) / (itemWidthInches + SPACING_INCHES));
+            placements.forEach(p => {
+                const artW = p.wPx;
+                const artH = p.hPx;
+                const centerX = p.x + MARGIN_PX + artW / 2;
+                const centerY = p.y + yOffset + artH / 2;
 
-            let currentX = MARGIN_PX + (SPACING_INCHES * BASE_DPI);
-            let currentY = yOffset + (SPACING_INCHES * BASE_DPI);
-            let placedItems = 0;
+                const trace = uniqueContourPaths[p.url];
+                if (trace && trace.paths.length > 0) {
+                    const scaleX = artW / trace.width;
+                    const scaleY = artH / trace.height;
 
-            for (let i = 0; i < orderItem.quantity; i++) {
-                if (placedItems > 0 && placedItems % itemsPerRow === 0) {
-                    currentX = MARGIN_PX + (SPACING_INCHES * BASE_DPI);
-                    currentY += (itemHeightInches + SPACING_INCHES) * BASE_DPI;
+                    svgContent += `  <g transform="translate(${centerX}, ${centerY}) scale(${scaleX}, ${scaleY}) translate(${-trace.width / 2}, ${-trace.height / 2})">\n`;
+                    trace.paths.forEach(d => {
+                        svgContent += `    <path d="${d}" fill="black" stroke="black" stroke-width="${6 / Math.max(scaleX, scaleY)}" stroke-linejoin="round" />\n`;
+                    });
+                    svgContent += `  </g>\n`;
                 }
-
-                const artW = itemWidthInches * BASE_DPI;
-                const artH = itemHeightInches * BASE_DPI;
-                const centerX = currentX + artW / 2;
-                const centerY = currentY + artH / 2;
-
-                const scaleX = artW / traceWidth;
-                const scaleY = artH / traceHeight;
-
-                svgContent += `  <g transform="translate(${centerX}, ${centerY}) scale(${scaleX}, ${scaleY}) translate(${-traceWidth / 2}, ${-traceHeight / 2})">\n`;
-                contourPaths.forEach(d => {
-                    svgContent += `    <path d="${d}" fill="black" stroke="black" stroke-width="${6 / Math.max(scaleX, scaleY)}" stroke-linejoin="round" />\n`;
-                });
-                svgContent += `  </g>\n`;
-
-                currentX += (itemWidthInches + SPACING_INCHES) * BASE_DPI;
-                placedItems++;
-            }
+            });
         } else {
+            // --- Standard Gang Sheet ---
             const artworks = orderItem.artworks || [];
-            if (artworks.length > 0 && isAutoLayout) {
+            const sourceUrl = orderItem.originalSheetUrl || orderItem.image || '';
+            const trace = uniqueContourPaths[sourceUrl];
+
+            if (artworks.length > 0 && isAutoLayout && trace && trace.paths.length > 0) {
                 artworks.forEach((art: any) => {
                     const centerX = (art.x + art.width / 2) * BASE_DPI + MARGIN_PX;
                     const centerY = (art.y + art.height / 2) * BASE_DPI + yOffset;
                     const artW = art.width * BASE_DPI;
                     const artH = art.height * BASE_DPI;
 
-                    const scaleX = artW / traceWidth;
-                    const scaleY = artH / traceHeight;
+                    const scaleX = artW / trace.width;
+                    const scaleY = artH / trace.height;
                     const rotation = art.rotation || 0;
 
-                    svgContent += `  <g transform="translate(${centerX}, ${centerY}) rotate(${rotation}) scale(${scaleX}, ${scaleY}) translate(${-traceWidth / 2}, ${-traceHeight / 2})">\n`;
-                    contourPaths.forEach(d => {
+                    svgContent += `  <g transform="translate(${centerX}, ${centerY}) rotate(${rotation}) scale(${scaleX}, ${scaleY}) translate(${-trace.width / 2}, ${-trace.height / 2})">\n`;
+                    trace.paths.forEach(d => {
                         svgContent += `    <path d="${d}" fill="black" stroke="black" stroke-width="${6 / Math.max(scaleX, scaleY)}" stroke-linejoin="round" />\n`;
                     });
                     svgContent += `  </g>\n`;
@@ -693,7 +704,7 @@ const generateFinalSheetsForPrintAndCut = async (
                 const rectY = yOffset + contentMargin;
                 const rectW = (designWidthInches * BASE_DPI) - (contentMargin * 2);
                 const rectH = ((orderItem.sheetHeight || 24) * BASE_DPI) - (contentMargin * 2);
-                svgContent += `  <rect x="${rectX}" y="${rectY}" width="${rectW}" height="${rectH}" fill="black" />\n`;
+                svgContent += `  <rect x="${rectX}" y="${rectY}" width="${rectW}" height="${rectH}" fill="none" stroke="black" stroke-width="6" />\n`;
             }
         }
     }
@@ -706,6 +717,7 @@ const generateFinalSheetsForPrintAndCut = async (
         cutDataUrl: cutDataUrl
     };
 };
+
 
 export function OrderDetail() {
   const { id } = useParams();
@@ -2197,7 +2209,18 @@ export function OrderDetail() {
                             <Copy size={14} />
                           </button>
                           <button 
-                            onClick={() => setEditItemObj(item)} 
+                            onClick={() => {
+                              if (item.itemType === 'gang_sheet') {
+                                const initialArtworks = Array.isArray(item.artworks) && item.artworks.length > 0
+                                  ? item.artworks
+                                  : (item.originalSheetUrl || item.image
+                                     ? [{ id: `art-${Date.now()}`, name: 'Existing Artwork', url: item.originalSheetUrl || item.image, imageUrl: item.originalSheetUrl || item.image, originalUrl: item.originalSheetUrl || item.image, width: item.sheetWidth || 3.5, height: item.sheetHeight || 3.5, quantity: item.quantity || 1 }]
+                                     : [{ id: `art-${Date.now()}`, name: '', url: '', imageUrl: '', originalUrl: '', width: 3.5, height: 3.5, quantity: 10 }]);
+                                setEditItemObj({ ...item, artworks: initialArtworks });
+                              } else {
+                                setEditItemObj(item);
+                              }
+                            }} 
                             className="p-1.5 text-brand-secondary hover:text-brand-primary transition-colors bg-white rounded-md shadow-sm border border-brand-border flex items-center justify-center"
                             title="Edit Item"
                           >
@@ -4126,15 +4149,24 @@ export function OrderDetail() {
                     Service / Misc
                   </button>
                   <button 
-                    onClick={() => setEditItemObj({
-                      ...editItemObj, 
-                      itemType: 'gang_sheet',
-                      sheetSizeName: editItemObj.sheetSizeName || 'Single Design Transfer',
-                      sheetWidth: editItemObj.sheetWidth || 22,
-                      sheetHeight: editItemObj.sheetHeight || 24,
-                      quantity: editItemObj.quantity || editItemObj.qty || 1,
-                      price: editItemObj.price || '$0.00'
-                    })} 
+                    onClick={() => {
+                      const initialArtworks = Array.isArray(editItemObj.artworks) && editItemObj.artworks.length > 0
+                        ? editItemObj.artworks
+                        : (editItemObj.image || editItemObj.originalSheetUrl
+                           ? [{ id: `art-${Date.now()}`, name: 'Existing Artwork', url: editItemObj.image || editItemObj.originalSheetUrl, imageUrl: editItemObj.image || editItemObj.originalSheetUrl, originalUrl: editItemObj.image || editItemObj.originalSheetUrl, width: editItemObj.sheetWidth || 3.5, height: editItemObj.sheetHeight || 3.5, quantity: editItemObj.quantity || 1 }]
+                           : [{ id: `art-${Date.now()}`, name: '', url: '', imageUrl: '', originalUrl: '', width: 3.5, height: 3.5, quantity: 10 }]);
+                      
+                      setEditItemObj({
+                        ...editItemObj, 
+                        itemType: 'gang_sheet',
+                        sheetSizeName: editItemObj.sheetSizeName || 'Single Design Transfer',
+                        sheetWidth: editItemObj.sheetWidth || 22,
+                        sheetHeight: editItemObj.sheetHeight || 24,
+                        quantity: editItemObj.quantity || editItemObj.qty || 1,
+                        price: editItemObj.price || '$0.00',
+                        artworks: initialArtworks
+                      });
+                    }} 
                     className={`px-3 py-1.5 text-xs font-bold uppercase tracking-wider rounded-md transition-all ${editItemObj.itemType === 'gang_sheet' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}
                   >
                     DTF Gang Sheet
@@ -4304,42 +4336,206 @@ export function OrderDetail() {
                        </label>
                      </div>
                    </div>
-                </div>
+                 </div>
               )}
-
               {editItemObj.itemType === 'gang_sheet' && (
-                 <div className="lg:col-span-4 flex flex-col gap-6">
-                    <div className="flex items-center justify-between pointer-events-none">
-                       <label className="text-xs font-bold uppercase tracking-widest text-brand-secondary">Gang Sheet Artwork</label>
-                    </div>
+                 <div className={editItemObj.sheetSizeName === 'Single Design Transfer' ? "lg:col-span-12 flex flex-col gap-6" : "lg:col-span-4 flex flex-col gap-6"}>
                     <div className="bg-white rounded-xl border border-brand-border p-5 flex flex-col gap-5 shadow-sm">
-                      <div className="flex flex-col gap-3">
-                        <span className="text-xs font-semibold text-brand-primary flex items-center gap-2">
-                          <ImageIcon size={14}/> 
-                          {editItemObj.sheetSizeName === 'Single Design Transfer' ? 'Single Design' : 'Pre-built Sheet'}
-                        </span>
-                        <div className="w-full aspect-square bg-neutral-100 border border-brand-border rounded-lg flex items-center justify-center overflow-hidden bg-checkerboard">
-                          {editItemObj.image || editItemObj.originalSheetUrl ? (
-                            <img src={editItemObj.image || editItemObj.originalSheetUrl} alt="Artwork preview" className="w-full h-full object-contain p-2 hover:scale-105 transition-transform cursor-crosshair" onClick={() => setExpandedImage({ src: editItemObj.image || editItemObj.originalSheetUrl, alt: "Artwork preview" })} />
-                          ) : (
-                            <div className="flex flex-col items-center gap-2 text-brand-secondary/50">
-                              <ImageIcon size={32} />
-                              <span className="text-xs font-medium">No artwork uploaded</span>
-                            </div>
-                          )}
+                      {editItemObj.sheetSizeName === 'Single Design Transfer' ? (
+                        <div className="flex flex-col gap-4">
+                           <div className="flex justify-between items-center border-b border-brand-border pb-3">
+                              <span className="text-xs font-bold uppercase tracking-widest text-brand-secondary flex items-center gap-2">
+                                <ImageIcon size={14}/> Configure Logos / Designs
+                              </span>
+                              <button
+                                 type="button"
+                                 onClick={() => {
+                                    const newArtworks = [...(editItemObj.artworks || [])];
+                                    newArtworks.push({
+                                       id: `art-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                                       name: '',
+                                       url: '',
+                                       width: 3.5,
+                                       height: 3.5,
+                                       quantity: 10
+                                    });
+                                    setEditItemObj((prev: any) => ({ ...prev, artworks: newArtworks }));
+                                 }}
+                                 className="px-4 py-2 bg-neutral-900 hover:bg-neutral-800 text-white rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm"
+                              >
+                                 <Plus size={14} /> Add Logo
+                              </button>
+                           </div>
+
+                           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                              {((editItemObj.artworks && editItemObj.artworks.length > 0) ? editItemObj.artworks : [{ id: 'default', name: '', url: '', width: 3.5, height: 3.5, quantity: 10 }]).map((art: any, idx: number) => (
+                                 <div key={art.id || idx} className="bg-brand-bg/30 border border-brand-border rounded-xl p-4 flex flex-col gap-4 shadow-sm relative group">
+                                    {/* Remove Button */}
+                                    {(editItemObj.artworks && editItemObj.artworks.length > 1) && (
+                                       <button
+                                          type="button"
+                                          onClick={() => {
+                                             const newArtworks = editItemObj.artworks.filter((_: any, i: number) => i !== idx);
+                                             setEditItemObj((prev: any) => ({ ...prev, artworks: newArtworks }));
+                                          }}
+                                          className="absolute top-3 right-3 text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 p-1.5 rounded-lg transition-all cursor-pointer z-10"
+                                          title="Delete Logo"
+                                       >
+                                          <Trash2 size={14} />
+                                       </button>
+                                    )}
+
+                                    <div className="flex gap-4 items-start">
+                                       {/* Logo Upload Box */}
+                                       <div className="w-20 h-20 bg-white border border-brand-border rounded-lg flex items-center justify-center overflow-hidden bg-checkerboard shrink-0 relative shadow-sm">
+                                          {art.url ? (
+                                             <img src={art.url} alt="" className="w-full h-full object-contain p-1" />
+                                          ) : (
+                                             <ImageIcon size={20} className="text-brand-secondary/40" />
+                                          )}
+                                          <label className="absolute inset-0 cursor-pointer flex items-center justify-center bg-black/40 opacity-0 hover:opacity-100 transition-opacity">
+                                             <Upload size={14} className="text-white" />
+                                             <input
+                                                type="file"
+                                                className="hidden"
+                                                accept="image/*"
+                                                onChange={async (e) => {
+                                                   const file = e.target.files?.[0];
+                                                   if (!file) return;
+                                                   setIsUploadingGang(true);
+                                                   try {
+                                                      const storageRef = ref(storage, `orders/${id}/items/${editItemObj.id || 'new'}/logo-${idx}-${Date.now()}`);
+                                                      await uploadBytes(storageRef, file);
+                                                      const url = await getDownloadURL(storageRef);
+                                                      const newArtworks = [...(editItemObj.artworks || [])];
+                                                      if (newArtworks.length === 0) {
+                                                         newArtworks.push({ id: `art-${Date.now()}`, name: file.name, url, width: 3.5, height: 3.5, quantity: 10 });
+                                                      } else {
+                                                         newArtworks[idx] = {
+                                                            ...newArtworks[idx],
+                                                            id: newArtworks[idx].id || `art-${Date.now()}`,
+                                                            name: file.name,
+                                                            url,
+                                                            imageUrl: url,
+                                                            originalUrl: url
+                                                         };
+                                                      }
+                                                      setEditItemObj((prev: any) => ({
+                                                         ...prev,
+                                                         artworks: newArtworks,
+                                                         image: prev.image || url
+                                                      }));
+                                                   } catch (err) {
+                                                      console.error(err);
+                                                   } finally {
+                                                      setIsUploadingGang(false);
+                                                   }
+                                                }}
+                                             />
+                                          </label>
+                                       </div>
+
+                                       {/* File Details */}
+                                       <div className="flex-1 min-w-0 flex flex-col gap-0.5 pt-1">
+                                          <span className="text-[9px] font-extrabold uppercase tracking-wider text-brand-secondary">Logo #{idx + 1}</span>
+                                          <span className="text-xs font-bold text-brand-primary truncate">{art.name || 'No file uploaded'}</span>
+                                          {isUploadingGang && !art.url && (
+                                             <span className="text-[9px] text-brand-primary flex items-center gap-1 font-semibold">
+                                                <Loader2 size={10} className="animate-spin" /> Uploading...
+                                             </span>
+                                          )}
+                                       </div>
+                                    </div>
+
+                                    {/* Dimensions & Qty Row */}
+                                    <div className="grid grid-cols-3 gap-2">
+                                       <div className="flex flex-col gap-1">
+                                          <label className="text-[9px] uppercase font-bold text-gray-400 pl-0.5">Width (in)</label>
+                                          <input
+                                             type="number"
+                                             step="0.1"
+                                             value={art.width || ''}
+                                             onChange={(e) => {
+                                                const val = parseFloat(e.target.value) || 0;
+                                                const newArtworks = [...(editItemObj.artworks || [])];
+                                                newArtworks[idx] = { ...newArtworks[idx], width: val };
+                                                setEditItemObj((prev: any) => ({ ...prev, artworks: newArtworks }));
+                                             }}
+                                             className="w-full bg-white border border-brand-border rounded-lg px-2 py-1.5 text-xs font-bold focus:border-brand-primary focus:outline-none transition-all"
+                                             placeholder="3.5"
+                                          />
+                                       </div>
+                                       <div className="flex flex-col gap-1">
+                                          <label className="text-[9px] uppercase font-bold text-gray-400 pl-0.5">Height (in)</label>
+                                          <input
+                                             type="number"
+                                             step="0.1"
+                                             value={art.height || ''}
+                                             onChange={(e) => {
+                                                const val = parseFloat(e.target.value) || 0;
+                                                const newArtworks = [...(editItemObj.artworks || [])];
+                                                newArtworks[idx] = { ...newArtworks[idx], height: val };
+                                                setEditItemObj((prev: any) => ({ ...prev, artworks: newArtworks }));
+                                             }}
+                                             className="w-full bg-white border border-brand-border rounded-lg px-2 py-1.5 text-xs font-bold focus:border-brand-primary focus:outline-none transition-all"
+                                             placeholder="3.5"
+                                          />
+                                       </div>
+                                       <div className="flex flex-col gap-1">
+                                          <label className="text-[9px] uppercase font-bold text-gray-400 pl-0.5">Quantity</label>
+                                          <input
+                                             type="number"
+                                             min="1"
+                                             value={art.quantity || ''}
+                                             onChange={(e) => {
+                                                const val = parseInt(e.target.value) || 0;
+                                                const newArtworks = [...(editItemObj.artworks || [])];
+                                                newArtworks[idx] = { ...newArtworks[idx], quantity: val };
+                                                setEditItemObj((prev: any) => ({ ...prev, artworks: newArtworks }));
+                                             }}
+                                             className="w-full bg-white border border-brand-border rounded-lg px-2 py-1.5 text-xs font-bold focus:border-brand-primary focus:outline-none transition-all text-brand-primary font-bold"
+                                             placeholder="10"
+                                          />
+                                       </div>
+                                    </div>
+                                 </div>
+                              ))}
+                           </div>
                         </div>
-                        <label className="cursor-pointer bg-white border border-brand-border rounded-lg py-2.5 flex items-center justify-center gap-2 hover:bg-brand-bg transition-colors text-sm font-semibold text-brand-primary shadow-sm hover:shadow">
-                          {isUploadingGang ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
-                          {isUploadingGang ? 'Uploading...' : 'Upload Artwork'}
-                          <input type="file" className="hidden" accept="image/*" onChange={handleGangSheetUpload} disabled={isUploadingGang} />
-                        </label>
-                      </div>
+                      ) : (
+                        <div className="flex flex-col gap-3">
+                          <span className="text-xs font-semibold text-brand-primary flex items-center gap-2">
+                            <ImageIcon size={14}/> Pre-built Sheet
+                          </span>
+                          <div className="w-full aspect-square bg-neutral-100 border border-brand-border rounded-lg flex items-center justify-center overflow-hidden bg-checkerboard">
+                            {editItemObj.image || editItemObj.originalSheetUrl ? (
+                              <img src={editItemObj.image || editItemObj.originalSheetUrl} alt="Artwork preview" className="w-full h-full object-contain p-2 hover:scale-105 transition-transform cursor-crosshair" onClick={() => setExpandedImage({ src: editItemObj.image || editItemObj.originalSheetUrl, alt: "Artwork preview" })} />
+                            ) : (
+                              <div className="flex flex-col items-center gap-2 text-brand-secondary/50">
+                                <ImageIcon size={32} />
+                                <span className="text-xs font-medium">No artwork uploaded</span>
+                              </div>
+                            )}
+                          </div>
+                          <label className="cursor-pointer bg-white border border-brand-border rounded-lg py-2.5 flex items-center justify-center gap-2 hover:bg-brand-bg transition-colors text-sm font-semibold text-brand-primary shadow-sm hover:shadow">
+                            {isUploadingGang ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+                            {isUploadingGang ? 'Uploading...' : 'Upload Artwork'}
+                            <input type="file" className="hidden" accept="image/*" onChange={handleGangSheetUpload} disabled={isUploadingGang} />
+                          </label>
+                        </div>
+                      )}
                     </div>
                  </div>
                )}
 
                {/* Right Column: Data Fields & Sizing */}
-               <div className={(!editItemObj.itemType || editItemObj.itemType === 'garment' || editItemObj.itemType === 'gang_sheet') ? "lg:col-span-8 flex flex-col gap-8" : "lg:col-span-12 flex flex-col gap-8 max-w-3xl mx-auto w-full"}>
+               <div className={
+                  (!editItemObj.itemType || editItemObj.itemType === 'garment') 
+                    ? "lg:col-span-8 flex flex-col gap-8" 
+                    : (editItemObj.itemType === 'gang_sheet')
+                      ? (editItemObj.sheetSizeName === 'Single Design Transfer' ? "lg:col-span-12 flex flex-col gap-8" : "lg:col-span-8 flex flex-col gap-8")
+                      : "lg:col-span-12 flex flex-col gap-8 max-w-3xl mx-auto w-full"
+                }>
                   {/* Top Row: Basic Info Grid */}
                   <div className="flex flex-col gap-3">
                     <label className="text-xs font-bold uppercase tracking-widest text-brand-secondary">Core Details</label>
@@ -4352,7 +4548,7 @@ export function OrderDetail() {
                             value={editItemObj.style || ''}
                             onChange={(e) => setEditItemObj({...editItemObj, style: e.target.value})}
                             className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-2.5 text-sm focus:border-brand-primary focus:bg-white focus:outline-none transition-all"
-                            placeholder="e.g. Back Print Verizon Transfers, custom gang sheet"
+                            placeholder="e.g. Jersey Knit Polo gang sheet"
                           />
                         </div>
                         <div className="flex flex-col gap-1.5 sm:col-span-2">
@@ -4366,34 +4562,37 @@ export function OrderDetail() {
                             <option value="Standard Gang Sheet">Standard Gang Sheet (Pre-built)</option>
                           </select>
                         </div>
+                        {editItemObj.sheetSizeName === 'Standard Gang Sheet' ? (
+                          <>
+                            <div className="flex flex-col gap-1.5">
+                              <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Sheet Width (Inches)</label>
+                              <input 
+                                type="number" 
+                                step="0.1"
+                                value={editItemObj.sheetWidth || ''}
+                                onChange={(e) => setEditItemObj({...editItemObj, sheetWidth: parseFloat(e.target.value) || 22})}
+                                className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-2.5 text-sm focus:border-brand-primary focus:bg-white focus:outline-none transition-all"
+                              />
+                            </div>
+                            <div className="flex flex-col gap-1.5">
+                              <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Sheet Height (Inches)</label>
+                              <input 
+                                type="number" 
+                                step="0.1"
+                                value={editItemObj.sheetHeight || ''}
+                                onChange={(e) => setEditItemObj({...editItemObj, sheetHeight: parseFloat(e.target.value) || 24})}
+                                className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-2.5 text-sm focus:border-brand-primary focus:bg-white focus:outline-none transition-all"
+                              />
+                            </div>
+                          </>
+                        ) : (
+                          <div className="sm:col-span-2 bg-brand-bg p-4 rounded-xl border border-brand-border flex flex-col gap-1">
+                            <span className="text-[9px] font-bold uppercase tracking-wider text-brand-secondary">Sheet Dimensions</span>
+                            <span className="text-xs font-semibold text-brand-primary">Width: 22" (fixed) | Height: Auto-calculated based on logos</span>
+                          </div>
+                        )}
                         <div className="flex flex-col gap-1.5">
-                          <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">
-                            {editItemObj.sheetSizeName === 'Single Design Transfer' ? 'Design Width (Inches)' : 'Sheet Width (Inches)'}
-                          </label>
-                          <input 
-                            type="number" 
-                            step="0.1"
-                            value={editItemObj.sheetWidth || ''}
-                            onChange={(e) => setEditItemObj({...editItemObj, sheetWidth: parseFloat(e.target.value) || 22})}
-                            className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-2.5 text-sm focus:border-brand-primary focus:bg-white focus:outline-none transition-all"
-                          />
-                        </div>
-                        <div className="flex flex-col gap-1.5">
-                          <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">
-                            {editItemObj.sheetSizeName === 'Single Design Transfer' ? 'Design Height (Inches)' : 'Sheet Height (Inches)'}
-                          </label>
-                          <input 
-                            type="number" 
-                            step="0.1"
-                            value={editItemObj.sheetHeight || ''}
-                            onChange={(e) => setEditItemObj({...editItemObj, sheetHeight: parseFloat(e.target.value) || 24})}
-                            className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-2.5 text-sm focus:border-brand-primary focus:bg-white focus:outline-none transition-all"
-                          />
-                        </div>
-                        <div className="flex flex-col gap-1.5">
-                          <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">
-                            {editItemObj.sheetSizeName === 'Single Design Transfer' ? 'Copies Needed' : 'Number of Sheets'}
-                          </label>
+                          <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Number of Sheets</label>
                           <input 
                             type="number" 
                             min="1"
