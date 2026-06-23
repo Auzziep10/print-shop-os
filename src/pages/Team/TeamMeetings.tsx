@@ -620,6 +620,7 @@ export function TeamMeetings() {
   const [templateEnableCapacityCheckin, setTemplateEnableCapacityCheckin] = useState(true);
   const [isCheckinModalOpen, setIsCheckinModalOpen] = useState(false);
   const [viewingCheckin, setViewingCheckin] = useState<any | null>(null);
+  const [editingCheckinMember, setEditingCheckinMember] = useState<any | null>(null);
   const [dismissedMeetingCheckinId, setDismissedMeetingCheckinId] = useState<string | null>(null);
 
   // Section Notes editing states
@@ -684,6 +685,7 @@ export function TeamMeetings() {
 
   // Sync logged in user's capacity sliders with their existing check-in score
   useEffect(() => {
+    if (isCheckinModalOpen) return;
     if (selectedMeeting && userData) {
       const existing = selectedMeeting.capacityScores?.find(
         (c: any) => c.memberName === userData.name || c.memberId === userData.id || (userData.uid && c.memberId === userData.uid)
@@ -1192,6 +1194,30 @@ export function TeamMeetings() {
       }
     }
   };
+  const canEditCheckin = (c: any) => {
+    if (!userData || !c) return false;
+    const isOwner = c.memberId === userData.id || c.memberName === userData.name || (userData.uid && c.memberId === userData.uid);
+    const isAdminOrManager = userData.role === 'Admin' || userData.role === 'Manager';
+    return isOwner || isAdminOrManager;
+  };
+
+  const handleOpenEditCheckin = (c: any) => {
+    setEditingCheckinMember(c);
+    setMyWorkload(c.categories?.workload ?? 5);
+    setMyUrgency(c.categories?.urgency ?? 5);
+    setMyStress(c.categories?.stress ?? 5);
+    setMyAvailability(c.categories?.availability ?? 5);
+    setMyFriction(c.categories?.friction ?? 5);
+    setMyConfidence(c.confidence ?? 'Green');
+    setMyNotes(c.notes ?? '');
+    const getPriorityText = (p: any) => p ? (typeof p === 'object' ? p.text : p) : '';
+    setMyPriority1(getPriorityText(c.priorities?.[0]));
+    setMyPriority2(getPriorityText(c.priorities?.[1]));
+    setMyPriority3(getPriorityText(c.priorities?.[2]));
+    setViewingCheckin(null);
+    setIsCheckinModalOpen(true);
+  };
+
   const handleSubmitMyCheckin = async () => {
     if (!selectedMeeting || !userData) return;
 
@@ -1207,21 +1233,27 @@ export function TeamMeetings() {
       return "Unsustainable";
     };
 
-    const currentUserId = userData.id || userData.uid || '';
+    const targetUserId = editingCheckinMember 
+      ? editingCheckinMember.memberId 
+      : (userData.id || userData.uid || '');
+    const targetMemberName = editingCheckinMember 
+      ? editingCheckinMember.memberName 
+      : (userData.name || 'Unknown Member');
+
     const existingScores = selectedMeeting.capacityScores || [];
-    const existing = existingScores.find((c: any) => c.memberName === userData.name || c.memberId === currentUserId);
+    const existing = existingScores.find((c: any) => c.memberName === targetMemberName || c.memberId === targetUserId);
 
     try {
       const syncedPriorities = await syncPriorityTasksToChrono(
-        userData.name || 'Unknown Member',
+        targetMemberName,
         selectedMeeting.date,
         [myPriority1, myPriority2, myPriority3],
         existing
       );
 
       const myCheckinObj = {
-        memberId: currentUserId,
-        memberName: userData.name || 'Unknown Member',
+        memberId: targetUserId,
+        memberName: targetMemberName,
         score,
         status: getStatus(score),
         confidence: myConfidence || 'Green',
@@ -1237,7 +1269,7 @@ export function TeamMeetings() {
       };
 
       const updatedScores = [
-        ...existingScores.filter((c: any) => c.memberName !== userData.name && c.memberId !== currentUserId),
+        ...existingScores.filter((c: any) => c.memberName !== targetMemberName && c.memberId !== targetUserId),
         myCheckinObj
       ];
 
@@ -4118,7 +4150,16 @@ export function TeamMeetings() {
             {/* Modal Header */}
             <div className="flex justify-between items-start border-b border-[#ded8ce] pb-4">
               <div>
-                <h2 className="text-xl font-bold text-[#171717] tracking-tight font-serif">WOVN Leadership Capacity Score</h2>
+                <h2 className="text-xl font-bold text-[#171717] tracking-tight font-serif">
+                  {editingCheckinMember 
+                    ? `${editingCheckinMember.memberName}'s Capacity Score` 
+                    : 'WOVN Leadership Capacity Score'}
+                </h2>
+                {editingCheckinMember && editingCheckinMember.memberName !== userData?.name && (
+                  <div className="mt-2 bg-[#fdfaf2] border border-[#f5eedc] text-[#a37016] text-[10px] font-bold px-2.5 py-1 rounded-[8px] inline-block uppercase tracking-wider">
+                    Editing check-in for {editingCheckinMember.memberName}
+                  </div>
+                )}
                 <p className="text-[11px] text-[#666] leading-relaxed mt-1">
                   Use this daily to create a shared language around workload, stress, availability, and execution friction. 
                   The target operating zone is <span className="font-bold text-[#171717]">5–6</span>.
@@ -4128,6 +4169,7 @@ export function TeamMeetings() {
                 onClick={() => {
                   setDismissedMeetingCheckinId(selectedMeeting.id);
                   setIsCheckinModalOpen(false);
+                  setEditingCheckinMember(null);
                 }} 
                 className="text-brand-secondary hover:text-[#111] transition-colors p-1 bg-white border border-[#ded8ce] rounded-full"
                 title="Dismiss check-in"
@@ -4338,6 +4380,7 @@ export function TeamMeetings() {
                 onClick={() => {
                   setDismissedMeetingCheckinId(selectedMeeting.id);
                   setIsCheckinModalOpen(false);
+                  setEditingCheckinMember(null);
                 }}
                 className="flex-1 bg-white hover:bg-neutral-50 text-[#111] border border-[#ded8ce] text-xs font-bold uppercase tracking-wider py-3 rounded-full shadow-sm transition-all"
               >
@@ -4348,10 +4391,11 @@ export function TeamMeetings() {
                 onClick={async () => {
                   await handleSubmitMyCheckin();
                   setIsCheckinModalOpen(false);
+                  setEditingCheckinMember(null);
                 }}
                 className="flex-1 bg-[#111] hover:bg-black text-white text-xs font-bold uppercase tracking-wider py-3 rounded-full shadow-sm transition-all animate-pulse"
               >
-                {myExistingCheckin ? 'Update Check-in' : 'Submit Check-in'}
+                {editingCheckinMember || myExistingCheckin ? 'Update Check-in' : 'Submit Check-in'}
               </button>
             </div>
 
@@ -4504,14 +4548,25 @@ export function TeamMeetings() {
               )}
             </div>
 
-            {/* Close Button */}
-            <button
-              type="button"
-              onClick={() => setViewingCheckin(null)}
-              className="w-full bg-[#111] hover:bg-black text-white text-xs font-bold uppercase tracking-wider py-3 rounded-full shadow-sm transition-all"
-            >
-              Close Details
-            </button>
+            {/* Action Buttons */}
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setViewingCheckin(null)}
+                className="flex-1 bg-white hover:bg-neutral-50 text-[#111] border border-[#ded8ce] text-xs font-bold uppercase tracking-wider py-3 rounded-full shadow-sm transition-all font-sans"
+              >
+                Close Details
+              </button>
+              {canEditCheckin(viewingCheckin) && (
+                <button
+                  type="button"
+                  onClick={() => handleOpenEditCheckin(viewingCheckin)}
+                  className="flex-1 bg-[#111] hover:bg-black text-white text-xs font-bold uppercase tracking-wider py-3 rounded-full shadow-sm transition-all font-sans"
+                >
+                  Edit Check-in
+                </button>
+              )}
+            </div>
 
           </div>
         </div>
