@@ -273,7 +273,7 @@ const generateFinalSheetsForPrintAndCut = async (
     orderId: string,
     customerName: string,
     shippingAddress: any,
-): Promise<{ printDataUrl: string; cutDataUrl: string }> => {
+): Promise<{ printDataUrl: string; cutDataUrl: string; sheetHeight: number }> => {
     const HEADER_HEIGHT_INCHES = 1;
     const MARGIN_INCHES = 1.0; // 1 inch margin on all sides to hold Graphtec registration marks
     const HEADER_TO_DESIGN_GAP_INCHES = 0.5;
@@ -750,7 +750,8 @@ const generateFinalSheetsForPrintAndCut = async (
 
     return {
         printDataUrl: printCanvas.toDataURL('image/png'),
-        cutDataUrl: cutDataUrl
+        cutDataUrl: cutDataUrl,
+        sheetHeight: sheetContentHeightInches
     };
 };
 
@@ -1706,7 +1707,7 @@ export function OrderDetail() {
     if (!id || !order) return;
     setGeneratingItemId(item.id);
     try {
-      const { printDataUrl, cutDataUrl } = await generateFinalSheetsForPrintAndCut(
+      const { printDataUrl, cutDataUrl, sheetHeight } = await generateFinalSheetsForPrintAndCut(
         item,
         order.id,
         order.customerName || 'Customer',
@@ -1724,7 +1725,7 @@ export function OrderDetail() {
       
       const updatedItems = order.items.map((i: any) => {
         if (i.id === item.id) {
-          return { ...i, printReadyUrl, cutReadyUrl };
+          return { ...i, printReadyUrl, cutReadyUrl, sheetHeight };
         }
         return i;
       });
