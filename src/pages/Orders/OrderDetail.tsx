@@ -4231,13 +4231,15 @@ export function OrderDetail() {
                               ? [{ id: `art-${Date.now()}`, name: '', url: '', imageUrl: '', originalUrl: '', width: 3.5, height: 3.5, quantity: 10 }]
                               : []));
                       
+                      const targetLayoutType = editItemObj.sheetSizeName || 'Single Design Transfer';
+                      
                       setEditItemObj({
                         ...editItemObj, 
                         itemType: 'gang_sheet',
-                        sheetSizeName: editItemObj.sheetSizeName || 'Single Design Transfer',
+                        sheetSizeName: targetLayoutType,
                         sheetWidth: editItemObj.sheetWidth || 22,
                         sheetHeight: editItemObj.sheetHeight || 24,
-                        quantity: editItemObj.quantity || editItemObj.qty || 1,
+                        quantity: targetLayoutType === 'Single Design Transfer' ? 1 : (editItemObj.quantity || editItemObj.qty || 1),
                         price: editItemObj.price || '$0.00',
                         image: editItemObj.originalSheetUrl || '',
                         artworks: initialArtworks
@@ -4607,7 +4609,14 @@ export function OrderDetail() {
                           <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Layout Type</label>
                           <select 
                             value={editItemObj.sheetSizeName || 'Single Design Transfer'}
-                            onChange={(e) => setEditItemObj({...editItemObj, sheetSizeName: e.target.value})}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setEditItemObj({
+                                ...editItemObj,
+                                sheetSizeName: val,
+                                quantity: val === 'Single Design Transfer' ? 1 : editItemObj.quantity
+                              });
+                            }}
                             className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-2.5 font-serif text-brand-primary focus:border-brand-primary focus:bg-white focus:outline-none transition-all outline-none cursor-pointer"
                           >
                             <option value="Single Design Transfer">Single Design Transfer (Auto-Repeat)</option>
