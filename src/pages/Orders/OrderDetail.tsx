@@ -1640,6 +1640,54 @@ export function OrderDetail() {
     }
   };
 
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>, idx: number) => {
+    const file = e.target.files?.[0];
+    if (!file || !editItemObj) return;
+    setIsUploadingGang(true);
+    try {
+      // Create local object URL to get image dimensions
+      const imgObj = new Image();
+      imgObj.src = URL.createObjectURL(file);
+      await new Promise((resolve) => {
+        imgObj.onload = resolve;
+        imgObj.onerror = resolve;
+      });
+      const aspect = imgObj.naturalWidth ? (imgObj.naturalHeight / imgObj.naturalWidth) : 1.0;
+
+      const storageRef = ref(storage, `orders/${id}/items/${editItemObj.id || 'new'}/logo-${idx}-${Date.now()}`);
+      await uploadBytes(storageRef, file);
+      const url = await getDownloadURL(storageRef);
+      const newArtworks = [...(editItemObj.artworks || [])];
+      const defaultWidth = 3.5;
+      const calculatedHeight = parseFloat((defaultWidth * aspect).toFixed(2));
+
+      if (newArtworks.length === 0) {
+        newArtworks.push({ id: `art-${Date.now()}`, name: file.name, url, width: defaultWidth, height: calculatedHeight, aspectRatio: aspect, quantity: 10 });
+      } else {
+        newArtworks[idx] = {
+          ...newArtworks[idx],
+          id: newArtworks[idx].id || `art-${Date.now()}`,
+          name: file.name,
+          url,
+          imageUrl: url,
+          originalUrl: url,
+          width: newArtworks[idx].width || defaultWidth,
+          height: parseFloat(((newArtworks[idx].width || defaultWidth) * aspect).toFixed(2)),
+          aspectRatio: aspect
+        };
+      }
+      setEditItemObj((prev: any) => ({
+        ...prev,
+        artworks: newArtworks,
+        image: prev.image || url
+      }));
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsUploadingGang(false);
+    }
+  };
+
   const handleGeneratePrintFile = async (item: any) => {
     if (!id || !order) return;
     setGeneratingItemId(item.id);
@@ -2235,9 +2283,11 @@ export function OrderDetail() {
                               if (item.itemType === 'gang_sheet') {
                                 const initialArtworks = Array.isArray(item.artworks) && item.artworks.length > 0
                                   ? item.artworks
-                                  : (item.originalSheetUrl || item.image
-                                     ? [{ id: `art-${Date.now()}`, name: 'Existing Artwork', url: item.originalSheetUrl || item.image, imageUrl: item.originalSheetUrl || item.image, originalUrl: item.originalSheetUrl || item.image, width: item.sheetWidth || 3.5, height: item.sheetHeight || 3.5, quantity: item.quantity || 1 }]
-                                     : [{ id: `art-${Date.now()}`, name: '', url: '', imageUrl: '', originalUrl: '', width: 3.5, height: 3.5, quantity: 10 }]);
+                                  : (item.originalSheetUrl
+                                     ? [{ id: `art-${Date.now()}`, name: 'Existing Artwork', url: item.originalSheetUrl, imageUrl: item.originalSheetUrl, originalUrl: item.originalSheetUrl, width: item.sheetWidth || 3.5, height: item.sheetHeight || 3.5, quantity: item.quantity || 1 }]
+                                     : (item.sheetSizeName === 'Single Design Transfer'
+                                        ? [{ id: `art-${Date.now()}`, name: '', url: '', imageUrl: '', originalUrl: '', width: 3.5, height: 3.5, quantity: 10 }]
+                                        : []));
                                 setEditItemObj({ ...item, artworks: initialArtworks });
                               } else {
                                 setEditItemObj(item);
@@ -4172,11 +4222,14 @@ export function OrderDetail() {
                   </button>
                   <button 
                     onClick={() => {
-                      const initialArtworks = Array.isArray(editItemObj.artworks) && editItemObj.artworks.length > 0
+                      const isAlreadyGang = editItemObj.itemType === 'gang_sheet';
+                      const initialArtworks = isAlreadyGang && Array.isArray(editItemObj.artworks) && editItemObj.artworks.length > 0
                         ? editItemObj.artworks
-                        : (editItemObj.image || editItemObj.originalSheetUrl
-                           ? [{ id: `art-${Date.now()}`, name: 'Existing Artwork', url: editItemObj.image || editItemObj.originalSheetUrl, imageUrl: editItemObj.image || editItemObj.originalSheetUrl, originalUrl: editItemObj.image || editItemObj.originalSheetUrl, width: editItemObj.sheetWidth || 3.5, height: editItemObj.sheetHeight || 3.5, quantity: editItemObj.quantity || 1 }]
-                           : [{ id: `art-${Date.now()}`, name: '', url: '', imageUrl: '', originalUrl: '', width: 3.5, height: 3.5, quantity: 10 }]);
+                        : (editItemObj.originalSheetUrl
+                           ? [{ id: `art-${Date.now()}`, name: 'Existing Artwork', url: editItemObj.originalSheetUrl, imageUrl: editItemObj.originalSheetUrl, originalUrl: editItemObj.originalSheetUrl, width: editItemObj.sheetWidth || 3.5, height: editItemObj.sheetHeight || 3.5, quantity: editItemObj.quantity || 1 }]
+                           : (editItemObj.sheetSizeName === 'Single Design Transfer'
+                              ? [{ id: `art-${Date.now()}`, name: '', url: '', imageUrl: '', originalUrl: '', width: 3.5, height: 3.5, quantity: 10 }]
+                              : []));
                       
                       setEditItemObj({
                         ...editItemObj, 
@@ -4186,9 +4239,10 @@ export function OrderDetail() {
                         sheetHeight: editItemObj.sheetHeight || 24,
                         quantity: editItemObj.quantity || editItemObj.qty || 1,
                         price: editItemObj.price || '$0.00',
+                        image: editItemObj.originalSheetUrl || '',
                         artworks: initialArtworks
                       });
-                    }} 
+                    }}
                     className={`px-3 py-1.5 text-xs font-bold uppercase tracking-wider rounded-md transition-all ${editItemObj.itemType === 'gang_sheet' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'}`}
                   >
                     DTF Gang Sheet
@@ -4411,50 +4465,29 @@ export function OrderDetail() {
                                        {/* Logo Upload Box */}
                                        <div className="w-20 h-20 bg-white border border-brand-border rounded-lg flex items-center justify-center overflow-hidden bg-checkerboard shrink-0 relative shadow-sm">
                                           {art.url ? (
-                                             <img src={art.url} alt="" className="w-full h-full object-contain p-1" />
+                                             <>
+                                                <img src={art.url} alt="" className="w-full h-full object-contain p-1" />
+                                                <label className="absolute inset-0 cursor-pointer flex items-center justify-center bg-black/40 opacity-0 hover:opacity-100 transition-opacity">
+                                                   <Upload size={14} className="text-white" />
+                                                   <input
+                                                      type="file"
+                                                      className="hidden"
+                                                      accept="image/*"
+                                                      onChange={(e) => handleLogoUpload(e, idx)}
+                                                   />
+                                                </label>
+                                             </>
                                           ) : (
-                                             <ImageIcon size={20} className="text-brand-secondary/40" />
+                                             <label className="absolute inset-0 cursor-pointer flex flex-col items-center justify-center gap-1 hover:bg-brand-bg transition-colors">
+                                                <Upload size={16} className="text-brand-secondary/40" />
+                                                <input
+                                                   type="file"
+                                                   className="hidden"
+                                                   accept="image/*"
+                                                   onChange={(e) => handleLogoUpload(e, idx)}
+                                                />
+                                             </label>
                                           )}
-                                          <label className="absolute inset-0 cursor-pointer flex items-center justify-center bg-black/40 opacity-0 hover:opacity-100 transition-opacity">
-                                             <Upload size={14} className="text-white" />
-                                             <input
-                                                type="file"
-                                                className="hidden"
-                                                accept="image/*"
-                                                onChange={async (e) => {
-                                                   const file = e.target.files?.[0];
-                                                   if (!file) return;
-                                                   setIsUploadingGang(true);
-                                                   try {
-                                                      const storageRef = ref(storage, `orders/${id}/items/${editItemObj.id || 'new'}/logo-${idx}-${Date.now()}`);
-                                                      await uploadBytes(storageRef, file);
-                                                      const url = await getDownloadURL(storageRef);
-                                                      const newArtworks = [...(editItemObj.artworks || [])];
-                                                      if (newArtworks.length === 0) {
-                                                         newArtworks.push({ id: `art-${Date.now()}`, name: file.name, url, width: 3.5, height: 3.5, quantity: 10 });
-                                                      } else {
-                                                         newArtworks[idx] = {
-                                                            ...newArtworks[idx],
-                                                            id: newArtworks[idx].id || `art-${Date.now()}`,
-                                                            name: file.name,
-                                                            url,
-                                                            imageUrl: url,
-                                                            originalUrl: url
-                                                         };
-                                                      }
-                                                      setEditItemObj((prev: any) => ({
-                                                         ...prev,
-                                                         artworks: newArtworks,
-                                                         image: prev.image || url
-                                                      }));
-                                                   } catch (err) {
-                                                      console.error(err);
-                                                   } finally {
-                                                      setIsUploadingGang(false);
-                                                   }
-                                                }}
-                                             />
-                                          </label>
                                        </div>
 
                                        {/* File Details */}
@@ -4480,7 +4513,9 @@ export function OrderDetail() {
                                              onChange={(e) => {
                                                 const val = parseFloat(e.target.value) || 0;
                                                 const newArtworks = [...(editItemObj.artworks || [])];
-                                                newArtworks[idx] = { ...newArtworks[idx], width: val };
+                                                const aspect = art.aspectRatio || (art.height && art.width ? (art.height / art.width) : 1.0);
+                                                const newHeight = parseFloat((val * aspect).toFixed(2));
+                                                newArtworks[idx] = { ...newArtworks[idx], width: val, height: newHeight, aspectRatio: aspect };
                                                 setEditItemObj((prev: any) => ({ ...prev, artworks: newArtworks }));
                                              }}
                                              className="w-full bg-white border border-brand-border rounded-lg px-2 py-1.5 text-xs font-bold focus:border-brand-primary focus:outline-none transition-all"
@@ -4492,15 +4527,10 @@ export function OrderDetail() {
                                           <input
                                              type="number"
                                              step="0.1"
-                                             value={art.height || ''}
-                                             onChange={(e) => {
-                                                const val = parseFloat(e.target.value) || 0;
-                                                const newArtworks = [...(editItemObj.artworks || [])];
-                                                newArtworks[idx] = { ...newArtworks[idx], height: val };
-                                                setEditItemObj((prev: any) => ({ ...prev, artworks: newArtworks }));
-                                             }}
-                                             className="w-full bg-white border border-brand-border rounded-lg px-2 py-1.5 text-xs font-bold focus:border-brand-primary focus:outline-none transition-all"
-                                             placeholder="3.5"
+                                             value={art.height ? parseFloat(art.height.toFixed(2)) : ''}
+                                             disabled
+                                             className="w-full bg-brand-bg border border-brand-border rounded-lg px-2 py-1.5 text-xs font-bold text-brand-secondary/70 cursor-not-allowed focus:outline-none"
+                                             placeholder="Auto"
                                           />
                                        </div>
                                        <div className="flex flex-col gap-1">
@@ -4530,8 +4560,8 @@ export function OrderDetail() {
                             <ImageIcon size={14}/> Pre-built Sheet
                           </span>
                           <div className="w-full aspect-square bg-neutral-100 border border-brand-border rounded-lg flex items-center justify-center overflow-hidden bg-checkerboard">
-                            {editItemObj.image || editItemObj.originalSheetUrl ? (
-                              <img src={editItemObj.image || editItemObj.originalSheetUrl} alt="Artwork preview" className="w-full h-full object-contain p-2 hover:scale-105 transition-transform cursor-crosshair" onClick={() => setExpandedImage({ src: editItemObj.image || editItemObj.originalSheetUrl, alt: "Artwork preview" })} />
+                            {editItemObj.originalSheetUrl ? (
+                              <img src={editItemObj.originalSheetUrl} alt="Artwork preview" className="w-full h-full object-contain p-2 hover:scale-105 transition-transform cursor-crosshair" onClick={() => setExpandedImage({ src: editItemObj.originalSheetUrl, alt: "Artwork preview" })} />
                             ) : (
                               <div className="flex flex-col items-center gap-2 text-brand-secondary/50">
                                 <ImageIcon size={32} />
