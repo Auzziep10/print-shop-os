@@ -284,8 +284,39 @@ const generateFinalSheetsForPrintAndCut = async (
     const isAutoLayout = (orderItem.sheetSizeName || '').toLowerCase().includes('auto-layout');
     
     let designWidthInches = isSingleTransferLayout ? 22 : (orderItem.sheetWidth || 22);
-    let sheetContentHeightInches: number;
 
+    // Preload all unique images first to inspect actual aspect ratios
+    const loadedImages: Record<string, HTMLImageElement> = {};
+    const urlsToLoad = new Set<string>();
+    
+    const artworks = orderItem.artworks || [];
+    if (isSingleTransferLayout) {
+        artworks.forEach((art: any) => {
+            const url = art.url || art.imageUrl || art.originalUrl || orderItem.originalSheetUrl || orderItem.image || '';
+            if (url) urlsToLoad.add(url);
+        });
+    } else {
+        const url = orderItem.originalSheetUrl || orderItem.image || '';
+        if (url) urlsToLoad.add(url);
+    }
+
+    for (const url of Array.from(urlsToLoad)) {
+        const img = new window.Image();
+        img.crossOrigin = 'anonymous';
+        await new Promise((resolve) => {
+            img.onload = () => {
+                loadedImages[url] = img;
+                resolve(null);
+            };
+            img.onerror = (err) => {
+                console.error('Failed to load image:', url, err);
+                resolve(null);
+            };
+            img.src = url;
+        });
+    }
+
+    let sheetContentHeightInches: number;
     const SPACING_INCHES = 0.25;
 
     // Define placement instances for auto-repeated single transfer layout
@@ -305,13 +336,25 @@ const generateFinalSheetsForPrintAndCut = async (
             h: number;
         }> = [];
 
-        const artworks = orderItem.artworks || [];
         if (artworks.length > 0) {
             artworks.forEach((art: any) => {
                 const qty = parseInt(art.quantity) || 1;
                 const w = parseFloat(art.width) || 3.5;
-                const h = parseFloat(art.height) || 3.5;
                 const url = art.url || art.imageUrl || art.originalUrl || orderItem.originalSheetUrl || orderItem.image || '';
+                
+                // Get actual loaded image dimensions to calculate proportional height
+                const loadedImg = loadedImages[url];
+                let aspect = 1.0;
+                if (loadedImg && loadedImg.naturalWidth) {
+                    aspect = loadedImg.naturalHeight / loadedImg.naturalWidth;
+                } else if (art.aspectRatio) {
+                    aspect = art.aspectRatio;
+                } else if (art.height && art.width) {
+                    aspect = art.height / art.width;
+                }
+                
+                const h = parseFloat((w * aspect).toFixed(2));
+
                 for (let i = 0; i < qty; i++) {
                     instances.push({
                         url,
@@ -423,35 +466,6 @@ const generateFinalSheetsForPrintAndCut = async (
 
     const finalCanvasWidth = (designWidthInches + (2 * MARGIN_INCHES)) * BASE_DPI;
     const finalCanvasHeight = (sheetContentHeightInches * BASE_DPI) + HEADER_HEIGHT_PX + (2 * MARGIN_PX) + HEADER_TO_DESIGN_GAP;
-
-    // Preload all unique images
-    const loadedImages: Record<string, HTMLImageElement> = {};
-    const urlsToLoad = new Set<string>();
-
-    if (isSingleTransferLayout) {
-        placements.forEach(p => {
-            if (p.url) urlsToLoad.add(p.url);
-        });
-    } else {
-        const url = orderItem.originalSheetUrl || orderItem.image || '';
-        if (url) urlsToLoad.add(url);
-    }
-
-    for (const url of Array.from(urlsToLoad)) {
-        const img = new window.Image();
-        img.crossOrigin = 'anonymous';
-        await new Promise((resolve) => {
-            img.onload = () => {
-                loadedImages[url] = img;
-                resolve(null);
-            };
-            img.onerror = (err) => {
-                console.error('Failed to load image:', url, err);
-                resolve(null);
-            };
-            img.src = url;
-        });
-    }
 
     // 1. Create PRINT Canvas
     const printCanvas = document.createElement('canvas');
@@ -5031,7 +5045,7 @@ export function OrderDetail() {
              <X size={20} />
            </button>
            <div 
-             className="relative max-w-4xl max-h-[85vh] w-full bg-white rounded-[2rem] p-6 md:p-10 shadow-2xl overflow-hidden flex items-center justify-center border border-neutral-200/50 cursor-crosshair animate-in zoom-in-95 duration-200"
+             className="relative max-w-4xl max-h-[85vh] w-full bg-checkerboard rounded-[2rem] p-6 md:p-10 shadow-2xl overflow-hidden flex items-center justify-center border border-neutral-200/50 cursor-crosshair animate-in zoom-in-95 duration-200"
              onClick={(e) => e.stopPropagation()}
              onMouseMove={(e) => {
                const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
