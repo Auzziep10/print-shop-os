@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
@@ -10,6 +10,7 @@ import { db, chronoDb, chronoAuth } from '../../lib/firebase';
 import { collection, query, getDocs, onSnapshot, updateDoc, doc } from 'firebase/firestore';
 import { signInAnonymously } from 'firebase/auth';
 import { normalizeUser } from '../../lib/utils';
+import { Printer, CheckCircle2, AlertTriangle, Download, X } from 'lucide-react';
 
 
 export function Dashboard() {
@@ -35,6 +36,8 @@ export function Dashboard() {
   const [roleView, setRoleView] = useState('Production Staff');
   const [staffTimeframe, setStaffTimeframe] = useState('Day');
   const [activeStat, setActiveStat] = useState<string | null>(null);
+  const [printerFilter, setPrinterFilter] = useState<'pending' | 'printed' | 'all'>('pending');
+  const [expandedImage, setExpandedImage] = useState<{ src: string; alt: string } | null>(null);
   
   const [myTasks, setMyTasks] = useState<any[]>([]);
   const [customers, setCustomers] = useState<Record<string, any>>({});
@@ -43,9 +46,135 @@ export function Dashboard() {
   const [allUsersList, setAllUsersList] = useState<any[]>([]);
   const [metricsTimeFilter, setMetricsTimeFilter] = useState<string>('Today');
 
+  // Aggregated list of all gang sheet items in all orders
+  const printQueueItems = useMemo(() => {
+    const list: any[] = [];
+    orders.forEach((order: any) => {
+      const hasGangSheets = (order.items || []).some((item: any) => item.itemType === 'gang_sheet');
+      if (hasGangSheets) {
+        order.items.forEach((item: any) => {
+          if (item.itemType === 'gang_sheet') {
+            list.push({
+              ...item,
+              orderId: order.id,
+              orderTitle: order.title,
+              orderPortalId: order.portalId,
+              orderCustomerId: order.customerId,
+              orderPriority: order.priority,
+              orderShipDate: order.shipDate,
+              orderStatusIndex: order.statusIndex
+            });
+          }
+        });
+      }
+    });
+    return list;
+  }, [orders]);
+
+  const displayedPrinterItems = useMemo(() => {
+    return printQueueItems.filter((item) => {
+      if (printerFilter === 'pending') {
+        return item.readyToPrint && !item.printed;
+      }
+      if (printerFilter === 'printed') {
+        return item.printed;
+      }
+      // 'all' tab shows all gang sheets that are ready to print, printed, or belong to active production orders (status index 6)
+      return item.readyToPrint || item.printed || item.orderStatusIndex === 6;
+    });
+  }, [printQueueItems, printerFilter]);
+
+  const printedTodayCount = useMemo(() => {
+    const todayStr = new Date().toDateString();
+    return printQueueItems.filter(item => {
+      if (!item.printed || !item.printedAt) return false;
+      return new Date(item.printedAt).toDateString() === todayStr;
+    }).length;
+  }, [printQueueItems]);
+
+  const rushPrintsCount = useMemo(() => {
+    return printQueueItems.filter(item => item.readyToPrint && !item.printed && item.orderPriority === 'rush').length;
+  }, [printQueueItems]);
+
+  const handleMarkPrinted = async (orderId: string, itemId: string) => {
+    const orderObj = orders.find(o => o.id === orderId);
+    if (!orderObj) return;
+
+    const updatedItems = (orderObj.items || []).map((item: any) => {
+      if (item.id === itemId) {
+        return {
+          ...item,
+          printed: true,
+          printedAt: new Date().toISOString(),
+          printedBy: userData?.name || userData?.email?.split('@')[0] || 'Printer'
+        };
+      }
+      return item;
+    });
+
+    const targetItem = (orderObj.items || []).find((item: any) => item.id === itemId);
+
+    try {
+      const message = `Marked gang sheet "${targetItem?.style || 'DTF Gang Sheet'}" as printed from Printers Dashboard`;
+      const newActivity = {
+        id: `act-${Date.now()}`,
+        type: 'system',
+        message,
+        user: userData?.name || userData?.email?.split('@')[0] || 'Printer',
+        timestamp: new Date().toISOString()
+      };
+
+      await updateDoc(doc(db, 'orders', orderId), { 
+        items: updatedItems,
+        activities: [newActivity, ...(orderObj.activities || [])]
+      });
+    } catch (err) {
+      console.error("Error marking printed:", err);
+    }
+  };
+
+  const handleMarkUnprinted = async (orderId: string, itemId: string) => {
+    const orderObj = orders.find(o => o.id === orderId);
+    if (!orderObj) return;
+
+    const updatedItems = (orderObj.items || []).map((item: any) => {
+      if (item.id === itemId) {
+        return {
+          ...item,
+          printed: false,
+          printedAt: null,
+          printedBy: null
+        };
+      }
+      return item;
+    });
+
+    const targetItem = (orderObj.items || []).find((item: any) => item.id === itemId);
+
+    try {
+      const message = `Marked gang sheet "${targetItem?.style || 'DTF Gang Sheet'}" as unprinted from Printers Dashboard`;
+      const newActivity = {
+        id: `act-${Date.now()}`,
+        type: 'system',
+        message,
+        user: userData?.name || userData?.email?.split('@')[0] || 'Printer',
+        timestamp: new Date().toISOString()
+      };
+
+      await updateDoc(doc(db, 'orders', orderId), { 
+        items: updatedItems,
+        activities: [newActivity, ...(orderObj.activities || [])]
+      });
+    } catch (err) {
+      console.error("Error marking unprinted:", err);
+    }
+  };
+
   useEffect(() => {
     if (userData && ['Admin', 'Leadership', 'Manager'].includes(userData.role)) {
       setRoleView('Manager / Admin');
+    } else if (userData && userData.role === 'Printer') {
+      setRoleView('Printers Dashboard');
     } else {
       setRoleView('Production Staff');
     }
@@ -366,10 +495,14 @@ export function Dashboard() {
           </p>
         </div>
         
-        {userData && ['Admin', 'Leadership', 'Manager'].includes(userData.role) && (
+        {userData && ['Admin', 'Leadership', 'Manager', 'Printer'].includes(userData.role) && (
           <div>
              <SegmentedControl 
-               options={['Production Staff', 'Manager / Admin']} 
+               options={
+                 userData.role === 'Printer'
+                   ? ['Printers Dashboard', 'Production Staff']
+                   : ['Production Staff', 'Manager / Admin', 'Printers Dashboard']
+               } 
                value={roleView} 
                onChange={setRoleView} 
              />
@@ -685,6 +818,215 @@ export function Dashboard() {
             </div>
           </div>
         </div>
+      ) : roleView === 'Printers Dashboard' ? (
+        <div className="mt-8 space-y-6">
+          {/* Quick Metrics */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-white p-5 rounded-card border border-brand-border flex items-center justify-between shadow-sm">
+              <div>
+                <span className="text-[10px] uppercase font-bold tracking-wider text-brand-secondary text-[11px]">To Print (Queue)</span>
+                <h3 className="font-serif text-3xl text-brand-primary mt-1">
+                  {printQueueItems.filter(item => item.readyToPrint && !item.printed).length}
+                </h3>
+              </div>
+              <div className="w-10 h-10 bg-purple-50 rounded-full flex items-center justify-center text-purple-600 border border-purple-100">
+                <Printer size={18} />
+              </div>
+            </div>
+
+            <div className="bg-white p-5 rounded-card border border-brand-border flex items-center justify-between shadow-sm">
+              <div>
+                <span className="text-[10px] uppercase font-bold tracking-wider text-brand-secondary text-[11px]">Rush Prints</span>
+                <h3 className={`font-serif text-3xl mt-1 ${rushPrintsCount > 0 ? 'text-red-650' : 'text-brand-primary'}`}>
+                  {rushPrintsCount}
+                </h3>
+              </div>
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center border ${rushPrintsCount > 0 ? 'bg-red-50 text-red-650 border-red-100' : 'bg-neutral-50 text-neutral-400 border-neutral-100'}`}>
+                <AlertTriangle size={18} />
+              </div>
+            </div>
+
+            <div className="bg-white p-5 rounded-card border border-brand-border flex items-center justify-between shadow-sm">
+              <div>
+                <span className="text-[10px] uppercase font-bold tracking-wider text-brand-secondary text-[11px]">Printed Today</span>
+                <h3 className="font-serif text-3xl text-brand-primary mt-1">{printedTodayCount}</h3>
+              </div>
+              <div className="w-10 h-10 bg-emerald-50 rounded-full flex items-center justify-center text-emerald-600 border border-emerald-100">
+                <CheckCircle2 size={18} />
+              </div>
+            </div>
+          </div>
+
+          {/* Filters & Count */}
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-brand-bg border border-brand-border p-4 rounded-card">
+            <div className="flex items-center gap-1.5 bg-neutral-100 p-1 rounded-xl border border-neutral-200 shadow-inner">
+              <button
+                onClick={() => setPrinterFilter('pending')}
+                className={`px-4 py-1.5 rounded-lg text-xs font-bold tracking-wider uppercase transition-all cursor-pointer ${
+                  printerFilter === 'pending'
+                    ? 'bg-white text-brand-primary shadow-sm border border-neutral-200'
+                    : 'text-brand-secondary hover:text-brand-primary border border-transparent'
+                }`}
+              >
+                Queue ({printQueueItems.filter(item => item.readyToPrint && !item.printed).length})
+              </button>
+              <button
+                onClick={() => setPrinterFilter('printed')}
+                className={`px-4 py-1.5 rounded-lg text-xs font-bold tracking-wider uppercase transition-all cursor-pointer ${
+                  printerFilter === 'printed'
+                    ? 'bg-white text-brand-primary shadow-sm border border-neutral-200'
+                    : 'text-brand-secondary hover:text-brand-primary border border-transparent'
+                }`}
+              >
+                Printed ({printQueueItems.filter(item => item.printed).length})
+              </button>
+              <button
+                onClick={() => setPrinterFilter('all')}
+                className={`px-4 py-1.5 rounded-lg text-xs font-bold tracking-wider uppercase transition-all cursor-pointer ${
+                  printerFilter === 'all'
+                    ? 'bg-white text-brand-primary shadow-sm border border-neutral-200'
+                    : 'text-brand-secondary hover:text-brand-primary border border-transparent'
+                }`}
+              >
+                All ({printQueueItems.length})
+              </button>
+            </div>
+            <div className="text-xs text-brand-secondary font-bold uppercase tracking-wider">
+              Showing {displayedPrinterItems.length} gang sheets
+            </div>
+          </div>
+
+          {/* Grid list of gang sheets */}
+          {displayedPrinterItems.length === 0 ? (
+            <div className="bg-white border border-brand-border border-dashed rounded-xl p-16 text-center text-brand-secondary flex flex-col items-center gap-3">
+              <Printer size={36} className="opacity-40" />
+              <p className="font-semibold text-sm">No gang sheets in this queue.</p>
+              <p className="text-xs">Mark gang sheets as "Ready to Print" on order detail pages to see them here.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {displayedPrinterItems.map((item: any) => {
+                const companyName = customers[item.orderCustomerId]?.company || customers[item.orderCustomerId]?.name || item.orderCustomerId || 'Unknown Client';
+                
+                return (
+                  <div key={item.id} className={`bg-white border rounded-2xl p-5 flex flex-col gap-4 shadow-sm hover:shadow-md transition-all ${item.orderPriority === 'rush' ? 'border-l-4 border-l-red-500 border-brand-border' : 'border-brand-border'}`}>
+                    <div className="flex justify-between items-start gap-4">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span 
+                            onClick={() => navigate(`/orders/${item.orderId}`)}
+                            className="text-[10px] uppercase font-bold text-brand-secondary tracking-widest px-1.5 py-0.5 border border-brand-border/65 hover:bg-neutral-50 hover:text-brand-primary transition-colors cursor-pointer rounded"
+                          >
+                            #{item.orderPortalId || item.orderId.substring(0, 8)}
+                          </span>
+                          <span className="text-brand-primary font-serif font-bold text-xs truncate max-w-[120px]">{companyName}</span>
+                        </div>
+                        <h4 className="font-semibold text-brand-primary text-sm line-clamp-1">{item.orderTitle}</h4>
+                        <p className="text-[11px] font-semibold text-neutral-400 mt-1">
+                          {item.style || 'DTF Gang Sheet'} • {item.sheetWidth}" x {item.sheetHeight}" • {item.quantity} {item.quantity === 1 ? 'Sheet' : 'Sheets'}
+                        </p>
+                      </div>
+
+                      <div className="flex flex-col items-end gap-1.5">
+                        {item.orderPriority === 'rush' && (
+                          <span className="text-[8px] font-bold uppercase tracking-wider text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded shadow-sm">
+                            RUSH
+                          </span>
+                        )}
+                        {item.printed ? (
+                          <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-750 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded shadow-sm">
+                            Printed
+                          </span>
+                        ) : item.readyToPrint ? (
+                          <span className="text-[9px] font-bold uppercase tracking-wider text-purple-700 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded shadow-sm animate-pulse">
+                            Ready
+                          </span>
+                        ) : (
+                          <span className="text-[9px] font-bold uppercase tracking-wider text-neutral-500 bg-neutral-100 border border-neutral-200 px-2 py-0.5 rounded shadow-sm">
+                            Not Ready
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Preview Area */}
+                    <div className="relative aspect-[3/4] w-full bg-neutral-950 border border-neutral-800 rounded-xl overflow-hidden flex items-center justify-center bg-checkerboard animate-in fade-in duration-300">
+                      {item.printReadyUrl ? (
+                        <img 
+                          src={item.printReadyUrl} 
+                          alt="Layout Preview" 
+                          className="w-full h-full object-contain p-3 hover:scale-102 transition-transform duration-300 cursor-pointer"
+                          onClick={() => setExpandedImage({ src: item.printReadyUrl, alt: `${item.style || 'Gang Sheet'}` })}
+                        />
+                      ) : (
+                        <div className="flex flex-col items-center gap-2 text-neutral-500 text-center p-6 bg-neutral-900 w-full h-full justify-center">
+                          <AlertTriangle size={24} className="text-amber-500" />
+                          <span className="text-xs font-semibold text-neutral-400">Production files not generated</span>
+                          <p className="text-[10px] text-neutral-500 px-4 leading-normal">The production team needs to click "Generate Production Files" in order details first.</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Footer Actions */}
+                    <div className="flex flex-col gap-2 mt-auto pt-2 border-t border-brand-border/40">
+                      <div className="grid grid-cols-2 gap-2">
+                        <a
+                          href={item.printReadyUrl || '#'}
+                          target="_blank"
+                          rel="noreferrer"
+                          className={`flex items-center justify-center gap-1.5 text-xs font-bold text-center border py-2 rounded-xl transition-all cursor-pointer ${
+                            item.printReadyUrl 
+                              ? 'border-brand-border text-brand-primary bg-white hover:bg-neutral-50 shadow-sm' 
+                              : 'border-brand-border/40 text-neutral-350 bg-neutral-50 pointer-events-none'
+                          }`}
+                        >
+                          <Printer size={12} />
+                          <span>Print PNG</span>
+                        </a>
+                        <a
+                          href={item.cutReadyUrl || '#'}
+                          target="_blank"
+                          rel="noreferrer"
+                          className={`flex items-center justify-center gap-1.5 text-xs font-bold text-center border py-2 rounded-xl transition-all cursor-pointer ${
+                            item.cutReadyUrl 
+                              ? 'border-brand-border text-brand-primary bg-white hover:bg-neutral-50 shadow-sm' 
+                              : 'border-brand-border/40 text-neutral-350 bg-neutral-50 pointer-events-none'
+                          }`}
+                        >
+                          <Download size={12} />
+                          <span>Cut SVG</span>
+                        </a>
+                      </div>
+
+                      {item.printed ? (
+                        <button
+                          onClick={() => handleMarkUnprinted(item.orderId, item.id)}
+                          className="w-full bg-neutral-105 hover:bg-neutral-200 text-neutral-700 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 border border-neutral-200 cursor-pointer"
+                        >
+                          <X size={12} />
+                          <span>Mark Unprinted (Reset)</span>
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleMarkPrinted(item.orderId, item.id)}
+                          disabled={!item.printReadyUrl}
+                          className={`w-full py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 text-white cursor-pointer ${
+                            item.printReadyUrl 
+                              ? 'bg-emerald-600 hover:bg-emerald-700 shadow-sm' 
+                              : 'bg-neutral-300 pointer-events-none'
+                          }`}
+                        >
+                          <CheckCircle2 size={12} />
+                          <span>Mark Printed</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       ) : (
         <div className="mt-8">
            <div className="flex items-center justify-between mb-6">
@@ -793,6 +1135,40 @@ export function Dashboard() {
                   </div>
                </div>
              </div>
+           </div>
+        </div>
+      )}
+
+      {/* Image Overlay Lightbox */}
+      {expandedImage && (
+        <div 
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm p-6 animate-in fade-in duration-200" 
+          onClick={() => setExpandedImage(null)}
+        >
+           <button 
+             className="absolute top-6 right-6 text-neutral-800 hover:text-black hover:scale-105 transition-all p-2 bg-white rounded-full shadow-lg border border-neutral-100 z-50 cursor-pointer" 
+             onClick={() => setExpandedImage(null)}
+           >
+             <X size={20} />
+           </button>
+           <div 
+             className="relative max-w-4xl max-h-[85vh] w-full bg-checkerboard rounded-[2rem] p-6 md:p-10 shadow-2xl overflow-hidden flex items-center justify-center border border-neutral-200/50 cursor-crosshair animate-in zoom-in-95 duration-200"
+             onClick={(e) => e.stopPropagation()}
+             onMouseMove={(e) => {
+               const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
+               const x = (e.clientX - left) / width;
+               const y = (e.clientY - top) / height;
+               const img = e.currentTarget.querySelector('img');
+               if (img) img.style.transformOrigin = `${x * 100}% ${y * 100}%`;
+             }}
+             title="Hover to zoom"
+           >
+             <img 
+               src={expandedImage.src} 
+               alt={expandedImage.alt} 
+               style={{ width: 'auto', height: 'auto', maxWidth: '105%', maxHeight: '70vh' }}
+               className="rounded-2xl select-none transition-transform duration-200 ease-out hover:scale-[2]" 
+             />
            </div>
         </div>
       )}

@@ -1739,6 +1739,130 @@ export function OrderDetail() {
     }
   };
 
+  const handleToggleReadyToPrint = async () => {
+    if (!id || !order) return;
+    
+    const gangSheetItems = (order.items || []).filter((item: any) => item.itemType === 'gang_sheet');
+    const allReady = gangSheetItems.every((item: any) => item.readyToPrint);
+    const newReadyState = !allReady;
+
+    const updatedItems = order.items.map((item: any) => {
+      if (item.itemType === 'gang_sheet') {
+        return { 
+          ...item, 
+          readyToPrint: newReadyState,
+          readyToPrintAt: newReadyState ? new Date().toISOString() : null,
+          readyToPrintBy: newReadyState ? (userData?.name || user?.displayName || user?.email?.split('@')[0] || 'Staff') : null
+        };
+      }
+      return item;
+    });
+
+    try {
+      const message = newReadyState 
+        ? "Marked gang sheets as ready to print (notified printers)" 
+        : "Unmarked gang sheets as ready to print";
+        
+      const newActivity = {
+        id: `act-${Date.now()}`,
+        type: 'system',
+        message,
+        user: userData?.name || user?.displayName || user?.email?.split('@')[0] || 'Team Member',
+        timestamp: new Date().toISOString()
+      };
+
+      await updateDoc(doc(db, 'orders', id), { 
+        items: updatedItems,
+        activities: [newActivity, ...(order.activities || [])]
+      });
+    } catch (err) {
+      console.error("Error toggling print ready state:", err);
+      alert("Failed to update print ready state.");
+    }
+  };
+
+  const handleToggleItemReadyToPrint = async (itemId: string) => {
+    if (!id || !order) return;
+    
+    const updatedItems = order.items.map((item: any) => {
+      if (item.id === itemId) {
+        const nextReadyState = !item.readyToPrint;
+        return { 
+          ...item, 
+          readyToPrint: nextReadyState,
+          readyToPrintAt: nextReadyState ? new Date().toISOString() : null,
+          readyToPrintBy: nextReadyState ? (userData?.name || user?.displayName || user?.email?.split('@')[0] || 'Staff') : null
+        };
+      }
+      return item;
+    });
+
+    const targetItem = order.items.find((item: any) => item.id === itemId);
+    const isNowReady = !targetItem?.readyToPrint;
+
+    try {
+      const message = isNowReady 
+        ? `Marked gang sheet "${targetItem?.style || 'DTF Gang Sheet'}" as ready to print`
+        : `Unmarked gang sheet "${targetItem?.style || 'DTF Gang Sheet'}" as ready to print`;
+
+      const newActivity = {
+        id: `act-${Date.now()}`,
+        type: 'system',
+        message,
+        user: userData?.name || user?.displayName || user?.email?.split('@')[0] || 'Team Member',
+        timestamp: new Date().toISOString()
+      };
+
+      await updateDoc(doc(db, 'orders', id), { 
+        items: updatedItems,
+        activities: [newActivity, ...(order.activities || [])]
+      });
+    } catch (err) {
+      console.error("Error toggling ready state:", err);
+    }
+  };
+
+  const handleToggleItemPrinted = async (itemId: string) => {
+    if (!id || !order) return;
+    
+    const updatedItems = order.items.map((item: any) => {
+      if (item.id === itemId) {
+        const nextPrintedState = !item.printed;
+        return { 
+          ...item, 
+          printed: nextPrintedState,
+          printedAt: nextPrintedState ? new Date().toISOString() : null,
+          printedBy: nextPrintedState ? (userData?.name || user?.displayName || user?.email?.split('@')[0] || 'Staff') : null
+        };
+      }
+      return item;
+    });
+
+    const targetItem = order.items.find((item: any) => item.id === itemId);
+    const isNowPrinted = !targetItem?.printed;
+
+    try {
+      const message = isNowPrinted 
+        ? `Marked gang sheet "${targetItem?.style || 'DTF Gang Sheet'}" as printed`
+        : `Marked gang sheet "${targetItem?.style || 'DTF Gang Sheet'}" as unprinted`;
+
+      const newActivity = {
+        id: `act-${Date.now()}`,
+        type: 'system',
+        message,
+        user: userData?.name || user?.displayName || user?.email?.split('@')[0] || 'Team Member',
+        timestamp: new Date().toISOString()
+      };
+
+      await updateDoc(doc(db, 'orders', id), { 
+        items: updatedItems,
+        activities: [newActivity, ...(order.activities || [])]
+      });
+    } catch (err) {
+      console.error("Error toggling printed state:", err);
+    }
+  };
+
   const handleDownloadAllZip = async () => {
     if (!id || !order) return;
     setIsZipping(true);
@@ -2157,19 +2281,40 @@ export function OrderDetail() {
                     <p className="text-lg text-brand-secondary line-clamp-2">{customer.company}</p>
                   )}
                 </div>
-               <div className="flex flex-col items-start lg:items-end gap-3 lg:text-right shrink-0">
-                  <p className="text-xs uppercase font-bold tracking-widest text-brand-secondary">Order {order.portalId || order.id}</p>
-                  
-                  <div className="flex items-center gap-3">
-                      <StatusBadge status={badgeStatus} />
-                      
-                      {order.paymentStatus === 'paid' && (
-                        <div className="bg-emerald-100 border border-emerald-200 text-emerald-700 px-3 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
-                          <Check size={12} strokeWidth={3} /> Paid
-                        </div>
-                      )}
-                      
-                      <div className="h-6 w-px bg-brand-border hidden sm:block"></div>
+                <div className="flex flex-col items-start lg:items-end gap-3 lg:text-right shrink-0">
+                   <p className="text-xs uppercase font-bold tracking-widest text-brand-secondary">Order {order.portalId || order.id}</p>
+                   
+                   <div className="flex items-center gap-3">
+                       <StatusBadge status={badgeStatus} />
+                       
+                       {order.paymentStatus === 'paid' && (
+                         <div className="bg-emerald-100 border border-emerald-200 text-emerald-700 px-3 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
+                           <Check size={12} strokeWidth={3} /> Paid
+                         </div>
+                       )}
+                       
+                       {order.items?.some((item: any) => item.itemType === 'gang_sheet') && (() => {
+                         const gangSheetItems = (order.items || []).filter((item: any) => item.itemType === 'gang_sheet');
+                         const allReady = gangSheetItems.every((item: any) => item.readyToPrint);
+                         return (
+                           <>
+                             <div className="h-6 w-px bg-brand-border hidden sm:block"></div>
+                             <button
+                               onClick={handleToggleReadyToPrint}
+                               className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer border ${
+                                 allReady
+                                   ? 'bg-purple-100 border-purple-200 text-purple-700 hover:bg-purple-200'
+                                   : 'bg-brand-primary text-white hover:bg-black border-transparent shadow-sm'
+                               }`}
+                             >
+                               <Printer size={12} />
+                               <span>{allReady ? 'Ready for Printer (Notified)' : 'Notify Printer (Print Ready)'}</span>
+                             </button>
+                           </>
+                         );
+                       })()}
+                       
+                       <div className="h-6 w-px bg-brand-border hidden sm:block"></div>
                       
                       <div className="relative">
                           <select 
@@ -2883,7 +3028,7 @@ export function OrderDetail() {
                     const currentPreviewMode = previewMode[item.id] || 'print';
                     const activePreviewUrl = currentPreviewMode === 'print' ? (item.printReadyUrl || item.originalSheetUrl || item.image) : (item.cutReadyUrl || item.originalSheetUrl || item.image);
 
-                    return (
+                     return (
                       <div key={item.id} className="bg-neutral-900 text-white rounded-2xl border border-neutral-800 p-5 flex flex-col gap-4 shadow-xl">
                         {/* Card Header */}
                         <div className="flex justify-between items-start gap-4">
@@ -2893,15 +3038,34 @@ export function OrderDetail() {
                               {item.sheetSizeName || 'DTF Gang Sheet'} • {item.sheetWidth}" x {item.sheetHeight}" • {item.quantity} {item.quantity === 1 ? 'Sheet' : 'Sheets'}
                             </p>
                           </div>
-                          {isPrintReady ? (
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 bg-emerald-950 border border-emerald-800 px-2 py-0.5 rounded shadow-sm">
-                              Print Ready
-                            </span>
-                          ) : (
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-amber-950 border border-amber-800 px-2 py-0.5 rounded shadow-sm">
-                              Not Generated
-                            </span>
-                          )}
+                          
+                          <div className="flex flex-col items-end gap-1.5 shrink-0">
+                            <div className="flex items-center gap-1.5">
+                              {item.printed ? (
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-450 bg-emerald-950/80 border border-emerald-800 px-2 py-0.5 rounded shadow-sm flex items-center gap-0.5">
+                                  <Check size={10} strokeWidth={3} /> Printed
+                                </span>
+                              ) : item.readyToPrint ? (
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-purple-400 bg-purple-950/80 border border-purple-800 px-2 py-0.5 rounded shadow-sm flex items-center gap-0.5 animate-pulse">
+                                  <Printer size={10} /> Ready
+                                </span>
+                              ) : (
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 bg-neutral-850 border border-neutral-700 px-2 py-0.5 rounded shadow-sm">
+                                  Not Ready
+                                </span>
+                              )}
+
+                              {isPrintReady ? (
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-455 bg-emerald-955/80 border border-emerald-850 px-2 py-0.5 rounded shadow-sm">
+                                  Print Ready
+                                </span>
+                              ) : (
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-amber-955/80 border border-amber-850 px-2 py-0.5 rounded shadow-sm">
+                                  Not Generated
+                                </span>
+                              )}
+                            </div>
+                          </div>
                         </div>
 
                         {/* Preview Box */}
@@ -2977,6 +3141,31 @@ export function OrderDetail() {
                               <Download size={12} />
                               <span>Cut SVG</span>
                             </a>
+                          </div>
+                          
+                          <div className="grid grid-cols-2 gap-2 mt-1">
+                            <button
+                              onClick={() => handleToggleItemReadyToPrint(item.id)}
+                              className={`flex items-center justify-center gap-1 text-[11px] font-bold text-center border py-2 rounded-xl transition-all cursor-pointer ${
+                                item.readyToPrint
+                                  ? 'border-purple-800 text-purple-300 bg-purple-950/40 hover:bg-purple-950 hover:text-white'
+                                  : 'border-neutral-800 text-neutral-450 bg-neutral-900 hover:bg-neutral-850 hover:text-white'
+                              }`}
+                            >
+                              <Printer size={12} />
+                              <span>{item.readyToPrint ? 'Ready (Notified)' : 'Notify Printer'}</span>
+                            </button>
+                            <button
+                              onClick={() => handleToggleItemPrinted(item.id)}
+                              className={`flex items-center justify-center gap-1 text-[11px] font-bold text-center border py-2 rounded-xl transition-all cursor-pointer ${
+                                item.printed
+                                  ? 'border-emerald-800 text-emerald-300 bg-emerald-950/40 hover:bg-emerald-950 hover:text-white'
+                                  : 'border-neutral-800 text-neutral-450 bg-neutral-900 hover:bg-neutral-850 hover:text-white'
+                              }`}
+                            >
+                              <Check size={12} />
+                              <span>{item.printed ? 'Printed (Reset)' : 'Mark Printed'}</span>
+                            </button>
                           </div>
                         </div>
                       </div>
