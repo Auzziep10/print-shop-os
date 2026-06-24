@@ -1799,7 +1799,7 @@ export function OrderDetail() {
            sheetHeight: Number(editItemObj.sheetHeight || 24),
            sheetSizeName: editItemObj.sheetSizeName || 'Single Design Transfer',
            sheetPrice: numericPrice,
-           originalSheetUrl: editItemObj.originalSheetUrl || editItemObj.image || '',
+           originalSheetUrl: editItemObj.sheetSizeName === 'Standard Gang Sheet' ? (editItemObj.originalSheetUrl || editItemObj.image || '') : '',
            quantity: finalQty
         } : {})
       };
@@ -2288,7 +2288,12 @@ export function OrderDetail() {
                                      : (item.sheetSizeName === 'Single Design Transfer'
                                         ? [{ id: `art-${Date.now()}`, name: '', url: '', imageUrl: '', originalUrl: '', width: 3.5, height: 3.5, quantity: 10 }]
                                         : []));
-                                setEditItemObj({ ...item, artworks: initialArtworks });
+                                const targetLayoutType = item.sheetSizeName || 'Single Design Transfer';
+                                setEditItemObj({ 
+                                  ...item, 
+                                  artworks: initialArtworks,
+                                  quantity: targetLayoutType === 'Single Design Transfer' ? 1 : (item.quantity || 1)
+                                });
                               } else {
                                 setEditItemObj(item);
                               }
