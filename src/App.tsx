@@ -6,6 +6,7 @@ import { AuthProvider, useAuth, type PermissionKey } from './contexts/AuthContex
 
 // Lazy-loaded page components
 const Dashboard = lazy(() => import('./pages/Dashboard/Dashboard').then(m => ({ default: m.Dashboard })));
+const BizOpsDashboard = lazy(() => import('./pages/Dashboard/BizOpsDashboard').then(m => ({ default: m.BizOpsDashboard })));
 const Team = lazy(() => import('./pages/Team/Team').then(m => ({ default: m.Team })));
 const TeamMeetingsPage = lazy(() => import('./pages/Team/TeamMeetingsPage').then(m => ({ default: m.TeamMeetingsPage })));
 const OrdersList = lazy(() => import('./pages/Orders/OrdersList').then(m => ({ default: m.OrdersList })));
@@ -67,6 +68,35 @@ function PermissionGuard({ permission, children }: { permission: PermissionKey; 
           <h2 className="text-2xl font-serif text-brand-primary mb-2">Access Denied</h2>
           <p className="text-sm text-brand-secondary mb-6 leading-relaxed">
             You do not have permission to view this section of the workspace. Please contact your system administrator to adjust your role settings.
+          </p>
+          <a
+            href="/"
+            className="inline-flex items-center justify-center px-6 py-2.5 bg-brand-primary text-white rounded-full text-sm font-medium hover:bg-black transition-colors"
+          >
+            Return to Dashboard
+          </a>
+        </div>
+      </div>
+    );
+  }
+  
+  return <>{children}</>;
+}
+
+function BizOpsGuard({ children }: { children: React.ReactNode }) {
+  const { userData, loading } = useAuth();
+  
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center bg-brand-bg text-brand-secondary font-serif">Loading...</div>;
+  }
+  
+  if (userData?.role !== 'Admin' && !userData?.bizOps) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-brand-bg p-6 text-center animate-in fade-in duration-300">
+        <div className="bg-white border border-brand-border rounded-xl p-8 max-w-md shadow-sm">
+          <h2 className="text-2xl font-serif text-brand-primary mb-2">Access Denied</h2>
+          <p className="text-sm text-brand-secondary mb-6 leading-relaxed">
+            You do not have the additional "Biz Ops" permission required to view this dashboard. Please contact your system administrator.
           </p>
           <a
             href="/"
@@ -171,6 +201,12 @@ function App() {
               <PermissionGuard permission="viewDashboard">
                 <Dashboard />
               </PermissionGuard>
+            } />
+
+            <Route path="biz-ops" element={
+              <BizOpsGuard>
+                <BizOpsDashboard />
+              </BizOpsGuard>
             } />
           
           <Route path="orders">
