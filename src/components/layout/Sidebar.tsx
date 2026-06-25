@@ -102,8 +102,21 @@ export function Sidebar({ onClose }: SidebarProps) {
   const [isOrdersExpanded, setIsOrdersExpanded] = useState<boolean>(false);
   const [isTeamExpanded, setIsTeamExpanded] = useState<boolean>(false);
   const [isDashboardExpanded, setIsDashboardExpanded] = useState<boolean>(() => {
-    return location.pathname === '/' || location.pathname === '/biz-ops';
+    return location.pathname === '/' || location.pathname.startsWith('/biz-ops');
   });
+
+  // Automatically collapse other menus when in another menu
+  useEffect(() => {
+    const isDashboard = location.pathname === '/' || location.pathname.startsWith('/biz-ops');
+    const isOrders = location.pathname.startsWith('/orders');
+    const isInventory = location.pathname.startsWith('/inventory');
+    const isTeam = location.pathname.startsWith('/team');
+
+    setIsDashboardExpanded(isDashboard);
+    setIsOrdersExpanded(isOrders);
+    setIsInventoryExpanded(isInventory);
+    setIsTeamExpanded(isTeam);
+  }, [location.pathname]);
 
   const inventorySubItems = [
     { label: 'Products', path: '/inventory?tab=Products', icon: ShoppingBag },
