@@ -50,13 +50,11 @@ interface TaskItem {
   createdBy?: string;
 }
 
-const TEAM_MEMBERS = [
-  { email: 'austin@wovnapparel.com', name: 'Austin', initials: 'AU' },
-  { email: 'clayton@wovnapparel.com', name: 'Clayton', initials: 'CL' },
-  { email: 'garrett@wovnapparel.com', name: 'Garrett', initials: 'GA' },
-  { email: 'josh@wovnapparel.com', name: 'Josh', initials: 'JO' },
-  { email: 'malena@wovnapparel.com', name: 'Malena', initials: 'MA' }
-];
+interface TeamMember {
+  email: string;
+  name: string;
+  initials: string;
+}
 
 const STATUSES = ['todo', 'progress', 'active', 'done'] as const;
 
@@ -75,6 +73,8 @@ export function BizOpsKanban() {
   // Firestore Tasks List
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [users, setUsers] = useState<any[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(true);
 
   // Filters State (sync with URL params)
   const currentView = (searchParams.get('view') as 'board' | 'list' | 'timeline') || 'board';
@@ -157,6 +157,38 @@ export function BizOpsKanban() {
 
     return () => unsub();
   }, []);
+
+  // Sync users collection from Firestore
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, 'users'), (snap) => {
+      const list: any[] = [];
+      snap.forEach((docSnap) => {
+        list.push({ id: docSnap.id, ...docSnap.data() });
+      });
+      setUsers(list);
+      setLoadingUsers(false);
+    }, (err) => {
+      console.error('Error listening to users collection:', err);
+      setLoadingUsers(false);
+    });
+
+    return () => unsub();
+  }, []);
+
+  // Compute dynamic team members list based on bizOps: true
+  const teamMembers = useMemo<TeamMember[]>(() => {
+    const bizOpsUsers = users.filter((u: any) => u.bizOps === true);
+    return bizOpsUsers.map((u: any) => ({
+      email: u.email.toLowerCase(),
+      name: u.name || u.email.split('@')[0],
+      initials: (() => {
+        const clean = (u.name || u.email.split('@')[0]).trim();
+        const parts = clean.split(/[ ._\-+]+/).filter(Boolean);
+        if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+        return clean.slice(0, 2).toUpperCase();
+      })()
+    }));
+  }, [users]);
 
   // Sync redirect parameter if passed on mount/location change
   useEffect(() => {
@@ -729,7 +761,7 @@ export function BizOpsKanban() {
   };
 
   const getMemberInitials = (email: string) => {
-    const match = TEAM_MEMBERS.find(m => m.email.toLowerCase() === email.toLowerCase());
+    const match = teamMembers.find(m => m.email.toLowerCase() === email.toLowerCase());
     return match ? match.initials : initialsFor(email);
   };
 
@@ -751,7 +783,7 @@ export function BizOpsKanban() {
   };
 
   // Renders loading panel
-  if (loading) {
+  if (loading || loadingUsers) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center text-brand-secondary font-sans">
         <div className="animate-spin mr-2"><Activity size={20} /></div> Loading Operations Board...
@@ -845,7 +877,7 @@ export function BizOpsKanban() {
             <option value="__all__">Anyone</option>
             <option value="__me__">Me</option>
             <option value="__none__">Unassigned</option>
-            {TEAM_MEMBERS.map(m => (
+            {teamMembers.map(m => (
               <option key={m.email} value={m.email}>{m.name}</option>
             ))}
           </select>
@@ -1786,7 +1818,7 @@ export function BizOpsKanban() {
               <div>
                 <label className="block text-[10px] font-extrabold uppercase tracking-widest text-neutral-500 mb-1.5">Assignees</label>
                 <div className="flex flex-wrap gap-2 bg-neutral-50 border border-neutral-200 p-3.5 rounded-xl min-h-[50px] items-center">
-                  {TEAM_MEMBERS.map(m => {
+                  {teamMembers.map(m => {
                     const isSelected = modalAssignees.includes(m.email);
                     return (
                       <div

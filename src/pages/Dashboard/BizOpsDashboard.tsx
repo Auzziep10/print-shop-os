@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { db } from '../../lib/firebase';
 import { doc, collection, onSnapshot, setDoc, updateDoc, addDoc, deleteDoc } from 'firebase/firestore';
@@ -36,13 +36,11 @@ interface BizOpsThemeData {
   objectives: string[];
 }
 
-const TEAM_MEMBERS = [
-  { email: 'austin@wovnapparel.com', name: 'Austin', initials: 'AU' },
-  { email: 'clayton@wovnapparel.com', name: 'Clayton', initials: 'CL' },
-  { email: 'garrett@wovnapparel.com', name: 'Garrett', initials: 'GA' },
-  { email: 'josh@wovnapparel.com', name: 'Josh', initials: 'JO' },
-  { email: 'malena@wovnapparel.com', name: 'Malena', initials: 'MA' }
-];
+interface TeamMember {
+  email: string;
+  name: string;
+  initials: string;
+}
 
 const DEFAULT_THEME_DATA: BizOpsThemeData = {
   title: '🚀 Q2 Production Optimization & Lead Time Reductions',
@@ -64,7 +62,9 @@ export function BizOpsDashboard() {
 
   // Expanded Card Modal States
   const [expandedCard, setExpandedCard] = useState<'theme' | 'member' | 'parking' | null>(null);
-  const [selectedMember, setSelectedMember] = useState<typeof TEAM_MEMBERS[0] | null>(null);
+  const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
+  const [users, setUsers] = useState<any[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(true);
 
   // Editing States for Modals
   const [editThemeTitle, setEditThemeTitle] = useState('');
@@ -114,6 +114,41 @@ export function BizOpsDashboard() {
     return () => unsub();
   }, []);
 
+  // Firestore Sync: users collection
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, 'users'), (snap) => {
+      const list: any[] = [];
+      snap.forEach((docSnap) => {
+        list.push({
+          id: docSnap.id,
+          ...docSnap.data()
+        });
+      });
+      setUsers(list);
+      setLoadingUsers(false);
+    }, (err) => {
+      console.error('Error listening to users collection:', err);
+      setLoadingUsers(false);
+    });
+
+    return () => unsub();
+  }, []);
+
+  // Compute dynamic team members list based on bizOps: true
+  const teamMembers = useMemo<TeamMember[]>(() => {
+    const bizOpsUsers = users.filter((u: any) => u.bizOps === true);
+    return bizOpsUsers.map((u: any) => ({
+      email: u.email.toLowerCase(),
+      name: u.name || u.email.split('@')[0],
+      initials: (() => {
+        const clean = (u.name || u.email.split('@')[0]).trim();
+        const parts = clean.split(/[ ._\-+]+/).filter(Boolean);
+        if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+        return clean.slice(0, 2).toUpperCase();
+      })()
+    }));
+  }, [users]);
+
   // Filter Tasks by Member Email (deliverables)
   const getMemberTasks = (email: string) => {
     return tasks.filter(t => t.assignees?.map(e => e.toLowerCase()).includes(email.toLowerCase()));
@@ -134,7 +169,7 @@ export function BizOpsDashboard() {
   };
 
   // Open member details
-  const openMemberModal = (member: typeof TEAM_MEMBERS[0]) => {
+  const openMemberModal = (member: TeamMember) => {
     setSelectedMember(member);
     setNewDeliverableText('');
     setExpandedCard('member');
@@ -235,7 +270,7 @@ export function BizOpsDashboard() {
   };
 
   // Loading Screen
-  if (loadingTheme || loadingTasks || !themeData) {
+  if (loadingTheme || loadingTasks || loadingUsers || !themeData) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center text-brand-secondary">
         <div className="animate-spin mr-2"><Activity size={20} /></div> Loading Operations Dashboard...
@@ -301,7 +336,7 @@ export function BizOpsDashboard() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-          {TEAM_MEMBERS.map((member) => {
+          {teamMembers.map((member) => {
             const memberTasks = getMemberTasks(member.email);
             const completed = memberTasks.filter(t => t.status === 'done').length;
             const total = memberTasks.length;
