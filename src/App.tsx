@@ -7,6 +7,7 @@ import { AuthProvider, useAuth, type PermissionKey } from './contexts/AuthContex
 // Lazy-loaded page components
 const Dashboard = lazy(() => import('./pages/Dashboard/Dashboard').then(m => ({ default: m.Dashboard })));
 const BizOpsDashboard = lazy(() => import('./pages/Dashboard/BizOpsDashboard').then(m => ({ default: m.BizOpsDashboard })));
+const BizOpsKanban = lazy(() => import('./pages/Dashboard/BizOpsKanban').then(m => ({ default: m.BizOpsKanban })));
 const Team = lazy(() => import('./pages/Team/Team').then(m => ({ default: m.Team })));
 const TeamMeetingsPage = lazy(() => import('./pages/Team/TeamMeetingsPage').then(m => ({ default: m.TeamMeetingsPage })));
 const OrdersList = lazy(() => import('./pages/Orders/OrdersList').then(m => ({ default: m.OrdersList })));
@@ -206,6 +207,12 @@ function App() {
             <Route path="biz-ops" element={
               <BizOpsGuard>
                 <BizOpsDashboard />
+              </BizOpsGuard>
+            } />
+
+            <Route path="biz-ops/kanban" element={
+              <BizOpsGuard>
+                <BizOpsKanban />
               </BizOpsGuard>
             } />
           
