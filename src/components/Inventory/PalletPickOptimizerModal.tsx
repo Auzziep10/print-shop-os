@@ -1086,7 +1086,27 @@ export function PalletPickOptimizerModal({ isOpen, onClose, preSelectedOrder, on
                       <p className="text-xs mt-2">Enter a tag and click Search to fetch new orders directly from Shopify.</p>
                     </div>
                   ) : (
-                    <div className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-4 animate-in fade-in duration-200">
+                      <div className="flex justify-between items-center bg-white px-5 py-3 rounded-2xl border border-brand-border shadow-sm shrink-0">
+                        <span className="text-xs font-bold uppercase tracking-widest text-brand-secondary">
+                          Found {shopifyOrders.length} orders
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (selectedShopifyOrderIds.size === shopifyOrders.length) {
+                              setSelectedShopifyOrderIds(new Set());
+                            } else {
+                              setSelectedShopifyOrderIds(new Set(shopifyOrders.map(o => o.id)));
+                            }
+                          }}
+                          className="text-xs font-bold text-brand-primary hover:text-black hover:bg-neutral-50 px-3.5 py-1.5 rounded-xl border border-brand-border/60 transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Check size={14} className={selectedShopifyOrderIds.size === shopifyOrders.length ? "text-green-600 stroke-[3]" : "text-brand-secondary"} />
+                          {selectedShopifyOrderIds.size === shopifyOrders.length ? 'Deselect All' : 'Select All'}
+                        </button>
+                      </div>
+
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[50vh] overflow-y-auto pr-1">
                         {shopifyOrders.map((order) => {
                           const isChecked = selectedShopifyOrderIds.has(order.id);

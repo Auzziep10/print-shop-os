@@ -4450,7 +4450,7 @@ export function OrderDetail() {
                         sheetHeight: editItemObj.sheetHeight || 24,
                         quantity: targetLayoutType === 'Single Design Transfer' ? 1 : (editItemObj.quantity || editItemObj.qty || 1),
                         price: editItemObj.price || '$0.00',
-                        image: editItemObj.originalSheetUrl || '',
+                        image: editItemObj.image || editItemObj.originalSheetUrl || '',
                         artworks: initialArtworks
                       });
                     }}
