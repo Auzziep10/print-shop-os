@@ -21,8 +21,8 @@ export default async function handler(req: Request) {
   }
 
   const query = `
-    query SearchOrders($query: String!) {
-      orders(first: 250, query: $query, sortKey: CREATED_AT, reverse: true) {
+    query SearchOrders($query: String!, $cursor: String) {
+      orders(first: 250, after: $cursor, query: $query, sortKey: CREATED_AT, reverse: true) {
         edges {
           node {
             id
@@ -54,42 +54,62 @@ export default async function handler(req: Request) {
             }
           }
         }
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
       }
     }
   `;
 
   try {
-    const shopifyResponse = await fetch(`https://${SHOPIFY_SHOP_DOMAIN}/admin/api/2024-01/graphql.json`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Shopify-Access-Token': SHOPIFY_ACCESS_TOKEN,
-      },
-      body: JSON.stringify({
-        query,
-        variables: {
-          query: tag.split(',').map(t => `tag:"${t.trim()}"`).join(' OR ')
-        }
-      })
-    });
+    let hasNextPage = true;
+    let cursor: string | null = null;
+    const allOrders: any[] = [];
 
-    if (!shopifyResponse.ok) {
-        throw new Error(`Shopify API responded with status: ${shopifyResponse.status}`);
+    while (hasNextPage) {
+      const shopifyResponse = await fetch(`https://${SHOPIFY_SHOP_DOMAIN}/admin/api/2024-01/graphql.json`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Shopify-Access-Token': SHOPIFY_ACCESS_TOKEN,
+        },
+        body: JSON.stringify({
+          query,
+          variables: {
+            query: tag.split(',').map(t => `tag:"${t.trim()}"`).join(' OR '),
+            cursor
+          }
+        })
+      });
+
+      if (!shopifyResponse.ok) {
+          throw new Error(`Shopify API responded with status: ${shopifyResponse.status}`);
+      }
+
+      const data = await shopifyResponse.json();
+      
+      if (data.errors) {
+          return new Response(JSON.stringify({ error: 'Shopify GraphQL Error', details: data.errors }), { status: 400 });
+      }
+
+      const ordersConnection = data.data?.orders;
+      if (!ordersConnection) {
+          break;
+      }
+
+      const edges = ordersConnection.edges || [];
+      const pageOrders = edges.map((edge: any) => edge.node).map((order: any) => ({
+        ...order,
+        lineItems: order.lineItems.edges.map((itemEdge: any) => itemEdge.node)
+      }));
+      allOrders.push(...pageOrders);
+
+      hasNextPage = ordersConnection.pageInfo?.hasNextPage || false;
+      cursor = ordersConnection.pageInfo?.endCursor || null;
     }
 
-    const data = await shopifyResponse.json();
-    
-    if (data.errors) {
-        return new Response(JSON.stringify({ error: 'Shopify GraphQL Error', details: data.errors }), { status: 400 });
-    }
-
-    // Transform edges into a flat array for the frontend
-    const orders = data.data.orders.edges.map((edge: any) => edge.node).map((order: any) => ({
-      ...order,
-      lineItems: order.lineItems.edges.map((itemEdge: any) => itemEdge.node)
-    }));
-
-    return new Response(JSON.stringify({ orders }), {
+    return new Response(JSON.stringify({ orders: allOrders }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }
     });
