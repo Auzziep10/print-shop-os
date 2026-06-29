@@ -1805,20 +1805,20 @@ export function PublicQuoteRequest() {
                 {/* Pre-selected garments rack representation */}
                 <div className="space-y-4 pt-4 border-t border-neutral-200/50">
                   <span className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-400 block">Curated Standard 6-Item Rack</span>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                     {rackItems.map(item => (
                       <div 
                         key={item.id} 
                         onClick={() => {
                           setRackItems(prev => prev.map(ri => ri.id === item.id ? { ...ri, selected: !ri.selected } : ri));
                         }}
-                        className={`p-4 rounded-2xl transition-all duration-300 flex flex-col justify-between gap-4 text-center cursor-pointer relative group ${
+                        className={`p-6 rounded-2xl transition-all duration-300 flex flex-col justify-between gap-4 text-center cursor-pointer relative group ${
                           item.selected 
                             ? 'bg-neutral-50/80 shadow-2xs opacity-100' 
                             : 'bg-transparent opacity-50 hover:opacity-100 hover:bg-neutral-50/40'
                         }`}
                       >
-                        <div className="absolute top-3 right-3 z-10">
+                        <div className="absolute top-4 right-4 z-10">
                           <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-all duration-200 ${
                             item.selected 
                               ? 'bg-neutral-900 border-neutral-900 text-white scale-100' 
@@ -1827,8 +1827,8 @@ export function PublicQuoteRequest() {
                             <Check size={10} strokeWidth={3} />
                           </div>
                         </div>
-                        <span className="text-[9px] font-extrabold uppercase tracking-widest text-neutral-400">{item.slot}</span>
-                        <div className="h-44 flex items-center justify-center p-1 overflow-hidden">
+                        <span className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-400">{item.slot}</span>
+                        <div className="h-64 flex items-center justify-center p-2 overflow-hidden">
                           {(() => {
                             const imgSet = item.product.images[item.color] || Object.values(item.product.images)[0];
                             const imgSrc = imgSet ? (typeof imgSet === 'string' ? imgSet : (imgSet as any).front) : '';
@@ -1841,7 +1841,7 @@ export function PublicQuoteRequest() {
                             );
                           })()}
                         </div>
-                        <span className="text-[10px] font-bold text-neutral-800 truncate">
+                        <span className="text-xs font-bold text-neutral-800 truncate">
                           {catalogSettings.customNames?.racks?.[selectedThemeCategory]?.[item.slot] || `${item.product.brand} ${item.product.style}`}
                         </span>
                       </div>
