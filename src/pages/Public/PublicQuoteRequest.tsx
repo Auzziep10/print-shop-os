@@ -1171,10 +1171,9 @@ export function PublicQuoteRequest() {
     const newCenterY = e.clientY - containerRect.top - dragStartOffset.current.y;
     let xPct = (newCenterX / containerRect.width) * 100;
     let yPct = (newCenterY / containerRect.height) * 100;
-    // Bounding Box Printable Area
-    const isHat = activeItem.slot === 'hat';
-    xPct = Math.max(isHat ? 30 : 22, Math.min(isHat ? 70 : 78, xPct));
-    yPct = Math.max(isHat ? 40 : 18, Math.min(isHat ? 70 : 78, yPct));
+    // Allow logo to be positioned anywhere on the garment canvas
+    xPct = Math.max(0, Math.min(100, xPct));
+    yPct = Math.max(0, Math.min(100, yPct));
     setRackItems(prev => prev.map((item, idx) => idx === editingItemIdx ? { ...item, logoPos: { x: xPct, y: yPct } } : item));
   };
 
