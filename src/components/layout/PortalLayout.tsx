@@ -183,7 +183,7 @@ export function PortalLayout() {
         <div className="flex items-center">
           {/* Main Logo */}
           {customer?.logo ? (
-            <img src={customer.logo} alt={customer.company || "Customer Logo"} className="h-8 object-contain max-w-[160px]" />
+            <img src={customer.logo} alt={customer.company || "Customer Logo"} className="h-14 object-contain max-w-[200px]" />
           ) : (
             <img src="/logo.png" alt="WOVN" className="h-8" />
           )}
