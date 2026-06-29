@@ -1761,7 +1761,7 @@ export function PublicQuoteRequest() {
           </header>
 
           {/* Main Content Area */}
-          <div className="max-w-[1200px] mx-auto px-6 w-full mt-10">
+          <div className="max-w-[1600px] mx-auto px-6 w-full mt-10">
 
         {/* STEP 1: SELECT COLLECTION CATEGORY / BASICS */}
         {step === 1 && (
@@ -1769,7 +1769,7 @@ export function PublicQuoteRequest() {
             
             {/* Design Your Rack Path Step 1 */}
             {flowMode === 'racks' && (
-              <div className="bg-white/80 backdrop-blur-md rounded-3xl p-8 border border-neutral-200 shadow-sm max-w-4xl mx-auto space-y-8">
+              <div className="bg-white/80 backdrop-blur-md rounded-3xl p-8 border border-neutral-200 shadow-sm max-w-7xl mx-auto space-y-8">
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => setStep(0)}
@@ -1828,7 +1828,7 @@ export function PublicQuoteRequest() {
                           </div>
                         </div>
                         <span className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-400">{item.slot}</span>
-                        <div className="h-64 flex items-center justify-center p-2 overflow-hidden">
+                        <div className="h-72 flex items-center justify-center p-2 overflow-hidden">
                           {(() => {
                             const imgSet = item.product.images[item.color] || Object.values(item.product.images)[0];
                             const imgSrc = imgSet ? (typeof imgSet === 'string' ? imgSet : (imgSet as any).front) : '';
@@ -1859,7 +1859,7 @@ export function PublicQuoteRequest() {
 
             {/* Build From Basics Step 1 */}
             {flowMode === 'basics' && (
-              <div className="bg-white/80 backdrop-blur-md rounded-3xl p-8 border border-neutral-200 shadow-sm max-w-4xl mx-auto space-y-8">
+              <div className="bg-white/80 backdrop-blur-md rounded-3xl p-8 border border-neutral-200 shadow-sm max-w-7xl mx-auto space-y-8">
                 <div className="flex items-center justify-between border-b border-neutral-200/60 pb-5 gap-4">
                   <div className="flex items-center gap-3">
                     <button
@@ -1951,7 +1951,7 @@ export function PublicQuoteRequest() {
 
         {/* STEP 2: LOGO DESIGN & UPLOAD */}
         {step === 2 && (
-          <div className="space-y-8 max-w-4xl mx-auto animate-in fade-in duration-300">
+          <div className="space-y-8 max-w-7xl mx-auto animate-in fade-in duration-300">
             <div className="bg-white/80 backdrop-blur-md rounded-3xl p-8 border border-neutral-200 shadow-sm space-y-6">
               <div className="flex items-center gap-3">
                 <button
