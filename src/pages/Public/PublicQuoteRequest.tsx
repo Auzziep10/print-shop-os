@@ -2688,18 +2688,7 @@ export function PublicQuoteRequest() {
                 >
                   <img src={editingGarmentProxied} className="w-full h-full object-contain pointer-events-none select-none" alt="Editor garment" draggable="false" />
                   
-                  {/* Bounding printable area box */}
-                  <div 
-                    className="absolute border border-dashed border-neutral-350 bg-black/[0.005] rounded-xl pointer-events-none"
-                    style={{
-                      left: editingProduct.slot === 'hat' ? '30%' : '22%',
-                      right: editingProduct.slot === 'hat' ? '30%' : '22%',
-                      top: editingProduct.slot === 'hat' ? '40%' : '18%',
-                      bottom: editingProduct.slot === 'hat' ? '30%' : '22%'
-                    }}
-                  >
-                    <span className="absolute top-1 left-2 text-[7px] font-bold text-neutral-400/80 uppercase tracking-widest">Printable</span>
-                  </div>
+
 
                   {/* Logo overlay element */}
                   <div
