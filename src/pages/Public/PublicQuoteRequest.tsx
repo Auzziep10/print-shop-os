@@ -1846,7 +1846,9 @@ export function PublicQuoteRequest() {
                             );
                           })()}
                         </div>
-                        <span className="text-[10px] font-bold text-neutral-800 truncate">{item.product.brand} {item.product.style}</span>
+                        <span className="text-[10px] font-bold text-neutral-800 truncate">
+                          {catalogSettings.customNames?.racks?.[selectedThemeCategory]?.[item.slot] || `${item.product.brand} ${item.product.style}`}
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -2663,7 +2665,7 @@ export function PublicQuoteRequest() {
               <div>
                 <span className="text-[9px] font-extrabold uppercase tracking-widest text-neutral-400">Position & Alignment</span>
                 <h3 className="text-lg font-serif text-neutral-900">
-                  Tweak Customization for {editingProduct.product.brand} {editingProduct.product.style}
+                  Tweak Customization for {catalogSettings.customNames?.racks?.[selectedThemeCategory]?.[editingProduct.slot] || `${editingProduct.product.brand} ${editingProduct.product.style}`}
                 </h3>
               </div>
               <button 
