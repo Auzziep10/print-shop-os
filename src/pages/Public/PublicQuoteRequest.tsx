@@ -1166,7 +1166,6 @@ export function PublicQuoteRequest() {
     }
 
     if (!isDragging) return;
-    const activeItem = rackItems[editingItemIdx];
     const newCenterX = e.clientX - containerRect.left - dragStartOffset.current.x;
     const newCenterY = e.clientY - containerRect.top - dragStartOffset.current.y;
     let xPct = (newCenterX / containerRect.width) * 100;
