@@ -14,9 +14,7 @@ import {
   Phone,
   ChevronLeft,
   X,
-  CheckSquare,
-  Square,
-  Scissors,
+  Scissors, 
   UserPlus
 } from 'lucide-react';
 import { db, storage } from '../../lib/firebase';
@@ -1814,31 +1812,30 @@ export function PublicQuoteRequest() {
                         onClick={() => {
                           setRackItems(prev => prev.map(ri => ri.id === item.id ? { ...ri, selected: !ri.selected } : ri));
                         }}
-                        className={`bg-white border p-3 rounded-xl transition-all flex flex-col justify-between gap-3 text-center cursor-pointer relative group ${
+                        className={`p-4 rounded-2xl transition-all duration-300 flex flex-col justify-between gap-4 text-center cursor-pointer relative group ${
                           item.selected 
-                            ? 'border-neutral-900 ring-2 ring-neutral-900/5 shadow-2xs' 
-                            : 'border-neutral-200 opacity-60 hover:opacity-100'
+                            ? 'bg-neutral-50/80 shadow-2xs opacity-100' 
+                            : 'bg-transparent opacity-50 hover:opacity-100 hover:bg-neutral-50/40'
                         }`}
                       >
-                        {item.selected && (
-                          <div className="absolute top-2 right-2 text-neutral-950">
-                            <CheckSquare size={13} />
+                        <div className="absolute top-3 right-3 z-10">
+                          <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-all duration-200 ${
+                            item.selected 
+                              ? 'bg-neutral-900 border-neutral-900 text-white scale-100' 
+                              : 'border-neutral-200 text-transparent group-hover:border-neutral-350'
+                          }`}>
+                            <Check size={10} strokeWidth={3} />
                           </div>
-                        )}
-                        {!item.selected && (
-                          <div className="absolute top-2 right-2 text-neutral-300">
-                            <Square size={13} />
-                          </div>
-                        )}
-                        <span className="text-[8px] font-bold uppercase tracking-widest text-neutral-400">{item.slot}</span>
-                        <div className="h-28 flex items-center justify-center p-1 overflow-hidden">
+                        </div>
+                        <span className="text-[9px] font-extrabold uppercase tracking-widest text-neutral-400">{item.slot}</span>
+                        <div className="h-44 flex items-center justify-center p-1 overflow-hidden">
                           {(() => {
                             const imgSet = item.product.images[item.color] || Object.values(item.product.images)[0];
                             const imgSrc = imgSet ? (typeof imgSet === 'string' ? imgSet : (imgSet as any).front) : '';
                             return (
                               <img 
                                 src={imgSrc} 
-                                className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-300" 
+                                className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-500 ease-out" 
                                 alt={item.product.style} 
                               />
                             );
