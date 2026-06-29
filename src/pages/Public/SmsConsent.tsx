@@ -231,7 +231,7 @@ export function SmsConsent() {
                         className="mt-1 h-4.5 w-4.5 rounded border-brand-border text-brand-primary focus:ring-brand-primary cursor-pointer shrink-0"
                       />
                       <span className="text-[11px] leading-relaxed text-brand-secondary group-hover:text-brand-primary transition-colors">
-                        By checking this box, you agree to receive recurring automated promotional and transactional text messages (such as order status updates, delivery alerts, custom reminders, and design proofs) from WOVN at the mobile number provided above. Consent is not a condition of purchase or using our services. Msg & data rates may apply. Message frequency varies. Reply <strong>STOP</strong> to unsubscribe or <strong>HELP</strong> for assistance. You also agree to our{' '}
+                        By checking this box, you agree to receive recurring automated transactional text messages (such as order status updates, delivery alerts, custom reminders, and design proofs) from WOVN at the mobile number provided above. Msg & data rates may apply. Message frequency varies. Reply <strong>STOP</strong> to unsubscribe or <strong>HELP</strong> for assistance. You also agree to our{' '}
                         <button
                           type="button"
                           onClick={() => setActiveTab('privacy')}
