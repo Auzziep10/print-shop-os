@@ -44,6 +44,7 @@ export function StorefrontCatalogTab() {
   // Firestore state
   const [racks, setRacks] = useState<Record<string, any>>(DEFAULT_RACKS);
   const [basics, setBasics] = useState<Record<string, any>>(DEFAULT_BASICS);
+  const [customNames, setCustomNames] = useState<Record<string, any>>({ racks: {}, basics: {} });
 
   // Active category select
   const [activeRackCategory, setActiveRackCategory] = useState('Athleisure');
@@ -67,6 +68,11 @@ export function StorefrontCatalogTab() {
           const data = docSnap.data();
           if (data.racks) setRacks(data.racks);
           if (data.basics) setBasics(data.basics);
+          if (data.customNames) {
+            setCustomNames(data.customNames);
+          } else {
+            setCustomNames({ racks: {}, basics: {} });
+          }
         }
       } catch (err) {
         console.error("Error fetching storefront catalog settings:", err);
@@ -83,6 +89,7 @@ export function StorefrontCatalogTab() {
       await setDoc(doc(db, 'settings', 'storefront-catalog'), {
         racks,
         basics,
+        customNames,
         updatedAt: new Date().toISOString()
       });
       alert('Storefront catalog settings saved successfully!');
@@ -113,6 +120,20 @@ export function StorefrontCatalogTab() {
           [slot]: style
         }
       }));
+      setCustomNames(prev => {
+        const racks = prev.racks || {};
+        const cat = racks[category] || {};
+        return {
+          ...prev,
+          racks: {
+            ...racks,
+            [category]: {
+              ...cat,
+              [slot]: ''
+            }
+          }
+        };
+      });
     } else {
       setBasics(prev => ({
         ...prev,
@@ -121,6 +142,20 @@ export function StorefrontCatalogTab() {
           [slot]: style
         }
       }));
+      setCustomNames(prev => {
+        const basics = prev.basics || {};
+        const cat = basics[category] || {};
+        return {
+          ...prev,
+          basics: {
+            ...basics,
+            [category]: {
+              ...cat,
+              [slot]: ''
+            }
+          }
+        };
+      });
     }
 
     setIsModalOpen(false);
@@ -223,22 +258,54 @@ export function StorefrontCatalogTab() {
             {['hat', 'shirt', 'polo', 'crewneck', 'hoodie', 'longsleeve'].map(slot => {
               const style = racks[activeRackCategory]?.[slot] || '';
               const p = getProductDetails(style);
+              const customName = customNames.racks?.[activeRackCategory]?.[slot] || '';
               
               return (
                 <div key={slot} className="border border-brand-border rounded-2xl p-5 bg-neutral-50/50 flex flex-col justify-between gap-4">
-                  <div>
-                    <span className="text-[10px] font-extrabold uppercase tracking-widest text-brand-secondary block mb-1">
-                      {slot.replace('longsleeve', 'long sleeve')} Slot
-                    </span>
-                    <h4 className="text-sm font-bold text-brand-primary leading-snug">
-                      {p.brand} {p.style}
-                    </h4>
-                    <p className="text-xs text-brand-secondary mt-1 font-medium truncate">
-                      {p.title}
-                    </p>
-                    <span className="text-xs text-brand-primary font-bold mt-2 inline-block">
-                      ${p.price.toFixed(2)}
-                    </span>
+                  <div className="space-y-3">
+                    <div>
+                      <span className="text-[10px] font-extrabold uppercase tracking-widest text-brand-secondary block mb-1">
+                        {slot.replace('longsleeve', 'long sleeve')} Slot
+                      </span>
+                      <h4 className="text-sm font-bold text-brand-primary leading-snug">
+                        {p.brand} {p.style}
+                      </h4>
+                      <p className="text-xs text-brand-secondary mt-1 font-medium truncate" title={customName || p.title}>
+                        {customName || p.title}
+                      </p>
+                      <span className="text-xs text-brand-primary font-bold mt-2 inline-block">
+                        ${p.price.toFixed(2)}
+                      </span>
+                    </div>
+
+                    <div>
+                      <label className="text-[9px] font-extrabold uppercase tracking-wider text-neutral-400 block mb-1">
+                        Custom Display Name
+                      </label>
+                      <input
+                        type="text"
+                        value={customName}
+                        placeholder={p.title}
+                        onChange={(e) => {
+                          const newName = e.target.value;
+                          setCustomNames(prev => {
+                            const racks = prev.racks || {};
+                            const cat = racks[activeRackCategory] || {};
+                            return {
+                              ...prev,
+                              racks: {
+                                ...racks,
+                                [activeRackCategory]: {
+                                  ...cat,
+                                  [slot]: newName
+                                }
+                              }
+                            };
+                          });
+                        }}
+                        className="w-full bg-white border border-brand-border rounded-xl px-3 py-1.5 text-xs text-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary transition-all placeholder:text-neutral-400 placeholder:italic"
+                      />
+                    </div>
                   </div>
 
                   <button
@@ -281,24 +348,56 @@ export function StorefrontCatalogTab() {
             {['good', 'better', 'best'].map(slot => {
               const style = basics[activeBasicsCategory]?.[slot] || '';
               const p = getProductDetails(style);
+              const customName = customNames.basics?.[activeBasicsCategory]?.[slot] || '';
 
               return (
                 <div key={slot} className="border border-brand-border rounded-2xl p-5 bg-neutral-50/50 flex flex-col justify-between gap-4">
-                  <div>
-                    <span className={`text-[10px] font-extrabold uppercase tracking-widest block mb-1 ${
-                      slot === 'good' ? 'text-neutral-500' : slot === 'better' ? 'text-blue-500' : 'text-emerald-500'
-                    }`}>
-                      {slot} Tier
-                    </span>
-                    <h4 className="text-sm font-bold text-brand-primary leading-snug">
-                      {p.brand} {p.style}
-                    </h4>
-                    <p className="text-xs text-brand-secondary mt-1 font-medium truncate">
-                      {p.title}
-                    </p>
-                    <span className="text-xs text-brand-primary font-bold mt-2 inline-block">
-                      ${p.price.toFixed(2)}
-                    </span>
+                  <div className="space-y-3">
+                    <div>
+                      <span className={`text-[10px] font-extrabold uppercase tracking-widest block mb-1 ${
+                        slot === 'good' ? 'text-neutral-500' : slot === 'better' ? 'text-blue-500' : 'text-emerald-500'
+                      }`}>
+                        {slot} Tier
+                      </span>
+                      <h4 className="text-sm font-bold text-brand-primary leading-snug">
+                        {p.brand} {p.style}
+                      </h4>
+                      <p className="text-xs text-brand-secondary mt-1 font-medium truncate" title={customName || p.title}>
+                        {customName || p.title}
+                      </p>
+                      <span className="text-xs text-brand-primary font-bold mt-2 inline-block">
+                        ${p.price.toFixed(2)}
+                      </span>
+                    </div>
+
+                    <div>
+                      <label className="text-[9px] font-extrabold uppercase tracking-wider text-neutral-400 block mb-1">
+                        Custom Display Name
+                      </label>
+                      <input
+                        type="text"
+                        value={customName}
+                        placeholder={p.title}
+                        onChange={(e) => {
+                          const newName = e.target.value;
+                          setCustomNames(prev => {
+                            const basics = prev.basics || {};
+                            const cat = basics[activeBasicsCategory] || {};
+                            return {
+                              ...prev,
+                              basics: {
+                                ...basics,
+                                [activeBasicsCategory]: {
+                                  ...cat,
+                                  [slot]: newName
+                                }
+                              }
+                            };
+                          });
+                        }}
+                        className="w-full bg-white border border-brand-border rounded-xl px-3 py-1.5 text-xs text-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary transition-all placeholder:text-neutral-400 placeholder:italic"
+                      />
+                    </div>
                   </div>
 
                   <button

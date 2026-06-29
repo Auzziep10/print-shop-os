@@ -329,9 +329,14 @@ export function PublicQuoteRequest() {
   const [catalogSettings, setCatalogSettings] = useState<{
     racks: Record<string, any>;
     basics: Record<string, any>;
+    customNames?: {
+      racks?: Record<string, Record<string, string>>;
+      basics?: Record<string, Record<string, string>>;
+    };
   }>({
     racks: DEFAULT_RACKS,
-    basics: DEFAULT_BASICS
+    basics: DEFAULT_BASICS,
+    customNames: { racks: {}, basics: {} }
   });
 
   const [cart, setCart] = useState<any[]>([]);
@@ -433,7 +438,8 @@ export function PublicQuoteRequest() {
           const cData = catSnap.data();
           setCatalogSettings({
             racks: cData.racks || DEFAULT_RACKS,
-            basics: cData.basics || DEFAULT_BASICS
+            basics: cData.basics || DEFAULT_BASICS,
+            customNames: cData.customNames || { racks: {}, basics: {} }
           });
         }
       } catch (err) {
@@ -504,6 +510,10 @@ export function PublicQuoteRequest() {
       const styleId = (stylesMap as any)[slot];
       const prod = sanmarCatalog.find(p => p.style === styleId);
       if (prod) {
+        // Check for custom name override
+        const customTitle = catalogSettings.customNames?.racks?.[themeName]?.[slot];
+        const displayProduct = customTitle ? { ...prod, title: customTitle } : prod;
+
         // Smart defaults for placements
         const isHat = slot === 'hat';
         const isPolo = slot === 'polo';
@@ -511,8 +521,8 @@ export function PublicQuoteRequest() {
         items.push({
           id: `${slot}-${Date.now()}`,
           slot,
-          product: prod,
-          color: prod.colors[0],
+          product: displayProduct,
+          color: displayProduct.colors[0],
           selected: true,
           logoPos: isHat ? { x: 50, y: 55 } : isPolo ? { x: 38, y: 30 } : { x: 50, y: 35 },
           logoScale: isHat ? 0.16 : isPolo ? 0.14 : 0.28,
@@ -536,10 +546,19 @@ export function PublicQuoteRequest() {
   // Populate basics selection
   const preCuratedBasicsOptions = useMemo(() => {
     const styles = catalogSettings.basics[selectedBasicsCategory] || DEFAULT_BASICS['T-Shirts'];
+    
+    const goodProd = sanmarCatalog.find(p => p.style === styles.good);
+    const betterProd = sanmarCatalog.find(p => p.style === styles.better);
+    const bestProd = sanmarCatalog.find(p => p.style === styles.best);
+
+    const goodCustom = catalogSettings.customNames?.basics?.[selectedBasicsCategory]?.good;
+    const betterCustom = catalogSettings.customNames?.basics?.[selectedBasicsCategory]?.better;
+    const bestCustom = catalogSettings.customNames?.basics?.[selectedBasicsCategory]?.best;
+
     return {
-      good: sanmarCatalog.find(p => p.style === styles.good),
-      better: sanmarCatalog.find(p => p.style === styles.better),
-      best: sanmarCatalog.find(p => p.style === styles.best)
+      good: goodProd && goodCustom ? { ...goodProd, title: goodCustom } : goodProd,
+      better: betterProd && betterCustom ? { ...betterProd, title: betterCustom } : betterProd,
+      best: bestProd && bestCustom ? { ...bestProd, title: bestCustom } : bestProd
     };
   }, [selectedBasicsCategory, catalogSettings]);
 
