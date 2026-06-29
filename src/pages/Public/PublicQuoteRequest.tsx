@@ -1783,17 +1783,17 @@ export function PublicQuoteRequest() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="flex flex-wrap items-center justify-center gap-2 pb-4 border-b border-neutral-100">
                   {Object.keys(DEFAULT_RACKS).map(catName => {
                     const isSelected = selectedThemeCategory === catName;
                     return (
                       <button
                         key={catName}
                         onClick={() => setSelectedThemeCategory(catName)}
-                        className={`p-6 rounded-2xl border text-center font-serif text-sm transition-all ${
+                        className={`px-4 py-2 rounded-full border text-[11px] font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer ${
                           isSelected 
-                            ? 'bg-neutral-900 border-neutral-900 text-white shadow-sm font-extrabold'
-                            : 'bg-white border-neutral-200 text-neutral-600 hover:border-neutral-400'
+                            ? 'bg-neutral-950 border-neutral-950 text-white shadow-xs' 
+                            : 'bg-white border-neutral-200 text-neutral-500 hover:text-neutral-900 hover:border-neutral-350'
                         }`}
                       >
                         {catName}
