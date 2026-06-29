@@ -182,7 +182,11 @@ export function PortalLayout() {
       <header className="flex items-center justify-between px-10 py-6 bg-white border-b border-black/5">
         <div className="flex items-center">
           {/* Main Logo */}
-          <img src="/logo.png" alt="WOVN" className="h-8" />
+          {customer?.logo ? (
+            <img src={customer.logo} alt={customer.company || "Customer Logo"} className="h-8 object-contain max-w-[160px]" />
+          ) : (
+            <img src="/logo.png" alt="WOVN" className="h-8" />
+          )}
         </div>
 
         {/* Center Search Pill */}
