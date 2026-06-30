@@ -36,35 +36,43 @@ export function PortalAssetVault() {
   }, [currentCustomerId]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
     setIsUploading(true);
     try {
-      const storageRef = ref(storage, `portal/${currentCustomerId}/vault/${Date.now()}_${file.name}`);
-      await uploadBytes(storageRef, file);
-      const downloadUrl = await getDownloadURL(storageRef);
+      const newAssets: any[] = [];
+      
+      // Upload all selected files concurrently
+      await Promise.all(Array.from(files).map(async (file, idx) => {
+        // Add idx and random string to prevent filename/timestamp collisions
+        const randomStr = Math.random().toString(36).substr(2, 5);
+        const storageRef = ref(storage, `portal/${currentCustomerId}/vault/${Date.now()}_${idx}_${randomStr}_${file.name}`);
+        await uploadBytes(storageRef, file);
+        const downloadUrl = await getDownloadURL(storageRef);
 
-      const newAsset = {
-        id: `asset-${Date.now()}`,
-        name: file.name,
-        url: downloadUrl,
-        uploadedAt: new Date().toISOString()
-      };
+        newAssets.push({
+          id: `asset-${Date.now()}-${idx}-${randomStr}`,
+          name: file.name,
+          url: downloadUrl,
+          uploadedAt: new Date().toISOString()
+        });
+      }));
 
-      const updatedAssets = [...assets, newAsset];
+      const updatedAssets = [...assets, ...newAssets];
       
       await updateDoc(doc(db, 'customers', currentCustomerId), {
         assets: updatedAssets
       });
 
       setAssets(updatedAssets);
-      alert("Asset uploaded successfully!");
+      alert(files.length === 1 ? "Asset uploaded successfully!" : `${files.length} assets uploaded successfully!`);
     } catch (err) {
       console.error("Upload failed:", err);
-      alert("Failed to upload asset. Please try again.");
+      alert("Failed to upload some or all assets. Please try again.");
     } finally {
       setIsUploading(false);
+      e.target.value = ''; // Reset input to allow uploading the same file again
     }
   };
 
@@ -147,7 +155,7 @@ export function PortalAssetVault() {
           data-tour="vault-upload-btn"
           className="bg-black text-white px-6 py-3.5 rounded-full text-[13px] font-bold tracking-wide hover:bg-neutral-800 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-md flex items-center gap-2 cursor-pointer"
         >
-          <input type="file" className="hidden" onChange={handleFileUpload} accept="image/*,application/pdf,.ai,.eps,.psd,.cdr,.zip" />
+          <input type="file" multiple className="hidden" onChange={handleFileUpload} accept="image/*,application/pdf,.ai,.eps,.psd,.cdr,.zip" />
           {isUploading ? (
             <Loader2 className="animate-spin" size={16} />
           ) : (
@@ -169,7 +177,7 @@ export function PortalAssetVault() {
             </p>
           </div>
           <label className="mt-2 bg-[#f0ebe1] text-neutral-900 border border-[#e6e2db] px-8 py-3.5 rounded-full text-[13px] font-bold tracking-wide hover:bg-[#e6e2db] hover:scale-[1.02] active:scale-[0.98] transition-all shadow-sm flex items-center gap-2 cursor-pointer">
-            <input type="file" className="hidden" onChange={handleFileUpload} accept="image/*,application/pdf,.ai,.eps,.psd,.cdr,.zip" />
+            <input type="file" multiple className="hidden" onChange={handleFileUpload} accept="image/*,application/pdf,.ai,.eps,.psd,.cdr,.zip" />
             <Upload size={14} /> Upload First File
           </label>
         </div>
