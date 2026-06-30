@@ -246,6 +246,15 @@ export function PortalAssetVault() {
                       draggable="false"
                       onContextMenu={(e) => e.preventDefault()}
                     />
+                  ) : isPdfFile(asset.name) ? (
+                    <div className="w-full h-full relative overflow-hidden flex items-center justify-center pointer-events-none select-none rounded-xl bg-white">
+                      <iframe 
+                        src={`${asset.url}#toolbar=0&navpanes=0&scrollbar=0`}
+                        className="w-[200%] h-[200%] scale-50 origin-center border-0 pointer-events-none select-none rounded-xl bg-white"
+                        scrolling="no"
+                      />
+                      <div className="absolute inset-0 bg-transparent pointer-events-auto" />
+                    </div>
                   ) : (
                     <div className="flex flex-col items-center gap-2">
                       {getFileIcon(asset.name)}
