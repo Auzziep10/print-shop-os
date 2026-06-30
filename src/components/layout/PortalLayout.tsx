@@ -180,13 +180,13 @@ export function PortalLayout() {
       )}
 
       {/* Top Header */}
-      <header className={`flex items-center justify-between px-10 bg-white border-b border-black/5 ${customer?.logo ? 'py-3' : 'py-6'}`}>
+      <header className={`flex items-center justify-between px-10 bg-white border-b border-black/5 ${customer?.logo ? 'py-4' : 'py-6'}`}>
         <div className="flex items-center">
           {/* Main Logo */}
           {isLoadingCustomer ? (
             <div className="h-8 w-24 bg-gray-150/40 rounded animate-pulse" />
           ) : customer?.logo ? (
-            <img src={customer.logo} alt={customer.company || "Customer Logo"} className="h-24 object-contain max-w-[350px]" />
+            <img src={customer.logo} alt={customer.company || "Customer Logo"} className="h-16 object-contain max-w-[260px]" />
           ) : (
             <img src="/logo.png" alt="WOVN" className="h-8" />
           )}
