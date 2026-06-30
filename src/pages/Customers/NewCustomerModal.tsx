@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { X, Building2, Mail, Phone, MapPin, Loader2, User, Briefcase } from 'lucide-react';
 import { db } from '../../lib/firebase';
-import { collection, addDoc } from 'firebase/firestore';
+import { collection, addDoc, doc, setDoc } from 'firebase/firestore';
 import { tokens } from '../../lib/tokens';
 
 interface NewCustomerModalProps {
@@ -40,6 +40,24 @@ export function NewCustomerModal({ isOpen, onClose, onSuccess }: NewCustomerModa
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
+
+      // Auto-create a customer user account if an email is provided
+      if (formData.email.trim()) {
+        const userRef = doc(collection(db, 'users'));
+        await setDoc(userRef, {
+          id: userRef.id,
+          email: formData.email.trim().toLowerCase(),
+          name: formData.contactName.trim() || formData.company.trim() || 'Client',
+          role: 'Client',
+          roleDescription: 'Client',
+          customerId: docRef.id,
+          createdAt: new Date().toISOString(),
+          viewAll: true,
+          phone: formData.phone.trim() || '-',
+          companyName: formData.company.trim() || formData.contactName.trim() || '-'
+        });
+      }
+
       onSuccess(docRef.id);
       onClose();
     } catch (err: any) {
