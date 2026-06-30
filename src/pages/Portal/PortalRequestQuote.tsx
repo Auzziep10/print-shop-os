@@ -621,7 +621,9 @@ export function PortalRequestQuote() {
           </div>
           
           <div className="flex gap-4 border-b border-neutral-100 pb-3 overflow-x-auto">
-            {['rack', 'wovn', 'suggested', 'past'].map((tab) => {
+            {['rack', 'wovn', 'suggested', 'past']
+              .filter(tab => tab !== 'wovn' || wovnRack.length > 0)
+              .map((tab) => {
               const label = tab === 'rack' ? 'Design Your Rack' : tab === 'wovn' ? 'WOVN Catalog' : tab === 'suggested' ? 'Suggested Items' : 'Past Garments';
               const count = tab === 'rack' 
                 ? activeRackItems.length 
