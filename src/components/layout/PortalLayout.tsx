@@ -18,6 +18,7 @@ export function PortalLayout() {
   const [tourStep, setTourStep] = useState(0);
 
   const [customer, setCustomer] = useState<any>(null);
+  const [isLoadingCustomer, setIsLoadingCustomer] = useState(true);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   
@@ -34,12 +35,15 @@ export function PortalLayout() {
 
   useEffect(() => {
     if (!customerId) return;
+    setIsLoadingCustomer(true);
     const unsub = onSnapshot(doc(db, 'customers', customerId), (snapshot) => {
       if (snapshot.exists()) {
         setCustomer(snapshot.data());
       }
+      setIsLoadingCustomer(false);
     }, (err) => {
       console.error("Error listening to customer in PortalLayout:", err);
+      setIsLoadingCustomer(false);
     });
     return () => unsub();
   }, [customerId]);
@@ -179,7 +183,9 @@ export function PortalLayout() {
       <header className={`flex items-center justify-between px-10 bg-white border-b border-black/5 ${customer?.logo ? 'py-3' : 'py-6'}`}>
         <div className="flex items-center">
           {/* Main Logo */}
-          {customer?.logo ? (
+          {isLoadingCustomer ? (
+            <div className="h-8 w-24 bg-gray-150/40 rounded animate-pulse" />
+          ) : customer?.logo ? (
             <img src={customer.logo} alt={customer.company || "Customer Logo"} className="h-24 object-contain max-w-[350px]" />
           ) : (
             <img src="/logo.png" alt="WOVN" className="h-8" />
@@ -262,7 +268,9 @@ export function PortalLayout() {
               className="w-10 h-10 rounded-full border border-black/20 overflow-hidden bg-neutral-100 flex items-center justify-center cursor-pointer hover:border-black hover:scale-105 active:scale-95 transition-all shadow-[0_2px_8px_0_rgb(0,0,0,0.02)] shrink-0"
               title="Account & Settings"
             >
-              {customer?.croppedLogo || customer?.logo ? (
+              {isLoadingCustomer ? (
+                <div className="w-full h-full rounded-full bg-neutral-200 animate-pulse" />
+              ) : customer?.croppedLogo || customer?.logo ? (
                 <img src={customer.croppedLogo || customer.logo} alt="Profile" className="w-full h-full object-cover mix-blend-multiply p-0.5" />
               ) : (
                 <span className="text-xs font-bold text-neutral-600">
