@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { PortalHelpDrawer } from '../Portal/PortalHelpDrawer';
 import { PortalTourOverlay } from '../Portal/PortalTourOverlay';
 import { db } from '../../lib/firebase';
-import { doc, getDoc, updateDoc, onSnapshot } from 'firebase/firestore';
+import { doc, updateDoc, onSnapshot } from 'firebase/firestore';
 
 export function PortalLayout() {
   const { customerId } = useParams();

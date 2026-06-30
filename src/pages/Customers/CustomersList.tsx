@@ -63,6 +63,7 @@ export function CustomersList() {
         ltv: ltvFormatted,
         lastOrder: lastOrderStr,
         logo: liveData.logo !== undefined ? liveData.logo : null,
+        croppedLogo: liveData.croppedLogo !== undefined ? liveData.croppedLogo : null,
       };
     }).filter(c => c.company.toLowerCase().includes(search.toLowerCase()) || 
                    c.contact.toLowerCase().includes(search.toLowerCase()) ||
