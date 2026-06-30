@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { db, storage } from '../../lib/firebase';
-import { Upload, Trash2, Loader2, FileText, Image as ImageIcon, ArrowLeft, Plus, X } from 'lucide-react';
+import { Upload, Trash2, Loader2, FileText, Image as ImageIcon, ArrowLeft, Plus, X, Edit2, Check } from 'lucide-react';
 
 export function PortalAssetVault() {
   const { customerId } = useParams();
@@ -16,6 +16,8 @@ export function PortalAssetVault() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [selectedAsset, setSelectedAsset] = useState<any | null>(null);
   const [lightboxBg, setLightboxBg] = useState<'checkerboard' | 'dark' | 'light'>('checkerboard');
+  const [editingAssetId, setEditingAssetId] = useState<string | null>(null);
+  const [editingAssetName, setEditingAssetName] = useState('');
 
   useEffect(() => {
     const fetchCustomer = async () => {
@@ -103,6 +105,39 @@ export function PortalAssetVault() {
       alert("Failed to delete asset. Please try again.");
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  const handleSaveRename = async (assetId: string) => {
+    if (!editingAssetName.trim()) return;
+
+    try {
+      const updatedAssets = assets.map(a => {
+        if (a.id === assetId) {
+          let newName = editingAssetName.trim();
+          const parts = a.name.split('.');
+          if (parts.length > 1) {
+            const oldExt = parts.pop()?.toLowerCase();
+            const newParts = newName.split('.');
+            const newExt = newParts.length > 1 ? newParts.pop()?.toLowerCase() : '';
+            if (oldExt && oldExt !== newExt) {
+              newName = `${newName}.${oldExt}`;
+            }
+          }
+          return { ...a, name: newName };
+        }
+        return a;
+      });
+
+      await updateDoc(doc(db, 'customers', currentCustomerId), {
+        assets: updatedAssets
+      });
+
+      setAssets(updatedAssets);
+      setEditingAssetId(null);
+    } catch (err) {
+      console.error("Rename failed:", err);
+      alert("Failed to rename asset. Please try again.");
     }
   };
 
@@ -221,21 +256,64 @@ export function PortalAssetVault() {
                   )}
                 </div>
 
-                <div className="px-1 min-w-0">
-                  <h4 
-                    className="font-bold text-neutral-900 text-sm truncate pr-6 cursor-pointer hover:text-black/70 transition-colors"
-                    title={asset.name}
-                    onClick={() => {
-                      if (isImageFile(asset.name)) {
-                        setSelectedAsset(asset);
-                      } else {
-                        window.open(asset.url, '_blank');
-                      }
-                    }}
-                  >
-                    {asset.name}
-                  </h4>
-                  <p className="text-[10px] font-bold text-neutral-400 mt-1 uppercase tracking-wider">
+                <div className="px-1 min-w-0 w-full">
+                  {editingAssetId === asset.id ? (
+                    <div className="flex items-center gap-1.5 mt-1 w-full">
+                      <input 
+                        type="text" 
+                        value={editingAssetName} 
+                        onChange={(e) => setEditingAssetName(e.target.value)}
+                        className="flex-1 min-w-0 px-2 py-1 text-xs bg-neutral-50 border border-black/20 rounded-md focus:outline-none focus:border-black/50 font-medium"
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleSaveRename(asset.id);
+                          if (e.key === 'Escape') setEditingAssetId(null);
+                        }}
+                      />
+                      <button 
+                        onClick={() => handleSaveRename(asset.id)}
+                        className="p-1 hover:bg-neutral-100 rounded text-green-600 hover:text-green-700 transition-colors shrink-0"
+                        title="Save name"
+                      >
+                        <Check size={14} strokeWidth={2.5} />
+                      </button>
+                      <button 
+                        onClick={() => setEditingAssetId(null)}
+                        className="p-1 hover:bg-neutral-100 rounded text-neutral-400 hover:text-neutral-600 transition-colors shrink-0"
+                        title="Cancel"
+                      >
+                        <X size={14} strokeWidth={2.5} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between group/title min-w-0 w-full relative">
+                      <h4 
+                        className="font-bold text-neutral-900 text-sm truncate pr-6 cursor-pointer hover:text-black/70 transition-colors flex-1"
+                        title={asset.name}
+                        onClick={() => {
+                          if (isPreviewable(asset.name)) {
+                            setSelectedAsset(asset);
+                          } else {
+                            window.open(asset.url, '_blank');
+                          }
+                        }}
+                      >
+                        {asset.name}
+                      </h4>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingAssetId(asset.id);
+                          setEditingAssetName(asset.name);
+                        }}
+                        className="absolute right-0 top-1/2 -translate-y-1/2 p-1 text-neutral-400 hover:text-neutral-950 hover:bg-neutral-100 rounded opacity-0 group-hover/title:opacity-100 transition-all cursor-pointer shrink-0"
+                        title="Rename file"
+                      >
+                        <Edit2 size={12} />
+                      </button>
+                    </div>
+                  )}
+                  <p className="text-[10px] font-bold text-neutral-400 mt-1.5 uppercase tracking-wider">
                     Uploaded {new Date(asset.uploadedAt).toLocaleDateString()}
                   </p>
                 </div>
