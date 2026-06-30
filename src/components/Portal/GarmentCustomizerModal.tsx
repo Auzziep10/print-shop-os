@@ -1305,12 +1305,17 @@ export function GarmentCustomizerModal({
                           }}
                         >
                           {isImageFile(asset.name) ? (
-                            <img src={asset.url} alt={asset.name} className="max-w-full max-h-full object-contain pointer-events-none select-none" draggable="false" />
+                            <img 
+                              src={asset.url} 
+                              alt={asset.name} 
+                              className="absolute max-w-[90%] max-h-[90%] object-contain pointer-events-none select-none inset-0 m-auto" 
+                              draggable="false" 
+                            />
                           ) : isPdfFile(asset.name) ? (
-                            <div className="w-full h-full relative overflow-hidden flex items-center justify-center pointer-events-none select-none rounded-lg bg-white">
+                            <div className="absolute inset-1 overflow-hidden flex items-center justify-center pointer-events-none select-none rounded-lg bg-white">
                               <iframe 
                                 src={`${asset.url}#toolbar=0&navpanes=0&scrollbar=0`}
-                                className="w-[200%] h-[200%] scale-50 origin-center border-0 pointer-events-none select-none rounded-lg bg-white"
+                                className="absolute w-[200%] h-[200%] scale-50 origin-center border-0 pointer-events-none select-none bg-white inset-0 m-auto"
                                 scrolling="no"
                               />
                             </div>

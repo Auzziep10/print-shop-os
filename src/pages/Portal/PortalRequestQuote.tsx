@@ -52,8 +52,9 @@ export function PortalRequestQuote() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [suggestedItems, setSuggestedItems] = useState<any[]>([]);
   const [wovnRack, setWovnRack] = useState<any[]>([]);
-  const [pastGarments, setPastGarments] = useState<any[]>([]);
   const [customerRacks, setCustomerRacks] = useState<Record<string, any>>(DEFAULT_RACKS);
+  const [customNames, setCustomNames] = useState<any>({ racks: {}, basics: {} });
+  const [pastGarments, setPastGarments] = useState<any[]>([]);
   const [activeRackCategory, setActiveRackCategory] = useState('Athleisure');
   const [isLoadingLibrary, setIsLoadingLibrary] = useState(true);
   const [activeLibraryTab, setActiveLibraryTab] = useState('rack');
@@ -65,9 +66,39 @@ export function PortalRequestQuote() {
 
   useEffect(() => {
     const fetchCustomer = async () => {
-      if (!customerId) return;
       setIsLoadingLibrary(true);
       try {
+        // Fetch Global Storefront Settings first
+        let globalRacks = DEFAULT_RACKS;
+        let globalCustomNames = { racks: {}, basics: {} };
+        try {
+          const globalRef = doc(db, 'settings', 'storefront-catalog');
+          const globalSnap = await getDoc(globalRef);
+          if (globalSnap.exists()) {
+            const globalData = globalSnap.data();
+            if (globalData.racks) {
+              globalRacks = globalData.racks;
+            }
+            if (globalData.customNames) {
+              globalCustomNames = globalData.customNames;
+            }
+          }
+        } catch (globalErr) {
+          console.error("Error fetching global catalog settings:", globalErr);
+        }
+
+        if (!customerId) {
+          // If no customerId, still load global configurations
+          setCustomerRacks(globalRacks);
+          setCustomNames(globalCustomNames);
+          const categories = Object.keys(globalRacks);
+          if (categories.length > 0 && !categories.includes(activeRackCategory)) {
+            setActiveRackCategory(categories[0]);
+          }
+          setIsLoadingLibrary(false);
+          return;
+        }
+
         const docRef = doc(db, 'customers', customerId);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
@@ -85,11 +116,11 @@ export function PortalRequestQuote() {
           // Auto-populate shipping address using top-level properties
           setShippingAddress({
             line1: street,
-            line2: '', // no line 2 in original schema, leave blank
+            line2: '',
             city: data.shippingCity || data.billingCity || '',
             state: data.shippingState || data.billingState || '',
             zip: data.shippingZip || data.billingZip || '',
-            country: data.shippingCountry || data.billingCountry || 'US' // default to US if none exists
+            country: data.shippingCountry || data.billingCountry || 'US'
           });
 
           // 1. Fetch Suggested Items
@@ -157,9 +188,15 @@ export function PortalRequestQuote() {
             console.error("Error loading past orders for quote:", orderErr);
           }
 
-          // 4. Fetch Customer Custom Racks
-          if (data.racks) {
-            setCustomerRacks(data.racks);
+          // 4. Fetch Customer Custom Racks (fallback to global racks, then DEFAULT_RACKS)
+          const fetchedRacks = data.racks || globalRacks;
+          setCustomerRacks(fetchedRacks);
+          setCustomNames(data.customNames || globalCustomNames);
+          
+          // Set active category to the first key if the current active category does not exist in fetched racks
+          const categories = Object.keys(fetchedRacks);
+          if (categories.length > 0 && !categories.includes(activeRackCategory)) {
+            setActiveRackCategory(categories[0]);
           }
         }
       } catch (err) {
@@ -187,16 +224,18 @@ export function PortalRequestQuote() {
     return Object.entries(categoryRacks).map(([slot, styleId]) => {
       const prod = sanmarCatalog.find(p => p.style.toLowerCase() === String(styleId).toLowerCase());
       if (prod) {
+        const customName = customNames.racks?.[activeRackCategory]?.[slot] || '';
         return {
           ...prod,
           id: `${slot}-${Date.now()}-${Math.random()}`,
+          title: customName || prod.title || prod.style,
           slot,
           slotLabel: slot.charAt(0).toUpperCase() + slot.slice(1)
         };
       }
       return null;
     }).filter(Boolean) as any[];
-  }, [customerRacks, activeRackCategory]);
+  }, [customerRacks, activeRackCategory, customNames]);
 
   const handleBack = () => {
     navigate(customerId ? `/portal/${customerId}` : '/portal');
