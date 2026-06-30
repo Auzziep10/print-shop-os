@@ -508,8 +508,8 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                   <div className="w-20 h-20 shrink-0 flex items-center justify-center text-neutral-300">
                     {fetchingLogo ? (
                       <Loader2 className="animate-spin text-neutral-300" size={24} />
-                    ) : customer?.logo ? (
-                      <img src={customer.logo} alt="Customer Logo" className="max-w-full max-h-full object-contain shrink-0 filter mix-blend-multiply opacity-90" />
+                    ) : (customer?.croppedLogo || customer?.logo) ? (
+                      <img src={customer.croppedLogo || customer.logo} alt="Customer Logo" className="max-w-full max-h-full object-contain shrink-0 filter mix-blend-multiply opacity-90" />
                     ) : (
                       <Building2 size={32} strokeWidth={1.5} />
                     )}

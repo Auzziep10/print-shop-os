@@ -265,8 +265,8 @@ export function PortalLayout() {
               className="w-10 h-10 rounded-full border border-black/20 overflow-hidden bg-neutral-100 flex items-center justify-center cursor-pointer hover:border-black hover:scale-105 active:scale-95 transition-all shadow-[0_2px_8px_0_rgb(0,0,0,0.02)] shrink-0"
               title="Account & Settings"
             >
-              {customer?.logo ? (
-                <img src={customer.logo} alt="Profile" className="w-full h-full object-cover mix-blend-multiply p-0.5" />
+              {customer?.croppedLogo || customer?.logo ? (
+                <img src={customer.croppedLogo || customer.logo} alt="Profile" className="w-full h-full object-cover mix-blend-multiply p-0.5" />
               ) : (
                 <span className="text-xs font-bold text-neutral-600">
                   {customer?.company?.substring(0, 2).toUpperCase() || customer?.name?.substring(0, 2).toUpperCase() || 'U'}

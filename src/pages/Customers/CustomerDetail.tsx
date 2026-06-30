@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
-import { ArrowLeft, Mail, Phone, MapPin, Building2, ExternalLink, Plus, Loader2, Upload, X, Check, Edit3, ChevronRight, Trash2, FileText } from 'lucide-react';
+import { ArrowLeft, Mail, Phone, MapPin, Building2, ExternalLink, Plus, Loader2, Upload, X, Check, Edit3, ChevronRight, Trash2, FileText, Crop } from 'lucide-react';
 
 import { storage, db } from '../../lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -46,6 +46,8 @@ export function CustomerDetail() {
   }, [orders]);
 
   const [liveLogo, setLiveLogo] = useState<string | null>(null);
+  const [liveCroppedLogo, setLiveCroppedLogo] = useState<string | null>(null);
+  const [originalFile, setOriginalFile] = useState<File | null>(null);
   const [liveCustomerData, setLiveCustomerData] = useState<any>({});
   const [fetchingLogo, setFetchingLogo] = useState(true);
   const [uploadingLogo, setUploadingLogo] = useState(false);
@@ -451,6 +453,7 @@ export function CustomerDetail() {
           setAssets(data.assets || []);
           
           if (data.logo) setLiveLogo(data.logo);
+          if (data.croppedLogo) setLiveCroppedLogo(data.croppedLogo);
           
           let fetchedLinks: string[] = [];
           if (data.catalogLinkIds) fetchedLinks = data.catalogLinkIds;
@@ -525,6 +528,7 @@ export function CustomerDetail() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setOriginalFile(file);
     const reader = new FileReader();
     reader.onload = () => {
       setCropImageSrc(reader.result as string);
@@ -580,20 +584,35 @@ export function CustomerDetail() {
       const croppedFile = await getCroppedImg(imageSrcToCrop, croppedAreaPixels);
       if (!croppedFile) throw new Error("Could not crop image");
 
-      const storageRef = ref(storage, `customers/${id}/logo_${Date.now()}`);
-      
       // Upload cropped file to Firebase Storage
-      await uploadBytes(storageRef, croppedFile);
-      const url = await getDownloadURL(storageRef);
+      const croppedStorageRef = ref(storage, `customers/${id}/logo_cropped_${Date.now()}`);
+      await uploadBytes(croppedStorageRef, croppedFile);
+      const croppedUrl = await getDownloadURL(croppedStorageRef);
 
-      // Save the new URL to Firestore so it persists
-      await setDoc(doc(db, 'customers', id), { logo: url }, { merge: true });
+      // Upload original full logo to Firebase Storage if a new file was uploaded
+      let fullUrl = croppedUrl;
+      if (originalFile) {
+        const fullStorageRef = ref(storage, `customers/${id}/logo_full_${Date.now()}`);
+        await uploadBytes(fullStorageRef, originalFile);
+        fullUrl = await getDownloadURL(fullStorageRef);
+      } else {
+        // If recropping an existing logo, keep the existing logo URL
+        fullUrl = customer.logo || croppedUrl;
+      }
+
+      // Save both URLs to Firestore so they persist
+      await setDoc(doc(db, 'customers', id), { 
+        logo: fullUrl,
+        croppedLogo: croppedUrl
+      }, { merge: true });
       
-      setLiveLogo(url);
+      setLiveLogo(fullUrl);
+      setLiveCroppedLogo(croppedUrl);
     } catch (err) {
       console.error("Error uploading logo", err);
     } finally {
       setUploadingLogo(false);
+      setOriginalFile(null);
     }
   };
 
@@ -692,7 +711,8 @@ export function CustomerDetail() {
 
   const customer = { 
     ...liveCustomerData,
-    logo: liveLogo || liveCustomerData?.logo
+    logo: liveLogo || liveCustomerData?.logo,
+    croppedLogo: liveCroppedLogo || liveCustomerData?.croppedLogo
   };
 
   const totalOrders = orders.length;
@@ -737,22 +757,37 @@ export function CustomerDetail() {
       <div className={`bg-white p-8 rounded-card border ${isNotesExpanded ? 'border-brand-primary/20 shadow-md pb-6' : 'border-brand-border shadow-sm'} transition-all duration-300 flex flex-col gap-6`}>
         <div className="flex flex-col md:flex-row gap-8 items-start justify-between">
           <div className="flex items-start gap-6">
-            <div className={`relative w-24 h-24 rounded-xl flex items-center justify-center text-brand-secondary flex-shrink-0 overflow-hidden group ${customer?.logo ? '' : 'border border-brand-border bg-brand-bg'}`}>
+            <div className={`relative w-24 h-24 rounded-xl flex items-center justify-center text-brand-secondary flex-shrink-0 overflow-hidden group ${customer?.croppedLogo || customer?.logo ? '' : 'border border-brand-border bg-brand-bg'}`}>
                {uploadingLogo || fetchingLogo ? (
                  <Loader2 className="animate-spin text-brand-secondary" size={24} />
-               ) : customer?.logo ? (
-                 <img src={customer.logo} className="w-full h-full object-contain" alt={customer.company} />
+               ) : (customer?.croppedLogo || customer?.logo) ? (
+                 <img src={customer.croppedLogo || customer.logo} className="w-full h-full object-contain animate-fade-in" alt={customer.company} />
                ) : (
                  <Building2 size={40} strokeWidth={1} />
                )}
                
                {/* Hover Upload Overlay */}
                {!uploadingLogo && (
-                 <label className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center cursor-pointer text-white">
-                   <Upload size={20} className="mb-1" />
-                   <span className="text-[9px] font-bold uppercase tracking-widest text-white/90">Edit Logo</span>
-                   <input type="file" className="hidden" accept="image/*" onChange={handleLogoSelect} />
-                 </label>
+                 <div className="absolute inset-0 bg-black/75 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-stretch justify-center text-white text-[9px] font-bold uppercase tracking-wider select-none">
+                   <label className="flex-1 flex flex-col items-center justify-center cursor-pointer hover:bg-white/10 transition-colors border-b border-white/10">
+                     <Upload size={14} className="mb-1" />
+                     <span>Upload New</span>
+                     <input type="file" className="hidden" accept="image/*" onChange={handleLogoSelect} />
+                   </label>
+                   {customer?.logo && (
+                     <button 
+                       type="button" 
+                       onClick={() => {
+                         setCropImageSrc(customer.logo);
+                         setOriginalFile(null); // recropping existing logo
+                       }}
+                       className="flex-1 flex flex-col items-center justify-center hover:bg-white/10 transition-colors"
+                     >
+                       <Crop size={14} className="mb-1" />
+                       <span>Recrop</span>
+                     </button>
+                   )}
+                 </div>
                )}
             </div>
             <div>
