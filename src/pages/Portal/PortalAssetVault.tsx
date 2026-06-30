@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { db, storage } from '../../lib/firebase';
-import { Upload, Trash2, Download, Loader2, FileText, Image as ImageIcon, ArrowLeft, Plus, X } from 'lucide-react';
+import { Upload, Trash2, Loader2, FileText, Image as ImageIcon, ArrowLeft, Plus, X } from 'lucide-react';
 
 export function PortalAssetVault() {
   const { customerId } = useParams();
@@ -119,6 +119,15 @@ export function PortalAssetVault() {
     return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext || '');
   };
 
+  const isPdfFile = (name: string) => {
+    const ext = name.split('.').pop()?.toLowerCase();
+    return ext === 'pdf';
+  };
+
+  const isPreviewable = (name: string) => {
+    return isImageFile(name) || isPdfFile(name);
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-[50vh] flex flex-col items-center justify-center text-gray-400 gap-3">
@@ -183,7 +192,7 @@ export function PortalAssetVault() {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mt-4">
-          {assets.map((asset, index) => (
+          {assets.map((asset) => (
             <div 
               key={asset.id} 
               className="bg-white rounded-3xl border border-neutral-200/60 shadow-[0_4px_16px_rgb(0,0,0,0.01)] hover:shadow-md hover:border-black/20 transition-all p-5 flex flex-col justify-between min-h-[220px] relative group"
@@ -191,14 +200,16 @@ export function PortalAssetVault() {
               {/* Card Top: Preview or Icon */}
               <div className="flex-1 flex flex-col gap-4">
                 <div 
-                  onClick={() => isImageFile(asset.name) && setSelectedAsset(asset)}
-                  className={`w-full h-32 bg-checkerboard rounded-2xl overflow-hidden border border-neutral-100 flex items-center justify-center p-2 relative shadow-inner ${isImageFile(asset.name) ? 'cursor-zoom-in' : ''}`}
+                  onClick={() => isPreviewable(asset.name) && setSelectedAsset(asset)}
+                  className={`w-full h-32 bg-checkerboard rounded-2xl overflow-hidden border border-neutral-100 flex items-center justify-center p-2 relative shadow-inner ${isPreviewable(asset.name) ? 'cursor-zoom-in' : ''}`}
                 >
                   {isImageFile(asset.name) ? (
                     <img 
                       src={asset.url} 
                       alt={asset.name} 
-                      className="max-w-full max-h-full object-contain group-hover:scale-105 transition-transform duration-300" 
+                      className="max-w-full max-h-full object-contain group-hover:scale-105 transition-transform duration-300 select-none pointer-events-none" 
+                      draggable="false"
+                      onContextMenu={(e) => e.preventDefault()}
                     />
                   ) : (
                     <div className="flex flex-col items-center gap-2">
@@ -231,16 +242,7 @@ export function PortalAssetVault() {
               </div>
 
               {/* Card Actions */}
-              <div className="flex items-center justify-between border-t border-neutral-100 pt-4 mt-4">
-                <a 
-                  href={asset.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  data-tour={index === 0 ? "vault-download-btn" : undefined}
-                  className="flex items-center gap-1.5 text-xs font-bold text-neutral-500 hover:text-black transition-colors"
-                >
-                  <Download size={14} /> Download
-                </a>
+              <div className="flex items-center justify-end border-t border-neutral-100 pt-4 mt-4">
                 
                 <button 
                   disabled={deletingId === asset.id}
@@ -282,33 +284,25 @@ export function PortalAssetVault() {
 
             <div className="flex items-center gap-3 shrink-0">
               {/* Background Toggles */}
-              <div className="bg-neutral-800/80 border border-neutral-700/50 rounded-full p-1 flex items-center gap-1">
-                {(['checkerboard', 'dark', 'light'] as const).map((bgType) => (
-                  <button
-                    key={bgType}
-                    onClick={() => setLightboxBg(bgType)}
-                    className={`px-3 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase transition-all cursor-pointer ${
-                      lightboxBg === bgType
-                        ? 'bg-white text-black shadow-md'
-                        : 'text-neutral-400 hover:text-white'
-                    }`}
-                  >
-                    {bgType === 'checkerboard' ? 'Grid' : bgType}
-                  </button>
-                ))}
-              </div>
+              {!isPdfFile(selectedAsset.name) && (
+                <div className="bg-neutral-800/80 border border-neutral-700/50 rounded-full p-1 flex items-center gap-1">
+                  {(['checkerboard', 'dark', 'light'] as const).map((bgType) => (
+                    <button
+                      key={bgType}
+                      onClick={() => setLightboxBg(bgType)}
+                      className={`px-3 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase transition-all cursor-pointer ${
+                        lightboxBg === bgType
+                          ? 'bg-white text-black shadow-md'
+                          : 'text-neutral-400 hover:text-white'
+                      }`}
+                    >
+                      {bgType === 'checkerboard' ? 'Grid' : bgType}
+                    </button>
+                  ))}
+                </div>
+              )}
 
-              {/* Download */}
-              <a
-                href={selectedAsset.url}
-                download={selectedAsset.name}
-                target="_blank"
-                rel="noreferrer"
-                className="bg-neutral-800 hover:bg-neutral-700 text-white w-9 h-9 rounded-full flex items-center justify-center border border-neutral-700/50 transition-all cursor-pointer"
-                title="Download file"
-              >
-                <Download size={16} />
-              </a>
+
 
               {/* Close */}
               <button
@@ -321,23 +315,37 @@ export function PortalAssetVault() {
             </div>
           </div>
 
-          {/* Center Image Viewport */}
+          {/* Center Image/Document Viewport */}
           <div className="flex-1 w-full flex items-center justify-center p-4 min-h-0">
             <div 
-              className={`max-w-full max-h-[75vh] rounded-2xl p-4 md:p-8 flex items-center justify-center transition-all duration-300 relative shadow-2xl ${
-                lightboxBg === 'checkerboard'
-                  ? 'bg-checkerboard'
-                  : lightboxBg === 'dark'
-                  ? 'bg-neutral-900 border border-neutral-800'
-                  : 'bg-white'
+              className={`max-w-full max-h-[75vh] rounded-2xl flex items-center justify-center transition-all duration-300 relative shadow-2xl ${
+                isPdfFile(selectedAsset.name)
+                  ? 'bg-white p-0'
+                  : `p-4 md:p-8 ${
+                      lightboxBg === 'checkerboard'
+                        ? 'bg-checkerboard'
+                        : lightboxBg === 'dark'
+                        ? 'bg-neutral-900 border border-neutral-800'
+                        : 'bg-white'
+                    }`
               }`}
               onClick={(e) => e.stopPropagation()}
             >
-              <img
-                src={selectedAsset.url}
-                alt={selectedAsset.name}
-                className="max-w-full max-h-[60vh] object-contain select-none pointer-events-auto rounded-lg"
-              />
+              {isPdfFile(selectedAsset.name) ? (
+                <iframe
+                  src={`${selectedAsset.url}#toolbar=0`}
+                  title={selectedAsset.name}
+                  className="w-[85vw] h-[65vh] max-w-4xl max-h-[70vh] rounded-xl border-0 bg-white"
+                />
+              ) : (
+                <img
+                  src={selectedAsset.url}
+                  alt={selectedAsset.name}
+                  className="max-w-full max-h-[60vh] object-contain select-none pointer-events-none rounded-lg"
+                  draggable="false"
+                  onContextMenu={(e) => e.preventDefault()}
+                />
+              )}
             </div>
           </div>
 
