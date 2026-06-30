@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { PortalHelpDrawer } from '../Portal/PortalHelpDrawer';
 import { PortalTourOverlay } from '../Portal/PortalTourOverlay';
 import { db } from '../../lib/firebase';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, onSnapshot } from 'firebase/firestore';
 
 export function PortalLayout() {
   const { customerId } = useParams();
@@ -34,17 +34,14 @@ export function PortalLayout() {
 
   useEffect(() => {
     if (!customerId) return;
-    const fetchCustomer = async () => {
-      try {
-        const d = await getDoc(doc(db, 'customers', customerId));
-        if (d.exists()) {
-          setCustomer(d.data());
-        }
-      } catch (err) {
-        console.error("Error fetching customer in PortalLayout:", err);
+    const unsub = onSnapshot(doc(db, 'customers', customerId), (snapshot) => {
+      if (snapshot.exists()) {
+        setCustomer(snapshot.data());
       }
-    };
-    fetchCustomer();
+    }, (err) => {
+      console.error("Error listening to customer in PortalLayout:", err);
+    });
+    return () => unsub();
   }, [customerId]);
 
   useEffect(() => {
@@ -179,11 +176,11 @@ export function PortalLayout() {
       )}
 
       {/* Top Header */}
-      <header className="flex items-center justify-between px-10 py-6 bg-white border-b border-black/5">
+      <header className={`flex items-center justify-between px-10 bg-white border-b border-black/5 ${customer?.logo ? 'py-3' : 'py-6'}`}>
         <div className="flex items-center">
           {/* Main Logo */}
           {customer?.logo ? (
-            <img src={customer.logo} alt={customer.company || "Customer Logo"} className="h-14 object-contain max-w-[200px]" />
+            <img src={customer.logo} alt={customer.company || "Customer Logo"} className="h-24 object-contain max-w-[350px]" />
           ) : (
             <img src="/logo.png" alt="WOVN" className="h-8" />
           )}
