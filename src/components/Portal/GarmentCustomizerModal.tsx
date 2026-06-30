@@ -878,6 +878,11 @@ export function GarmentCustomizerModal({
     return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext || '');
   };
 
+  const isPdfFile = (name: string) => {
+    const ext = name.split('.').pop()?.toLowerCase();
+    return ext === 'pdf';
+  };
+
   return (
     <div className="fixed inset-0 z-[120] flex flex-col bg-white animate-in fade-in duration-300 font-sans">
       
@@ -1284,20 +1289,35 @@ export function GarmentCustomizerModal({
                     {assets.map((asset) => {
                       const isSelected = selectedLogo?.id === asset.id;
                       return (
-                        <button
+                        <div
                           key={asset.id}
                           onClick={() => setSelectedLogo(asset)}
-                          className={`aspect-square rounded-xl overflow-hidden border flex items-center justify-center p-1 bg-checkerboard relative transition-all ${
-                            isSelected ? 'border-black ring-2 ring-black scale-[0.98]' : 'border-neutral-200 hover:border-neutral-450'
+                          className={`w-full aspect-square rounded-xl overflow-hidden border flex items-center justify-center p-1 bg-checkerboard relative transition-all cursor-pointer ${
+                            isSelected ? 'border-black ring-2 ring-black scale-[0.98]' : 'border-neutral-200 hover:border-neutral-400'
                           }`}
                           title={asset.name}
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              setSelectedLogo(asset);
+                            }
+                          }}
                         >
                           {isImageFile(asset.name) ? (
-                            <img src={asset.url} alt={asset.name} className="max-w-full max-h-full object-contain" />
+                            <img src={asset.url} alt={asset.name} className="max-w-full max-h-full object-contain pointer-events-none select-none" draggable="false" />
+                          ) : isPdfFile(asset.name) ? (
+                            <div className="w-full h-full relative overflow-hidden flex items-center justify-center pointer-events-none select-none rounded-lg bg-white">
+                              <iframe 
+                                src={`${asset.url}#toolbar=0&navpanes=0&scrollbar=0`}
+                                className="w-[200%] h-[200%] scale-50 origin-center border-0 pointer-events-none select-none rounded-lg bg-white"
+                                scrolling="no"
+                              />
+                            </div>
                           ) : (
-                            <FileText size={18} className="text-neutral-500" />
+                            <FileText size={18} className="text-neutral-500 pointer-events-none" />
                           )}
-                        </button>
+                        </div>
                       );
                     })}
                   </div>
