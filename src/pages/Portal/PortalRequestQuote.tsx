@@ -54,6 +54,7 @@ export function PortalRequestQuote() {
   const [wovnRack, setWovnRack] = useState<any[]>([]);
   const [customerRacks, setCustomerRacks] = useState<Record<string, any>>(DEFAULT_RACKS);
   const [customNames, setCustomNames] = useState<any>({ racks: {}, basics: {} });
+  const [defaultColors, setDefaultColors] = useState<any>({ racks: {}, basics: {} });
   const [pastGarments, setPastGarments] = useState<any[]>([]);
   const [activeRackCategory, setActiveRackCategory] = useState('Athleisure');
   const [isLoadingLibrary, setIsLoadingLibrary] = useState(true);
@@ -71,6 +72,7 @@ export function PortalRequestQuote() {
         // Fetch Global Storefront Settings first
         let globalRacks = DEFAULT_RACKS;
         let globalCustomNames = { racks: {}, basics: {} };
+        let globalDefaultColors = { racks: {}, basics: {} };
         try {
           const globalRef = doc(db, 'settings', 'storefront-catalog');
           const globalSnap = await getDoc(globalRef);
@@ -82,6 +84,9 @@ export function PortalRequestQuote() {
             if (globalData.customNames) {
               globalCustomNames = globalData.customNames;
             }
+            if (globalData.defaultColors) {
+              globalDefaultColors = globalData.defaultColors;
+            }
           }
         } catch (globalErr) {
           console.error("Error fetching global catalog settings:", globalErr);
@@ -91,6 +96,7 @@ export function PortalRequestQuote() {
           // If no customerId, still load global configurations
           setCustomerRacks(globalRacks);
           setCustomNames(globalCustomNames);
+          setDefaultColors(globalDefaultColors);
           const categories = Object.keys(globalRacks);
           if (categories.length > 0 && !categories.includes(activeRackCategory)) {
             setActiveRackCategory(categories[0]);
@@ -192,6 +198,7 @@ export function PortalRequestQuote() {
           const fetchedRacks = data.racks || globalRacks;
           setCustomerRacks(fetchedRacks);
           setCustomNames(data.customNames || globalCustomNames);
+          setDefaultColors(data.defaultColors || globalDefaultColors);
           
           // Set active category to the first key if the current active category does not exist in fetched racks
           const categories = Object.keys(fetchedRacks);
@@ -211,9 +218,11 @@ export function PortalRequestQuote() {
   const getGarmentImage = (item: any) => {
     if (item.image) return item.image;
     if (item.images) {
-      const firstColor = item.colors?.[0] || Object.keys(item.images)[0];
-      if (firstColor && item.images[firstColor]) {
-        return item.images[firstColor].front || item.images[firstColor].swatch || '';
+      const chosenColor = (item.defaultColor && item.images[item.defaultColor])
+        ? item.defaultColor
+        : (item.colors?.[0] || Object.keys(item.images)[0]);
+      if (chosenColor && item.images[chosenColor]) {
+        return item.images[chosenColor].front || item.images[chosenColor].swatch || '';
       }
     }
     return 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
@@ -225,17 +234,19 @@ export function PortalRequestQuote() {
       const prod = sanmarCatalog.find(p => p.style.toLowerCase() === String(styleId).toLowerCase());
       if (prod) {
         const customName = customNames.racks?.[activeRackCategory]?.[slot] || '';
+        const defaultColor = defaultColors.racks?.[activeRackCategory]?.[slot] || '';
         return {
           ...prod,
           id: `${slot}-${Date.now()}-${Math.random()}`,
           title: customName || prod.title || prod.style,
+          defaultColor,
           slot,
           slotLabel: slot.charAt(0).toUpperCase() + slot.slice(1)
         };
       }
       return null;
     }).filter(Boolean) as any[];
-  }, [customerRacks, activeRackCategory, customNames]);
+  }, [customerRacks, activeRackCategory, customNames, defaultColors]);
 
   const handleBack = () => {
     navigate(customerId ? `/portal/${customerId}` : '/portal');

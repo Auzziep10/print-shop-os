@@ -45,6 +45,7 @@ export function StorefrontCatalogTab() {
   const [racks, setRacks] = useState<Record<string, any>>(DEFAULT_RACKS);
   const [basics, setBasics] = useState<Record<string, any>>(DEFAULT_BASICS);
   const [customNames, setCustomNames] = useState<Record<string, any>>({ racks: {}, basics: {} });
+  const [defaultColors, setDefaultColors] = useState<Record<string, any>>({ racks: {}, basics: {} });
 
   // Active category select
   const [activeRackCategory, setActiveRackCategory] = useState('Athleisure');
@@ -73,6 +74,11 @@ export function StorefrontCatalogTab() {
           } else {
             setCustomNames({ racks: {}, basics: {} });
           }
+          if (data.defaultColors) {
+            setDefaultColors(data.defaultColors);
+          } else {
+            setDefaultColors({ racks: {}, basics: {} });
+          }
         }
       } catch (err) {
         console.error("Error fetching storefront catalog settings:", err);
@@ -90,6 +96,7 @@ export function StorefrontCatalogTab() {
         racks,
         basics,
         customNames,
+        defaultColors,
         updatedAt: new Date().toISOString()
       });
       alert('Storefront catalog settings saved successfully!');
@@ -169,12 +176,27 @@ export function StorefrontCatalogTab() {
     p.brand.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const getGarmentImage = (p: any, chosenColor?: string) => {
+    if (p.image) return p.image;
+    if (p.images) {
+      const colorKey = (chosenColor && p.images[chosenColor]) 
+        ? chosenColor 
+        : (p.colors?.[0] || Object.keys(p.images)[0]);
+      if (colorKey && p.images[colorKey]) {
+        return p.images[colorKey].front || p.images[colorKey].swatch || '';
+      }
+    }
+    return 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
+  };
+
   const getProductDetails = (style: string) => {
     return sanmarCatalog.find(p => p.style === style) || {
       style,
       title: 'Unknown Garment',
       brand: 'N/A',
-      price: 0
+      price: 0,
+      colors: [],
+      images: null
     };
   };
 
@@ -257,7 +279,7 @@ export function StorefrontCatalogTab() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {['hat', 'shirt', 'polo', 'crewneck', 'hoodie', 'longsleeve'].map(slot => {
               const style = racks[activeRackCategory]?.[slot] || '';
-              const p = getProductDetails(style);
+              const p = getProductDetails(style) as any;
               const customName = customNames.racks?.[activeRackCategory]?.[slot] || '';
               
               return (
@@ -267,6 +289,18 @@ export function StorefrontCatalogTab() {
                       <span className="text-[10px] font-extrabold uppercase tracking-widest text-brand-secondary block mb-1">
                         {slot.replace('longsleeve', 'long sleeve')} Slot
                       </span>
+
+                      {/* Image Preview */}
+                      {p.style && (
+                        <div className="w-full h-36 bg-white border border-brand-border/60 rounded-xl flex items-center justify-center p-2 mb-3 relative overflow-hidden bg-checkerboard">
+                          <img 
+                            src={getGarmentImage(p, defaultColors.racks?.[activeRackCategory]?.[slot])} 
+                            alt={p.title} 
+                            className="max-w-full max-h-full object-contain mix-blend-multiply" 
+                          />
+                        </div>
+                      )}
+
                       <h4 className="text-sm font-bold text-brand-primary leading-snug">
                         {p.brand} {p.style}
                       </h4>
@@ -306,6 +340,40 @@ export function StorefrontCatalogTab() {
                         className="w-full bg-white border border-brand-border rounded-xl px-3 py-1.5 text-xs text-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary transition-all placeholder:text-neutral-400 placeholder:italic"
                       />
                     </div>
+
+                    {/* Default Color Selector */}
+                    {p.colors && p.colors.length > 0 && (
+                      <div>
+                        <label className="text-[9px] font-extrabold uppercase tracking-wider text-neutral-400 block mb-1">
+                          Default Display Color
+                        </label>
+                        <select
+                          value={defaultColors.racks?.[activeRackCategory]?.[slot] || p.colors[0]}
+                          onChange={(e) => {
+                            const newColor = e.target.value;
+                            setDefaultColors(prev => {
+                              const racks = prev.racks || {};
+                              const cat = racks[activeRackCategory] || {};
+                              return {
+                                ...prev,
+                                racks: {
+                                  ...racks,
+                                  [activeRackCategory]: {
+                                    ...cat,
+                                    [slot]: newColor
+                                  }
+                                }
+                              };
+                            });
+                          }}
+                          className="w-full bg-white border border-brand-border rounded-xl px-3 py-1.5 text-xs font-bold text-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary transition-all"
+                        >
+                          {p.colors.map((col: string) => (
+                            <option key={col} value={col}>{col}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                   </div>
 
                   <button
@@ -347,7 +415,7 @@ export function StorefrontCatalogTab() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {['good', 'better', 'best'].map(slot => {
               const style = basics[activeBasicsCategory]?.[slot] || '';
-              const p = getProductDetails(style);
+              const p = getProductDetails(style) as any;
               const customName = customNames.basics?.[activeBasicsCategory]?.[slot] || '';
 
               return (
@@ -359,6 +427,18 @@ export function StorefrontCatalogTab() {
                       }`}>
                         {slot} Tier
                       </span>
+
+                      {/* Image Preview */}
+                      {p.style && (
+                        <div className="w-full h-36 bg-white border border-brand-border/60 rounded-xl flex items-center justify-center p-2 mb-3 relative overflow-hidden bg-checkerboard">
+                          <img 
+                            src={getGarmentImage(p, defaultColors.basics?.[activeBasicsCategory]?.[slot])} 
+                            alt={p.title} 
+                            className="max-w-full max-h-full object-contain mix-blend-multiply" 
+                          />
+                        </div>
+                      )}
+
                       <h4 className="text-sm font-bold text-brand-primary leading-snug">
                         {p.brand} {p.style}
                       </h4>
@@ -398,6 +478,40 @@ export function StorefrontCatalogTab() {
                         className="w-full bg-white border border-brand-border rounded-xl px-3 py-1.5 text-xs text-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary transition-all placeholder:text-neutral-400 placeholder:italic"
                       />
                     </div>
+
+                    {/* Default Color Selector */}
+                    {p.colors && p.colors.length > 0 && (
+                      <div>
+                        <label className="text-[9px] font-extrabold uppercase tracking-wider text-neutral-400 block mb-1">
+                          Default Display Color
+                        </label>
+                        <select
+                          value={defaultColors.basics?.[activeBasicsCategory]?.[slot] || p.colors[0]}
+                          onChange={(e) => {
+                            const newColor = e.target.value;
+                            setDefaultColors(prev => {
+                              const basics = prev.basics || {};
+                              const cat = basics[activeBasicsCategory] || {};
+                              return {
+                                ...prev,
+                                basics: {
+                                  ...basics,
+                                  [activeBasicsCategory]: {
+                                    ...cat,
+                                    [slot]: newColor
+                                  }
+                                }
+                              };
+                            });
+                          }}
+                          className="w-full bg-white border border-brand-border rounded-xl px-3 py-1.5 text-xs font-bold text-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary transition-all"
+                        >
+                          {p.colors.map((col: string) => (
+                            <option key={col} value={col}>{col}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                   </div>
 
                   <button
