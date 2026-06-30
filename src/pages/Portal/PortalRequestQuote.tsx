@@ -60,7 +60,7 @@ export function PortalRequestQuote() {
   const [activeLibraryTab, setActiveLibraryTab] = useState('rack');
   const [customizingProduct, setCustomizingProduct] = useState<any | null>(null);
   const [hoveredProductId, setHoveredProductId] = useState<number | null>(null);
-  const [showShipping, setShowShipping] = useState(false);
+  const [showShipping, setShowShipping] = useState(true);
   const [showOnBehalf, setShowOnBehalf] = useState(false);
   const [expandedImage, setExpandedImage] = useState<string | null>(null);
 
