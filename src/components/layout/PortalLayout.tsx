@@ -230,12 +230,6 @@ export function PortalLayout() {
             Asset Vault
           </button>
           
-          <button 
-            onClick={() => navigate('/start')}
-            className="border border-black/20 text-black px-5 py-2.5 rounded-full text-xs font-bold tracking-wide hover:border-black hover:bg-black/5 hover:scale-105 active:scale-95 transition-all shadow-[0_2px_8px_0_rgb(0,0,0,0.02)]"
-          >
-            Main Page
-          </button>
           
           <button 
             data-tour="create-order-btn"
