@@ -815,6 +815,8 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                                 safeTotalStr = `$${(safeQty * safePriceNum).toFixed(2)}`;
                             }
 
+                            const showPricing = order.statusIndex >= 2;
+
                             return (
                               <>
                                 <div className="w-12 text-center flex flex-col overflow-hidden">
@@ -823,18 +825,22 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                                     {safeQty}
                                   </div>
                                 </div>
-                                <div className="w-16 text-center flex flex-col overflow-hidden">
-                                  <div className="bg-neutral-300 text-neutral-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">Price</div>
-                                  <div className="bg-neutral-50 text-neutral-800 text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center truncate px-1">
-                                    {safePriceNum > 0 ? `$${safePriceNum.toFixed(2)}` : (item.price || '-')}
-                                  </div>
-                                </div>
-                                <div className="w-20 text-center flex flex-col overflow-hidden">
-                                  <div className="bg-neutral-300 text-neutral-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">Total</div>
-                                  <div className="bg-neutral-50 text-neutral-800 text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center truncate px-1">
-                                    {safeTotalStr}
-                                  </div>
-                                </div>
+                                {showPricing && (
+                                  <>
+                                    <div className="w-16 text-center flex flex-col overflow-hidden">
+                                      <div className="bg-neutral-300 text-neutral-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">Price</div>
+                                      <div className="bg-neutral-50 text-neutral-800 text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center truncate px-1">
+                                        {safePriceNum > 0 ? `$${safePriceNum.toFixed(2)}` : (item.price || '-')}
+                                      </div>
+                                    </div>
+                                    <div className="w-20 text-center flex flex-col overflow-hidden">
+                                      <div className="bg-neutral-300 text-neutral-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">Total</div>
+                                      <div className="bg-neutral-50 text-neutral-800 text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center truncate px-1">
+                                        {safeTotalStr}
+                                      </div>
+                                    </div>
+                                  </>
+                                )}
                               </>
                             );
                           })()}

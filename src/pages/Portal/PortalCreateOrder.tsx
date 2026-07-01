@@ -201,7 +201,12 @@ export function PortalCreateOrder() {
   }, [location.state]);
 
   const mapPrevItemToBuilderItem = (item: any, decks: any[]) => {
-    const quantities = item.sizes || {};
+    // If it's already in builder format, don't re-map it
+    if (item.quantities && typeof item.quantities === 'object' && !Array.isArray(item.quantities)) {
+      return item;
+    }
+
+    const quantities = (item.sizes && typeof item.sizes === 'object' && !Array.isArray(item.sizes)) ? item.sizes : {};
     
     const matchingCatalogGarment = decks.find(dItem => 
       (dItem.garment_id || dItem.sku || dItem.id) === item.itemNum ||
@@ -747,7 +752,7 @@ export function PortalCreateOrder() {
           Create New Quote Request
         </h1>
         <p className="text-neutral-500 font-medium text-sm max-w-xl leading-relaxed">
-          Use the builder below to select garments, upload artwork, and construct your request. We'll generate mockups and calculate pricing for your review.
+          Use the builder below to select garments, upload artwork, and construct your request. We'll generate mockups for your review.
         </p>
       </div>
 
@@ -1283,13 +1288,11 @@ export function PortalCreateOrder() {
                 <div className="w-full flex-1 flex flex-col gap-3">
                   {orderItems.map((item, idx) => {
                     const totalQty = Object.values(item.quantities as Record<string, number>).reduce((sum, qty) => sum + qty, 0);
-                    const itemCost = totalQty * (parseFloat(item.price) || 0);
                     return (
                       <div key={item.instanceId} className="flex items-start justify-between text-sm py-2 border-b border-neutral-100 last:border-0 pointer-events-none w-full">
                         <span className="font-semibold text-neutral-900 truncate pr-2 flex-1"><span className="text-neutral-400 mr-2">{idx+1}.</span>{item.style}</span>
                         <div className="flex flex-col items-end shrink-0">
                             <span className={`font-bold ${totalQty > 0 ? 'text-neutral-900' : 'text-neutral-400'}`}>{totalQty} QTY</span>
-                            {itemCost > 0 && <span className="text-[10px] font-bold text-neutral-500 mt-0.5">${itemCost.toFixed(2)}</span>}
                         </div>
                       </div>
                     );
