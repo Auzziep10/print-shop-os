@@ -4,6 +4,7 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { db } from '../../lib/firebase';
 import { doc, getDoc, collection, query, where, getDocs, setDoc } from 'firebase/firestore';
 import { GarmentCustomizerModal } from '../../components/Portal/GarmentCustomizerModal';
+import { GarmentBrowser } from '../../components/shared/GarmentBrowser';
 
 const sortSizes = (a: string, b: string) => {
   const orderMap: Record<string, number> = { 
@@ -73,6 +74,7 @@ export function PortalCreateOrder() {
   const { customerId } = useParams();
   const location = useLocation();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isGarmentBrowserOpen, setIsGarmentBrowserOpen] = useState(false);
   const [orderItems, setOrderItems] = useState<any[]>([]);
   const [customerDecks, setCustomerDecks] = useState<any[]>([]);
   const [isLoadingDecks, setIsLoadingDecks] = useState(true);
@@ -446,6 +448,32 @@ export function PortalCreateOrder() {
     setIsDrawerOpen(false); // smoothly close drawer
   };
 
+  const handleSelectSanMarGarment = (product: any, initialColor: string) => {
+    const swatchImg = product.images[initialColor];
+    const swatchUrl = swatchImg ? (typeof swatchImg === 'string' ? swatchImg : swatchImg.front) : '';
+    const image = swatchUrl || (Object.values(product.images)[0] as any)?.front || (Object.values(product.images)[0] as any) || '';
+    
+    const style = `${product.brand} ${product.title}`.trim();
+    const itemNum = product.style;
+    const colors = product.colors || ['Custom Color'];
+    const sizes = product.sizes || ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'];
+    const price = parseFloat(product.price || 0);
+    const gender = 'Unisex';
+    
+    handleAddItem({
+      style,
+      itemNum,
+      description: product.description || '',
+      image,
+      colors,
+      sizes,
+      price,
+      gender
+    });
+    
+    setIsGarmentBrowserOpen(false);
+  };
+
   const handleUpdateQuantity = (instanceId: string, size: string, qty: string) => {
     const parsedQty = parseInt(qty) || 0;
     setOrderItems(prev => prev.map(item => {
@@ -542,7 +570,7 @@ export function PortalCreateOrder() {
                         : 'text-neutral-400 border-transparent hover:text-black hover:border-black'
                     }`}
                   >
-                    Approved Library ({customerDecks.reduce((acc, deck) => acc + (deck.items || deck.garments || []).length, 0)})
+                    WOVN Library ({customerDecks.reduce((acc, deck) => acc + (deck.items || deck.garments || []).length, 0)})
                   </button>
                 )}
                 <button
@@ -624,9 +652,6 @@ export function PortalCreateOrder() {
                                  <h4 className="font-bold text-neutral-900 text-sm truncate pr-2">{style}</h4>
                                  <span className="text-[9px] font-bold text-neutral-500 bg-neutral-200/60 px-2 py-0.5 rounded-full shrink-0">{gender}</span>
                               </div>
-                              {itemNum && itemNum.length < 15 && (
-                                <p className="text-[10px] font-semibold text-neutral-450">{itemNum}</p>
-                              )}
                               <p className="text-[10px] text-neutral-400 font-medium mt-1 truncate">{colors.join(' • ')}</p>
                             </div>
                             <button 
@@ -667,9 +692,6 @@ export function PortalCreateOrder() {
                           </div>
                           <div className="flex-1 min-w-0">
                             <h4 className="font-bold text-neutral-900 text-sm truncate mb-0.5">{style}</h4>
-                            {itemNum && (
-                              <p className="text-[10px] font-semibold text-neutral-450">{itemNum}</p>
-                            )}
                             <p className="text-[10px] text-neutral-400 font-medium mt-1 truncate">{colors.join(' • ')}</p>
                           </div>
                           <button 
@@ -709,9 +731,6 @@ export function PortalCreateOrder() {
                           </div>
                           <div className="flex-1 min-w-0">
                             <h4 className="font-bold text-neutral-900 text-sm truncate mb-0.5">{style}</h4>
-                            {itemNum && (
-                              <p className="text-[10px] font-semibold text-neutral-450">{itemNum}</p>
-                            )}
                             <p className="text-[10px] text-neutral-400 font-medium mt-1 truncate">{colors.join(' • ')}</p>
                           </div>
                           <button 
@@ -974,7 +993,7 @@ export function PortalCreateOrder() {
                       : 'text-neutral-400 border-transparent hover:text-black hover:border-black'
                   }`}
                 >
-                  Design Your Rack ({customerDecks.reduce((acc, deck) => acc + (deck.items || deck.garments || []).length, 0)})
+                  WOVN Library ({customerDecks.reduce((acc, deck) => acc + (deck.items || deck.garments || []).length, 0)})
                 </button>
               )}
               <button
@@ -1053,10 +1072,6 @@ export function PortalCreateOrder() {
                                    <h4 className="font-bold text-neutral-900 text-[15px] truncate pr-2">{style}</h4>
                                    <span className="text-[10px] font-bold text-neutral-600 bg-neutral-100 px-2 py-0.5 rounded-full shrink-0">{gender}</span>
                                 </div>
-                                {itemNum && itemNum.length < 15 && (
-                                  <p className="text-xs font-semibold text-neutral-500">{itemNum}</p>
-                                )}
-
                                 <p className="text-xs text-neutral-400 font-medium mt-1 truncate">{colors.join(' • ')}</p>
                               </div>
                               <button 
@@ -1099,10 +1114,6 @@ export function PortalCreateOrder() {
                             <div className="flex items-center justify-between mb-1">
                                <h4 className="font-bold text-neutral-900 text-[15px] truncate pr-2">{style}</h4>
                             </div>
-                            {itemNum && (
-                              <p className="text-xs font-semibold text-neutral-500">{itemNum}</p>
-                            )}
-
                             <p className="text-xs text-neutral-400 font-medium mt-1 truncate">{colors.join(' • ')}</p>
                           </div>
                           <button 
@@ -1143,9 +1154,6 @@ export function PortalCreateOrder() {
                             <div className="flex items-center justify-between mb-1">
                                <h4 className="font-bold text-neutral-900 text-[15px] truncate pr-2">{style}</h4>
                             </div>
-                            {itemNum && (
-                              <p className="text-xs font-semibold text-neutral-500">{itemNum}</p>
-                            )}
                             {price > 0 && (
                                 <p className="text-xs font-black text-black mt-1">
                                     ${price.toFixed(2)}
@@ -1166,7 +1174,10 @@ export function PortalCreateOrder() {
                 )
               )}
               
-              <button className="w-full bg-neutral-50 hover:bg-neutral-100 border-2 border-dashed border-neutral-200 rounded-xl py-4 flex items-center justify-center text-sm font-bold text-neutral-500 hover:text-black transition-all group mt-2 shrink-0 cursor-pointer">
+              <button 
+                onClick={() => setIsGarmentBrowserOpen(true)}
+                className="w-full bg-neutral-50 hover:bg-neutral-100 border-2 border-dashed border-neutral-200 rounded-xl py-4 flex items-center justify-center text-sm font-bold text-neutral-500 hover:text-black transition-all group mt-2 shrink-0 cursor-pointer"
+              >
                 <PackagePlus size={18} className="mr-2 group-hover:scale-110 transition-transform" />
                 + Search Global Blank Catalog
               </button>
@@ -1315,6 +1326,13 @@ export function PortalCreateOrder() {
           </div>
         </div>
       )}
+
+      {/* Garment Browser Dialog */}
+      <GarmentBrowser 
+        isOpen={isGarmentBrowserOpen}
+        onClose={() => setIsGarmentBrowserOpen(false)}
+        onSelect={handleSelectSanMarGarment}
+      />
 
     </div>
   );
