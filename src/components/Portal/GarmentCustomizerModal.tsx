@@ -330,6 +330,14 @@ export function GarmentCustomizerModal({
 
   // Case-insensitive image resolver
   const { frontImage, backImage, sleeveImage } = useMemo(() => {
+    if (activeGarment?.originalFrontImage) {
+      return {
+        frontImage: activeGarment.originalFrontImage,
+        backImage: activeGarment.originalBackImage || null,
+        sleeveImage: activeGarment.originalSleeveImage || null
+      };
+    }
+
     if (!selectedColor) {
       return {
         frontImage: activeGarment?.image || '',
@@ -616,12 +624,80 @@ export function GarmentCustomizerModal({
     };
   }, [isDragging, isResizing, scale, offsetX, offsetY, activeTab]);
 
-  // Initialize
+  // Initialize and restore saved customization settings if editing an existing customization
   useEffect(() => {
     if (garment) {
       setSelectedColor(garment.selectedColor || garment.colors?.[0] || 'Custom Color');
     }
-  }, [garment]);
+
+    if (garment && garment.customized) {
+      if (garment.logoUrl) {
+        setSelectedLogoFront({ url: garment.logoUrl, name: garment.logoName || 'Front Logo' });
+      } else {
+        setSelectedLogoFront(null);
+      }
+      if (garment.logoUrlBack) {
+        setSelectedLogoBack({ url: garment.logoUrlBack, name: garment.logoNameBack || 'Back Logo' });
+      } else {
+        setSelectedLogoBack(null);
+      }
+      if (garment.logoUrlLeftSleeve) {
+        setSelectedLogoLeftSleeve({ url: garment.logoUrlLeftSleeve, name: garment.logoNameLeftSleeve || 'Left Sleeve Logo' });
+      } else {
+        setSelectedLogoLeftSleeve(null);
+      }
+      if (garment.logoUrlRightSleeve) {
+        setSelectedLogoRightSleeve({ url: garment.logoUrlRightSleeve, name: garment.logoNameRightSleeve || 'Right Sleeve Logo' });
+      } else {
+        setSelectedLogoRightSleeve(null);
+      }
+
+      setScaleFront(garment.customScaleFront ?? 30);
+      setOffsetXFront(garment.customOffsetXFront ?? 50);
+      setOffsetYFront(garment.customOffsetYFront ?? 45);
+      setRotationFront(garment.customRotationFront ?? 0);
+
+      setScaleBack(garment.customScaleBack ?? 30);
+      setOffsetXBack(garment.customOffsetXBack ?? 50);
+      setOffsetYBack(garment.customOffsetYBack ?? 40);
+      setRotationBack(garment.customRotationBack ?? 0);
+
+      setScaleLeftSleeve(garment.customScaleLeftSleeve ?? 30);
+      setOffsetXLeftSleeve(garment.customOffsetXLeftSleeve ?? 50);
+      setOffsetYLeftSleeve(garment.customOffsetYLeftSleeve ?? 50);
+      setRotationLeftSleeve(garment.customRotationLeftSleeve ?? 0);
+
+      setScaleRightSleeve(garment.customScaleRightSleeve ?? 30);
+      setOffsetXRightSleeve(garment.customOffsetXRightSleeve ?? 50);
+      setOffsetYRightSleeve(garment.customOffsetYRightSleeve ?? 50);
+      setRotationRightSleeve(garment.customRotationRightSleeve ?? 0);
+    } else {
+      setSelectedLogoFront(null);
+      setSelectedLogoBack(null);
+      setSelectedLogoLeftSleeve(null);
+      setSelectedLogoRightSleeve(null);
+
+      setScaleFront(30);
+      setOffsetXFront(50);
+      setOffsetYFront(45);
+      setRotationFront(0);
+
+      setScaleBack(30);
+      setOffsetXBack(50);
+      setOffsetYBack(40);
+      setRotationBack(0);
+
+      setScaleLeftSleeve(30);
+      setOffsetXLeftSleeve(50);
+      setOffsetYLeftSleeve(50);
+      setRotationLeftSleeve(0);
+
+      setScaleRightSleeve(30);
+      setOffsetXRightSleeve(50);
+      setOffsetYRightSleeve(50);
+      setRotationRightSleeve(0);
+    }
+  }, [garment, isOpen]);
 
   // Fetch customer assets (logos)
   useEffect(() => {
@@ -634,7 +710,7 @@ export function GarmentCustomizerModal({
         if (docSnap.exists()) {
           const data = docSnap.data();
           setAssets(data.assets || []);
-          if (data.assets && data.assets.length > 0) {
+          if (data.assets && data.assets.length > 0 && !garment?.customized) {
             setSelectedLogoFront(data.assets[0]);
           }
         }
@@ -645,7 +721,7 @@ export function GarmentCustomizerModal({
       }
     };
     fetchAssets();
-  }, [customerId, isOpen]);
+  }, [customerId, isOpen, garment?.customized]);
 
   if (!isOpen || !activeGarment) return null;
 
@@ -804,6 +880,94 @@ export function GarmentCustomizerModal({
       await uploadBytes(compositeRef, blob);
       const downloadUrl = await getDownloadURL(compositeRef);
 
+      // Helper function to generate and upload a single side mockup
+      const generateAndUploadSide = async (garmentSrc: string, logoAsset: any, scaleVal: number, offX: number, offY: number, rotationVal: number, sideName: string) => {
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = 600 * scaleFactor;
+        tempCanvas.height = 600 * scaleFactor;
+        const tempCtx = tempCanvas.getContext('2d');
+        if (!tempCtx) return null;
+
+        tempCtx.fillStyle = '#FFFFFF';
+        tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+
+        const proxiedGarmentSrc = garmentSrc.startsWith('http')
+          ? `/api/sanmar/proxy-image?url=${encodeURIComponent(garmentSrc)}`
+          : garmentSrc;
+        
+        let garmentImg;
+        try {
+          garmentImg = await loadImg(proxiedGarmentSrc);
+        } catch (e) {
+          console.error("Failed to load garment image for side upload:", e);
+          return null;
+        }
+
+        const W = 500 * scaleFactor;
+        const H = 500 * scaleFactor;
+        const r = garmentImg.naturalWidth / garmentImg.naturalHeight;
+        
+        let w_draw = W;
+        let h_draw = H;
+        let x_draw = 0;
+        let y_draw = 0;
+
+        if (r > 1) {
+          w_draw = W;
+          h_draw = W / r;
+          y_draw = (H - h_draw) / 2;
+        } else {
+          h_draw = H;
+          w_draw = H * r;
+          x_draw = (W - w_draw) / 2;
+        }
+
+        tempCtx.save();
+        if (sideName === 'Right Sleeve') {
+          tempCtx.translate((50 * scaleFactor) + (250 * scaleFactor), (50 * scaleFactor) + (250 * scaleFactor));
+          tempCtx.scale(-1, 1);
+          tempCtx.drawImage(garmentImg, -w_draw / 2, -h_draw / 2, w_draw, h_draw);
+        } else {
+          tempCtx.drawImage(garmentImg, (50 * scaleFactor) + x_draw, (50 * scaleFactor) + y_draw, w_draw, h_draw);
+        }
+        tempCtx.restore();
+
+        if (logoAsset) {
+          const logoImg = await loadImg(logoAsset.url);
+          const maxLogoSize = 180 * scaleFactor;
+          const logoWidth = maxLogoSize * (scaleVal / 100);
+          const aspect = logoImg.height / logoImg.width;
+          const logoHeight = logoWidth * aspect;
+
+          const logoCenterX = (50 * scaleFactor) + ((500 * scaleFactor) * (offX / 100));
+          const logoCenterY = (50 * scaleFactor) + ((500 * scaleFactor) * (offY / 100));
+
+          tempCtx.save();
+          tempCtx.translate(logoCenterX, logoCenterY);
+          tempCtx.rotate((rotationVal * Math.PI) / 180);
+          tempCtx.drawImage(logoImg, -logoWidth / 2, -logoHeight / 2, logoWidth, logoHeight);
+          tempCtx.restore();
+        }
+
+        const sideBlob = await new Promise<Blob | null>((resolve) => tempCanvas.toBlob(resolve, 'image/png'));
+        if (!sideBlob) return null;
+
+        const sideRef = ref(storage, `portal/${customerId}/customizations/${Date.now()}_${sideName.replace(' ', '_').toLowerCase()}.png`);
+        await uploadBytes(sideRef, sideBlob);
+        return await getDownloadURL(sideRef);
+      };
+
+      // Generate individual side images
+      const customizedFrontImage = hasFront ? await generateAndUploadSide(frontImage, selectedLogoFront, scaleFront, offsetXFront, offsetYFront, rotationFront, 'Front') : null;
+      const customizedBackImage = hasBack ? await generateAndUploadSide(backImage || frontImage, selectedLogoBack, scaleBack, offsetXBack, offsetYBack, rotationBack, 'Back') : null;
+      
+      let customizedSleeveImage = null;
+      if (hasLeftSleeve) {
+        customizedSleeveImage = await generateAndUploadSide(sleeveImage || frontImage, selectedLogoLeftSleeve, scaleLeftSleeve, offsetXLeftSleeve, offsetYLeftSleeve, rotationLeftSleeve, 'Left Sleeve');
+      } else if (hasRightSleeve) {
+        customizedSleeveImage = await generateAndUploadSide(sleeveImage || frontImage, selectedLogoRightSleeve, scaleRightSleeve, offsetXRightSleeve, offsetYRightSleeve, rotationRightSleeve, 'Right Sleeve');
+      }
+
       const placementParts: string[] = [];
       if (hasFront) placementParts.push(`Front: ${placementFront}`);
       if (hasBack) placementParts.push(`Back: ${placementBack}`);
@@ -816,6 +980,12 @@ export function GarmentCustomizerModal({
         image: downloadUrl,
         customized: true,
         logoPlacement: placementParts.join(', ') || 'Front',
+        originalFrontImage: frontImage,
+        originalBackImage: backImage || null,
+        originalSleeveImage: sleeveImage || null,
+        customizedFrontImage,
+        customizedBackImage,
+        customizedSleeveImage,
         logoUrl: selectedLogoFront?.url || null,
         logoName: selectedLogoFront?.name || null,
         logoUrlBack: selectedLogoBack?.url || null,
