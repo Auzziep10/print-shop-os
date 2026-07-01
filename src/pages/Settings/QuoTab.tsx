@@ -50,9 +50,6 @@ export function QuoTab() {
   const [testStatus, setTestStatus] = useState<{ success: boolean; message: string } | null>(null);
   const [testPhone, setTestPhone] = useState('');
 
-  // Default API Key to pre-populate if Firestore is empty
-  const DEFAULT_API_KEY = 'a8d86febb047809185481abdde2099c917df62ac35c4bd690316bd795fbcf662';
-
   useEffect(() => {
     const fetchSettings = async () => {
       try {
@@ -60,7 +57,7 @@ export function QuoTab() {
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
           const data = docSnap.data();
-          setApiKey(data.apiKey || DEFAULT_API_KEY);
+          setApiKey(data.apiKey || '');
           setFromNumber(data.fromNumber || '');
           if (data.templates) {
             // Merge with defaults to ensure all keys exist
@@ -69,9 +66,6 @@ export function QuoTab() {
               ...data.templates
             });
           }
-        } else {
-          // If no doc exists, pre-populate default API Key
-          setApiKey(DEFAULT_API_KEY);
         }
       } catch (err) {
         console.error("Error fetching QUO settings:", err);
