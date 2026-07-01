@@ -109,6 +109,7 @@ export function PortalCreateOrder() {
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
 
   const [pendingPreselected, setPendingPreselected] = useState<any[] | null>(null);
+  const [isInitialLoadDone, setIsInitialLoadDone] = useState(false);
 
   const getGarmentImage = (item: any) => {
     if (item.images) {
@@ -116,7 +117,9 @@ export function PortalCreateOrder() {
         ? item.defaultColor
         : (item.colors?.[0] || Object.keys(item.images)[0]);
       if (chosenColor && item.images[chosenColor]) {
-        return item.images[chosenColor].front || item.images[chosenColor].swatch || '';
+        const val = item.images[chosenColor];
+        if (typeof val === 'string') return val;
+        return val.front || val.swatch || val.back || '';
       }
     }
     return 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
@@ -253,6 +256,24 @@ export function PortalCreateOrder() {
       setPendingPreselected(null);
     }
   }, [pendingPreselected, isLoadingDecks, customerDecks]);
+
+  useEffect(() => {
+    if (!isLoadingDecks && pendingPreselected === null) {
+      setIsInitialLoadDone(true);
+    }
+  }, [isLoadingDecks, pendingPreselected]);
+
+  // Synchronize orderItems with localStorage cart once initial load is complete
+  useEffect(() => {
+    if (!isInitialLoadDone || !customerId) return;
+    const cartKey = `wovn_reorder_cart_${customerId}`;
+    try {
+      localStorage.setItem(cartKey, JSON.stringify(orderItems));
+      window.dispatchEvent(new Event('wovn_cart_updated'));
+    } catch (e) {
+      console.error("Failed to sync order items to local storage:", e);
+    }
+  }, [orderItems, customerId, isInitialLoadDone]);
 
   useEffect(() => {
     const fetchPreviousOrders = async () => {
@@ -942,7 +963,14 @@ export function PortalCreateOrder() {
                         const N = getActiveSidesCount(item);
                         const isHovered = hoveredItemId === item.instanceId;
                         const translatePercentage = isHovered && N > 1 ? (100 / N) : 0;
-                        const srcUrl = item.customized ? item.image : (item.images?.[item.selectedColor] || item.image);
+                        const getPreviewUrl = () => {
+                          if (item.customized) return item.image;
+                          const colorVal = item.images?.[item.selectedColor];
+                          if (!colorVal) return item.image;
+                          if (typeof colorVal === 'string') return colorVal;
+                          return colorVal.front || colorVal.swatch || colorVal.back || item.image;
+                        };
+                        const srcUrl = getPreviewUrl();
                         return (
                           <div 
                             onClick={() => setPreviewImageUrl(srcUrl)}

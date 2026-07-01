@@ -119,7 +119,7 @@ export function PortalTourOverlay({
       ]
     },
     reorders: {
-      title: 'Reorders & Reorder Cart',
+      title: 'Reorders & Cart',
       steps: [
         {
           target: 'orders-tab',
@@ -147,8 +147,8 @@ export function PortalTourOverlay({
         },
         {
           target: 'reorder-cart-btn',
-          title: 'Step 4: Persistent Reorder Cart',
-          content: 'Review and edit batched items from your reorder cart at any time.',
+          title: 'Step 4: Persistent Cart',
+          content: 'Review and edit batched items from your cart at any time.',
           position: 'bottom',
           requiredPath: `/portal/${customerId}`,
           pathName: 'Orders Dashboard'

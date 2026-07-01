@@ -265,7 +265,7 @@ export function PortalLayout() {
                 ? 'opacity-100 scale-100 w-auto pointer-events-auto' 
                 : 'opacity-0 scale-75 w-0 pointer-events-none overflow-hidden mr-0 border-0 p-0'
             }`}
-            title="View Reorder Cart"
+            title="View Cart"
           >
             <div className="relative">
               <ShoppingBag size={15} className="text-emerald-600" />
@@ -273,7 +273,7 @@ export function PortalLayout() {
                 {cartCount}
               </span>
             </div>
-            <span className="font-extrabold uppercase text-[10px] tracking-wider text-emerald-600 whitespace-nowrap">Reorder Cart</span>
+            <span className="font-extrabold uppercase text-[10px] tracking-wider text-emerald-600 whitespace-nowrap">Cart</span>
           </button>
 
            <button 

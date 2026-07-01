@@ -40,16 +40,16 @@ export function PortalHelpDrawer({ isOpen, onClose, onStartTour }: PortalHelpDra
     },
     {
       id: 'reorders',
-      title: 'Reorders & The Reorder Cart',
-      description: 'Batch reorder garments from multiple previous orders using the persistent reorder cart and fly-to-cart animation.',
+      title: 'Reorders & The Cart',
+      description: 'Batch reorder garments from multiple previous orders using the persistent cart and fly-to-cart animation.',
       icon: <ShoppingBag size={20} className="text-emerald-500" />,
       steps: [
         'Navigate to your "Orders" history page.',
         'Click the circular "Reorder" button on the right side of any previous order item.',
-        'Watch the garment animation fly directly into the "Reorder Cart" in your navigation header.',
+        'Watch the garment animation fly directly into the "Cart" in your navigation header.',
         'You can browse other orders and add multiple past garments to your cart without being navigated away.',
-        'Your reorder cart is fully persistent and will remain saved even if you refresh or leave the builder screen.',
-        'Click "Reorder Cart" in the header to review your batched items, adjust size runs, and submit your request.'
+        'Your cart is fully persistent and will remain saved even if you refresh or leave the builder screen.',
+        'Click "Cart" in the header to review your batched items, adjust size runs, and submit your request.'
       ]
     },
     {
