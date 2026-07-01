@@ -81,14 +81,24 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
   const [expandedOrderShipments, setExpandedOrderShipments] = useState<Record<string, boolean>>({});
   const [addedItemIds, setAddedItemIds] = useState<Record<string, boolean>>({});
+  interface FlyingItem {
+    id: string;
+    src: string;
+    x: number;
+    y: number;
+    scale: number;
+    opacity: number;
+    isAnimating: boolean;
+  }
+  const [flyingItems, setFlyingItems] = useState<FlyingItem[]>([]);
 
-  const handleReorderClick = (item: any) => {
+  const handleReorderClick = (item: any, e: React.MouseEvent<HTMLButtonElement>) => {
     const cartKey = `wovn_reorder_cart_${currentCustomerId}`;
     let currentCart = [];
     try {
       currentCart = JSON.parse(localStorage.getItem(cartKey) || '[]');
-    } catch (e) {
-      console.error(e);
+    } catch (err) {
+      console.error(err);
     }
     // Check if garment is already in cart. If so, don't duplicate.
     const exists = currentCart.some((ci: any) => ci.id === item.id);
@@ -102,8 +112,51 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
       setAddedItemIds(prev => ({ ...prev, [item.id]: false }));
     }, 1500);
 
-    // Dispatch event
-    window.dispatchEvent(new Event('wovn_cart_updated'));
+    // Calculate coordinates for fly animation
+    const rect = e.currentTarget.getBoundingClientRect();
+    const startX = rect.left + rect.width / 2;
+    const startY = rect.top + rect.height / 2;
+
+    const cartBtn = document.getElementById('reorder-cart-btn');
+    let endX = window.innerWidth - 150; // Fallback
+    let endY = 30;
+    if (cartBtn) {
+      const cartRect = cartBtn.getBoundingClientRect();
+      endX = cartRect.left + cartRect.width / 2;
+      endY = cartRect.top + cartRect.height / 2;
+    }
+
+    const imageSrc = item.image || item.artworkUrl || 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=120&h=120&q=80';
+    const flyId = `fly-${Date.now()}-${Math.random()}`;
+    const newFly = {
+      id: flyId,
+      src: imageSrc,
+      x: startX,
+      y: startY,
+      scale: 1.2,
+      opacity: 1,
+      isAnimating: false
+    };
+
+    setFlyingItems(prev => [...prev, newFly]);
+
+    // Animate to destination
+    setTimeout(() => {
+      setFlyingItems(prev => prev.map(f => f.id === flyId ? {
+        ...f,
+        x: endX,
+        y: endY,
+        scale: 0.15,
+        opacity: 0,
+        isAnimating: true
+      } : f));
+    }, 50);
+
+    // Clean up and trigger bounce + count update once the item lands
+    setTimeout(() => {
+      setFlyingItems(prev => prev.filter(f => f.id !== flyId));
+      window.dispatchEvent(new Event('wovn_cart_updated'));
+    }, 800);
   };
 
   useEffect(() => {
@@ -791,7 +844,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleReorderClick(item);
+                            handleReorderClick(item, e);
                           }}
                           className={`w-9 h-9 rounded-full flex items-center justify-center transition-all shadow-3xs cursor-pointer shrink-0 ${
                             addedItemIds[item.id]
@@ -1124,6 +1177,31 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
           }} 
         />
       )}
+
+      {flyingItems.map((f) => (
+        <img
+          key={f.id}
+          src={f.src}
+          alt=""
+          className="pointer-events-none"
+          style={{
+            position: 'fixed',
+            left: 0,
+            top: 0,
+            width: '60px',
+            height: '60px',
+            objectFit: 'contain',
+            borderRadius: '50%',
+            backgroundColor: 'white',
+            border: '2px solid #10b981',
+            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+            zIndex: 99999,
+            transform: `translate(${f.x - 30}px, ${f.y - 30}px) scale(${f.scale})`,
+            opacity: f.opacity,
+            transition: f.isAnimating ? 'transform 0.8s cubic-bezier(0.19, 1, 0.22, 1), opacity 0.8s ease-in-out' : 'none',
+          }}
+        />
+      ))}
     </>
   );
 }

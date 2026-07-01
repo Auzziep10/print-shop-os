@@ -22,6 +22,7 @@ export function PortalLayout() {
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [cartCount, setCartCount] = useState(0);
+  const [isJiggling, setIsJiggling] = useState(false);
 
   useEffect(() => {
     const updateCount = () => {
@@ -29,6 +30,8 @@ export function PortalLayout() {
       try {
         const cart = JSON.parse(localStorage.getItem(cartKey) || '[]');
         setCartCount(cart.length);
+        setIsJiggling(true);
+        setTimeout(() => setIsJiggling(false), 600);
       } catch (e) {
         setCartCount(0);
       }
@@ -249,21 +252,26 @@ export function PortalLayout() {
           </button>
           
           
-          {cartCount > 0 && (
-            <button
-              onClick={() => navigate(customerId ? `/portal/${customerId}/create` : '/portal/create')}
-              className="bg-white border border-emerald-500 text-emerald-700 px-4.5 py-2.5 rounded-full text-xs font-bold tracking-wide hover:bg-neutral-50 hover:scale-105 active:scale-95 transition-all shadow-sm flex items-center gap-2 cursor-pointer mr-2 animate-in zoom-in-95 duration-200"
-              title="View Reorder Cart"
-            >
-              <div className="relative">
-                <ShoppingBag size={15} className="text-emerald-600" />
-                <span className="absolute -top-1.5 -right-1.5 bg-emerald-600 text-white text-[9px] font-extrabold w-4 h-4 rounded-full flex items-center justify-center border border-white">
-                  {cartCount}
-                </span>
-              </div>
-              <span className="font-extrabold uppercase text-[10px] tracking-wider text-emerald-600">Reorder Cart</span>
-            </button>
-          )}
+          <button
+            id="reorder-cart-btn"
+            onClick={() => navigate(customerId ? `/portal/${customerId}/create` : '/portal/create')}
+            className={`bg-white border border-emerald-500 text-emerald-700 px-4.5 py-2.5 rounded-full text-xs font-bold tracking-wide hover:bg-neutral-50 hover:scale-105 active:scale-95 shadow-sm flex items-center gap-2 cursor-pointer mr-2 transition-all duration-300 ${
+              isJiggling ? 'animate-bounce' : ''
+            } ${
+              cartCount > 0 
+                ? 'opacity-100 scale-100 w-auto pointer-events-auto' 
+                : 'opacity-0 scale-75 w-0 pointer-events-none overflow-hidden mr-0 border-0 p-0'
+            }`}
+            title="View Reorder Cart"
+          >
+            <div className="relative">
+              <ShoppingBag size={15} className="text-emerald-600" />
+              <span className="absolute -top-1.5 -right-1.5 bg-emerald-600 text-white text-[9px] font-extrabold w-4 h-4 rounded-full flex items-center justify-center border border-white">
+                {cartCount}
+              </span>
+            </div>
+            <span className="font-extrabold uppercase text-[10px] tracking-wider text-emerald-600 whitespace-nowrap">Reorder Cart</span>
+          </button>
 
           <button 
             data-tour="create-order-btn"
