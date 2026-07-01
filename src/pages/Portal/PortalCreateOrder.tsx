@@ -179,7 +179,11 @@ export function PortalCreateOrder() {
 
   useEffect(() => {
     if (pendingPreselected && !isLoadingDecks) {
-      const mapped = pendingPreselected.map(item => mapPrevItemToBuilderItem(item, customerDecks));
+      const flatGarments = customerDecks.reduce((acc: any[], deck: any) => {
+        const items = deck.items || deck.garments || [];
+        return [...acc, ...items];
+      }, []);
+      const mapped = pendingPreselected.map(item => mapPrevItemToBuilderItem(item, flatGarments));
       setOrderItems(prev => [...prev, ...mapped]);
       setPendingPreselected(null);
     }
@@ -578,48 +582,62 @@ export function PortalCreateOrder() {
                       <p>No catalog decks connected for this client.</p>
                     </div>
                   ) : (
-                    customerDecks.map((item: any, idx: number) => {
-                      const style = item.garment_name || item.name || item.style || item.title || 'Unknown Style';
-                      const gender = item.gender || 'Unisex';
-                      const itemNum = item.itemNum || item.garment_id || item.sku || item.id || `GARMENT-${idx+1}`;
-                      
-                      let colors = findColorsInObj({ ...item }) || ['Custom Color'];
-                      if (colors.length === 0) colors = ['Custom Color'];
-                      
-                      let sizes = parseSizesFromItem(item, style);
-
-                      const image = item.mockup_image || item.mock_image || item.original_image || item.image || item.imageUrl || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
-                      
-                      const basePrice = parseFloat(item.msrp || item.price || item.unit_cost || 0);
-                      const price = basePrice;
-
-                      return (
-                        <div 
-                          key={item.id || idx} 
-                          onClick={() => handleAddItem({ ...item, style, gender, itemNum, colors, sizes, image, price })}
-                          className="group flex items-center gap-4 bg-neutral-50/50 border border-neutral-200 hover:border-black transition-colors rounded-2xl p-4 cursor-pointer shadow-[0_2px_10px_rgb(0,0,0,0.01)] hover:shadow-xs"
-                        >
-                          <div className="w-14 h-14 rounded-xl overflow-hidden bg-white border border-neutral-100 shrink-0 flex items-center justify-center">
-                            <img src={image} alt={style} className="w-full h-full object-contain p-1 mix-blend-multiply" />
+                    (() => {
+                      const flatGarments = customerDecks.reduce((acc: any[], deck: any) => {
+                        const items = deck.items || deck.garments || [];
+                        return [...acc, ...items];
+                      }, []);
+                      if (flatGarments.length === 0) {
+                        return (
+                          <div className="col-span-full flex flex-col items-center justify-center p-8 text-center text-neutral-500">
+                            <PackagePlus size={32} className="mb-4 text-neutral-300" />
+                            <p>No catalog garments found in connected decks.</p>
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between mb-1">
-                               <h4 className="font-bold text-neutral-900 text-sm truncate pr-2">{style}</h4>
-                               <span className="text-[9px] font-bold text-neutral-500 bg-neutral-200/60 px-2 py-0.5 rounded-full shrink-0">{gender}</span>
-                            </div>
-                            {itemNum && itemNum.length < 15 && (
-                              <p className="text-[10px] font-semibold text-neutral-450">{itemNum}</p>
-                            )}
-                            <p className="text-[10px] text-neutral-400 font-medium mt-1 truncate">{colors.join(' • ')}</p>
-                          </div>
-                          <button 
-                            className="w-8 h-8 rounded-full bg-white border border-neutral-200 text-neutral-400 group-hover:bg-black group-hover:text-white group-hover:border-black flex items-center justify-center transition-colors shrink-0"
+                        );
+                      }
+                      return flatGarments.map((item: any, idx: number) => {
+                        const style = item.garment_name || item.name || item.style || item.title || 'Unknown Style';
+                        const gender = item.gender || 'Unisex';
+                        const itemNum = item.itemNum || item.garment_id || item.sku || item.id || `GARMENT-${idx+1}`;
+                        
+                        let colors = findColorsInObj({ ...item }) || ['Custom Color'];
+                        if (colors.length === 0) colors = ['Custom Color'];
+                        
+                        let sizes = parseSizesFromItem(item, style);
+
+                        const image = item.mockup_image || item.mock_image || item.original_image || item.image || item.imageUrl || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
+                        
+                        const basePrice = parseFloat(item.msrp || item.price || item.unit_cost || 0);
+                        const price = basePrice;
+
+                        return (
+                          <div 
+                            key={item.id || idx} 
+                            onClick={() => handleAddItem({ ...item, style, gender, itemNum, colors, sizes, image, price })}
+                            className="group flex items-center gap-4 bg-neutral-50/50 border border-neutral-200 hover:border-black transition-colors rounded-2xl p-4 cursor-pointer shadow-[0_2px_10px_rgb(0,0,0,0.01)] hover:shadow-xs"
                           >
-                             <Plus size={14} strokeWidth={2.5} />
-                          </button>
-                        </div>
-                      );
-                    })
+                            <div className="w-14 h-14 rounded-xl overflow-hidden bg-white border border-neutral-100 shrink-0 flex items-center justify-center">
+                              <img src={image} alt={style} className="w-full h-full object-contain p-1 mix-blend-multiply" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between mb-1">
+                                 <h4 className="font-bold text-neutral-900 text-sm truncate pr-2">{style}</h4>
+                                 <span className="text-[9px] font-bold text-neutral-500 bg-neutral-200/60 px-2 py-0.5 rounded-full shrink-0">{gender}</span>
+                              </div>
+                              {itemNum && itemNum.length < 15 && (
+                                <p className="text-[10px] font-semibold text-neutral-450">{itemNum}</p>
+                              )}
+                              <p className="text-[10px] text-neutral-400 font-medium mt-1 truncate">{colors.join(' • ')}</p>
+                            </div>
+                            <button 
+                              className="w-8 h-8 rounded-full bg-white border border-neutral-200 text-neutral-400 group-hover:bg-black group-hover:text-white group-hover:border-black flex items-center justify-center transition-colors shrink-0"
+                            >
+                               <Plus size={14} strokeWidth={2.5} />
+                            </button>
+                          </div>
+                        );
+                      });
+                    })()
                   )
                 )}
 
