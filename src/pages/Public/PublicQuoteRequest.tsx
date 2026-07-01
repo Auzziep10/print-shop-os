@@ -1835,7 +1835,7 @@ export function PublicQuoteRequest() {
                             return (
                               <img 
                                 src={imgSrc} 
-                                className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-500 ease-out" 
+                                className="max-h-full max-w-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-500 ease-out" 
                                 alt={item.product.style} 
                               />
                             );
@@ -1912,8 +1912,8 @@ export function PublicQuoteRequest() {
                           <span className={`text-[9px] font-bold uppercase tracking-widest ${
                             slot === 'good' ? 'text-neutral-400' : slot === 'better' ? 'text-blue-500' : 'text-emerald-500'
                           }`}>{slot} Option</span>
-                          <div className="aspect-[4/5] bg-white rounded-xl flex items-center justify-center p-4">
-                            <img src={previewImg} alt={item.title} className="max-h-full max-w-full object-contain" />
+                          <div className="aspect-[4/5] bg-transparent rounded-xl flex items-center justify-center p-4">
+                            <img src={previewImg} alt={item.title} className="max-h-full max-w-full object-contain mix-blend-multiply" />
                           </div>
                           <div>
                             <span className="text-[10px] font-bold text-neutral-400 uppercase">{item.brand} • {item.style}</span>
@@ -2227,7 +2227,7 @@ export function PublicQuoteRequest() {
                         key={item.id} 
                         className="bg-white border border-neutral-200/80 rounded-2xl overflow-hidden flex flex-col justify-between group shadow-3xs hover:shadow-md hover:-translate-y-1 transition-all duration-350"
                       >
-                        <div className="relative aspect-[4/5] bg-white flex items-center justify-center p-6 border-b border-neutral-100 overflow-hidden select-none">
+                        <div className="relative aspect-[4/5] bg-transparent flex items-center justify-center p-6 border-b border-neutral-100 overflow-hidden select-none">
                           
                           {/* Smart Decoration Badge */}
                           <div className="absolute top-4 left-4 z-10 bg-neutral-900/90 text-white text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded flex items-center gap-1 shadow-sm">
@@ -2243,7 +2243,7 @@ export function PublicQuoteRequest() {
                           </div>
 
                           {/* Garment Image */}
-                          <img src={previewImg} className="max-w-[85%] max-h-[85%] object-contain pointer-events-none" alt={item.product.style} />
+                          <img src={previewImg} className="max-w-[85%] max-h-[85%] object-contain pointer-events-none mix-blend-multiply" alt={item.product.style} />
 
                           {/* Overlay Projected Logo */}
                           <div 
@@ -2322,7 +2322,7 @@ export function PublicQuoteRequest() {
                 // Basics single product lookbook card
                 selectedBasicsItem && (
                   <div className="max-w-md mx-auto bg-white border border-neutral-200/80 rounded-2xl overflow-hidden flex flex-col justify-between group shadow-3xs select-none">
-                    <div className="relative aspect-[4/5] bg-white flex items-center justify-center p-6 border-b border-neutral-100 overflow-hidden">
+                    <div className="relative aspect-[4/5] bg-transparent flex items-center justify-center p-6 border-b border-neutral-100 overflow-hidden">
                       {/* Decoration badge */}
                       <div className="absolute top-4 left-4 z-10 bg-neutral-900/90 text-white text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded shadow-sm">
                         Premium Print
@@ -2332,7 +2332,7 @@ export function PublicQuoteRequest() {
                         const imgSet = selectedBasicsItem.images[selectedBasicsColor] || Object.values(selectedBasicsItem.images)[0];
                         const imgSrc = imgSet ? (typeof imgSet === 'string' ? imgSet : (imgSet as any).front) : '';
                         return (
-                          <img src={imgSrc} className="max-w-[85%] max-h-[85%] object-contain pointer-events-none" alt={selectedBasicsItem.style} />
+                          <img src={imgSrc} className="max-w-[85%] max-h-[85%] object-contain pointer-events-none mix-blend-multiply" alt={selectedBasicsItem.style} />
                         );
                       })()}
 
