@@ -1414,14 +1414,6 @@ export function PortalCreateOrder() {
                   </div>
                 )
               )}
-              
-              <button 
-                onClick={() => setIsGarmentBrowserOpen(true)}
-                className="w-full bg-neutral-50 hover:bg-neutral-100 border-2 border-dashed border-neutral-200 rounded-xl py-4 flex items-center justify-center text-sm font-bold text-neutral-500 hover:text-black transition-all group mt-2 shrink-0 cursor-pointer"
-              >
-                <PackagePlus size={18} className="mr-2 group-hover:scale-110 transition-transform" />
-                + Search Global Blank Catalog
-              </button>
             </div>
 
           </div>
