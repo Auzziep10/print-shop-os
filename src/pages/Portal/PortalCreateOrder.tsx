@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
-import { ArrowLeft, PackagePlus, X, Trash2, ChevronDown, RotateCcw, Calendar, Loader2, Sparkles, Plus } from 'lucide-react';
+import { ArrowLeft, PackagePlus, X, Trash2, ChevronDown, RotateCcw, Calendar, Loader2, Sparkles, Plus, Save } from 'lucide-react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { db } from '../../lib/firebase';
-import { doc, getDoc, collection, query, where, getDocs, setDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs, setDoc, deleteDoc } from 'firebase/firestore';
+import { useAuth } from '../../contexts/AuthContext';
 import { GarmentCustomizerModal } from '../../components/Portal/GarmentCustomizerModal';
 import { GarmentBrowser } from '../../components/shared/GarmentBrowser';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
@@ -87,6 +88,15 @@ export function PortalCreateOrder() {
   const navigate = useNavigate();
   const { customerId } = useParams();
   const location = useLocation();
+  const { user, userData } = useAuth();
+  
+  // Saved Carts States
+  const [savedCarts, setSavedCarts] = useState<any[]>([]);
+  const [isLoadingSavedCarts, setIsLoadingSavedCarts] = useState(false);
+  const [isSavingCart, setIsSavingCart] = useState(false);
+  const [showSaveCartModal, setShowSaveCartModal] = useState(false);
+  const [savedCartName, setSavedCartName] = useState('');
+
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isGarmentBrowserOpen, setIsGarmentBrowserOpen] = useState(false);
   const [orderItems, setOrderItems] = useState<any[]>([]);
@@ -274,6 +284,77 @@ export function PortalCreateOrder() {
       console.error("Failed to sync order items to local storage:", e);
     }
   }, [orderItems, customerId, isInitialLoadDone]);
+
+  // Fetch saved carts for this customer
+  useEffect(() => {
+    const fetchSavedCarts = async () => {
+      if (!customerId) return;
+      setIsLoadingSavedCarts(true);
+      try {
+        const q = query(
+          collection(db, 'saved_carts'),
+          where('customerId', '==', customerId)
+        );
+        const snapshot = await getDocs(q);
+        const list: any[] = [];
+        snapshot.forEach(doc => {
+          list.push({ id: doc.id, ...doc.data() });
+        });
+        list.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+        setSavedCarts(list);
+      } catch (err) {
+        console.error("Failed to fetch saved carts:", err);
+      } finally {
+        setIsLoadingSavedCarts(false);
+      }
+    };
+    fetchSavedCarts();
+  }, [customerId]);
+
+  const handleSaveCart = async () => {
+    if (!customerId || orderItems.length === 0 || !savedCartName.trim()) return;
+    setIsSavingCart(true);
+    try {
+      const cartId = `cart-${Date.now()}`;
+      const payload = {
+        id: cartId,
+        customerId,
+        name: savedCartName.trim(),
+        createdAt: new Date().toISOString(),
+        items: orderItems,
+        createdBy: userData?.name || user?.displayName || user?.email?.split('@')[0] || 'Customer'
+      };
+      await setDoc(doc(db, 'saved_carts', cartId), payload);
+      
+      setSavedCarts(prev => [payload, ...prev]);
+      setShowSaveCartModal(false);
+      setSavedCartName('');
+      alert("Cart saved successfully!");
+    } catch (err) {
+      console.error("Failed to save cart:", err);
+      alert("Failed to save cart. Please try again.");
+    } finally {
+      setIsSavingCart(false);
+    }
+  };
+
+  const handleLoadSavedCart = (savedCart: any) => {
+    if (window.confirm(`Are you sure you want to load the saved cart "${savedCart.name}"? This will replace your current cart.`)) {
+      setOrderItems(savedCart.items || []);
+    }
+  };
+
+  const handleDeleteSavedCart = async (cartId: string, name: string) => {
+    if (window.confirm(`Are you sure you want to delete the saved cart "${name}"?`)) {
+      try {
+        await deleteDoc(doc(db, 'saved_carts', cartId));
+        setSavedCarts(prev => prev.filter(c => c.id !== cartId));
+      } catch (err) {
+        console.error("Failed to delete saved cart:", err);
+        alert("Failed to delete saved cart.");
+      }
+    }
+  };
 
   useEffect(() => {
     const fetchPreviousOrders = async () => {
@@ -730,6 +811,17 @@ export function PortalCreateOrder() {
                 >
                   Past Garments ({pastGarments.length})
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveLibraryTab('saved')}
+                  className={`text-sm font-bold pb-1.5 border-b-2 whitespace-nowrap transition-all cursor-pointer ${
+                    activeLibraryTab === 'saved' 
+                      ? 'text-black border-black' 
+                      : 'text-neutral-400 border-transparent hover:text-black hover:border-black'
+                  }`}
+                >
+                  Saved Carts ({savedCarts.length})
+                </button>
               </div>
 
               {activeLibraryTab === 'rack' && (
@@ -939,6 +1031,71 @@ export function PortalCreateOrder() {
                       );
                     })
                   )
+                )}
+
+                {activeLibraryTab === 'saved' && (
+                  <div className="col-span-full flex flex-col gap-4">
+                    {isLoadingSavedCarts ? (
+                      <div className="flex items-center justify-center p-8">
+                        <Loader2 className="animate-spin text-neutral-400" size={24} />
+                      </div>
+                    ) : savedCarts.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center p-8 text-center text-neutral-500 bg-neutral-50/50 border border-neutral-200 border-dashed rounded-3xl min-h-[200px] w-full">
+                        <Save size={32} className="mb-4 text-neutral-300" />
+                        <p className="font-semibold text-sm text-neutral-600">No saved carts yet.</p>
+                        <p className="text-xs text-neutral-400 mt-1 max-w-sm">Add items to your cart, then click "Save Cart for Later" to preserve your potential order.</p>
+                      </div>
+                    ) : (
+                      savedCarts.map((cartItem) => (
+                        <div key={cartItem.id} className="bg-neutral-50/50 border border-neutral-200 hover:border-neutral-300 transition-all rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 w-full">
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-bold text-neutral-900 text-sm truncate">{cartItem.name}</h4>
+                            <div className="flex items-center gap-3 text-[10px] text-neutral-400 font-medium mt-1">
+                              <span>{new Date(cartItem.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                              <span>•</span>
+                              <span>{cartItem.items?.length || 0} styles</span>
+                              <span>•</span>
+                              <span>Saved by {cartItem.createdBy}</span>
+                            </div>
+                            
+                            <div className="flex gap-1.5 mt-3">
+                              {(cartItem.items || []).slice(0, 4).map((it: any, idx: number) => {
+                                const itImage = it.image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
+                                return (
+                                  <div key={idx} className="w-8 h-8 rounded-md bg-white border border-neutral-100 flex items-center justify-center p-0.5 shrink-0" title={it.style}>
+                                    <img src={itImage} alt="" className="w-full h-full object-contain mix-blend-multiply" />
+                                  </div>
+                                );
+                              })}
+                              {(cartItem.items || []).length > 4 && (
+                                <div className="w-8 h-8 rounded-md bg-neutral-100 border border-neutral-150 flex items-center justify-center text-[10px] font-bold text-neutral-500 shrink-0">
+                                  +{(cartItem.items || []).length - 4}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => handleLoadSavedCart(cartItem)}
+                              className="bg-black hover:bg-neutral-800 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all shadow-sm cursor-pointer"
+                            >
+                              Load Cart
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteSavedCart(cartItem.id, cartItem.name)}
+                              className="p-2 text-neutral-450 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all cursor-pointer border border-transparent hover:border-red-100"
+                              title="Delete saved cart"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
                 )}
               </div>
               
@@ -1153,6 +1310,15 @@ export function PortalCreateOrder() {
               >
                 {isSubmitting ? 'Submitting...' : 'Submit Quote Request'}
               </button>
+              {orderItems.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowSaveCartModal(true)}
+                  className="w-full py-3 rounded-xl text-xs font-bold bg-white border border-neutral-300 text-neutral-700 hover:bg-neutral-50 shadow-sm transition-all text-center flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Save size={13} /> Save Cart for Later
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -1638,6 +1804,57 @@ export function PortalCreateOrder() {
               style={{ width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: '75vh' }}
               className="rounded-2xl select-none transition-transform duration-200 ease-out hover:scale-[2]" 
             />
+          </div>
+        </div>
+      )}
+
+      {/* Save Cart Modal */}
+      {showSaveCartModal && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={() => { setShowSaveCartModal(false); setSavedCartName(''); }}>
+          <div 
+            className="bg-white rounded-3xl p-6 max-w-md w-full flex flex-col gap-6 shadow-2xl border border-neutral-200/50 animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div>
+              <h3 className="font-serif text-xl text-neutral-900">Save Cart for Later</h3>
+              <p className="text-xs font-medium text-neutral-400 mt-1">Enter a name to easily identify this potential order later.</p>
+            </div>
+            
+            <div className="flex flex-col gap-2">
+              <label className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-500 pl-1">Saved Cart Name</label>
+              <input 
+                type="text" 
+                placeholder="e.g. Fall Event 2026, Basketball Team..."
+                value={savedCartName}
+                onChange={(e) => setSavedCartName(e.target.value)}
+                className="w-full bg-neutral-50 border border-neutral-200 hover:border-neutral-350 focus:border-black focus:bg-white rounded-xl px-4 py-3.5 text-sm font-bold transition-all outline-none"
+              />
+            </div>
+            
+            <div className="flex gap-3 justify-end pt-2">
+              <button 
+                type="button"
+                onClick={() => {
+                  setShowSaveCartModal(false);
+                  setSavedCartName('');
+                }}
+                className="px-5 py-2.5 rounded-xl text-xs font-bold bg-neutral-100 hover:bg-neutral-200 text-neutral-600 transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button 
+                type="button"
+                onClick={handleSaveCart}
+                disabled={!savedCartName.trim() || isSavingCart}
+                className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  savedCartName.trim() && !isSavingCart
+                    ? 'bg-black text-white hover:bg-neutral-800 shadow-md'
+                    : 'bg-neutral-200 text-neutral-450 cursor-not-allowed'
+                }`}
+              >
+                {isSavingCart ? 'Saving...' : 'Save Cart'}
+              </button>
+            </div>
           </div>
         </div>
       )}
