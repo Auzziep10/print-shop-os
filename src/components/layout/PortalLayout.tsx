@@ -186,8 +186,10 @@ export function PortalLayout() {
     localStorage.removeItem('wovn_tour_step');
   };
 
-  const handleCreateOrder = () => {
-    navigate(customerId ? `/portal/${customerId}/create` : '/portal');
+  const handleCreateOrder = (openLibrary = false) => {
+    navigate(customerId ? `/portal/${customerId}/create` : '/portal', {
+      state: openLibrary ? { openLibrary: true } : undefined
+    });
   };
 
   return (
@@ -273,12 +275,12 @@ export function PortalLayout() {
             <span className="font-extrabold uppercase text-[10px] tracking-wider text-emerald-600 whitespace-nowrap">Reorder Cart</span>
           </button>
 
-          <button 
+           <button 
             data-tour="create-order-btn"
-            onClick={handleCreateOrder}
+            onClick={() => handleCreateOrder(cartCount > 0)}
             className="bg-black text-white px-5 py-2.5 rounded-full text-xs font-bold tracking-wide hover:bg-black/80 hover:scale-105 active:scale-95 transition-all shadow-[0_4px_14px_0_rgb(0,0,0,0.15)] mr-2"
           >
-            Create Order +
+            {cartCount > 0 ? "Select new items to add to cart" : "Create Order +"}
           </button>
 
           <button 

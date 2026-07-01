@@ -114,6 +114,14 @@ export function PortalCreateOrder() {
     }
   }, [location.state, customerId]);
 
+  useEffect(() => {
+    if (location.state?.openLibrary) {
+      setIsDrawerOpen(true);
+      // Clear location state flag
+      window.history.replaceState({ ...location.state, openLibrary: undefined }, document.title);
+    }
+  }, [location.state]);
+
   const mapPrevItemToBuilderItem = (item: any, decks: any[]) => {
     const quantities = item.sizes || {};
     
@@ -925,8 +933,8 @@ export function PortalCreateOrder() {
             {/* Drawer Header */}
             <div className="px-8 py-6 border-b border-neutral-100 flex items-center justify-between bg-neutral-50/50">
               <div>
-                <h2 className="text-xl font-serif text-neutral-900">Your Catalog</h2>
-                <p className="text-sm font-medium text-neutral-500 mt-1">Select from your approved, suggested, or past styles.</p>
+                <h2 className="text-xl font-bold text-neutral-900">Select Garments from Library</h2>
+                <p className="text-sm font-medium text-neutral-500 mt-1">Choose from suggested, past, or catalog garments to add to your quote request</p>
               </div>
               <button 
                 onClick={() => setIsDrawerOpen(false)}
@@ -948,7 +956,7 @@ export function PortalCreateOrder() {
                       : 'text-neutral-400 border-transparent hover:text-black hover:border-black'
                   }`}
                 >
-                  Approved Library ({customerDecks.reduce((acc, deck) => acc + (deck.items || deck.garments || []).length, 0)})
+                  Design Your Rack ({customerDecks.reduce((acc, deck) => acc + (deck.items || deck.garments || []).length, 0)})
                 </button>
               )}
               <button
@@ -960,7 +968,7 @@ export function PortalCreateOrder() {
                     : 'text-neutral-400 border-transparent hover:text-black hover:border-black'
                 }`}
               >
-                Suggested ({suggestedItems.length})
+                Suggested Items ({suggestedItems.length})
               </button>
               <button
                 type="button"
