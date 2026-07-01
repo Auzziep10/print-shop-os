@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, Search, HelpCircle, ArrowRight, Play, BookOpen, Clock, ShieldAlert, Award, User } from 'lucide-react';
+import { X, Search, HelpCircle, ArrowRight, Play, BookOpen, Clock, ShieldAlert, Award, User, ShoppingBag, PlusCircle } from 'lucide-react';
 
 interface PortalHelpDrawerProps {
   isOpen: boolean;
@@ -28,10 +28,10 @@ export function PortalHelpDrawer({ isOpen, onClose, onStartTour }: PortalHelpDra
       id: 'quote',
       title: 'Requesting a Quote',
       description: 'Find out how to submit garment specifications and artwork to receive custom pricing.',
-      icon: <BookOpen size={20} className="text-emerald-500" />,
+      icon: <BookOpen size={20} className="text-violet-500" />,
       steps: [
         'Click the "+ Create Order" or "Request Quote" buttons.',
-        'Choose items from your "Design Your Rack" collections, "Suggested Items" (curated by us), or "Past Garments".',
+        'Choose items from your "WOVN Library" collections, "Suggested Items" (curated by us), or "Past Garments".',
         'Click on any garment card image to open the Interactive Lightbox. Hover over the large image to zoom in and inspect details.',
         'Specify your required quantities by size (XS, S, M, L, XL, etc.) and color.',
         'Upload your design mockup or select an artwork file from your Asset Vault.',
@@ -39,10 +39,36 @@ export function PortalHelpDrawer({ isOpen, onClose, onStartTour }: PortalHelpDra
       ]
     },
     {
+      id: 'reorders',
+      title: 'Reorders & The Reorder Cart',
+      description: 'Batch reorder garments from multiple previous orders using the persistent reorder cart and fly-to-cart animation.',
+      icon: <ShoppingBag size={20} className="text-emerald-500" />,
+      steps: [
+        'Navigate to your "Orders" history page.',
+        'Click the circular "Reorder" button on the right side of any previous order item.',
+        'Watch the garment animation fly directly into the "Reorder Cart" in your navigation header.',
+        'You can browse other orders and add multiple past garments to your cart without being navigated away.',
+        'Your reorder cart is fully persistent and will remain saved even if you refresh or leave the builder screen.',
+        'Click "Reorder Cart" in the header to review your batched items, adjust size runs, and submit your request.'
+      ]
+    },
+    {
+      id: 'search_youth',
+      title: 'Youth Sizes & Global Blank Catalog Search',
+      description: 'Find out how to include youth size matrices and search SanMar\'s global catalog for new items.',
+      icon: <PlusCircle size={20} className="text-amber-500" />,
+      steps: [
+        'Open the Quote Builder or Reorder screen.',
+        'To add youth sizes (YXS - YXL) to any garment, click the "+ Add Youth Sizing" button above its sizing matrix.',
+        'To browse and add garments beyond your curated library, click the "+ Search Global Blank Catalog" button at the bottom of the list.',
+        'Search the global catalog directly, select colors and size matrices, and add the new blanks to your quote builder.'
+      ]
+    },
+    {
       id: 'vault',
       title: 'Using the Asset Vault',
       description: 'Upload, organize, download, and delete brand logos or vector artwork files.',
-      icon: <Award size={20} className="text-amber-500" />,
+      icon: <Award size={20} className="text-orange-500" />,
       steps: [
         'Select the "Asset Vault" tab in the header navigation.',
         'Click "Upload New Asset" to upload AI, PDF, EPS, or image files (up to 10MB).',

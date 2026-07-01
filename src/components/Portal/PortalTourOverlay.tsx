@@ -118,6 +118,72 @@ export function PortalTourOverlay({
         }
       ]
     },
+    reorders: {
+      title: 'Reorders & Reorder Cart',
+      steps: [
+        {
+          target: 'orders-tab',
+          title: 'Step 1: Orders Tab',
+          content: 'Go to your Orders Dashboard page.',
+          position: 'bottom',
+          requiredPath: `/portal/${customerId}`,
+          pathName: 'Orders Dashboard'
+        },
+        {
+          target: 'orders-list',
+          title: 'Step 2: Past Orders',
+          content: 'Find any previously placed order from your history list.',
+          position: 'top',
+          requiredPath: `/portal/${customerId}`,
+          pathName: 'Orders Dashboard'
+        },
+        {
+          target: 'reorder-item-btn-0',
+          title: 'Step 3: Reorder Garment',
+          content: 'Click the circular reorder icon to add this garment to your cart with a flight animation.',
+          position: 'left',
+          requiredPath: `/portal/${customerId}`,
+          pathName: 'Orders Dashboard'
+        },
+        {
+          target: 'reorder-cart-btn',
+          title: 'Step 4: Persistent Reorder Cart',
+          content: 'Review and edit batched items from your reorder cart at any time.',
+          position: 'bottom',
+          requiredPath: `/portal/${customerId}`,
+          pathName: 'Orders Dashboard'
+        }
+      ]
+    },
+    search_youth: {
+      title: 'Youth Sizing & Global Search',
+      steps: [
+        {
+          target: 'create-order-btn',
+          title: 'Step 1: Create Order',
+          content: 'Click the header button to open the builder.',
+          position: 'bottom',
+          requiredPath: `/portal/${customerId}`,
+          pathName: 'Orders Dashboard'
+        },
+        {
+          target: 'add-youth-sizing-btn',
+          title: 'Step 2: Add Youth Sizes',
+          content: 'Click "+ Add Youth Sizing" to reveal the youth size grid (YXS to YXL).',
+          position: 'bottom',
+          requiredPath: `/portal/${customerId}/create`,
+          pathName: 'Create Order Builder'
+        },
+        {
+          target: 'search-global-catalog-btn',
+          title: 'Step 3: Global Catalog Search',
+          content: 'Click "+ Search Global Blank Catalog" to search SanMar blanks directly.',
+          position: 'top',
+          requiredPath: `/portal/${customerId}/create`,
+          pathName: 'Create Order Builder'
+        }
+      ]
+    },
     vault: {
       title: 'Using the Asset Vault',
       steps: [

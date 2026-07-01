@@ -842,6 +842,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
 
                         {/* Reorder Button */}
                         <button
+                          data-tour={idx === 0 ? "reorder-item-btn-0" : undefined}
                           onClick={(e) => {
                             e.stopPropagation();
                             handleReorderClick(item, e);

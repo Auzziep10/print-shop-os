@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { X, Search, Check, DollarSign, Shirt } from 'lucide-react';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
 import colorHexMapJson from '../../data/color-hex-map.json';
@@ -22,6 +22,7 @@ interface GarmentBrowserProps {
   isOpen: boolean;
   onClose: () => void;
   onSelect: (product: SanMarProduct, initialColor: string) => void;
+  allowedStyleCodes?: string[];
 }
 
 const baseColors: Record<string, string> = {
@@ -199,22 +200,37 @@ export function getSwatchColor(colorName: string, returnGradient = false): strin
   return colors[0];
 }
 
-export function GarmentBrowser({ isOpen, onClose, onSelect }: GarmentBrowserProps) {
+export function GarmentBrowser({ isOpen, onClose, onSelect, allowedStyleCodes }: GarmentBrowserProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedBrand, setSelectedBrand] = useState('All');
+  const [visibleCount, setVisibleCount] = useState(24);
   
   // Track the active preview color for each product style code
   const [productPreviewColors, setProductPreviewColors] = useState<Record<string, string>>({});
 
+  // Reset visibleCount when queries or filters change
+  useEffect(() => {
+    setVisibleCount(24);
+  }, [searchQuery, selectedBrand, isOpen]);
+
   // Get list of unique brands for filters
   const brands = useMemo(() => {
-    const unique = new Set(sanmarCatalog.map(p => p.brand));
+    const sourceList = (allowedStyleCodes && allowedStyleCodes.length > 0)
+      ? sanmarCatalog.filter(p => allowedStyleCodes.map(s => s.toLowerCase()).includes(p.style.toLowerCase()))
+      : sanmarCatalog;
+    const unique = new Set(sourceList.map(p => p.brand));
     return ['All', ...Array.from(unique)];
-  }, []);
+  }, [allowedStyleCodes]);
 
   // Filtered products list
   const filteredProducts = useMemo(() => {
-    return sanmarCatalog.filter(p => {
+    let list = sanmarCatalog;
+    if (allowedStyleCodes && allowedStyleCodes.length > 0) {
+      const lowerCodes = allowedStyleCodes.map(s => s.toLowerCase());
+      list = sanmarCatalog.filter(p => lowerCodes.includes(p.style.toLowerCase()));
+    }
+    
+    return list.filter(p => {
       const matchesSearch = 
         p.style.toLowerCase().includes(searchQuery.toLowerCase()) ||
         p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -225,7 +241,7 @@ export function GarmentBrowser({ isOpen, onClose, onSelect }: GarmentBrowserProp
 
       return matchesSearch && matchesBrand;
     });
-  }, [searchQuery, selectedBrand]);
+  }, [searchQuery, selectedBrand, allowedStyleCodes]);
 
   if (!isOpen) return null;
 
@@ -305,7 +321,7 @@ export function GarmentBrowser({ isOpen, onClose, onSelect }: GarmentBrowserProp
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-              {filteredProducts.map(product => {
+              {filteredProducts.slice(0, visibleCount).map(product => {
                 // Determine current preview color (defaults to first color available)
                 const currentPreviewColor = productPreviewColors[product.style] || product.colors[0];
                 const imageSet = product.images[currentPreviewColor] || Object.values(product.images)[0];
@@ -419,6 +435,18 @@ export function GarmentBrowser({ isOpen, onClose, onSelect }: GarmentBrowserProp
                   </div>
                 );
               })}
+
+              {filteredProducts.length > visibleCount && (
+                <div className="col-span-full flex justify-center pt-8 pb-4 animate-in fade-in zoom-in-95 duration-200">
+                  <button
+                    type="button"
+                    onClick={() => setVisibleCount(prev => prev + 24)}
+                    className="bg-black hover:bg-neutral-800 text-white px-8 py-3.5 rounded-full text-sm font-bold tracking-wide transition-all shadow-md hover:scale-105 active:scale-95 cursor-pointer"
+                  >
+                    Load More Blanks ({filteredProducts.length - visibleCount} remaining)
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>

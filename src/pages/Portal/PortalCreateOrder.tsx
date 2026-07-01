@@ -1,10 +1,24 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { ArrowLeft, PackagePlus, X, Trash2, ChevronDown, RotateCcw, Calendar, Loader2, Sparkles, Plus } from 'lucide-react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { db } from '../../lib/firebase';
 import { doc, getDoc, collection, query, where, getDocs, setDoc } from 'firebase/firestore';
 import { GarmentCustomizerModal } from '../../components/Portal/GarmentCustomizerModal';
 import { GarmentBrowser } from '../../components/shared/GarmentBrowser';
+import sanmarCatalogJson from '../../data/sanmar-catalog.json';
+
+const sanmarCatalog = sanmarCatalogJson as any[];
+
+const DEFAULT_RACKS = {
+  Athleisure: { hat: 'STC70', shirt: 'BC3001', polo: 'ST640', crewneck: 'DT1304', hoodie: 'BC3719', longsleeve: 'BC3501' },
+  Casual: { hat: '112', shirt: '64000', polo: '64800', crewneck: 'SF000', hoodie: '18500', longsleeve: '6014' },
+  Formal: { hat: 'C402', shirt: 'BC3001', polo: 'K500', crewneck: 'DT1304', hoodie: '996M', longsleeve: 'BC3501' },
+  Active: { hat: 'STC70', shirt: 'BC3001', polo: 'ST550', crewneck: 'S6000', hoodie: 'DT6100', longsleeve: '29LS' },
+  Business: { hat: 'C402', shirt: 'K810', polo: 'K810', crewneck: 'DT1304', hoodie: 'BC3719', longsleeve: '6014' },
+  'Work Wear': { hat: '212', shirt: '5000', polo: 'K420', crewneck: '562M', hoodie: '18500', longsleeve: '6014' },
+  Outdoor: { hat: '112', shirt: 'BC3001', polo: 'K110', crewneck: '1566', hoodie: 'DT6100', longsleeve: '6014' },
+  Team: { hat: '112', shirt: '64000', polo: 'ST665', crewneck: 'S6000', hoodie: '996M', longsleeve: '29LS' }
+};
 
 const sortSizes = (a: string, b: string) => {
   const orderMap: Record<string, number> = { 
@@ -83,7 +97,11 @@ export function PortalCreateOrder() {
   const [isLoadingPreviousOrders, setIsLoadingPreviousOrders] = useState(true);
   const [isRepeatModalOpen, setIsRepeatModalOpen] = useState(false);
   const [hasWovnRack, setHasWovnRack] = useState(false);
-  const [activeLibraryTab, setActiveLibraryTab] = useState('wovn');
+  const [customerRacks, setCustomerRacks] = useState<Record<string, any>>(DEFAULT_RACKS);
+  const [customNames, setCustomNames] = useState<any>({ racks: {}, basics: {} });
+  const [defaultColors, setDefaultColors] = useState<any>({ racks: {}, basics: {} });
+  const [activeRackCategory, setActiveRackCategory] = useState('Athleisure');
+  const [activeLibraryTab, setActiveLibraryTab] = useState('rack');
   const [suggestedItems, setSuggestedItems] = useState<any[]>([]);
   const [pastGarments, setPastGarments] = useState<any[]>([]);
   const [customizingItem, setCustomizingItem] = useState<any | null>(null);
@@ -91,6 +109,51 @@ export function PortalCreateOrder() {
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
 
   const [pendingPreselected, setPendingPreselected] = useState<any[] | null>(null);
+
+  const getGarmentImage = (item: any) => {
+    if (item.images) {
+      const chosenColor = (item.defaultColor && item.images[item.defaultColor])
+        ? item.defaultColor
+        : (item.colors?.[0] || Object.keys(item.images)[0]);
+      if (chosenColor && item.images[chosenColor]) {
+        return item.images[chosenColor].front || item.images[chosenColor].swatch || '';
+      }
+    }
+    return 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
+  };
+
+  const activeRackItems = useMemo(() => {
+    const categoryRacks = customerRacks[activeRackCategory] || DEFAULT_RACKS.Athleisure;
+    return Object.entries(categoryRacks).map(([slot, styleId]) => {
+      const prod = sanmarCatalog.find(p => p.style.toLowerCase() === String(styleId).toLowerCase());
+      if (prod) {
+        const customName = customNames.racks?.[activeRackCategory]?.[slot] || '';
+        const defaultColor = defaultColors.racks?.[activeRackCategory]?.[slot] || '';
+        return {
+          ...prod,
+          id: `${slot}-${Date.now()}-${Math.random()}`,
+          customName,
+          defaultColor
+        };
+      }
+      return null;
+    }).filter(Boolean);
+  }, [customerRacks, activeRackCategory, customNames, defaultColors]);
+
+  const allowedStyleCodes = useMemo(() => {
+    if (!customerRacks) return [];
+    const codes = new Set<string>();
+    Object.values(customerRacks).forEach(rackObj => {
+      if (rackObj && typeof rackObj === 'object') {
+        Object.values(rackObj).forEach(val => {
+          if (val && typeof val === 'string') {
+            codes.add(val.trim());
+          }
+        });
+      }
+    });
+    return Array.from(codes);
+  }, [customerRacks]);
 
   useEffect(() => {
     let preselected: any[] = [];
@@ -297,15 +360,55 @@ export function PortalCreateOrder() {
       setIsLoadingDecks(true);
       
       try {
+        // Fetch Global Storefront Settings first
+        let globalRacks = DEFAULT_RACKS;
+        let globalCustomNames = { racks: {}, basics: {} };
+        let globalDefaultColors = { racks: {}, basics: {} };
+        try {
+          const globalRef = doc(db, 'settings', 'storefront-catalog');
+          const globalSnap = await getDoc(globalRef);
+          if (globalSnap.exists()) {
+            const globalData = globalSnap.data();
+            if (globalData.racks) {
+              globalRacks = globalData.racks;
+            }
+            if (globalData.customNames) {
+              globalCustomNames = globalData.customNames;
+            }
+            if (globalData.defaultColors) {
+              globalDefaultColors = globalData.defaultColors;
+            }
+          }
+        } catch (globalErr) {
+          console.error("Error fetching global catalog settings:", globalErr);
+        }
+
         const customerDoc = await getDoc(doc(db, 'customers', customerId));
         if (customerDoc.exists()) {
           const customerData = customerDoc.data();
           // Support both array and single string for backwards compatibility
           const deckIds = customerData.catalogLinkIds || (customerData.catalogLinkId ? [customerData.catalogLinkId] : []);
+          
+          // Set customer custom racks, fall back to global settings or defaults
+          const fetchedRacks = customerData.racks || globalRacks;
+          setCustomerRacks(fetchedRacks);
+          setCustomNames(customerData.customNames || globalCustomNames);
+          setDefaultColors(customerData.defaultColors || globalDefaultColors);
+
+          const categories = Object.keys(fetchedRacks);
+          if (categories.length > 0 && !categories.includes(activeRackCategory)) {
+            setActiveRackCategory(categories[0]);
+          }
+
           const isRackActive = deckIds.length > 0;
           setHasWovnRack(isRackActive);
           setSuggestedItems(customerData.suggestedItems || []);
-          if (!isRackActive) {
+          
+          if (categories.length > 0) {
+            setActiveLibraryTab('rack');
+          } else if (isRackActive) {
+            setActiveLibraryTab('wovn');
+          } else {
             setActiveLibraryTab(customerData.suggestedItems && customerData.suggestedItems.length > 0 ? 'suggested' : 'past');
           }
           
@@ -333,7 +436,7 @@ export function PortalCreateOrder() {
       } catch (err) {
          console.error("Error fetching customer or decks", err);
       } finally {
-        setIsLoadingDecks(false);
+         setIsLoadingDecks(false);
       }
     };
     
@@ -560,6 +663,17 @@ export function PortalCreateOrder() {
 
               {/* Library Tabs */}
               <div className="flex gap-4 border-b border-neutral-100 py-3 overflow-x-auto shrink-0 bg-neutral-50/50 px-4 rounded-xl">
+                <button
+                  type="button"
+                  onClick={() => setActiveLibraryTab('rack')}
+                  className={`text-sm font-bold pb-1.5 border-b-2 whitespace-nowrap transition-all cursor-pointer ${
+                    activeLibraryTab === 'rack' 
+                      ? 'text-black border-black' 
+                      : 'text-neutral-400 border-transparent hover:text-black hover:border-black'
+                  }`}
+                >
+                  Design Your Rack ({activeRackItems.length})
+                </button>
                 {hasWovnRack && (
                   <button
                     type="button"
@@ -570,7 +684,7 @@ export function PortalCreateOrder() {
                         : 'text-neutral-400 border-transparent hover:text-black hover:border-black'
                     }`}
                   >
-                    WOVN Library ({customerDecks.reduce((acc, deck) => acc + (deck.items || deck.garments || []).length, 0)})
+                    WOVN Catalog ({customerDecks.reduce((acc, deck) => acc + (deck.items || deck.garments || []).length, 0)})
                   </button>
                 )}
                 <button
@@ -597,8 +711,70 @@ export function PortalCreateOrder() {
                 </button>
               </div>
 
+              {activeLibraryTab === 'rack' && (
+                <div className="flex flex-wrap gap-2 pb-2 border-b border-neutral-100">
+                  {Object.keys(customerRacks).map((catName) => (
+                    <button
+                      key={catName}
+                      type="button"
+                      onClick={() => setActiveRackCategory(catName)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                        activeRackCategory === catName
+                          ? 'bg-black text-white'
+                          : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                      }`}
+                    >
+                      {catName}
+                    </button>
+                  ))}
+                </div>
+              )}
+
               {/* Library Grid Content */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {activeLibraryTab === 'rack' && (
+                  activeRackItems.length === 0 ? (
+                    <div className="col-span-full flex flex-col items-center justify-center p-8 text-center text-neutral-500">
+                      <PackagePlus size={32} className="mb-4 text-neutral-300" />
+                      <p>No garments configured for this category.</p>
+                    </div>
+                  ) : (
+                    activeRackItems.map((item: any, idx: number) => {
+                      const style = item.customName || item.title || item.style || 'Custom Garment';
+                      const gender = item.gender || 'Unisex';
+                      const itemNum = item.style;
+                      const colors = item.colors || ['Custom Color'];
+                      const sizes = ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'];
+                      const image = getGarmentImage(item);
+                      const price = parseFloat(item.price || 0);
+
+                      return (
+                        <div 
+                          key={item.id || idx} 
+                          onClick={() => handleAddItem({ ...item, style, gender, itemNum, colors, sizes, image, price })}
+                          className="group flex items-center gap-4 bg-neutral-50/50 border border-neutral-200 hover:border-black transition-colors rounded-2xl p-4 cursor-pointer shadow-[0_2px_10px_rgb(0,0,0,0.01)] hover:shadow-xs"
+                        >
+                          <div className="w-14 h-14 rounded-xl overflow-hidden bg-white border border-neutral-100 shrink-0 flex items-center justify-center">
+                            <img src={image} alt={style} className="w-full h-full object-contain p-1 mix-blend-multiply" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between mb-1">
+                               <h4 className="font-bold text-neutral-900 text-sm truncate mb-0.5">{style}</h4>
+                               <span className="text-[9px] font-bold text-neutral-500 bg-neutral-200/60 px-2 py-0.5 rounded-full shrink-0">{gender}</span>
+                            </div>
+                            <p className="text-[10px] text-neutral-400 font-medium mt-1 truncate">{colors.join(' • ')}</p>
+                          </div>
+                          <button 
+                            className="w-8 h-8 rounded-full bg-white border border-neutral-200 text-neutral-400 group-hover:bg-black group-hover:text-white group-hover:border-black flex items-center justify-center transition-colors shrink-0"
+                          >
+                             <Plus size={14} strokeWidth={2.5} />
+                          </button>
+                        </div>
+                      );
+                    })
+                  )
+                )}
+
                 {activeLibraryTab === 'wovn' && (
                   isLoadingDecks ? (
                     <div className="col-span-full flex items-center justify-center p-8">
@@ -846,6 +1022,7 @@ export function PortalCreateOrder() {
                        <span className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Size Run</span>
                        <button
                          type="button"
+                         data-tour={index === 0 ? "add-youth-sizing-btn" : undefined}
                          onClick={() => {
                            const youthSizes = { 'YXS': 0, 'YS': 0, 'YM': 0, 'YL': 0, 'YXL': 0 };
                            setOrderItems(prev => prev.map(o => o.instanceId === item.instanceId ? {
@@ -880,35 +1057,26 @@ export function PortalCreateOrder() {
               ))}
 
               {/* Add Another Garment Button */}
-              {hasWovnRack ? (
-                <button 
-                  data-tour="add-garment-btn"
-                  onClick={() => {
+              <button 
+                data-tour="add-garment-btn"
+                onClick={() => {
+                  const categories = Object.keys(customerRacks);
+                  if (categories.length > 0) {
+                    setActiveLibraryTab('rack');
+                  } else if (hasWovnRack) {
                     setActiveLibraryTab('wovn');
-                    setIsDrawerOpen(true);
-                  }}
-                  className="w-full bg-neutral-50 hover:bg-neutral-100 border-2 border-dashed border-neutral-200 rounded-3xl p-6 flex flex-col items-center justify-center text-neutral-500 hover:text-black transition-all group cursor-pointer"
-                >
-                  <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform mb-3">
-                    <PackagePlus size={20} strokeWidth={2} />
-                  </div>
-                  <span className="font-bold text-sm tracking-wide">Add Another Garment from Library</span>
-                </button>
-              ) : (
-                <button 
-                  data-tour="add-garment-btn"
-                  onClick={() => {
+                  } else {
                     setActiveLibraryTab(suggestedItems.length > 0 ? 'suggested' : 'past');
-                    setIsDrawerOpen(true);
-                  }}
-                  className="w-full bg-neutral-50 hover:bg-neutral-100 border-2 border-dashed border-neutral-200 rounded-3xl p-6 flex flex-col items-center justify-center text-neutral-500 hover:text-black transition-all group cursor-pointer"
-                >
-                  <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform mb-3">
-                    <PackagePlus size={20} strokeWidth={2} />
-                  </div>
-                  <span className="font-bold text-sm tracking-wide">Add Another Garment from Library</span>
-                </button>
-              )}
+                  }
+                  setIsDrawerOpen(true);
+                }}
+                className="w-full bg-neutral-50 hover:bg-neutral-100 border-2 border-dashed border-neutral-200 rounded-3xl p-6 flex flex-col items-center justify-center text-neutral-500 hover:text-black transition-all group cursor-pointer"
+              >
+                <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform mb-3">
+                  <PackagePlus size={20} strokeWidth={2} />
+                </div>
+                <span className="font-bold text-sm tracking-wide">Add Another Garment from Library</span>
+              </button>
             </>
           )}
         </div>
@@ -980,48 +1148,121 @@ export function PortalCreateOrder() {
                 <X size={20} />
               </button>
             </div>
-
             {/* Drawer Tabs */}
-            <div className="flex gap-4 border-b border-neutral-100 px-8 py-3 overflow-x-auto shrink-0 bg-neutral-50/50">
-              {hasWovnRack && (
+            <div className="flex flex-col border-b border-neutral-100 bg-neutral-50/50">
+              <div className="flex gap-4 px-8 py-3 overflow-x-auto shrink-0">
                 <button
                   type="button"
-                  onClick={() => setActiveLibraryTab('wovn')}
+                  onClick={() => setActiveLibraryTab('rack')}
                   className={`text-sm font-bold pb-1.5 border-b-2 whitespace-nowrap transition-all cursor-pointer ${
-                    activeLibraryTab === 'wovn' 
+                    activeLibraryTab === 'rack' 
                       ? 'text-black border-black' 
                       : 'text-neutral-400 border-transparent hover:text-black hover:border-black'
                   }`}
                 >
-                  WOVN Library ({customerDecks.reduce((acc, deck) => acc + (deck.items || deck.garments || []).length, 0)})
+                  Design Your Rack ({activeRackItems.length})
                 </button>
+                {hasWovnRack && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveLibraryTab('wovn')}
+                    className={`text-sm font-bold pb-1.5 border-b-2 whitespace-nowrap transition-all cursor-pointer ${
+                      activeLibraryTab === 'wovn' 
+                        ? 'text-black border-black' 
+                        : 'text-neutral-400 border-transparent hover:text-black hover:border-black'
+                    }`}
+                  >
+                    WOVN Catalog ({customerDecks.reduce((acc, deck) => acc + (deck.items || deck.garments || []).length, 0)})
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setActiveLibraryTab('suggested')}
+                  className={`text-sm font-bold pb-1.5 border-b-2 whitespace-nowrap transition-all cursor-pointer ${
+                    activeLibraryTab === 'suggested' 
+                      ? 'text-black border-black' 
+                      : 'text-neutral-400 border-transparent hover:text-black hover:border-black'
+                  }`}
+                >
+                  Suggested Items ({suggestedItems.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveLibraryTab('past')}
+                  className={`text-sm font-bold pb-1.5 border-b-2 whitespace-nowrap transition-all cursor-pointer ${
+                    activeLibraryTab === 'past' 
+                      ? 'text-black border-black' 
+                      : 'text-neutral-400 border-transparent hover:text-black hover:border-black'
+                  }`}
+                >
+                  Past Garments ({pastGarments.length})
+                </button>
+              </div>
+
+              {activeLibraryTab === 'rack' && (
+                <div className="flex flex-wrap gap-2 px-8 pb-3 border-t border-neutral-100/50 pt-2.5 overflow-x-auto scrollbar-none">
+                  {Object.keys(customerRacks).map((catName) => (
+                    <button
+                      key={catName}
+                      type="button"
+                      onClick={() => setActiveRackCategory(catName)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all shrink-0 cursor-pointer ${
+                        activeRackCategory === catName
+                          ? 'bg-black text-white'
+                          : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                      }`}
+                    >
+                      {catName}
+                    </button>
+                  ))}
+                </div>
               )}
-              <button
-                type="button"
-                onClick={() => setActiveLibraryTab('suggested')}
-                className={`text-sm font-bold pb-1.5 border-b-2 whitespace-nowrap transition-all cursor-pointer ${
-                  activeLibraryTab === 'suggested' 
-                    ? 'text-black border-black' 
-                    : 'text-neutral-400 border-transparent hover:text-black hover:border-black'
-                }`}
-              >
-                Suggested Items ({suggestedItems.length})
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveLibraryTab('past')}
-                className={`text-sm font-bold pb-1.5 border-b-2 whitespace-nowrap transition-all cursor-pointer ${
-                  activeLibraryTab === 'past' 
-                    ? 'text-black border-black' 
-                    : 'text-neutral-400 border-transparent hover:text-black hover:border-black'
-                }`}
-              >
-                Past Garments ({pastGarments.length})
-              </button>
             </div>
             
             {/* Drawer Content */}
             <div className="flex-1 overflow-y-auto p-8 flex flex-col gap-6">
+              {activeLibraryTab === 'rack' && (
+                activeRackItems.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center p-8 text-center text-neutral-500">
+                    <PackagePlus size={32} className="mb-4 text-neutral-300" />
+                    <p>No garments configured for this category.</p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-3">
+                    {activeRackItems.map((item: any, idx: number) => {
+                      const style = item.customName || item.title || item.style || 'Custom Garment';
+                      const gender = item.gender || 'Unisex';
+                      const itemNum = item.style;
+                      const colors = item.colors || ['Custom Color'];
+                      const sizes = ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'];
+                      const image = getGarmentImage(item);
+                      const price = parseFloat(item.price || 0);
+
+                      return (
+                        <div key={item.id || idx} className="group flex items-center gap-5 bg-white border border-neutral-200 hover:border-black transition-colors rounded-2xl p-4 cursor-pointer shadow-[0_2px_10px_rgb(0,0,0,0.02)] hover:shadow-md">
+                          <div className="w-16 h-16 rounded-xl overflow-hidden bg-neutral-50 border border-neutral-100 shrink-0 flex items-center justify-center">
+                            <img src={image} alt={style} className="w-full h-full object-contain p-1 mix-blend-multiply" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between mb-1">
+                               <h4 className="font-bold text-neutral-900 text-[15px] truncate pr-2">{style}</h4>
+                               <span className="text-[10px] font-bold text-neutral-600 bg-neutral-100 px-2 py-0.5 rounded-full shrink-0">{gender}</span>
+                            </div>
+                            <p className="text-xs text-neutral-400 font-medium mt-1 truncate">{colors.join(' • ')}</p>
+                          </div>
+                          <button 
+                            onClick={() => handleAddItem({ ...item, style, gender, itemNum, colors, sizes, image, price })}
+                            className="w-8 h-8 rounded-full bg-neutral-100 text-neutral-500 group-hover:bg-black group-hover:text-white flex items-center justify-center transition-colors shrink-0 cursor-pointer"
+                          >
+                             <PackagePlus size={16} strokeWidth={2.5} />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )
+              )}
+
               {activeLibraryTab === 'wovn' && (
                 isLoadingDecks ? (
                   <div className="flex items-center justify-center p-8">
@@ -1332,6 +1573,7 @@ export function PortalCreateOrder() {
         isOpen={isGarmentBrowserOpen}
         onClose={() => setIsGarmentBrowserOpen(false)}
         onSelect={handleSelectSanMarGarment}
+        allowedStyleCodes={allowedStyleCodes}
       />
 
     </div>
