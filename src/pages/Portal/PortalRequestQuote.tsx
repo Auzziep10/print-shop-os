@@ -888,7 +888,6 @@ export function PortalRequestQuote() {
                         </div>
                         
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-neutral-500 font-medium mt-1">
-                          {product.itemNum && <span className="font-semibold text-neutral-600 bg-neutral-100 px-1.5 py-0.5 rounded">{product.itemNum}</span>}
                           {isCustomized ? (
                             <span className="text-emerald-600 font-bold bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded flex items-center gap-1">
                               <Sparkles size={10} /> Customized Mockup

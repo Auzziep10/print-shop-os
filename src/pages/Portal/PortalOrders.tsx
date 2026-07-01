@@ -491,7 +491,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                  <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 xl:gap-8 min-h-[80px] relative w-full">
                    
                    {/* Left: Logo & Title */}
-                   <div className="flex items-center gap-4 w-full xl:w-[320px] shrink-0 relative">
+                   <div className="flex items-center gap-4 w-full xl:w-[420px] shrink-0 relative">
                      {/* Grip handle for sorting visible only for admins */}
                      {overrideCustomerId && (
                        <div 
@@ -530,7 +530,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                         }
                       }}
                     >
-                      <h2 className="text-2xl font-serif text-gray-900 hover:text-brand-primary transition-colors line-clamp-1 break-all" title={order.title}>{order.title || 'Custom Order'}</h2>
+                      <h2 className="text-2xl font-serif text-gray-900 hover:text-brand-primary transition-colors whitespace-normal break-words" title={order.title}>{order.title || 'Custom Order'}</h2>
                       {!overrideCustomerId && (
                         <span className="text-gray-400 group-hover:text-black transition-colors shrink-0">
                           <ChevronRight size={20} strokeWidth={2.5} className={`transition-transform duration-500 ease-out ${isExpanded ? 'rotate-90' : ''}`} />
@@ -721,7 +721,6 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
 
                         {/* Specs */}
                         <div className="flex flex-wrap gap-2 flex-1">
-                           {item.itemNum && <DataPill label="Item #" value={item.itemNum} />}
                            {item.color && <DataPill label="Garment Color" value={item.color} />}
                            {item.logos?.map((logo: string, i: number) => (
                              <DataPill key={i} label={`Logo ${i+1}`} value={logo} />

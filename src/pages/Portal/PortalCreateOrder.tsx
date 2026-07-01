@@ -104,9 +104,6 @@ export function PortalCreateOrder() {
       const savedCart = JSON.parse(localStorage.getItem(cartKey) || '[]');
       if (savedCart && savedCart.length > 0) {
         preselected = [...preselected, ...savedCart];
-        // Clear cart from localStorage
-        localStorage.removeItem(cartKey);
-        window.dispatchEvent(new Event('wovn_cart_updated'));
       }
     } catch (e) {
       console.error(e);
@@ -403,6 +400,12 @@ export function PortalCreateOrder() {
       };
 
       await setDoc(doc(db, 'orders', orderId), payload);
+
+      // Clear the reorder cart upon successful order submission
+      const cartKey = `wovn_reorder_cart_${customerId || 'CUS-001'}`;
+      localStorage.removeItem(cartKey);
+      window.dispatchEvent(new Event('wovn_cart_updated'));
+
       navigate(customerId ? `/portal/${customerId}` : '/portal');
     } catch (err) {
       console.error("Failed to submit order", err);
@@ -445,7 +448,20 @@ export function PortalCreateOrder() {
   };
 
   const handleRemoveItem = (instanceId: string) => {
+    const itemToRemove = orderItems.find(item => item.instanceId === instanceId);
     setOrderItems(prev => prev.filter(item => item.instanceId !== instanceId));
+
+    if (itemToRemove) {
+      const cartKey = `wovn_reorder_cart_${customerId || 'CUS-001'}`;
+      try {
+        const savedCart = JSON.parse(localStorage.getItem(cartKey) || '[]');
+        const updatedCart = savedCart.filter((ci: any) => ci.id !== itemToRemove.id && ci.style !== itemToRemove.style);
+        localStorage.setItem(cartKey, JSON.stringify(updatedCart));
+        window.dispatchEvent(new Event('wovn_cart_updated'));
+      } catch (e) {
+        console.error(e);
+      }
+    }
   };
 
   const getActiveSidesCount = (item: any) => {
@@ -736,7 +752,6 @@ export function PortalCreateOrder() {
                           <span className="w-6 h-6 rounded-full bg-neutral-100 flex items-center justify-center text-[10px] font-bold text-neutral-400 shrink-0">{index + 1}</span>
                           <h3 className="text-lg font-bold text-neutral-900">{item.style}</h3>
                         </div>
-                        <p className="text-sm font-semibold text-neutral-500">{item.itemNum}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
