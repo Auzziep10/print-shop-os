@@ -1623,10 +1623,10 @@ export function PublicQuoteRequest() {
           )}
 
           {/* customizable store navbar */}
-          <header className="bg-white/80 backdrop-blur-md border-b border-neutral-200/60 py-4 px-6 sticky top-0 z-50 shadow-2xs">
+          <header className="bg-[#FAF9F5]/90 backdrop-blur-md border-b border-zinc-200/40 py-4 px-6 sticky top-0 z-50 shadow-xs">
             <div className="max-w-[1200px] mx-auto flex items-center justify-between gap-6">
               <div className="flex items-center gap-3">
-                <span className="font-serif font-extrabold text-lg tracking-wider text-neutral-900">
+                <span className="font-serif text-lg font-bold tracking-tight text-zinc-950">
                   {storefrontSettings.logoText}
                 </span>
               </div>
@@ -1635,9 +1635,9 @@ export function PublicQuoteRequest() {
                 {storefrontSettings.contactPhone && (
                   <a 
                     href={`tel:${storefrontSettings.contactPhone}`} 
-                    className="hidden md:flex items-center gap-2 px-3 h-9 rounded-xl text-xs font-bold text-neutral-500 hover:text-neutral-900 hover:bg-neutral-50 transition-all duration-200"
+                    className="hidden md:flex items-center gap-2 px-3.5 h-9 rounded-full text-[10px] font-bold text-zinc-600 hover:text-zinc-950 hover:bg-zinc-950/5 transition-all duration-200 uppercase tracking-[0.2em]"
                   >
-                    <Phone size={14} className="text-neutral-900" />
+                    <Phone size={13} className="text-zinc-950" />
                     <span>{storefrontSettings.contactPhone}</span>
                   </a>
                 )}
@@ -1648,7 +1648,7 @@ export function PublicQuoteRequest() {
                       setEditSettings({ ...storefrontSettings });
                       setIsEditingStorefront(true);
                     }}
-                    className="flex items-center justify-center gap-1.5 px-4 h-9 border border-neutral-200 rounded-xl text-xs font-bold text-neutral-500 hover:border-neutral-900 hover:text-neutral-900 hover:bg-neutral-50 transition-all bg-white shadow-3xs"
+                    className="flex items-center justify-center gap-1.5 px-4 h-9 border border-zinc-300 rounded-full text-[10px] font-bold text-zinc-700 hover:border-zinc-950 hover:text-zinc-955 hover:bg-zinc-950/5 transition-all bg-transparent cursor-pointer"
                   >
                     <Settings size={13} />
                     <span>Customize Store</span>
@@ -1660,26 +1660,26 @@ export function PublicQuoteRequest() {
                     {userData?.role === 'Client' ? (
                       <button
                         onClick={() => navigate(userData.customerId ? `/portal/${userData.customerId}` : '/portal')}
-                        className="flex items-center justify-center gap-1.5 px-4 h-9 bg-neutral-900 text-white rounded-xl text-xs font-bold hover:bg-neutral-800 transition-all shadow-xs animate-in"
+                        className="flex items-center justify-center gap-1.5 px-5 h-9 bg-zinc-950 text-white rounded-full text-[10px] font-bold hover:bg-zinc-800 transition-all uppercase tracking-[0.2em] cursor-pointer"
                       >
                         <span>View Portal</span>
                       </button>
                     ) : (userData && ['Admin', 'Leadership', 'Manager', 'Staff', 'Printer'].includes(userData.role)) ? (
                       <button
                         onClick={() => navigate('/orders')}
-                        className="flex items-center justify-center gap-1.5 px-4 h-9 bg-neutral-900 text-white rounded-xl text-xs font-bold hover:bg-neutral-800 transition-all shadow-xs"
+                        className="flex items-center justify-center gap-1.5 px-5 h-9 bg-zinc-950 text-white rounded-full text-[10px] font-bold hover:bg-zinc-800 transition-all uppercase tracking-[0.2em] cursor-pointer"
                       >
                         <span>Admin Panel</span>
                       </button>
                     ) : (
-                      <span className="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 px-3 h-9 flex items-center justify-center rounded-xl font-bold uppercase tracking-wider">
+                      <span className="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 px-3 h-9 flex items-center justify-center rounded-full font-bold uppercase tracking-wider">
                         Pending
                       </span>
                     )}
                     
                     <button
                       onClick={signOut}
-                      className="px-4 h-9 flex items-center justify-center border border-neutral-200 rounded-xl text-xs font-bold text-neutral-500 hover:border-red-400 hover:text-red-500 transition-all bg-white shadow-3xs"
+                      className="px-4 h-9 flex items-center justify-center border border-zinc-300 rounded-full text-[10px] font-bold text-zinc-700 hover:border-red-400 hover:text-red-500 transition-all bg-transparent uppercase tracking-[0.2em] cursor-pointer"
                     >
                       Sign Out
                     </button>
@@ -1693,15 +1693,15 @@ export function PublicQuoteRequest() {
                         console.error(e);
                       }
                     }}
-                    className="flex items-center justify-center gap-1.5 px-4.5 h-9 bg-neutral-900 text-white hover:bg-neutral-800 rounded-xl text-xs font-bold transition-all shadow-xs"
+                    className="flex items-center justify-center gap-1.5 px-5 h-9 bg-zinc-950 text-white hover:bg-zinc-800 rounded-full text-[10px] font-bold transition-all uppercase tracking-[0.2em] cursor-pointer"
                   >
                     <span>Login</span>
                   </button>
                 )}
 
-                <div className="flex items-center justify-center gap-1.5 bg-neutral-50 px-3.5 h-9 border border-neutral-200 rounded-xl">
-                  <Lock size={12} className="text-neutral-400" />
-                  <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider">Secure</span>
+                <div className="flex items-center justify-center gap-1.5 bg-zinc-950/5 px-3.5 h-9 border border-zinc-200/60 rounded-full">
+                  <Lock size={12} className="text-zinc-400" />
+                  <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-[0.2em]">Secure</span>
                 </div>
               </div>
             </div>
@@ -1716,7 +1716,7 @@ export function PublicQuoteRequest() {
             
             {/* Design Your Rack Path Step 1 */}
             {flowMode === 'racks' && (
-              <div className="bg-white/80 backdrop-blur-md rounded-3xl p-8 border border-neutral-200 shadow-sm max-w-7xl mx-auto space-y-8">
+              <div className="bg-white/40 backdrop-blur-xl rounded-3xl p-8 md:p-12 border border-zinc-200/40 shadow-xs max-w-7xl mx-auto space-y-8">
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => setStep(0)}
@@ -1737,10 +1737,10 @@ export function PublicQuoteRequest() {
                       <button
                         key={catName}
                         onClick={() => setSelectedThemeCategory(catName)}
-                        className={`px-4 py-2 rounded-full border text-[11px] font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer ${
+                        className={`px-4.5 py-2 rounded-full border text-[10px] font-bold uppercase tracking-[0.2em] transition-all duration-200 cursor-pointer ${
                           isSelected 
-                            ? 'bg-neutral-950 border-neutral-950 text-white shadow-xs' 
-                            : 'bg-white border-neutral-200 text-neutral-500 hover:text-neutral-900 hover:border-neutral-350'
+                            ? 'bg-zinc-955 border-zinc-955 text-white shadow-sm' 
+                            : 'bg-transparent border-zinc-200/80 text-zinc-650 hover:text-zinc-950 hover:border-zinc-950 hover:bg-zinc-950/5'
                         }`}
                       >
                         {catName}
@@ -1899,7 +1899,7 @@ export function PublicQuoteRequest() {
         {/* STEP 2: LOGO DESIGN & UPLOAD */}
         {step === 2 && (
           <div className="space-y-8 max-w-7xl mx-auto animate-in fade-in duration-300">
-            <div className="bg-white/80 backdrop-blur-md rounded-3xl p-8 border border-neutral-200 shadow-sm space-y-6">
+            <div className="bg-white/40 backdrop-blur-xl rounded-3xl p-8 md:p-12 border border-zinc-200/40 shadow-xs space-y-6">
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => setStep(1)}
@@ -2131,7 +2131,7 @@ export function PublicQuoteRequest() {
         {step === 3 && logoUrl && (
           <div className="space-y-8 animate-in fade-in duration-500">
             {/* Header step card */}
-            <div className="w-full bg-white/85 backdrop-blur-md rounded-3xl p-6 border border-neutral-200 shadow-3xs flex items-center justify-between gap-4">
+            <div className="w-full bg-white/40 backdrop-blur-xl rounded-3xl p-6 md:p-8 border border-zinc-200/40 shadow-xs flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => setStep(2)}
@@ -2367,7 +2367,7 @@ export function PublicQuoteRequest() {
         {/* STEP 4: SIZES & QUANTITIES BREAKDOWN */}
         {step === 4 && cart.length > 0 && (
           <div className="space-y-8 animate-in fade-in duration-500">
-            <div className="w-full bg-white/85 backdrop-blur-md rounded-3xl p-6 border border-neutral-200 shadow-3xs flex items-center gap-3">
+            <div className="w-full bg-white/40 backdrop-blur-xl rounded-3xl p-6 md:p-8 border border-zinc-200/40 shadow-xs flex items-center gap-3">
               <button
                 onClick={() => setStep(3)}
                 className="p-2 border border-neutral-200 hover:border-neutral-450 text-neutral-500 hover:text-neutral-900 bg-neutral-50 rounded-xl transition-all shadow-3xs cursor-pointer"
@@ -2444,7 +2444,7 @@ export function PublicQuoteRequest() {
         {/* STEP 5: REVIEW DETAILS & CHECKOUT */}
         {step === 5 && cart.length > 0 && (
           <div className="space-y-8 animate-in fade-in duration-500">
-            <div className="w-full bg-white/85 backdrop-blur-md rounded-3xl p-6 border border-neutral-200 shadow-3xs flex items-center gap-3">
+            <div className="w-full bg-white/40 backdrop-blur-xl rounded-3xl p-6 md:p-8 border border-zinc-200/40 shadow-xs flex items-center gap-3">
               <button
                 onClick={() => setStep(4)}
                 className="p-2 border border-neutral-200 hover:border-neutral-450 text-neutral-500 hover:text-neutral-900 bg-neutral-50 rounded-xl transition-all shadow-3xs cursor-pointer"
@@ -2458,7 +2458,7 @@ export function PublicQuoteRequest() {
             </div>
 
             {/* Client Registration Notice */}
-            <div className="bg-white/80 backdrop-blur-md border border-neutral-200 rounded-3xl p-5 flex gap-4 items-start text-xs text-neutral-600 leading-relaxed shadow-3xs max-w-4xl">
+            <div className="bg-white/40 backdrop-blur-xl border border-zinc-200/40 rounded-3xl p-5 flex gap-4 items-start text-xs text-neutral-600 leading-relaxed shadow-xs max-w-4xl">
               <div className="bg-neutral-100 p-2 rounded-xl text-neutral-900 shrink-0">
                 <UserPlus size={18} />
               </div>
