@@ -19,6 +19,7 @@ import { getTrackingLink, normalizeUser } from '../../lib/utils';
 import { PalletPickOptimizerModal } from '../../components/Inventory/PalletPickOptimizerModal';
 import { GarmentCustomizerModal } from '../../components/Portal/GarmentCustomizerModal';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
+import { sendOrderStatusSMS } from '../../lib/smsService';
 const sanmarCatalog = sanmarCatalogJson as any[];
 
 const SIZE_ORDER = ['XXS', 'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL', 'OSFA'];
@@ -1243,6 +1244,9 @@ export function OrderDetail() {
         statusIndex: newIndex,
         activities: [activity, ...(order.activities || [])]
       }, { merge: true });
+
+      // Trigger SMS notification via QUO System
+      sendOrderStatusSMS(id, newIndex);
     } catch(err) {
       console.error(err);
     }
@@ -2087,9 +2091,10 @@ export function OrderDetail() {
   }, [orders, id]);
 
   const handleSaveEdit = async () => {
-    if (!id) return;
+    if (!id || !order) return;
     setIsSaving(true);
     try {
+      const statusChanged = editForm.statusIndex !== order.statusIndex;
       await setDoc(doc(db, 'orders', id), {
         title: editForm.title,
         date: editForm.date,
@@ -2102,6 +2107,10 @@ export function OrderDetail() {
         thirdPartyBilling: editForm.thirdPartyBilling
       }, { merge: true });
       setIsEditDialogOpen(false);
+
+      if (statusChanged) {
+        sendOrderStatusSMS(id, editForm.statusIndex);
+      }
     } catch (err) {
       console.error("Error updating order:", err);
       // Fallback update could go here if using local state array, but we have onSnapshot so it's live!

@@ -10,6 +10,7 @@ import { db } from '../../lib/firebase';
 import { ProductionCalendar } from '../Dashboard/ProductionCalendar';
 import { Production } from '../Production/Production';
 import { useAuth } from '../../contexts/AuthContext';
+import { sendOrderStatusSMS } from '../../lib/smsService';
 
 export function OrdersList() {
   const { hasPermission } = useAuth();
@@ -66,6 +67,7 @@ export function OrdersList() {
     const nextIndex = currentIndex < 8 ? currentIndex + 1 : 0;
     try {
       await updateDoc(doc(db, 'orders', orderId), { statusIndex: nextIndex });
+      sendOrderStatusSMS(orderId, nextIndex);
     } catch (err) {
       console.error("Error updating status: ", err);
     }
