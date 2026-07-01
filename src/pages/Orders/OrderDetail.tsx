@@ -2676,6 +2676,26 @@ export function OrderDetail() {
                                             <span>Download Artwork</span>
                                          </a>
                                        )}
+                                       {(() => {
+                                         const sanmarProduct = item.itemNum 
+                                           ? sanmarCatalog.find((p: any) => p.style.toLowerCase() === item.itemNum.toLowerCase()) 
+                                           : null;
+                                         if (!sanmarProduct) return null;
+                                         const sanmarUrl = `https://www.sanmar.com/p/${sanmarProduct.style}`;
+                                         return (
+                                           <a 
+                                             href={sanmarUrl} 
+                                             target="_blank" 
+                                             rel="noreferrer" 
+                                             onClick={(e) => e.stopPropagation()}
+                                             className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-widest text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all px-3 py-1.5 rounded-full shadow-sm hover:shadow-md hover:-translate-y-[1px] shrink-0 whitespace-nowrap"
+                                             title={`View ${item.itemNum} on SanMar`}
+                                           >
+                                             <ExternalLink size={12} strokeWidth={3} />
+                                             <span>SanMar</span>
+                                           </a>
+                                         );
+                                       })()}
                                       <button 
                                         onClick={(e) => {
                                            e.stopPropagation();
@@ -4444,25 +4464,77 @@ export function OrderDetail() {
                   <button 
                     onClick={() => {
                       const isAlreadyGang = editItemObj.itemType === 'gang_sheet';
-                      const initialArtworks = isAlreadyGang && Array.isArray(editItemObj.artworks) && editItemObj.artworks.length > 0
-                        ? editItemObj.artworks
-                        : (editItemObj.originalSheetUrl
-                           ? [{ id: `art-${Date.now()}`, name: 'Existing Artwork', url: editItemObj.originalSheetUrl, imageUrl: editItemObj.originalSheetUrl, originalUrl: editItemObj.originalSheetUrl, width: editItemObj.sheetWidth || 3.5, height: editItemObj.sheetHeight || 3.5, quantity: editItemObj.quantity || 1 }]
-                           : (editItemObj.sheetSizeName === 'Single Design Transfer'
-                              ? [{ id: `art-${Date.now()}`, name: '', url: '', imageUrl: '', originalUrl: '', width: 3.5, height: 3.5, quantity: 10 }]
-                              : []));
                       
+                      // Collect customized logos from portal customization if any
+                      const customizedLogos: Array<{ url: string; name: string }> = [];
+                      if (editItemObj.logoUrl) {
+                        customizedLogos.push({ url: editItemObj.logoUrl, name: editItemObj.logoName || 'Front Logo' });
+                      }
+                      if (editItemObj.logoUrlBack) {
+                        customizedLogos.push({ url: editItemObj.logoUrlBack, name: editItemObj.logoNameBack || 'Back Logo' });
+                      }
+                      if (editItemObj.logoUrlLeftSleeve) {
+                        customizedLogos.push({ url: editItemObj.logoUrlLeftSleeve, name: editItemObj.logoNameLeftSleeve || 'Left Sleeve Logo' });
+                      }
+                      if (editItemObj.logoUrlRightSleeve) {
+                        customizedLogos.push({ url: editItemObj.logoUrlRightSleeve, name: editItemObj.logoNameRightSleeve || 'Right Sleeve Logo' });
+                      }
+
+                      let initialArtworks = [];
+                      if (isAlreadyGang && Array.isArray(editItemObj.artworks) && editItemObj.artworks.length > 0) {
+                        initialArtworks = editItemObj.artworks;
+                      } else if (customizedLogos.length > 0) {
+                        initialArtworks = customizedLogos.map((logo, idx) => ({
+                          id: `art-${Date.now()}-${idx}`,
+                          name: logo.name,
+                          url: logo.url,
+                          imageUrl: logo.url,
+                          originalUrl: logo.url,
+                          width: 3.5,
+                          height: 3.5,
+                          quantity: 10
+                        }));
+                      } else if (editItemObj.originalSheetUrl) {
+                        initialArtworks = [{ 
+                          id: `art-${Date.now()}`, 
+                          name: 'Existing Artwork', 
+                          url: editItemObj.originalSheetUrl, 
+                          imageUrl: editItemObj.originalSheetUrl, 
+                          originalUrl: editItemObj.originalSheetUrl, 
+                          width: editItemObj.sheetWidth || 3.5, 
+                          height: editItemObj.sheetHeight || 3.5, 
+                          quantity: editItemObj.quantity || 1 
+                        }];
+                      } else if (editItemObj.sheetSizeName === 'Single Design Transfer') {
+                        initialArtworks = [{ 
+                          id: `art-${Date.now()}`, 
+                          name: '', 
+                          url: '', 
+                          imageUrl: '', 
+                          originalUrl: '', 
+                          width: 3.5, 
+                          height: 3.5, 
+                          quantity: 10 
+                        }];
+                      } else {
+                        initialArtworks = [];
+                      }
+
                       const targetLayoutType = editItemObj.sheetSizeName || 'Single Design Transfer';
-                      
+                      const targetStyleName = (!isAlreadyGang && customizedLogos.length > 0)
+                        ? customizedLogos.map(l => l.name).join(' & ')
+                        : editItemObj.style;
+
                       setEditItemObj({
                         ...editItemObj, 
                         itemType: 'gang_sheet',
+                        style: targetStyleName,
                         sheetSizeName: targetLayoutType,
                         sheetWidth: editItemObj.sheetWidth || 22,
                         sheetHeight: editItemObj.sheetHeight || 24,
                         quantity: targetLayoutType === 'Single Design Transfer' ? 1 : (editItemObj.quantity || editItemObj.qty || 1),
                         price: editItemObj.price || '$0.00',
-                        image: editItemObj.image || editItemObj.originalSheetUrl || '',
+                        image: editItemObj.image || editItemObj.originalSheetUrl || (customizedLogos.length > 0 ? customizedLogos[0].url : ''),
                         artworks: initialArtworks
                       });
                     }}
