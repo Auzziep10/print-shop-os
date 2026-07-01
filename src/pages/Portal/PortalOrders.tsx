@@ -105,28 +105,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
   const [dragOverOrderId, setDragOverOrderId] = useState<string | null>(null);
   const [payingOrder, setPayingOrder] = useState<any | null>(null);
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
-  const [selectedItems, setSelectedItems] = useState<Record<string, { orderId: string, item: any }>>({});
 
-  const handleToggleItemSelection = (orderId: string, item: any) => {
-    setSelectedItems(prev => {
-      const isSelected = !!prev[item.id];
-      const newSelections = { ...prev };
-      
-      if (isSelected) {
-        delete newSelections[item.id];
-      } else {
-        const existingKeys = Object.keys(prev);
-        if (existingKeys.length > 0) {
-          const firstKey = existingKeys[0];
-          if (prev[firstKey].orderId !== orderId) {
-            return { [item.id]: { orderId, item } };
-          }
-        }
-        newSelections[item.id] = { orderId, item };
-      }
-      return newSelections;
-    });
-  };
 
   const getActiveSidesCountForOrderItem = (item: any) => {
     if (!item.customized) return 1;
@@ -623,53 +602,11 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
             {order.items && order.items.length > 0 && (
                 <div className={`grid transition-all duration-500 ease-in-out ${isExpanded ? 'grid-rows-[1fr] opacity-100 mt-14' : 'grid-rows-[0fr] opacity-0 mt-0 pointer-events-none'}`}>
                   <div className="overflow-hidden space-y-4">
-                    {/* Batch Reorder Bar */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-brand-border/40">
+                    {/* Header bar */}
+                    <div className="flex items-center justify-between pb-4 border-b border-brand-border/40">
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-bold text-neutral-400 uppercase tracking-widest">Items in this order</span>
                         <span className="bg-neutral-100 text-neutral-600 text-[10px] font-bold px-2 py-0.5 rounded-full">{order.items.length}</span>
-                      </div>
-                      
-                      <div className="flex items-center gap-3">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const allSelected = order.items.every((item: any) => !!selectedItems[item.id]);
-                            setSelectedItems(prev => {
-                              const next = { ...prev };
-                              order.items.forEach((item: any) => {
-                                if (allSelected) {
-                                  delete next[item.id];
-                                } else {
-                                  next[item.id] = { orderId: order.id, item };
-                                }
-                              });
-                              return next;
-                            });
-                          }}
-                          className="text-xs font-bold text-brand-primary hover:text-black transition-colors"
-                        >
-                          {order.items.every((item: any) => !!selectedItems[item.id]) ? 'Deselect All' : 'Select All'}
-                        </button>
-                        
-                        {Object.values(selectedItems).filter((sel: any) => sel.orderId === order.id).length > 0 && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              const selectedForThisOrder = Object.values(selectedItems)
-                                .filter((sel: any) => sel.orderId === order.id)
-                                .map((sel: any) => sel.item);
-                              
-                              navigate(`/portal/${currentCustomerId}/create`, {
-                                state: { preselectedItems: selectedForThisOrder }
-                              });
-                            }}
-                            className="bg-black hover:bg-neutral-800 text-white text-xs font-bold px-4 py-2 rounded-full transition-all shadow-sm hover:shadow flex items-center gap-1.5"
-                          >
-                            <RotateCcw size={12} />
-                            <span>Reorder Selected ({Object.values(selectedItems).filter((sel: any) => sel.orderId === order.id).length})</span>
-                          </button>
-                        )}
                       </div>
                     </div>
                     {order.items.map((item: any) => (
@@ -678,28 +615,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                        {/* Left Side: Visual & Specs */}
                        <div className={`flex flex-col lg:flex-row lg:items-center gap-4 flex-1 min-w-0 ${hideHeader ? 'pr-2' : ''}`}>
                         {/* Product Visual */}
-                          <div className="flex items-center gap-4 w-auto shrink-0 pr-4 min-w-[270px]">
-                            {/* Checkbox for Reordering */}
-                            <div 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleToggleItemSelection(order.id, item);
-                              }}
-                              className="flex items-center justify-center cursor-pointer p-1 -ml-1 select-none"
-                            >
-                              <div className={`w-5 h-5 rounded-md border flex items-center justify-center transition-all ${
-                                !!selectedItems[item.id] 
-                                  ? 'bg-black border-black text-white' 
-                                  : 'border-neutral-300 hover:border-black bg-white'
-                              }`}>
-                                {!!selectedItems[item.id] && (
-                                  <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 20 20">
-                                    <path d="M0 11l2-2 5 5L18 3l2 2L7 18z" />
-                                  </svg>
-                                )}
-                              </div>
-                            </div>
-
+                          <div className="flex items-center gap-4 w-auto shrink-0 pr-4 min-w-[240px]">
                             <div 
                              onMouseEnter={() => setHoveredItemId(item.id)}
                              onMouseLeave={() => setHoveredItemId(null)}
@@ -846,6 +762,20 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                             );
                           })()}
                         </div>
+
+                        {/* Reorder Button */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/portal/${currentCustomerId}/create`, {
+                              state: { preselectedItems: [item] }
+                            });
+                          }}
+                          className="bg-black hover:bg-neutral-800 text-white text-[10px] font-bold uppercase tracking-[0.2em] px-4.5 py-2.5 rounded-full transition-all shadow-3xs cursor-pointer h-[38px] flex items-center justify-center gap-1.5 shrink-0"
+                        >
+                          <RotateCcw size={11} />
+                          <span>Reorder</span>
+                        </button>
                       </div>
                       </div>
                       
