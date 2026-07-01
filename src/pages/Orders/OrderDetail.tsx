@@ -2677,25 +2677,25 @@ export function OrderDetail() {
                                          </a>
                                        )}
                                        {(() => {
-                                         const sanmarProduct = item.itemNum 
-                                           ? sanmarCatalog.find((p: any) => p.style.toLowerCase() === item.itemNum.toLowerCase()) 
-                                           : null;
-                                         if (!sanmarProduct) return null;
-                                         const sanmarUrl = `https://www.sanmar.com/p/${sanmarProduct.style}`;
-                                         return (
-                                           <a 
-                                             href={sanmarUrl} 
-                                             target="_blank" 
-                                             rel="noreferrer" 
-                                             onClick={(e) => e.stopPropagation()}
-                                             className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-widest text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all px-3 py-1.5 rounded-full shadow-sm hover:shadow-md hover:-translate-y-[1px] shrink-0 whitespace-nowrap"
-                                             title={`View ${item.itemNum} on SanMar`}
-                                           >
-                                             <ExternalLink size={12} strokeWidth={3} />
-                                             <span>SanMar</span>
-                                           </a>
-                                         );
-                                       })()}
+                                          if (!item.itemNum) return null;
+                                          const isInCatalog = sanmarCatalog.some((p: any) => p.style.toLowerCase() === item.itemNum.toLowerCase());
+                                          const isSanMarPattern = /^(AL|BC|PC|LPC|BP|K|L|S|Y|ST|LST|PST|YST|DT|DM|CS|MM|RH|TM|OG|LOG|NK|EB|CT|CX|AA|CH|GD|HN|G|SS|JR|RS|NL)\d/i.test(item.itemNum);
+                                          if (!isInCatalog && !isSanMarPattern) return null;
+                                          const sanmarUrl = `https://www.sanmar.com/search/?text=${encodeURIComponent(item.itemNum)}`;
+                                          return (
+                                            <a 
+                                              href={sanmarUrl} 
+                                              target="_blank" 
+                                              rel="noreferrer" 
+                                              onClick={(e) => e.stopPropagation()}
+                                              className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-widest text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all px-3 py-1.5 rounded-full shadow-sm hover:shadow-md hover:-translate-y-[1px] shrink-0 whitespace-nowrap"
+                                              title={`Search ${item.itemNum} on SanMar`}
+                                            >
+                                              <ExternalLink size={12} strokeWidth={3} />
+                                              <span>SanMar</span>
+                                            </a>
+                                          );
+                                        })()}
                                       <button 
                                         onClick={(e) => {
                                            e.stopPropagation();
