@@ -9,6 +9,19 @@ import { tokens } from '../../lib/tokens';
 
 const SIZES = ['XXS', 'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL', 'OSFA'];
 
+const sortSizes = (a: string, b: string) => {
+  const orderMap: Record<string, number> = { 
+    'yxs':-5, 'ys':-4, 'ym':-3, 'yl':-2, 'yxl':-1,
+    'xxs':1, 'xs':2, 's':3, 'm':4, 'l':5, 'xl':6, 'xxl':7, '2xl':7, '3xl':8, '4xl':9, '5xl':10, 'osfa':11, 'os':12 
+  };
+  const aKey = a.split(' ')[0].toLowerCase();
+  const bKey = b.split(' ')[0].toLowerCase();
+  const aVal = orderMap[aKey] || 99;
+  const bVal = orderMap[bKey] || 99;
+  if (aVal !== bVal) return aVal - bVal;
+  return a.localeCompare(b);
+};
+
 const BOX_SWATCHES = [
   '#d8a47f', // Kraft cardboard (default)
   '#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', 
@@ -728,13 +741,30 @@ export function ProductsTab({
                      
                      <div className="col-span-1 md:col-span-3 mt-4 mb-2">
                         <div className="flex justify-between items-center mb-3">
-                           <label className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary block">Size Spread Matrix</label>
+                           <div className="flex items-center gap-3">
+                              <label className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary block">Size Spread Matrix</label>
+                              {isEditing && (
+                                 <button
+                                    type="button"
+                                    onClick={() => {
+                                       const youthSizes = { 'YXS': 0, 'YS': 0, 'YM': 0, 'YL': 0, 'YXL': 0 };
+                                       setFormData(prev => ({
+                                          ...prev,
+                                          sizeSpread: { ...youthSizes, ...(prev.sizeSpread || {}) }
+                                       }));
+                                    }}
+                                    className="text-[9px] font-bold uppercase tracking-wider text-brand-primary border border-brand-primary/20 hover:bg-brand-primary/5 px-2.5 py-1 rounded-full transition-all cursor-pointer"
+                                 >
+                                    + Add Youth Sizing
+                                 </button>
+                              )}
+                           </div>
                            <span className="text-[10px] bg-neutral-200 text-brand-primary px-2.5 py-1 rounded-full font-bold">
-                              {SIZES.reduce((sum, size) => sum + (formData.sizeSpread[size] || 0), 0)} Total Units
+                              {Object.values(formData.sizeSpread || {}).reduce((sum: number, val: any) => sum + (val || 0), 0) as number} Total Units
                            </span>
                         </div>
                         <div className="bg-white border border-brand-border rounded-xl p-6 flex flex-wrap gap-4 shadow-sm">
-                           {SIZES.map(size => (
+                           {Array.from(new Set([...SIZES, ...Object.keys(formData.sizeSpread || {})])).sort(sortSizes).map(size => (
                               <div key={size} className="flex flex-col gap-2 w-16">
                                  <span className="text-[10px] font-bold text-center text-brand-secondary">{size}</span>
                                  <input 

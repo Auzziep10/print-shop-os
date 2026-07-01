@@ -80,6 +80,31 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
   const [fetchingLogo, setFetchingLogo] = useState<boolean>(true);
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
   const [expandedOrderShipments, setExpandedOrderShipments] = useState<Record<string, boolean>>({});
+  const [addedItemIds, setAddedItemIds] = useState<Record<string, boolean>>({});
+
+  const handleReorderClick = (item: any) => {
+    const cartKey = `wovn_reorder_cart_${currentCustomerId}`;
+    let currentCart = [];
+    try {
+      currentCart = JSON.parse(localStorage.getItem(cartKey) || '[]');
+    } catch (e) {
+      console.error(e);
+    }
+    // Check if garment is already in cart. If so, don't duplicate.
+    const exists = currentCart.some((ci: any) => ci.id === item.id);
+    if (!exists) {
+      currentCart.push(item);
+      localStorage.setItem(cartKey, JSON.stringify(currentCart));
+    }
+    // Set added animation state
+    setAddedItemIds(prev => ({ ...prev, [item.id]: true }));
+    setTimeout(() => {
+      setAddedItemIds(prev => ({ ...prev, [item.id]: false }));
+    }, 1500);
+
+    // Dispatch event
+    window.dispatchEvent(new Event('wovn_cart_updated'));
+  };
 
   useEffect(() => {
     const fetchCustomer = async () => {
@@ -767,14 +792,22 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            navigate(`/portal/${currentCustomerId}/create`, {
-                              state: { preselectedItems: [item] }
-                            });
+                            handleReorderClick(item);
                           }}
-                          className="bg-black hover:bg-neutral-800 text-white text-[10px] font-bold uppercase tracking-[0.2em] px-4.5 py-2.5 rounded-full transition-all shadow-3xs cursor-pointer h-[38px] flex items-center justify-center gap-1.5 shrink-0"
+                          className={`w-9 h-9 rounded-full flex items-center justify-center transition-all shadow-3xs cursor-pointer shrink-0 ${
+                            addedItemIds[item.id]
+                              ? 'bg-emerald-600 text-white font-extrabold scale-105 animate-in zoom-in-95 duration-200'
+                              : 'bg-black hover:bg-neutral-800 text-white hover:scale-105 active:scale-95'
+                          }`}
+                          title="Reorder"
                         >
-                          <RotateCcw size={11} />
-                          <span>Reorder</span>
+                          {addedItemIds[item.id] ? (
+                            <svg className="w-4 h-4 fill-none stroke-current animate-in fade-in duration-200" strokeWidth={3} viewBox="0 0 24 24">
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                          ) : (
+                            <RotateCcw size={14} />
+                          )}
                         </button>
                       </div>
                       </div>

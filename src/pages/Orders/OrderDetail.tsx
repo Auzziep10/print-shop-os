@@ -25,7 +25,10 @@ const sanmarCatalog = sanmarCatalogJson as any[];
 const SIZE_ORDER = ['XXS', 'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL', 'OSFA'];
 
 const sortSizes = (a: string, b: string) => {
-      const orderMap: Record<string, number> = { 'xxs':1, 'xs':2, 's':3, 'm':4, 'l':5, 'xl':6, 'xxl':7, '2xl':7, '3xl':8, '4xl':9, '5xl':10, 'osfa':11, 'os':12 };
+      const orderMap: Record<string, number> = { 
+        'yxs':-5, 'ys':-4, 'ym':-3, 'yl':-2, 'yxl':-1,
+        'xxs':1, 'xs':2, 's':3, 'm':4, 'l':5, 'xl':6, 'xxl':7, '2xl':7, '3xl':8, '4xl':9, '5xl':10, 'osfa':11, 'os':12 
+      };
       const aKey = a.split(' ')[0].toLowerCase();
       const bKey = b.split(' ')[0].toLowerCase();
       const aVal = orderMap[aKey] || 99;
@@ -5159,7 +5162,22 @@ export function OrderDetail() {
                  {(!editItemObj.itemType || editItemObj.itemType === 'garment') && (
                    <div className="flex flex-col gap-3">
                      <div className="flex items-center justify-between">
-                       <label className="text-xs font-bold uppercase tracking-widest text-brand-secondary">Size Spread Matrix</label>
+                        <div className="flex items-center gap-3">
+                          <label className="text-xs font-bold uppercase tracking-widest text-brand-secondary">Size Spread Matrix</label>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const youthSizes = { 'YXS': 0, 'YS': 0, 'YM': 0, 'YL': 0, 'YXL': 0 };
+                              setEditItemObj({
+                                ...editItemObj,
+                                sizes: { ...youthSizes, ...(editItemObj.sizes || {}) }
+                              });
+                            }}
+                            className="text-[10px] font-bold uppercase tracking-wider text-brand-primary border border-brand-primary/20 hover:bg-brand-primary/5 px-2.5 py-1 rounded-full transition-all cursor-pointer"
+                          >
+                            + Add Youth Sizing
+                          </button>
+                        </div>
                        <span className="text-xs font-semibold text-brand-primary bg-brand-primary/10 px-2 py-0.5 rounded-full">
                           {Number(Object.values(editItemObj.sizes || {}).reduce((a: any, b: any) => a + (parseInt(b) || 0), 0))} Total Units
                        </span>

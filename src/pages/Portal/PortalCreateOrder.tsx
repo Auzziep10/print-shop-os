@@ -4,6 +4,19 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { db } from '../../lib/firebase';
 import { doc, getDoc, collection, query, where, getDocs, setDoc } from 'firebase/firestore';
 import { GarmentCustomizerModal } from '../../components/Portal/GarmentCustomizerModal';
+
+const sortSizes = (a: string, b: string) => {
+  const orderMap: Record<string, number> = { 
+    'yxs':-5, 'ys':-4, 'ym':-3, 'yl':-2, 'yxl':-1,
+    'xxs':1, 'xs':2, 's':3, 'm':4, 'l':5, 'xl':6, 'xxl':7, '2xl':7, '3xl':8, '4xl':9, '5xl':10, 'osfa':11, 'os':12 
+  };
+  const aKey = a.split(' ')[0].toLowerCase();
+  const bKey = b.split(' ')[0].toLowerCase();
+  const aVal = orderMap[aKey] || 99;
+  const bVal = orderMap[bKey] || 99;
+  if (aVal !== bVal) return aVal - bVal;
+  return a.localeCompare(b);
+};
 const findColorsInObj = (obj: any, maxDepth = 4): string[] | null => {
   if (!obj || typeof obj !== 'object' || maxDepth === 0) return null;
   const colorKeys = ['availableColors', 'available_colors', 'colors', 'Colors', 'color', 'Color', 'AvailableColors'];
@@ -78,12 +91,31 @@ export function PortalCreateOrder() {
   const [pendingPreselected, setPendingPreselected] = useState<any[] | null>(null);
 
   useEffect(() => {
+    let preselected: any[] = [];
     if (location.state?.preselectedItems && Array.isArray(location.state.preselectedItems)) {
-      setPendingPreselected(location.state.preselectedItems);
+      preselected = [...location.state.preselectedItems];
       // Clear location state to avoid repeating on reload
       window.history.replaceState({}, document.title);
     }
-  }, [location.state]);
+
+    // Check localStorage cart items
+    const cartKey = `wovn_reorder_cart_${customerId || 'CUS-001'}`;
+    try {
+      const savedCart = JSON.parse(localStorage.getItem(cartKey) || '[]');
+      if (savedCart && savedCart.length > 0) {
+        preselected = [...preselected, ...savedCart];
+        // Clear cart from localStorage
+        localStorage.removeItem(cartKey);
+        window.dispatchEvent(new Event('wovn_cart_updated'));
+      }
+    } catch (e) {
+      console.error(e);
+    }
+
+    if (preselected.length > 0) {
+      setPendingPreselected(preselected);
+    }
+  }, [location.state, customerId]);
 
   const mapPrevItemToBuilderItem = (item: any, decks: any[]) => {
     const quantities = item.sizes || {};
@@ -750,9 +782,24 @@ export function PortalCreateOrder() {
                     data-tour={index === 0 ? "sizing-matrix" : undefined}
                     className="bg-neutral-50 rounded-xl p-4 flex flex-col items-start border border-neutral-200 gap-3"
                   >
-                     <span className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Size Run</span>
+                     <div className="flex justify-between items-center w-full">
+                       <span className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Size Run</span>
+                       <button
+                         type="button"
+                         onClick={() => {
+                           const youthSizes = { 'YXS': 0, 'YS': 0, 'YM': 0, 'YL': 0, 'YXL': 0 };
+                           setOrderItems(prev => prev.map(o => o.instanceId === item.instanceId ? {
+                             ...o,
+                             quantities: { ...youthSizes, ...(o.quantities || {}) }
+                           } : o));
+                         }}
+                         className="text-[9px] font-bold uppercase tracking-wider text-neutral-600 bg-white border border-neutral-200 hover:border-neutral-400 px-2.5 py-1 rounded-full transition-all cursor-pointer shadow-3xs"
+                       >
+                         + Add Youth Sizing
+                       </button>
+                     </div>
                      <div className="flex flex-wrap gap-2 w-full">
-                       {Object.keys(item.quantities).map((size) => (
+                       {Object.keys(item.quantities).sort(sortSizes).map((size) => (
                          <div key={size} className="flex-1 min-w-[50px] flex flex-col bg-white border border-neutral-200 rounded-lg overflow-hidden focus-within:border-black focus-within:ring-1 focus-within:ring-black transition-all">
                            <div className="bg-neutral-100 text-neutral-600 text-[10px] font-bold py-1.5 uppercase tracking-wide flex items-center justify-center border-b border-neutral-200">
                              {size}

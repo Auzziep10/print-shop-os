@@ -1,5 +1,5 @@
 import { Outlet, useParams, useNavigate, useLocation } from 'react-router-dom';
-import { Search, Info, HelpCircle, User, Settings, LogOut, X } from 'lucide-react';
+import { Search, Info, HelpCircle, User, Settings, LogOut, X, ShoppingBag } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useState, useEffect } from 'react';
 import { PortalHelpDrawer } from '../Portal/PortalHelpDrawer';
@@ -21,6 +21,24 @@ export function PortalLayout() {
   const [isLoadingCustomer, setIsLoadingCustomer] = useState(true);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [cartCount, setCartCount] = useState(0);
+
+  useEffect(() => {
+    const updateCount = () => {
+      const cartKey = `wovn_reorder_cart_${customerId || 'CUS-001'}`;
+      try {
+        const cart = JSON.parse(localStorage.getItem(cartKey) || '[]');
+        setCartCount(cart.length);
+      } catch (e) {
+        setCartCount(0);
+      }
+    };
+    updateCount();
+    window.addEventListener('wovn_cart_updated', updateCount);
+    return () => {
+      window.removeEventListener('wovn_cart_updated', updateCount);
+    };
+  }, [customerId]);
   
   // Settings Form States
   const [editContactName, setEditContactName] = useState('');
@@ -231,6 +249,22 @@ export function PortalLayout() {
           </button>
           
           
+          {cartCount > 0 && (
+            <button
+              onClick={() => navigate(customerId ? `/portal/${customerId}/create` : '/portal/create')}
+              className="bg-white border border-emerald-500 text-emerald-700 px-4.5 py-2.5 rounded-full text-xs font-bold tracking-wide hover:bg-neutral-50 hover:scale-105 active:scale-95 transition-all shadow-sm flex items-center gap-2 cursor-pointer mr-2 animate-in zoom-in-95 duration-200"
+              title="View Reorder Cart"
+            >
+              <div className="relative">
+                <ShoppingBag size={15} className="text-emerald-600" />
+                <span className="absolute -top-1.5 -right-1.5 bg-emerald-600 text-white text-[9px] font-extrabold w-4 h-4 rounded-full flex items-center justify-center border border-white">
+                  {cartCount}
+                </span>
+              </div>
+              <span className="font-extrabold uppercase text-[10px] tracking-wider text-emerald-600">Reorder Cart</span>
+            </button>
+          )}
+
           <button 
             data-tour="create-order-btn"
             onClick={handleCreateOrder}

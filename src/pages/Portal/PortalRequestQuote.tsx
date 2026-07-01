@@ -923,40 +923,69 @@ export function PortalRequestQuote() {
                       )}
                     </div>
                   </div>
-
-                  {/* Customization Details & Sizing matrix */}
+{/* Customization Details & Sizing matrix */}
                   <div className="flex flex-col gap-4">
                     {/* Sizing Matrix */}
                     <div className="bg-neutral-50 rounded-2xl p-4 flex flex-col items-start border border-neutral-100 gap-3">
-                       <div className="flex justify-between items-center w-full">
-                         <span className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Quantities by Size</span>
-                         <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">
-                           Total Qty: {Object.values(product.sizes || {}).reduce((sum: number, val: any) => sum + (parseInt(val.toString()) || 0), 0) as number} units
-                         </span>
-                       </div>
-                       <div className="flex flex-wrap gap-2 w-full">
-                         {['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'OSFA'].map((size) => (
-                           <div key={size} className="flex-1 min-w-[50px] flex flex-col bg-white border border-neutral-200 rounded-lg overflow-hidden focus-within:border-black focus-within:ring-1 focus-within:ring-black transition-all">
-                             <div className="bg-neutral-100 text-neutral-600 text-[10px] font-bold py-1.5 uppercase tracking-wide flex items-center justify-center border-b border-neutral-200">
-                               {size}
-                             </div>
-                             <input 
-                               type="number"
-                               min="0"
-                               value={product.sizes?.[size] || ''}
-                               placeholder="0"
-                               onChange={(e) => {
-                                 const val = parseInt(e.target.value) || 0;
-                                 setProducts(prev => prev.map((p: any) => p.id === product.id ? { 
-                                   ...p, 
-                                   sizes: { ...(p.sizes || {}), [size]: val } 
-                                 } : p));
-                               }}
-                               className="w-full h-10 text-center text-sm font-bold text-neutral-900 focus:outline-none placeholder:text-neutral-300 font-bold"
-                             />
-                           </div>
-                         ))}
-                       </div>
+                        <div className="flex justify-between items-center w-full">
+                          <div className="flex items-center gap-3">
+                            <span className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Quantities by Size</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const youthSizes = { 'YXS': 0, 'YS': 0, 'YM': 0, 'YL': 0, 'YXL': 0 };
+                                setProducts(prev => prev.map((p: any) => p.id === product.id ? {
+                                  ...p,
+                                  sizes: { ...youthSizes, ...(p.sizes || {}) }
+                                } : p));
+                              }}
+                              className="text-[9px] font-bold uppercase tracking-wider text-neutral-600 bg-white border border-neutral-200 hover:border-neutral-400 px-2.5 py-1 rounded-full transition-all cursor-pointer shadow-3xs"
+                            >
+                              + Add Youth Sizing
+                            </button>
+                          </div>
+                          <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">
+                            Total Qty: {Object.values(product.sizes || {}).reduce((sum: number, val: any) => sum + (parseInt(val.toString()) || 0), 0) as number} units
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-2 w-full">
+                          {(() => {
+                            const defaultSizes = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'OSFA'];
+                            const actualSizes = Array.from(new Set([...defaultSizes, ...Object.keys(product.sizes || {})])).sort((a, b) => {
+                              const orderMap: Record<string, number> = { 
+                                'yxs':-5, 'ys':-4, 'ym':-3, 'yl':-2, 'yxl':-1,
+                                'xxs':1, 'xs':2, 's':3, 'm':4, 'l':5, 'xl':6, 'xxl':7, '2xl':7, '3xl':8, '4xl':9, '5xl':10, 'osfa':11, 'os':12 
+                              };
+                              const aKey = a.split(' ')[0].toLowerCase();
+                              const bKey = b.split(' ')[0].toLowerCase();
+                              const aVal = orderMap[aKey] || 99;
+                              const bVal = orderMap[bKey] || 99;
+                              if (aVal !== bVal) return aVal - bVal;
+                              return a.localeCompare(b);
+                            });
+                            return actualSizes.map((size) => (
+                              <div key={size} className="flex-1 min-w-[50px] flex flex-col bg-white border border-neutral-200 rounded-lg overflow-hidden focus-within:border-black focus-within:ring-1 focus-within:ring-black transition-all">
+                                <div className="bg-neutral-100 text-neutral-600 text-[10px] font-bold py-1.5 uppercase tracking-wide flex items-center justify-center border-b border-neutral-200">
+                                  {size}
+                                </div>
+                                <input 
+                                  type="number"
+                                  min="0"
+                                  value={product.sizes?.[size] === 0 ? '' : (product.sizes?.[size] || '')}
+                                  placeholder="0"
+                                  onChange={(e) => {
+                                    const val = parseInt(e.target.value) || 0;
+                                    setProducts(prev => prev.map((p: any) => p.id === product.id ? { 
+                                      ...p, 
+                                      sizes: { ...(p.sizes || {}), [size]: val } 
+                                    } : p));
+                                  }}
+                                  className="w-full h-10 text-center text-sm font-bold text-neutral-900 focus:outline-none placeholder:text-neutral-300 font-bold"
+                                />
+                              </div>
+                            ));
+                          })()}
+                        </div>
                     </div>
 
                     {/* Placements & Uploads (only visible if NOT customized) */}
