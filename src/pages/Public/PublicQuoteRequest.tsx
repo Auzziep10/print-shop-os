@@ -331,10 +331,15 @@ export function PublicQuoteRequest() {
       racks?: Record<string, Record<string, string>>;
       basics?: Record<string, Record<string, string>>;
     };
+    defaultColors?: {
+      racks?: Record<string, Record<string, string>>;
+      basics?: Record<string, Record<string, string>>;
+    };
   }>({
     racks: DEFAULT_RACKS,
     basics: DEFAULT_BASICS,
-    customNames: { racks: {}, basics: {} }
+    customNames: { racks: {}, basics: {} },
+    defaultColors: { racks: {}, basics: {} }
   });
 
   const [cart, setCart] = useState<any[]>([]);
@@ -437,7 +442,8 @@ export function PublicQuoteRequest() {
           setCatalogSettings({
             racks: cData.racks || DEFAULT_RACKS,
             basics: cData.basics || DEFAULT_BASICS,
-            customNames: cData.customNames || { racks: {}, basics: {} }
+            customNames: cData.customNames || { racks: {}, basics: {} },
+            defaultColors: cData.defaultColors || { racks: {}, basics: {} }
           });
         }
       } catch (err) {
@@ -520,7 +526,7 @@ export function PublicQuoteRequest() {
           id: `${slot}-${Date.now()}`,
           slot,
           product: displayProduct,
-          color: displayProduct.colors[0],
+          color: catalogSettings.defaultColors?.racks?.[themeName]?.[slot] || displayProduct.colors[0],
           selected: true,
           logoPos: isHat ? { x: 50, y: 55 } : isPolo ? { x: 38, y: 30 } : { x: 50, y: 35 },
           logoScale: isHat ? 0.16 : isPolo ? 0.14 : 0.28,
@@ -563,9 +569,15 @@ export function PublicQuoteRequest() {
   // Set default color when basic product chosen
   useEffect(() => {
     if (selectedBasicsItem) {
-      setSelectedBasicsColor(selectedBasicsItem.colors[0]);
+      const styles = catalogSettings.basics[selectedBasicsCategory] || DEFAULT_BASICS['T-Shirts'];
+      let slot = 'good';
+      if (selectedBasicsItem.style === styles.better) slot = 'better';
+      else if (selectedBasicsItem.style === styles.best) slot = 'best';
+      
+      const defaultColor = catalogSettings.defaultColors?.basics?.[selectedBasicsCategory]?.[slot] || selectedBasicsItem.colors[0];
+      setSelectedBasicsColor(defaultColor);
     }
-  }, [selectedBasicsItem]);
+  }, [selectedBasicsItem, selectedBasicsCategory, catalogSettings]);
 
   const handleSaveStorefrontSettings = async () => {
     setIsSavingSettings(true);
@@ -1894,8 +1906,8 @@ export function PublicQuoteRequest() {
                     const item = (preCuratedBasicsOptions as any)[slot];
                     if (!item) return null;
                     const isSelected = selectedBasicsItem?.style === item.style;
-                    const previewColor = item.colors[0];
-                    const imgSet = item.images[previewColor] || Object.values(item.images)[0];
+                    const defaultColor = catalogSettings.defaultColors?.basics?.[selectedBasicsCategory]?.[slot] || item.colors[0];
+                    const imgSet = item.images[defaultColor] || Object.values(item.images)[0];
                     const previewImg = imgSet ? (typeof imgSet === 'string' ? imgSet : (imgSet as any).front) : '';
 
                     return (
