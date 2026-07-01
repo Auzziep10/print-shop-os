@@ -56,7 +56,7 @@ export async function sendOrderStatusSMS(orderId: string, newStatusIndex: number
       if (customerSnap.exists()) {
         const customer = customerSnap.data();
         recipientPhone = customer.phone || '';
-        customerName = customer.name || customer.company || 'Customer';
+        customerName = customer.contactName || customer.name || customer.company || 'Customer';
         companyName = customer.company || 'Unknown Customer';
       }
     }
@@ -74,10 +74,11 @@ export async function sendOrderStatusSMS(orderId: string, newStatusIndex: number
     }
 
     // 4. Render template
+    const userFacingOrderId = order.portalId || orderId;
     let content = templateConfig.template;
     content = content.replace(/{customerName}/g, customerName);
     content = content.replace(/{companyName}/g, companyName);
-    content = content.replace(/{orderId}/g, orderId);
+    content = content.replace(/{orderId}/g, userFacingOrderId);
     content = content.replace(/{orderTitle}/g, order.title || 'Untitled Order');
     content = content.replace(/{trackingCarrier}/g, order.trackingCarrier || 'Pending');
     content = content.replace(/{trackingNumber}/g, order.trackingNumber || 'Pending');
