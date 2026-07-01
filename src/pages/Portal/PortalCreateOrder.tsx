@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, PackagePlus, X, Trash2, ChevronDown, RotateCcw, Calendar, Loader2, Sparkles } from 'lucide-react';
+import { ArrowLeft, PackagePlus, X, Trash2, ChevronDown, RotateCcw, Calendar, Loader2, Sparkles, Plus } from 'lucide-react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { db } from '../../lib/firebase';
 import { doc, getDoc, collection, query, where, getDocs, setDoc } from 'firebase/firestore';
@@ -259,8 +259,12 @@ export function PortalCreateOrder() {
           const customerData = customerDoc.data();
           // Support both array and single string for backwards compatibility
           const deckIds = customerData.catalogLinkIds || (customerData.catalogLinkId ? [customerData.catalogLinkId] : []);
-          setHasWovnRack(deckIds.length > 0);
+          const isRackActive = deckIds.length > 0;
+          setHasWovnRack(isRackActive);
           setSuggestedItems(customerData.suggestedItems || []);
+          if (!isRackActive) {
+            setActiveLibraryTab(customerData.suggestedItems && customerData.suggestedItems.length > 0 ? 'suggested' : 'past');
+          }
           
           if (deckIds.length > 0) {
             const fetchedArrays = await Promise.all(
@@ -460,44 +464,199 @@ export function PortalCreateOrder() {
         {/* Left Column: Form / Steps */}
         <div className="lg:col-span-2 flex flex-col gap-6">
           {orderItems.length === 0 ? (
-            <div className="bg-white rounded-3xl p-8 shadow-[0_4px_24px_rgb(0,0,0,0.02)] border border-neutral-100 flex flex-col items-center justify-center min-h-[400px] text-center gap-4">
-              <div className="w-16 h-16 bg-neutral-100 rounded-full flex items-center justify-center text-neutral-400">
-                <PackagePlus size={28} strokeWidth={1.5} />
-              </div>
+            <div className="bg-white rounded-3xl p-8 shadow-[0_4px_24px_rgb(0,0,0,0.02)] border border-neutral-100 flex flex-col gap-6">
               <div>
-                <h3 className="text-lg font-bold text-neutral-900 mb-1">Let's start building</h3>
-                <p className="text-neutral-500 text-sm max-w-xs mx-auto">
-                  Select your first garment style to begin assembling your custom order.
-                </p>
+                <h3 className="text-xl font-serif text-neutral-900">Your Catalog</h3>
+                <p className="text-sm font-medium text-neutral-500 mt-1">Select from your approved collection, suggested, or past styles to begin building your order.</p>
               </div>
-              
-              <div className="mt-4 flex items-center justify-center gap-4 flex-wrap">
-                {hasWovnRack ? (
-                  <button 
-                    onClick={() => {
-                      setActiveLibraryTab('wovn');
-                      setIsDrawerOpen(true);
-                    }}
-                    className="bg-black text-white px-8 py-3.5 rounded-full text-[13px] font-bold tracking-wide hover:bg-neutral-800 hover:scale-[1.02] transition-all shadow-md cursor-pointer"
+
+              {/* Library Tabs */}
+              <div className="flex gap-4 border-b border-neutral-100 py-3 overflow-x-auto shrink-0 bg-neutral-50/50 px-4 rounded-xl">
+                {hasWovnRack && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveLibraryTab('wovn')}
+                    className={`text-sm font-bold pb-1.5 border-b-2 whitespace-nowrap transition-all cursor-pointer ${
+                      activeLibraryTab === 'wovn' 
+                        ? 'text-black border-black' 
+                        : 'text-neutral-400 border-transparent hover:text-black hover:border-black'
+                    }`}
                   >
-                    + Add Garment from Library
-                  </button>
-                ) : (
-                  <button 
-                    onClick={() => {
-                      setActiveLibraryTab(suggestedItems.length > 0 ? 'suggested' : 'past');
-                      setIsDrawerOpen(true);
-                    }}
-                    className="bg-black text-white px-8 py-3.5 rounded-full text-[13px] font-bold tracking-wide hover:bg-neutral-800 hover:scale-[1.02] transition-all shadow-md cursor-pointer"
-                  >
-                    + Add Garment from Library
+                    Approved Library ({customerDecks.reduce((acc, deck) => acc + (deck.items || deck.garments || []).length, 0)})
                   </button>
                 )}
+                <button
+                  type="button"
+                  onClick={() => setActiveLibraryTab('suggested')}
+                  className={`text-sm font-bold pb-1.5 border-b-2 whitespace-nowrap transition-all cursor-pointer ${
+                    activeLibraryTab === 'suggested' 
+                      ? 'text-black border-black' 
+                      : 'text-neutral-400 border-transparent hover:text-black hover:border-black'
+                  }`}
+                >
+                  Suggested ({suggestedItems.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveLibraryTab('past')}
+                  className={`text-sm font-bold pb-1.5 border-b-2 whitespace-nowrap transition-all cursor-pointer ${
+                    activeLibraryTab === 'past' 
+                      ? 'text-black border-black' 
+                      : 'text-neutral-400 border-transparent hover:text-black hover:border-black'
+                  }`}
+                >
+                  Past Garments ({pastGarments.length})
+                </button>
+              </div>
 
+              {/* Library Grid Content */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {activeLibraryTab === 'wovn' && (
+                  isLoadingDecks ? (
+                    <div className="col-span-full flex items-center justify-center p-8">
+                      <Loader2 className="animate-spin text-neutral-400" size={24} />
+                    </div>
+                  ) : customerDecks.length === 0 ? (
+                    <div className="col-span-full flex flex-col items-center justify-center p-8 text-center text-neutral-500">
+                      <PackagePlus size={32} className="mb-4 text-neutral-300" />
+                      <p>No catalog decks connected for this client.</p>
+                    </div>
+                  ) : (
+                    customerDecks.map((item: any, idx: number) => {
+                      const style = item.garment_name || item.name || item.style || item.title || 'Unknown Style';
+                      const gender = item.gender || 'Unisex';
+                      const itemNum = item.itemNum || item.garment_id || item.sku || item.id || `GARMENT-${idx+1}`;
+                      
+                      let colors = findColorsInObj({ ...item }) || ['Custom Color'];
+                      if (colors.length === 0) colors = ['Custom Color'];
+                      
+                      let sizes = parseSizesFromItem(item, style);
+
+                      const image = item.mockup_image || item.mock_image || item.original_image || item.image || item.imageUrl || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
+                      
+                      const basePrice = parseFloat(item.msrp || item.price || item.unit_cost || 0);
+                      const price = basePrice;
+
+                      return (
+                        <div 
+                          key={item.id || idx} 
+                          onClick={() => handleAddItem({ ...item, style, gender, itemNum, colors, sizes, image, price })}
+                          className="group flex items-center gap-4 bg-neutral-50/50 border border-neutral-200 hover:border-black transition-colors rounded-2xl p-4 cursor-pointer shadow-[0_2px_10px_rgb(0,0,0,0.01)] hover:shadow-xs"
+                        >
+                          <div className="w-14 h-14 rounded-xl overflow-hidden bg-white border border-neutral-100 shrink-0 flex items-center justify-center">
+                            <img src={image} alt={style} className="w-full h-full object-contain p-1 mix-blend-multiply" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between mb-1">
+                               <h4 className="font-bold text-neutral-900 text-sm truncate pr-2">{style}</h4>
+                               <span className="text-[9px] font-bold text-neutral-500 bg-neutral-200/60 px-2 py-0.5 rounded-full shrink-0">{gender}</span>
+                            </div>
+                            {itemNum && itemNum.length < 15 && (
+                              <p className="text-[10px] font-semibold text-neutral-450">{itemNum}</p>
+                            )}
+                            <p className="text-[10px] text-neutral-400 font-medium mt-1 truncate">{colors.join(' • ')}</p>
+                          </div>
+                          <button 
+                            className="w-8 h-8 rounded-full bg-white border border-neutral-200 text-neutral-400 group-hover:bg-black group-hover:text-white group-hover:border-black flex items-center justify-center transition-colors shrink-0"
+                          >
+                             <Plus size={14} strokeWidth={2.5} />
+                          </button>
+                        </div>
+                      );
+                    })
+                  )
+                )}
+
+                {activeLibraryTab === 'suggested' && (
+                  suggestedItems.length === 0 ? (
+                    <div className="col-span-full flex flex-col items-center justify-center p-8 text-center text-neutral-500">
+                      <PackagePlus size={32} className="mb-4 text-neutral-300" />
+                      <p>No suggested garments found.</p>
+                    </div>
+                  ) : (
+                    suggestedItems.map((item, idx) => {
+                      const style = item.style || 'Custom Garment';
+                      const itemNum = item.itemNum || '';
+                      const colors = item.colors || ['Custom Color'];
+                      const sizes = item.sizes || ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'];
+                      const image = item.image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
+                      const price = parseFloat(item.price || 0);
+
+                      return (
+                        <div 
+                          key={item.id || idx} 
+                          onClick={() => handleAddItem({ ...item, style, itemNum, colors, sizes, image, price })}
+                          className="group flex items-center gap-4 bg-neutral-50/50 border border-neutral-200 hover:border-black transition-colors rounded-2xl p-4 cursor-pointer shadow-[0_2px_10px_rgb(0,0,0,0.01)] hover:shadow-xs"
+                        >
+                          <div className="w-14 h-14 rounded-xl overflow-hidden bg-white border border-neutral-100 shrink-0 flex items-center justify-center">
+                            <img src={image} alt={style} className="w-full h-full object-contain p-1 mix-blend-multiply" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-bold text-neutral-900 text-sm truncate mb-0.5">{style}</h4>
+                            {itemNum && (
+                              <p className="text-[10px] font-semibold text-neutral-450">{itemNum}</p>
+                            )}
+                            <p className="text-[10px] text-neutral-400 font-medium mt-1 truncate">{colors.join(' • ')}</p>
+                          </div>
+                          <button 
+                            className="w-8 h-8 rounded-full bg-white border border-neutral-200 text-neutral-400 group-hover:bg-black group-hover:text-white group-hover:border-black flex items-center justify-center transition-colors shrink-0"
+                          >
+                             <Plus size={14} strokeWidth={2.5} />
+                          </button>
+                        </div>
+                      );
+                    })
+                  )
+                )}
+
+                {activeLibraryTab === 'past' && (
+                  pastGarments.length === 0 ? (
+                    <div className="col-span-full flex flex-col items-center justify-center p-8 text-center text-neutral-500">
+                      <PackagePlus size={32} className="mb-4 text-neutral-300" />
+                      <p>No past orders found.</p>
+                    </div>
+                  ) : (
+                    pastGarments.map((item, idx) => {
+                      const style = item.style || 'Custom Garment';
+                      const itemNum = item.itemNum || '';
+                      const colors = item.colors || ['Custom Color'];
+                      const sizes = item.sizes || ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'];
+                      const image = item.image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
+                      const price = parseFloat(item.price || 0);
+
+                      return (
+                        <div 
+                          key={item.id || idx} 
+                          onClick={() => handleAddItem({ ...item, style, itemNum, colors, sizes, image, price })}
+                          className="group flex items-center gap-4 bg-neutral-50/50 border border-neutral-200 hover:border-black transition-colors rounded-2xl p-4 cursor-pointer shadow-[0_2px_10px_rgb(0,0,0,0.01)] hover:shadow-xs"
+                        >
+                          <div className="w-14 h-14 rounded-xl overflow-hidden bg-white border border-neutral-100 shrink-0 flex items-center justify-center">
+                            <img src={image} alt={style} className="w-full h-full object-contain p-1 mix-blend-multiply" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-bold text-neutral-900 text-sm truncate mb-0.5">{style}</h4>
+                            {itemNum && (
+                              <p className="text-[10px] font-semibold text-neutral-450">{itemNum}</p>
+                            )}
+                            <p className="text-[10px] text-neutral-400 font-medium mt-1 truncate">{colors.join(' • ')}</p>
+                          </div>
+                          <button 
+                            className="w-8 h-8 rounded-full bg-white border border-neutral-200 text-neutral-400 group-hover:bg-black group-hover:text-white group-hover:border-black flex items-center justify-center transition-colors shrink-0"
+                          >
+                             <Plus size={14} strokeWidth={2.5} />
+                          </button>
+                        </div>
+                      );
+                    })
+                  )
+                )}
+              </div>
+              
+              <div className="border-t border-neutral-100 pt-6 flex justify-end gap-3">
                 <button 
                   data-tour="request-quote-link"
                   onClick={() => navigate(customerId ? `/portal/${customerId}/quote` : '/portal/quote')}
-                  className="bg-white text-neutral-900 border border-neutral-200 px-8 py-3.5 rounded-full text-[13px] font-bold tracking-wide hover:bg-neutral-50 hover:border-neutral-300 hover:scale-[1.02] transition-all shadow-sm"
+                  className="bg-white text-neutral-900 border border-neutral-200 px-6 py-2.5 rounded-full text-xs font-bold tracking-wide hover:bg-neutral-50 hover:border-neutral-300 transition-all shadow-2xs cursor-pointer"
                 >
                   Request Quote
                 </button>

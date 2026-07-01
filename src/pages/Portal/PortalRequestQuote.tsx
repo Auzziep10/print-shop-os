@@ -110,7 +110,7 @@ export function PortalRequestQuote() {
         if (docSnap.exists()) {
           const data = docSnap.data();
           
-          if (data.name) setContactName(data.name);
+          if (data.contactName || data.name) setContactName(data.contactName || data.name);
           if (data.email) setEmailAddress(data.email);
           if (data.phone) setPhone(data.phone);
 
