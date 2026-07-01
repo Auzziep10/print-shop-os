@@ -321,7 +321,7 @@ const generateFinalSheetsForPrintAndCut = async (
     }
 
     let sheetContentHeightInches: number;
-    const SPACING_INCHES = 0.25;
+    const SPACING_INCHES = 0.5;
 
     // Define placement instances for auto-repeated single transfer layout
     interface Placement {

@@ -1567,6 +1567,7 @@ export function PortalCreateOrder() {
             setOrderItems(prev => prev.map(item => item.instanceId === customizingItem.instanceId ? {
               ...item,
               style: customizedData.style,
+              itemNum: customizedData.itemNum || item.itemNum || '',
               selectedColor: customizedData.selectedColor,
               image: customizedData.image,
               customized: true,

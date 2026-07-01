@@ -409,6 +409,7 @@ export function PortalRequestQuote() {
            return {
               id: p.id || Date.now(),
               style: p.garmentName || 'Custom Garment',
+              itemNum: p.itemNum || '',
               color: p.color || '',
               qty: sizeQtySum || p.qty || 0,
               image: p.artworkUrl || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200',
@@ -1161,6 +1162,7 @@ export function PortalRequestQuote() {
             setProducts(prev => prev.map(p => p.id === customizingProduct.id ? {
               ...p,
               garmentName: customizedData.style,
+              itemNum: customizedData.itemNum || p.itemNum || '',
               color: customizedData.selectedColor,
               artworkUrl: customizedData.image,
               artworkName: customizedData.logoName ? `Mockup with ${customizedData.logoName}` : 'Customized Mockup',
