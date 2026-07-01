@@ -331,7 +331,7 @@ export function ShowcaseSection({ onStart }: { onStart: (mode: 'racks' | 'basics
           <button
             key={item.label}
             data-cursor
-            onClick={() => onStart('basics')}
+            onClick={() => onStart('racks')}
             className="showcase-card group relative h-[52vh] w-[72vw] shrink-0 cursor-pointer overflow-hidden rounded-2xl bg-zinc-900 text-left sm:w-[44vw] lg:h-[58vh] lg:w-[30vw]"
           >
             <img
@@ -508,16 +508,6 @@ export function StartCTASection({ onStart }: { onStart: (mode: 'racks' | 'basics
       cta: 'Design a cohesive line',
       img: '/images/apparel_rack_hero.png',
       dark: true,
-    },
-    {
-      mode: 'basics' as const,
-      num: '02',
-      badge: 'Essential blanks',
-      title: 'Build From Basics',
-      body: 'Start from a single essential custom blank — t-shirts, sweatshirts, jackets, caps and more. Compare Good, Better and Best curated options side by side.',
-      cta: 'Explore premium blanks',
-      img: '/images/blank_basics_hero.png',
-      dark: false,
     },
   ];
 

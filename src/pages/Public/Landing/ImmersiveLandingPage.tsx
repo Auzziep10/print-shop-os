@@ -80,7 +80,7 @@ export function ImmersiveLandingPage() {
         navigate(userData?.customerId ? `/portal/${userData.customerId}` : '/portal')
       }
       onAdminPanel={() => navigate('/orders')}
-      onStart={(mode) => navigate(`/start?mode=${mode}`)}
+      onStart={() => navigate('/start?mode=racks')}
     />
   );
 }

@@ -297,8 +297,8 @@ export function PublicQuoteRequest() {
   // 3: The Clothing Rack (Projected Lookbook & Individual Edits)
   // 4: Size spreadsheets & details
   // 5: Contact Details & checkout/submit
-  const [step, setStep] = useState(0);
-  const [flowMode, setFlowMode] = useState<'racks' | 'basics' | null>(null);
+  const [step, setStep] = useState(1);
+  const [flowMode, setFlowMode] = useState<'racks' | 'basics' | null>('racks');
   const [currentTime, setCurrentTime] = useState('');
   const [hoveredPlatform, setHoveredPlatform] = useState<'racks' | 'basics' | null>(null);
 
@@ -317,7 +317,7 @@ export function PublicQuoteRequest() {
   useEffect(() => {
     const modeParam = searchParams.get('mode');
     if (modeParam === 'racks' || modeParam === 'basics') {
-      setFlowMode(modeParam);
+      setFlowMode('racks');
       setStep(1);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1784,7 +1784,7 @@ export function PublicQuoteRequest() {
               <div className="bg-white/80 backdrop-blur-md rounded-3xl p-8 border border-neutral-200 shadow-sm max-w-7xl mx-auto space-y-8">
                 <div className="flex items-center gap-3">
                   <button
-                    onClick={() => setStep(0)}
+                    onClick={() => navigate('/')}
                     className="p-2 border border-neutral-200 hover:border-neutral-450 text-neutral-500 hover:text-neutral-900 bg-neutral-50 rounded-xl transition-all shadow-3xs cursor-pointer"
                   >
                     <ChevronLeft size={16} />
@@ -1853,7 +1853,7 @@ export function PublicQuoteRequest() {
                             );
                           })()}
                         </div>
-                        <span className="text-xs font-bold text-neutral-800 truncate">
+                        <span className="text-2xl font-serif font-bold text-neutral-800 truncate">
                           {catalogSettings.customNames?.racks?.[selectedThemeCategory]?.[item.slot] || `${item.product.brand} ${item.product.style}`}
                         </span>
                       </div>
