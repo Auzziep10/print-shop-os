@@ -297,7 +297,7 @@ export function PublicQuoteRequest() {
   // 3: The Clothing Rack (Projected Lookbook & Individual Edits)
   // 4: Size spreadsheets & details
   // 5: Contact Details & checkout/submit
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(0);
   const [flowMode, setFlowMode] = useState<'racks' | 'basics' | null>('racks');
   const [currentTime, setCurrentTime] = useState('');
   const [hoveredPlatform, setHoveredPlatform] = useState<'racks' | 'basics' | null>(null);
@@ -1521,10 +1521,10 @@ export function PublicQuoteRequest() {
             </div>
           </header>
 
-          <main className="flex-grow w-full flex flex-col lg:flex-row gap-0 min-h-0 lg:overflow-hidden relative">
+          <main className="flex-grow w-full flex flex-col min-h-0 lg:overflow-hidden relative">
             {/* LEFT SIDE: Design Your Rack Card */}
             <TiltCard 
-              className="flex-grow flex-1 flex flex-col justify-between p-8 relative overflow-hidden group min-h-[300px] lg:h-full border-b lg:border-b-0 lg:border-r border-zinc-200/50 bg-gradient-to-br from-zinc-900 via-zinc-950 to-zinc-900 text-white"
+              className="flex-grow flex-1 flex flex-col justify-between p-8 relative overflow-hidden group min-h-[300px] lg:h-full border-none bg-gradient-to-br from-zinc-900 via-zinc-950 to-zinc-900 text-white"
               onMouseEnter={() => setHoveredPlatform('racks')}
               onMouseLeave={() => setHoveredPlatform(null)}
               onClick={() => {
@@ -1583,71 +1583,6 @@ export function PublicQuoteRequest() {
                 >
                   <span className="text-zinc-955">Design a Cohesive Line</span>
                   <ArrowRight className="w-4 h-4 text-zinc-955 group-hover:translate-x-1.5 transition-transform" />
-                </div>
-              </div>
-            </TiltCard>
-
-            {/* RIGHT SIDE: Build From Basics Card */}
-            <TiltCard 
-              className="flex-grow flex-1 flex flex-col justify-between p-8 relative overflow-hidden group min-h-[300px] lg:h-full bg-gradient-to-br from-bone-100 via-bone-50 to-[#FAF9F5] text-zinc-900 border-none"
-              onMouseEnter={() => setHoveredPlatform('basics')}
-              onMouseLeave={() => setHoveredPlatform(null)}
-              onClick={() => {
-                setFlowMode('basics');
-                setStep(1);
-              }}
-            >
-              {/* Background Image with overlays */}
-              <div className="absolute inset-0 pointer-events-none overflow-hidden">
-                <img 
-                  src="/images/blank_basics_hero.png" 
-                  alt="Blank Basics" 
-                  className="w-full h-full object-cover transition-transform duration-[2000ms] ease-out group-hover:scale-105 opacity-[0.92]"
-                />
-                <div className="absolute bottom-0 inset-x-0 h-[280px] bg-gradient-to-t from-[#FAF9F5] via-[#FAF9F5]/85 to-transparent" />
-                <div className="absolute top-0 inset-x-0 h-[120px] bg-gradient-to-b from-[#FAF9F5]/45 to-transparent" />
-              </div>
-              {/* Abstract CSS design element in background (glowing warm orb and blueprint lines) */}
-              <div 
-                className="absolute inset-0 pointer-events-none opacity-30 transition-transform duration-[1200ms] scale-100 group-hover:scale-110"
-                style={{
-                  background: `
-                    radial-gradient(circle at 30% 20%, rgba(214, 207, 191, 0.4) 0%, transparent 60%),
-                    radial-gradient(circle at 80% 70%, rgba(229, 224, 213, 0.3) 0%, transparent 50%)
-                  `,
-                }}
-              />
-              {/* Subtle blueprint grid overlay for lookbook feeling */}
-              <div className="absolute inset-0 opacity-[0.05] bg-checkerboard pointer-events-none" />
-              <div className="absolute inset-x-8 top-1/3 h-px bg-zinc-900/5 pointer-events-none" />
-              <div className="absolute inset-x-8 top-2/3 h-px bg-zinc-900/5 pointer-events-none" />
-              <div className="absolute inset-y-8 left-1/3 w-px bg-zinc-900/5 pointer-events-none" />
-              <div className="absolute inset-y-8 left-2/3 w-px bg-zinc-900/5 pointer-events-none" />
-
-              {/* Top Badge */}
-              <div style={{ transform: hoveredPlatform === 'basics' ? 'translateZ(12px)' : 'none' }} className="flex justify-between items-start z-10 shrink-0">
-                <span className="text-[9px] tracking-widest font-mono text-zinc-500 uppercase font-semibold">02 / BUILD FROM BASICS</span>
-                <span className="text-[8px] border border-zinc-200 text-zinc-650 px-2 py-0.5 rounded font-mono uppercase tracking-wider bg-zinc-900/5 backdrop-blur-xs">
-                  Essential Blanks
-                </span>
-              </div>
-
-              {/* Bottom Card Content */}
-              <div style={{ transform: hoveredPlatform === 'basics' ? 'translateZ(18px)' : 'none' }} className="flex flex-col gap-4 z-10 text-zinc-900 max-w-lg mt-auto">
-                <div className="flex flex-col gap-1.5">
-                  <h2 className="font-serif text-3xl lg:text-4xl font-normal tracking-tight text-zinc-950">
-                    Build From Basics
-                  </h2>
-                  <p className="text-[11px] text-zinc-650 leading-relaxed font-light transition-opacity duration-300 opacity-80 group-hover:opacity-100 font-sans">
-                    Start from a single essential custom blank (t-shirt, sweatshirt, jacket, caps, etc.). Compare Good, Better, and Best curated options side-by-side.
-                  </p>
-                </div>
-
-                <div 
-                  className="w-full flex items-center justify-between px-5 py-3.5 bg-zinc-950 text-white rounded-xl font-bold uppercase tracking-wider text-[10px] transition-all hover:bg-zinc-800 shadow-md z-10 cursor-pointer"
-                >
-                  <span className="text-white">Explore Premium Blanks</span>
-                  <ArrowRight className="w-4 h-4 text-white group-hover:translate-x-1.5 transition-transform" />
                 </div>
               </div>
             </TiltCard>
@@ -1784,7 +1719,7 @@ export function PublicQuoteRequest() {
               <div className="bg-white/80 backdrop-blur-md rounded-3xl p-8 border border-neutral-200 shadow-sm max-w-7xl mx-auto space-y-8">
                 <div className="flex items-center gap-3">
                   <button
-                    onClick={() => navigate('/')}
+                    onClick={() => setStep(0)}
                     className="p-2 border border-neutral-200 hover:border-neutral-450 text-neutral-500 hover:text-neutral-900 bg-neutral-50 rounded-xl transition-all shadow-3xs cursor-pointer"
                   >
                     <ChevronLeft size={16} />
