@@ -16,7 +16,6 @@ export interface UserData {
   phone?: string;
   companyName?: string;
   website?: string;
-  bizOps?: boolean; // Additional permission for Biz Ops Dashboard
 }
 
 export type PermissionKey = 'viewDashboard' | 'manageOrders' | 'manageCustomers' | 'manageInventory' | 'manageTeam' | 'manageSettings' | 'viewPricing';

@@ -26,7 +26,6 @@ export function UsersTab() {
   const [customerId, setCustomerId] = useState('');
   const [phone, setPhone] = useState('');
   const [companyName, setCompanyName] = useState('');
-  const [bizOps, setBizOps] = useState(false);
 
   const ROLES: UserRole[] = ['Staff', 'Printer', 'Manager', 'Leadership', 'Admin', 'Client', 'Pending'];
 
@@ -72,7 +71,6 @@ export function UsersTab() {
     setCustomerId('');
     setPhone('');
     setCompanyName('');
-    setBizOps(false);
     setIsModalOpen(true);
   };
 
@@ -84,7 +82,6 @@ export function UsersTab() {
     setCustomerId(user.customerId || '');
     setPhone(user.phone || '');
     setCompanyName(user.companyName || '');
-    setBizOps(user.bizOps || false);
     setIsModalOpen(true);
   };
 
@@ -99,7 +96,6 @@ export function UsersTab() {
         role,
         phone,
         companyName,
-        bizOps,
       };
       if (role === 'Client') dbObj.customerId = customerId;
       else dbObj.customerId = null;
@@ -220,11 +216,6 @@ export function UsersTab() {
                   <div className="flex items-center gap-1.5">
                     <Shield size={14} className={user.role === 'Admin' ? 'text-brand-primary' : 'text-brand-secondary'} />
                     <span className="font-medium">{user.role}</span>
-                    {user.bizOps && (
-                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-purple-100 text-purple-800 uppercase tracking-wider">
-                        Biz Ops
-                      </span>
-                    )}
                   </div>
                 </td>
                 <td className="px-4 py-3 text-brand-secondary limit-w">
@@ -299,18 +290,7 @@ export function UsersTab() {
                 </div>
               )}
 
-              <div className="pt-2">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={bizOps}
-                    onChange={e => setBizOps(e.target.checked)}
-                    className="rounded border-brand-border text-brand-primary focus:ring-brand-primary"
-                  />
-                  <span className="text-xs font-bold text-brand-primary uppercase">Biz Ops Permission</span>
-                </label>
-                <p className="text-[10px] text-brand-secondary mt-1">Grants additional access to the Business Operations Dashboard.</p>
-              </div>
+
 
               <div className="flex justify-end gap-3 mt-6">
                 <PillButton variant="outline" type="button" onClick={() => setIsModalOpen(false)}>Cancel</PillButton>
