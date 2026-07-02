@@ -8,15 +8,17 @@ import { doc, getDoc, deleteDoc, writeBatch, updateDoc, arrayUnion } from 'fireb
 import { getTrackingLink } from '../../lib/utils';
 import { StripePaymentModal } from '../../components/Orders/StripePaymentModal';
 
-const SIZE_ORDER = ['XXS', 'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL', 'OSFA'];
-
 const sortSizes = (a: string, b: string) => {
-  const iA = SIZE_ORDER.indexOf(a.toUpperCase());
-  const iB = SIZE_ORDER.indexOf(b.toUpperCase());
-  if (iA === -1 && iB === -1) return a.localeCompare(b);
-  if (iA === -1) return 1;
-  if (iB === -1) return -1;
-  return iA - iB;
+  const orderMap: Record<string, number> = { 
+    'yxs':-5, 'ys':-4, 'ym':-3, 'yl':-2, 'yxl':-1,
+    'xxs':1, 'xs':2, 's':3, 'm':4, 'l':5, 'xl':6, 'xxl':7, '2xl':7, '3xl':8, '4xl':9, '5xl':10, 'osfa':11, 'os':12 
+  };
+  const aKey = a.split(' ')[0].toLowerCase();
+  const bKey = b.split(' ')[0].toLowerCase();
+  const aVal = orderMap[aKey] || 99;
+  const bVal = orderMap[bKey] || 99;
+  if (aVal !== bVal) return aVal - bVal;
+  return a.localeCompare(b);
 };
 
 const formatDisplayDate = (dateStr: string | undefined | null): string => {

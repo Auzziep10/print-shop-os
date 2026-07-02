@@ -178,7 +178,10 @@ export function PackingSlipsManager({ order, onEditTracking }: { order: any, onE
   };
   
   const sortSizes = (a: string, b: string) => {
-      const orderMap: Record<string, number> = { 'xxs':1, 'xs':2, 's':3, 'm':4, 'l':5, 'xl':6, 'xxl':7, '2xl':7, '3xl':8, '4xl':9, '5xl':10, 'osfa':11, 'os':12 };
+      const orderMap: Record<string, number> = { 
+        'yxs':-5, 'ys':-4, 'ym':-3, 'yl':-2, 'yxl':-1,
+        'xxs':1, 'xs':2, 's':3, 'm':4, 'l':5, 'xl':6, 'xxl':7, '2xl':7, '3xl':8, '4xl':9, '5xl':10, 'osfa':11, 'os':12 
+      };
       const aKey = a.split(' ')[0].toLowerCase();
       const bKey = b.split(' ')[0].toLowerCase();
       const aVal = orderMap[aKey] || 99;

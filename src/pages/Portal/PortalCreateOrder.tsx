@@ -1118,8 +1118,8 @@ export function PortalCreateOrder() {
             <>
               {/* Loop through actual order items */}
               {orderItems.map((item, index) => (
-                <div key={item.instanceId} className="bg-white rounded-3xl p-6 shadow-[0_4px_24px_rgb(0,0,0,0.02)] border border-neutral-100 flex flex-col gap-6 animate-in slide-in-from-bottom-4 fade-in duration-300">
-                  <div className="flex items-start justify-between border-b border-neutral-100 pb-6">
+                <div key={item.instanceId} className="bg-white rounded-3xl p-6 shadow-[0_4px_24px_rgb(0,0,0,0.02)] border border-neutral-100 flex flex-col gap-4 animate-in slide-in-from-bottom-4 fade-in duration-300">
+                  <div className="flex items-start justify-between border-b border-neutral-100 pb-4">
                     <div className="flex gap-5 items-center">
                       {(() => {
                         const N = getActiveSidesCount(item);
@@ -1159,9 +1159,26 @@ export function PortalCreateOrder() {
                         );
                       })()}
                       <div>
-                        <div className="flex items-center gap-2 mb-1">
+                        <div className="flex items-center gap-2 mb-1.5">
                           <span className="w-6 h-6 rounded-full bg-neutral-100 flex items-center justify-center text-[10px] font-bold text-neutral-400 shrink-0">{index + 1}</span>
                           <h3 className="text-lg font-bold text-neutral-900">{item.style}</h3>
+                        </div>
+                        
+                        <div className="flex items-center gap-2 mt-1.5">
+                          <span className="text-[10px] uppercase font-bold text-neutral-400 tracking-wider">Garment Color</span>
+                          <div className="relative min-w-[160px]">
+                            <select 
+                              value={item.selectedColor || ''}
+                              onChange={(e) => {
+                                const newCol = e.target.value;
+                                setOrderItems(prev => prev.map(o => o.instanceId === item.instanceId ? { ...o, selectedColor: newCol } : o));
+                              }}
+                              className="w-full appearance-none bg-neutral-50 border border-neutral-200 rounded-lg px-2.5 py-1 text-xs font-semibold text-neutral-800 focus:outline-none focus:border-neutral-400 cursor-pointer pr-7"
+                            >
+                              {item.colors.map((c: string) => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" size={12} />
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1181,26 +1198,6 @@ export function PortalCreateOrder() {
                         <Trash2 size={18} />
                       </button>
                     </div>
-                  </div>
-
-                  {/* Settings Grid for this item */}
-                  <div className="grid grid-cols-1 gap-4">
-                     <div className="flex flex-col gap-2">
-                       <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Garment Color</label>
-                       <div className="relative max-w-[300px]">
-                         <select 
-                           value={item.selectedColor || ''}
-                           onChange={(e) => {
-                             const newCol = e.target.value;
-                             setOrderItems(prev => prev.map(o => o.instanceId === item.instanceId ? { ...o, selectedColor: newCol } : o));
-                           }}
-                           className="w-full appearance-none bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-3 text-sm font-medium text-neutral-900 focus:outline-none focus:border-neutral-400 cursor-pointer"
-                         >
-                           {item.colors.map((c: string) => <option key={c} value={c}>{c}</option>)}
-                         </select>
-                         <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" size={16} />
-                       </div>
-                     </div>
                   </div>
 
                   {/* Sizing Matrix */}
