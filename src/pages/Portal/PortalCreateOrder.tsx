@@ -689,6 +689,16 @@ export function PortalCreateOrder() {
         date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric'}),
         createdAt: new Date().toISOString(),
         packaging: selectedPackaging,
+        shippingAddress: {
+          name: profileContactName.trim(),
+          company: profileCompany.trim(),
+          street1: profileStreet.trim(),
+          street2: '',
+          city: profileCity.trim(),
+          state: profileState.trim(),
+          zip: profileZip.trim(),
+          country: 'US'
+        },
         totalAmount: Math.round(orderItems.reduce((sum, item) => {
            const totalQty = Object.values(item.quantities as Record<string, number>).reduce((q, val) => q + val, 0);
            return sum + (totalQty * (parseFloat(item.price) || 0));

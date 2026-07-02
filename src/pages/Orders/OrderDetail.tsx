@@ -2080,6 +2080,18 @@ export function OrderDetail() {
   useEffect(() => {
     const order = orders.find(o => o.id === id);
     if (order) {
+      const hasOrderAddress = order.shippingAddress && (order.shippingAddress.street1 || order.shippingAddress.city);
+      const fallbackAddress = {
+        name: liveCustomer?.contactName || '',
+        company: liveCustomer?.company || liveCustomer?.name || '',
+        street1: liveCustomer?.shippingStreet || '',
+        street2: '',
+        city: liveCustomer?.shippingCity || '',
+        state: liveCustomer?.shippingState || '',
+        zip: liveCustomer?.shippingZip || '',
+        country: 'US'
+      };
+
       setEditForm({
         title: order.title || '',
         date: formatForDateInput(order.targetCompletionDate || order.date || ''),
@@ -2087,11 +2099,11 @@ export function OrderDetail() {
         trackingCarrier: order.trackingCarrier || '',
         trackingNumber: order.trackingNumber || '',
         fulfillmentType: order.fulfillmentType || '',
-        shippingAddress: order.shippingAddress || { name: '', company: '', street1: '', street2: '', city: '', state: '', zip: '', country: 'US' },
+        shippingAddress: hasOrderAddress ? order.shippingAddress : fallbackAddress,
         thirdPartyBilling: order.thirdPartyBilling || { account: '', zip: '' }
       });
     }
-  }, [orders, id]);
+  }, [orders, id, liveCustomer]);
 
   const handleSaveEdit = async () => {
     if (!id || !order) return;
@@ -2137,6 +2149,46 @@ export function OrderDetail() {
       alert("Failed to delete order. Please try again.");
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleApproveAndSave = async () => {
+    if (!id || !order) return;
+    setIsSaving(true);
+    try {
+      const formIsKitting = editForm.fulfillmentType === 'Kitting' || (!editForm.fulfillmentType && liveCustomer?.fulfillmentType === 'Kitting');
+      const newStatusLabel = (() => {
+         const labels = ['Request Created', 'Under Review', 'Quote Prepared', 'Awaiting Payment', 'Sourcing', 'Ordered', 'In Production', formIsKitting ? 'Inventory' : 'Shipped', formIsKitting ? 'Live' : 'Received'];
+         return labels[3] || 'Approved';
+      })();
+
+      const activity = {
+        id: `act-${Date.now()}`,
+        type: 'status_change',
+        message: `Status updated to ${newStatusLabel}`,
+        user: user?.email || 'Team Member',
+        timestamp: new Date().toISOString()
+      };
+
+      await setDoc(doc(db, 'orders', id), {
+        title: editForm.title,
+        date: editForm.date,
+        targetCompletionDate: editForm.date,
+        statusIndex: 3,
+        trackingCarrier: editForm.trackingCarrier,
+        trackingNumber: editForm.trackingNumber,
+        fulfillmentType: editForm.fulfillmentType,
+        shippingAddress: editForm.shippingAddress,
+        thirdPartyBilling: editForm.thirdPartyBilling,
+        activities: [activity, ...(order.activities || [])]
+      }, { merge: true });
+
+      setIsEditDialogOpen(false);
+      sendOrderStatusSMS(id, 3);
+    } catch (err) {
+      console.error("Error approving and updating order:", err);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -2207,12 +2259,6 @@ export function OrderDetail() {
           Back
         </button>
         <div className="flex items-center gap-4">
-          {order.statusIndex < 3 && (
-            <PillButton variant="filled" className="gap-2 bg-green-600 hover:bg-green-700 text-white border-transparent" onClick={() => handleStatusChange(3)}>
-               <Check size={16} />
-               Approve & Convert to Order
-            </PillButton>
-          )}
           <PillButton variant="outline" className="gap-2" onClick={() => window.open(`/invoice/${order.id}`, '_blank')}>
             <DollarSign size={16} />
             Invoice
@@ -4436,6 +4482,21 @@ export function OrderDetail() {
                 <PillButton variant="outline" onClick={() => setIsEditDialogOpen(false)} className="px-8 py-3">
                   Cancel
                 </PillButton>
+                {order.statusIndex < 3 && (
+                  <PillButton 
+                    variant="filled" 
+                    onClick={handleApproveAndSave} 
+                    className="bg-green-600 hover:bg-green-700 text-white border-transparent px-8 py-3 flex items-center gap-1.5"
+                    disabled={isSaving || isDeleting}
+                  >
+                    {isSaving ? <Loader2 className="animate-spin" size={18} /> : (
+                      <>
+                        <Check size={16} />
+                        <span>Approve & Convert to Order</span>
+                      </>
+                    )}
+                  </PillButton>
+                )}
                 <PillButton variant="filled" onClick={handleSaveEdit} className="px-8 py-3" disabled={isSaving || isDeleting}>
                   {isSaving ? <Loader2 className="animate-spin" size={18} /> : <span>Save All Changes</span>}
                 </PillButton>
