@@ -2329,12 +2329,29 @@ export function OrderDetail() {
                     </h1>
                   )}
                   {order.customerId ? (
-                    <Link 
-                      to={`/customers/${order.customerId}`}
-                      className="text-lg text-brand-secondary hover:text-brand-primary hover:underline transition-colors line-clamp-2 inline-block"
-                    >
-                      {customer.company}
-                    </Link>
+                    <div className="flex flex-col gap-1">
+                      <Link 
+                        to={`/customers/${order.customerId}`}
+                        className="text-lg text-brand-secondary hover:text-brand-primary hover:underline transition-colors line-clamp-2 inline-block font-semibold"
+                      >
+                        {customer.company}
+                      </Link>
+                      {(customer.contactName || customer.email || customer.phone) && (
+                        <div className="text-xs text-brand-secondary flex flex-wrap gap-x-4 gap-y-1 mt-1">
+                          {customer.contactName && <span><strong>Contact:</strong> {customer.contactName}</span>}
+                          {customer.email && (
+                            <a href={`mailto:${customer.email}`} className="hover:text-brand-primary hover:underline flex items-center gap-1 transition-all">
+                              <strong>Email:</strong> {customer.email}
+                            </a>
+                          )}
+                          {customer.phone && (
+                            <a href={`tel:${customer.phone}`} className="hover:text-brand-primary hover:underline flex items-center gap-1 transition-all">
+                              <strong>Phone:</strong> {customer.phone}
+                            </a>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   ) : (
                     <p className="text-lg text-brand-secondary line-clamp-2">{customer.company}</p>
                   )}
@@ -4299,6 +4316,21 @@ export function OrderDetail() {
                         onChange={(e) => setEditForm(prev => ({ ...prev, date: e.target.value }))}
                         className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
                       />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-2">Customer Email</label>
+                        <div className="w-full bg-brand-bg/30 border border-brand-border/60 rounded-lg px-4 py-3 text-sm text-brand-secondary/80 select-all font-semibold break-all">
+                          {liveCustomer?.email || 'N/A'}
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-2">Customer Phone</label>
+                        <div className="w-full bg-brand-bg/30 border border-brand-border/60 rounded-lg px-4 py-3 text-sm text-brand-secondary/80 select-all font-semibold">
+                          {liveCustomer?.phone || 'N/A'}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
