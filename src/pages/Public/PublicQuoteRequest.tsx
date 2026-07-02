@@ -199,6 +199,9 @@ interface DesignRackItem {
   logoPos: { x: number; y: number };
   logoScale: number;
   logoRotation: number;
+  backLogoPos: { x: number; y: number };
+  backLogoScale: number;
+  backLogoRotation: number;
   printSize: 'Small' | 'Medium' | 'Large';
   decoration: 'Print' | 'Embroidery';
 }
@@ -421,6 +424,39 @@ export function PublicQuoteRequest() {
   const editorLogoRef = useRef<any>(null);
   const dragStartOffset = useRef({ x: 0, y: 0 });
 
+  // Zoom and pan states for lookbook design editor modal
+  const [zoom, setZoom] = useState(1);
+  const [panX, setPanX] = useState(0);
+  const [panY, setPanY] = useState(0);
+  const [isPanning, setIsPanning] = useState(false);
+  const panStart = useRef({ x: 0, y: 0 });
+
+  // Automatically reset zoom and panning when the editor modal is closed
+  useEffect(() => {
+    if (!isEditorOpen) {
+      setZoom(1);
+      setPanX(0);
+      setPanY(0);
+      setIsPanning(false);
+    }
+  }, [isEditorOpen, editingItemIdx]);
+
+  const handleToggleSide = (side: 'front' | 'back') => {
+    setEditViewMode(side);
+    if (side === 'back' && editingItemIdx !== null) {
+      const activeProduct = rackItems[editingItemIdx];
+      if (activeProduct && activeProduct.backLogoScale === 0) {
+        // Automatically enable back logo with default values when toggling to back view for the first time
+        setRackItems(prev => prev.map((item, idx) => idx === editingItemIdx ? {
+          ...item,
+          backLogoScale: 0.24,
+          backLogoPos: { x: 50, y: 35 },
+          backLogoRotation: 0
+        } : item));
+      }
+    }
+  };
+
   // Storefront Settings from DB
   const [storefrontSettings, setStorefrontSettings] = useState({
     logoText: 'Custom Apparel',
@@ -577,6 +613,9 @@ export function PublicQuoteRequest() {
           logoPos: fitted ? fitted.pos : isHat ? { x: 50, y: 55 } : isPolo ? { x: 38, y: 30 } : { x: 50, y: 35 },
           logoScale: fitted ? fitted.scale : isHat ? 0.16 : isPolo ? 0.14 : 0.28,
           logoRotation: fitted ? fitted.rotation : 0,
+          backLogoPos: { x: 50, y: 35 },
+          backLogoScale: 0,
+          backLogoRotation: 0,
           printSize: isHat ? 'Small' : isPolo ? 'Small' : 'Medium',
           decoration: (isHat || isPolo) ? 'Embroidery' : 'Print'
         });
@@ -1074,6 +1113,9 @@ export function PublicQuoteRequest() {
               logoPos: getBasicsPlacement(selectedBasicsItem!).pos,
               logoScale: getBasicsPlacement(selectedBasicsItem!).scale,
               logoRotation: getBasicsPlacement(selectedBasicsItem!).rotation,
+              backLogoPos: { x: 50, y: 35 },
+              backLogoScale: 0,
+              backLogoRotation: 0,
               printSize: 'Medium' as const,
               decoration: ['hat', 'cap', 'polo'].some(w => selectedBasicsItem!.category.toLowerCase().includes(w)) ? 'Embroidery' as const : 'Print' as const
             }
@@ -1099,6 +1141,21 @@ export function PublicQuoteRequest() {
           'front',
           item.decoration
         );
+
+        // Compile back mockup if configured
+        let bMockup = null;
+        if (item.backLogoScale > 0) {
+          bMockup = await compileGarmentMockup(
+            item.product,
+            item.color,
+            logoUrl,
+            item.backLogoPos,
+            item.backLogoScale,
+            item.backLogoRotation,
+            'back',
+            item.decoration
+          );
+        }
 
         // Default sizing matrix
         const defaultSizes = { XS: 0, S: 10, M: 15, L: 15, XL: 10, '2XL': 0, '3XL': 0 };
@@ -1128,8 +1185,8 @@ export function PublicQuoteRequest() {
           frontArtworkName: artworkName,
           frontPrintSize: item.printSize,
           frontMockupUrl: fMockup,
-          backLogoUrl: null,
-          backMockupUrl: null,
+          backLogoUrl: item.backLogoScale > 0 ? logoUrl : null,
+          backMockupUrl: bMockup,
           mockupUrl: fMockup || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200',
           decorationMethod: item.decoration,
           sizes: defaultSizes,
@@ -1213,6 +1270,11 @@ export function PublicQuoteRequest() {
       const logoCenterX = logoRect.left + logoRect.width / 2;
       const logoCenterY = logoRect.top + logoRect.height / 2;
       dragStartOffset.current = { x: clickX - logoCenterX, y: clickY - logoCenterY };
+    } else if (zoom > 1) {
+      e.preventDefault();
+      setIsPanning(true);
+      target.setPointerCapture(e.pointerId);
+      panStart.current = { x: clickX - panX, y: clickY - panY };
     }
   };
 
@@ -1221,19 +1283,30 @@ export function PublicQuoteRequest() {
     const containerRect = editorContainerRef.current.getBoundingClientRect();
 
     if (isResizing) {
-      const activeItem = rackItems[editingItemIdx];
-      const logoCenterX = containerRect.left + (activeItem.logoPos.x / 100) * containerRect.width;
+      const logoRect = editorLogoRef.current.getBoundingClientRect();
+      const logoCenterX = logoRect.left + logoRect.width / 2;
       const dx = Math.abs(e.clientX - logoCenterX);
-      const newScale = (dx * 2) / containerRect.width;
+      const newScale = ((dx / zoom) * 2) / containerRect.width;
       setRackItems(prev => prev.map((item, idx) => idx === editingItemIdx ? { ...item, logoScale: Math.max(0.05, Math.min(1.0, newScale)) } : item));
       return;
     }
 
+    if (isPanning) {
+      setPanX(e.clientX - panStart.current.x);
+      setPanY(e.clientY - panStart.current.y);
+      return;
+    }
+
     if (!isDragging) return;
-    const newCenterX = e.clientX - containerRect.left - dragStartOffset.current.x;
-    const newCenterY = e.clientY - containerRect.top - dragStartOffset.current.y;
-    let xPct = (newCenterX / containerRect.width) * 100;
-    let yPct = (newCenterY / containerRect.height) * 100;
+    const screenX = e.clientX - containerRect.left - dragStartOffset.current.x;
+    const screenY = e.clientY - containerRect.top - dragStartOffset.current.y;
+    
+    // Undo pan and zoom to convert back to 0-100% space
+    const innerX = (screenX - panX) / zoom;
+    const innerY = (screenY - panY) / zoom;
+    
+    let xPct = (innerX / containerRect.width) * 100;
+    let yPct = (innerY / containerRect.height) * 100;
     // Allow logo to be positioned anywhere on the garment canvas
     xPct = Math.max(0, Math.min(100, xPct));
     yPct = Math.max(0, Math.min(100, yPct));
@@ -1243,6 +1316,7 @@ export function PublicQuoteRequest() {
   const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
     setIsDragging(false);
     setIsResizing(false);
+    setIsPanning(false);
     try {
       (e.target as HTMLElement).releasePointerCapture(e.pointerId);
     } catch {}
@@ -2662,177 +2736,324 @@ export function PublicQuoteRequest() {
       )}
 
       {/* SINGLE ITEM DESIGN CANVAS EDITOR MODAL */}
-      {isEditorOpen && editingItemIdx !== null && editingProduct && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
-          <div className="bg-white border border-neutral-200 rounded-3xl shadow-2xl max-w-4xl w-full p-6 space-y-6 overflow-hidden max-h-[90vh] flex flex-col">
-            <div className="flex justify-between items-start border-b border-neutral-100 pb-3">
-              <div>
-                <span className="text-[9px] font-extrabold uppercase tracking-widest text-neutral-400">Position & Alignment</span>
-                <h3 className="text-lg font-serif text-neutral-900">
-                  Tweak Customization for {catalogSettings.customNames?.racks?.[selectedThemeCategory]?.[editingProduct.slot] || `${editingProduct.product.brand} ${editingProduct.product.style}`}
-                </h3>
-              </div>
-              <button 
-                onClick={() => setIsEditorOpen(false)}
-                className="p-1 text-neutral-400 hover:text-neutral-900 hover:bg-neutral-50 rounded-lg transition-colors border border-transparent"
-              >
-                <X size={18} />
-              </button>
-            </div>
+      {isEditorOpen && editingItemIdx !== null && editingProduct && (() => {
+        const isBack = editViewMode === 'back';
+        const activeLogoPos = isBack ? editingProduct.backLogoPos : editingProduct.logoPos;
+        const activeLogoScale = isBack ? editingProduct.backLogoScale : editingProduct.logoScale;
+        const activeLogoRotation = isBack ? editingProduct.backLogoRotation : editingProduct.logoRotation;
 
-            <div className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-6 overflow-y-auto pr-1">
-              {/* Canvas Box */}
-              <div className="md:col-span-7 flex flex-col gap-4 items-center justify-center bg-neutral-50 rounded-2xl p-6 border border-neutral-200/60 relative min-h-[380px]">
-                <div 
-                  ref={editorContainerRef}
-                  onPointerDown={handlePointerDown}
-                  onPointerMove={handlePointerMove}
-                  onPointerUp={handlePointerUp}
-                  className="w-full max-w-[340px] aspect-[4/5] relative bg-white border border-neutral-200 rounded-xl overflow-hidden shadow-xs cursor-move"
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
+            <div className="bg-white border border-neutral-200 rounded-3xl shadow-2xl max-w-5xl w-full p-6 space-y-6 overflow-hidden max-h-[90vh] flex flex-col">
+              <div className="flex justify-between items-start border-b border-neutral-100 pb-3">
+                <div>
+                  <span className="text-[9px] font-extrabold uppercase tracking-widest text-neutral-400">Position & Alignment</span>
+                  <h3 className="text-lg font-serif text-neutral-900">
+                    Tweak Customization for {catalogSettings.customNames?.racks?.[selectedThemeCategory]?.[editingProduct.slot] || `${editingProduct.product.brand} ${editingProduct.product.style}`}
+                  </h3>
+                </div>
+                <button 
+                  onClick={() => setIsEditorOpen(false)}
+                  className="p-1 text-neutral-400 hover:text-neutral-900 hover:bg-neutral-50 rounded-lg transition-colors border border-transparent"
                 >
-                  <img src={editingGarmentProxied} className="w-full h-full object-contain pointer-events-none select-none" alt="Editor garment" draggable="false" />
-                  
+                  <X size={18} />
+                </button>
+              </div>
 
-
-                  {/* Logo overlay element */}
-                  <div
-                    style={{
-                      position: 'absolute',
-                      left: `${editingProduct.logoPos.x}%`,
-                      top: `${editingProduct.logoPos.y}%`,
-                      width: `${editingProduct.logoScale * 100}%`,
-                      transform: 'translate(-50%, -50%)',
-                      pointerEvents: 'none'
-                    }}
+              <div className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-6 overflow-y-auto pr-1">
+                {/* Canvas Box */}
+                <div className="md:col-span-8 flex flex-col gap-4 items-center justify-center bg-neutral-50 rounded-2xl p-6 border border-neutral-200/60 relative min-h-[380px] md:min-h-[580px]">
+                  <div 
+                    ref={editorContainerRef}
+                    onPointerDown={handlePointerDown}
+                    onPointerMove={handlePointerMove}
+                    onPointerUp={handlePointerUp}
+                    className="w-full max-w-[420px] aspect-[4/5] relative bg-white border border-neutral-200 rounded-xl overflow-hidden shadow-xs select-none touch-none"
+                    style={{ cursor: isDragging ? 'move' : isPanning ? 'grabbing' : zoom > 1 ? 'grab' : 'default' }}
                   >
-                    <div className={`relative w-full h-full p-0.5 border ${isDragging || isResizing ? 'border-neutral-900 border-dashed bg-black/[0.01]' : 'border-transparent'}`}>
-                      <div 
-                        className="resize-handle absolute bottom-0 right-0 w-3 h-3 bg-white border border-neutral-900 rounded-full shadow-sm cursor-se-resize pointer-events-auto"
-                        style={{ transform: 'translate(50%, 50%)', zIndex: 10 }}
-                        title="Resize logo"
-                      />
-                      <img
-                        ref={editorLogoRef}
-                        src={logoUrl!}
-                        style={{
-                          transform: `rotate(${editingProduct.logoRotation}deg)`,
-                          width: '100%',
-                          height: 'auto',
-                          mixBlendMode: ['black', 'dark', 'navy', 'patriot', 'charcoal', 'graphite', 'carbon', 'obsidian', 'maroon', 'cardinal', 'burgundy'].some(c => editingProduct.color.toLowerCase().includes(c)) ? 'normal' : 'multiply'
-                        }}
-                        className="object-contain pointer-events-none"
-                        alt="Logo"
-                        draggable="false"
-                      />
+                    {/* Zoom/Pan Wrapper */}
+                    <div
+                      className="w-full h-full relative"
+                      style={{
+                        transform: `translate(${panX}px, ${panY}px) scale(${zoom})`,
+                        transformOrigin: 'center center',
+                        transition: isPanning ? 'none' : 'transform 0.15s ease-out'
+                      }}
+                    >
+                      <img src={editingGarmentProxied} className="w-full h-full object-contain pointer-events-none select-none" alt="Editor garment" draggable="false" />
+
+                      {/* Logo overlay element */}
+                      {(!isBack || editingProduct.backLogoScale > 0) && (
+                        <div
+                          style={{
+                            position: 'absolute',
+                            left: `${activeLogoPos.x}%`,
+                            top: `${activeLogoPos.y}%`,
+                            width: `${activeLogoScale * 100}%`,
+                            transform: 'translate(-50%, -50%)',
+                            pointerEvents: 'none'
+                          }}
+                        >
+                          <div className={`relative w-full h-full p-0.5 border ${isDragging || isResizing ? 'border-neutral-900 border-dashed bg-black/[0.01]' : 'border-transparent'}`}>
+                            <div 
+                              className="resize-handle absolute bottom-0 right-0 w-3 h-3 bg-white border border-neutral-900 rounded-full shadow-sm cursor-se-resize pointer-events-auto"
+                              style={{ transform: 'translate(50%, 50%)', zIndex: 10 }}
+                              title="Resize logo"
+                            />
+                            <img
+                              ref={editorLogoRef}
+                              src={logoUrl!}
+                              style={{
+                                transform: `rotate(${activeLogoRotation}deg)`,
+                                width: '100%',
+                                height: 'auto',
+                                mixBlendMode: ['black', 'dark', 'navy', 'patriot', 'charcoal', 'graphite', 'carbon', 'obsidian', 'maroon', 'cardinal', 'burgundy'].some(c => editingProduct.color.toLowerCase().includes(c)) ? 'normal' : 'multiply'
+                              }}
+                              className="object-contain pointer-events-none"
+                              alt="Logo"
+                              draggable="false"
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
+
+                {/* Controls Box */}
+                <div className="md:col-span-4 space-y-6">
+                  {/* View Toggle (Front vs Back) */}
+                  <div className="space-y-2">
+                    <span className="text-[10px] font-bold text-neutral-400 block uppercase tracking-wider">Select Edit View</span>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => handleToggleSide('front')}
+                        className={`py-2 border rounded-xl text-xs font-bold transition-all ${
+                          !isBack
+                            ? 'bg-neutral-900 border-neutral-900 text-white shadow-3xs'
+                            : 'bg-white border-neutral-200 text-neutral-700 hover:bg-neutral-50'
+                        }`}
+                      >
+                        Front View
+                      </button>
+                      <button
+                        onClick={() => handleToggleSide('back')}
+                        className={`py-2 border rounded-xl text-xs font-bold transition-all ${
+                          isBack
+                            ? 'bg-neutral-900 border-neutral-900 text-white shadow-3xs'
+                            : 'bg-white border-neutral-200 text-neutral-700 hover:bg-neutral-50'
+                        }`}
+                      >
+                        Back View
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Enable Back Logo Checkbox */}
+                  {isBack && (
+                    <div className="flex items-center gap-2 p-3 bg-neutral-50 border border-neutral-200 rounded-xl">
+                      <input
+                        type="checkbox"
+                        id="enable-back-print"
+                        checked={editingProduct.backLogoScale > 0}
+                        onChange={(e) => {
+                          const enabled = e.target.checked;
+                          setRackItems(prev => prev.map((item, idx) => idx === editingItemIdx ? {
+                            ...item,
+                            backLogoScale: enabled ? 0.24 : 0,
+                            backLogoPos: { x: 50, y: 35 },
+                            backLogoRotation: 0
+                          } : item));
+                        }}
+                        className="w-4 h-4 text-neutral-900 border-neutral-300 rounded focus:ring-neutral-950 accent-neutral-900 cursor-pointer"
+                      />
+                      <label htmlFor="enable-back-print" className="text-xs font-bold text-neutral-700 cursor-pointer select-none">
+                        Enable Back Decoration
+                      </label>
+                    </div>
+                  )}
+
+                  {/* Print vs Embroidery selection */}
+                  <div className="space-y-2">
+                    <span className="text-[10px] font-bold text-neutral-400 block uppercase tracking-wider">Decoration Method</span>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => setRackItems(prev => prev.map((item, idx) => idx === editingItemIdx ? { ...item, decoration: 'Print' } : item))}
+                        className={`py-2.5 border rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                          editingProduct.decoration === 'Print'
+                            ? 'bg-neutral-900 border-neutral-900 text-white shadow-3xs'
+                            : 'bg-white border-neutral-200 text-neutral-700 hover:bg-neutral-50'
+                        }`}
+                      >
+                        Premium Print
+                      </button>
+                      <button
+                        onClick={() => setRackItems(prev => prev.map((item, idx) => idx === editingItemIdx ? { ...item, decoration: 'Embroidery' } : item))}
+                        className={`py-2.5 border rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                          editingProduct.decoration === 'Embroidery'
+                            ? 'bg-neutral-900 border-neutral-900 text-white shadow-3xs'
+                            : 'bg-white border-neutral-200 text-neutral-700 hover:bg-neutral-50'
+                        }`}
+                      >
+                        Embroidery
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Print placement presets */}
+                  <div className="space-y-2">
+                    <span className="text-[10px] font-bold text-neutral-400 block uppercase tracking-wider">Placement Presets</span>
+                    <div className="grid grid-cols-3 gap-2">
+                      {isBack ? (
+                        <>
+                          <button
+                            disabled={editingProduct.backLogoScale === 0}
+                            onClick={() => {
+                              setRackItems(prev => prev.map((item, idx) => idx === editingItemIdx ? { ...item, backLogoPos: { x: 50, y: 35 }, backLogoScale: 0.28 } : item));
+                            }}
+                            className="py-2 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-bold hover:bg-neutral-100 flex items-center justify-center gap-1 disabled:opacity-50"
+                          >
+                            Large Back
+                          </button>
+                          <button
+                            disabled={editingProduct.backLogoScale === 0}
+                            onClick={() => {
+                              setRackItems(prev => prev.map((item, idx) => idx === editingItemIdx ? { ...item, backLogoPos: { x: 50, y: 20 }, backLogoScale: 0.14 } : item));
+                            }}
+                            className="py-2 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-bold hover:bg-neutral-100 flex items-center justify-center gap-1 disabled:opacity-50"
+                          >
+                            Locker Patch
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => {
+                              setRackItems(prev => prev.map((item, idx) => idx === editingItemIdx ? { ...item, logoPos: { x: 50, y: 35 }, logoScale: 0.28 } : item));
+                            }}
+                            className="py-2 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-bold hover:bg-neutral-100 flex items-center justify-center gap-1"
+                          >
+                            Center
+                          </button>
+                          <button
+                            onClick={() => {
+                              setRackItems(prev => prev.map((item, idx) => idx === editingItemIdx ? { ...item, logoPos: { x: 38, y: 30 }, logoScale: 0.14 } : item));
+                            }}
+                            className="py-2 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-bold hover:bg-neutral-100 flex items-center justify-center gap-1"
+                          >
+                            Left Chest
+                          </button>
+                        </>
+                      )}
+                      <button
+                        disabled={isBack && editingProduct.backLogoScale === 0}
+                        onClick={() => {
+                          setRackItems(prev => prev.map((item, idx) => {
+                            if (idx !== editingItemIdx) return item;
+                            return isBack
+                              ? { ...item, backLogoPos: { x: 50, y: 35 }, backLogoScale: 0.24, backLogoRotation: 0 }
+                              : { ...item, logoPos: { x: 50, y: 35 }, logoScale: 0.28, logoRotation: 0 };
+                          }));
+                        }}
+                        className="py-2 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-bold hover:bg-neutral-100 flex items-center justify-center gap-1 disabled:opacity-50"
+                      >
+                        Reset
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Garment Zoom Slider */}
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="font-semibold text-neutral-600">Garment Zoom</span>
+                      <span className="font-bold text-neutral-900">{Math.round(zoom * 100)}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="1"
+                      max="2.5"
+                      step="0.1"
+                      value={zoom}
+                      onChange={e => {
+                        const newZoom = parseFloat(e.target.value);
+                        setZoom(newZoom);
+                        if (newZoom === 1) {
+                          setPanX(0);
+                          setPanY(0);
+                        }
+                      }}
+                      className="w-full h-1 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-neutral-900"
+                    />
+                    {zoom > 1 && (
+                      <p className="text-[10px] text-neutral-400 italic">
+                        Drag empty canvas area to pan around the zoomed garment.
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Sizing Slider Scale */}
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="font-semibold text-neutral-600">Logo Scale</span>
+                      <span className="font-bold text-neutral-900">{Math.round(activeLogoScale * 100)}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0.05"
+                      max="0.8"
+                      step="0.01"
+                      value={activeLogoScale}
+                      disabled={isBack && editingProduct.backLogoScale === 0}
+                      onChange={e => {
+                        const val = parseFloat(e.target.value);
+                        setRackItems(prev => prev.map((item, idx) => {
+                          if (idx !== editingItemIdx) return item;
+                          return isBack
+                            ? { ...item, backLogoScale: val }
+                            : { ...item, logoScale: val };
+                        }));
+                      }}
+                      className="w-full h-1 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-neutral-900 disabled:opacity-50"
+                    />
+                  </div>
+
+                  {/* Sizing Slider Rotation */}
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="font-semibold text-neutral-600">Logo Rotation</span>
+                      <span className="font-bold text-neutral-900">{activeLogoRotation}°</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="-180"
+                      max="180"
+                      step="1"
+                      value={activeLogoRotation}
+                      disabled={isBack && editingProduct.backLogoScale === 0}
+                      onChange={e => {
+                        const val = parseInt(e.target.value);
+                        setRackItems(prev => prev.map((item, idx) => {
+                          if (idx !== editingItemIdx) return item;
+                          return isBack
+                            ? { ...item, backLogoRotation: val }
+                            : { ...item, logoRotation: val };
+                        }));
+                      }}
+                      className="w-full h-1 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-neutral-900 disabled:opacity-50"
+                    />
+                  </div>
+                </div>
               </div>
 
-              {/* Controls Box */}
-              <div className="md:col-span-5 space-y-6">
-                {/* Print vs Embroidery selection */}
-                <div className="space-y-2">
-                  <span className="text-[10px] font-bold text-neutral-400 block uppercase tracking-wider">Decoration Method</span>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      onClick={() => setRackItems(prev => prev.map((item, idx) => idx === editingItemIdx ? { ...item, decoration: 'Print' } : item))}
-                      className={`py-2.5 border rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-                        editingProduct.decoration === 'Print'
-                          ? 'bg-neutral-900 border-neutral-900 text-white shadow-3xs'
-                          : 'bg-white border-neutral-200 text-neutral-700 hover:bg-neutral-50'
-                      }`}
-                    >
-                      Premium Print
-                    </button>
-                    <button
-                      onClick={() => setRackItems(prev => prev.map((item, idx) => idx === editingItemIdx ? { ...item, decoration: 'Embroidery' } : item))}
-                      className={`py-2.5 border rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-                        editingProduct.decoration === 'Embroidery'
-                          ? 'bg-neutral-900 border-neutral-900 text-white shadow-3xs'
-                          : 'bg-white border-neutral-200 text-neutral-700 hover:bg-neutral-50'
-                      }`}
-                    >
-                      Embroidery
-                    </button>
-                  </div>
-                </div>
-
-                {/* Print placement presets */}
-                <div className="space-y-2">
-                  <span className="text-[10px] font-bold text-neutral-400 block uppercase tracking-wider">Placement Presets</span>
-                  <div className="grid grid-cols-3 gap-2">
-                    <button
-                      onClick={() => {
-                        setRackItems(prev => prev.map((item, idx) => idx === editingItemIdx ? { ...item, logoPos: { x: 50, y: 35 }, logoScale: 0.28 } : item));
-                      }}
-                      className="py-2 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-bold hover:bg-neutral-100 flex items-center justify-center gap-1"
-                    >
-                      Center
-                    </button>
-                    <button
-                      onClick={() => {
-                        setRackItems(prev => prev.map((item, idx) => idx === editingItemIdx ? { ...item, logoPos: { x: 38, y: 30 }, logoScale: 0.14 } : item));
-                      }}
-                      className="py-2 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-bold hover:bg-neutral-100 flex items-center justify-center gap-1"
-                    >
-                      Left Chest
-                    </button>
-                    <button
-                      onClick={() => {
-                        setRackItems(prev => prev.map((item, idx) => idx === editingItemIdx ? { ...item, logoPos: { x: 50, y: 35 }, logoScale: 0.28, logoRotation: 0 } : item));
-                      }}
-                      className="py-2 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-bold hover:bg-neutral-100 flex items-center justify-center gap-1"
-                    >
-                      Reset
-                    </button>
-                  </div>
-                </div>
-
-                {/* Sizing Slider Scale */}
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="font-semibold text-neutral-600">Logo Scale</span>
-                    <span className="font-bold text-neutral-900">{Math.round(editingProduct.logoScale * 100)}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0.05"
-                    max="0.8"
-                    step="0.01"
-                    value={editingProduct.logoScale}
-                    onChange={e => setRackItems(prev => prev.map((item, idx) => idx === editingItemIdx ? { ...item, logoScale: parseFloat(e.target.value) } : item))}
-                    className="w-full h-1 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-neutral-900"
-                  />
-                </div>
-
-                {/* Sizing Slider Rotation */}
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="font-semibold text-neutral-600">Logo Rotation</span>
-                    <span className="font-bold text-neutral-900">{editingProduct.logoRotation}°</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="-180"
-                    max="180"
-                    step="1"
-                    value={editingProduct.logoRotation}
-                    onChange={e => setRackItems(prev => prev.map((item, idx) => idx === editingItemIdx ? { ...item, logoRotation: parseInt(e.target.value) } : item))}
-                    className="w-full h-1 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-neutral-900"
-                  />
-                </div>
+              <div className="pt-4 border-t border-neutral-100 flex justify-end">
+                <PillButton variant="filled" onClick={() => setIsEditorOpen(false)}>
+                  Save Positioning
+                </PillButton>
               </div>
-            </div>
-
-            <div className="pt-4 border-t border-neutral-100 flex justify-end">
-              <PillButton variant="filled" onClick={() => setIsEditorOpen(false)}>
-                Save Positioning
-              </PillButton>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* RETAIL ANNOUNCEMENT/STOREFRONT SETTINGS MODAL */}
       {isEditingStorefront && (
