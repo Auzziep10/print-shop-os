@@ -203,6 +203,24 @@ interface DesignRackItem {
   decoration: 'Print' | 'Embroidery';
 }
 
+// Admin-defined logo placement box (see StorefrontCatalogTab): center x/y + size,
+// in percent of the 4:5 frame in which the garment mock is object-contain fitted.
+interface LogoBox {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+// Largest logoScale (logo width as a fraction of frame width) that keeps a logo of
+// the given aspect ratio (w/h) inside the box, centered on the box.
+const FRAME_H_OVER_W = 5 / 4; // aspect-[4/5] placement frame
+const fitLogoToBox = (box: LogoBox, logoAspect: number): { pos: { x: number; y: number }; scale: number } => {
+  const safeAspect = logoAspect > 0 ? logoAspect : 1;
+  const scale = Math.min(box.w / 100, (box.h / 100) * FRAME_H_OVER_W * safeAspect);
+  return { pos: { x: box.x, y: box.y }, scale };
+};
+
 interface TiltCardProps {
   children: React.ReactNode;
   className: string;
@@ -335,11 +353,16 @@ export function PublicQuoteRequest() {
       racks?: Record<string, Record<string, string>>;
       basics?: Record<string, Record<string, string>>;
     };
+    logoPlacements?: {
+      racks?: Record<string, Record<string, LogoBox>>;
+      basics?: Record<string, Record<string, LogoBox>>;
+    };
   }>({
     racks: DEFAULT_RACKS,
     basics: DEFAULT_BASICS,
     customNames: { racks: {}, basics: {} },
-    defaultColors: { racks: {}, basics: {} }
+    defaultColors: { racks: {}, basics: {} },
+    logoPlacements: { racks: {}, basics: {} }
   });
 
   const [cart, setCart] = useState<any[]>([]);
@@ -351,6 +374,7 @@ export function PublicQuoteRequest() {
   // Logo Designer Tab selection
   const [designerTab, setDesignerTab] = useState<'upload' | 'text' | 'clipart' | 'ai'>('upload');
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [logoAspect, setLogoAspect] = useState(1); // natural w/h, used to fit logos into placement boxes
   const [artworkName, setArtworkName] = useState<string | null>(null);
   const [originalArtworkUrl, setOriginalArtworkUrl] = useState<string | null>(null);
   const [originalFileUrl, setOriginalFileUrl] = useState<string | null>(null);
@@ -443,7 +467,8 @@ export function PublicQuoteRequest() {
             racks: cData.racks || DEFAULT_RACKS,
             basics: cData.basics || DEFAULT_BASICS,
             customNames: cData.customNames || { racks: {}, basics: {} },
-            defaultColors: cData.defaultColors || { racks: {}, basics: {} }
+            defaultColors: cData.defaultColors || { racks: {}, basics: {} },
+            logoPlacements: cData.logoPlacements || { racks: {}, basics: {} }
           });
         }
       } catch (err) {
@@ -503,6 +528,22 @@ export function PublicQuoteRequest() {
     }
   }, [searchParams]);
 
+  // Measure the active logo's aspect ratio so placement boxes can auto-fit it
+  useEffect(() => {
+    if (!logoUrl) {
+      setLogoAspect(1);
+      return;
+    }
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.src = logoUrl;
+    img.onload = () => {
+      if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+        setLogoAspect(img.naturalWidth / img.naturalHeight);
+      }
+    };
+  }, [logoUrl]);
+
   // Populates the selected theme rack
   const populateThemeRack = (themeName: string) => {
     const stylesMap = catalogSettings.racks[themeName] || DEFAULT_RACKS.Athleisure;
@@ -522,14 +563,18 @@ export function PublicQuoteRequest() {
         const isHat = slot === 'hat';
         const isPolo = slot === 'polo';
 
+        // Admin-configured placement box beats the hardcoded slot defaults
+        const placementBox = catalogSettings.logoPlacements?.racks?.[themeName]?.[slot];
+        const fitted = placementBox ? fitLogoToBox(placementBox, logoAspect) : null;
+
         items.push({
           id: `${slot}-${Date.now()}`,
           slot,
           product: displayProduct,
           color: catalogSettings.defaultColors?.racks?.[themeName]?.[slot] || displayProduct.colors[0],
           selected: true,
-          logoPos: isHat ? { x: 50, y: 55 } : isPolo ? { x: 38, y: 30 } : { x: 50, y: 35 },
-          logoScale: isHat ? 0.16 : isPolo ? 0.14 : 0.28,
+          logoPos: fitted ? fitted.pos : isHat ? { x: 50, y: 55 } : isPolo ? { x: 38, y: 30 } : { x: 50, y: 35 },
+          logoScale: fitted ? fitted.scale : isHat ? 0.16 : isPolo ? 0.14 : 0.28,
           logoRotation: 0,
           printSize: isHat ? 'Small' : isPolo ? 'Small' : 'Medium',
           decoration: (isHat || isPolo) ? 'Embroidery' : 'Print'
@@ -540,12 +585,20 @@ export function PublicQuoteRequest() {
     setRackItems(items);
   };
 
-  // Populate rack when theme or mode changes
+  // Populate rack when theme or mode changes, and re-fit when a new logo lands
   useEffect(() => {
     if (flowMode === 'racks' && selectedThemeCategory) {
       populateThemeRack(selectedThemeCategory);
     }
-  }, [flowMode, selectedThemeCategory, catalogSettings]);
+  }, [flowMode, selectedThemeCategory, catalogSettings, logoAspect]);
+
+  // Resolve the admin-configured placement for a basics product (falls back to legacy default)
+  const getBasicsPlacement = (product: SanMarProduct): { pos: { x: number; y: number }; scale: number } => {
+    const cat = catalogSettings.basics?.[selectedBasicsCategory];
+    const tier = cat ? ['good', 'better', 'best'].find(t => cat[t] === product.style) : undefined;
+    const box = tier ? catalogSettings.logoPlacements?.basics?.[selectedBasicsCategory]?.[tier] : undefined;
+    return box ? fitLogoToBox(box, logoAspect) : { pos: { x: 50, y: 35 }, scale: 0.28 };
+  };
 
   // Populate basics selection
   const preCuratedBasicsOptions = useMemo(() => {
@@ -1017,8 +1070,8 @@ export function PublicQuoteRequest() {
             {
               product: selectedBasicsItem!,
               color: selectedBasicsColor,
-              logoPos: { x: 50, y: 35 },
-              logoScale: 0.28,
+              logoPos: getBasicsPlacement(selectedBasicsItem!).pos,
+              logoScale: getBasicsPlacement(selectedBasicsItem!).scale,
               logoRotation: 0,
               printSize: 'Medium' as const,
               decoration: ['hat', 'cap', 'polo'].some(w => selectedBasicsItem!.category.toLowerCase().includes(w)) ? 'Embroidery' as const : 'Print' as const
@@ -2189,32 +2242,36 @@ export function PublicQuoteRequest() {
                             {item.slot}
                           </div>
 
-                          {/* Garment Image */}
-                          <img src={previewImg} className="max-w-[85%] max-h-[85%] object-contain pointer-events-none mix-blend-multiply" alt={item.product.style} />
+                          {/* Placement frame — same 4:5 geometry as the design editor & mockup compiler,
+                              so logoPos/logoScale render identically here, in Edit Design, and in the final mockup */}
+                          <div className="absolute inset-[9%]">
+                            {/* Garment Image */}
+                            <img src={previewImg} className="absolute inset-0 w-full h-full object-contain pointer-events-none mix-blend-multiply" alt={item.product.style} />
 
-                          {/* Overlay Projected Logo */}
-                          <div 
-                            style={{
-                              position: 'absolute',
-                              left: `${item.logoPos.x}%`,
-                              top: `${item.logoPos.y}%`,
-                              width: `${item.logoScale * 100}%`,
-                              transform: 'translate(-50%, -50%)',
-                              pointerEvents: 'none'
-                            }}
-                          >
-                            <img 
-                              src={logoUrl} 
-                              alt="overlay" 
+                            {/* Overlay Projected Logo */}
+                            <div
                               style={{
-                                transform: `rotate(${item.logoRotation}deg)`,
-                                width: '100%',
-                                height: 'auto',
-                                filter: item.decoration === 'Embroidery' ? 'drop-shadow(1.5px 1.5px 1.5px rgba(0,0,0,0.38))' : 'none',
-                                mixBlendMode: ['black', 'dark', 'navy', 'patriot', 'charcoal', 'graphite', 'carbon', 'obsidian', 'maroon', 'cardinal', 'burgundy'].some(c => item.color.toLowerCase().includes(c)) ? 'normal' : 'multiply'
+                                position: 'absolute',
+                                left: `${item.logoPos.x}%`,
+                                top: `${item.logoPos.y}%`,
+                                width: `${item.logoScale * 100}%`,
+                                transform: 'translate(-50%, -50%)',
+                                pointerEvents: 'none'
                               }}
-                              className="object-contain"
-                            />
+                            >
+                              <img
+                                src={logoUrl}
+                                alt="overlay"
+                                style={{
+                                  transform: `rotate(${item.logoRotation}deg)`,
+                                  width: '100%',
+                                  height: 'auto',
+                                  filter: item.decoration === 'Embroidery' ? 'drop-shadow(1.5px 1.5px 1.5px rgba(0,0,0,0.38))' : 'none',
+                                  mixBlendMode: ['black', 'dark', 'navy', 'patriot', 'charcoal', 'graphite', 'carbon', 'obsidian', 'maroon', 'cardinal', 'burgundy'].some(c => item.color.toLowerCase().includes(c)) ? 'normal' : 'multiply'
+                                }}
+                                className="object-contain"
+                              />
+                            </div>
                           </div>
                         </div>
 
@@ -2275,36 +2332,40 @@ export function PublicQuoteRequest() {
                         Premium Print
                       </div>
 
+                      {/* Placement frame — same 4:5 geometry as the design editor & mockup compiler */}
                       {(() => {
                         const imgSet = selectedBasicsItem.images[selectedBasicsColor] || Object.values(selectedBasicsItem.images)[0];
                         const imgSrc = imgSet ? (typeof imgSet === 'string' ? imgSet : (imgSet as any).front) : '';
+                        const placement = getBasicsPlacement(selectedBasicsItem);
                         return (
-                          <img src={imgSrc} className="max-w-[85%] max-h-[85%] object-contain pointer-events-none mix-blend-multiply" alt={selectedBasicsItem.style} />
+                          <div className="absolute inset-[9%]">
+                            <img src={imgSrc} className="absolute inset-0 w-full h-full object-contain pointer-events-none mix-blend-multiply" alt={selectedBasicsItem.style} />
+
+                            {/* Projected logo */}
+                            <div
+                              style={{
+                                position: 'absolute',
+                                left: `${placement.pos.x}%`,
+                                top: `${placement.pos.y}%`,
+                                width: `${placement.scale * 100}%`,
+                                transform: 'translate(-50%, -50%)',
+                                pointerEvents: 'none'
+                              }}
+                            >
+                              <img
+                                src={logoUrl}
+                                alt="overlay"
+                                style={{
+                                  width: '100%',
+                                  height: 'auto',
+                                  mixBlendMode: ['black', 'dark', 'navy', 'patriot', 'charcoal', 'graphite', 'carbon', 'obsidian', 'maroon', 'cardinal', 'burgundy'].some(c => selectedBasicsColor.toLowerCase().includes(c)) ? 'normal' : 'multiply'
+                                }}
+                                className="object-contain"
+                              />
+                            </div>
+                          </div>
                         );
                       })()}
-
-                      {/* Projected logo */}
-                      <div 
-                        style={{
-                          position: 'absolute',
-                          left: '50%',
-                          top: '35%',
-                          width: '28%',
-                          transform: 'translate(-50%, -50%)',
-                          pointerEvents: 'none'
-                        }}
-                      >
-                        <img 
-                          src={logoUrl} 
-                          alt="overlay" 
-                          style={{
-                            width: '100%',
-                            height: 'auto',
-                            mixBlendMode: ['black', 'dark', 'navy', 'patriot', 'charcoal', 'graphite', 'carbon', 'obsidian', 'maroon', 'cardinal', 'burgundy'].some(c => selectedBasicsColor.toLowerCase().includes(c)) ? 'normal' : 'multiply'
-                          }}
-                          className="object-contain"
-                        />
-                      </div>
                     </div>
 
                     <div className="p-5 space-y-4">

@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
-import { Loader2, Save, Search, Check, Info } from 'lucide-react';
+import { Loader2, Save, Search, Check, Info, Crosshair, X, Trash2 } from 'lucide-react';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
@@ -36,6 +36,199 @@ const DEFAULT_BASICS = {
   Jacket: { good: 'L217', better: 'J317', best: 'J333' }
 };
 
+// Logo placement bounding box, in percent of the 4:5 placement frame in which the
+// garment mock is object-contain fitted at 100%. x/y = box CENTER. Matches the
+// coordinate system used by the /start lookbook, Edit Design modal, and mockup compiler.
+export interface LogoBox {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+const PLACEMENT_PRESETS: { label: string; box: LogoBox }[] = [
+  { label: 'Full Front', box: { x: 50, y: 38, w: 50, h: 40 } },
+  { label: 'Left Chest', box: { x: 36, y: 28, w: 16, h: 13 } },
+  { label: 'Right Chest', box: { x: 64, y: 28, w: 16, h: 13 } },
+  { label: 'Hat Front', box: { x: 50, y: 52, w: 24, h: 17 } },
+];
+
+const slotDefaultBox = (slot: string): LogoBox => {
+  if (slot === 'hat') return PLACEMENT_PRESETS[3].box;
+  if (slot === 'polo') return PLACEMENT_PRESETS[1].box;
+  return PLACEMENT_PRESETS[0].box;
+};
+
+const clampBox = (box: LogoBox): LogoBox => {
+  const w = Math.min(96, Math.max(5, box.w));
+  const h = Math.min(96, Math.max(5, box.h));
+  const x = Math.min(100 - w / 2, Math.max(w / 2, box.x));
+  const y = Math.min(100 - h / 2, Math.max(h / 2, box.y));
+  return { x, y, w, h };
+};
+
+function LogoPlacementModal({
+  title,
+  imageUrl,
+  initialBox,
+  hasExisting,
+  onApply,
+  onClear,
+  onClose,
+}: {
+  title: string;
+  imageUrl: string;
+  initialBox: LogoBox;
+  hasExisting: boolean;
+  onApply: (box: LogoBox) => void;
+  onClear: () => void;
+  onClose: () => void;
+}) {
+  const [box, setBox] = useState<LogoBox>(clampBox(initialBox));
+  const frameRef = useRef<HTMLDivElement>(null);
+  const gestureRef = useRef<{
+    type: 'move' | 'resize';
+    startPx: number;
+    startPy: number;
+    startBox: LogoBox;
+  } | null>(null);
+
+  const pointerPct = (e: React.PointerEvent) => {
+    const rect = frameRef.current!.getBoundingClientRect();
+    return {
+      px: ((e.clientX - rect.left) / rect.width) * 100,
+      py: ((e.clientY - rect.top) / rect.height) * 100,
+    };
+  };
+
+  const handlePointerDown = (e: React.PointerEvent, type: 'move' | 'resize') => {
+    e.preventDefault();
+    e.stopPropagation();
+    const { px, py } = pointerPct(e);
+    gestureRef.current = { type, startPx: px, startPy: py, startBox: box };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    const g = gestureRef.current;
+    if (!g) return;
+    const { px, py } = pointerPct(e);
+    if (g.type === 'move') {
+      setBox(clampBox({
+        ...g.startBox,
+        x: g.startBox.x + (px - g.startPx),
+        y: g.startBox.y + (py - g.startPy),
+      }));
+    } else {
+      // Resize from the bottom-right handle, keeping the center anchored
+      setBox(clampBox({
+        ...g.startBox,
+        w: (px - g.startBox.x) * 2,
+        h: (py - g.startBox.y) * 2,
+      }));
+    }
+  };
+
+  const handlePointerUp = () => {
+    gestureRef.current = null;
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
+      <div className="bg-white border border-brand-border rounded-2xl shadow-2xl max-w-lg w-full p-6 space-y-5 max-h-[92vh] overflow-y-auto">
+        <div className="flex justify-between items-start">
+          <div>
+            <span className="text-[9px] font-extrabold uppercase tracking-widest text-neutral-400">Logo Placement</span>
+            <h3 className="text-lg font-serif text-brand-primary">{title}</h3>
+            <p className="text-xs text-brand-secondary mt-1">
+              Drag the box where the logo should land on this mock. Customer logos are auto-fitted
+              inside it, so the same box drives the lookbook preview and the final mockup.
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1 text-neutral-400 hover:text-neutral-900 hover:bg-neutral-50 rounded-lg transition-colors"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Placement canvas — same geometry as the customer-facing placement frame */}
+        <div
+          ref={frameRef}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          className="relative w-full max-w-[360px] mx-auto aspect-[4/5] bg-checkerboard border border-brand-border rounded-xl overflow-hidden select-none touch-none"
+        >
+          <img
+            src={imageUrl}
+            alt="Garment mock"
+            draggable="false"
+            className="absolute inset-0 w-full h-full object-contain mix-blend-multiply pointer-events-none"
+          />
+
+          <div
+            onPointerDown={(e) => handlePointerDown(e, 'move')}
+            className="absolute border-2 border-dashed border-neutral-900 bg-neutral-900/10 cursor-move rounded-sm"
+            style={{
+              left: `${box.x - box.w / 2}%`,
+              top: `${box.y - box.h / 2}%`,
+              width: `${box.w}%`,
+              height: `${box.h}%`,
+            }}
+          >
+            <Crosshair
+              size={14}
+              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-neutral-900/60 pointer-events-none"
+            />
+            <span className="absolute -top-5 left-0 text-[9px] font-extrabold uppercase tracking-wider text-neutral-900 bg-white/85 px-1 rounded pointer-events-none whitespace-nowrap">
+              Logo area
+            </span>
+            <div
+              onPointerDown={(e) => handlePointerDown(e, 'resize')}
+              className="absolute bottom-0 right-0 w-4 h-4 translate-x-1/2 translate-y-1/2 bg-white border-2 border-neutral-900 rounded-full shadow-sm cursor-se-resize"
+              title="Resize box"
+            />
+          </div>
+        </div>
+
+        {/* Presets + readout */}
+        <div className="flex flex-wrap items-center gap-2">
+          {PLACEMENT_PRESETS.map(preset => (
+            <button
+              key={preset.label}
+              onClick={() => setBox(clampBox(preset.box))}
+              className="px-3 py-1.5 bg-white border border-brand-border rounded-xl text-[10px] font-bold text-brand-primary hover:bg-neutral-50 transition-colors"
+            >
+              {preset.label}
+            </button>
+          ))}
+          <span className="ml-auto text-[10px] font-mono text-neutral-400">
+            {Math.round(box.w)}% × {Math.round(box.h)}%
+          </span>
+        </div>
+
+        <div className="flex justify-between items-center pt-4 border-t border-brand-border">
+          {hasExisting ? (
+            <button
+              onClick={onClear}
+              className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-red-500 hover:bg-red-50 rounded-xl transition-colors"
+            >
+              <Trash2 size={13} /> Clear placement
+            </button>
+          ) : <span />}
+          <div className="flex gap-2">
+            <PillButton variant="outline" onClick={onClose}>Cancel</PillButton>
+            <PillButton variant="filled" onClick={() => onApply(clampBox(box))} className="gap-2">
+              <Check size={14} /> Apply Placement
+            </PillButton>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function StorefrontCatalogTab() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -46,6 +239,14 @@ export function StorefrontCatalogTab() {
   const [basics, setBasics] = useState<Record<string, any>>(DEFAULT_BASICS);
   const [customNames, setCustomNames] = useState<Record<string, any>>({ racks: {}, basics: {} });
   const [defaultColors, setDefaultColors] = useState<Record<string, any>>({ racks: {}, basics: {} });
+  const [logoPlacements, setLogoPlacements] = useState<Record<string, any>>({ racks: {}, basics: {} });
+
+  // Logo placement editor modal state
+  const [placementTarget, setPlacementTarget] = useState<{
+    mode: 'racks' | 'basics';
+    category: string;
+    slot: string;
+  } | null>(null);
 
   // Active category select
   const [activeRackCategory, setActiveRackCategory] = useState('Athleisure');
@@ -79,6 +280,11 @@ export function StorefrontCatalogTab() {
           } else {
             setDefaultColors({ racks: {}, basics: {} });
           }
+          if (data.logoPlacements) {
+            setLogoPlacements(data.logoPlacements);
+          } else {
+            setLogoPlacements({ racks: {}, basics: {} });
+          }
         }
       } catch (err) {
         console.error("Error fetching storefront catalog settings:", err);
@@ -97,6 +303,7 @@ export function StorefrontCatalogTab() {
         basics,
         customNames,
         defaultColors,
+        logoPlacements,
         updatedAt: new Date().toISOString()
       });
       alert('Storefront catalog settings saved successfully!');
@@ -119,6 +326,7 @@ export function StorefrontCatalogTab() {
 
     const { mode, category, slot } = activeSelectTarget;
 
+    // Custom display names are slot-level branding and intentionally survive product swaps
     if (mode === 'racks') {
       setRacks(prev => ({
         ...prev,
@@ -127,20 +335,6 @@ export function StorefrontCatalogTab() {
           [slot]: style
         }
       }));
-      setCustomNames(prev => {
-        const racks = prev.racks || {};
-        const cat = racks[category] || {};
-        return {
-          ...prev,
-          racks: {
-            ...racks,
-            [category]: {
-              ...cat,
-              [slot]: ''
-            }
-          }
-        };
-      });
     } else {
       setBasics(prev => ({
         ...prev,
@@ -149,24 +343,48 @@ export function StorefrontCatalogTab() {
           [slot]: style
         }
       }));
-      setCustomNames(prev => {
-        const basics = prev.basics || {};
-        const cat = basics[category] || {};
-        return {
-          ...prev,
-          basics: {
-            ...basics,
-            [category]: {
-              ...cat,
-              [slot]: ''
-            }
-          }
-        };
-      });
     }
 
     setIsModalOpen(false);
     setActiveSelectTarget(null);
+  };
+
+  const handleApplyPlacement = (box: LogoBox) => {
+    if (!placementTarget) return;
+    const { mode, category, slot } = placementTarget;
+    setLogoPlacements(prev => {
+      const modeMap = prev[mode] || {};
+      const cat = modeMap[category] || {};
+      return {
+        ...prev,
+        [mode]: {
+          ...modeMap,
+          [category]: {
+            ...cat,
+            [slot]: box
+          }
+        }
+      };
+    });
+    setPlacementTarget(null);
+  };
+
+  const handleClearPlacement = () => {
+    if (!placementTarget) return;
+    const { mode, category, slot } = placementTarget;
+    setLogoPlacements(prev => {
+      const modeMap = prev[mode] || {};
+      const cat = { ...(modeMap[category] || {}) };
+      delete cat[slot];
+      return {
+        ...prev,
+        [mode]: {
+          ...modeMap,
+          [category]: cat
+        }
+      };
+    });
+    setPlacementTarget(null);
   };
 
   // Filter products by search query
@@ -376,12 +594,24 @@ export function StorefrontCatalogTab() {
                     )}
                   </div>
 
-                  <button
-                    onClick={() => handleOpenSelector('racks', activeRackCategory, slot)}
-                    className="w-full py-2 bg-white border border-brand-border text-brand-primary rounded-xl text-xs font-bold transition-all shadow-2xs hover:bg-neutral-50"
-                  >
-                    Change Product
-                  </button>
+                  <div className="space-y-2">
+                    <button
+                      onClick={() => setPlacementTarget({ mode: 'racks', category: activeRackCategory, slot })}
+                      className="w-full py-2 bg-white border border-brand-border text-brand-primary rounded-xl text-xs font-bold transition-all shadow-2xs hover:bg-neutral-50 flex items-center justify-center gap-1.5"
+                    >
+                      <Crosshair size={13} />
+                      Set Logo Placement
+                      {logoPlacements.racks?.[activeRackCategory]?.[slot] && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" title="Placement configured" />
+                      )}
+                    </button>
+                    <button
+                      onClick={() => handleOpenSelector('racks', activeRackCategory, slot)}
+                      className="w-full py-2 bg-white border border-brand-border text-brand-primary rounded-xl text-xs font-bold transition-all shadow-2xs hover:bg-neutral-50"
+                    >
+                      Change Product
+                    </button>
+                  </div>
                 </div>
               );
             })}
@@ -514,18 +744,49 @@ export function StorefrontCatalogTab() {
                     )}
                   </div>
 
-                  <button
-                    onClick={() => handleOpenSelector('basics', activeBasicsCategory, slot)}
-                    className="w-full py-2 bg-white border border-brand-border text-brand-primary rounded-xl text-xs font-bold transition-all shadow-2xs hover:bg-neutral-50"
-                  >
-                    Change Product
-                  </button>
+                  <div className="space-y-2">
+                    <button
+                      onClick={() => setPlacementTarget({ mode: 'basics', category: activeBasicsCategory, slot })}
+                      className="w-full py-2 bg-white border border-brand-border text-brand-primary rounded-xl text-xs font-bold transition-all shadow-2xs hover:bg-neutral-50 flex items-center justify-center gap-1.5"
+                    >
+                      <Crosshair size={13} />
+                      Set Logo Placement
+                      {logoPlacements.basics?.[activeBasicsCategory]?.[slot] && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" title="Placement configured" />
+                      )}
+                    </button>
+                    <button
+                      onClick={() => handleOpenSelector('basics', activeBasicsCategory, slot)}
+                      className="w-full py-2 bg-white border border-brand-border text-brand-primary rounded-xl text-xs font-bold transition-all shadow-2xs hover:bg-neutral-50"
+                    >
+                      Change Product
+                    </button>
+                  </div>
                 </div>
               );
             })}
           </div>
         </div>
       )}
+
+      {/* Logo Placement Editor Modal */}
+      {placementTarget && (() => {
+        const { mode, category, slot } = placementTarget;
+        const style = (mode === 'racks' ? racks : basics)[category]?.[slot] || '';
+        const p = getProductDetails(style) as any;
+        const existing = logoPlacements[mode]?.[category]?.[slot] as LogoBox | undefined;
+        return (
+          <LogoPlacementModal
+            title={`${category} — ${slot.replace('longsleeve', 'long sleeve').toUpperCase()} (${p.brand} ${p.style})`}
+            imageUrl={getGarmentImage(p, (mode === 'racks' ? defaultColors.racks : defaultColors.basics)?.[category]?.[slot])}
+            initialBox={existing || slotDefaultBox(slot)}
+            hasExisting={!!existing}
+            onApply={handleApplyPlacement}
+            onClear={handleClearPlacement}
+            onClose={() => setPlacementTarget(null)}
+          />
+        );
+      })()}
 
       {/* Modal Dialog for Selector */}
       {isModalOpen && activeSelectTarget && (
