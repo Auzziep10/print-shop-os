@@ -696,6 +696,21 @@ export function PortalCreateOrder() {
         items: orderItems.map(item => {
            const totalQty = Object.values(item.quantities as Record<string, number>).reduce((q, val) => q + val, 0);
            const p = parseFloat(item.price) || 0;
+           
+           const artworks = [];
+           if (item.logoUrl) {
+             artworks.push({ url: item.logoUrl, originalUrl: item.logoUrl, name: item.logoName || 'Front Logo', width: 3.5, height: 3.5, quantity: totalQty });
+           }
+           if (item.logoUrlBack) {
+             artworks.push({ url: item.logoUrlBack, originalUrl: item.logoUrlBack, name: item.logoNameBack || 'Back Logo', width: 3.5, height: 3.5, quantity: totalQty });
+           }
+           if (item.logoUrlLeftSleeve) {
+             artworks.push({ url: item.logoUrlLeftSleeve, originalUrl: item.logoUrlLeftSleeve, name: item.logoNameLeftSleeve || 'Left Sleeve Logo', width: 3.5, height: 3.5, quantity: totalQty });
+           }
+           if (item.logoUrlRightSleeve) {
+             artworks.push({ url: item.logoUrlRightSleeve, originalUrl: item.logoUrlRightSleeve, name: item.logoNameRightSleeve || 'Right Sleeve Logo', width: 3.5, height: 3.5, quantity: totalQty });
+           }
+
            return {
              id: item.instanceId || Date.now().toString(),
              style: item.style || 'Custom Garment',
@@ -708,7 +723,15 @@ export function PortalCreateOrder() {
              image: item.customized ? item.image : (item.images?.[item.selectedColor] || item.image || ''),
              notes: item.logoPlacement ? `Mockup Placement: ${item.logoPlacement}` : '',
              sizes: item.quantities,
-             artworks: item.logoUrl ? [{ url: item.logoUrl, originalUrl: item.logoUrl, name: item.logoName || 'Logo' }] : []
+             artworks: artworks,
+             logoUrl: item.logoUrl || null,
+             logoName: item.logoName || null,
+             logoUrlBack: item.logoUrlBack || null,
+             logoNameBack: item.logoNameBack || null,
+             logoUrlLeftSleeve: item.logoUrlLeftSleeve || null,
+             logoNameLeftSleeve: item.logoNameLeftSleeve || null,
+             logoUrlRightSleeve: item.logoUrlRightSleeve || null,
+             logoNameRightSleeve: item.logoNameRightSleeve || null,
            }
         })
       };

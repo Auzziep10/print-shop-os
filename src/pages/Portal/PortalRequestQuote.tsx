@@ -505,16 +505,43 @@ export function PortalRequestQuote() {
         packaging: selectedPackaging,
         items: products.map(p => {
            const sizeQtySum = p.sizes ? Object.values(p.sizes).reduce((acc: number, val: any) => acc + (parseInt(val.toString()) || 0), 0) : 0;
+           const totalQty = sizeQtySum || p.qty || 0;
+           
+           const artworks = [];
+           if (p.logoUrl) {
+             artworks.push({ url: p.logoUrl, originalUrl: p.logoUrl, name: p.logoName || 'Front Logo', width: 3.5, height: 3.5, quantity: totalQty });
+           }
+           if (p.logoUrlBack) {
+             artworks.push({ url: p.logoUrlBack, originalUrl: p.logoUrlBack, name: p.logoNameBack || 'Back Logo', width: 3.5, height: 3.5, quantity: totalQty });
+           }
+           if (p.logoUrlLeftSleeve) {
+             artworks.push({ url: p.logoUrlLeftSleeve, originalUrl: p.logoUrlLeftSleeve, name: p.logoNameLeftSleeve || 'Left Sleeve Logo', width: 3.5, height: 3.5, quantity: totalQty });
+           }
+           if (p.logoUrlRightSleeve) {
+             artworks.push({ url: p.logoUrlRightSleeve, originalUrl: p.logoUrlRightSleeve, name: p.logoNameRightSleeve || 'Right Sleeve Logo', width: 3.5, height: 3.5, quantity: totalQty });
+           }
+           if (artworks.length === 0 && p.artworkUrl) {
+             artworks.push({ url: p.artworkUrl, originalUrl: p.artworkUrl, name: p.artworkName || 'Artwork', width: 3.5, height: 3.5, quantity: totalQty });
+           }
+
            return {
               id: p.id || Date.now(),
               style: p.garmentName || 'Custom Garment',
               itemNum: p.itemNum || '',
               color: p.color || '',
-              qty: sizeQtySum || p.qty || 0,
+              qty: totalQty,
               image: p.artworkUrl || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200',
               notes: p.logoPlacement ? `Mockup Placement: ${p.logoPlacement}` : '',
               sizes: p.sizes || {},
-              artworks: p.artworkUrl ? [{ url: p.artworkUrl, originalUrl: p.artworkUrl, name: p.artworkName || 'Artwork' }] : []
+              artworks: artworks,
+              logoUrl: p.logoUrl || null,
+              logoName: p.logoName || null,
+              logoUrlBack: p.logoUrlBack || null,
+              logoNameBack: p.logoNameBack || null,
+              logoUrlLeftSleeve: p.logoUrlLeftSleeve || null,
+              logoNameLeftSleeve: p.logoNameLeftSleeve || null,
+              logoUrlRightSleeve: p.logoUrlRightSleeve || null,
+              logoNameRightSleeve: p.logoNameRightSleeve || null,
            };
         }),
         shippingAddress: {
