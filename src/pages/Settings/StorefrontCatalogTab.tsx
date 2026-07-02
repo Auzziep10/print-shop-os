@@ -861,6 +861,21 @@ export function StorefrontCatalogTab() {
         </div>
       )}
 
+      {/* Bottom Save Bar */}
+      <div className="flex flex-col sm:flex-row justify-between sm:items-center pt-6 border-t border-brand-border/60 gap-4 mt-8">
+        <p className="text-xs text-brand-secondary">
+          Configure all slots and logo placements above, then click save to update the live storefront catalog.
+        </p>
+        <PillButton 
+          variant="filled" 
+          onClick={handleSaveSettings} 
+          disabled={saving}
+          className="gap-2 shrink-0 min-w-[160px] shadow-sm hover:shadow-md transition-all"
+        >
+          {saving ? <Loader2 className="animate-spin" size={16} /> : <><Save size={16} /> Save Catalog</>}
+        </PillButton>
+      </div>
+
       {/* Logo Placement Editor Modal */}
       {placementTarget && (() => {
         const { mode, category, slot } = placementTarget;
