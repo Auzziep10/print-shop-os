@@ -2350,7 +2350,7 @@ export function OrderDetail() {
                </div>
             </div>
             
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 pt-6 border-t border-brand-border">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 pt-6 border-t border-brand-border">
                <div>
                   <span className="text-xs text-brand-secondary font-medium uppercase tracking-wider block mb-1">Due Date</span>
                   <span className="font-serif text-lg">{order.date}</span>
@@ -2378,6 +2378,10 @@ export function OrderDetail() {
                       )}
                     </div>
                   )}
+               </div>
+               <div>
+                  <span className="text-xs text-brand-secondary font-medium uppercase tracking-wider block mb-1">Packaging</span>
+                  <span className="font-serif text-lg">{order.packaging || 'Standard Packaging'}</span>
                </div>
                {hasPermission('viewPricing') && (
                  <div>

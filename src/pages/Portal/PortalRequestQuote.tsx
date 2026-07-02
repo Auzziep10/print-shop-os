@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { ArrowLeft, ChevronDown, Upload, Plus, Trash2, FileText, Loader2, Sparkles, X } from 'lucide-react';
+import { ArrowLeft, ChevronDown, Upload, Plus, Trash2, FileText, Loader2, Sparkles, X, User } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { db, storage } from '../../lib/firebase';
 import { doc, getDoc, setDoc, query, collection, where, getDocs, updateDoc } from 'firebase/firestore';
@@ -65,6 +65,35 @@ export function PortalRequestQuote() {
   const [showOnBehalf, setShowOnBehalf] = useState(false);
   const [expandedImage, setExpandedImage] = useState<string | null>(null);
 
+  // Customer Profile & Completeness States
+  const [customer, setCustomer] = useState<any>(null);
+  const [showIncompleteProfileModal, setShowIncompleteProfileModal] = useState(false);
+  const [profileContactName, setProfileContactName] = useState('');
+  const [profileCompany, setProfileCompany] = useState('');
+  const [profileEmail, setProfileEmail] = useState('');
+  const [profilePhone, setProfilePhone] = useState('');
+  const [profileStreet, setProfileStreet] = useState('');
+  const [profileCity, setProfileCity] = useState('');
+  const [profileState, setProfileState] = useState('');
+  const [profileZip, setProfileZip] = useState('');
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+
+  // Selected Packaging preference
+  const [selectedPackaging, setSelectedPackaging] = useState('Single Folded');
+
+  useEffect(() => {
+    if (customer) {
+      setProfileContactName(customer.contactName || '');
+      setProfileCompany(customer.company || customer.name || '');
+      setProfileEmail(customer.email || '');
+      setProfilePhone(customer.phone || '');
+      setProfileStreet(customer.shippingStreet || '');
+      setProfileCity(customer.shippingCity || '');
+      setProfileState(customer.shippingState || '');
+      setProfileZip(customer.shippingZip || '');
+    }
+  }, [customer]);
+
   useEffect(() => {
     const fetchCustomer = async () => {
       setIsLoadingLibrary(true);
@@ -109,6 +138,7 @@ export function PortalRequestQuote() {
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
           const data = docSnap.data();
+          setCustomer(data);
           
           if (data.contactName || data.name) setContactName(data.contactName || data.name);
           if (data.email) setEmailAddress(data.email);
@@ -354,9 +384,79 @@ export function PortalRequestQuote() {
     }
   };
 
-  const handleSubmit = async () => {
+  const isProfileComplete = () => {
+    return !!(
+      profileContactName.trim() &&
+      profileCompany.trim() &&
+      profileEmail.trim() &&
+      profilePhone.trim() &&
+      profileStreet.trim() &&
+      profileCity.trim() &&
+      profileState.trim() &&
+      profileZip.trim()
+    );
+  };
+
+  const handleSaveProfileAndSubmit = async () => {
+    if (!customerId) return;
+    setIsSavingProfile(true);
+    try {
+      await setDoc(doc(db, 'customers', customerId), {
+        contactName: profileContactName.trim(),
+        company: profileCompany.trim(),
+        name: profileCompany.trim(),
+        email: profileEmail.trim(),
+        phone: profilePhone.trim(),
+        shippingStreet: profileStreet.trim(),
+        shippingCity: profileCity.trim(),
+        shippingState: profileState.trim(),
+        shippingZip: profileZip.trim(),
+      }, { merge: true });
+
+      setCustomer((prev: any) => ({
+        ...prev,
+        contactName: profileContactName.trim(),
+        company: profileCompany.trim(),
+        name: profileCompany.trim(),
+        email: profileEmail.trim(),
+        phone: profilePhone.trim(),
+        shippingStreet: profileStreet.trim(),
+        shippingCity: profileCity.trim(),
+        shippingState: profileState.trim(),
+        shippingZip: profileZip.trim(),
+      }));
+
+      setContactName(profileContactName.trim());
+      setEmailAddress(profileEmail.trim());
+      setPhone(profilePhone.trim());
+      setShippingAddress({
+        line1: profileStreet.trim(),
+        line2: '',
+        city: profileCity.trim(),
+        state: profileState.trim(),
+        zip: profileZip.trim(),
+        country: 'US'
+      });
+
+      setShowIncompleteProfileModal(false);
+      await handleSubmit(true);
+    } catch (err) {
+      console.error("Error saving profile details:", err);
+      alert("Failed to save profile. Please try again.");
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
+
+  const handleSubmit = async (bypassProfileCheck: any = false) => {
     if (!customerId) return;
     
+    const shouldBypass = bypassProfileCheck === true;
+    if (!shouldBypass && !isProfileComplete()) {
+      setShowIncompleteProfileModal(true);
+      return;
+    }
+
     if (!contactName || !emailAddress) {
        alert("Please provide at least a contact name and email.");
        return;
@@ -369,8 +469,6 @@ export function PortalRequestQuote() {
       const todayEnd = new Date();
       todayEnd.setHours(23, 59, 59, 999);
       
-      // Need to query all orders to find the max portalId for today
-      // Assuming we have to fetch them, but since we're in a component we can just use getDocs
       const ordersQuery = query(collection(db, 'orders'), where('createdAt', '>=', todayStart.toISOString()), where('createdAt', '<=', todayEnd.toISOString()));
       const ordersSnapshot = await getDocs(ordersQuery);
       
@@ -401,9 +499,10 @@ export function PortalRequestQuote() {
         portalId: portalId,
         customerId: customerId,
         title: `Quote Request from ${contactName}`,
-        statusIndex: 0, // 0 = Request Created (Quote)
+        statusIndex: 0, 
         date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric'}),
         createdAt: new Date().toISOString(),
+        packaging: selectedPackaging,
         items: products.map(p => {
            const sizeQtySum = p.sizes ? Object.values(p.sizes).reduce((acc: number, val: any) => acc + (parseInt(val.toString()) || 0), 0) : 0;
            return {
@@ -510,7 +609,7 @@ export function PortalRequestQuote() {
                   <p className="text-xs text-neutral-500 mt-0.5">Project timeline, requirements, and budget expectations</p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="flex flex-col gap-1.5">
                       <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">In-Hands Date</label>
                       <input type="date" value={inHandsDate} onChange={e => setInHandsDate(e.target.value)} className="w-full bg-neutral-50 border border-neutral-200 focus:bg-white focus:border-black rounded-xl px-4 py-2.5 text-sm text-neutral-900 focus:outline-none transition-all font-bold" />
@@ -524,6 +623,18 @@ export function PortalRequestQuote() {
                               <option value="economy">Economy / Promo</option>
                               <option value="standard">Standard / Retail</option>
                               <option value="premium">Premium / Custom Cut & Sew</option>
+                          </select>
+                          <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" size={16} />
+                      </div>
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Packaging Option</label>
+                      <div className="relative">
+                          <select value={selectedPackaging} onChange={e => setSelectedPackaging(e.target.value)} className="w-full appearance-none bg-neutral-50 border border-neutral-200 focus:bg-white focus:border-black rounded-xl px-4 py-2.5 text-sm text-neutral-900 focus:outline-none cursor-pointer font-bold">
+                              <option value="Single Folded">Single Folded</option>
+                              <option value="10 garments per stack">10 garments per stack</option>
+                              <option value="poly bag each garment">poly bag each garment</option>
                           </select>
                           <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" size={16} />
                       </div>
@@ -1232,6 +1343,160 @@ export function PortalRequestQuote() {
               style={{ width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: '70vh' }}
               className="rounded-2xl select-none transition-transform duration-200 ease-out hover:scale-[2]" 
             />
+          </div>
+        </div>
+      )}
+
+      {/* Incomplete Profile Modal */}
+      {showIncompleteProfileModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[150] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-[2.5rem] border border-neutral-200 shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="px-8 pt-8 pb-4 flex justify-between items-center border-b border-neutral-100">
+              <div>
+                <h2 className="text-2xl font-serif text-neutral-900 tracking-tight flex items-center gap-2">
+                  <User className="text-black" size={22} />
+                  Complete Your Profile
+                </h2>
+                <p className="text-[10px] text-neutral-400 font-semibold uppercase tracking-wider mt-1">Required to submit your quote request</p>
+              </div>
+              <button 
+                onClick={() => setShowIncompleteProfileModal(false)}
+                className="w-10 h-10 rounded-full border border-black/10 hover:border-black flex items-center justify-center hover:bg-neutral-50 transition-colors cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-8 max-h-[60vh] overflow-y-auto flex flex-col gap-6">
+              <p className="text-xs text-neutral-550 leading-relaxed font-semibold">
+                Please complete your contact and shipping details to submit this request. This information will be saved to your profile for faster checkout next time.
+              </p>
+
+              {/* Basic Info */}
+              <div className="flex flex-col gap-4">
+                <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-widest border-b border-neutral-50 pb-1">Basic Information</h3>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] uppercase font-bold text-neutral-500 pl-1">Primary Contact Name</label>
+                    <input 
+                      type="text"
+                      value={profileContactName}
+                      onChange={(e) => setProfileContactName(e.target.value)}
+                      placeholder="e.g. John Doe"
+                      className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-2.5 text-xs font-medium text-neutral-900 focus:outline-none focus:border-neutral-400 focus:bg-white transition-all font-bold"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] uppercase font-bold text-neutral-500 pl-1">Company Name</label>
+                    <input 
+                      type="text"
+                      value={profileCompany}
+                      onChange={(e) => setProfileCompany(e.target.value)}
+                      placeholder="e.g. Acme Corp"
+                      className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-2.5 text-xs font-medium text-neutral-900 focus:outline-none focus:border-neutral-400 focus:bg-white transition-all font-bold"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] uppercase font-bold text-neutral-500 pl-1">Email Address</label>
+                    <input 
+                      type="email"
+                      value={profileEmail}
+                      onChange={(e) => setProfileEmail(e.target.value)}
+                      placeholder="e.g. john@example.com"
+                      className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-2.5 text-xs font-medium text-neutral-900 focus:outline-none focus:border-neutral-400 focus:bg-white transition-all font-bold"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] uppercase font-bold text-neutral-500 pl-1">Phone Number</label>
+                    <input 
+                      type="text"
+                      value={profilePhone}
+                      onChange={(e) => setProfilePhone(e.target.value)}
+                      placeholder="e.g. (555) 555-5555"
+                      className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-2.5 text-xs font-medium text-neutral-900 focus:outline-none focus:border-neutral-400 focus:bg-white transition-all font-bold"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Shipping Address */}
+              <div className="flex flex-col gap-4">
+                <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-widest border-b border-neutral-50 pb-1">Shipping Address</h3>
+                
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] uppercase font-bold text-neutral-500 pl-1">Street Address</label>
+                  <input 
+                    type="text"
+                    value={profileStreet}
+                    onChange={(e) => setProfileStreet(e.target.value)}
+                    placeholder="e.g. 123 Main St"
+                    className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-2.5 text-xs font-medium text-neutral-900 focus:outline-none focus:border-neutral-400 focus:bg-white transition-all font-bold"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="flex flex-col gap-1.5 sm:col-span-1">
+                    <label className="text-[10px] uppercase font-bold text-neutral-500 pl-1">City</label>
+                    <input 
+                      type="text"
+                      value={profileCity}
+                      onChange={(e) => setProfileCity(e.target.value)}
+                      placeholder="e.g. Austin"
+                      className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-2.5 text-xs font-medium text-neutral-900 focus:outline-none focus:border-neutral-400 focus:bg-white transition-all font-bold"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] uppercase font-bold text-neutral-500 pl-1">State</label>
+                    <input 
+                      type="text"
+                      value={profileState}
+                      onChange={(e) => setProfileState(e.target.value)}
+                      placeholder="e.g. TX"
+                      className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-2.5 text-xs font-medium text-neutral-900 focus:outline-none focus:border-neutral-400 focus:bg-white transition-all font-bold"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] uppercase font-bold text-neutral-500 pl-1">Zip Code</label>
+                    <input 
+                      type="text"
+                      value={profileZip}
+                      onChange={(e) => setProfileZip(e.target.value)}
+                      placeholder="e.g. 78701"
+                      className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-2.5 text-xs font-medium text-neutral-900 focus:outline-none focus:border-neutral-400 focus:bg-white transition-all font-bold"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-8 py-6 bg-neutral-50 border-t border-neutral-100 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowIncompleteProfileModal(false)}
+                className="px-5 py-2.5 rounded-full text-xs font-bold uppercase tracking-wider text-neutral-550 hover:bg-neutral-200 transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveProfileAndSubmit}
+                disabled={isSavingProfile || !profileContactName.trim() || !profileCompany.trim() || !profileEmail.trim() || !profilePhone.trim() || !profileStreet.trim() || !profileCity.trim() || !profileState.trim() || !profileZip.trim()}
+                className="px-6 py-2.5 rounded-full text-xs font-bold uppercase tracking-wider bg-black text-white hover:bg-neutral-800 transition-all flex items-center gap-1.5 shadow-md cursor-pointer disabled:bg-neutral-300 disabled:cursor-not-allowed"
+              >
+                {isSavingProfile ? 'Saving...' : 'Save & Submit'}
+              </button>
+            </div>
           </div>
         </div>
       )}
