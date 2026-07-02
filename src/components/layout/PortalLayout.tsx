@@ -1,11 +1,12 @@
 import { Outlet, useParams, useNavigate, useLocation } from 'react-router-dom';
-import { Search, Info, HelpCircle, User, Settings, LogOut, X, ShoppingBag } from 'lucide-react';
+import { Search, Info, HelpCircle, User, Settings, LogOut, X, ShoppingBag, MapPin, Upload, Trash2, Image } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useState, useEffect } from 'react';
 import { PortalHelpDrawer } from '../Portal/PortalHelpDrawer';
 import { PortalTourOverlay } from '../Portal/PortalTourOverlay';
-import { db } from '../../lib/firebase';
+import { db, storage } from '../../lib/firebase';
 import { doc, updateDoc, onSnapshot } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 export function PortalLayout() {
   const { customerId } = useParams();
@@ -54,6 +55,19 @@ export function PortalLayout() {
   const [editZip, setEditZip] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
+  // Logo Settings States
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreviewUrl, setLogoPreviewUrl] = useState<string>('');
+  const [shouldDeleteLogo, setShouldDeleteLogo] = useState(false);
+
+  // Address Prompt States
+  const [isAddressPromptOpen, setIsAddressPromptOpen] = useState(false);
+  const [promptStreet, setPromptStreet] = useState('');
+  const [promptCity, setPromptCity] = useState('');
+  const [promptState, setPromptState] = useState('');
+  const [promptZip, setPromptZip] = useState('');
+  const [isSavingPromptAddress, setIsSavingPromptAddress] = useState(false);
+
   useEffect(() => {
     if (!customerId) return;
     setIsLoadingCustomer(true);
@@ -79,8 +93,30 @@ export function PortalLayout() {
       setEditCity(customer.shippingCity || '');
       setEditState(customer.shippingState || '');
       setEditZip(customer.shippingZip || '');
+
+      // Reset logo upload states
+      setLogoFile(null);
+      setLogoPreviewUrl('');
+      setShouldDeleteLogo(false);
+
+      // Populate address prompt states
+      setPromptStreet(customer.shippingStreet || '');
+      setPromptCity(customer.shippingCity || '');
+      setPromptState(customer.shippingState || '');
+      setPromptZip(customer.shippingZip || '');
     }
   }, [customer, isProfileModalOpen]);
+
+  // Effect to trigger shipping address complete pop-up
+  useEffect(() => {
+    if (!isLoadingCustomer && customer) {
+      const hasIncompleteAddress = !customer.shippingStreet || !customer.shippingCity || !customer.shippingState || !customer.shippingZip;
+      const isDismissed = sessionStorage.getItem('wovn_dismissed_address_prompt') === 'true';
+      if (hasIncompleteAddress && !isDismissed) {
+        setIsAddressPromptOpen(true);
+      }
+    }
+  }, [customer, isLoadingCustomer]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -116,6 +152,20 @@ export function PortalLayout() {
     if (!customerId) return;
     setIsSaving(true);
     try {
+      let finalLogoUrl = customer?.logo || null;
+      let finalCroppedLogoUrl = customer?.croppedLogo || null;
+
+      if (shouldDeleteLogo) {
+        finalLogoUrl = null;
+        finalCroppedLogoUrl = null;
+      } else if (logoFile) {
+        const fileRef = ref(storage, `customers/${customerId}/logo_full_${Date.now()}`);
+        await uploadBytes(fileRef, logoFile);
+        const downloadUrl = await getDownloadURL(fileRef);
+        finalLogoUrl = downloadUrl;
+        finalCroppedLogoUrl = downloadUrl;
+      }
+
       await updateDoc(doc(db, 'customers', customerId), {
         contactName: editContactName,
         company: editCompany,
@@ -125,7 +175,10 @@ export function PortalLayout() {
         shippingCity: editCity,
         shippingState: editState,
         shippingZip: editZip,
+        logo: finalLogoUrl,
+        croppedLogo: finalCroppedLogoUrl,
       });
+
       setCustomer((prev: any) => ({
         ...prev,
         contactName: editContactName,
@@ -136,6 +189,8 @@ export function PortalLayout() {
         shippingCity: editCity,
         shippingState: editState,
         shippingZip: editZip,
+        logo: finalLogoUrl,
+        croppedLogo: finalCroppedLogoUrl,
       }));
       setIsProfileModalOpen(false);
       if (activeTour === 'profile') {
@@ -147,6 +202,41 @@ export function PortalLayout() {
       alert("Failed to save settings. Please try again.");
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleLogoFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setLogoFile(file);
+      setLogoPreviewUrl(URL.createObjectURL(file));
+      setShouldDeleteLogo(false);
+    }
+  };
+
+  const handleRemoveLogo = () => {
+    setLogoFile(null);
+    setLogoPreviewUrl('');
+    setShouldDeleteLogo(true);
+  };
+
+  const handleSavePromptAddress = async () => {
+    if (!customerId) return;
+    setIsSavingPromptAddress(true);
+    try {
+      await updateDoc(doc(db, 'customers', customerId), {
+        shippingStreet: promptStreet,
+        shippingCity: promptCity,
+        shippingState: promptState,
+        shippingZip: promptZip,
+      });
+      setIsAddressPromptOpen(false);
+      alert("Address saved successfully!");
+    } catch (err) {
+      console.error("Error saving prompt address:", err);
+      alert("Failed to save address. Please try again.");
+    } finally {
+      setIsSavingPromptAddress(false);
     }
   };
 
@@ -409,6 +499,67 @@ export function PortalLayout() {
 
             {/* Modal Body / Form */}
             <div data-tour="profile-modal-fields" className="p-8 max-h-[70vh] overflow-y-auto flex flex-col gap-6">
+              {/* Company Logo Section */}
+              <div className="flex flex-col gap-4">
+                <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-widest border-b border-neutral-50 pb-1">Company Logo</h3>
+                
+                <div className="flex items-center gap-6">
+                  {/* Logo Preview */}
+                  <div className="relative w-20 h-20 rounded-2xl border border-neutral-200 overflow-hidden bg-neutral-50 flex items-center justify-center group flex-shrink-0">
+                    {logoPreviewUrl ? (
+                      <img src={logoPreviewUrl} alt="Logo preview" className="w-full h-full object-contain" />
+                    ) : customer?.logo ? (
+                      <img src={customer.logo} alt="Current logo" className="w-full h-full object-contain" />
+                    ) : (
+                      <div className="flex flex-col items-center justify-center text-neutral-400">
+                        <Image size={24} strokeWidth={1.5} />
+                        <span className="text-[8px] uppercase font-bold mt-1 text-center">No Logo</span>
+                      </div>
+                    )}
+                    
+                    {(logoPreviewUrl || customer?.logo) && (
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                        <span className="text-[10px] text-white font-bold uppercase tracking-wider">Preview</span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Actions */}
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center gap-3">
+                      <label 
+                        htmlFor="portal-logo-upload"
+                        className="px-4 py-2 bg-black text-white hover:bg-neutral-800 rounded-xl text-xs font-bold uppercase tracking-wider cursor-pointer transition-all flex items-center gap-1.5 shadow-sm"
+                      >
+                        <Upload size={13} />
+                        Choose File
+                      </label>
+                      <input 
+                        type="file"
+                        id="portal-logo-upload"
+                        accept="image/*"
+                        onChange={handleLogoFileChange}
+                        className="hidden"
+                      />
+                      
+                      {(logoPreviewUrl || customer?.logo) && (
+                        <button
+                          type="button"
+                          onClick={handleRemoveLogo}
+                          className="px-3 py-2 border border-red-200 text-red-600 hover:bg-red-50 rounded-xl text-xs font-bold uppercase tracking-wider transition-colors flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Trash2 size={13} />
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-neutral-400 font-semibold leading-relaxed">
+                      Accepts PNG, JPG, or SVG. Suggested size 512x512px.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               {/* Basic Info */}
               <div className="flex flex-col gap-4">
                 <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-widest border-b border-neutral-50 pb-1">Basic Information</h3>
@@ -530,6 +681,106 @@ export function PortalLayout() {
                 className="px-6 py-2.5 rounded-full text-xs font-bold uppercase tracking-wider bg-black text-white hover:bg-neutral-800 transition-all flex items-center gap-1.5 shadow-md cursor-pointer disabled:bg-neutral-300 disabled:cursor-not-allowed"
               >
                 {isSaving ? 'Saving...' : 'Save Settings'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Complete Address Prompt Modal */}
+      {isAddressPromptOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-[2.5rem] border border-neutral-200 shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="px-8 pt-8 pb-4 flex justify-between items-center border-b border-neutral-100">
+              <div>
+                <h2 className="text-xl font-serif text-neutral-900 tracking-tight flex items-center gap-2">
+                  <MapPin className="text-neutral-700" size={20} />
+                  Complete Your Shipping Address
+                </h2>
+                <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-wider mt-1">Get the fastest quote requests</p>
+              </div>
+              <button 
+                onClick={() => {
+                  setIsAddressPromptOpen(false);
+                  sessionStorage.setItem('wovn_dismissed_address_prompt', 'true');
+                }}
+                className="w-8 h-8 rounded-full border border-black/10 hover:border-black flex items-center justify-center hover:bg-neutral-50 transition-colors cursor-pointer"
+              >
+                <X size={14} />
+              </button>
+            </div>
+            
+            <div className="p-8 flex flex-col gap-4">
+              <p className="text-xs text-neutral-500 leading-relaxed font-semibold">
+                We noticed your shipping address is not fully filled out. Add it now to enjoy automatic filling and faster turnaround times on your quote requests!
+              </p>
+              
+              <div className="flex flex-col gap-3 mt-2">
+                <div className="flex flex-col gap-1">
+                  <label className="text-[9px] uppercase font-bold text-neutral-500 pl-1">Street Address</label>
+                  <input 
+                    type="text"
+                    value={promptStreet}
+                    onChange={(e) => setPromptStreet(e.target.value)}
+                    placeholder="e.g. 123 Main St"
+                    className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-2.5 text-xs font-medium text-neutral-900 focus:outline-none focus:border-neutral-400 focus:bg-white transition-all font-bold"
+                  />
+                </div>
+
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="flex flex-col gap-1 col-span-1">
+                    <label className="text-[9px] uppercase font-bold text-neutral-500 pl-1">City</label>
+                    <input 
+                      type="text"
+                      value={promptCity}
+                      onChange={(e) => setPromptCity(e.target.value)}
+                      placeholder="e.g. Austin"
+                      className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-2 text-xs font-medium text-neutral-900 focus:outline-none focus:border-neutral-400 focus:bg-white transition-all font-bold"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[9px] uppercase font-bold text-neutral-500 pl-1">State</label>
+                    <input 
+                      type="text"
+                      value={promptState}
+                      onChange={(e) => setPromptState(e.target.value)}
+                      placeholder="e.g. TX"
+                      className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-2 text-xs font-medium text-neutral-900 focus:outline-none focus:border-neutral-400 focus:bg-white transition-all font-bold"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[9px] uppercase font-bold text-neutral-500 pl-1">Zip Code</label>
+                    <input 
+                      type="text"
+                      value={promptZip}
+                      onChange={(e) => setPromptZip(e.target.value)}
+                      placeholder="e.g. 78701"
+                      className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-2 text-xs font-medium text-neutral-900 focus:outline-none focus:border-neutral-400 focus:bg-white transition-all font-bold"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="px-8 py-5 bg-neutral-50 border-t border-neutral-100 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsAddressPromptOpen(false);
+                  sessionStorage.setItem('wovn_dismissed_address_prompt', 'true');
+                }}
+                className="text-xs font-bold uppercase tracking-wider text-neutral-400 hover:text-neutral-600 transition-colors"
+              >
+                Remind Me Later
+              </button>
+              
+              <button
+                type="button"
+                onClick={handleSavePromptAddress}
+                disabled={isSavingPromptAddress || !promptStreet || !promptCity || !promptState || !promptZip}
+                className="px-6 py-2.5 rounded-full text-xs font-bold uppercase tracking-wider bg-black text-white hover:bg-neutral-800 transition-all shadow-md disabled:bg-neutral-200 disabled:text-neutral-400 disabled:cursor-not-allowed"
+              >
+                {isSavingPromptAddress ? 'Saving...' : 'Save & Close'}
               </button>
             </div>
           </div>
