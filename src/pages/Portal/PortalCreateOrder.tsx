@@ -1051,34 +1051,46 @@ export function PortalCreateOrder() {
                         <p className="text-xs text-neutral-400 mt-1 max-w-sm">Add items to your cart, then click "Save Cart for Later" to preserve your potential order.</p>
                       </div>
                     ) : (
-                      savedCarts.map((cartItem) => (
-                        <div key={cartItem.id} className="bg-neutral-50/50 border border-neutral-200 hover:border-neutral-300 transition-all rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 w-full">
-                          <div className="flex-1 min-w-0">
-                            <h4 className="font-bold text-neutral-900 text-sm truncate">{cartItem.name}</h4>
-                            <div className="flex items-center gap-3 text-[10px] text-neutral-400 font-medium mt-1">
-                              <span>{new Date(cartItem.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                              <span>•</span>
-                              <span>{cartItem.items?.length || 0} styles</span>
-                              <span>•</span>
-                              <span>Saved by {cartItem.createdBy}</span>
+                      savedCarts.map((cartItem) => {
+                        const totalQuantity = (cartItem.items || []).reduce((acc: number, it: any) => {
+                          return acc + Object.values(it.quantities || {}).reduce((sum: number, q: any) => sum + (Number(q) || 0), 0);
+                        }, 0);
+
+                        return (
+                          <div key={cartItem.id} className="bg-neutral-50/50 border border-neutral-200 hover:border-neutral-300 transition-all rounded-2xl p-5 flex flex-col sm:flex-row sm:items-start justify-between gap-4 w-full">
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-bold text-neutral-900 text-sm truncate">{cartItem.name}</h4>
+                              <div className="flex items-center gap-3 text-[10px] text-neutral-400 font-medium mt-1">
+                                <span>{new Date(cartItem.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                                <span>•</span>
+                                <span>{cartItem.items?.length || 0} styles ({totalQuantity} garments total)</span>
+                                <span>•</span>
+                                <span>Saved by {cartItem.createdBy}</span>
+                              </div>
+                              
+                              <div className="mt-4 flex flex-col gap-2 max-w-xl">
+                                {(cartItem.items || []).map((it: any, idx: number) => {
+                                  const qty = Object.values(it.quantities || {}).reduce((sum: number, q: any) => sum + (Number(q) || 0), 0);
+                                  const itImage = it.image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
+                                  return (
+                                    <div key={idx} className="flex items-center gap-3 bg-white border border-neutral-100 rounded-xl p-2 shadow-sm">
+                                      <div className="w-8 h-8 rounded-lg bg-neutral-50 border border-neutral-100 flex items-center justify-center p-0.5 shrink-0">
+                                        <img src={itImage} alt="" className="w-full h-full object-contain mix-blend-multiply" />
+                                      </div>
+                                      <div className="flex-1 min-w-0 flex items-center justify-between gap-4">
+                                        <div>
+                                          <p className="text-xs font-bold text-neutral-800 truncate">{it.style}</p>
+                                          <p className="text-[10px] text-neutral-500 font-semibold truncate">Color: {it.selectedColor || 'Default'}</p>
+                                        </div>
+                                        <span className="text-[11px] font-extrabold text-neutral-600 bg-neutral-50 px-2 py-0.5 rounded-md border border-neutral-100 shrink-0">
+                                          {qty} pcs
+                                        </span>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
                             </div>
-                            
-                            <div className="flex gap-1.5 mt-3">
-                              {(cartItem.items || []).slice(0, 4).map((it: any, idx: number) => {
-                                const itImage = it.image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
-                                return (
-                                  <div key={idx} className="w-8 h-8 rounded-md bg-white border border-neutral-100 flex items-center justify-center p-0.5 shrink-0" title={it.style}>
-                                    <img src={itImage} alt="" className="w-full h-full object-contain mix-blend-multiply" />
-                                  </div>
-                                );
-                              })}
-                              {(cartItem.items || []).length > 4 && (
-                                <div className="w-8 h-8 rounded-md bg-neutral-100 border border-neutral-150 flex items-center justify-center text-[10px] font-bold text-neutral-500 shrink-0">
-                                  +{(cartItem.items || []).length - 4}
-                                </div>
-                              )}
-                            </div>
-                          </div>
                           
                           <div className="flex items-center gap-2 shrink-0">
                             <button
@@ -1098,7 +1110,8 @@ export function PortalCreateOrder() {
                             </button>
                           </div>
                         </div>
-                      ))
+                      );
+                    })
                     )}
                   </div>
                 )}
