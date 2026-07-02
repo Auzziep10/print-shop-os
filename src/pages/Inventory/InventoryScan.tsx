@@ -11,6 +11,7 @@ export function InventoryScan() {
   const boxId = searchParams.get('b');
 
   const [pallets, setPallets] = useState<any[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [targetPalletId, setTargetPalletId] = useState<string>('');
   const [isMoving, setIsMoving] = useState(false);
@@ -23,6 +24,7 @@ export function InventoryScan() {
   const [isCreatingBox, setIsCreatingBox] = useState(false);
 
   const [isAddingItem, setIsAddingItem] = useState(false);
+  const [isCustomSku, setIsCustomSku] = useState(false);
   const [newItemForm, setNewItemForm] = useState({ sku: '', name: '', size: '', quantity: 1 });
 
   useEffect(() => {
@@ -32,7 +34,17 @@ export function InventoryScan() {
          setPallets(data);
          setLoading(false);
      });
-     return () => unsubscribe();
+
+     const qProducts = query(collection(db, 'products'));
+     const unsubscribeProducts = onSnapshot(qProducts, (snapshot) => {
+         const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+         setProducts(data);
+     });
+
+     return () => {
+         unsubscribe();
+         unsubscribeProducts();
+     };
   }, []);
 
   if (loading) {
@@ -326,10 +338,30 @@ export function InventoryScan() {
       try {
           await setDoc(doc(db, 'pallets', currentPallet.id), { ...currentPallet, boxes: updatedBoxes });
           setIsAddingItem(false);
+          setIsCustomSku(false);
           setNewItemForm({ sku: '', name: '', size: '', quantity: 1 });
       } catch (err) {
           console.error(err);
       }
+  };
+
+  const handleSkuChange = (sku: string) => {
+      if (sku === '__custom__') {
+          setIsCustomSku(true);
+          setNewItemForm(prev => ({ ...prev, sku: '' }));
+          return;
+      }
+      setIsCustomSku(false);
+      let name = newItemForm.name;
+      const matchedProd = products.find((p: any) => p.sku && p.sku.toLowerCase() === sku.toLowerCase());
+      if (matchedProd) {
+          name = matchedProd.title;
+      }
+      setNewItemForm(prev => ({
+          ...prev,
+          sku,
+          name
+      }));
   };
 
   const lineItemsCount = currentBox.items?.reduce((s:number, i:any) => s + i.quantity, 0) || 0;
@@ -431,9 +463,6 @@ export function InventoryScan() {
                   </button>
               ) : (
                   <div className="bg-brand-primary p-6 rounded-2xl shadow-xl text-white space-y-4 animate-in slide-in-from-top-4">
-                      <datalist id="inventory-skus">
-                          {Array.from(new Set(pallets.flatMap((p:any)=>p.boxes?.flatMap((b:any)=>b.items?.map((i:any)=>i.sku)||[])||[]))).filter(Boolean).map((s:any)=><option key={s} value={s}/>)}
-                      </datalist>
                       <datalist id="inventory-names">
                           {Array.from(new Set(pallets.flatMap((p:any)=>p.boxes?.flatMap((b:any)=>b.items?.map((i:any)=>i.name)||[])||[]))).filter(Boolean).map((n:any)=><option key={n} value={n}/>)}
                       </datalist>
@@ -450,8 +479,49 @@ export function InventoryScan() {
                       
                       <div className="grid grid-cols-2 gap-4">
                           <div>
-                              <label className="block text-[10px] font-bold uppercase tracking-widest opacity-70 mb-1">SKU (Opt)</label>
-                              <input list="inventory-skus" name="item_sku" autoComplete="on" type="text" value={newItemForm.sku} onChange={e => setNewItemForm({...newItemForm, sku: e.target.value})} className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 placeholder:text-white/30 outline-none focus:bg-white/20" placeholder="TST-HGHT" />
+                              <div className="flex justify-between items-center mb-1">
+                                  <label className="block text-[10px] font-bold uppercase tracking-widest opacity-70">SKU (Opt)</label>
+                                  {isCustomSku && (
+                                      <button 
+                                          type="button" 
+                                          onClick={() => { setIsCustomSku(false); setNewItemForm(prev => ({ ...prev, sku: '' })); }} 
+                                          className="text-[9px] font-bold uppercase tracking-wider text-white/70 hover:text-white underline decoration-dotted"
+                                      >
+                                          Dropdown
+                                      </button>
+                                  )}
+                              </div>
+                              {isCustomSku ? (
+                                  <input 
+                                      type="text" 
+                                      value={newItemForm.sku} 
+                                      onChange={e => setNewItemForm({...newItemForm, sku: e.target.value})} 
+                                      className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 placeholder:text-white/30 outline-none focus:bg-white/20 text-white font-semibold" 
+                                      placeholder="Type SKU" 
+                                  />
+                              ) : (
+                                  <select 
+                                      name="item_sku" 
+                                      value={newItemForm.sku} 
+                                      onChange={e => handleSkuChange(e.target.value)} 
+                                      className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 outline-none focus:bg-white/20 text-white font-semibold"
+                                  >
+                                      <option className="text-black" value="">-- Select SKU --</option>
+                                      {Array.from(new Set([
+                                          ...products.map(p => p.sku).filter(Boolean),
+                                          ...pallets.flatMap((p:any)=>p.boxes?.flatMap((b:any)=>b.items?.map((i:any)=>i.sku)||[])||[]).filter(Boolean)
+                                      ])).sort().map(s => {
+                                          const prod = products.find((p: any) => p.sku && p.sku.toLowerCase() === s.toLowerCase());
+                                          const label = prod ? `${s} (${prod.title})` : s;
+                                          return (
+                                              <option key={s} value={s} className="text-black">
+                                                  {label}
+                                              </option>
+                                          );
+                                      })}
+                                      <option className="text-black font-bold" value="__custom__">+ Custom SKU...</option>
+                                  </select>
+                              )}
                           </div>
                           <div>
                               <label className="block text-[10px] font-bold uppercase tracking-widest opacity-70 mb-1">Size Option</label>
@@ -484,7 +554,7 @@ export function InventoryScan() {
                       </div>
                       
                       <div className="flex gap-3 pt-4">
-                          <button onClick={() => setIsAddingItem(false)} className="flex-1 py-4 text-[10px] font-bold uppercase tracking-widest bg-black/20 rounded-xl active:bg-black/40">Cancel</button>
+                          <button onClick={() => { setIsAddingItem(false); setIsCustomSku(false); }} className="flex-1 py-4 text-[10px] font-bold uppercase tracking-widest bg-black/20 rounded-xl active:bg-black/40">Cancel</button>
                           <button disabled={!newItemForm.name} onClick={handleCreateLineItem} className="w-[60%] py-4 text-[10px] font-bold uppercase tracking-widest bg-white text-brand-primary rounded-xl active:bg-gray-200 disabled:opacity-50 text-brand-primary">Log Item</button>
                       </div>
                   </div>
