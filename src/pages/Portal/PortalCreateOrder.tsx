@@ -1116,16 +1116,6 @@ export function PortalCreateOrder() {
                   </div>
                 )}
               </div>
-              
-              <div className="border-t border-neutral-100 pt-6">
-                <button 
-                  data-tour="request-quote-link"
-                  onClick={() => navigate(customerId ? `/portal/${customerId}/quote` : '/portal/quote')}
-                  className="w-full text-center bg-white text-neutral-900 border border-neutral-200 py-3 rounded-full text-xs font-bold tracking-wide hover:bg-neutral-50 hover:border-neutral-300 transition-all shadow-2xs cursor-pointer"
-                >
-                  Select New Items for Quote
-                </button>
-              </div>
             </div>
           ) : (
             <>
