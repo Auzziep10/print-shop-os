@@ -464,10 +464,10 @@ export function InventoryScan() {
               ) : (
                   <div className="bg-brand-primary p-6 rounded-2xl shadow-xl text-white space-y-4 animate-in slide-in-from-top-4">
                       <datalist id="inventory-names">
-                          {Array.from(new Set(pallets.flatMap((p:any)=>p.boxes?.flatMap((b:any)=>b.items?.map((i:any)=>i.name)||[])||[]))).filter(Boolean).map((n:any)=><option key={n} value={n}/>)}
+                          {Array.from(new Set(pallets.filter((p:any)=>p.type !== 'Box').flatMap((p:any)=>p.boxes?.flatMap((b:any)=>b.items?.map((i:any)=>i.name)||[])||[]))).filter(Boolean).map((n:any)=><option key={n} value={n}/>)}
                       </datalist>
                       <datalist id="inventory-sizes">
-                          {Array.from(new Set(pallets.flatMap((p:any)=>p.boxes?.flatMap((b:any)=>b.items?.map((i:any)=>i.size)||[])||[]))).filter(Boolean).map((s:any)=><option key={s} value={s}/>)}
+                          {Array.from(new Set(pallets.filter((p:any)=>p.type !== 'Box').flatMap((p:any)=>p.boxes?.flatMap((b:any)=>b.items?.map((i:any)=>i.size)||[])||[]))).filter(Boolean).map((s:any)=><option key={s} value={s}/>)}
                       </datalist>
 
                       <h2 className="text-sm font-bold uppercase tracking-widest mb-4">New Item Entry</h2>
@@ -509,7 +509,7 @@ export function InventoryScan() {
                                       <option className="text-black" value="">-- Select SKU --</option>
                                       {Array.from(new Set([
                                           ...products.map(p => p.sku).filter(Boolean),
-                                          ...pallets.flatMap((p:any)=>p.boxes?.flatMap((b:any)=>b.items?.map((i:any)=>i.sku)||[])||[]).filter(Boolean)
+                                          ...pallets.filter((p:any)=>p.type !== 'Box').flatMap((p:any)=>p.boxes?.flatMap((b:any)=>b.items?.map((i:any)=>i.sku)||[])||[]).filter(Boolean)
                                       ])).sort().map(s => {
                                           const prod = products.find((p: any) => p.sku && p.sku.toLowerCase() === s.toLowerCase());
                                           const label = prod ? `${s} (${prod.title})` : s;

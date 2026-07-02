@@ -783,13 +783,13 @@ export function PalletsTab({ onJumpToWarehouse, initialActivePalletId, onOpenSho
                                 {isAddingItem?.boxId === activeBox.id && (
                                     <div className="bg-white border-2 border-brand-primary p-5 rounded-2xl shadow-lg mb-6 animate-in slide-in-from-top-4">
                                         <datalist id="inventory-skus">
-                                            {Array.from(new Set(pallets.flatMap(p=>p.boxes?.flatMap((b:any)=>b.items?.map((i:any)=>i.sku)||[])||[]))).filter(Boolean).map((s:any)=><option key={s} value={s}/>)}
+                                            {Array.from(new Set(pallets.filter(p => (p as any).type !== 'Box').flatMap(p=>p.boxes?.flatMap((b:any)=>b.items?.map((i:any)=>i.sku)||[])||[]))).filter(Boolean).map((s:any)=><option key={s} value={s}/>)}
                                         </datalist>
                                         <datalist id="inventory-names">
-                                            {Array.from(new Set(pallets.flatMap(p=>p.boxes?.flatMap((b:any)=>b.items?.map((i:any)=>i.name)||[])||[]))).filter(Boolean).map((n:any)=><option key={n} value={n}/>)}
+                                            {Array.from(new Set(pallets.filter(p => (p as any).type !== 'Box').flatMap(p=>p.boxes?.flatMap((b:any)=>b.items?.map((i:any)=>i.name)||[])||[]))).filter(Boolean).map((n:any)=><option key={n} value={n}/>)}
                                         </datalist>
                                         <datalist id="inventory-sizes">
-                                            {Array.from(new Set(pallets.flatMap(p=>p.boxes?.flatMap((b:any)=>b.items?.map((i:any)=>i.size)||[])||[]))).filter(Boolean).map((s:any)=><option key={s} value={s}/>)}
+                                            {Array.from(new Set(pallets.filter(p => (p as any).type !== 'Box').flatMap(p=>p.boxes?.flatMap((b:any)=>b.items?.map((i:any)=>i.size)||[])||[]))).filter(Boolean).map((s:any)=><option key={s} value={s}/>)}
                                         </datalist>
 
                                         <h4 className="text-xs font-bold uppercase tracking-widest text-brand-primary mb-4 flex items-center gap-2">

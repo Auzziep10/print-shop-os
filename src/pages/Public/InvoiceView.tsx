@@ -73,6 +73,12 @@ export function InvoiceView() {
   const formattedTotal = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(subtotal);
   const issueDate = order.date ? new Date(order.date).toLocaleDateString('en-US', { year: '2-digit', month: '2-digit', day: '2-digit' }).replace(/\//g, '.') : new Date().toLocaleDateString('en-US', { year: '2-digit', month: '2-digit', day: '2-digit' }).replace(/\//g, '.');
 
+  // Resolve customer/client details to display "everything"
+  const clientName = order.shippingAddress?.name || cust.contactName || cust.name || 'CLIENT';
+  const companyName = order.shippingAddress?.company || cust.company;
+  const clientEmail = cust.email || order.shippingAddress?.email;
+  const clientPhone = cust.phone || order.shippingAddress?.phone;
+
   return (
     <div className="min-h-screen bg-[#f1efe9] flex justify-center py-10 font-sans text-neutral-900 w-full overflow-x-auto">
       <div className="w-full max-w-[1000px] flex shadow-2xl rounded-sm overflow-hidden bg-white min-h-[1000px] mx-4 relative min-w-[800px]">
@@ -106,14 +112,30 @@ export function InvoiceView() {
              <div className="w-1/3 flex flex-col gap-8">
                 <div className="flex flex-col gap-1 text-[11px] font-bold tracking-widest text-neutral-800 uppercase leading-relaxed">
                    <p className="text-neutral-500">TO:</p>
-                   <p>{order.shippingAddress?.name || cust.name || 'CLIENT'}</p>
-                   <p className="lowercase normal-case text-neutral-500 font-medium tracking-normal">{cust.email || 'email@example.com'}</p>
-                   {order.shippingAddress && order.shippingAddress.street1 && (
+                   <p>{clientName}</p>
+                   {companyName && companyName !== clientName && (
+                     <p>{companyName}</p>
+                   )}
+                   {clientEmail && (
+                     <p className="lowercase normal-case text-neutral-500 font-medium tracking-normal">{clientEmail}</p>
+                   )}
+                   {clientPhone && (
+                     <p className="normal-case text-neutral-500 font-medium tracking-normal">{clientPhone}</p>
+                   )}
+                   {order.shippingAddress && order.shippingAddress.street1 ? (
                      <>
                        <p>{order.shippingAddress.street1}</p>
+                       {order.shippingAddress.street2 && <p>{order.shippingAddress.street2}</p>}
                        <p>{order.shippingAddress.city}, {order.shippingAddress.state} {order.shippingAddress.zip}</p>
                      </>
-                   )}
+                   ) : cust.shippingStreet ? (
+                     <>
+                       <p>{cust.shippingStreet}</p>
+                       <p>{cust.shippingCity}, {cust.shippingState} {cust.shippingZip}</p>
+                     </>
+                   ) : cust.location ? (
+                     <p>{cust.location}</p>
+                   ) : null}
                 </div>
 
                 <div className="flex flex-col gap-4 text-[11px] font-bold tracking-widest text-neutral-800 uppercase">
