@@ -113,6 +113,9 @@ export function PortalCreateOrder() {
   // Selected Packaging preference
   const [selectedPackaging, setSelectedPackaging] = useState('Single Folded');
 
+  // Selected Delivery option
+  const [deliveryOption, setDeliveryOption] = useState('Delivery');
+
   useEffect(() => {
     if (customer) {
       setProfileContactName(customer.contactName || '');
@@ -585,11 +588,17 @@ export function PortalCreateOrder() {
   };
 
   const isProfileComplete = () => {
-    return !!(
+    const basicComplete = !!(
       profileContactName.trim() &&
       profileCompany.trim() &&
       profileEmail.trim() &&
-      profilePhone.trim() &&
+      profilePhone.trim()
+    );
+    if (deliveryOption === 'Pick Up') {
+      return basicComplete;
+    }
+    return !!(
+      basicComplete &&
       profileStreet.trim() &&
       profileCity.trim() &&
       profileState.trim() &&
@@ -689,7 +698,17 @@ export function PortalCreateOrder() {
         date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric'}),
         createdAt: new Date().toISOString(),
         packaging: selectedPackaging,
-        shippingAddress: {
+        deliveryOption: deliveryOption,
+        shippingAddress: deliveryOption === 'Pick Up' ? {
+          name: profileContactName.trim(),
+          company: profileCompany.trim(),
+          street1: 'Pickup',
+          street2: '',
+          city: '',
+          state: '',
+          zip: '',
+          country: 'US'
+        } : {
           name: profileContactName.trim(),
           company: profileCompany.trim(),
           street1: profileStreet.trim(),
@@ -1425,21 +1444,38 @@ export function PortalCreateOrder() {
 
             <div className="mt-auto border-t border-neutral-200 pt-4 space-y-3">
               {orderItems.length > 0 && (
-                <div className="flex flex-col gap-1.5 pb-1">
-                  <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider pl-1">Packaging Option</label>
-                  <div className="relative">
-                    <select
-                      value={selectedPackaging}
-                      onChange={(e) => setSelectedPackaging(e.target.value)}
-                      className="w-full appearance-none bg-white border border-neutral-250 rounded-xl px-4 py-3 text-xs font-bold text-neutral-800 focus:outline-none focus:border-black cursor-pointer pr-10"
-                    >
-                      <option value="Single Folded">Single Folded</option>
-                      <option value="10 garments per stack">10 garments per stack</option>
-                      <option value="poly bag each garment">poly bag each garment</option>
-                    </select>
-                    <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" size={14} />
+                <>
+                  <div className="flex flex-col gap-1.5 pb-1">
+                    <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider pl-1">Delivery Option</label>
+                    <div className="relative">
+                      <select
+                        value={deliveryOption}
+                        onChange={(e) => setDeliveryOption(e.target.value)}
+                        className="w-full appearance-none bg-white border border-neutral-250 rounded-xl px-4 py-3 text-xs font-bold text-neutral-800 focus:outline-none focus:border-black cursor-pointer pr-10"
+                      >
+                        <option value="Delivery">Delivery</option>
+                        <option value="Pick Up">Pick Up</option>
+                      </select>
+                      <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" size={14} />
+                    </div>
                   </div>
-                </div>
+
+                  <div className="flex flex-col gap-1.5 pb-1">
+                    <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider pl-1">Packaging Option</label>
+                    <div className="relative">
+                      <select
+                        value={selectedPackaging}
+                        onChange={(e) => setSelectedPackaging(e.target.value)}
+                        className="w-full appearance-none bg-white border border-neutral-250 rounded-xl px-4 py-3 text-xs font-bold text-neutral-800 focus:outline-none focus:border-black cursor-pointer pr-10"
+                      >
+                        <option value="Single Folded">Single Folded</option>
+                        <option value="10 garments per stack">10 garments per stack</option>
+                        <option value="poly bag each garment">poly bag each garment</option>
+                      </select>
+                      <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" size={14} />
+                    </div>
+                  </div>
+                </>
               )}
 
               <div className="flex justify-between items-center text-sm font-bold text-neutral-500">
@@ -2091,55 +2127,57 @@ export function PortalCreateOrder() {
               </div>
 
               {/* Shipping Address */}
-              <div className="flex flex-col gap-4">
-                <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-widest border-b border-neutral-50 pb-1">Shipping Address</h3>
-                
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] uppercase font-bold text-neutral-500 pl-1">Street Address</label>
-                  <input 
-                    type="text"
-                    value={profileStreet}
-                    onChange={(e) => setProfileStreet(e.target.value)}
-                    placeholder="e.g. 123 Main St"
-                    className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-2.5 text-xs font-medium text-neutral-900 focus:outline-none focus:border-neutral-400 focus:bg-white transition-all font-bold"
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="flex flex-col gap-1.5 sm:col-span-1">
-                    <label className="text-[10px] uppercase font-bold text-neutral-500 pl-1">City</label>
-                    <input 
-                      type="text"
-                      value={profileCity}
-                      onChange={(e) => setProfileCity(e.target.value)}
-                      placeholder="e.g. Austin"
-                      className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-2.5 text-xs font-medium text-neutral-900 focus:outline-none focus:border-neutral-400 focus:bg-white transition-all font-bold"
-                    />
-                  </div>
-
+              {deliveryOption === 'Delivery' && (
+                <div className="flex flex-col gap-4">
+                  <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-widest border-b border-neutral-50 pb-1">Shipping Address</h3>
+                  
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] uppercase font-bold text-neutral-500 pl-1">State</label>
+                    <label className="text-[10px] uppercase font-bold text-neutral-500 pl-1">Street Address</label>
                     <input 
                       type="text"
-                      value={profileState}
-                      onChange={(e) => setProfileState(e.target.value)}
-                      placeholder="e.g. TX"
+                      value={profileStreet}
+                      onChange={(e) => setProfileStreet(e.target.value)}
+                      placeholder="e.g. 123 Main St"
                       className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-2.5 text-xs font-medium text-neutral-900 focus:outline-none focus:border-neutral-400 focus:bg-white transition-all font-bold"
                     />
                   </div>
 
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] uppercase font-bold text-neutral-500 pl-1">Zip Code</label>
-                    <input 
-                      type="text"
-                      value={profileZip}
-                      onChange={(e) => setProfileZip(e.target.value)}
-                      placeholder="e.g. 78701"
-                      className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-2.5 text-xs font-medium text-neutral-900 focus:outline-none focus:border-neutral-400 focus:bg-white transition-all font-bold"
-                    />
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="flex flex-col gap-1.5 sm:col-span-1">
+                      <label className="text-[10px] uppercase font-bold text-neutral-500 pl-1">City</label>
+                      <input 
+                        type="text"
+                        value={profileCity}
+                        onChange={(e) => setProfileCity(e.target.value)}
+                        placeholder="e.g. Austin"
+                        className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-2.5 text-xs font-medium text-neutral-900 focus:outline-none focus:border-neutral-400 focus:bg-white transition-all font-bold"
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] uppercase font-bold text-neutral-500 pl-1">State</label>
+                      <input 
+                        type="text"
+                        value={profileState}
+                        onChange={(e) => setProfileState(e.target.value)}
+                        placeholder="e.g. TX"
+                        className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-2.5 text-xs font-medium text-neutral-900 focus:outline-none focus:border-neutral-400 focus:bg-white transition-all font-bold"
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] uppercase font-bold text-neutral-500 pl-1">Zip Code</label>
+                      <input 
+                        type="text"
+                        value={profileZip}
+                        onChange={(e) => setProfileZip(e.target.value)}
+                        placeholder="e.g. 78701"
+                        className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-2.5 text-xs font-medium text-neutral-900 focus:outline-none focus:border-neutral-400 focus:bg-white transition-all font-bold"
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Modal Footer */}
@@ -2154,7 +2192,7 @@ export function PortalCreateOrder() {
               <button
                 type="button"
                 onClick={handleSaveProfileAndSubmit}
-                disabled={isSavingProfile || !profileContactName.trim() || !profileCompany.trim() || !profileEmail.trim() || !profilePhone.trim() || !profileStreet.trim() || !profileCity.trim() || !profileState.trim() || !profileZip.trim()}
+                disabled={isSavingProfile || !profileContactName.trim() || !profileCompany.trim() || !profileEmail.trim() || !profilePhone.trim() || (deliveryOption === 'Delivery' && (!profileStreet.trim() || !profileCity.trim() || !profileState.trim() || !profileZip.trim()))}
                 className="px-6 py-2.5 rounded-full text-xs font-bold uppercase tracking-wider bg-black text-white hover:bg-neutral-800 transition-all flex items-center gap-1.5 shadow-md cursor-pointer disabled:bg-neutral-300 disabled:cursor-not-allowed"
               >
                 {isSavingProfile ? 'Saving...' : 'Save & Submit'}
