@@ -210,15 +210,16 @@ interface LogoBox {
   y: number;
   w: number;
   h: number;
+  r?: number;
 }
 
 // Largest logoScale (logo width as a fraction of frame width) that keeps a logo of
 // the given aspect ratio (w/h) inside the box, centered on the box.
 const FRAME_H_OVER_W = 5 / 4; // aspect-[4/5] placement frame
-const fitLogoToBox = (box: LogoBox, logoAspect: number): { pos: { x: number; y: number }; scale: number } => {
+const fitLogoToBox = (box: LogoBox, logoAspect: number): { pos: { x: number; y: number }; scale: number; rotation: number } => {
   const safeAspect = logoAspect > 0 ? logoAspect : 1;
   const scale = Math.min(box.w / 100, (box.h / 100) * FRAME_H_OVER_W * safeAspect);
-  return { pos: { x: box.x, y: box.y }, scale };
+  return { pos: { x: box.x, y: box.y }, scale, rotation: box.r ?? 0 };
 };
 
 interface TiltCardProps {
@@ -575,7 +576,7 @@ export function PublicQuoteRequest() {
           selected: true,
           logoPos: fitted ? fitted.pos : isHat ? { x: 50, y: 55 } : isPolo ? { x: 38, y: 30 } : { x: 50, y: 35 },
           logoScale: fitted ? fitted.scale : isHat ? 0.16 : isPolo ? 0.14 : 0.28,
-          logoRotation: 0,
+          logoRotation: fitted ? fitted.rotation : 0,
           printSize: isHat ? 'Small' : isPolo ? 'Small' : 'Medium',
           decoration: (isHat || isPolo) ? 'Embroidery' : 'Print'
         });
@@ -593,11 +594,11 @@ export function PublicQuoteRequest() {
   }, [flowMode, selectedThemeCategory, catalogSettings, logoAspect]);
 
   // Resolve the admin-configured placement for a basics product (falls back to legacy default)
-  const getBasicsPlacement = (product: SanMarProduct): { pos: { x: number; y: number }; scale: number } => {
+  const getBasicsPlacement = (product: SanMarProduct): { pos: { x: number; y: number }; scale: number; rotation: number } => {
     const cat = catalogSettings.basics?.[selectedBasicsCategory];
     const tier = cat ? ['good', 'better', 'best'].find(t => cat[t] === product.style) : undefined;
     const box = tier ? catalogSettings.logoPlacements?.basics?.[selectedBasicsCategory]?.[tier] : undefined;
-    return box ? fitLogoToBox(box, logoAspect) : { pos: { x: 50, y: 35 }, scale: 0.28 };
+    return box ? fitLogoToBox(box, logoAspect) : { pos: { x: 50, y: 35 }, scale: 0.28, rotation: 0 };
   };
 
   // Populate basics selection
@@ -1072,7 +1073,7 @@ export function PublicQuoteRequest() {
               color: selectedBasicsColor,
               logoPos: getBasicsPlacement(selectedBasicsItem!).pos,
               logoScale: getBasicsPlacement(selectedBasicsItem!).scale,
-              logoRotation: 0,
+              logoRotation: getBasicsPlacement(selectedBasicsItem!).rotation,
               printSize: 'Medium' as const,
               decoration: ['hat', 'cap', 'polo'].some(w => selectedBasicsItem!.category.toLowerCase().includes(w)) ? 'Embroidery' as const : 'Print' as const
             }
@@ -2348,7 +2349,7 @@ export function PublicQuoteRequest() {
                                 left: `${placement.pos.x}%`,
                                 top: `${placement.pos.y}%`,
                                 width: `${placement.scale * 100}%`,
-                                transform: 'translate(-50%, -50%)',
+                                transform: `translate(-50%, -50%) rotate(${placement.rotation ?? 0}deg)`,
                                 pointerEvents: 'none'
                               }}
                             >

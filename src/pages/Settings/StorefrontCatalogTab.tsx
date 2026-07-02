@@ -44,6 +44,7 @@ export interface LogoBox {
   y: number;
   w: number;
   h: number;
+  r?: number; // rotation in degrees (clockwise), applied to the logo via logoRotation
 }
 
 const PLACEMENT_PRESETS: { label: string; box: LogoBox }[] = [
@@ -60,12 +61,32 @@ const slotDefaultBox = (slot: string): LogoBox => {
 };
 
 const clampBox = (box: LogoBox): LogoBox => {
-  const w = Math.min(96, Math.max(5, box.w));
-  const h = Math.min(96, Math.max(5, box.h));
-  const x = Math.min(100 - w / 2, Math.max(w / 2, box.x));
-  const y = Math.min(100 - h / 2, Math.max(h / 2, box.y));
-  return { x, y, w, h };
+  const w = Math.min(96, Math.max(3, box.w));
+  const h = Math.min(96, Math.max(3, box.h));
+  const x = Math.min(98, Math.max(2, box.x));
+  const y = Math.min(98, Math.max(2, box.y));
+  // Normalize rotation to (-180, 180], snapping to the nearest quarter turn when close
+  let r = (((box.r ?? 0) % 360) + 540) % 360 - 180;
+  for (const snap of [-180, -90, 0, 90, 180]) {
+    if (Math.abs(r - snap) <= 3) { r = snap === -180 ? 180 : snap; break; }
+  }
+  return { x, y, w, h, r };
 };
+
+// Resize handles: sx/sy are the handle's direction from the box center in local
+// (rotation-aligned) space; the opposite point stays anchored while dragging.
+const RESIZE_HANDLES: { id: string; sx: number; sy: number; cursor: string }[] = [
+  { id: 'nw', sx: -1, sy: -1, cursor: 'nwse-resize' },
+  { id: 'n', sx: 0, sy: -1, cursor: 'ns-resize' },
+  { id: 'ne', sx: 1, sy: -1, cursor: 'nesw-resize' },
+  { id: 'e', sx: 1, sy: 0, cursor: 'ew-resize' },
+  { id: 'se', sx: 1, sy: 1, cursor: 'nwse-resize' },
+  { id: 's', sx: 0, sy: 1, cursor: 'ns-resize' },
+  { id: 'sw', sx: -1, sy: 1, cursor: 'nesw-resize' },
+  { id: 'w', sx: -1, sy: 0, cursor: 'ew-resize' },
+];
+
+const MIN_BOX_PX = 14;
 
 function LogoPlacementModal({
   title,
@@ -87,46 +108,89 @@ function LogoPlacementModal({
   const [box, setBox] = useState<LogoBox>(clampBox(initialBox));
   const frameRef = useRef<HTMLDivElement>(null);
   const gestureRef = useRef<{
-    type: 'move' | 'resize';
-    startPx: number;
-    startPy: number;
+    type: 'move' | 'rotate' | string; // string = resize handle id
+    startX: number; // pointer, frame px
+    startY: number;
     startBox: LogoBox;
   } | null>(null);
 
-  const pointerPct = (e: React.PointerEvent) => {
+  // All gesture math runs in frame pixels (rotation mixes axes, and the frame
+  // is 4:5 so percent units differ per axis); state stays in percent.
+  const pointerPx = (e: React.PointerEvent) => {
     const rect = frameRef.current!.getBoundingClientRect();
-    return {
-      px: ((e.clientX - rect.left) / rect.width) * 100,
-      py: ((e.clientY - rect.top) / rect.height) * 100,
-    };
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top, rect };
   };
 
-  const handlePointerDown = (e: React.PointerEvent, type: 'move' | 'resize') => {
+  const boxToPx = (b: LogoBox, rect: DOMRect) => ({
+    cx: (b.x / 100) * rect.width,
+    cy: (b.y / 100) * rect.height,
+    bw: (b.w / 100) * rect.width,
+    bh: (b.h / 100) * rect.height,
+    rad: ((b.r ?? 0) * Math.PI) / 180,
+  });
+
+  const handlePointerDown = (e: React.PointerEvent, type: 'move' | 'rotate' | string) => {
     e.preventDefault();
     e.stopPropagation();
-    const { px, py } = pointerPct(e);
-    gestureRef.current = { type, startPx: px, startPy: py, startBox: box };
+    const { x, y } = pointerPx(e);
+    gestureRef.current = { type, startX: x, startY: y, startBox: box };
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
     const g = gestureRef.current;
     if (!g) return;
-    const { px, py } = pointerPct(e);
+    const { x, y, rect } = pointerPx(e);
+    const start = boxToPx(g.startBox, rect);
+
     if (g.type === 'move') {
       setBox(clampBox({
         ...g.startBox,
-        x: g.startBox.x + (px - g.startPx),
-        y: g.startBox.y + (py - g.startPy),
+        x: ((start.cx + (x - g.startX)) / rect.width) * 100,
+        y: ((start.cy + (y - g.startY)) / rect.height) * 100,
       }));
-    } else {
-      // Resize from the bottom-right handle, keeping the center anchored
-      setBox(clampBox({
-        ...g.startBox,
-        w: (px - g.startBox.x) * 2,
-        h: (py - g.startBox.y) * 2,
-      }));
+      return;
     }
+
+    if (g.type === 'rotate') {
+      // Handle sits above the box's local top edge, so straight up = 0deg
+      const deg = (Math.atan2(y - start.cy, x - start.cx) * 180) / Math.PI + 90;
+      setBox(clampBox({ ...g.startBox, r: Math.round(deg) }));
+      return;
+    }
+
+    const handle = RESIZE_HANDLES.find(h => h.id === g.type);
+    if (!handle) return;
+    const { sx, sy } = handle;
+    const cos = Math.cos(start.rad);
+    const sin = Math.sin(start.rad);
+
+    // Anchor = the point opposite the handle (stays fixed while dragging)
+    const ax = start.cx - (sx * (start.bw / 2)) * cos + (sy * (start.bh / 2)) * sin;
+    const ay = start.cy - (sx * (start.bw / 2)) * sin - (sy * (start.bh / 2)) * cos;
+
+    // Pointer offset from the anchor, rotated into the box's local space
+    const dx = x - ax;
+    const dy = y - ay;
+    const localX = dx * cos + dy * sin;
+    const localY = -dx * sin + dy * cos;
+
+    const bw = sx !== 0 ? Math.max(MIN_BOX_PX, sx * localX) : start.bw;
+    const bh = sy !== 0 ? Math.max(MIN_BOX_PX, sy * localY) : start.bh;
+
+    // New center = anchor pushed back out along the local handle direction
+    const ox = sx * (bw / 2);
+    const oy = sy * (bh / 2);
+    const cx = ax + ox * cos - oy * sin;
+    const cy = ay + ox * sin + oy * cos;
+
+    setBox(clampBox({
+      x: (cx / rect.width) * 100,
+      y: (cy / rect.height) * 100,
+      w: (bw / rect.width) * 100,
+      h: (bh / rect.height) * 100,
+      r: g.startBox.r ?? 0,
+    }));
   };
 
   const handlePointerUp = () => {
@@ -171,10 +235,11 @@ function LogoPlacementModal({
             onPointerDown={(e) => handlePointerDown(e, 'move')}
             className="absolute border-2 border-dashed border-neutral-900 bg-neutral-900/10 cursor-move rounded-sm"
             style={{
-              left: `${box.x - box.w / 2}%`,
-              top: `${box.y - box.h / 2}%`,
+              left: `${box.x}%`,
+              top: `${box.y}%`,
               width: `${box.w}%`,
               height: `${box.h}%`,
+              transform: `translate(-50%, -50%) rotate(${box.r ?? 0}deg)`,
             }}
           >
             <Crosshair
@@ -184,11 +249,38 @@ function LogoPlacementModal({
             <span className="absolute -top-5 left-0 text-[9px] font-extrabold uppercase tracking-wider text-neutral-900 bg-white/85 px-1 rounded pointer-events-none whitespace-nowrap">
               Logo area
             </span>
+
+            {/* Rotation Handle */}
             <div
-              onPointerDown={(e) => handlePointerDown(e, 'resize')}
-              className="absolute bottom-0 right-0 w-4 h-4 translate-x-1/2 translate-y-1/2 bg-white border-2 border-neutral-900 rounded-full shadow-sm cursor-se-resize"
-              title="Resize box"
-            />
+              className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-6 flex flex-col items-center"
+              style={{ transformOrigin: 'bottom center' }}
+            >
+              <div className="w-0.5 h-4 bg-neutral-900" />
+              <div
+                onPointerDown={(e) => handlePointerDown(e, 'rotate')}
+                className="w-3 h-3 bg-white border-2 border-neutral-900 rounded-full shadow-md hover:bg-neutral-100 transition-colors cursor-alias"
+                title="Rotate box"
+              />
+            </div>
+
+            {/* Resize Handles */}
+            {RESIZE_HANDLES.map((handle) => {
+              const left = `${(handle.sx + 1) * 50}%`;
+              const top = `${(handle.sy + 1) * 50}%`;
+              return (
+                <div
+                  key={handle.id}
+                  onPointerDown={(e) => handlePointerDown(e, handle.id)}
+                  className="absolute w-2.5 h-2.5 bg-white border-2 border-neutral-900 rounded-full shadow-xs -translate-x-1/2 -translate-y-1/2 z-10"
+                  style={{
+                    left,
+                    top,
+                    cursor: handle.cursor,
+                  }}
+                  title={`Resize ${handle.id.toUpperCase()}`}
+                />
+              );
+            })}
           </div>
         </div>
 
@@ -204,7 +296,7 @@ function LogoPlacementModal({
             </button>
           ))}
           <span className="ml-auto text-[10px] font-mono text-neutral-400">
-            {Math.round(box.w)}% × {Math.round(box.h)}%
+            {Math.round(box.w)}% × {Math.round(box.h)}% {box.r ? `@ ${box.r}°` : ''}
           </span>
         </div>
 
