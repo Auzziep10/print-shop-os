@@ -469,19 +469,24 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
         const timelineSteps = ['Requested', 'Quoted', 'Approved', 'Sourced', 'Produced', 'Shipped', 'Received'];
 
         let visualIndex = 0;
-        if (order.statusIndex === 0 || order.statusIndex === 1) {
+        const statusIdx = typeof order.statusIndex === 'number' ? order.statusIndex : 0;
+        if (statusIdx === 0) {
           visualIndex = 0; // Requested
-        } else if (order.statusIndex === 2 || order.statusIndex === 3) {
+        } else if (statusIdx === 1) {
           visualIndex = 1; // Quoted
-        } else if (order.statusIndex === 4) {
+        } else if (statusIdx === 2) {
+          visualIndex = 1.5; // Between Quoted and Approved (Awaiting Payment / Quote Approved)
+        } else if (statusIdx === 3) {
           visualIndex = 2; // Approved
-        } else if (order.statusIndex === 5) {
+        } else if (statusIdx === 4) {
+          visualIndex = 2.5; // Between Approved and Sourced (Shopping/Sourcing)
+        } else if (statusIdx === 5) {
           visualIndex = 3; // Sourced
-        } else if (order.statusIndex === 6) {
+        } else if (statusIdx === 6) {
           visualIndex = 4; // Produced
-        } else if (order.statusIndex === 7) {
+        } else if (statusIdx === 7) {
           visualIndex = 5; // Shipped
-        } else if (order.statusIndex === 8) {
+        } else if (statusIdx === 8) {
           visualIndex = 6; // Received
         }
 
@@ -626,7 +631,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                   className="flex-1 min-w-0 w-full pt-6 xl:pt-0 pb-4 xl:pb-0 relative"
                 >
                   {/* Desktop Horizontal Tracker */}
-                  <div className="hidden md:block w-full overflow-x-auto lg:overflow-visible relative z-10">
+                  <div className="hidden xl:block w-full overflow-visible relative z-10">
                     <div className="relative w-full mt-8 mb-6 lg:mt-0 lg:mb-0">
                       {/* The Track Base */}
                       <div className="absolute top-0 left-0 w-full h-[12px] bg-neutral-200 rounded-full"></div>
@@ -658,7 +663,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                   </div>
 
                   {/* Mobile Vertical Tracker */}
-                  <div className="block md:hidden w-full relative z-10 bg-neutral-50/50 rounded-3xl p-5 border border-neutral-100 mt-2">
+                  <div className="block xl:hidden w-full relative z-10 bg-neutral-50/50 rounded-3xl p-5 border border-neutral-100 mt-2">
                     <div className="relative flex flex-col gap-5 pl-6">
                       {/* Vertical line connector */}
                       <div className="absolute left-[7px] top-2 bottom-2 w-[2px] bg-neutral-200"></div>
@@ -666,7 +671,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                       <div 
                         className="absolute left-[7px] top-2 w-[2px] bg-black transition-all duration-700 ease-in-out animate-all" 
                         style={{ 
-                          height: `${Math.min(100, (Math.floor(visualIndex) / (timelineSteps.length - 1)) * 100)}%` 
+                          height: `${Math.min(100, (visualIndex / (timelineSteps.length - 1)) * 100)}%` 
                         }}
                       ></div>
 
