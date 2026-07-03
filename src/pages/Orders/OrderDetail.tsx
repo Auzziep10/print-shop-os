@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { PillButton } from '../../components/ui/PillButton';
 import { PackingSlipsManager } from '../../components/Orders/PackingSlipsManager';
 import { TrackingModal } from '../../components/Orders/TrackingModal';
-import { ArrowLeft, MessageSquare, QrCode, Clock, Users, Download, Loader2, X, Edit3, Upload, Trash2, Plus, ChevronDown, Image as ImageIcon, Box, Printer, ExternalLink, ShoppingBag, Search, Check, Truck, GripVertical, Pause, Play, DollarSign, PackagePlus, Layers, CreditCard, Copy, RotateCcw, Sparkles } from 'lucide-react';
+import { ArrowLeft, MessageSquare, QrCode, Clock, Users, Download, Loader2, X, Edit3, Upload, Trash2, Plus, ChevronDown, Image as ImageIcon, Box, Printer, ExternalLink, ShoppingBag, Search, Check, Truck, GripVertical, Pause, Play, DollarSign, PackagePlus, Layers, CreditCard, Copy, RotateCcw, Sparkles, FileText } from 'lucide-react';
 import ReactQRCode from 'react-qr-code';
 import QRCodeLib from 'qrcode';
 import JSZip from 'jszip';
@@ -2413,10 +2413,15 @@ export function OrderDetail() {
                </div>
             </div>
             
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 pt-6 border-t border-brand-border">
+            <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-6 gap-6 pt-6 border-t border-brand-border">
                <div>
-                  <span className="text-xs text-brand-secondary font-medium uppercase tracking-wider block mb-1">Due Date</span>
-                  <span className="font-serif text-lg">{order.date}</span>
+                  <span className="text-xs text-brand-secondary font-medium uppercase tracking-wider block mb-1">Due / Needed By</span>
+                  <span className="font-serif text-lg block">{order.date}</span>
+                  {order.neededByDate && (
+                    <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-250 px-1.5 py-0.5 rounded mt-1 inline-block">
+                      Need By: {new Date(order.neededByDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </span>
+                  )}
                </div>
                <div>
                   <span className="text-xs text-brand-secondary font-medium uppercase tracking-wider block mb-1">Total Items</span>
@@ -2446,6 +2451,20 @@ export function OrderDetail() {
                   <span className="text-xs text-brand-secondary font-medium uppercase tracking-wider block mb-1">Packaging</span>
                   <span className="font-serif text-lg">{order.packaging || 'Standard Packaging'}</span>
                </div>
+               <div>
+                  <span className="text-xs text-brand-secondary font-medium uppercase tracking-wider block mb-1">Order Type</span>
+                  <span className="font-serif text-lg block uppercase tracking-wider font-extrabold text-neutral-850">{order.orderType || 'Retail'}</span>
+                  {order.resaleCertificateUrl && (
+                    <a 
+                      href={order.resaleCertificateUrl} 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className="text-xs font-bold text-emerald-600 hover:text-emerald-700 hover:underline flex items-center gap-1 mt-1"
+                    >
+                      <FileText size={12} className="inline mr-0.5" /> Resale Cert
+                    </a>
+                  )}
+               </div>
                {hasPermission('viewPricing') && (
                  <div>
                     <span className="text-xs text-brand-secondary font-medium uppercase tracking-wider block mb-1">Est. Total</span>
@@ -2456,6 +2475,17 @@ export function OrderDetail() {
           </div>
         </div>
       </div>
+
+      {order.specialRequests && (
+        <div className="bg-amber-50/40 border border-amber-200/80 rounded-2xl p-5 mt-6 flex flex-col gap-1.5 shadow-3xs">
+          <span className="text-[10px] font-extrabold text-amber-600 uppercase tracking-widest flex items-center gap-1">
+            💬 Client Comments & Special Requests
+          </span>
+          <p className="text-sm font-semibold text-neutral-850 whitespace-pre-wrap leading-relaxed">
+            {order.specialRequests}
+          </p>
+        </div>
+      )}
 
       <div className="space-y-8 mt-8">
           {/* Garments / Items */}
