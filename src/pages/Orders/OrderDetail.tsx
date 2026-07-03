@@ -2415,13 +2415,16 @@ export function OrderDetail() {
             
             <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-6 gap-6 pt-6 border-t border-brand-border">
                <div>
-                  <span className="text-xs text-brand-secondary font-medium uppercase tracking-wider block mb-1">Due / Needed By</span>
-                  <span className="font-serif text-lg block">{order.date}</span>
-                  {order.neededByDate && (
-                    <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-250 px-1.5 py-0.5 rounded mt-1 inline-block">
-                      Need By: {new Date(order.neededByDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                    </span>
-                  )}
+                  <span className="text-xs text-brand-secondary font-medium uppercase tracking-wider block mb-1">
+                    {order.neededByDate ? 'Needed By' : 'Due Date'}
+                  </span>
+                  <span className="font-serif text-lg block">
+                    {order.neededByDate ? (
+                      new Date(order.neededByDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                    ) : (
+                      order.date
+                    )}
+                  </span>
                </div>
                <div>
                   <span className="text-xs text-brand-secondary font-medium uppercase tracking-wider block mb-1">Total Items</span>
