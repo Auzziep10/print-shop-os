@@ -1168,7 +1168,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                     );
                   }
                })()}
-              <div className="flex w-full gap-2">
+              <div className="flex flex-1 xl:w-full gap-2">
                 <button 
                   className="flex-1 bg-white border border-brand-border hover:border-black hover:bg-black hover:text-white text-[12px] font-bold text-gray-800 rounded-full py-3 xl:py-4 transition-all tracking-wide text-center"
                   onClick={(e) => {
