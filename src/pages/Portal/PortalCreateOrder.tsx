@@ -202,6 +202,7 @@ export function PortalCreateOrder() {
   }, [customerRacks]);
 
   useEffect(() => {
+    if (isInitialLoadDone) return;
     let preselected: any[] = [];
     if (location.state?.preselectedItems && Array.isArray(location.state.preselectedItems)) {
       preselected = [...location.state.preselectedItems];
@@ -223,7 +224,7 @@ export function PortalCreateOrder() {
     if (preselected.length > 0) {
       setPendingPreselected(preselected);
     }
-  }, [location.state, customerId]);
+  }, [location.state, customerId, isInitialLoadDone]);
 
   useEffect(() => {
     if (location.state?.openLibrary) {
