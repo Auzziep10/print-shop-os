@@ -149,6 +149,7 @@ export function PortalCreateOrder() {
   const [customizingItem, setCustomizingItem] = useState<any | null>(null);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
+  const [expandedImage, setExpandedImage] = useState<{ src: string; alt: string } | null>(null);
 
   const [pendingPreselected, setPendingPreselected] = useState<any[] | null>(null);
   const [isInitialLoadDone, setIsInitialLoadDone] = useState(false);
@@ -1013,7 +1014,14 @@ export function PortalCreateOrder() {
                           onClick={() => handleAddItem({ ...item, style, gender, itemNum, colors, sizes, image, price })}
                           className="group flex items-center gap-4 bg-neutral-50/50 border border-neutral-200 hover:border-black transition-colors rounded-2xl p-4 cursor-pointer shadow-[0_2px_10px_rgb(0,0,0,0.01)] hover:shadow-xs"
                         >
-                          <div className="w-14 h-14 rounded-xl overflow-hidden bg-white border border-neutral-100 shrink-0 flex items-center justify-center">
+                          <div 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setExpandedImage({ src: image, alt: style });
+                            }}
+                            className="w-14 h-14 rounded-xl overflow-hidden bg-white border border-neutral-100 shrink-0 flex items-center justify-center cursor-zoom-in hover:scale-105 hover:border-neutral-300 transition-all"
+                            title="Click to expand"
+                          >
                             <img src={image} alt={style} className="w-full h-full object-contain p-1 mix-blend-multiply" />
                           </div>
                           <div className="flex-1 min-w-0">
@@ -1079,7 +1087,14 @@ export function PortalCreateOrder() {
                             onClick={() => handleAddItem({ ...item, style, gender, itemNum, colors, sizes, image, price })}
                             className="group flex items-center gap-4 bg-neutral-50/50 border border-neutral-200 hover:border-black transition-colors rounded-2xl p-4 cursor-pointer shadow-[0_2px_10px_rgb(0,0,0,0.01)] hover:shadow-xs"
                           >
-                            <div className="w-14 h-14 rounded-xl overflow-hidden bg-white border border-neutral-100 shrink-0 flex items-center justify-center">
+                            <div 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setExpandedImage({ src: image, alt: style });
+                              }}
+                              className="w-14 h-14 rounded-xl overflow-hidden bg-white border border-neutral-100 shrink-0 flex items-center justify-center cursor-zoom-in hover:scale-105 hover:border-neutral-300 transition-all"
+                              title="Click to expand"
+                            >
                               <img src={image} alt={style} className="w-full h-full object-contain p-1 mix-blend-multiply" />
                             </div>
                             <div className="flex-1 min-w-0">
@@ -1122,7 +1137,14 @@ export function PortalCreateOrder() {
                           onClick={() => handleAddItem({ ...item, style, itemNum, colors, sizes, image, price })}
                           className="group flex items-center gap-4 bg-neutral-50/50 border border-neutral-200 hover:border-black transition-colors rounded-2xl p-4 cursor-pointer shadow-[0_2px_10px_rgb(0,0,0,0.01)] hover:shadow-xs"
                         >
-                          <div className="w-14 h-14 rounded-xl overflow-hidden bg-white border border-neutral-100 shrink-0 flex items-center justify-center">
+                          <div 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setExpandedImage({ src: image, alt: style });
+                            }}
+                            className="w-14 h-14 rounded-xl overflow-hidden bg-white border border-neutral-100 shrink-0 flex items-center justify-center cursor-zoom-in hover:scale-105 hover:border-neutral-300 transition-all"
+                            title="Click to expand"
+                          >
                             <img src={image} alt={style} className="w-full h-full object-contain p-1 mix-blend-multiply" />
                           </div>
                           <div className="flex-1 min-w-0">
@@ -1161,7 +1183,14 @@ export function PortalCreateOrder() {
                           onClick={() => handleAddItem({ ...item, style, itemNum, colors, sizes, image, price })}
                           className="group flex items-center gap-4 bg-neutral-50/50 border border-neutral-200 hover:border-black transition-colors rounded-2xl p-4 cursor-pointer shadow-[0_2px_10px_rgb(0,0,0,0.01)] hover:shadow-xs"
                         >
-                          <div className="w-14 h-14 rounded-xl overflow-hidden bg-white border border-neutral-100 shrink-0 flex items-center justify-center">
+                          <div 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setExpandedImage({ src: image, alt: style });
+                            }}
+                            className="w-14 h-14 rounded-xl overflow-hidden bg-white border border-neutral-100 shrink-0 flex items-center justify-center cursor-zoom-in hover:scale-105 hover:border-neutral-300 transition-all"
+                            title="Click to expand"
+                          >
                             <img src={image} alt={style} className="w-full h-full object-contain p-1 mix-blend-multiply" />
                           </div>
                           <div className="flex-1 min-w-0">
@@ -1613,7 +1642,14 @@ export function PortalCreateOrder() {
 
                       return (
                         <div key={item.id || idx} className="group flex items-center gap-5 bg-white border border-neutral-200 hover:border-black transition-colors rounded-2xl p-4 cursor-pointer shadow-[0_2px_10px_rgb(0,0,0,0.02)] hover:shadow-md">
-                          <div className="w-16 h-16 rounded-xl overflow-hidden bg-neutral-50 border border-neutral-100 shrink-0 flex items-center justify-center">
+                          <div 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setExpandedImage({ src: image, alt: style });
+                            }}
+                            className="w-16 h-16 rounded-xl overflow-hidden bg-neutral-50 border border-neutral-100 shrink-0 flex items-center justify-center cursor-zoom-in hover:scale-105 hover:border-neutral-300 transition-all"
+                            title="Click to expand"
+                          >
                             <img src={image} alt={style} className="w-full h-full object-contain p-1 mix-blend-multiply" />
                           </div>
                           <div className="flex-1 min-w-0">
@@ -1678,7 +1714,14 @@ export function PortalCreateOrder() {
 
                           return (
                             <div key={item.id || idx} className="group flex items-center gap-5 bg-white border border-neutral-200 hover:border-black transition-colors rounded-2xl p-4 cursor-pointer shadow-[0_2px_10px_rgb(0,0,0,0.02)] hover:shadow-md">
-                              <div className="w-16 h-16 rounded-xl overflow-hidden bg-neutral-50 border border-neutral-100 shrink-0 flex items-center justify-center">
+                              <div 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setExpandedImage({ src: image, alt: style });
+                                }}
+                                className="w-16 h-16 rounded-xl overflow-hidden bg-neutral-50 border border-neutral-100 shrink-0 flex items-center justify-center cursor-zoom-in hover:scale-105 hover:border-neutral-300 transition-all"
+                                title="Click to expand"
+                              >
                                 <img src={image} alt={style} className="w-full h-full object-contain p-1 mix-blend-multiply" />
                               </div>
                               <div className="flex-1 min-w-0">
@@ -1721,7 +1764,14 @@ export function PortalCreateOrder() {
 
                       return (
                         <div key={item.id || idx} className="group flex items-center gap-5 bg-white border border-neutral-200 hover:border-black transition-colors rounded-2xl p-4 cursor-pointer shadow-[0_2px_10px_rgb(0,0,0,0.02)] hover:shadow-md">
-                          <div className="w-16 h-16 rounded-xl overflow-hidden bg-neutral-50 border border-neutral-100 shrink-0 flex items-center justify-center">
+                          <div 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setExpandedImage({ src: image, alt: style });
+                            }}
+                            className="w-16 h-16 rounded-xl overflow-hidden bg-neutral-50 border border-neutral-100 shrink-0 flex items-center justify-center cursor-zoom-in hover:scale-105 hover:border-neutral-300 transition-all"
+                            title="Click to expand"
+                          >
                             <img src={image} alt={style} className="w-full h-full object-contain p-1 mix-blend-multiply" />
                           </div>
                           <div className="flex-1 min-w-0">
@@ -1761,7 +1811,14 @@ export function PortalCreateOrder() {
 
                       return (
                         <div key={item.id || idx} className="group flex items-center gap-5 bg-white border border-neutral-200 hover:border-black transition-colors rounded-2xl p-4 cursor-pointer shadow-[0_2px_10px_rgb(0,0,0,0.02)] hover:shadow-md">
-                          <div className="w-16 h-16 rounded-xl overflow-hidden bg-neutral-50 border border-neutral-100 shrink-0 flex items-center justify-center">
+                          <div 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setExpandedImage({ src: image, alt: style });
+                            }}
+                            className="w-16 h-16 rounded-xl overflow-hidden bg-neutral-50 border border-neutral-100 shrink-0 flex items-center justify-center cursor-zoom-in hover:scale-105 hover:border-neutral-300 transition-all"
+                            title="Click to expand"
+                          >
                             <img src={image} alt={style} className="w-full h-full object-contain p-1 mix-blend-multiply" />
                           </div>
                           <div className="flex-1 min-w-0">
@@ -2198,6 +2255,39 @@ export function PortalCreateOrder() {
                 {isSavingProfile ? 'Saving...' : 'Save & Submit'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {expandedImage && (
+        <div 
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => setExpandedImage(null)}
+        >
+          <div 
+            className="relative max-w-3xl max-h-[85vh] w-full bg-white rounded-[2rem] p-6 md:p-10 shadow-2xl overflow-hidden flex items-center justify-center border border-neutral-200/50 cursor-crosshair"
+            onClick={(e) => e.stopPropagation()}
+            onMouseMove={(e) => {
+              const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
+              const x = (e.clientX - left) / width;
+              const y = (e.clientY - top) / height;
+              const img = e.currentTarget.querySelector('img');
+              if (img) img.style.transformOrigin = `${x * 100}% ${y * 100}%`;
+            }}
+            title="Hover to zoom"
+          >
+            <button 
+              onClick={() => setExpandedImage(null)}
+              className="absolute top-6 right-6 w-10 h-10 rounded-full bg-white/90 hover:bg-white text-neutral-800 hover:text-black flex items-center justify-center shadow-lg transition-all z-50 cursor-pointer border border-neutral-100 hover:scale-105"
+            >
+              <X size={20} />
+            </button>
+            <img 
+              src={expandedImage.src} 
+              alt={expandedImage.alt} 
+              style={{ width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: '70vh' }}
+              className="rounded-2xl select-none transition-transform duration-200 ease-out hover:scale-[2]" 
+            />
           </div>
         </div>
       )}

@@ -300,7 +300,11 @@ export function PortalLayout() {
 
       {/* Top Header */}
       <header className={`flex items-center justify-between px-10 bg-white border-b border-black/5 ${customer?.logo ? 'py-4' : 'py-6'}`}>
-        <div className="flex items-center">
+        <div 
+          onClick={() => navigate(customerId ? `/portal/${customerId}` : '/portal')}
+          className="flex items-center cursor-pointer hover:opacity-80 transition-opacity"
+          title="Go to Orders Dashboard"
+        >
           {/* Main Logo */}
           {isLoadingCustomer ? (
             <div className="h-8 w-24 bg-gray-150/40 rounded animate-pulse" />
