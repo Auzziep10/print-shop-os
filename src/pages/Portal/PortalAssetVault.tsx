@@ -68,7 +68,6 @@ export function PortalAssetVault() {
       });
 
       setAssets(updatedAssets);
-      alert(files.length === 1 ? "Asset uploaded successfully!" : `${files.length} assets uploaded successfully!`);
     } catch (err) {
       console.error("Upload failed:", err);
       alert("Failed to upload some or all assets. Please try again.");
