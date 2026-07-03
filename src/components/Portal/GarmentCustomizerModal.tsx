@@ -91,6 +91,15 @@ export function GarmentCustomizerModal({
   // Guard against resetting selected color on same-garment prop updates
   const lastGarmentIdRef = useRef<string | null>(null);
 
+  // Lock body scroll when customizer modal is open
+  useEffect(() => {
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, []);
+
   // Sync activeGarment when prop garment changes
   useEffect(() => {
     if (garment) {
@@ -1275,7 +1284,7 @@ export function GarmentCustomizerModal({
         </div>
 
         {/* Right Panel: Controls */}
-        <div className="w-full md:w-[420px] overflow-y-auto p-8 flex flex-col gap-6 shrink-0 border-l border-neutral-150 bg-white shadow-sm">
+        <div className="w-full md:w-[420px] md:h-full md:min-h-0 overflow-y-auto p-8 flex flex-col gap-6 shrink-0 border-l border-neutral-150 bg-white shadow-sm">
           
           {showCatalogSearch && (
             <div ref={searchContainerRef} className="flex flex-col gap-2 border-b border-neutral-100 pb-6 relative">
