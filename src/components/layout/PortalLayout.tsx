@@ -299,7 +299,7 @@ export function PortalLayout() {
       )}
 
       {/* Top Header */}
-      <header className={`flex items-center justify-between px-10 bg-white border-b border-black/5 ${customer?.logo ? 'py-4' : 'py-6'}`}>
+      <header className={`flex flex-col lg:flex-row items-center justify-between px-6 lg:px-10 bg-white border-b border-black/5 gap-4 lg:gap-8 ${customer?.logo ? 'py-4' : 'py-6'}`}>
         <div 
           onClick={() => navigate(customerId ? `/portal/${customerId}` : '/portal')}
           className="flex items-center cursor-pointer hover:opacity-80 transition-opacity"
@@ -314,9 +314,9 @@ export function PortalLayout() {
             <img src="/logo.png" alt="WOVN" className="h-8" />
           )}
         </div>
-
+ 
         {/* Center Search Pill */}
-        <div className="flex-1 flex justify-center px-12">
+        <div className="hidden xl:flex flex-1 justify-center px-12">
           <div className="relative w-full max-w-2xl group">
             <input 
               type="text" 
@@ -326,9 +326,9 @@ export function PortalLayout() {
             <Search className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-gray-600 transition-colors" size={18} strokeWidth={2.5} />
           </div>
         </div>
-
+ 
         {/* Right Nav Options */}
-        <div className="flex items-center gap-6">
+        <div className="flex flex-wrap items-center justify-center lg:justify-end gap-3 sm:gap-4 md:gap-6 w-full lg:w-auto">
           <button 
             data-tour="orders-tab"
             onClick={() => navigate(customerId ? `/portal/${customerId}` : '/portal')}
@@ -351,6 +351,18 @@ export function PortalLayout() {
             }`}
           >
             Asset Vault
+          </button>
+
+          <button 
+            data-tour="saved-carts-tab"
+            onClick={() => navigate(customerId ? `/portal/${customerId}/create?tab=saved` : '/portal/create?tab=saved')}
+            className={`text-[13px] font-semibold tracking-wide pb-0.5 border-b-2 transition-all ${
+              location.pathname.endsWith('/create') && new URLSearchParams(location.search).get('tab') === 'saved'
+                ? 'text-black border-black'
+                : 'text-gray-400 border-transparent hover:text-black hover:border-black'
+            }`}
+          >
+            Saved Carts
           </button>
           
           

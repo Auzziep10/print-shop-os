@@ -621,15 +621,13 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                 </div>
 
                 {/* Right: Progress Tracker */}
-                 <div 
+                <div 
                   data-tour={idx === 0 ? "status-badge-0" : undefined}
                   className="flex-1 min-w-0 w-full pt-6 xl:pt-0 pb-4 xl:pb-0 relative"
                 >
-                  {/* Subtle fade effect for mobile to indicate scrollability */}
-                  <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-white to-transparent lg:hidden z-20 pointer-events-none rounded-r-[2rem]"></div>
-                  
-                  <div className="w-full overflow-x-auto custom-scrollbar -mx-6 px-6 lg:mx-0 lg:px-0 lg:overflow-visible relative z-10">
-                    <div className="relative w-full min-w-[600px] lg:min-w-0 mt-8 mb-6 lg:mt-0 lg:mb-0">
+                  {/* Desktop Horizontal Tracker */}
+                  <div className="hidden md:block w-full overflow-x-auto lg:overflow-visible relative z-10">
+                    <div className="relative w-full mt-8 mb-6 lg:mt-0 lg:mb-0">
                       {/* The Track Base */}
                       <div className="absolute top-0 left-0 w-full h-[12px] bg-neutral-200 rounded-full"></div>
                       {/* The Fill */}
@@ -648,7 +646,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                               {/* Step Label below */}
                               <span className="absolute top-6 text-[11px] font-bold text-neutral-500 w-24 text-center tracking-wide">{step}</span>
                               
-                              {/* Completion Date (Floating over the last item naturally if complete, or mock placing it over received for layout) */}
+                              {/* Completion Date */}
                               {isLastStep && (
                                  <span className="absolute -top-7 text-[12px] font-bold text-neutral-900 w-24 text-center">{formatDisplayDate(order.date)}</span>
                               )}
@@ -656,6 +654,46 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                           );
                         })}
                       </div>
+                    </div>
+                  </div>
+
+                  {/* Mobile Vertical Tracker */}
+                  <div className="block md:hidden w-full relative z-10 bg-neutral-50/50 rounded-3xl p-5 border border-neutral-100 mt-2">
+                    <div className="relative flex flex-col gap-5 pl-6">
+                      {/* Vertical line connector */}
+                      <div className="absolute left-[7px] top-2 bottom-2 w-[2px] bg-neutral-200"></div>
+                      {/* Vertical line fill progress */}
+                      <div 
+                        className="absolute left-[7px] top-2 w-[2px] bg-black transition-all duration-700 ease-in-out animate-all" 
+                        style={{ 
+                          height: `${Math.min(100, (Math.floor(visualIndex) / (timelineSteps.length - 1)) * 100)}%` 
+                        }}
+                      ></div>
+
+                      {timelineSteps.map((step, idx) => {
+                        const isCompleted = idx <= Math.floor(visualIndex);
+                        const isLastStep = idx === timelineSteps.length - 1;
+                        return (
+                          <div key={step} className="flex items-center gap-3 relative">
+                            {/* Dot */}
+                            <div className={`absolute -left-[23px] w-[14px] h-[14px] rounded-full flex items-center justify-center transition-colors duration-300 z-10 ${
+                              isCompleted ? 'bg-black ring-4 ring-white' : 'bg-white border-2 border-neutral-300 ring-4 ring-white'
+                            }`}>
+                            </div>
+                            {/* Content */}
+                            <div className="flex justify-between items-center w-full">
+                              <span className={`text-[12px] font-bold tracking-wide transition-colors ${isCompleted ? 'text-black font-extrabold' : 'text-neutral-400'}`}>
+                                {step}
+                              </span>
+                              {isLastStep && (
+                                <span className="text-[11px] font-bold text-neutral-500 bg-white border border-neutral-200 rounded px-2 py-0.5 shadow-2xs">
+                                  {formatDisplayDate(order.date)}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>

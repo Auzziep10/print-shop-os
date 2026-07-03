@@ -229,6 +229,16 @@ export function PortalCreateOrder() {
   const [pendingPreselected, setPendingPreselected] = useState<any[] | null>(null);
   const [isInitialLoadDone, setIsInitialLoadDone] = useState(false);
 
+  // Read initial tab and drawer state from URL query parameters
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const tabParam = searchParams.get('tab');
+    if (tabParam === 'saved') {
+      setActiveLibraryTab('saved');
+      setIsDrawerOpen(true);
+    }
+  }, [location.search]);
+
   const getGarmentImage = (item: any) => {
     if (item.images) {
       const chosenColor = (item.defaultColor && item.images[item.defaultColor])
