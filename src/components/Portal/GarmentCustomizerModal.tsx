@@ -131,6 +131,13 @@ export function GarmentCustomizerModal({
   const [assets, setAssets] = useState<any[]>([]);
   const [isLoadingAssets, setIsLoadingAssets] = useState(true);
 
+  // File info metadata state for Selected Logo
+  const [logoFileInfo, setLogoFileInfo] = useState<{
+    resolution?: string;
+    size?: string;
+    type?: string;
+  } | null>(null);
+
   // Logo overlay states for Front
   const [selectedLogoFront, setSelectedLogoFront] = useState<any | null>(null);
   const [scaleFront, setScaleFront] = useState(30);
@@ -201,6 +208,54 @@ export function GarmentCustomizerModal({
       else setSelectedLogoLeftSleeve(asset);
     }
   };
+
+  useEffect(() => {
+    if (!selectedLogo || selectedLogo.isText) {
+      setLogoFileInfo(null);
+      return;
+    }
+
+    // Parse extension
+    const ext = selectedLogo.name.split('.').pop()?.toUpperCase() || 'Unknown';
+    setLogoFileInfo({
+      type: ext
+    });
+
+    // Resolution fetch for image formats
+    const extLower = ext.toLowerCase();
+    const isRenderable = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(extLower);
+
+    if (isRenderable) {
+      const img = new Image();
+      img.onload = () => {
+        setLogoFileInfo(prev => prev ? {
+          ...prev,
+          resolution: `${img.naturalWidth} x ${img.naturalHeight} px`
+        } : null);
+      };
+      img.src = selectedLogo.url;
+    }
+
+    // File size fetch
+    fetch(selectedLogo.url, { method: 'HEAD' })
+      .then(res => {
+        const bytes = res.headers.get('content-length');
+        if (bytes) {
+          const kb = parseInt(bytes) / 1024;
+          const sizeStr = kb > 1024 
+            ? `${(kb / 1024).toFixed(2)} MB`
+            : `${kb.toFixed(1)} KB`;
+          setLogoFileInfo(prev => prev ? {
+            ...prev,
+            size: sizeStr
+          } : null);
+        }
+      })
+      .catch(err => {
+        console.warn("Could not fetch file headers for size:", err);
+      });
+
+  }, [selectedLogo]);
 
   const scale = useMemo(() => {
     if (activeTab === 'front') return scaleFront;
@@ -750,7 +805,6 @@ export function GarmentCustomizerModal({
 
       setAssets(updatedAssets);
       setSelectedLogo(newAsset);
-      alert("Logo uploaded to your vault!");
     } catch (err) {
       console.error("Logo upload failed:", err);
       alert("Failed to upload logo.");
@@ -1437,7 +1491,7 @@ export function GarmentCustomizerModal({
                 <div className="flex justify-between items-center">
                   <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Logo Vault</label>
                   <label className="text-xs font-bold text-neutral-600 hover:text-black cursor-pointer flex items-center gap-1">
-                    <input type="file" className="hidden" onChange={handleFileUpload} accept="image/*,application/pdf" />
+                    <input type="file" className="hidden" onChange={handleFileUpload} accept="image/*,application/pdf,.ai,.eps,.svg" />
                     <Upload size={12} /> Upload New
                   </label>
                 </div>
@@ -1450,7 +1504,7 @@ export function GarmentCustomizerModal({
                   <div className="bg-neutral-50 rounded-2xl p-4 text-center border border-dashed border-neutral-200">
                     <p className="text-xs font-semibold text-neutral-500">No logos saved in your vault.</p>
                     <label className="text-xs font-bold text-black hover:underline cursor-pointer mt-1 inline-block">
-                      <input type="file" className="hidden" onChange={handleFileUpload} accept="image/*,application/pdf" />
+                      <input type="file" className="hidden" onChange={handleFileUpload} accept="image/*,application/pdf,.ai,.eps,.svg" />
                       Upload logo to begin
                     </label>
                   </div>
@@ -1495,6 +1549,30 @@ export function GarmentCustomizerModal({
                         </div>
                       );
                     })}
+                  </div>
+                )}
+
+                {selectedLogo && logoFileInfo && (
+                  <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-3 flex flex-col gap-1.5 text-[11px] mt-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                    <span className="font-extrabold uppercase tracking-widest text-[9px] text-neutral-400">File Information</span>
+                    <div className="flex flex-col gap-1 w-full text-neutral-600">
+                      <div className="flex justify-between border-b border-neutral-100 pb-1">
+                        <span className="font-semibold">Name:</span>
+                        <span className="text-neutral-900 font-bold truncate max-w-[150px]" title={selectedLogo.name}>{selectedLogo.name}</span>
+                      </div>
+                      <div className="flex justify-between border-b border-neutral-100 pb-1">
+                        <span className="font-semibold">Format:</span>
+                        <span className="text-neutral-900 font-extrabold">{logoFileInfo.type || 'N/A'}</span>
+                      </div>
+                      <div className="flex justify-between border-b border-neutral-100 pb-1">
+                        <span className="font-semibold">Resolution:</span>
+                        <span className="text-neutral-900 font-bold">{logoFileInfo.resolution || 'Vector / Non-raster'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="font-semibold">File Size:</span>
+                        <span className="text-neutral-900 font-bold">{logoFileInfo.size || 'Calculating...'}</span>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
@@ -1665,13 +1743,28 @@ export function GarmentCustomizerModal({
       </div>
 
       {/* Footer Actions */}
-      <div className="px-8 py-5 border-t border-neutral-100 flex justify-end gap-3 bg-neutral-50/50 shrink-0">
-        <button 
-          onClick={onClose}
-          className="bg-white border border-neutral-200 text-neutral-900 px-6 py-3 rounded-xl text-xs font-bold hover:bg-neutral-100 transition-all shadow-sm cursor-pointer"
-        >
-          Cancel
-        </button>
+      <div className="px-8 py-5 border-t border-neutral-100 flex items-center justify-between bg-neutral-50/50 shrink-0">
+        {(() => {
+          const activePlacements: string[] = [];
+          if (selectedLogoFront) activePlacements.push("Front");
+          if (selectedLogoBack) activePlacements.push("Back");
+          if (selectedLogoLeftSleeve) activePlacements.push("Left Sleeve");
+          if (selectedLogoRightSleeve) activePlacements.push("Right Sleeve");
+          const count = activePlacements.length;
+          return (
+            <div className="flex flex-col items-start gap-0.5">
+              <span className="text-xs font-bold text-neutral-800">Total Placements: {count}</span>
+              <span className="text-[10px] text-neutral-500 font-medium">{count > 0 ? activePlacements.join(', ') : 'None selected'}</span>
+            </div>
+          );
+        })()}
+        <div className="flex gap-3">
+          <button 
+            onClick={onClose}
+            className="bg-white border border-neutral-200 text-neutral-900 px-6 py-3 rounded-xl text-xs font-bold hover:bg-neutral-100 transition-all shadow-sm cursor-pointer"
+          >
+            Cancel
+          </button>
         <button 
           data-tour="save-customization-btn"
           disabled={isSaving || isUploading}
@@ -1685,6 +1778,7 @@ export function GarmentCustomizerModal({
           )}
           {isSaving ? "Saving Mockup..." : "Save Customization"}
         </button>
+        </div>
       </div>
 
       {/* Invisible font prefetch helper */}

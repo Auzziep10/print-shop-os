@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { ArrowLeft, ChevronDown, Upload, Plus, Trash2, FileText, Loader2, Sparkles, X, User } from 'lucide-react';
+import { ArrowLeft, ChevronDown, Upload, Plus, Trash2, FileText, Loader2, Sparkles, X, User, Copy } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { db, storage } from '../../lib/firebase';
 import { doc, getDoc, setDoc, query, collection, where, getDocs, updateDoc } from 'firebase/firestore';
@@ -20,6 +20,81 @@ const DEFAULT_RACKS = {
   Team: { hat: '112', shirt: '64000', polo: 'ST665', crewneck: 'S6000', hoodie: '996M', longsleeve: '29LS' }
 };
 
+const parseSizesFromItem = (item: any, style = ''): string[] => {
+  const sUpper = style.toUpperCase().trim();
+  
+  // Specific style overrides
+  if (sUpper === 'STC70' || sUpper === '112' || sUpper === 'C402' || sUpper === '212' || sUpper === '115') return ['OSFA'];
+  if (sUpper === 'BC3001' || sUpper === 'BC3001CVC' || sUpper === '3001' || sUpper === '3001CVC') return ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL'];
+  if (sUpper === 'ST640' || sUpper === 'ST665' || sUpper === 'ST550' || sUpper === 'S6000' || sUpper === 'DT6100' || sUpper === 'DT1304' || sUpper === 'DT6000' || sUpper === 'DT6001') return ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL'];
+  if (sUpper === 'BC3719' || sUpper === 'BC3501' || sUpper === '3719' || sUpper === '3501') return ['XS', 'S', 'M', 'L', 'XL', '2XL'];
+  if (sUpper === '64000' || sUpper === '64800' || sUpper === '64000B') return ['S', 'M', 'L', 'XL', '2XL', '3XL', '4XL'];
+  if (sUpper === 'SF000' || sUpper === 'SF500' || sUpper === '18500' || sUpper === '996M' || sUpper === '29LS' || sUpper === '5000' || sUpper === '562M') return ['S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL'];
+  if (sUpper === '6014' || sUpper === '1717' || sUpper === '1566' || sUpper === '6030') return ['S', 'M', 'L', 'XL', '2XL', '3XL'];
+  if (sUpper === 'K500' || sUpper === 'L500' || sUpper === 'K810' || sUpper === 'K420' || sUpper === 'K110' || sUpper === 'K540') return ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL', '6XL'];
+
+  let sizes: string[] = [];
+  if (Array.isArray(item.sizes) && item.sizes.length > 0) {
+      sizes = item.sizes;
+  } else if (typeof item.sizes === 'string' && item.sizes.trim()) {
+      sizes = item.sizes.split(',').map((s:string) => s.trim());
+  } else if (Array.isArray(item.availableSizes) && item.availableSizes.length > 0) {
+      sizes = item.availableSizes;
+  } else if (typeof item.availableSizes === 'string' && item.availableSizes.trim()) {
+      sizes = item.availableSizes.split(',').map((s:string) => s.trim());
+  } else if (item.sizeSpread && typeof item.sizeSpread === 'string' && item.sizeSpread.trim()) {
+      sizes = item.sizeSpread.split(',').map((s:string) => s.trim());
+  } else if (item.size_spread && typeof item.size_spread === 'string' && item.size_spread.trim()) {
+      sizes = item.size_spread.split(',').map((s:string) => s.trim());
+  } else if (Array.isArray(item.variations) && item.variations[0]?.sizes) {
+      sizes = item.variations[0].sizes;
+  } else if (
+    style.toLowerCase().includes('chill') || 
+    style.toLowerCase().includes('tumbler') || 
+    style.toLowerCase().includes('bag') || 
+    style.toLowerCase().includes('hat') ||
+    style.toLowerCase().includes('cap') ||
+    (item.category && item.category.toLowerCase().includes('hat')) ||
+    (item.category && item.category.toLowerCase().includes('cap')) ||
+    (item.title && item.title.toLowerCase().includes('hat')) ||
+    (item.title && item.title.toLowerCase().includes('cap'))
+  ) {
+      sizes = ['OSFA'];
+  }
+
+  if (sizes.length === 0) {
+    const styleLower = style.toLowerCase();
+    const titleLower = (item.title || '').toLowerCase();
+    const catLower = (item.category || '').toLowerCase();
+
+    // Ladies' styles
+    if (styleLower.startsWith('l') && /^[l|L]\d+/.test(styleLower)) {
+      return ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL'];
+    }
+    if (titleLower.includes('ladies') || titleLower.includes('women')) {
+      return ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'];
+    }
+
+    // Brand defaults
+    const brandLower = (item.brand || '').toLowerCase();
+    if (brandLower.includes('gildan')) {
+      return ['S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL'];
+    }
+    if (brandLower.includes('comfort colors')) {
+      return ['S', 'M', 'L', 'XL', '2XL', '3XL'];
+    }
+    if (brandLower.includes('bella') || brandLower.includes('canvas')) {
+      if (catLower.includes('hoodie') || catLower.includes('sweatshirt') || catLower.includes('sleeve')) {
+        return ['XS', 'S', 'M', 'L', 'XL', '2XL'];
+      }
+      return ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL'];
+    }
+
+    sizes = ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'];
+  }
+  return sizes;
+};
+
 export function PortalRequestQuote() {
   const navigate = useNavigate();
   const { customerId } = useParams();
@@ -27,6 +102,17 @@ export function PortalRequestQuote() {
   const [products, setProducts] = useState<any[]>([
     { id: 1, artworkUrl: null, artworkName: null, isUploading: false }
   ]);
+
+  const hasLowQuantityItems = useMemo(() => {
+    if (products.length === 0) return false;
+    const configuredProducts = products.filter(p => p.garmentName || p.itemNum);
+    if (configuredProducts.length === 0) return false;
+    return configuredProducts.some(p => {
+      const sizeQtySum = p.sizes ? Object.values(p.sizes).reduce((acc: number, val: any) => acc + (parseInt(val.toString()) || 0), 0) : 0;
+      const totalQty = sizeQtySum || p.qty || 0;
+      return totalQty < 20;
+    });
+  }, [products]);
 
   const [contactName, setContactName] = useState('');
   const [emailAddress, setEmailAddress] = useState('');
@@ -54,6 +140,7 @@ export function PortalRequestQuote() {
   const [wovnRack, setWovnRack] = useState<any[]>([]);
   const [customerRacks, setCustomerRacks] = useState<Record<string, any>>(DEFAULT_RACKS);
   const [customNames, setCustomNames] = useState<any>({ racks: {}, basics: {} });
+  const [customSpecs, setCustomSpecs] = useState<any>({ racks: {}, basics: {} });
   const [defaultColors, setDefaultColors] = useState<any>({ racks: {}, basics: {} });
   const [pastGarments, setPastGarments] = useState<any[]>([]);
   const [activeRackCategory, setActiveRackCategory] = useState('Athleisure');
@@ -101,6 +188,7 @@ export function PortalRequestQuote() {
         // Fetch Global Storefront Settings first
         let globalRacks = DEFAULT_RACKS;
         let globalCustomNames = { racks: {}, basics: {} };
+        let globalCustomSpecs = { racks: {}, basics: {} };
         let globalDefaultColors = { racks: {}, basics: {} };
         try {
           const globalRef = doc(db, 'settings', 'storefront-catalog');
@@ -112,6 +200,9 @@ export function PortalRequestQuote() {
             }
             if (globalData.customNames) {
               globalCustomNames = globalData.customNames;
+            }
+            if (globalData.customSpecs) {
+              globalCustomSpecs = globalData.customSpecs;
             }
             if (globalData.defaultColors) {
               globalDefaultColors = globalData.defaultColors;
@@ -125,6 +216,7 @@ export function PortalRequestQuote() {
           // If no customerId, still load global configurations
           setCustomerRacks(globalRacks);
           setCustomNames(globalCustomNames);
+          setCustomSpecs(globalCustomSpecs);
           setDefaultColors(globalDefaultColors);
           const categories = Object.keys(globalRacks);
           if (categories.length > 0 && !categories.includes(activeRackCategory)) {
@@ -228,6 +320,7 @@ export function PortalRequestQuote() {
           const fetchedRacks = data.racks || globalRacks;
           setCustomerRacks(fetchedRacks);
           setCustomNames(data.customNames || globalCustomNames);
+          setCustomSpecs(data.customSpecs || globalCustomSpecs);
           setDefaultColors(data.defaultColors || globalDefaultColors);
           
           // Set active category to the first key if the current active category does not exist in fetched racks
@@ -265,18 +358,20 @@ export function PortalRequestQuote() {
       if (prod) {
         const customName = customNames.racks?.[activeRackCategory]?.[slot] || '';
         const defaultColor = defaultColors.racks?.[activeRackCategory]?.[slot] || '';
+        const customSpec = customSpecs?.racks?.[activeRackCategory]?.[slot] || null;
         return {
           ...prod,
           id: `${slot}-${Date.now()}-${Math.random()}`,
           title: customName || prod.title || prod.style,
           defaultColor,
           slot,
-          slotLabel: slot.charAt(0).toUpperCase() + slot.slice(1)
+          slotLabel: slot.charAt(0).toUpperCase() + slot.slice(1),
+          customSpecs: customSpec
         };
       }
       return null;
     }).filter(Boolean) as any[];
-  }, [customerRacks, activeRackCategory, customNames, defaultColors]);
+  }, [customerRacks, activeRackCategory, customNames, defaultColors, customSpecs]);
 
   const handleBack = () => {
     navigate(customerId ? `/portal/${customerId}` : '/portal');
@@ -304,9 +399,9 @@ export function PortalRequestQuote() {
     const image = getGarmentImage(item);
     const colors = item.colors || ['Custom Color'];
     
+    const parsedSizes = parseSizesFromItem(item, item.style || '');
     const qtyMap: Record<string, number> = {};
-    const defaultSizes = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'OSFA'];
-    defaultSizes.forEach(s => qtyMap[s] = 0);
+    parsedSizes.forEach(s => qtyMap[s] = 0);
 
     const newProduct = {
       id: Date.now() + Math.random(),
@@ -333,6 +428,37 @@ export function PortalRequestQuote() {
 
   const handleRemoveProduct = (id: number) => {
     setProducts(prev => prev.filter((p: any) => p.id !== id));
+  };
+
+  const handleDuplicateProduct = (product: any) => {
+    const parsedSizes = parseSizesFromItem(product, product.itemNum || product.style || '');
+    const qtyMap: Record<string, number> = {};
+    parsedSizes.forEach(s => qtyMap[s] = 0);
+
+    const newProduct = {
+      id: Date.now() + Math.random(),
+      garmentName: product.garmentName,
+      itemNum: product.itemNum || '',
+      color: product.color || '',
+      qty: 0,
+      artworkUrl: product.images ? getGarmentImage(product) : product.artworkUrl,
+      artworkName: product.artworkName || 'Garment Artwork',
+      isUploading: false,
+      colors: product.colors || [],
+      sizes: qtyMap,
+      customized: false,
+      images: product.images || null
+    };
+
+    setProducts(prev => {
+      const idx = prev.findIndex((p: any) => p.id === product.id);
+      if (idx !== -1) {
+        const copy = [...prev];
+        copy.splice(idx + 1, 0, newProduct);
+        return copy;
+      }
+      return [...prev, newProduct];
+    });
   };
 
   const handleFileUpload = async (productId: number, e: React.ChangeEvent<HTMLInputElement>) => {
@@ -450,6 +576,10 @@ export function PortalRequestQuote() {
 
   const handleSubmit = async (bypassProfileCheck: any = false) => {
     if (!customerId) return;
+    if (hasLowQuantityItems) {
+      alert("Each garment style in your request requires a minimum of 20 garments.");
+      return;
+    }
     
     const shouldBypass = bypassProfileCheck === true;
     if (!shouldBypass && !isProfileComplete()) {
@@ -1035,12 +1165,33 @@ export function PortalRequestQuote() {
                             <span className="text-neutral-400 font-bold bg-neutral-100 px-1.5 py-0.5 rounded">Blank Design</span>
                           )}
                           {product.color && <span className="uppercase tracking-wide text-[10px] bg-neutral-50 px-1.5 py-0.5 rounded border border-neutral-200 font-bold">{product.color}</span>}
+                          {(() => {
+                            const activePlacements = [];
+                            if (product.logoUrl) activePlacements.push("Front");
+                            if (product.logoUrlBack) activePlacements.push("Back");
+                            if (product.logoUrlLeftSleeve) activePlacements.push("Left Sleeve");
+                            if (product.logoUrlRightSleeve) activePlacements.push("Right Sleeve");
+                            const count = activePlacements.length;
+                            return (
+                              <span className="text-[10px] bg-neutral-100 text-neutral-800 px-1.5 py-0.5 rounded border border-neutral-200 font-bold">
+                                Placements ({count}): {count > 0 ? activePlacements.join(', ') : 'None'}
+                              </span>
+                            );
+                          })()}
                         </div>
                       </div>
                     </div>
 
                     {/* Product Header Actions */}
                     <div className="flex items-center gap-2 self-end md:self-auto">
+                      <button
+                        type="button"
+                        onClick={() => handleDuplicateProduct(product)}
+                        className="bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 text-neutral-800 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
+                        title="Add another color/design variation of this item"
+                      >
+                        <Copy size={12} className="text-neutral-500" /> + Variation
+                      </button>
                       <button
                         type="button"
                         data-tour={index === 0 ? "open-mockup-creator" : undefined}
@@ -1088,8 +1239,8 @@ export function PortalRequestQuote() {
                         </div>
                         <div className="flex flex-wrap gap-2 w-full">
                           {(() => {
-                            const defaultSizes = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'OSFA'];
-                            const actualSizes = Array.from(new Set([...defaultSizes, ...Object.keys(product.sizes || {})])).sort((a, b) => {
+                            const keys = Object.keys(product.sizes || {});
+                            const actualSizes = (keys.length > 0 ? keys : ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'OSFA']).sort((a, b) => {
                               const orderMap: Record<string, number> = { 
                                 'yxs':-5, 'ys':-4, 'ym':-3, 'yl':-2, 'yxl':-1,
                                 'xxs':1, 'xs':2, 's':3, 'm':4, 'l':5, 'xl':6, 'xxl':7, '2xl':7, '3xl':8, '4xl':9, '5xl':10, 'osfa':11, 'os':12 
@@ -1229,9 +1380,25 @@ export function PortalRequestQuote() {
         </div>
 
 
+        {hasLowQuantityItems && (
+          <div className="text-xs text-red-650 bg-red-50 border border-red-100 rounded-xl p-3 flex flex-col gap-1 leading-relaxed mt-4">
+            <span className="font-bold">⚠️ Order Minimum Requirement</span>
+            <span className="font-medium text-neutral-500">Each garment style in your request requires a minimum of 20 garments. Please increase sizing quantities before submitting.</span>
+          </div>
+        )}
+
         {/* Actions */}
         <div className="flex items-center gap-4 mt-4">
-            <button data-tour="quote-submit" disabled={isSubmitting} onClick={handleSubmit} className="flex-1 bg-black text-white py-4 rounded-xl text-sm font-bold tracking-wide hover:bg-neutral-800 transition-all shadow-md flex justify-center items-center gap-2">
+            <button 
+              data-tour="quote-submit" 
+              disabled={isSubmitting || hasLowQuantityItems} 
+              onClick={handleSubmit} 
+              className={`flex-1 py-4 rounded-xl text-sm font-bold tracking-wide transition-all shadow-md flex justify-center items-center gap-2 ${
+                (!isSubmitting && !hasLowQuantityItems)
+                  ? 'bg-black text-white hover:bg-neutral-800 cursor-pointer'
+                  : 'bg-neutral-200 text-neutral-400 cursor-not-allowed'
+              }`}
+            >
                 {isSubmitting ? (
                    <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div>
                 ) : (
@@ -1243,7 +1410,7 @@ export function PortalRequestQuote() {
             </button>
             <button 
                 onClick={handleBack}
-                className="bg-white border border-neutral-200 text-neutral-900 px-8 py-4 rounded-xl text-sm font-bold hover:bg-neutral-50 transition-all shadow-sm"
+                className="bg-white border border-neutral-200 text-neutral-900 px-8 py-4 rounded-xl text-sm font-bold hover:bg-neutral-50 transition-all shadow-sm cursor-pointer"
             >
                 Cancel
             </button>

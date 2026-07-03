@@ -689,7 +689,7 @@ export function MockupCreator({
                 <label className="absolute inset-0 bg-white/40 backdrop-blur-[1px] flex flex-col items-center justify-center p-6 text-center gap-3 cursor-pointer hover:bg-white/50 transition-all group rounded-[2rem]">
                   <input 
                     type="file" 
-                    accept="image/png, image/jpeg, image/svg+xml" 
+                    accept="image/png, image/jpeg, image/svg+xml,.ai,.eps,.svg" 
                     onChange={handleLogoUpload} 
                     className="hidden" 
                   />
@@ -766,7 +766,7 @@ export function MockupCreator({
                     <span className="text-xs font-bold text-neutral-700 block truncate">Logo Active ({activeTab === 'sleeve' ? (isSleeveMirrored ? 'SLEEVE (MIRRORED)' : 'SLEEVE') : activeTab.toUpperCase()})</span>
                     <label className="text-xs text-brand-primary hover:text-brand-primary/80 font-bold cursor-pointer inline-block mt-0.5">
                       Change File
-                      <input type="file" accept="image/png, image/jpeg, image/svg+xml" onChange={handleLogoUpload} className="hidden" />
+                      <input type="file" accept="image/png, image/jpeg, image/svg+xml,.ai,.eps,.svg" onChange={handleLogoUpload} className="hidden" />
                     </label>
                   </div>
                 </div>
@@ -775,7 +775,7 @@ export function MockupCreator({
                   <Upload size={20} className="text-neutral-400 group-hover:text-brand-primary transition-colors" />
                   <span className="text-xs font-bold text-neutral-700 group-hover:text-brand-primary transition-colors">Select logo image</span>
                   <span className="text-[10px] text-neutral-400">Transparent PNG/SVG works best</span>
-                  <input type="file" accept="image/png, image/jpeg, image/svg+xml" onChange={handleLogoUpload} className="hidden" />
+                  <input type="file" accept="image/png, image/jpeg, image/svg+xml,.ai,.eps,.svg" onChange={handleLogoUpload} className="hidden" />
                 </label>
               )}
             </div>

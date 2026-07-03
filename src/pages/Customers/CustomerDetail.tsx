@@ -1060,7 +1060,7 @@ export function CustomerDetail() {
                   <p className="text-xs text-brand-secondary mt-1">Saved logos and brand files for print layout.</p>
                 </div>
                 <label className="bg-white border border-brand-border hover:bg-neutral-50 px-4 py-2 rounded-xl text-xs font-bold text-neutral-900 shadow-sm transition-all flex items-center gap-1.5 cursor-pointer">
-                  <input type="file" className="hidden" onChange={handleUploadLogoVault} accept="image/*,application/pdf" />
+                  <input type="file" className="hidden" onChange={handleUploadLogoVault} accept="image/*,application/pdf,.ai,.eps,.svg" />
                   {isUploadingLogoVault ? (
                     <Loader2 className="animate-spin" size={14} />
                   ) : (

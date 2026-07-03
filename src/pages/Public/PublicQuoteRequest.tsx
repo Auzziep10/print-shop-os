@@ -353,6 +353,10 @@ export function PublicQuoteRequest() {
       racks?: Record<string, Record<string, string>>;
       basics?: Record<string, Record<string, string>>;
     };
+    customSpecs?: {
+      racks?: Record<string, Record<string, { quality?: string; material?: string; weight?: string }>>;
+      basics?: Record<string, Record<string, { quality?: string; material?: string; weight?: string }>>;
+    };
     defaultColors?: {
       racks?: Record<string, Record<string, string>>;
       basics?: Record<string, Record<string, string>>;
@@ -365,11 +369,18 @@ export function PublicQuoteRequest() {
     racks: DEFAULT_RACKS,
     basics: DEFAULT_BASICS,
     customNames: { racks: {}, basics: {} },
+    customSpecs: { racks: {}, basics: {} },
     defaultColors: { racks: {}, basics: {} },
     logoPlacements: { racks: {}, basics: {} }
   });
 
   const [cart, setCart] = useState<any[]>([]);
+
+  const hasLowQuantityItems = useMemo(() => {
+    if (cart.length === 0) return false;
+    return cart.some(item => (item.qty || 0) < 20);
+  }, [cart]);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [isVerifyingPayment, setIsVerifyingPayment] = useState(false);
@@ -504,6 +515,7 @@ export function PublicQuoteRequest() {
             racks: cData.racks || DEFAULT_RACKS,
             basics: cData.basics || DEFAULT_BASICS,
             customNames: cData.customNames || { racks: {}, basics: {} },
+            customSpecs: cData.customSpecs || { racks: {}, basics: {} },
             defaultColors: cData.defaultColors || { racks: {}, basics: {} },
             logoPlacements: cData.logoPlacements || { racks: {}, basics: {} }
           });
@@ -1157,9 +1169,21 @@ export function PublicQuoteRequest() {
           );
         }
 
-        // Default sizing matrix
-        const defaultSizes = { XS: 0, S: 10, M: 15, L: 15, XL: 10, '2XL': 0, '3XL': 0 };
-        const totalQty = Object.values(defaultSizes).reduce((acc, v) => acc + v, 0);
+        // Dynamic sizing matrix (default to OSFA for hats/caps)
+        const isHat = 
+          item.product.category?.toLowerCase().includes('hat') || 
+          item.product.category?.toLowerCase().includes('cap') ||
+          item.product.title?.toLowerCase().includes('hat') ||
+          item.product.title?.toLowerCase().includes('cap') ||
+          item.product.style?.toLowerCase().includes('hat') ||
+          item.product.style?.toLowerCase().includes('cap') ||
+          (item as any).slot === 'hat';
+
+        const initialSizes = isHat 
+          ? { OSFA: 50 }
+          : { XS: 0, S: 10, M: 15, L: 15, XL: 10, '2XL': 0, '3XL': 0 };
+
+        const totalQty = Object.values(initialSizes).reduce((acc, v) => acc + v, 0);
 
         // Pricing Matrix
         let multiplier = 1.00;
@@ -1189,7 +1213,7 @@ export function PublicQuoteRequest() {
           backMockupUrl: bMockup,
           mockupUrl: fMockup || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200',
           decorationMethod: item.decoration,
-          sizes: defaultSizes,
+          sizes: initialSizes,
           pricingDetails: {
             base: baseVal,
             front: decorationCost,
@@ -1324,6 +1348,10 @@ export function PublicQuoteRequest() {
 
   // Submit quote request or start checkout
   const submitOrderOrCheckout = async (isPayNow: boolean) => {
+    if (hasLowQuantityItems) {
+      alert("Order minimum is 20 garments per product. Please adjust your quantities.");
+      return;
+    }
     if (!customerInfo.contactName || !customerInfo.emailAddress) {
       alert("Please provide at least your Contact Name and Email Address.");
       return;
@@ -1919,6 +1947,15 @@ export function PublicQuoteRequest() {
                         <span className="text-2xl font-serif font-bold text-neutral-800 truncate">
                           {catalogSettings.customNames?.racks?.[selectedThemeCategory]?.[item.slot] || `${item.product.brand} ${item.product.style}`}
                         </span>
+                        {(() => {
+                          const specs = catalogSettings.customSpecs?.racks?.[selectedThemeCategory]?.[item.slot];
+                          if (!specs || (!specs.quality && !specs.material && !specs.weight)) return null;
+                          return (
+                            <span className="text-xs text-neutral-500 font-medium block mt-1">
+                              {[specs.quality, specs.material, specs.weight].filter(Boolean).join(' • ')}
+                            </span>
+                          );
+                        })()}
                       </div>
                     ))}
                   </div>
@@ -1993,7 +2030,17 @@ export function PublicQuoteRequest() {
                           <div>
                             <span className="text-[10px] font-bold text-neutral-400 uppercase">{item.brand} • {item.style}</span>
                             <h4 className="text-sm font-bold text-neutral-800 truncate mt-0.5">{item.title}</h4>
-                            <p className="text-xs text-neutral-500 line-clamp-2 mt-1 leading-relaxed">{item.description}</p>
+                            {(() => {
+                              const specs = catalogSettings.customSpecs?.basics?.[selectedBasicsCategory]?.[slot];
+                              if (specs && (specs.quality || specs.material || specs.weight)) {
+                                return (
+                                  <p className="text-xs text-neutral-500 font-semibold mt-1">
+                                    {[specs.quality, specs.material, specs.weight].filter(Boolean).join(' • ')}
+                                  </p>
+                                );
+                              }
+                              return <p className="text-xs text-neutral-500 line-clamp-2 mt-1 leading-relaxed">{item.description}</p>;
+                            })()}
                           </div>
                         </div>
 
@@ -2528,12 +2575,25 @@ export function PublicQuoteRequest() {
                       <span className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider">{item.product.brand} {item.product.style}</span>
                       <h4 className="text-xs font-bold text-neutral-850 truncate">{item.product.title.replace(/®/g, '').trim()}</h4>
                       <p className="text-[10px] text-neutral-500 mt-0.5">Color: <span className="font-bold text-neutral-800">{item.color}</span> | Decoration: <span className="font-bold text-neutral-800">{item.decorationMethod}</span></p>
+                      {(() => {
+                        const activePlacements = [];
+                        if (item.frontLogoUrl || item.logoUrl) activePlacements.push("Front");
+                        if (item.backLogoUrl || item.logoUrlBack) activePlacements.push("Back");
+                        if (item.leftSleeveLogoUrl || item.logoUrlLeftSleeve) activePlacements.push("Left Sleeve");
+                        if (item.rightSleeveLogoUrl || item.logoUrlRightSleeve) activePlacements.push("Right Sleeve");
+                        const count = activePlacements.length;
+                        return (
+                          <p className="text-[10px] text-neutral-500 mt-0.5">
+                            Placements ({count}): <span className="font-bold text-neutral-850">{count > 0 ? activePlacements.join(', ') : 'None selected'}</span>
+                          </p>
+                        );
+                      })()}
                     </div>
                   </div>
 
-                  {/* XS to 3XL Spreadsheet Input */}
-                  <div className="lg:col-span-6 grid grid-cols-7 gap-2">
-                    {['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'].map((size) => (
+                  {/* Dynamic Spreadsheet Input */}
+                  <div className="lg:col-span-6 grid gap-2" style={{ gridTemplateColumns: `repeat(${Object.keys(item.sizes || {}).length}, minmax(0, 1fr))` }}>
+                    {Object.keys(item.sizes || {}).map((size) => (
                       <div key={size} className="flex flex-col gap-1">
                         <label className="text-[9px] font-bold text-neutral-400 text-center uppercase tracking-wider">{size}</label>
                         <input
@@ -2689,19 +2749,30 @@ export function PublicQuoteRequest() {
                   </div>
                 </div>
 
+                {hasLowQuantityItems && (
+                  <div className="text-xs text-red-650 bg-red-50 border border-red-100 rounded-xl p-3 flex flex-col gap-1 leading-relaxed mb-4">
+                    <span className="font-bold">⚠️ Order Minimum Requirement</span>
+                    <span className="font-medium text-neutral-500">Each garment style in your request requires a minimum of 20 garments. Please increase quantities in the spreadsheet/grid before submitting.</span>
+                  </div>
+                )}
+
                 <div className="pt-6 border-t border-neutral-100 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 justify-between">
                   <button
                     onClick={() => setStep(4)}
                     disabled={isSubmitting}
-                    className="px-5 h-11 bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
+                    className="px-5 h-11 bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
                   >
                     <ArrowLeft size={14} /> Back
                   </button>
                   <div className="flex-1 flex justify-end">
                     <button
                       onClick={() => submitOrderOrCheckout(false)}
-                      disabled={isSubmitting}
-                      className="w-full sm:w-auto px-8 h-11 bg-neutral-900 text-white hover:bg-neutral-800 rounded-xl text-xs font-bold tracking-wide transition-all shadow-xs flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                      disabled={isSubmitting || hasLowQuantityItems}
+                      className={`w-full sm:w-auto px-8 h-11 rounded-xl text-xs font-bold tracking-wide transition-all shadow-xs flex items-center justify-center gap-1.5 ${
+                        (!isSubmitting && !hasLowQuantityItems)
+                          ? 'bg-neutral-900 text-white hover:bg-neutral-800 cursor-pointer'
+                          : 'bg-neutral-200 text-neutral-400 cursor-not-allowed'
+                      }`}
                     >
                       {isSubmitting ? <Loader2 className="animate-spin" size={14} /> : <FileText size={14} />}
                       Submit Quote Request

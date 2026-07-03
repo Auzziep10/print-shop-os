@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
-import { ArrowLeft, PackagePlus, X, Trash2, ChevronDown, RotateCcw, Calendar, Loader2, Sparkles, Plus, Save, User } from 'lucide-react';
+import { ArrowLeft, PackagePlus, X, Trash2, ChevronDown, RotateCcw, Calendar, Loader2, Sparkles, Plus, Save, User, Copy, Upload } from 'lucide-react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { db } from '../../lib/firebase';
+import { db, storage } from '../../lib/firebase';
 import { doc, getDoc, collection, query, where, getDocs, setDoc, deleteDoc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useAuth } from '../../contexts/AuthContext';
 import { GarmentCustomizerModal } from '../../components/Portal/GarmentCustomizerModal';
 import { GarmentBrowser } from '../../components/shared/GarmentBrowser';
@@ -60,6 +61,18 @@ const findColorsInObj = (obj: any, maxDepth = 4): string[] | null => {
 };
 
 const parseSizesFromItem = (item: any, style = ''): string[] => {
+  const sUpper = style.toUpperCase().trim();
+  
+  // Specific style overrides
+  if (sUpper === 'STC70' || sUpper === '112' || sUpper === 'C402' || sUpper === '212' || sUpper === '115') return ['OSFA'];
+  if (sUpper === 'BC3001' || sUpper === 'BC3001CVC' || sUpper === '3001' || sUpper === '3001CVC') return ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL'];
+  if (sUpper === 'ST640' || sUpper === 'ST665' || sUpper === 'ST550' || sUpper === 'S6000' || sUpper === 'DT6100' || sUpper === 'DT1304' || sUpper === 'DT6000' || sUpper === 'DT6001') return ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL'];
+  if (sUpper === 'BC3719' || sUpper === 'BC3501' || sUpper === '3719' || sUpper === '3501') return ['XS', 'S', 'M', 'L', 'XL', '2XL'];
+  if (sUpper === '64000' || sUpper === '64800' || sUpper === '64000B') return ['S', 'M', 'L', 'XL', '2XL', '3XL', '4XL'];
+  if (sUpper === 'SF000' || sUpper === 'SF500' || sUpper === '18500' || sUpper === '996M' || sUpper === '29LS' || sUpper === '5000' || sUpper === '562M') return ['S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL'];
+  if (sUpper === '6014' || sUpper === '1717' || sUpper === '1566' || sUpper === '6030') return ['S', 'M', 'L', 'XL', '2XL', '3XL'];
+  if (sUpper === 'K500' || sUpper === 'L500' || sUpper === 'K810' || sUpper === 'K420' || sUpper === 'K110' || sUpper === 'K540') return ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL', '6XL'];
+
   let sizes: string[] = [];
   if (Array.isArray(item.sizes) && item.sizes.length > 0) {
       sizes = item.sizes;
@@ -75,11 +88,49 @@ const parseSizesFromItem = (item: any, style = ''): string[] => {
       sizes = item.size_spread.split(',').map((s:string) => s.trim());
   } else if (Array.isArray(item.variations) && item.variations[0]?.sizes) {
       sizes = item.variations[0].sizes;
-  } else if (style.toLowerCase().includes('chill') || style.toLowerCase().includes('tumbler') || style.toLowerCase().includes('bag') || style.toLowerCase().includes('hat')) {
+  } else if (
+    style.toLowerCase().includes('chill') || 
+    style.toLowerCase().includes('tumbler') || 
+    style.toLowerCase().includes('bag') || 
+    style.toLowerCase().includes('hat') ||
+    style.toLowerCase().includes('cap') ||
+    (item.category && item.category.toLowerCase().includes('hat')) ||
+    (item.category && item.category.toLowerCase().includes('cap')) ||
+    (item.title && item.title.toLowerCase().includes('hat')) ||
+    (item.title && item.title.toLowerCase().includes('cap'))
+  ) {
       sizes = ['OSFA'];
   }
+
   if (sizes.length === 0) {
-      sizes = ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'];
+    const styleLower = style.toLowerCase();
+    const titleLower = (item.title || '').toLowerCase();
+    const catLower = (item.category || '').toLowerCase();
+
+    // Ladies' styles
+    if (styleLower.startsWith('l') && /^[l|L]\d+/.test(styleLower)) {
+      return ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL'];
+    }
+    if (titleLower.includes('ladies') || titleLower.includes('women')) {
+      return ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'];
+    }
+
+    // Brand defaults
+    const brandLower = (item.brand || '').toLowerCase();
+    if (brandLower.includes('gildan')) {
+      return ['S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL'];
+    }
+    if (brandLower.includes('comfort colors')) {
+      return ['S', 'M', 'L', 'XL', '2XL', '3XL'];
+    }
+    if (brandLower.includes('bella') || brandLower.includes('canvas')) {
+      if (catLower.includes('hoodie') || catLower.includes('sweatshirt') || catLower.includes('sleeve')) {
+        return ['XS', 'S', 'M', 'L', 'XL', '2XL'];
+      }
+      return ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL'];
+    }
+
+    sizes = ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'];
   }
   return sizes;
 };
@@ -116,6 +167,19 @@ export function PortalCreateOrder() {
   // Selected Delivery option
   const [deliveryOption, setDeliveryOption] = useState('Shipping');
 
+  // Additional checkout details
+  const [neededByDate, setNeededByDate] = useState('');
+  const [orderType, setOrderType] = useState<'Retail' | 'Wholesale'>('Retail');
+  const [resaleCertificateUrl, setResaleCertificateUrl] = useState<string | null>(null);
+  const [resaleCertificateName, setResaleCertificateName] = useState<string | null>(null);
+  const [specialRequests, setSpecialRequests] = useState('');
+  const [isUploadingResaleCert, setIsUploadingResaleCert] = useState(false);
+
+  // Success Pop-up modal states
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [optInEmail, setOptInEmail] = useState(true);
+  const [optInText, setOptInText] = useState(true);
+
   useEffect(() => {
     if (customer) {
       setProfileContactName(customer.contactName || '');
@@ -126,12 +190,22 @@ export function PortalCreateOrder() {
       setProfileCity(customer.shippingCity || '');
       setProfileState(customer.shippingState || '');
       setProfileZip(customer.shippingZip || '');
+      setOptInEmail(customer.emailOptIn !== false);
+      setOptInText(customer.textOptIn !== false);
     }
   }, [customer]);
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isGarmentBrowserOpen, setIsGarmentBrowserOpen] = useState(false);
   const [orderItems, setOrderItems] = useState<any[]>([]);
+
+  const hasLowQuantityItems = useMemo(() => {
+    if (orderItems.length === 0) return false;
+    return orderItems.some(item => {
+      const totalQty = Object.values(item.quantities as Record<string, number>).reduce((sum, qty) => sum + qty, 0);
+      return totalQty < 20;
+    });
+  }, [orderItems]);
   const [customerDecks, setCustomerDecks] = useState<any[]>([]);
   const [isLoadingDecks, setIsLoadingDecks] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -141,6 +215,7 @@ export function PortalCreateOrder() {
   const [hasWovnRack, setHasWovnRack] = useState(false);
   const [customerRacks, setCustomerRacks] = useState<Record<string, any>>(DEFAULT_RACKS);
   const [customNames, setCustomNames] = useState<any>({ racks: {}, basics: {} });
+  const [customSpecs, setCustomSpecs] = useState<any>({ racks: {}, basics: {} });
   const [defaultColors, setDefaultColors] = useState<any>({ racks: {}, basics: {} });
   const [activeRackCategory, setActiveRackCategory] = useState('Athleisure');
   const [activeLibraryTab, setActiveLibraryTab] = useState('rack');
@@ -175,16 +250,18 @@ export function PortalCreateOrder() {
       if (prod) {
         const customName = customNames.racks?.[activeRackCategory]?.[slot] || '';
         const defaultColor = defaultColors.racks?.[activeRackCategory]?.[slot] || '';
+        const customSpec = customSpecs?.racks?.[activeRackCategory]?.[slot] || null;
         return {
           ...prod,
           id: `${slot}-${Date.now()}-${Math.random()}`,
           customName,
-          defaultColor
+          defaultColor,
+          customSpecs: customSpec
         };
       }
       return null;
     }).filter(Boolean);
-  }, [customerRacks, activeRackCategory, customNames, defaultColors]);
+  }, [customerRacks, activeRackCategory, customNames, defaultColors, customSpecs]);
 
   const allowedStyleCodes = useMemo(() => {
     if (!customerRacks) return [];
@@ -504,6 +581,7 @@ export function PortalCreateOrder() {
         // Fetch Global Storefront Settings first
         let globalRacks = DEFAULT_RACKS;
         let globalCustomNames = { racks: {}, basics: {} };
+        let globalCustomSpecs = { racks: {}, basics: {} };
         let globalDefaultColors = { racks: {}, basics: {} };
         try {
           const globalRef = doc(db, 'settings', 'storefront-catalog');
@@ -515,6 +593,9 @@ export function PortalCreateOrder() {
             }
             if (globalData.customNames) {
               globalCustomNames = globalData.customNames;
+            }
+            if (globalData.customSpecs) {
+              globalCustomSpecs = globalData.customSpecs;
             }
             if (globalData.defaultColors) {
               globalDefaultColors = globalData.defaultColors;
@@ -535,6 +616,7 @@ export function PortalCreateOrder() {
           const fetchedRacks = customerData.racks || globalRacks;
           setCustomerRacks(fetchedRacks);
           setCustomNames(customerData.customNames || globalCustomNames);
+          setCustomSpecs(customerData.customSpecs || globalCustomSpecs);
           setDefaultColors(customerData.defaultColors || globalDefaultColors);
 
           const categories = Object.keys(fetchedRacks);
@@ -646,6 +728,10 @@ export function PortalCreateOrder() {
 
   const handleSubmitOrder = async (bypassProfileCheck: any = false) => {
     if (!customerId || orderItems.length === 0) return;
+    if (hasLowQuantityItems) {
+      alert("A minimum of 20 garments per product style is required to submit a quote request.");
+      return;
+    }
 
     const shouldBypass = bypassProfileCheck === true;
     if (!shouldBypass && !isProfileComplete()) {
@@ -698,16 +784,12 @@ export function PortalCreateOrder() {
         createdAt: new Date().toISOString(),
         packaging: selectedPackaging,
         deliveryOption: deliveryOption,
-        shippingAddress: deliveryOption === 'Pick Up' ? {
-          name: profileContactName.trim(),
-          company: profileCompany.trim(),
-          street1: 'Pickup',
-          street2: '',
-          city: '',
-          state: '',
-          zip: '',
-          country: 'US'
-        } : {
+        neededByDate: neededByDate,
+        orderType: orderType,
+        resaleCertificateUrl: resaleCertificateUrl,
+        resaleCertificateName: resaleCertificateName,
+        specialRequests: specialRequests,
+        shippingAddress: {
           name: profileContactName.trim(),
           company: profileCompany.trim(),
           street1: profileStreet.trim(),
@@ -770,13 +852,30 @@ export function PortalCreateOrder() {
       localStorage.removeItem(cartKey);
       window.dispatchEvent(new Event('wovn_cart_updated'));
 
-      navigate(customerId ? `/portal/${customerId}` : '/portal');
+      setShowSuccessModal(true);
     } catch (err) {
       console.error("Failed to submit order", err);
       alert("Failed to submit order. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleSuccessModalClose = async () => {
+    if (customerId) {
+      try {
+        await setDoc(doc(db, 'customers', customerId), {
+          emailOptIn: optInEmail,
+          textOptIn: optInText
+        }, { merge: true });
+      } catch (err) {
+        console.error("Failed to save opt-in preferences:", err);
+      }
+      navigate(`/portal/${customerId}`);
+    } else {
+      navigate('/portal');
+    }
+    setShowSuccessModal(false);
   };
 
   const handleAddItem = (item: any) => {
@@ -806,7 +905,7 @@ export function PortalCreateOrder() {
     const style = `${product.brand} ${product.title}`.trim();
     const itemNum = product.style;
     const colors = product.colors || ['Custom Color'];
-    const sizes = product.sizes || ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'];
+    const sizes = parseSizesFromItem(product, product.style || '');
     const price = parseFloat(product.price || 0);
     const gender = 'Unisex';
     
@@ -852,6 +951,48 @@ export function PortalCreateOrder() {
         console.error(e);
       }
     }
+  };
+
+  const handleDuplicateItem = (item: any) => {
+    const parsedSizes = parseSizesFromItem(item, item.style || '');
+    const qtyMap: Record<string, number> = {};
+    parsedSizes.forEach(s => {
+      qtyMap[s] = 0;
+    });
+
+    const newItem = {
+      instanceId: `item-${Date.now()}-${Math.random()}`,
+      style: item.style,
+      itemNum: item.itemNum,
+      description: item.description || '',
+      image: item.image,
+      colors: item.colors || [],
+      sizes: parsedSizes,
+      price: item.price,
+      gender: item.gender || 'Unisex',
+      selectedColor: item.colors?.[0] || 'Custom Color',
+      quantities: qtyMap,
+      customized: false,
+      logoUrl: null,
+      logoName: null,
+      logoUrlBack: null,
+      logoNameBack: null,
+      logoUrlLeftSleeve: null,
+      logoNameLeftSleeve: null,
+      logoUrlRightSleeve: null,
+      logoNameRightSleeve: null,
+      images: item.images || null
+    };
+
+    setOrderItems(prev => {
+      const idx = prev.findIndex(o => o.instanceId === item.instanceId);
+      if (idx !== -1) {
+        const copy = [...prev];
+        copy.splice(idx + 1, 0, newItem);
+        return copy;
+      }
+      return [...prev, newItem];
+    });
   };
 
   const getActiveSidesCount = (item: any) => {
@@ -1002,7 +1143,7 @@ export function PortalCreateOrder() {
                       const gender = item.gender || 'Unisex';
                       const itemNum = item.style;
                       const colors = item.colors || ['Custom Color'];
-                      const sizes = ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'];
+                      const sizes = parseSizesFromItem(item, item.style || '');
                       const image = getGarmentImage(item);
                       const price = parseFloat(item.price || 0);
 
@@ -1027,6 +1168,11 @@ export function PortalCreateOrder() {
                                <h4 className="font-bold text-neutral-900 text-sm truncate mb-0.5">{style}</h4>
                                <span className="text-[9px] font-bold text-neutral-500 bg-neutral-200/60 px-2 py-0.5 rounded-full shrink-0">{gender}</span>
                             </div>
+                            {item.customSpecs && (item.customSpecs.quality || item.customSpecs.material || item.customSpecs.weight) && (
+                              <p className="text-[10px] text-neutral-500 font-semibold mt-0.5">
+                                {[item.customSpecs.quality, item.customSpecs.material, item.customSpecs.weight].filter(Boolean).join(' • ')}
+                              </p>
+                            )}
                             <p className="text-[10px] text-neutral-400 font-medium mt-1 truncate">{colors.join(' • ')}</p>
                           </div>
                           <button 
@@ -1351,9 +1497,34 @@ export function PortalCreateOrder() {
                             <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" size={12} />
                           </div>
                         </div>
+
+                        {(() => {
+                          const activePlacements = [];
+                          if (item.logoUrl) activePlacements.push("Front");
+                          if (item.logoUrlBack) activePlacements.push("Back");
+                          if (item.logoUrlLeftSleeve) activePlacements.push("Left Sleeve");
+                          if (item.logoUrlRightSleeve) activePlacements.push("Right Sleeve");
+                          const count = activePlacements.length;
+                          return (
+                            <div className="flex items-center gap-1.5 mt-2">
+                              <span className="text-[10px] uppercase font-bold text-neutral-400 tracking-wider">Placements ({count}):</span>
+                              <span className="text-xs font-bold text-neutral-800 bg-neutral-100 px-2 py-0.5 rounded-md">
+                                {count > 0 ? activePlacements.join(', ') : 'None selected'}
+                              </span>
+                            </div>
+                          );
+                        })()}
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => handleDuplicateItem(item)}
+                        className="bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 text-neutral-800 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
+                        title="Add another color/design variation of this item"
+                      >
+                        <Copy size={12} className="text-neutral-500" /> + Variation
+                      </button>
                       <button
                         type="button"
                         data-tour={index === 0 ? "customize-btn" : undefined}
@@ -1364,7 +1535,7 @@ export function PortalCreateOrder() {
                       </button>
                       <button 
                         onClick={() => handleRemoveItem(item.instanceId)}
-                        className="text-neutral-400 hover:text-red-500 transition-colors p-2"
+                        className="text-neutral-400 hover:text-red-500 transition-colors p-2 cursor-pointer"
                       >
                         <Trash2 size={18} />
                       </button>
@@ -1443,7 +1614,7 @@ export function PortalCreateOrder() {
         <div className="lg:col-span-1">
           <div 
             data-tour="order-summary"
-            className="sticky top-8 bg-neutral-50 rounded-3xl p-6 border border-neutral-200/60 min-h-[400px] flex flex-col"
+            className="sticky top-8 bg-neutral-50 rounded-3xl p-6 border border-neutral-200/60 max-h-[calc(100vh-64px)] flex flex-col overflow-y-auto"
           >
             <h3 className="font-serif text-xl text-neutral-900 border-b border-neutral-200 pb-4 mb-4">
               Order Summary
@@ -1478,12 +1649,61 @@ export function PortalCreateOrder() {
                       <select
                         value={deliveryOption}
                         onChange={(e) => setDeliveryOption(e.target.value)}
-                        className="w-full appearance-none bg-white border border-neutral-250 rounded-xl px-4 py-3 text-xs font-bold text-neutral-800 focus:outline-none focus:border-black cursor-pointer pr-10"
+                        className="w-full appearance-none bg-white border border-neutral-255 rounded-xl px-4 py-3 text-xs font-bold text-neutral-800 focus:outline-none focus:border-black cursor-pointer pr-10"
                       >
                         <option value="Shipping">Shipping</option>
                         <option value="Local Delivery">Local Delivery</option>
                       </select>
                       <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" size={14} />
+                    </div>
+                  </div>
+
+                  <div className="bg-neutral-100 border border-neutral-200 rounded-2xl p-3.5 flex flex-col gap-2.5">
+                    <span className="text-[9px] font-extrabold text-neutral-400 uppercase tracking-widest">Confirm Address</span>
+                    <p className="text-[10px] text-neutral-500 font-medium leading-relaxed">
+                      {deliveryOption === 'Shipping' 
+                        ? 'Confirm shipping address so we can include shipping costs in your quote.'
+                        : 'Confirm delivery address so we can flag if it needs to be shipped instead.'}
+                    </p>
+                    <div className="space-y-2">
+                      <div>
+                        <label className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider block mb-0.5">Street Address</label>
+                        <input
+                          type="text"
+                          value={profileStreet}
+                          onChange={(e) => setProfileStreet(e.target.value)}
+                          className="w-full bg-white border border-neutral-200 rounded-lg px-2.5 py-1.5 text-xs text-neutral-800 focus:outline-none focus:border-black transition-all"
+                        />
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className="col-span-1">
+                          <label className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider block mb-0.5">City</label>
+                          <input
+                            type="text"
+                            value={profileCity}
+                            onChange={(e) => setProfileCity(e.target.value)}
+                            className="w-full bg-white border border-neutral-200 rounded-lg px-2.5 py-1.5 text-xs text-neutral-800 focus:outline-none focus:border-black transition-all"
+                          />
+                        </div>
+                        <div className="col-span-1">
+                          <label className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider block mb-0.5">State</label>
+                          <input
+                            type="text"
+                            value={profileState}
+                            onChange={(e) => setProfileState(e.target.value)}
+                            className="w-full bg-white border border-neutral-200 rounded-lg px-2.5 py-1.5 text-xs text-neutral-800 focus:outline-none focus:border-black transition-all"
+                          />
+                        </div>
+                        <div className="col-span-1">
+                          <label className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider block mb-0.5">Zip</label>
+                          <input
+                            type="text"
+                            value={profileZip}
+                            onChange={(e) => setProfileZip(e.target.value)}
+                            className="w-full bg-white border border-neutral-200 rounded-lg px-2.5 py-1.5 text-xs text-neutral-800 focus:outline-none focus:border-black transition-all"
+                          />
+                        </div>
+                      </div>
                     </div>
                   </div>
 
@@ -1493,7 +1713,7 @@ export function PortalCreateOrder() {
                       <select
                         value={selectedPackaging}
                         onChange={(e) => setSelectedPackaging(e.target.value)}
-                        className="w-full appearance-none bg-white border border-neutral-250 rounded-xl px-4 py-3 text-xs font-bold text-neutral-800 focus:outline-none focus:border-black cursor-pointer pr-10"
+                        className="w-full appearance-none bg-white border border-neutral-255 rounded-xl px-4 py-3 text-xs font-bold text-neutral-800 focus:outline-none focus:border-black cursor-pointer pr-10"
                       >
                         <option value="Factory Folded (10 garments per stack)">Factory Folded (10 garments per stack)</option>
                         <option value="Retail (single folded)">Retail (single folded)</option>
@@ -1502,6 +1722,101 @@ export function PortalCreateOrder() {
                       <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" size={14} />
                     </div>
                   </div>
+
+                  <div className="flex flex-col gap-1.5 pb-1">
+                    <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider pl-1">Date Needed By</label>
+                    <input
+                      type="date"
+                      value={neededByDate}
+                      min={new Date().toISOString().split('T')[0]}
+                      onChange={(e) => setNeededByDate(e.target.value)}
+                      className="w-full bg-white border border-neutral-255 rounded-xl px-4 py-2.5 text-xs font-bold text-neutral-800 focus:outline-none focus:border-black transition-all"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1.5 pb-1">
+                    <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider pl-1">Order Type</label>
+                    <div className="relative">
+                      <select
+                        value={orderType}
+                        onChange={(e) => setOrderType(e.target.value as 'Retail' | 'Wholesale')}
+                        className="w-full appearance-none bg-white border border-neutral-255 rounded-xl px-4 py-3 text-xs font-bold text-neutral-800 focus:outline-none focus:border-black cursor-pointer pr-10"
+                      >
+                        <option value="Retail">Retail</option>
+                        <option value="Wholesale">Wholesale (Reseller)</option>
+                      </select>
+                      <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" size={14} />
+                    </div>
+                  </div>
+
+                  {orderType === 'Wholesale' && (
+                    <div className="bg-neutral-100 border border-neutral-200 rounded-2xl p-3 flex flex-col gap-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[9px] font-bold text-neutral-500 uppercase tracking-wider">Resale Certificate</span>
+                        <label className="text-[9px] font-extrabold text-black hover:underline cursor-pointer flex items-center gap-1">
+                          <input 
+                            type="file" 
+                            className="hidden" 
+                            accept=".pdf,.png,.jpg,.jpeg,.svg"
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (!file || !customerId) return;
+                              setIsUploadingResaleCert(true);
+                              try {
+                                const storageRef = ref(storage, `customers/${customerId}/resale_certificates/${Date.now()}_${file.name}`);
+                                await uploadBytes(storageRef, file);
+                                const downloadUrl = await getDownloadURL(storageRef);
+                                setResaleCertificateUrl(downloadUrl);
+                                setResaleCertificateName(file.name);
+                              } catch (err) {
+                                console.error("Resale certificate upload failed:", err);
+                                alert("Failed to upload resale certificate.");
+                              } finally {
+                                setIsUploadingResaleCert(false);
+                              }
+                            }} 
+                          />
+                          <Upload size={10} /> Upload File
+                        </label>
+                      </div>
+                      {isUploadingResaleCert ? (
+                        <div className="flex items-center gap-1.5 text-[10px] text-neutral-500 font-bold">
+                          <Loader2 className="animate-spin" size={10} /> Uploading certificate...
+                        </div>
+                      ) : resaleCertificateUrl ? (
+                        <div className="text-[10px] text-emerald-600 font-bold bg-white border border-emerald-100 rounded-lg p-1.5 flex items-center justify-between">
+                          <span className="truncate max-w-[150px]">{resaleCertificateName}</span>
+                          <button 
+                            type="button" 
+                            onClick={() => {
+                              setResaleCertificateUrl(null);
+                              setResaleCertificateName(null);
+                            }}
+                            className="text-neutral-400 hover:text-red-500 ml-2"
+                          >
+                            <X size={10} />
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-[10px] text-neutral-400 italic">Please upload your resale certificate to waive sales tax.</span>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="flex flex-col gap-1.5 pb-1">
+                    <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider pl-1">Special Requests & Comments</label>
+                    <textarea
+                      value={specialRequests}
+                      onChange={(e) => setSpecialRequests(e.target.value)}
+                      placeholder="Add any specific requirements, sizing details..."
+                      className="w-full bg-white border border-neutral-255 rounded-xl px-4 py-2.5 text-xs font-semibold text-neutral-850 focus:outline-none focus:border-black transition-all h-16 resize-none"
+                    />
+                  </div>
+
+                  <div className="bg-neutral-100 border border-neutral-200 rounded-2xl p-3 flex flex-col gap-1 text-[10px] text-neutral-500 leading-relaxed font-semibold">
+                    <span className="text-[9px] font-extrabold uppercase tracking-widest text-neutral-600 block mb-0.5">What Happens Next</span>
+                    We will review your quote request and reach out by phone or email within 1 business day.
+                  </div>
                 </>
               )}
 
@@ -1509,10 +1824,18 @@ export function PortalCreateOrder() {
                 <span>Total Items</span>
                 <span>{orderItems.length} styles</span>
               </div>
+              
+              {hasLowQuantityItems && (
+                <div className="text-[10px] text-red-650 bg-red-50/50 border border-red-100 rounded-2xl p-3 flex flex-col gap-1 leading-relaxed animate-in fade-in slide-in-from-top-2 duration-300">
+                  <span className="font-extrabold">⚠️ Order Minimum Requirement</span>
+                  <span className="font-medium text-neutral-500">A minimum of 20 garments per product style is required to submit a quote request. Please adjust your sizing quantities.</span>
+                </div>
+              )}
+
               <button 
                 onClick={handleSubmitOrder}
-                disabled={orderItems.length === 0 || isSubmitting} 
-                className={`w-full mt-4 py-3.5 rounded-xl text-sm font-bold transition-all ${orderItems.length > 0 && !isSubmitting ? 'bg-black text-white hover:bg-neutral-800 shadow-md transform active:scale-[0.98]' : 'bg-neutral-200 text-neutral-400 cursor-not-allowed'}`}
+                disabled={orderItems.length === 0 || hasLowQuantityItems || isSubmitting} 
+                className={`w-full mt-4 py-3.5 rounded-xl text-sm font-bold transition-all ${(orderItems.length > 0 && !hasLowQuantityItems && !isSubmitting) ? 'bg-black text-white hover:bg-neutral-800 shadow-md transform active:scale-[0.98]' : 'bg-neutral-200 text-neutral-400 cursor-not-allowed'}`}
               >
                 {isSubmitting ? 'Submitting...' : 'Submit Quote Request'}
               </button>
@@ -1634,7 +1957,7 @@ export function PortalCreateOrder() {
                       const gender = item.gender || 'Unisex';
                       const itemNum = item.style;
                       const colors = item.colors || ['Custom Color'];
-                      const sizes = ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'];
+                      const sizes = parseSizesFromItem(item, item.style || '');
                       const image = getGarmentImage(item);
                       const price = parseFloat(item.price || 0);
 
@@ -1727,6 +2050,11 @@ export function PortalCreateOrder() {
                                    <h4 className="font-bold text-neutral-900 text-[15px] truncate pr-2">{style}</h4>
                                    <span className="text-[10px] font-bold text-neutral-600 bg-neutral-100 px-2 py-0.5 rounded-full shrink-0">{gender}</span>
                                 </div>
+                                {item.customSpecs && (item.customSpecs.quality || item.customSpecs.material || item.customSpecs.weight) && (
+                                  <p className="text-xs text-neutral-500 font-semibold mt-0.5">
+                                    {[item.customSpecs.quality, item.customSpecs.material, item.customSpecs.weight].filter(Boolean).join(' • ')}
+                                  </p>
+                                )}
                                 <p className="text-xs text-neutral-400 font-medium mt-1 truncate">{colors.join(' • ')}</p>
                               </div>
                               <button 
@@ -2253,6 +2581,65 @@ export function PortalCreateOrder() {
                 {isSavingProfile ? 'Saving...' : 'Save & Submit'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {showSuccessModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 animate-in fade-in duration-300">
+          <div className="bg-white rounded-[2.5rem] border border-neutral-200/55 shadow-2xl w-full max-w-md p-8 flex flex-col items-center text-center gap-6 animate-in zoom-in-95 duration-300">
+            {/* Checkmark Icon Container */}
+            <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center text-emerald-600 scale-100 hover:scale-105 transition-transform shadow-xs">
+              <svg className="w-8 h-8 animate-in stroke-dash duration-1000" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+
+            <div className="space-y-2">
+              <h2 className="text-2xl font-serif text-neutral-900 tracking-tight">Request Sent!</h2>
+              <p className="text-xs text-neutral-500 font-semibold leading-relaxed">
+                Check your dashboard for updates regarding your quote.
+              </p>
+            </div>
+
+            {/* Notification Consent Checkboxes */}
+            <div className="w-full bg-neutral-50 rounded-2xl p-4 border border-neutral-150 flex flex-col gap-3.5 text-left">
+              <span className="text-[9px] font-extrabold uppercase tracking-widest text-neutral-400 block">Stay Updated</span>
+              
+              <label className="flex items-center gap-3 cursor-pointer group select-none">
+                <input 
+                  type="checkbox"
+                  checked={optInEmail}
+                  onChange={(e) => setOptInEmail(e.target.checked)}
+                  className="rounded border-neutral-350 text-black focus:ring-black w-4 h-4 cursor-pointer"
+                />
+                <div className="flex flex-col">
+                  <span className="text-xs font-bold text-neutral-800 group-hover:text-black transition-colors">Email Updates</span>
+                  <span className="text-[10px] text-neutral-400">Receive quotes and messages via email.</span>
+                </div>
+              </label>
+
+              <label className="flex items-center gap-3 cursor-pointer group select-none">
+                <input 
+                  type="checkbox"
+                  checked={optInText}
+                  onChange={(e) => setOptInText(e.target.checked)}
+                  className="rounded border-neutral-350 text-black focus:ring-black w-4 h-4 cursor-pointer"
+                />
+                <div className="flex flex-col">
+                  <span className="text-xs font-bold text-neutral-800 group-hover:text-black transition-colors">Text Message Updates</span>
+                  <span className="text-[10px] text-neutral-400">Get instant SMS status alerts on your phone.</span>
+                </div>
+              </label>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleSuccessModalClose}
+              className="w-full py-3.5 rounded-xl text-xs font-bold uppercase tracking-wider bg-black text-white hover:bg-neutral-800 transition-all shadow-md text-center cursor-pointer"
+            >
+              Done & Go to Dashboard
+            </button>
           </div>
         </div>
       )}

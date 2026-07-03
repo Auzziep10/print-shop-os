@@ -466,17 +466,24 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
       >
       {localOrders.map((order: any, idx: number) => {
         const isExpanded = expandedId === order.id;
-        const isKitting = order.fulfillmentType === 'Kitting' || (!order.fulfillmentType && customer?.fulfillmentType === 'Kitting');
-        const timelineSteps = isKitting 
-          ? ['Request', 'Approved', 'Awaiting Payment', 'Sourcing', 'Ordered', 'Production', 'Inventory', 'Live'] 
-          : ['Request', 'Approved', 'Awaiting Payment', 'Sourcing', 'Ordered', 'Production', 'Shipped', 'Received'];
+        const timelineSteps = ['Requested', 'Quoted', 'Approved', 'Sourced', 'Produced', 'Shipped', 'Received'];
 
-        let visualIndex = order.statusIndex;
-        if (order.statusIndex === 0) visualIndex = 0;
-        else if (order.statusIndex === 1) visualIndex = 0.33;
-        else if (order.statusIndex === 2) visualIndex = 0.66;
-        else if (order.statusIndex === 3) visualIndex = 2; // Awaiting Payment
-        else if (order.statusIndex >= 4) visualIndex = order.statusIndex - 1; // 4 -> 3 (Sourcing), 5 -> 4 (Ordered), etc.
+        let visualIndex = 0;
+        if (order.statusIndex === 0 || order.statusIndex === 1) {
+          visualIndex = 0; // Requested
+        } else if (order.statusIndex === 2 || order.statusIndex === 3) {
+          visualIndex = 1; // Quoted
+        } else if (order.statusIndex === 4) {
+          visualIndex = 2; // Approved
+        } else if (order.statusIndex === 5) {
+          visualIndex = 3; // Sourced
+        } else if (order.statusIndex === 6) {
+          visualIndex = 4; // Produced
+        } else if (order.statusIndex === 7) {
+          visualIndex = 5; // Shipped
+        } else if (order.statusIndex === 8) {
+          visualIndex = 6; // Received
+        }
 
         let totalGarments = 0;
         let completedGarments = 0;
