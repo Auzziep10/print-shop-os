@@ -111,10 +111,10 @@ export function PortalCreateOrder() {
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
   // Selected Packaging preference
-  const [selectedPackaging, setSelectedPackaging] = useState('Single Folded');
+  const [selectedPackaging, setSelectedPackaging] = useState('Retail (single folded)');
 
   // Selected Delivery option
-  const [deliveryOption, setDeliveryOption] = useState('Delivery');
+  const [deliveryOption, setDeliveryOption] = useState('Shipping');
 
   useEffect(() => {
     if (customer) {
@@ -596,9 +596,6 @@ export function PortalCreateOrder() {
       profileEmail.trim() &&
       profilePhone.trim()
     );
-    if (deliveryOption === 'Pick Up') {
-      return basicComplete;
-    }
     return !!(
       basicComplete &&
       profileStreet.trim() &&
@@ -1483,8 +1480,8 @@ export function PortalCreateOrder() {
                         onChange={(e) => setDeliveryOption(e.target.value)}
                         className="w-full appearance-none bg-white border border-neutral-250 rounded-xl px-4 py-3 text-xs font-bold text-neutral-800 focus:outline-none focus:border-black cursor-pointer pr-10"
                       >
-                        <option value="Delivery">Delivery</option>
-                        <option value="Pick Up">Pick Up</option>
+                        <option value="Shipping">Shipping</option>
+                        <option value="Local Delivery">Local Delivery</option>
                       </select>
                       <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" size={14} />
                     </div>
@@ -1498,9 +1495,9 @@ export function PortalCreateOrder() {
                         onChange={(e) => setSelectedPackaging(e.target.value)}
                         className="w-full appearance-none bg-white border border-neutral-250 rounded-xl px-4 py-3 text-xs font-bold text-neutral-800 focus:outline-none focus:border-black cursor-pointer pr-10"
                       >
-                        <option value="Single Folded">Single Folded</option>
-                        <option value="10 garments per stack">10 garments per stack</option>
-                        <option value="poly bag each garment">poly bag each garment</option>
+                        <option value="Factory Folded (10 garments per stack)">Factory Folded (10 garments per stack)</option>
+                        <option value="Retail (single folded)">Retail (single folded)</option>
+                        <option value="Individually Bagged and Labeled">Individually Bagged and Labeled</option>
                       </select>
                       <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" size={14} />
                     </div>
@@ -2185,7 +2182,7 @@ export function PortalCreateOrder() {
               </div>
 
               {/* Shipping Address */}
-              {deliveryOption === 'Delivery' && (
+              {(deliveryOption === 'Shipping' || deliveryOption === 'Local Delivery' || deliveryOption === 'Delivery') && (
                 <div className="flex flex-col gap-4">
                   <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-widest border-b border-neutral-50 pb-1">Shipping Address</h3>
                   
@@ -2250,7 +2247,7 @@ export function PortalCreateOrder() {
               <button
                 type="button"
                 onClick={handleSaveProfileAndSubmit}
-                disabled={isSavingProfile || !profileContactName.trim() || !profileCompany.trim() || !profileEmail.trim() || !profilePhone.trim() || (deliveryOption === 'Delivery' && (!profileStreet.trim() || !profileCity.trim() || !profileState.trim() || !profileZip.trim()))}
+                disabled={isSavingProfile || !profileContactName.trim() || !profileCompany.trim() || !profileEmail.trim() || !profilePhone.trim() || ((deliveryOption === 'Delivery' || deliveryOption === 'Shipping' || deliveryOption === 'Local Delivery') && (!profileStreet.trim() || !profileCity.trim() || !profileState.trim() || !profileZip.trim()))}
                 className="px-6 py-2.5 rounded-full text-xs font-bold uppercase tracking-wider bg-black text-white hover:bg-neutral-800 transition-all flex items-center gap-1.5 shadow-md cursor-pointer disabled:bg-neutral-300 disabled:cursor-not-allowed"
               >
                 {isSavingProfile ? 'Saving...' : 'Save & Submit'}

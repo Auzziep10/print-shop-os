@@ -79,7 +79,7 @@ export function PortalRequestQuote() {
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
   // Selected Packaging preference
-  const [selectedPackaging, setSelectedPackaging] = useState('Single Folded');
+  const [selectedPackaging, setSelectedPackaging] = useState('Retail (single folded)');
 
   useEffect(() => {
     if (customer) {
@@ -659,9 +659,9 @@ export function PortalRequestQuote() {
                       <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Packaging Option</label>
                       <div className="relative">
                           <select value={selectedPackaging} onChange={e => setSelectedPackaging(e.target.value)} className="w-full appearance-none bg-neutral-50 border border-neutral-200 focus:bg-white focus:border-black rounded-xl px-4 py-2.5 text-sm text-neutral-900 focus:outline-none cursor-pointer font-bold">
-                              <option value="Single Folded">Single Folded</option>
-                              <option value="10 garments per stack">10 garments per stack</option>
-                              <option value="poly bag each garment">poly bag each garment</option>
+                              <option value="Factory Folded (10 garments per stack)">Factory Folded (10 garments per stack)</option>
+                              <option value="Retail (single folded)">Retail (single folded)</option>
+                              <option value="Individually Bagged and Labeled">Individually Bagged and Labeled</option>
                           </select>
                           <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" size={16} />
                       </div>
