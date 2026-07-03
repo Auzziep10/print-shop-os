@@ -445,7 +445,7 @@ export function PortalCreateOrder() {
       setSavedCarts(prev => [payload, ...prev]);
       setShowSaveCartModal(false);
       setSavedCartName('');
-      alert("Cart saved successfully!");
+      // Cart saved successfully
     } catch (err) {
       console.error("Failed to save cart:", err);
       alert("Failed to save cart. Please try again.");

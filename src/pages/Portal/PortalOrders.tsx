@@ -210,7 +210,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
           timestamp: new Date().toISOString()
         })
       });
-      alert("Order Approved! Please proceed to payment.");
+      // Order approved by customer
     } catch (err) {
       console.error("Error approving order", err);
     }
@@ -1189,7 +1189,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
           onClose={() => setPayingOrder(null)} 
           onSuccess={() => {
             setPayingOrder(null);
-            alert("Payment Successful! Your order is now in Sourcing.");
+            // Payment successful
           }} 
         />
       )}

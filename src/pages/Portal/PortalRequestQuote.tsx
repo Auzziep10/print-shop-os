@@ -700,7 +700,6 @@ export function PortalRequestQuote() {
       };
 
       await setDoc(doc(db, 'orders', payload.id), payload);
-      alert("Quote Request Successfully Submitted!");
       navigate(`/portal/${customerId}`);
     } catch (err) {
       console.error("Error submitting quote:", err);
