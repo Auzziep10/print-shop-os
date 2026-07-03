@@ -381,7 +381,7 @@ export function PortalLayout() {
             onClick={() => handleCreateOrder(cartCount > 0)}
             className="bg-black text-white px-5 py-2.5 rounded-full text-xs font-bold tracking-wide hover:bg-black/80 hover:scale-105 active:scale-95 transition-all shadow-[0_4px_14px_0_rgb(0,0,0,0.15)] mr-2"
           >
-            {cartCount > 0 ? "Select new items to add to cart" : "Create Order +"}
+            {cartCount > 0 ? "+ Items" : "Create Order +"}
           </button>
 
           <button 
