@@ -2730,7 +2730,7 @@ export function OrderDetail() {
                                             </a>
                                          );
                                        })}
-                                       {(!item.artworks || item.artworks.length === 0) && item.image && (item.image.includes('firebasestorage') || item.image.includes('temp_logo') || item.image.includes('/logos/')) && (
+                                       {(!item.artworks || item.artworks.length === 0) && typeof item.image === 'string' && (item.image.includes('firebasestorage') || item.image.includes('temp_logo') || item.image.includes('/logos/')) && (
                                          <a 
                                            href={item.image} 
                                            target="_blank" 
