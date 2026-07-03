@@ -1,5 +1,5 @@
 import { Outlet, useParams, useNavigate, useLocation } from 'react-router-dom';
-import { Search, Info, HelpCircle, User, Settings, LogOut, X, ShoppingBag, MapPin, Upload, Trash2, Image } from 'lucide-react';
+import { Search, Info, HelpCircle, User, Settings, LogOut, X, ShoppingBag, MapPin, Upload, Trash2, Image, Check } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useState, useEffect } from 'react';
 import { PortalHelpDrawer } from '../Portal/PortalHelpDrawer';
@@ -67,6 +67,7 @@ export function PortalLayout() {
   const [promptState, setPromptState] = useState('');
   const [promptZip, setPromptZip] = useState('');
   const [isSavingPromptAddress, setIsSavingPromptAddress] = useState(false);
+  const [isSavedPromptAddress, setIsSavedPromptAddress] = useState(false);
 
   useEffect(() => {
     if (!customerId) return;
@@ -230,13 +231,18 @@ export function PortalLayout() {
         shippingState: promptState,
         shippingZip: promptZip,
       });
+      setIsSavingPromptAddress(false);
+      setIsSavedPromptAddress(true);
+      
+      // Wait for 0.5 seconds before closing the dialog
+      await new Promise((resolve) => setTimeout(resolve, 500));
       setIsAddressPromptOpen(false);
-      alert("Address saved successfully!");
     } catch (err) {
       console.error("Error saving prompt address:", err);
       alert("Failed to save address. Please try again.");
-    } finally {
       setIsSavingPromptAddress(false);
+    } finally {
+      setIsSavedPromptAddress(false);
     }
   };
 
@@ -777,10 +783,23 @@ export function PortalLayout() {
               <button
                 type="button"
                 onClick={handleSavePromptAddress}
-                disabled={isSavingPromptAddress || !promptStreet || !promptCity || !promptState || !promptZip}
-                className="px-6 py-2.5 rounded-full text-xs font-bold uppercase tracking-wider bg-black text-white hover:bg-neutral-800 transition-all shadow-md disabled:bg-neutral-200 disabled:text-neutral-400 disabled:cursor-not-allowed"
+                disabled={isSavingPromptAddress || isSavedPromptAddress || !promptStreet || !promptCity || !promptState || !promptZip}
+                className={`px-6 py-2.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all shadow-md flex items-center justify-center gap-1.5 disabled:cursor-not-allowed ${
+                  isSavedPromptAddress 
+                    ? 'bg-emerald-600 text-white' 
+                    : 'bg-black text-white hover:bg-neutral-800 disabled:bg-neutral-200 disabled:text-neutral-400'
+                }`}
               >
-                {isSavingPromptAddress ? 'Saving...' : 'Save & Close'}
+                {isSavingPromptAddress ? (
+                  'Saving...'
+                ) : isSavedPromptAddress ? (
+                  <>
+                    <Check size={14} strokeWidth={3} className="animate-in zoom-in duration-200" />
+                    <span>Saved</span>
+                  </>
+                ) : (
+                  'Save & Close'
+                )}
               </button>
             </div>
           </div>
