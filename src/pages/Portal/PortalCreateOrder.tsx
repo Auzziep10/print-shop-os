@@ -1598,9 +1598,19 @@ export function PortalCreateOrder() {
                                 if (item.logoUrlRightSleeve) activePlacements.push("Right Sleeve");
                                 const count = activePlacements.length;
                                 return (
-                                  <p className="text-[10px] font-semibold text-neutral-500 mt-1">
-                                    Placements ({count}): {count > 0 ? activePlacements.join(', ') : 'None'}
-                                  </p>
+                                  <div className="flex flex-col gap-1.5 mt-1.5">
+                                    <p className="text-[10px] font-semibold text-neutral-500">
+                                      Placements ({count}): {count > 0 ? activePlacements.join(', ') : 'None'}
+                                    </p>
+                                    <button
+                                      type="button"
+                                      onClick={() => setCustomizingItem(item)}
+                                      className="flex items-center gap-1.5 bg-black hover:bg-neutral-800 text-white px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all shadow-xs w-fit cursor-pointer select-none"
+                                    >
+                                      <Sparkles size={11} className="text-emerald-400" />
+                                      <span>Customize Placements & Artwork</span>
+                                    </button>
+                                  </div>
                                 );
                               })()}
                             </div>
@@ -1614,14 +1624,6 @@ export function PortalCreateOrder() {
                               title="Add another color/design variation of this item"
                             >
                               <Copy size={13} />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setCustomizingItem(item)}
-                              className="p-1.5 text-neutral-450 hover:text-black hover:bg-neutral-100 rounded-lg transition-all cursor-pointer"
-                              title="Customize artwork placements"
-                            >
-                              <Sparkles size={13} />
                             </button>
                             <button 
                               onClick={() => handleRemoveItem(item.instanceId)}
