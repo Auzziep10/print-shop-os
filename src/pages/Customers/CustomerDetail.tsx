@@ -149,6 +149,7 @@ export function CustomerDetail() {
   const [isGarmentBrowserOpen, setIsGarmentBrowserOpen] = useState(false);
   const [selectedSanMarProduct, setSelectedSanMarProduct] = useState<any | null>(null);
   const [selectedColors, setSelectedColors] = useState<Record<string, boolean>>({});
+  const [selectedInitialColor, setSelectedInitialColor] = useState<string>('');
 
   const handleMockupUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -180,6 +181,7 @@ export function CustomerDetail() {
       price: product.price.toString()
     });
     setSelectedSanMarProduct(product);
+    setSelectedInitialColor(initialColor);
     const initialColors: Record<string, boolean> = {};
     product.colors.forEach((c: string) => {
       initialColors[c] = true;
@@ -227,7 +229,9 @@ export function CustomerDetail() {
               backImagesMap[color] = backUrl;
             }
           });
-          const defaultColor = chosenColors[0];
+          const defaultColor = (selectedInitialColor && chosenColors.includes(selectedInitialColor))
+            ? selectedInitialColor
+            : chosenColors[0];
           if (defaultColor && imagesMap[defaultColor]) {
             mainImage = imagesMap[defaultColor];
           }
@@ -257,6 +261,7 @@ export function CustomerDetail() {
       setCustomSuggestedItem({ style: '', itemNum: '', description: '', image: '', colors: '', price: '' });
       setSelectedSanMarProduct(null);
       setSelectedColors({});
+      setSelectedInitialColor('');
       alert("Garment suggested to customer!");
     } catch (err) {
       console.error("Error adding suggested item:", err);
