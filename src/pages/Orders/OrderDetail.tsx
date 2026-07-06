@@ -20,6 +20,7 @@ import { PalletPickOptimizerModal } from '../../components/Inventory/PalletPickO
 import { GarmentCustomizerModal } from '../../components/Portal/GarmentCustomizerModal';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
 import { sendOrderStatusSMS } from '../../lib/smsService';
+import { sendOrderStatusEmail } from '../../lib/emailService';
 const sanmarCatalog = sanmarCatalogJson as any[];
 
 const SIZE_ORDER = ['XXS', 'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL', 'OSFA'];
@@ -1250,6 +1251,8 @@ export function OrderDetail() {
 
       // Trigger SMS notification via QUO System
       sendOrderStatusSMS(id, newIndex);
+      // Trigger Email status change notification
+      sendOrderStatusEmail(id, newIndex);
     } catch(err) {
       console.error(err);
     }
@@ -2125,6 +2128,7 @@ export function OrderDetail() {
 
       if (statusChanged) {
         sendOrderStatusSMS(id, editForm.statusIndex);
+        sendOrderStatusEmail(id, editForm.statusIndex);
       }
     } catch (err) {
       console.error("Error updating order:", err);
@@ -2185,6 +2189,7 @@ export function OrderDetail() {
 
       setIsEditDialogOpen(false);
       sendOrderStatusSMS(id, 3);
+      sendOrderStatusEmail(id, 3);
     } catch (err) {
       console.error("Error approving and updating order:", err);
     } finally {

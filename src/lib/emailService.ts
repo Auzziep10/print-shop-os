@@ -1,0 +1,122 @@
+import { doc, getDoc } from 'firebase/firestore';
+import { db, auth } from './firebase';
+
+export async function sendOrderStatusEmail(orderId: string, newStatusIndex: number) {
+  try {
+    // 1. Fetch AhaSend integration settings from Firestore
+    const ahasendSnap = await getDoc(doc(db, 'settings', 'ahasend'));
+    if (!ahasendSnap.exists()) {
+      console.log('[Email Service] AhaSend integration is not configured in settings.');
+      return;
+    }
+
+    const ahasendData = ahasendSnap.data();
+    const statusKey = newStatusIndex.toString();
+    const templateConfig = ahasendData.templates?.[statusKey];
+
+    // If template not defined or not enabled, skip sending
+    if (!templateConfig || !templateConfig.enabled || !templateConfig.template) {
+      console.log(`[Email Service] Email notifications are disabled or not configured for status index ${newStatusIndex}.`);
+      return;
+    }
+
+    // 2. Fetch Order Details
+    const orderSnap = await getDoc(doc(db, 'orders', orderId));
+    if (!orderSnap.exists()) {
+      console.error(`[Email Service] Order ${orderId} not found.`);
+      return;
+    }
+    const order = orderSnap.data();
+
+    // 3. Fetch Customer Details (to get email and name)
+    let recipientEmail = '';
+    let customerName = 'Customer';
+    let companyName = 'Unknown Customer';
+
+    if (order.customerId && order.customerId !== 'Shopify Temporary') {
+      const customerSnap = await getDoc(doc(db, 'customers', order.customerId));
+      if (customerSnap.exists()) {
+        const customer = customerSnap.data();
+        recipientEmail = customer.email || '';
+        customerName = customer.contactName || customer.name || customer.company || 'Customer';
+        companyName = customer.company || 'Unknown Customer';
+      }
+    }
+
+    // Fallbacks if customer email not found in customers collection, check order payload
+    if (!recipientEmail) {
+      recipientEmail = order.shippingAddress?.email || order.email || '';
+    }
+
+    if (!recipientEmail) {
+      console.warn(`[Email Service] Skip Email: No valid email address found for order ${orderId}.`);
+      return;
+    }
+
+    // 4. Render template
+    const userFacingOrderId = order.portalId || orderId;
+    
+    // Render Subject
+    let subject = templateConfig.subject || `Order #${userFacingOrderId} Status Update`;
+    subject = subject.replace(/{customerName}/g, customerName);
+    subject = subject.replace(/{companyName}/g, companyName);
+    subject = subject.replace(/{orderId}/g, userFacingOrderId);
+    subject = subject.replace(/{orderTitle}/g, order.title || 'Untitled Order');
+    subject = subject.replace(/{trackingCarrier}/g, order.trackingCarrier || 'Pending');
+    subject = subject.replace(/{trackingNumber}/g, order.trackingNumber || 'Pending');
+
+    // Render Body Text
+    let bodyText = templateConfig.template;
+    bodyText = bodyText.replace(/{customerName}/g, customerName);
+    bodyText = bodyText.replace(/{companyName}/g, companyName);
+    bodyText = bodyText.replace(/{orderId}/g, userFacingOrderId);
+    bodyText = bodyText.replace(/{orderTitle}/g, order.title || 'Untitled Order');
+    bodyText = bodyText.replace(/{trackingCarrier}/g, order.trackingCarrier || 'Pending');
+    bodyText = bodyText.replace(/{trackingNumber}/g, order.trackingNumber || 'Pending');
+
+    // Generate Styled HTML Body
+    const htmlBody = `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; color: #333; line-height: 1.6; background-color: #f7f7f5;">
+        <div style="background-color: #ffffff; border: 1px solid #e5e5e0; border-radius: 16px; padding: 32px; box-shadow: 0 4px 12px rgba(0,0,0,0.025);">
+          <h2 style="font-size: 20px; color: #111; margin-top: 0; margin-bottom: 20px; border-bottom: 1px solid #f0f0ed; padding-bottom: 12px; font-weight: 700;">Status Update</h2>
+          <div style="font-size: 15px; color: #444; white-space: pre-wrap;">${bodyText}</div>
+          <hr style="border: 0; border-top: 1px solid #f0f0ed; margin: 32px 0 20px 0;" />
+          <p style="font-size: 11px; color: #999; text-align: center; margin: 0;">This is an automated notification from your WOVN Client Portal.</p>
+        </div>
+      </div>
+    `;
+
+    // 5. Retrieve current user's ID token to call Vercel edge API securely
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      console.error('[Email Service] User must be authenticated to trigger email status notifications.');
+      return;
+    }
+    const idToken = await currentUser.getIdToken();
+
+    // 6. Dispatch Email through serverless backend function
+    console.log(`[Email Service] Dispatching status index ${newStatusIndex} Email to ${recipientEmail}...`);
+    const response = await fetch('/api/email/send', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${idToken}`
+      },
+      body: JSON.stringify({
+        to: recipientEmail,
+        subject,
+        text: bodyText,
+        html: htmlBody
+      })
+    });
+
+    const result = await response.json();
+    if (!response.ok) {
+      console.error('[Email Service] Failed to send email:', result.error || result.details);
+    } else {
+      console.log('[Email Service] Email sent successfully:', result);
+    }
+  } catch (error) {
+    console.error('[Email Service] Error in sendOrderStatusEmail:', error);
+  }
+}
