@@ -389,7 +389,7 @@ export function PortalLayout() {
             className={`bg-white border border-emerald-500 text-emerald-700 px-4.5 py-2.5 rounded-full text-xs font-bold tracking-wide hover:bg-neutral-50 hover:scale-105 active:scale-95 shadow-sm flex items-center gap-2 cursor-pointer mr-2 transition-all duration-300 ${
               isJiggling ? 'animate-bounce' : ''
             } ${
-              cartCount > 0 
+              (cartCount > 0 || activeTour)
                 ? 'opacity-100 scale-100 w-auto pointer-events-auto' 
                 : 'opacity-0 scale-75 w-0 pointer-events-none overflow-hidden mr-0 border-0 p-0'
             }`}

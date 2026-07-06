@@ -78,40 +78,24 @@ export function PortalTourOverlay({
         },
         {
           target: 'catalog-grid',
-          title: 'Step 2: Add Garments from Library',
-          content: 'Browse the catalog tabs and add suggested, past, or rack garments to your request.',
+          title: 'Step 2: Add Garment & Customize',
+          content: 'Browse the catalog and click "+ Add to Request" to open the customizer. Choose a color, select a logo from your vault, drag to position, and click "Save Customization".',
           position: 'top',
-          requiredPath: `/portal/${customerId}/create`,
-          pathName: 'Create Order Builder'
-        },
-        {
-          target: 'reorder-cart-btn',
-          title: 'Step 3: Open Cart Drawer',
-          content: 'Click the "Cart" button in the header to review your selected garments and options.',
-          position: 'bottom',
           requiredPath: `/portal/${customerId}/create`,
           pathName: 'Create Order Builder'
         },
         {
           target: 'sizing-matrix',
-          title: 'Step 4: Specify Quantities',
-          content: 'In the cart drawer, specify the required quantities by size for your chosen styles.',
-          position: 'top',
-          requiredPath: `/portal/${customerId}/create`,
-          pathName: 'Create Order Builder'
-        },
-        {
-          target: 'customize-btn',
-          title: 'Step 5: Customize Placement & Artwork',
-          content: 'Click the "Customize Placements & Artwork" button to specify logo placements and attach mockups.',
+          title: 'Step 3: Specify Quantities',
+          content: 'In the cart drawer, specify the required quantities by size for your chosen styles (minimum 20 garments per style).',
           position: 'top',
           requiredPath: `/portal/${customerId}/create`,
           pathName: 'Create Order Builder'
         },
         {
           target: 'quote-submit',
-          title: 'Step 6: Submit Quote Request',
-          content: 'Click the "Submit Quote Request" button at the bottom of the drawer to submit your request.',
+          title: 'Step 4: Submit Quote Request',
+          content: 'Once you have added quantities, click the "Submit Quote Request" button to submit your request.',
           position: 'top',
           requiredPath: `/portal/${customerId}/create`,
           pathName: 'Create Order Builder'
@@ -203,47 +187,31 @@ export function PortalTourOverlay({
         {
           target: 'create-order-btn',
           title: 'Step 1: Open Order Builder',
-          content: 'First, click the "+ Create Order" button in the header.',
+          content: 'First, click the "Create Order +" button in the header.',
           position: 'bottom',
           requiredPath: `/portal/${customerId}`,
           pathName: 'Orders Dashboard'
         },
         {
           target: 'catalog-grid',
-          title: 'Step 2: Add Garment from Library',
-          content: 'Select any catalog garment to add it to your order request.',
+          title: 'Step 2: Add Garment & Customize',
+          content: 'Browse the catalog and click "+ Add to Request" to open the customizer. Choose a color, select a logo from your vault, drag to position, and click "Save Customization".',
           position: 'top',
           requiredPath: `/portal/${customerId}/create`,
           pathName: 'Create Order Builder'
         },
         {
-          target: 'reorder-cart-btn',
-          title: 'Step 3: Open Cart Drawer',
-          content: 'Click the "Cart" button in the header to view your selected garments.',
-          position: 'bottom',
-          requiredPath: `/portal/${customerId}/create`,
-          pathName: 'Create Order Builder'
-        },
-        {
-          target: 'customize-btn',
-          title: 'Step 4: Open Mockup Creator',
-          content: 'Click "Customize Placements & Artwork" on your added product card to open the visual customizer workspace.',
-          position: 'top',
-          requiredPath: `/portal/${customerId}/create`,
-          pathName: 'Create Order Builder'
-        },
-        {
-          target: 'save-customization-btn',
-          title: 'Step 5: Place Logos & Save',
-          content: 'Select your garment color, upload or pick your logo from your vault, drag to position it, and click "Save Customization" to generate your mockups.',
+          target: 'sizing-matrix',
+          title: 'Step 3: Specify Quantities',
+          content: 'In the cart drawer, specify the required quantities by size for your chosen styles.',
           position: 'top',
           requiredPath: `/portal/${customerId}/create`,
           pathName: 'Create Order Builder'
         },
         {
           target: 'quote-submit',
-          title: 'Step 6: Submit Quote Request',
-          content: 'Fill out your sizes and click "Submit Quote Request" to send your specifications to our team.',
+          title: 'Step 4: Submit Quote Request',
+          content: 'Once you have added quantities, click the "Submit Quote Request" button to submit your request.',
           position: 'top',
           requiredPath: `/portal/${customerId}/create`,
           pathName: 'Create Order Builder'
@@ -314,22 +282,30 @@ export function PortalTourOverlay({
     }
   }, [location.pathname, stepIndex, tour, currentStep, onNext, onBack]);
 
-  // Auto-sync customize tour steps when customizer modal opens/closes
+  // Auto-sync tour steps based on UI changes
   useEffect(() => {
-    if (activeTour !== 'customize') return;
+    if (activeTour !== 'customize' && activeTour !== 'quote') return;
 
-    const checkModalState = () => {
-      const saveBtn = document.querySelector('[data-tour="save-customization-btn"]');
-      if (stepIndex === 3 && saveBtn) {
-        onNext();
-      } else if (stepIndex === 4 && !saveBtn) {
-        onBack();
+    const checkUIState = () => {
+      // If we are on Step 2 (catalog-grid) and the cart drawer/sizing-matrix is visible, advance to Step 3
+      if (stepIndex === 1) {
+        const sizingMatrix = document.querySelector('[data-tour="sizing-matrix"]');
+        if (sizingMatrix) {
+          onNext();
+        }
+      }
+      // If we are on Step 3 (sizing-matrix) and the cart drawer is closed, go back to Step 2
+      else if (stepIndex === 2) {
+        const sizingMatrix = document.querySelector('[data-tour="sizing-matrix"]');
+        if (!sizingMatrix) {
+          onBack();
+        }
       }
     };
 
-    checkModalState();
+    checkUIState();
 
-    const interval = setInterval(checkModalState, 200);
+    const interval = setInterval(checkUIState, 250);
     return () => clearInterval(interval);
   }, [activeTour, stepIndex, onNext, onBack]);
 
@@ -361,7 +337,17 @@ export function PortalTourOverlay({
         return;
       }
       
-      const el = document.querySelector(`[data-tour="${currentStep.target}"]`);
+      let targetName = currentStep.target;
+      
+      // If we are on catalog-grid step and the customizer modal is open, highlight the save customization button
+      if (currentStep.target === 'catalog-grid') {
+        const saveBtn = document.querySelector('[data-tour="save-customization-btn"]');
+        if (saveBtn) {
+          targetName = 'save-customization-btn';
+        }
+      }
+      
+      const el = document.querySelector(`[data-tour="${targetName}"]`);
       if (el) {
         const bounds = el.getBoundingClientRect();
         // Check if bounds have changed to avoid infinite loops
@@ -394,7 +380,15 @@ export function PortalTourOverlay({
   useEffect(() => {
     if (!isCorrectPath || !currentStep.target) return;
 
-    const el = document.querySelector(`[data-tour="${currentStep.target}"]`) as HTMLElement;
+    let targetName = currentStep.target;
+    if (currentStep.target === 'catalog-grid') {
+      const saveBtn = document.querySelector('[data-tour="save-customization-btn"]');
+      if (saveBtn) {
+        targetName = 'save-customization-btn';
+      }
+    }
+
+    const el = document.querySelector(`[data-tour="${targetName}"]`) as HTMLElement;
     if (!el) return;
 
     // Save original styles of the target element
@@ -564,10 +558,19 @@ export function PortalTourOverlay({
             </button>
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <h4 className="font-bold text-neutral-900 text-sm">{currentStep.title}</h4>
-            <p className="text-xs text-neutral-600 leading-relaxed">{currentStep.content}</p>
-          </div>
+          {(() => {
+            const isCustomizerOpen = currentStep.target === 'catalog-grid' && !!document.querySelector('[data-tour="save-customization-btn"]');
+            const displayTitle = isCustomizerOpen ? "Step 2: Customize & Save" : currentStep.title;
+            const displayContent = isCustomizerOpen 
+              ? "Customize your garment! Choose a color, select a logo from your vault, drag to position, and click 'Save Customization' to add it to your request." 
+              : currentStep.content;
+            return (
+              <div className="flex flex-col gap-1.5">
+                <h4 className="font-bold text-neutral-900 text-sm">{displayTitle}</h4>
+                <p className="text-xs text-neutral-600 leading-relaxed">{displayContent}</p>
+              </div>
+            );
+          })()}
 
           {/* Redirect prompt if on wrong page */}
           {!isCorrectPath && actualRequiredPath && (
