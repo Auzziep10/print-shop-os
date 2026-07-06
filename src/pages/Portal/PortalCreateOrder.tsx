@@ -1321,7 +1321,7 @@ export function PortalCreateOrder() {
                         e.stopPropagation();
                         setExpandedImage({ src: image, alt: style });
                       }}
-                      className="w-full h-48 flex items-center justify-center mb-3 relative cursor-zoom-in"
+                      className="w-full h-64 flex items-center justify-center mb-3 relative cursor-zoom-in"
                       title="Click to expand mockup"
                     >
                       <img 
@@ -1394,7 +1394,7 @@ export function PortalCreateOrder() {
                           e.stopPropagation();
                           setExpandedImage({ src: image, alt: style });
                         }}
-                        className="w-full h-48 flex items-center justify-center mb-3 relative cursor-zoom-in"
+                        className="w-full h-64 flex items-center justify-center mb-3 relative cursor-zoom-in"
                         title="Click to expand mockup"
                       >
                         <img 
@@ -1447,7 +1447,7 @@ export function PortalCreateOrder() {
                         e.stopPropagation();
                         setExpandedImage({ src: image, alt: style });
                       }}
-                      className="w-full h-48 flex items-center justify-center mb-3 relative cursor-zoom-in"
+                      className="w-full h-64 flex items-center justify-center mb-3 relative cursor-zoom-in"
                       title="Click to expand mockup"
                     >
                       <img 
@@ -1497,7 +1497,7 @@ export function PortalCreateOrder() {
                         e.stopPropagation();
                         setExpandedImage({ src: image, alt: style });
                       }}
-                      className="w-full h-48 flex items-center justify-center mb-3 relative cursor-zoom-in"
+                      className="w-full h-64 flex items-center justify-center mb-3 relative cursor-zoom-in"
                       title="Click to expand mockup"
                     >
                       <img 
