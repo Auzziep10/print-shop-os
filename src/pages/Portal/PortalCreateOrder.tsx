@@ -650,12 +650,14 @@ export function PortalCreateOrder() {
               const styleKey = item.style || item.itemNum;
               if (styleKey && !uniqueGarmentsMap[styleKey]) {
                 uniqueGarmentsMap[styleKey] = {
+                  ...item,
                   id: item.id || `past-${Date.now()}-${Math.random()}`,
                   style: item.style || 'Custom Garment',
                   itemNum: item.itemNum || '',
                   image: item.image || '',
-                  colors: item.color ? [item.color] : ['Custom Color'],
-                  price: parseFloat(item.price || 0)
+                  colors: item.colors || (item.color ? [item.color] : ['Custom Color']),
+                  price: parseFloat(item.price || 0),
+                  selectedColor: item.color || item.selectedColor || ''
                 };
               }
             });

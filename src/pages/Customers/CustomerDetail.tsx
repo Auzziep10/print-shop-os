@@ -136,13 +136,15 @@ export function CustomerDetail() {
   const [activeGarmentTab, setActiveGarmentTab] = useState<'suggested' | 'past'>('suggested');
   const [assets, setAssets] = useState<any[]>([]);
   const [isAddingSuggestedModalOpen, setIsAddingSuggestedModalOpen] = useState(false);
+  const [editingSuggestedItem, setEditingSuggestedItem] = useState<any | null>(null);
   const [customSuggestedItem, setCustomSuggestedItem] = useState({
     style: '',
     itemNum: '',
     description: '',
     image: '',
     colors: '',
-    price: ''
+    price: '',
+    gender: 'Unisex'
   });
   const [isUploadingLogoVault, setIsUploadingLogoVault] = useState(false);
   const [isUploadingMockup, setIsUploadingMockup] = useState(false);
@@ -178,7 +180,8 @@ export function CustomerDetail() {
       description: product.description || '',
       image: swatchUrl || (Object.values(product.images)[0] as any)?.front || (Object.values(product.images)[0] as any) || '',
       colors: product.colors.join(', '),
-      price: product.price.toString()
+      price: product.price.toString(),
+      gender: 'Unisex'
     });
     setSelectedSanMarProduct(product);
     setSelectedInitialColor(initialColor);
@@ -201,7 +204,8 @@ export function CustomerDetail() {
         description: garmentToAdd.description || '',
         image: garmentToAdd.image || garmentToAdd.original_image || garmentToAdd.mockup_image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200',
         colors: garmentToAdd.colors || ['Custom Color'],
-        price: parseFloat(garmentToAdd.price || garmentToAdd.msrp || 0)
+        price: parseFloat(garmentToAdd.price || garmentToAdd.msrp || 0),
+        gender: garmentToAdd.gender || 'Unisex'
       };
     } else {
       if (!customSuggestedItem.style) {
@@ -239,7 +243,7 @@ export function CustomerDetail() {
       }
 
       itemObj = {
-        id: `sugg-${Date.now()}`,
+        id: editingSuggestedItem ? editingSuggestedItem.id : `sugg-${Date.now()}`,
         style: customSuggestedItem.style,
         itemNum: customSuggestedItem.itemNum || '',
         description: customSuggestedItem.description || '',
@@ -247,23 +251,28 @@ export function CustomerDetail() {
         colors: finalColors,
         images: imagesMap,
         backImages: backImagesMap,
-        price: parseFloat(customSuggestedItem.price) || 0
+        price: parseFloat(customSuggestedItem.price) || 0,
+        gender: customSuggestedItem.gender || 'Unisex'
       };
     }
 
-    const updated = [...suggestedItems, itemObj];
+    const updated = editingSuggestedItem
+      ? suggestedItems.map(item => item.id === editingSuggestedItem.id ? itemObj : item)
+      : [...suggestedItems, itemObj];
+      
     try {
       await updateDoc(doc(db, 'customers', id), {
         suggestedItems: updated
       });
       setSuggestedItems(updated);
       setIsAddingSuggestedModalOpen(false);
-      setCustomSuggestedItem({ style: '', itemNum: '', description: '', image: '', colors: '', price: '' });
+      setCustomSuggestedItem({ style: '', itemNum: '', description: '', image: '', colors: '', price: '', gender: 'Unisex' });
+      setEditingSuggestedItem(null);
       setSelectedSanMarProduct(null);
       setSelectedColors({});
       setSelectedInitialColor('');
     } catch (err) {
-      console.error("Error adding suggested item:", err);
+      console.error("Error saving suggested item:", err);
       alert("Failed to suggest garment.");
     }
   };
@@ -981,16 +990,42 @@ export function CustomerDetail() {
                           <img src={item.image} alt={item.style} className="max-w-full max-h-full object-contain mix-blend-multiply" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <h4 className="font-bold text-neutral-900 text-sm truncate">{item.style}</h4>
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-bold text-neutral-900 text-sm truncate">{item.style}</h4>
+                            <span className="text-[9px] font-bold text-neutral-500 bg-neutral-100 px-1.5 py-0.5 rounded-full shrink-0">
+                              {item.gender || 'Unisex'}
+                            </span>
+                          </div>
                           <p className="text-xs text-brand-secondary truncate mt-0.5">{item.itemNum || 'Custom Item'} • ${item.price.toFixed(2)}</p>
                         </div>
-                        <button 
-                          onClick={() => handleDeleteSuggestedItem(item.id)}
-                          className="text-neutral-400 hover:text-red-500 transition-colors p-2 shrink-0 cursor-pointer"
-                          title="Remove Suggestion"
-                        >
-                          <Trash2 size={16} />
-                        </button>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            onClick={() => {
+                              setEditingSuggestedItem(item);
+                              setCustomSuggestedItem({
+                                style: item.style,
+                                itemNum: item.itemNum || '',
+                                description: item.description || '',
+                                image: item.image || '',
+                                colors: Array.isArray(item.colors) ? item.colors.join(', ') : (item.colors || ''),
+                                price: String(item.price || ''),
+                                gender: item.gender || 'Unisex'
+                              });
+                              setIsAddingSuggestedModalOpen(true);
+                            }}
+                            className="text-neutral-400 hover:text-brand-primary transition-colors p-2 cursor-pointer"
+                            title="Edit Suggestion"
+                          >
+                            <Edit3 size={16} />
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteSuggestedItem(item.id)}
+                            className="text-neutral-400 hover:text-red-500 transition-colors p-2 cursor-pointer"
+                            title="Remove Suggestion"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -1707,8 +1742,20 @@ export function CustomerDetail() {
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/40 backdrop-blur-sm p-6 animate-in fade-in zoom-in-95 duration-200">
           <div className="bg-white max-w-lg w-full rounded-2xl shadow-2xl p-6 border border-brand-border flex flex-col">
             <div className="flex justify-between items-center mb-6">
-              <h3 className="font-serif text-xl text-brand-primary">Add Suggested Garment</h3>
-              <button onClick={() => setIsAddingSuggestedModalOpen(false)} className="text-brand-secondary hover:text-brand-primary transition-colors bg-brand-bg border border-brand-border rounded-md p-1">
+              <h3 className="font-serif text-xl text-brand-primary">
+                {editingSuggestedItem ? "Edit Suggested Garment" : "Add Suggested Garment"}
+              </h3>
+              <button 
+                onClick={() => {
+                  setIsAddingSuggestedModalOpen(false);
+                  setEditingSuggestedItem(null);
+                  setCustomSuggestedItem({ style: '', itemNum: '', description: '', image: '', colors: '', price: '', gender: 'Unisex' });
+                  setSelectedSanMarProduct(null);
+                  setSelectedColors({});
+                  setSelectedInitialColor('');
+                }} 
+                className="text-brand-secondary hover:text-brand-primary transition-colors bg-brand-bg border border-brand-border rounded-md p-1"
+              >
                 <X size={16} />
               </button>
             </div>
@@ -1716,7 +1763,7 @@ export function CustomerDetail() {
             <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-1">
               
               {/* Option A: Select from active customer decks */}
-              {customerDecks.length > 0 && (
+              {!editingSuggestedItem && customerDecks.length > 0 && (
                 <div className="flex flex-col gap-2.5">
                   <h4 className="text-xs font-bold uppercase tracking-widest text-neutral-500">A. Suggest from Assigned Decks</h4>
                   <div className="grid grid-cols-1 gap-2">
@@ -1748,17 +1795,21 @@ export function CustomerDetail() {
 
               {/* Option B: Add completely custom suggested item */}
               <div className="flex flex-col gap-4 border-t border-neutral-100 pt-6">
-                <h4 className="text-xs font-bold uppercase tracking-widest text-neutral-500">B. Add custom or blanks catalog recommendation</h4>
+                <h4 className="text-xs font-bold uppercase tracking-widest text-neutral-500">
+                  {editingSuggestedItem ? "Garment Details" : "B. Add custom or blanks catalog recommendation"}
+                </h4>
                 
-                {/* SanMar selector button */}
-                <button
-                  type="button"
-                  onClick={() => setIsGarmentBrowserOpen(true)}
-                  className="flex items-center justify-center gap-2 w-full p-4 border border-dashed border-black/20 hover:border-black rounded-xl hover:bg-neutral-50 text-left transition-all text-xs font-bold text-neutral-700 cursor-pointer"
-                >
-                  <Shirt size={16} />
-                  Select Blank from SanMar Catalog
-                </button>
+                {!editingSuggestedItem && (
+                  /* SanMar selector button */
+                  <button
+                    type="button"
+                    onClick={() => setIsGarmentBrowserOpen(true)}
+                    className="flex items-center justify-center gap-2 w-full p-4 border border-dashed border-black/20 hover:border-black rounded-xl hover:bg-neutral-50 text-left transition-all text-xs font-bold text-neutral-700 cursor-pointer"
+                  >
+                    <Shirt size={16} />
+                    Select Blank from SanMar Catalog
+                  </button>
+                )}
 
                 {selectedSanMarProduct && (
                   <div className="flex items-center justify-between bg-neutral-50 border border-neutral-200/60 rounded-xl p-3">
@@ -1779,7 +1830,7 @@ export function CustomerDetail() {
                       onClick={() => {
                         setSelectedSanMarProduct(null);
                         setSelectedColors({});
-                        setCustomSuggestedItem({ style: '', itemNum: '', description: '', image: '', colors: '', price: '' });
+                        setCustomSuggestedItem({ style: '', itemNum: '', description: '', image: '', colors: '', price: '', gender: 'Unisex' });
                       }}
                       className="text-xs font-bold text-red-500 hover:text-red-700 transition-colors cursor-pointer"
                     >
@@ -1920,6 +1971,19 @@ export function CustomerDetail() {
                   </div>
                 </div>
 
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Gender / Fit</label>
+                  <select 
+                    className="w-full bg-brand-bg border border-brand-border/60 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-brand-primary/30 font-medium cursor-pointer"
+                    value={customSuggestedItem.gender || 'Unisex'} 
+                    onChange={e => setCustomSuggestedItem({...customSuggestedItem, gender: e.target.value})} 
+                  >
+                    <option value="Unisex">Unisex</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                  </select>
+                </div>
+
                 <div className="grid grid-cols-2 gap-4">
                   <div className="flex flex-col gap-1.5">
                     <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Price per Unit</label>
@@ -1946,7 +2010,7 @@ export function CustomerDetail() {
                 </div>
 
                 <PillButton variant="filled" className="w-full justify-center py-3 mt-2" onClick={() => handleAddSuggestedItem()}>
-                  Suggest Custom Garment
+                  {editingSuggestedItem ? "Save Changes" : "Suggest Custom Garment"}
                 </PillButton>
               </div>
 
