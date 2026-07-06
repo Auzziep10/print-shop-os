@@ -262,7 +262,6 @@ export function CustomerDetail() {
       setSelectedSanMarProduct(null);
       setSelectedColors({});
       setSelectedInitialColor('');
-      alert("Garment suggested to customer!");
     } catch (err) {
       console.error("Error adding suggested item:", err);
       alert("Failed to suggest garment.");
@@ -1031,7 +1030,6 @@ export function CustomerDetail() {
                                     suggestedItems: updated
                                   });
                                   setSuggestedItems(updated);
-                                  alert("Garment suggested to customer!");
                                 } catch (err) {
                                   console.error("Error suggesting past item:", err);
                                   alert("Failed to suggest garment.");
