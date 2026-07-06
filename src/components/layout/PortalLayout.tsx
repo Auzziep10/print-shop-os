@@ -369,7 +369,13 @@ export function PortalLayout() {
           <button
             id="reorder-cart-btn"
             data-tour="reorder-cart-btn"
-            onClick={() => navigate(customerId ? `/portal/${customerId}/create` : '/portal/create')}
+            onClick={() => {
+              if (location.pathname.endsWith('/create')) {
+                window.dispatchEvent(new CustomEvent('wovn_open_cart_drawer'));
+              } else {
+                navigate(customerId ? `/portal/${customerId}/create?openCart=true` : '/portal/create?openCart=true');
+              }
+            }}
             className={`bg-white border border-emerald-500 text-emerald-700 px-4.5 py-2.5 rounded-full text-xs font-bold tracking-wide hover:bg-neutral-50 hover:scale-105 active:scale-95 shadow-sm flex items-center gap-2 cursor-pointer mr-2 transition-all duration-300 ${
               isJiggling ? 'animate-bounce' : ''
             } ${

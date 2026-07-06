@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { ArrowLeft, PackagePlus, X, Trash2, ChevronDown, RotateCcw, Calendar, Loader2, Sparkles, Plus, Save, User, Copy, Upload } from 'lucide-react';
+import { ArrowLeft, PackagePlus, X, Trash2, ChevronDown, RotateCcw, Calendar, Loader2, Sparkles, Save, User, Copy, Upload, ShoppingCart } from 'lucide-react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { db, storage } from '../../lib/firebase';
 import { doc, getDoc, collection, query, where, getDocs, setDoc, deleteDoc } from 'firebase/firestore';
@@ -162,13 +162,13 @@ export function PortalCreateOrder() {
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
   // Selected Packaging preference
-  const [selectedPackaging, setSelectedPackaging] = useState('Retail (single folded)');
+  const selectedPackaging = 'Retail (single folded)';
 
   // Selected Delivery option
   const [deliveryOption, setDeliveryOption] = useState('Shipping');
 
   // Additional checkout details
-  const [neededByDate, setNeededByDate] = useState('');
+  const neededByDate = '';
   const [orderType, setOrderType] = useState<'Retail' | 'Wholesale'>('Retail');
   const [resaleCertificateUrl, setResaleCertificateUrl] = useState<string | null>(null);
   const [resaleCertificateName, setResaleCertificateName] = useState<string | null>(null);
@@ -195,7 +195,7 @@ export function PortalCreateOrder() {
     }
   }, [customer]);
 
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isCartOpen, setIsCartOpen] = useState(false);
   const [isGarmentBrowserOpen, setIsGarmentBrowserOpen] = useState(false);
   const [orderItems, setOrderItems] = useState<any[]>([]);
 
@@ -229,13 +229,28 @@ export function PortalCreateOrder() {
   const [pendingPreselected, setPendingPreselected] = useState<any[] | null>(null);
   const [isInitialLoadDone, setIsInitialLoadDone] = useState(false);
 
+  // Listen to custom event for opening cart drawer from parent layout
+  useEffect(() => {
+    const handleOpenDrawer = () => setIsCartOpen(true);
+    window.addEventListener('wovn_open_cart_drawer', handleOpenDrawer);
+    return () => window.removeEventListener('wovn_open_cart_drawer', handleOpenDrawer);
+  }, []);
+
   // Read initial tab and drawer state from URL query parameters
   useEffect(() => {
     const searchParams = new URLSearchParams(location.search);
     const tabParam = searchParams.get('tab');
     if (tabParam === 'saved') {
       setActiveLibraryTab('saved');
-      setIsDrawerOpen(true);
+    } else if (tabParam) {
+      setActiveLibraryTab(tabParam);
+    }
+    
+    if (searchParams.get('openCart') === 'true') {
+      setIsCartOpen(true);
+      // Clean up URL search param
+      const newUrl = window.location.pathname + (searchParams.get('tab') ? `?tab=${searchParams.get('tab')}` : '');
+      window.history.replaceState(null, '', newUrl);
     }
   }, [location.search]);
 
@@ -314,10 +329,10 @@ export function PortalCreateOrder() {
   }, [location.state, customerId, isInitialLoadDone]);
 
   useEffect(() => {
-    if (location.state?.openLibrary) {
-      setIsDrawerOpen(true);
+    if (location.state?.openLibrary || location.state?.openCart) {
+      setIsCartOpen(true);
       // Clear location state flag
-      window.history.replaceState({ ...location.state, openLibrary: undefined }, document.title);
+      window.history.replaceState({ ...location.state, openLibrary: undefined, openCart: undefined }, document.title);
     }
   }, [location.state]);
 
@@ -467,6 +482,7 @@ export function PortalCreateOrder() {
   const handleLoadSavedCart = (savedCart: any) => {
     if (window.confirm(`Are you sure you want to load the saved cart "${savedCart.name}"? This will replace your current cart.`)) {
       setOrderItems(savedCart.items || []);
+      setIsCartOpen(true);
     }
   };
 
@@ -638,12 +654,18 @@ export function PortalCreateOrder() {
           setHasWovnRack(isRackActive);
           setSuggestedItems(customerData.suggestedItems || []);
           
-          if (categories.length > 0) {
-            setActiveLibraryTab('rack');
-          } else if (isRackActive) {
-            setActiveLibraryTab('wovn');
+          const searchParams = new URLSearchParams(window.location.search);
+          const tabParam = searchParams.get('tab');
+          if (tabParam) {
+            setActiveLibraryTab(tabParam);
           } else {
-            setActiveLibraryTab(customerData.suggestedItems && customerData.suggestedItems.length > 0 ? 'suggested' : 'past');
+            if (categories.length > 0) {
+              setActiveLibraryTab('rack');
+            } else if (isRackActive) {
+              setActiveLibraryTab('wovn');
+            } else {
+              setActiveLibraryTab(customerData.suggestedItems && customerData.suggestedItems.length > 0 ? 'suggested' : 'past');
+            }
           }
           
           if (deckIds.length > 0) {
@@ -904,7 +926,7 @@ export function PortalCreateOrder() {
       quantities: qtyMap
     };
     setOrderItems(prev => [...prev, newItem]);
-    setIsDrawerOpen(false); // smoothly close drawer
+    setIsCartOpen(true); // Open the cart drawer
   };
 
   const handleSelectSanMarGarment = (product: any, initialColor: string) => {
@@ -1016,7 +1038,7 @@ export function PortalCreateOrder() {
   };
 
   return (
-    <div className="max-w-[1200px] mx-auto w-full flex flex-col gap-8 animate-in fade-in zoom-in-95 duration-300">
+    <div className="max-w-[1200px] mx-auto w-full flex flex-col gap-8 animate-in fade-in zoom-in-95 duration-300 pb-20">
       {/* Header Area */}
       <div className="flex items-center justify-between mt-4">
         <button 
@@ -1027,15 +1049,31 @@ export function PortalCreateOrder() {
           Back to Orders
         </button>
 
-        {previousOrders.length > 0 && (
+        <div className="flex items-center gap-4">
+          {previousOrders.length > 0 && (
+            <button 
+              onClick={() => setIsRepeatModalOpen(true)}
+              className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-neutral-500 hover:text-black hover:underline transition-colors cursor-pointer"
+            >
+              <RotateCcw size={12} />
+              Repeat Past Order
+            </button>
+          )}
+
+          {/* Cart Toggle Button */}
           <button 
-            onClick={() => setIsRepeatModalOpen(true)}
-            className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-neutral-500 hover:text-black hover:underline transition-colors cursor-pointer"
+            onClick={() => setIsCartOpen(true)}
+            className="relative flex items-center gap-2 bg-black hover:bg-neutral-800 text-white px-5 py-2.5 rounded-full text-xs font-bold shadow-md transition-all cursor-pointer select-none"
           >
-            <RotateCcw size={12} />
-            Repeat Past Order
+            <ShoppingCart size={14} />
+            <span>View Cart</span>
+            {orderItems.length > 0 && (
+              <span className="bg-emerald-500 text-white text-[9px] font-extrabold w-4 h-4 rounded-full flex items-center justify-center border border-black animate-scale-in ml-1">
+                {orderItems.length}
+              </span>
+            )}
           </button>
-        )}
+        </div>
       </div>
 
       <div className="flex flex-col gap-2">
@@ -1043,1149 +1081,793 @@ export function PortalCreateOrder() {
           Create New Quote Request
         </h1>
         <p className="text-neutral-500 font-medium text-sm max-w-xl leading-relaxed">
-          Use the builder below to select garments, upload artwork, and construct your request. We'll generate mockups for your review.
+          Select garments, upload artwork, and construct your request. We'll generate mockups for your review.
         </p>
       </div>
 
-      {/* Builder Layout - Starting simple */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-4">
-        
-        {/* Left Column: Form / Steps */}
-        <div className="lg:col-span-2 flex flex-col gap-6">
-          {orderItems.length === 0 ? (
-            <div className="bg-white rounded-3xl p-8 shadow-[0_4px_24px_rgb(0,0,0,0.02)] border border-neutral-100 flex flex-col gap-6">
-              <div>
-                <h3 className="text-xl font-serif text-neutral-900">Your Catalog</h3>
-                <p className="text-sm font-medium text-neutral-500 mt-1">Select from your approved collection, suggested, or past styles to begin building your order.</p>
-              </div>
-
-              {/* Library Tabs */}
-              <div className="flex gap-4 border-b border-neutral-100 py-3 overflow-x-auto shrink-0 bg-neutral-50/50 px-4 rounded-xl">
-                <button
-                  type="button"
-                  onClick={() => setActiveLibraryTab('rack')}
-                  className={`text-sm font-bold pb-1.5 border-b-2 whitespace-nowrap transition-all cursor-pointer ${
-                    activeLibraryTab === 'rack' 
-                      ? 'text-black border-black' 
-                      : 'text-neutral-400 border-transparent hover:text-black hover:border-black'
-                  }`}
-                >
-                  Design Your Rack ({activeRackItems.length})
-                </button>
-                {hasWovnRack && (
-                  <button
-                    type="button"
-                    onClick={() => setActiveLibraryTab('wovn')}
-                    className={`text-sm font-bold pb-1.5 border-b-2 whitespace-nowrap transition-all cursor-pointer ${
-                      activeLibraryTab === 'wovn' 
-                        ? 'text-black border-black' 
-                        : 'text-neutral-400 border-transparent hover:text-black hover:border-black'
-                    }`}
-                  >
-                    WOVN Catalog ({customerDecks.reduce((acc, deck) => acc + (deck.items || deck.garments || []).length, 0)})
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setActiveLibraryTab('suggested')}
-                  className={`text-sm font-bold pb-1.5 border-b-2 whitespace-nowrap transition-all cursor-pointer ${
-                    activeLibraryTab === 'suggested' 
-                      ? 'text-black border-black' 
-                      : 'text-neutral-400 border-transparent hover:text-black hover:border-black'
-                  }`}
-                >
-                  Suggested ({suggestedItems.length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveLibraryTab('past')}
-                  className={`text-sm font-bold pb-1.5 border-b-2 whitespace-nowrap transition-all cursor-pointer ${
-                    activeLibraryTab === 'past' 
-                      ? 'text-black border-black' 
-                      : 'text-neutral-400 border-transparent hover:text-black hover:border-black'
-                  }`}
-                >
-                  Past Garments ({pastGarments.length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveLibraryTab('saved')}
-                  className={`text-sm font-bold pb-1.5 border-b-2 whitespace-nowrap transition-all cursor-pointer ${
-                    activeLibraryTab === 'saved' 
-                      ? 'text-black border-black' 
-                      : 'text-neutral-400 border-transparent hover:text-black hover:border-black'
-                  }`}
-                >
-                  Saved Carts ({savedCarts.length})
-                </button>
-              </div>
-
-              {activeLibraryTab === 'rack' && (
-                <div className="flex flex-wrap gap-2 pb-2 border-b border-neutral-100">
-                  {Object.keys(customerRacks).map((catName) => (
-                    <button
-                      key={catName}
-                      type="button"
-                      onClick={() => setActiveRackCategory(catName)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
-                        activeRackCategory === catName
-                          ? 'bg-black text-white'
-                          : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
-                      }`}
-                    >
-                      {catName}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {/* Library Grid Content */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {activeLibraryTab === 'rack' && (
-                  activeRackItems.length === 0 ? (
-                    <div className="col-span-full flex flex-col items-center justify-center p-8 text-center text-neutral-500">
-                      <PackagePlus size={32} className="mb-4 text-neutral-300" />
-                      <p>No garments configured for this category.</p>
-                    </div>
-                  ) : (
-                    activeRackItems.map((item: any, idx: number) => {
-                      const style = item.customName || item.title || item.style || 'Custom Garment';
-                      const gender = item.gender || 'Unisex';
-                      const itemNum = item.style;
-                      const colors = item.colors || ['Custom Color'];
-                      const sizes = parseSizesFromItem(item, item.style || '');
-                      const image = getGarmentImage(item);
-                      const price = parseFloat(item.price || 0);
-
-                      return (
-                        <div 
-                          key={item.id || idx} 
-                          onClick={() => handleAddItem({ ...item, style, gender, itemNum, colors, sizes, image, price })}
-                          className="group flex items-center gap-4 bg-neutral-50/50 border border-neutral-200 hover:border-black transition-colors rounded-2xl p-4 cursor-pointer shadow-[0_2px_10px_rgb(0,0,0,0.01)] hover:shadow-xs"
-                        >
-                          <div 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setExpandedImage({ src: image, alt: style });
-                            }}
-                            className="w-14 h-14 rounded-xl overflow-hidden bg-white border border-neutral-100 shrink-0 flex items-center justify-center cursor-zoom-in hover:scale-105 hover:border-neutral-300 transition-all"
-                            title="Click to expand"
-                          >
-                            <img src={image} alt={style} className="w-full h-full object-contain p-1 mix-blend-multiply" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between mb-1">
-                               <h4 className="font-bold text-neutral-900 text-sm truncate mb-0.5">{style}</h4>
-                               <span className="text-[9px] font-bold text-neutral-500 bg-neutral-200/60 px-2 py-0.5 rounded-full shrink-0">{gender}</span>
-                            </div>
-                            {item.customSpecs && (item.customSpecs.quality || item.customSpecs.material || item.customSpecs.weight) && (
-                              <p className="text-[10px] text-neutral-500 font-semibold mt-0.5">
-                                {[item.customSpecs.quality, item.customSpecs.material, item.customSpecs.weight].filter(Boolean).join(' • ')}
-                              </p>
-                            )}
-                            <p className="text-[10px] text-neutral-400 font-medium mt-1 truncate">{colors.join(' • ')}</p>
-                          </div>
-                          <button 
-                            className="w-8 h-8 rounded-full bg-white border border-neutral-200 text-neutral-400 group-hover:bg-black group-hover:text-white group-hover:border-black flex items-center justify-center transition-colors shrink-0"
-                          >
-                             <Plus size={14} strokeWidth={2.5} />
-                          </button>
-                        </div>
-                      );
-                    })
-                  )
-                )}
-
-                {activeLibraryTab === 'wovn' && (
-                  isLoadingDecks ? (
-                    <div className="col-span-full flex items-center justify-center p-8">
-                      <Loader2 className="animate-spin text-neutral-400" size={24} />
-                    </div>
-                  ) : customerDecks.length === 0 ? (
-                    <div className="col-span-full flex flex-col items-center justify-center p-8 text-center text-neutral-500">
-                      <PackagePlus size={32} className="mb-4 text-neutral-300" />
-                      <p>No catalog decks connected for this client.</p>
-                    </div>
-                  ) : (
-                    (() => {
-                      const flatGarments = customerDecks.reduce((acc: any[], deck: any) => {
-                        const items = deck.items || deck.garments || [];
-                        return [...acc, ...items];
-                      }, []);
-                      if (flatGarments.length === 0) {
-                        return (
-                          <div className="col-span-full flex flex-col items-center justify-center p-8 text-center text-neutral-500">
-                            <PackagePlus size={32} className="mb-4 text-neutral-300" />
-                            <p>No catalog garments found in connected decks.</p>
-                          </div>
-                        );
-                      }
-                      return flatGarments.map((item: any, idx: number) => {
-                        const style = item.garment_name || item.name || item.style || item.title || 'Unknown Style';
-                        const gender = item.gender || 'Unisex';
-                        const itemNum = item.itemNum || item.garment_id || item.sku || item.id || `GARMENT-${idx+1}`;
-                        
-                        let colors = findColorsInObj({ ...item }) || ['Custom Color'];
-                        if (colors.length === 0) colors = ['Custom Color'];
-                        
-                        let sizes = parseSizesFromItem(item, style);
-
-                        const image = item.mockup_image || item.mock_image || item.original_image || item.image || item.imageUrl || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
-                        
-                        const basePrice = parseFloat(item.msrp || item.price || item.unit_cost || 0);
-                        const price = basePrice;
-
-                        return (
-                          <div 
-                            key={item.id || idx} 
-                            onClick={() => handleAddItem({ ...item, style, gender, itemNum, colors, sizes, image, price })}
-                            className="group flex items-center gap-4 bg-neutral-50/50 border border-neutral-200 hover:border-black transition-colors rounded-2xl p-4 cursor-pointer shadow-[0_2px_10px_rgb(0,0,0,0.01)] hover:shadow-xs"
-                          >
-                            <div 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setExpandedImage({ src: image, alt: style });
-                              }}
-                              className="w-14 h-14 rounded-xl overflow-hidden bg-white border border-neutral-100 shrink-0 flex items-center justify-center cursor-zoom-in hover:scale-105 hover:border-neutral-300 transition-all"
-                              title="Click to expand"
-                            >
-                              <img src={image} alt={style} className="w-full h-full object-contain p-1 mix-blend-multiply" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between mb-1">
-                                 <h4 className="font-bold text-neutral-900 text-sm truncate pr-2">{style}</h4>
-                                 <span className="text-[9px] font-bold text-neutral-500 bg-neutral-200/60 px-2 py-0.5 rounded-full shrink-0">{gender}</span>
-                              </div>
-                              <p className="text-[10px] text-neutral-400 font-medium mt-1 truncate">{colors.join(' • ')}</p>
-                            </div>
-                            <button 
-                              className="w-8 h-8 rounded-full bg-white border border-neutral-200 text-neutral-400 group-hover:bg-black group-hover:text-white group-hover:border-black flex items-center justify-center transition-colors shrink-0"
-                            >
-                               <Plus size={14} strokeWidth={2.5} />
-                            </button>
-                          </div>
-                        );
-                      });
-                    })()
-                  )
-                )}
-
-                {activeLibraryTab === 'suggested' && (
-                  suggestedItems.length === 0 ? (
-                    <div className="col-span-full flex flex-col items-center justify-center p-8 text-center text-neutral-500">
-                      <PackagePlus size={32} className="mb-4 text-neutral-300" />
-                      <p>No suggested garments found.</p>
-                    </div>
-                  ) : (
-                    suggestedItems.map((item, idx) => {
-                      const style = item.style || 'Custom Garment';
-                      const itemNum = item.itemNum || '';
-                      const colors = item.colors || ['Custom Color'];
-                      const sizes = item.sizes || ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'];
-                      const image = item.image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
-                      const price = parseFloat(item.price || 0);
-
-                      return (
-                        <div 
-                          key={item.id || idx} 
-                          onClick={() => handleAddItem({ ...item, style, itemNum, colors, sizes, image, price })}
-                          className="group flex items-center gap-4 bg-neutral-50/50 border border-neutral-200 hover:border-black transition-colors rounded-2xl p-4 cursor-pointer shadow-[0_2px_10px_rgb(0,0,0,0.01)] hover:shadow-xs"
-                        >
-                          <div 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setExpandedImage({ src: image, alt: style });
-                            }}
-                            className="w-14 h-14 rounded-xl overflow-hidden bg-white border border-neutral-100 shrink-0 flex items-center justify-center cursor-zoom-in hover:scale-105 hover:border-neutral-300 transition-all"
-                            title="Click to expand"
-                          >
-                            <img src={image} alt={style} className="w-full h-full object-contain p-1 mix-blend-multiply" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h4 className="font-bold text-neutral-900 text-sm truncate mb-0.5">{style}</h4>
-                            <p className="text-[10px] text-neutral-400 font-medium mt-1 truncate">{colors.join(' • ')}</p>
-                          </div>
-                          <button 
-                            className="w-8 h-8 rounded-full bg-white border border-neutral-200 text-neutral-400 group-hover:bg-black group-hover:text-white group-hover:border-black flex items-center justify-center transition-colors shrink-0"
-                          >
-                             <Plus size={14} strokeWidth={2.5} />
-                          </button>
-                        </div>
-                      );
-                    })
-                  )
-                )}
-
-                {activeLibraryTab === 'past' && (
-                  pastGarments.length === 0 ? (
-                    <div className="col-span-full flex flex-col items-center justify-center p-8 text-center text-neutral-500">
-                      <PackagePlus size={32} className="mb-4 text-neutral-300" />
-                      <p>No past orders found.</p>
-                    </div>
-                  ) : (
-                    pastGarments.map((item, idx) => {
-                      const style = item.style || 'Custom Garment';
-                      const itemNum = item.itemNum || '';
-                      const colors = item.colors || ['Custom Color'];
-                      const sizes = item.sizes || ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'];
-                      const image = item.image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
-                      const price = parseFloat(item.price || 0);
-
-                      return (
-                        <div 
-                          key={item.id || idx} 
-                          onClick={() => handleAddItem({ ...item, style, itemNum, colors, sizes, image, price })}
-                          className="group flex items-center gap-4 bg-neutral-50/50 border border-neutral-200 hover:border-black transition-colors rounded-2xl p-4 cursor-pointer shadow-[0_2px_10px_rgb(0,0,0,0.01)] hover:shadow-xs"
-                        >
-                          <div 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setExpandedImage({ src: image, alt: style });
-                            }}
-                            className="w-14 h-14 rounded-xl overflow-hidden bg-white border border-neutral-100 shrink-0 flex items-center justify-center cursor-zoom-in hover:scale-105 hover:border-neutral-300 transition-all"
-                            title="Click to expand"
-                          >
-                            <img src={image} alt={style} className="w-full h-full object-contain p-1 mix-blend-multiply" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h4 className="font-bold text-neutral-900 text-sm truncate mb-0.5">{style}</h4>
-                            <p className="text-[10px] text-neutral-400 font-medium mt-1 truncate">{colors.join(' • ')}</p>
-                          </div>
-                          <button 
-                            className="w-8 h-8 rounded-full bg-white border border-neutral-200 text-neutral-400 group-hover:bg-black group-hover:text-white group-hover:border-black flex items-center justify-center transition-colors shrink-0"
-                          >
-                             <Plus size={14} strokeWidth={2.5} />
-                          </button>
-                        </div>
-                      );
-                    })
-                  )
-                )}
-
-                {activeLibraryTab === 'saved' && (
-                  <div className="col-span-full flex flex-col gap-4">
-                    {isLoadingSavedCarts ? (
-                      <div className="flex items-center justify-center p-8">
-                        <Loader2 className="animate-spin text-neutral-400" size={24} />
-                      </div>
-                    ) : savedCarts.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center p-8 text-center text-neutral-500 bg-neutral-50/50 border border-neutral-200 border-dashed rounded-3xl min-h-[200px] w-full">
-                        <Save size={32} className="mb-4 text-neutral-300" />
-                        <p className="font-semibold text-sm text-neutral-600">No saved carts yet.</p>
-                        <p className="text-xs text-neutral-400 mt-1 max-w-sm">Add items to your cart, then click "Save Cart for Later" to preserve your potential order.</p>
-                      </div>
-                    ) : (
-                      savedCarts.map((cartItem) => {
-                        const totalQuantity = (cartItem.items || []).reduce((acc: number, it: any) => {
-                          return acc + Object.values(it.quantities || {}).reduce((sum: number, q: any) => sum + (Number(q) || 0), 0);
-                        }, 0);
-
-                        return (
-                          <div key={cartItem.id} className="bg-neutral-50/50 border border-neutral-200 hover:border-neutral-300 transition-all rounded-2xl p-5 flex flex-col sm:flex-row sm:items-start justify-between gap-4 w-full">
-                            <div className="flex-1 min-w-0">
-                              <h4 className="font-bold text-neutral-900 text-sm truncate">{cartItem.name}</h4>
-                              <div className="flex items-center gap-3 text-[10px] text-neutral-400 font-medium mt-1">
-                                <span>{new Date(cartItem.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                                <span>•</span>
-                                <span>{cartItem.items?.length || 0} styles ({totalQuantity} garments total)</span>
-                                <span>•</span>
-                                <span>Saved by {cartItem.createdBy}</span>
-                              </div>
-                              
-                              <div className="mt-4 flex flex-col gap-2 max-w-xl">
-                                {(cartItem.items || []).map((it: any, idx: number) => {
-                                  const qty = Object.values(it.quantities || {}).reduce((sum: number, q: any) => sum + (Number(q) || 0), 0);
-                                  const itImage = it.image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
-                                  return (
-                                    <div key={idx} className="flex items-center gap-3 bg-white border border-neutral-100 rounded-xl p-2 shadow-sm">
-                                      <div className="w-8 h-8 rounded-lg bg-neutral-50 border border-neutral-100 flex items-center justify-center p-0.5 shrink-0">
-                                        <img src={itImage} alt="" className="w-full h-full object-contain mix-blend-multiply" />
-                                      </div>
-                                      <div className="flex-1 min-w-0 flex items-center justify-between gap-4">
-                                        <div>
-                                          <p className="text-xs font-bold text-neutral-800 truncate">{it.style}</p>
-                                          <p className="text-[10px] text-neutral-500 font-semibold truncate">Color: {it.selectedColor || 'Default'}</p>
-                                        </div>
-                                        <span className="text-[11px] font-extrabold text-neutral-600 bg-neutral-50 px-2 py-0.5 rounded-md border border-neutral-100 shrink-0">
-                                          {qty} pcs
-                                        </span>
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          
-                          <div className="flex items-center gap-2 shrink-0">
-                            <button
-                              type="button"
-                              onClick={() => handleLoadSavedCart(cartItem)}
-                              className="bg-black hover:bg-neutral-800 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all shadow-sm cursor-pointer"
-                            >
-                              Load Cart
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteSavedCart(cartItem.id, cartItem.name)}
-                              className="p-2 text-neutral-450 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all cursor-pointer border border-transparent hover:border-red-100"
-                              title="Delete saved cart"
-                            >
-                              <Trash2 size={15} />
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          ) : (
-            <>
-              {/* Loop through actual order items */}
-              {orderItems.map((item, index) => (
-                <div key={item.instanceId} className="bg-white rounded-3xl p-6 shadow-[0_4px_24px_rgb(0,0,0,0.02)] border border-neutral-100 flex flex-col gap-4 animate-in slide-in-from-bottom-4 fade-in duration-300">
-                  <div className="flex items-start justify-between border-b border-neutral-100 pb-4">
-                    <div className="flex gap-5 items-center">
-                      {(() => {
-                        const N = getActiveSidesCount(item);
-                        const isHovered = hoveredItemId === item.instanceId;
-                        const translatePercentage = isHovered && N > 1 ? (100 / N) : 0;
-                        const getPreviewUrl = () => {
-                          if (item.customized) return item.image;
-                          const colorVal = item.images?.[item.selectedColor];
-                          if (!colorVal) return item.image;
-                          if (typeof colorVal === 'string') return colorVal;
-                          return colorVal.front || colorVal.swatch || colorVal.back || item.image;
-                        };
-                        const srcUrl = getPreviewUrl();
-                        return (
-                          <div 
-                            onClick={() => setPreviewImageUrl(srcUrl)}
-                            onMouseEnter={() => setHoveredItemId(item.instanceId)}
-                            onMouseLeave={() => setHoveredItemId(null)}
-                            className={`w-20 h-20 rounded-xl overflow-hidden bg-neutral-50 border border-neutral-100 shrink-0 cursor-pointer flex items-center relative group ${
-                              item.customized ? 'justify-start' : 'justify-center'
-                            }`}
-                            title="Hover to slide mockup, click to view full screen"
-                          >
-                            <img 
-                              src={srcUrl} 
-                              alt={item.style} 
-                              style={{
-                                width: item.customized ? `${N * 100}%` : '100%',
-                                height: '100%',
-                                maxWidth: 'none',
-                                transform: item.customized ? `translateX(-${translatePercentage}%)` : 'none',
-                                transition: 'transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
-                              }}
-                              className={`${item.customized ? 'object-cover' : 'object-contain'} mix-blend-multiply select-none animate-in fade-in duration-300 p-1`}
-                            />
-                          </div>
-                        );
-                      })()}
-                      <div>
-                        <div className="flex items-center gap-2 mb-1.5">
-                          <span className="w-6 h-6 rounded-full bg-neutral-100 flex items-center justify-center text-[10px] font-bold text-neutral-400 shrink-0">{index + 1}</span>
-                          <h3 className="text-lg font-bold text-neutral-900">{item.style}</h3>
-                        </div>
-                        
-                        <div className="flex items-center gap-2 mt-1.5">
-                          <span className="text-[10px] uppercase font-bold text-neutral-400 tracking-wider">Garment Color</span>
-                          <div className="relative min-w-[160px]">
-                            <select 
-                              value={item.selectedColor || ''}
-                              onChange={(e) => {
-                                const newCol = e.target.value;
-                                setOrderItems(prev => prev.map(o => o.instanceId === item.instanceId ? { ...o, selectedColor: newCol } : o));
-                              }}
-                              className="w-full appearance-none bg-neutral-50 border border-neutral-200 rounded-lg px-2.5 py-1 text-xs font-semibold text-neutral-800 focus:outline-none focus:border-neutral-400 cursor-pointer pr-7"
-                            >
-                              {item.colors.map((c: string) => <option key={c} value={c}>{c}</option>)}
-                            </select>
-                            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" size={12} />
-                          </div>
-                        </div>
-
-                        {(() => {
-                          const activePlacements = [];
-                          if (item.logoUrl) activePlacements.push("Front");
-                          if (item.logoUrlBack) activePlacements.push("Back");
-                          if (item.logoUrlLeftSleeve) activePlacements.push("Left Sleeve");
-                          if (item.logoUrlRightSleeve) activePlacements.push("Right Sleeve");
-                          const count = activePlacements.length;
-                          return (
-                            <div className="flex items-center gap-1.5 mt-2">
-                              <span className="text-[10px] uppercase font-bold text-neutral-400 tracking-wider">Placements ({count}):</span>
-                              <span className="text-xs font-bold text-neutral-800 bg-neutral-100 px-2 py-0.5 rounded-md">
-                                {count > 0 ? activePlacements.join(', ') : 'None selected'}
-                              </span>
-                            </div>
-                          );
-                        })()}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <button
-                        type="button"
-                        onClick={() => handleDuplicateItem(item)}
-                        className="bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 text-neutral-800 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
-                        title="Add another color/design variation of this item"
-                      >
-                        <Copy size={12} className="text-neutral-500" /> + Variation
-                      </button>
-                      <button
-                        type="button"
-                        data-tour={index === 0 ? "customize-btn" : undefined}
-                        onClick={() => setCustomizingItem(item)}
-                        className="bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 text-neutral-800 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
-                      >
-                        <Sparkles size={12} className="text-neutral-500" /> Customize
-                      </button>
-                      <button 
-                        onClick={() => handleRemoveItem(item.instanceId)}
-                        className="text-neutral-400 hover:text-red-500 transition-colors p-2 cursor-pointer"
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Sizing Matrix */}
-                  <div 
-                    data-tour={index === 0 ? "sizing-matrix" : undefined}
-                    className="bg-neutral-50 rounded-xl p-4 flex flex-col items-start border border-neutral-200 gap-3"
-                  >
-                     <div className="flex justify-between items-center w-full">
-                       <span className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Size Run</span>
-                       <button
-                         type="button"
-                         data-tour={index === 0 ? "add-youth-sizing-btn" : undefined}
-                         onClick={() => {
-                           const youthSizes = { 'YXS': 0, 'YS': 0, 'YM': 0, 'YL': 0, 'YXL': 0 };
-                           setOrderItems(prev => prev.map(o => o.instanceId === item.instanceId ? {
-                             ...o,
-                             quantities: { ...youthSizes, ...(o.quantities || {}) }
-                           } : o));
-                         }}
-                         className="text-[9px] font-bold uppercase tracking-wider text-neutral-600 bg-white border border-neutral-200 hover:border-neutral-400 px-2.5 py-1 rounded-full transition-all cursor-pointer shadow-3xs"
-                       >
-                         + Add Youth Sizing
-                       </button>
-                     </div>
-                     <div className="flex flex-wrap gap-2 w-full">
-                       {Object.keys(item.quantities).sort(sortSizes).map((size) => (
-                         <div key={size} className="flex-1 min-w-[50px] flex flex-col bg-white border border-neutral-200 rounded-lg overflow-hidden focus-within:border-black focus-within:ring-1 focus-within:ring-black transition-all">
-                           <div className="bg-neutral-100 text-neutral-600 text-[10px] font-bold py-1.5 uppercase tracking-wide flex items-center justify-center border-b border-neutral-200">
-                             {size}
-                           </div>
-                           <input 
-                             type="number"
-                             min="0"
-                             value={item.quantities[size] || ''}
-                             placeholder="0"
-                             onChange={(e) => handleUpdateQuantity(item.instanceId, size, e.target.value)}
-                             className="w-full h-10 text-center text-sm font-bold text-neutral-900 focus:outline-none placeholder:text-neutral-300"
-                           />
-                         </div>
-                       ))}
-                     </div>
-                  </div>
-                </div>
-              ))}
-
-              {/* Add Another Garment Button */}
-              <button 
-                data-tour="add-garment-btn"
-                onClick={() => {
-                  const categories = Object.keys(customerRacks);
-                  if (categories.length > 0) {
-                    setActiveLibraryTab('rack');
-                  } else if (hasWovnRack) {
-                    setActiveLibraryTab('wovn');
-                  } else {
-                    setActiveLibraryTab(suggestedItems.length > 0 ? 'suggested' : 'past');
-                  }
-                  setIsDrawerOpen(true);
-                }}
-                className="w-full bg-neutral-50 hover:bg-neutral-100 border-2 border-dashed border-neutral-200 rounded-3xl p-6 flex flex-col items-center justify-center text-neutral-500 hover:text-black transition-all group cursor-pointer"
-              >
-                <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform mb-3">
-                  <PackagePlus size={20} strokeWidth={2} />
-                </div>
-                <span className="font-bold text-sm tracking-wide">Add Another Garment from Library</span>
-              </button>
-            </>
-          )}
+      {/* Main Full Screen Catalog Selector */}
+      <div className="bg-white rounded-3xl p-8 shadow-[0_4px_24px_rgb(0,0,0,0.02)] border border-neutral-100 flex flex-col gap-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h3 className="text-xl font-serif text-neutral-900">Your Catalog</h3>
+            <p className="text-sm font-medium text-neutral-500 mt-1">Select from your approved collection, suggested, or past styles to begin building your order.</p>
+          </div>
         </div>
 
-        {/* Right Column: Order Summary (Sticky) */}
-        <div className="lg:col-span-1">
-          <div 
-            data-tour="order-summary"
-            className="sticky top-8 bg-neutral-50 rounded-3xl p-6 border border-neutral-200/60 max-h-[calc(100vh-64px)] flex flex-col overflow-y-auto"
+        {/* Library Tabs */}
+        <div className="flex gap-4 border-b border-neutral-100 py-3 overflow-x-auto shrink-0 bg-neutral-50/50 px-4 rounded-xl">
+          <button
+            type="button"
+            onClick={() => setActiveLibraryTab('rack')}
+            className={`text-sm font-bold pb-1.5 border-b-2 whitespace-nowrap transition-all cursor-pointer ${
+              activeLibraryTab === 'rack' 
+                ? 'text-black border-black' 
+                : 'text-neutral-400 border-transparent hover:text-black hover:border-black'
+            }`}
           >
-            <h3 className="font-serif text-xl text-neutral-900 border-b border-neutral-200 pb-4 mb-4">
-              Order Summary
-            </h3>
-            
-            <div className="flex-1 flex flex-col items-center justify-center text-neutral-400 gap-3">
-              {orderItems.length === 0 ? (
-                <p className="text-sm font-medium text-center">Your order is currently empty.</p>
-              ) : (
-                <div className="w-full flex-1 flex flex-col gap-3">
-                  {orderItems.map((item, idx) => {
-                    const totalQty = Object.values(item.quantities as Record<string, number>).reduce((sum, qty) => sum + qty, 0);
-                    return (
-                      <div key={item.instanceId} className="flex items-start justify-between text-sm py-2 border-b border-neutral-100 last:border-0 pointer-events-none w-full">
-                        <span className="font-semibold text-neutral-900 truncate pr-2 flex-1"><span className="text-neutral-400 mr-2">{idx+1}.</span>{item.style}</span>
-                        <div className="flex flex-col items-end shrink-0">
-                            <span className={`font-bold ${totalQty > 0 ? 'text-neutral-900' : 'text-neutral-400'}`}>{totalQty} QTY</span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+            Design Your Rack ({activeRackItems.length})
+          </button>
+          {hasWovnRack && (
+            <button
+              type="button"
+              onClick={() => setActiveLibraryTab('wovn')}
+              className={`text-sm font-bold pb-1.5 border-b-2 whitespace-nowrap transition-all cursor-pointer ${
+                activeLibraryTab === 'wovn' 
+                  ? 'text-black border-black' 
+                  : 'text-neutral-400 border-transparent hover:text-black hover:border-black'
+              }`}
+            >
+              WOVN Catalog ({customerDecks.reduce((acc, deck) => acc + (deck.items || deck.garments || []).length, 0)})
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setActiveLibraryTab('suggested')}
+            className={`text-sm font-bold pb-1.5 border-b-2 whitespace-nowrap transition-all cursor-pointer ${
+              activeLibraryTab === 'suggested' 
+                ? 'text-black border-black' 
+                : 'text-neutral-400 border-transparent hover:text-black hover:border-black'
+            }`}
+          >
+            Suggested ({suggestedItems.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveLibraryTab('past')}
+            className={`text-sm font-bold pb-1.5 border-b-2 whitespace-nowrap transition-all cursor-pointer ${
+              activeLibraryTab === 'past' 
+                ? 'text-black border-black' 
+                : 'text-neutral-400 border-transparent hover:text-black hover:border-black'
+            }`}
+          >
+            Past Garments ({pastGarments.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveLibraryTab('saved')}
+            className={`text-sm font-bold pb-1.5 border-b-2 whitespace-nowrap transition-all cursor-pointer ${
+              activeLibraryTab === 'saved' 
+                ? 'text-black border-black' 
+                : 'text-neutral-400 border-transparent hover:text-black hover:border-black'
+            }`}
+          >
+            Saved Carts ({savedCarts.length})
+          </button>
+        </div>
 
-            <div className="mt-auto border-t border-neutral-200 pt-4 space-y-3">
-              {orderItems.length > 0 && (
-                <>
-                  <div className="flex flex-col gap-1.5 pb-1">
-                    <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider pl-1">Delivery Option</label>
-                    <div className="relative">
-                      <select
-                        value={deliveryOption}
-                        onChange={(e) => setDeliveryOption(e.target.value)}
-                        className="w-full appearance-none bg-white border border-neutral-255 rounded-xl px-4 py-3 text-xs font-bold text-neutral-800 focus:outline-none focus:border-black cursor-pointer pr-10"
-                      >
-                        <option value="Shipping">Shipping</option>
-                        <option value="Local Delivery">Local Delivery</option>
-                      </select>
-                      <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" size={14} />
+        {activeLibraryTab === 'rack' && (
+          <div className="flex flex-wrap gap-2 pb-2 border-b border-neutral-100">
+            {Object.keys(customerRacks).map((catName) => (
+              <button
+                key={catName}
+                type="button"
+                onClick={() => setActiveRackCategory(catName)}
+                className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                  activeRackCategory === catName
+                    ? 'bg-black text-white'
+                    : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                }`}
+              >
+                {catName}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Library Grid Content */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {activeLibraryTab === 'rack' && (
+            activeRackItems.length === 0 ? (
+              <div className="col-span-full flex flex-col items-center justify-center p-8 text-center text-neutral-500 min-h-[200px]">
+                <PackagePlus size={32} className="mb-4 text-neutral-300" />
+                <p>No garments configured for this category.</p>
+              </div>
+            ) : (
+              activeRackItems.map((item: any, idx: number) => {
+                const style = item.customName || item.title || item.style || 'Custom Garment';
+                const gender = item.gender || 'Unisex';
+                const itemNum = item.style;
+                const colors = item.colors || ['Custom Color'];
+                const sizes = parseSizesFromItem(item, item.style || '');
+                const image = getGarmentImage(item);
+                const price = parseFloat(item.price || 0);
+
+                return (
+                  <div 
+                    key={item.id || idx} 
+                    onClick={() => handleAddItem({ ...item, style, gender, itemNum, colors, sizes, image, price })}
+                    className="group bg-white hover:bg-neutral-50/50 border border-neutral-200 hover:border-neutral-450 rounded-3xl p-5 flex flex-col items-center justify-between cursor-pointer transition-all hover:shadow-md relative"
+                  >
+                    <div 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setExpandedImage({ src: image, alt: style });
+                      }}
+                      className="w-full h-48 flex items-center justify-center mb-3 relative cursor-zoom-in"
+                      title="Click to expand mockup"
+                    >
+                      <img 
+                        src={image} 
+                        alt={style} 
+                        className="max-w-full max-h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300" 
+                      />
                     </div>
+                    <div className="w-full flex flex-col items-center">
+                      <div className="flex items-center justify-center gap-2 mb-1 w-full">
+                        <h4 className="font-bold text-neutral-900 text-sm truncate max-w-[80%] text-center">{style}</h4>
+                        <span className="text-[9px] font-bold text-neutral-500 bg-neutral-100 px-2 py-0.5 rounded-full shrink-0">{gender}</span>
+                      </div>
+                      {item.customSpecs && (item.customSpecs.quality || item.customSpecs.material || item.customSpecs.weight) && (
+                        <p className="text-[10px] text-neutral-500 font-semibold mt-0.5 text-center">
+                          {[item.customSpecs.quality, item.customSpecs.material, item.customSpecs.weight].filter(Boolean).join(' • ')}
+                        </p>
+                      )}
+                      <p className="text-[10px] text-neutral-400 font-medium mt-1 truncate w-full text-center">{colors.join(' • ')}</p>
+                    </div>
+                    <span className="text-xs font-bold text-neutral-800 bg-neutral-100 group-hover:bg-black group-hover:text-white px-4 py-2 rounded-xl transition-all mt-4 w-full text-center">+ Add to Request</span>
                   </div>
+                );
+              })
+            )
+          )}
 
-                  <div className="bg-neutral-100 border border-neutral-200 rounded-2xl p-3.5 flex flex-col gap-2.5">
-                    <span className="text-[9px] font-extrabold text-neutral-400 uppercase tracking-widest">Confirm Address</span>
-                    <p className="text-[10px] text-neutral-500 font-medium leading-relaxed">
-                      {deliveryOption === 'Shipping' 
-                        ? 'Confirm shipping address so we can include shipping costs in your quote.'
-                        : 'Confirm delivery address so we can flag if it needs to be shipped instead.'}
-                    </p>
-                    <div className="space-y-2">
-                      <div>
-                        <label className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider block mb-0.5">Street Address</label>
-                        <input
-                          type="text"
-                          value={profileStreet}
-                          onChange={(e) => setProfileStreet(e.target.value)}
-                          className="w-full bg-white border border-neutral-200 rounded-lg px-2.5 py-1.5 text-xs text-neutral-800 focus:outline-none focus:border-black transition-all"
+          {activeLibraryTab === 'wovn' && (
+            isLoadingDecks ? (
+              <div className="col-span-full flex items-center justify-center p-8">
+                <Loader2 className="animate-spin text-neutral-400" size={24} />
+              </div>
+            ) : customerDecks.length === 0 ? (
+              <div className="col-span-full flex flex-col items-center justify-center p-8 text-center text-neutral-500 min-h-[200px]">
+                <PackagePlus size={32} className="mb-4 text-neutral-300" />
+                <p>No catalog decks connected for this client.</p>
+              </div>
+            ) : (
+              (() => {
+                const flatGarments = customerDecks.reduce((acc: any[], deck: any) => {
+                  const items = deck.items || deck.garments || [];
+                  return [...acc, ...items];
+                }, []);
+                if (flatGarments.length === 0) {
+                  return (
+                    <div className="col-span-full flex flex-col items-center justify-center p-8 text-center text-neutral-500 min-h-[200px]">
+                      <PackagePlus size={32} className="mb-4 text-neutral-300" />
+                      <p>No catalog garments found in connected decks.</p>
+                    </div>
+                  );
+                }
+                return flatGarments.map((item: any, idx: number) => {
+                  const style = item.garment_name || item.name || item.style || item.title || 'Unknown Style';
+                  const gender = item.gender || 'Unisex';
+                  const itemNum = item.itemNum || item.garment_id || item.sku || item.id || `GARMENT-${idx+1}`;
+                  let colors = findColorsInObj({ ...item }) || ['Custom Color'];
+                  if (colors.length === 0) colors = ['Custom Color'];
+                  let sizes = parseSizesFromItem(item, style);
+                  const image = item.mockup_image || item.mock_image || item.original_image || item.image || item.imageUrl || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
+                  const price = parseFloat(item.msrp || item.price || item.unit_cost || 0);
+
+                  return (
+                    <div 
+                      key={item.id || idx} 
+                      onClick={() => handleAddItem({ ...item, style, gender, itemNum, colors, sizes, image, price })}
+                      className="group bg-white hover:bg-neutral-50/50 border border-neutral-200 hover:border-neutral-450 rounded-3xl p-5 flex flex-col items-center justify-between cursor-pointer transition-all hover:shadow-md relative"
+                    >
+                      <div 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setExpandedImage({ src: image, alt: style });
+                        }}
+                        className="w-full h-48 flex items-center justify-center mb-3 relative cursor-zoom-in"
+                        title="Click to expand mockup"
+                      >
+                        <img 
+                          src={image} 
+                          alt={style} 
+                          className="max-w-full max-h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300" 
                         />
                       </div>
-                      <div className="grid grid-cols-3 gap-2">
-                        <div className="col-span-1">
-                          <label className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider block mb-0.5">City</label>
-                          <input
-                            type="text"
-                            value={profileCity}
-                            onChange={(e) => setProfileCity(e.target.value)}
-                            className="w-full bg-white border border-neutral-200 rounded-lg px-2.5 py-1.5 text-xs text-neutral-800 focus:outline-none focus:border-black transition-all"
-                          />
+                      <div className="w-full flex flex-col items-center">
+                        <div className="flex items-center justify-center gap-2 mb-1 w-full">
+                          <h4 className="font-bold text-neutral-900 text-sm truncate max-w-[85%] text-center">{style}</h4>
                         </div>
-                        <div className="col-span-1">
-                          <label className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider block mb-0.5">State</label>
-                          <input
-                            type="text"
-                            value={profileState}
-                            onChange={(e) => setProfileState(e.target.value)}
-                            className="w-full bg-white border border-neutral-200 rounded-lg px-2.5 py-1.5 text-xs text-neutral-800 focus:outline-none focus:border-black transition-all"
-                          />
+                        {price > 0 && (
+                          <p className="text-xs font-black text-black mt-1">${price.toFixed(2)}</p>
+                        )}
+                        <p className="text-[10px] text-neutral-400 font-medium mt-1 truncate w-full text-center">{colors.join(' • ')}</p>
+                      </div>
+                      <span className="text-xs font-bold text-neutral-800 bg-neutral-100 group-hover:bg-black group-hover:text-white px-4 py-2 rounded-xl transition-all mt-4 w-full text-center">+ Add to Request</span>
+                    </div>
+                  );
+                });
+              })()
+            )
+          )}
+
+          {activeLibraryTab === 'suggested' && (
+            suggestedItems.length === 0 ? (
+              <div className="col-span-full flex flex-col items-center justify-center p-8 text-center text-neutral-500 min-h-[200px]">
+                <PackagePlus size={32} className="mb-4 text-neutral-300" />
+                <p>No suggested items recommendation found.</p>
+              </div>
+            ) : (
+              suggestedItems.map((item: any, idx: number) => {
+                const style = item.style || item.title || 'Suggested Style';
+                const gender = item.gender || 'Unisex';
+                const itemNum = item.itemNum || item.style;
+                const colors = item.colors || ['Custom Color'];
+                const sizes = parseSizesFromItem(item, item.style || '');
+                const image = item.image || item.mockup_image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
+                const price = parseFloat(item.price || 0);
+
+                return (
+                  <div 
+                    key={item.id || idx} 
+                    onClick={() => handleAddItem({ ...item, style, gender, itemNum, colors, sizes, image, price })}
+                    className="group bg-white hover:bg-neutral-50/50 border border-neutral-200 hover:border-neutral-450 rounded-3xl p-5 flex flex-col items-center justify-between cursor-pointer transition-all hover:shadow-md relative"
+                  >
+                    <div 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setExpandedImage({ src: image, alt: style });
+                      }}
+                      className="w-full h-48 flex items-center justify-center mb-3 relative cursor-zoom-in"
+                      title="Click to expand mockup"
+                    >
+                      <img 
+                        src={image} 
+                        alt={style} 
+                        className="max-w-full max-h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300" 
+                      />
+                    </div>
+                    <div className="w-full flex flex-col items-center">
+                      <div className="flex items-center justify-center gap-2 mb-1 w-full">
+                        <h4 className="font-bold text-neutral-900 text-sm truncate max-w-[80%] text-center">{style}</h4>
+                        <span className="text-[9px] font-bold text-neutral-500 bg-neutral-100 px-2 py-0.5 rounded-full shrink-0">{gender}</span>
+                      </div>
+                      <p className="text-[10px] text-neutral-400 font-medium mt-1 truncate w-full text-center">{colors.join(' • ')}</p>
+                    </div>
+                    <span className="text-xs font-bold text-neutral-800 bg-neutral-100 group-hover:bg-black group-hover:text-white px-4 py-2 rounded-xl transition-all mt-4 w-full text-center">+ Add to Request</span>
+                  </div>
+                );
+              })
+            )
+          )}
+
+          {activeLibraryTab === 'past' && (
+            pastGarments.length === 0 ? (
+              <div className="col-span-full flex flex-col items-center justify-center p-8 text-center text-neutral-500 min-h-[200px]">
+                <PackagePlus size={32} className="mb-4 text-neutral-300" />
+                <p>No past orders found to pull items from.</p>
+              </div>
+            ) : (
+              pastGarments.map((item: any, idx: number) => {
+                const style = item.style || item.title || 'Past Style';
+                const gender = item.gender || 'Unisex';
+                const itemNum = item.itemNum || item.style;
+                const colors = item.colors || ['Custom Color'];
+                const sizes = parseSizesFromItem(item, item.style || '');
+                const image = item.image || item.mockup_image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
+                const price = parseFloat(item.price || 0);
+
+                return (
+                  <div 
+                    key={item.id || idx} 
+                    onClick={() => handleAddItem({ ...item, style, gender, itemNum, colors, sizes, image, price })}
+                    className="group bg-white hover:bg-neutral-50/50 border border-neutral-200 hover:border-neutral-455 rounded-3xl p-5 flex flex-col items-center justify-between cursor-pointer transition-all hover:shadow-md relative"
+                  >
+                    <div 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setExpandedImage({ src: image, alt: style });
+                      }}
+                      className="w-full h-48 flex items-center justify-center mb-3 relative cursor-zoom-in"
+                      title="Click to expand mockup"
+                    >
+                      <img 
+                        src={image} 
+                        alt={style} 
+                        className="max-w-full max-h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300" 
+                      />
+                    </div>
+                    <div className="w-full flex flex-col items-center">
+                      <div className="flex items-center justify-center gap-2 mb-1 w-full">
+                        <h4 className="font-bold text-neutral-900 text-sm truncate max-w-[80%] text-center">{style}</h4>
+                        <span className="text-[9px] font-bold text-neutral-500 bg-neutral-100 px-2 py-0.5 rounded-full shrink-0">{gender}</span>
+                      </div>
+                      <p className="text-[10px] text-neutral-400 font-medium mt-1 truncate w-full text-center">{colors.join(' • ')}</p>
+                    </div>
+                    <span className="text-xs font-bold text-neutral-800 bg-neutral-100 group-hover:bg-black group-hover:text-white px-4 py-2 rounded-xl transition-all mt-4 w-full text-center">+ Add to Request</span>
+                  </div>
+                );
+              })
+            )
+          )}
+
+          {activeLibraryTab === 'saved' && (
+            <div className="col-span-full flex flex-col gap-4">
+              {isLoadingSavedCarts ? (
+                <div className="flex items-center justify-center p-8">
+                  <Loader2 className="animate-spin text-neutral-400" size={24} />
+                </div>
+              ) : savedCarts.length === 0 ? (
+                <div className="flex flex-col items-center justify-center p-8 text-center text-neutral-500 bg-neutral-50/50 border border-neutral-200 border-dashed rounded-3xl min-h-[200px] w-full">
+                  <Save size={32} className="mb-4 text-neutral-300" />
+                  <p className="font-semibold text-sm text-neutral-600">No saved carts yet.</p>
+                  <p className="text-xs text-neutral-400 mt-1 max-w-sm">Add items to your cart, then click "Save Cart for Later" to preserve your potential order.</p>
+                </div>
+              ) : (
+                savedCarts.map((cartItem) => {
+                  const totalQuantity = (cartItem.items || []).reduce((acc: number, it: any) => {
+                    return acc + Object.values(it.quantities || {}).reduce((sum: number, q: any) => sum + (Number(q) || 0), 0);
+                  }, 0);
+
+                  return (
+                    <div key={cartItem.id} className="bg-neutral-50/50 border border-neutral-200 hover:border-neutral-300 transition-all rounded-2xl p-5 flex flex-col sm:flex-row sm:items-start justify-between gap-4 w-full animate-in fade-in duration-350">
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-bold text-neutral-900 text-sm truncate">{cartItem.name}</h4>
+                        <div className="flex items-center gap-3 text-[10px] text-neutral-400 font-medium mt-1">
+                          <span>{new Date(cartItem.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                          <span>•</span>
+                          <span>{cartItem.items?.length || 0} styles ({totalQuantity} garments total)</span>
+                          <span>•</span>
+                          <span>Saved by {cartItem.createdBy}</span>
                         </div>
-                        <div className="col-span-1">
-                          <label className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider block mb-0.5">Zip</label>
-                          <input
-                            type="text"
-                            value={profileZip}
-                            onChange={(e) => setProfileZip(e.target.value)}
-                            className="w-full bg-white border border-neutral-200 rounded-lg px-2.5 py-1.5 text-xs text-neutral-800 focus:outline-none focus:border-black transition-all"
-                          />
+                        
+                        <div className="mt-4 flex flex-col gap-2 max-w-xl">
+                          {(cartItem.items || []).map((it: any, idx: number) => {
+                            const qty = Object.values(it.quantities || {}).reduce((sum: number, q: any) => sum + (Number(q) || 0), 0);
+                            const itImage = it.image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
+                            return (
+                              <div key={idx} className="flex items-center gap-3 bg-white border border-neutral-100 rounded-xl p-2 shadow-sm">
+                                <div className="w-8 h-8 rounded-lg bg-neutral-50 border border-neutral-100 flex items-center justify-center p-0.5 shrink-0">
+                                  <img src={itImage} alt="" className="w-full h-full object-contain mix-blend-multiply" />
+                                </div>
+                                <div className="flex-1 min-w-0 flex items-center justify-between gap-4">
+                                  <div>
+                                    <p className="text-xs font-bold text-neutral-800 truncate">{it.style}</p>
+                                    <p className="text-[10px] text-neutral-500 font-semibold truncate">Color: {it.selectedColor || 'Default'}</p>
+                                  </div>
+                                  <span className="text-[11px] font-extrabold text-neutral-600 bg-neutral-50 px-2 py-0.5 rounded-md border border-neutral-100 shrink-0">
+                                    {qty} pcs
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col gap-1.5 pb-1">
-                    <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider pl-1">Packaging Option</label>
-                    <div className="relative">
-                      <select
-                        value={selectedPackaging}
-                        onChange={(e) => setSelectedPackaging(e.target.value)}
-                        className="w-full appearance-none bg-white border border-neutral-255 rounded-xl px-4 py-3 text-xs font-bold text-neutral-800 focus:outline-none focus:border-black cursor-pointer pr-10"
-                      >
-                        <option value="Factory Folded (10 garments per stack)">Factory Folded (10 garments per stack)</option>
-                        <option value="Retail (single folded)">Retail (single folded)</option>
-                        <option value="Individually Bagged and Labeled">Individually Bagged and Labeled</option>
-                      </select>
-                      <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" size={14} />
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col gap-1.5 pb-1">
-                    <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider pl-1">Date Needed By</label>
-                    <input
-                      type="date"
-                      value={neededByDate}
-                      min={new Date().toISOString().split('T')[0]}
-                      onChange={(e) => setNeededByDate(e.target.value)}
-                      className="w-full bg-white border border-neutral-255 rounded-xl px-4 py-2.5 text-xs font-bold text-neutral-800 focus:outline-none focus:border-black transition-all"
-                    />
-                  </div>
-
-                  <div className="flex flex-col gap-1.5 pb-1">
-                    <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider pl-1">Order Type</label>
-                    <div className="relative">
-                      <select
-                        value={orderType}
-                        onChange={(e) => setOrderType(e.target.value as 'Retail' | 'Wholesale')}
-                        className="w-full appearance-none bg-white border border-neutral-255 rounded-xl px-4 py-3 text-xs font-bold text-neutral-800 focus:outline-none focus:border-black cursor-pointer pr-10"
-                      >
-                        <option value="Retail">Retail</option>
-                        <option value="Wholesale">Wholesale (Reseller)</option>
-                      </select>
-                      <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" size={14} />
-                    </div>
-                  </div>
-
-                  {orderType === 'Wholesale' && (
-                    <div className="bg-neutral-100 border border-neutral-200 rounded-2xl p-3 flex flex-col gap-2">
-                      <div className="flex justify-between items-center">
-                        <span className="text-[9px] font-bold text-neutral-500 uppercase tracking-wider">Resale Certificate</span>
-                        <label className="text-[9px] font-extrabold text-black hover:underline cursor-pointer flex items-center gap-1">
-                          <input 
-                            type="file" 
-                            className="hidden" 
-                            accept=".pdf,.png,.jpg,.jpeg,.svg"
-                            onChange={async (e) => {
-                              const file = e.target.files?.[0];
-                              if (!file || !customerId) return;
-                              setIsUploadingResaleCert(true);
-                              try {
-                                const storageRef = ref(storage, `customers/${customerId}/resale_certificates/${Date.now()}_${file.name}`);
-                                await uploadBytes(storageRef, file);
-                                const downloadUrl = await getDownloadURL(storageRef);
-                                setResaleCertificateUrl(downloadUrl);
-                                setResaleCertificateName(file.name);
-                              } catch (err) {
-                                console.error("Resale certificate upload failed:", err);
-                                alert("Failed to upload resale certificate.");
-                              } finally {
-                                setIsUploadingResaleCert(false);
-                              }
-                            }} 
-                          />
-                          <Upload size={10} /> Upload File
-                        </label>
+                    
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleLoadSavedCart(cartItem)}
+                          className="bg-black hover:bg-neutral-800 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all shadow-sm cursor-pointer"
+                        >
+                          Load Cart
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteSavedCart(cartItem.id, cartItem.name)}
+                          className="p-2 text-neutral-450 hover:text-red-650 hover:bg-red-50 rounded-xl transition-all cursor-pointer border border-transparent hover:border-red-100"
+                          title="Delete saved cart"
+                        >
+                          <Trash2 size={15} />
+                        </button>
                       </div>
-                      {isUploadingResaleCert ? (
-                        <div className="flex items-center gap-1.5 text-[10px] text-neutral-500 font-bold">
-                          <Loader2 className="animate-spin" size={10} /> Uploading certificate...
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Slide-out Cart Drawer */}
+      {isCartOpen && (
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/20 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-[650px] h-full bg-white shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+            {/* Drawer Header */}
+            <div className="px-6 py-5 border-b border-neutral-100 flex items-center justify-between bg-neutral-50/50 shrink-0">
+              <div>
+                <h2 className="text-xl font-bold text-neutral-900 flex items-center gap-2">
+                  <ShoppingCart size={20} className="text-neutral-700" />
+                  Your Cart
+                </h2>
+                <p className="text-xs font-medium text-neutral-505 mt-1">Review selected garments, sizes, quantities, and upload artwork</p>
+              </div>
+              <button 
+                onClick={() => setIsCartOpen(false)}
+                className="w-9 h-9 rounded-full bg-white border border-neutral-200 flex items-center justify-center text-neutral-505 hover:text-black hover:border-black transition-colors shadow-sm cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Drawer Body */}
+            <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6">
+              {orderItems.length === 0 ? (
+                <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-neutral-500 min-h-[300px]">
+                  <ShoppingCart size={48} className="mb-4 text-neutral-300 animate-pulse" />
+                  <p className="font-bold text-neutral-800">Your cart is currently empty</p>
+                  <p className="text-xs mt-1 text-neutral-505 font-medium">Choose garments from the catalog on the main page to get started.</p>
+                  <button
+                    onClick={() => setIsCartOpen(false)}
+                    className="mt-6 bg-black hover:bg-neutral-800 text-white text-xs font-bold px-6 py-3 rounded-full transition-all shadow-md cursor-pointer hover:scale-105 active:scale-95 duration-200"
+                  >
+                    Browse Catalog
+                  </button>
+                </div>
+              ) : (
+                <>
+                  {/* Cart Items Section */}
+                  <div className="flex flex-col gap-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-xs font-extrabold uppercase tracking-widest text-neutral-400">Garments in Cart ({orderItems.length})</h3>
+                      <button
+                        onClick={() => setIsCartOpen(false)}
+                        className="text-xs font-bold text-neutral-505 hover:text-black transition-colors"
+                      >
+                        + Add More
+                      </button>
+                    </div>
+                    {orderItems.map((item) => (
+                      <div key={item.instanceId} className="bg-white border border-neutral-200 rounded-2xl p-4 flex flex-col gap-4 shadow-[0_2px_10px_rgb(0,0,0,0.01)] relative">
+                        {/* Cart Item Header */}
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex gap-4 items-center min-w-0">
+                            {(() => {
+                              const N = getActiveSidesCount(item);
+                              const isHovered = hoveredItemId === item.instanceId;
+                              const translatePercentage = isHovered && N > 1 ? (100 / N) : 0;
+                              const getPreviewUrl = () => {
+                                if (item.customized) return item.image;
+                                const colorVal = item.images?.[item.selectedColor];
+                                if (!colorVal) return item.image;
+                                if (typeof colorVal === 'string') return colorVal;
+                                return colorVal.front || colorVal.swatch || colorVal.back || item.image;
+                              };
+                              const srcUrl = getPreviewUrl();
+                              return (
+                                <div 
+                                  onClick={() => setPreviewImageUrl(srcUrl)}
+                                  onMouseEnter={() => setHoveredItemId(item.instanceId)}
+                                  onMouseLeave={() => setHoveredItemId(null)}
+                                  className={`w-16 h-16 rounded-xl overflow-hidden bg-neutral-50 border border-neutral-100 shrink-0 cursor-pointer flex items-center relative group ${
+                                    item.customized ? 'justify-start' : 'justify-center'
+                                  }`}
+                                  title="Hover to slide mockup, click to view full screen"
+                                >
+                                  <img 
+                                    src={srcUrl} 
+                                    alt={item.style} 
+                                    style={{
+                                      width: item.customized ? `${N * 100}%` : '100%',
+                                      height: '100%',
+                                      maxWidth: 'none',
+                                      transform: item.customized ? `translateX(-${translatePercentage}%)` : 'none',
+                                      transition: 'transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
+                                    }}
+                                    className={`${item.customized ? 'object-cover' : 'object-contain'} mix-blend-multiply select-none p-1`}
+                                  />
+                                </div>
+                              );
+                            })()}
+                            <div className="min-w-0">
+                              <h4 className="font-bold text-neutral-900 text-sm truncate">{item.style}</h4>
+                              <div className="flex items-center gap-2 mt-1.5">
+                                <span className="text-[10px] uppercase font-bold text-neutral-450">Color</span>
+                                <div className="relative min-w-[140px]">
+                                  <select 
+                                    value={item.selectedColor || ''}
+                                    onChange={(e) => {
+                                      const newCol = e.target.value;
+                                      setOrderItems(prev => prev.map(o => o.instanceId === item.instanceId ? { ...o, selectedColor: newCol } : o));
+                                    }}
+                                    className="w-full appearance-none bg-neutral-50 border border-neutral-200 rounded-lg px-2 py-0.5 text-xs font-semibold text-neutral-800 focus:outline-none focus:border-neutral-450 cursor-pointer pr-6"
+                                  >
+                                    {item.colors?.map((c: string) => <option key={c} value={c}>{c}</option>)}
+                                  </select>
+                                  <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" size={10} />
+                                </div>
+                              </div>
+                              {(() => {
+                                const activePlacements = [];
+                                if (item.logoUrl) activePlacements.push("Front");
+                                if (item.logoUrlBack) activePlacements.push("Back");
+                                if (item.logoUrlLeftSleeve) activePlacements.push("Left Sleeve");
+                                if (item.logoUrlRightSleeve) activePlacements.push("Right Sleeve");
+                                const count = activePlacements.length;
+                                return (
+                                  <p className="text-[10px] font-semibold text-neutral-500 mt-1">
+                                    Placements ({count}): {count > 0 ? activePlacements.join(', ') : 'None'}
+                                  </p>
+                                );
+                              })()}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => handleDuplicateItem(item)}
+                              className="p-1.5 text-neutral-450 hover:text-black hover:bg-neutral-100 rounded-lg transition-all cursor-pointer"
+                              title="Add another color/design variation of this item"
+                            >
+                              <Copy size={13} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setCustomizingItem(item)}
+                              className="p-1.5 text-neutral-450 hover:text-black hover:bg-neutral-100 rounded-lg transition-all cursor-pointer"
+                              title="Customize artwork placements"
+                            >
+                              <Sparkles size={13} />
+                            </button>
+                            <button 
+                              onClick={() => handleRemoveItem(item.instanceId)}
+                              className="p-1.5 text-neutral-450 hover:text-red-500 transition-all cursor-pointer"
+                              title="Remove item"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
                         </div>
-                      ) : resaleCertificateUrl ? (
-                        <div className="text-[10px] text-emerald-600 font-bold bg-white border border-emerald-100 rounded-lg p-1.5 flex items-center justify-between">
-                          <span className="truncate max-w-[150px]">{resaleCertificateName}</span>
-                          <button 
-                            type="button" 
-                            onClick={() => {
-                              setResaleCertificateUrl(null);
-                              setResaleCertificateName(null);
-                            }}
-                            className="text-neutral-400 hover:text-red-500 ml-2"
+
+                        {/* Sizing inputs */}
+                        <div className="bg-neutral-50 rounded-xl p-3 flex flex-col items-start border border-neutral-200/60 gap-2">
+                          <div className="flex justify-between items-center w-full">
+                            <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Quantities</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const youthSizes = { 'YXS': 0, 'YS': 0, 'YM': 0, 'YL': 0, 'YXL': 0 };
+                                setOrderItems(prev => prev.map(o => o.instanceId === item.instanceId ? {
+                                  ...o,
+                                  quantities: { ...youthSizes, ...(o.quantities || {}) }
+                                } : o));
+                              }}
+                              className="text-[9px] font-bold uppercase tracking-wider text-neutral-500 hover:text-black bg-white border border-neutral-200 hover:border-neutral-450 px-2 py-0.5 rounded-full transition-all cursor-pointer"
+                            >
+                              + Youth Sizing
+                            </button>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5 w-full">
+                            {Object.keys(item.quantities).sort(sortSizes).map((size) => (
+                              <div key={size} className="flex-1 min-w-[45px] flex flex-col bg-white border border-neutral-200 rounded-lg overflow-hidden focus-within:border-black focus-within:ring-1 focus-within:ring-black transition-all">
+                                <div className="bg-neutral-50 text-neutral-505 text-[9px] font-bold py-1 uppercase tracking-wide flex items-center justify-center border-b border-neutral-200">
+                                  {size}
+                                </div>
+                                <input 
+                                  type="number"
+                                  min="0"
+                                  value={item.quantities[size] || ''}
+                                  placeholder="0"
+                                  onChange={(e) => handleUpdateQuantity(item.instanceId, size, e.target.value)}
+                                  className="w-full h-8 text-center text-xs font-bold text-neutral-900 focus:outline-none placeholder:text-neutral-350 font-semibold"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Checkout Form Details */}
+                  <div className="border-t border-neutral-100 pt-6 flex flex-col gap-5">
+                    <h3 className="text-xs font-extrabold uppercase tracking-widest text-neutral-400">Order Details</h3>
+                    
+                    {/* Delivery Options */}
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider pl-1">Delivery Option</label>
+                      <div className="grid grid-cols-2 gap-2 bg-neutral-100 p-1 rounded-xl border border-neutral-200">
+                        {['Pickup', 'Shipping'].map((opt) => (
+                          <button
+                            key={opt}
+                            type="button"
+                            onClick={() => setDeliveryOption(opt)}
+                            className={`py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                              deliveryOption === opt
+                                ? 'bg-white text-black shadow-xs'
+                                : 'text-neutral-500 hover:text-black'
+                            }`}
                           >
-                            <X size={10} />
+                            {opt}
                           </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Delivery Option details or Address input */}
+                    {deliveryOption === 'Pickup' ? (
+                      <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-4 flex flex-col gap-1 text-xs text-neutral-500 leading-relaxed font-semibold">
+                        <span className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-600 block mb-0.5">Pickup Location</span>
+                        Our print shop location. We'll notify you when it's ready.
+                      </div>
+                    ) : (
+                      <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-4 flex flex-col gap-3">
+                        <span className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-600">Shipping Address</span>
+                        <div className="flex flex-col gap-2.5">
+                          <input
+                            type="text"
+                            placeholder="Street Address"
+                            value={profileStreet}
+                            onChange={(e) => setProfileStreet(e.target.value)}
+                            className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:border-black transition-all"
+                          />
+                          <div className="grid grid-cols-3 gap-2">
+                            <input
+                              type="text"
+                              placeholder="City"
+                              value={profileCity}
+                              onChange={(e) => setProfileCity(e.target.value)}
+                              className="col-span-1 w-full bg-white border border-neutral-200 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:border-black transition-all"
+                            />
+                            <input
+                              type="text"
+                              placeholder="State"
+                              value={profileState}
+                              onChange={(e) => setProfileState(e.target.value)}
+                              className="col-span-1 w-full bg-white border border-neutral-200 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:border-black transition-all"
+                            />
+                            <input
+                              type="text"
+                              placeholder="ZIP"
+                              value={profileZip}
+                              onChange={(e) => setProfileZip(e.target.value)}
+                              className="col-span-1 w-full bg-white border border-neutral-200 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:border-black transition-all"
+                            />
+                          </div>
                         </div>
-                      ) : (
-                        <span className="text-[10px] text-neutral-400 italic">Please upload your resale certificate to waive sales tax.</span>
+                      </div>
+                    )}
+
+                    {/* Resale Certificate for Wholesale */}
+                    <div className="flex flex-col gap-2">
+                      <div className="flex justify-between items-center pl-1">
+                        <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Order Type</label>
+                        <div className="flex items-center gap-1.5">
+                          {['Retail', 'Wholesale'].map((type) => (
+                            <button
+                              key={type}
+                              type="button"
+                              onClick={() => setOrderType(type as any)}
+                              className={`px-2 py-0.5 rounded text-[9px] font-bold border transition-all cursor-pointer ${
+                                orderType === type 
+                                  ? 'bg-black text-white border-black' 
+                                  : 'bg-white text-neutral-450 border-neutral-200 hover:border-neutral-300'
+                              }`}
+                            >
+                              {type}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      
+                      {orderType === 'Wholesale' && (
+                        <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-4 flex flex-col gap-2.5 animate-in fade-in slide-in-from-top-2 duration-300">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Resale Certificate (Tax Exemption)</span>
+                            <label className="bg-black hover:bg-neutral-800 text-white text-[9px] font-bold px-2 py-1 rounded-lg cursor-pointer transition-colors flex items-center gap-1">
+                              <input 
+                                type="file" 
+                                className="hidden" 
+                                accept=".pdf,.png,.jpg,.jpeg,.svg"
+                                onChange={async (e) => {
+                                  const file = e.target.files?.[0];
+                                  if (!file || !customerId) return;
+                                  setIsUploadingResaleCert(true);
+                                  try {
+                                    const storageRef = ref(storage, `customers/${customerId}/resale_certificates/${Date.now()}_${file.name}`);
+                                    await uploadBytes(storageRef, file);
+                                    const downloadUrl = await getDownloadURL(storageRef);
+                                    setResaleCertificateUrl(downloadUrl);
+                                    setResaleCertificateName(file.name);
+                                  } catch (err) {
+                                    console.error("Resale certificate upload failed:", err);
+                                    alert("Failed to upload resale certificate.");
+                                  } finally {
+                                    setIsUploadingResaleCert(false);
+                                  }
+                                }} 
+                              />
+                              <Upload size={8} /> Upload File
+                            </label>
+                          </div>
+                          {isUploadingResaleCert ? (
+                            <div className="flex items-center gap-1 text-[9px] text-neutral-550 font-semibold">
+                              <Loader2 className="animate-spin" size={8} /> Uploading...
+                            </div>
+                          ) : resaleCertificateUrl ? (
+                            <div className="text-[9px] text-emerald-600 font-bold bg-white border border-emerald-100 rounded-lg p-1.5 flex items-center justify-between">
+                              <span className="truncate max-w-[120px]">{resaleCertificateName}</span>
+                              <button 
+                                type="button" 
+                                onClick={() => {
+                                  setResaleCertificateUrl(null);
+                                  setResaleCertificateName(null);
+                                }}
+                                className="text-neutral-400 hover:text-red-500"
+                              >
+                                <X size={8} />
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-[9px] text-neutral-400 italic leading-snug">Upload resale certificate to waive sales tax.</span>
+                          )}
+                        </div>
                       )}
                     </div>
-                  )}
 
-                  <div className="flex flex-col gap-1.5 pb-1">
-                    <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider pl-1">Special Requests & Comments</label>
-                    <textarea
-                      value={specialRequests}
-                      onChange={(e) => setSpecialRequests(e.target.value)}
-                      placeholder="Add any specific requirements, sizing details..."
-                      className="w-full bg-white border border-neutral-255 rounded-xl px-4 py-2.5 text-xs font-semibold text-neutral-850 focus:outline-none focus:border-black transition-all h-16 resize-none"
-                    />
+                    {/* Special Requests */}
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider pl-1">Special Requests & Comments</label>
+                      <textarea
+                        value={specialRequests}
+                        onChange={(e) => setSpecialRequests(e.target.value)}
+                        placeholder="Add any specific requirements, sizing details..."
+                        className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-2 text-xs font-semibold text-neutral-800 focus:outline-none focus:border-black transition-all h-16 resize-none"
+                      />
+                    </div>
                   </div>
 
-                  <div className="bg-neutral-100 border border-neutral-200 rounded-2xl p-3 flex flex-col gap-1 text-[10px] text-neutral-500 leading-relaxed font-semibold">
-                    <span className="text-[9px] font-extrabold uppercase tracking-widest text-neutral-600 block mb-0.5">What Happens Next</span>
-                    We will review your quote request and reach out by phone or email within 1 business day.
+                  {/* Summary & Buttons (Sticky/Fixed at bottom of Drawer) */}
+                  <div className="border-t border-neutral-100 pt-4 mt-auto flex flex-col gap-3 shrink-0">
+                    <div className="flex justify-between items-center text-xs font-bold text-neutral-500">
+                      <span>Total Styles Selected</span>
+                      <span>{orderItems.length} styles</span>
+                    </div>
+
+                    {hasLowQuantityItems && (
+                      <div className="text-[9px] text-red-655 bg-red-50/55 border border-red-100 rounded-xl p-3 flex flex-col gap-0.5 leading-snug animate-in fade-in duration-300">
+                        <span className="font-extrabold">⚠️ Order Minimum Requirement</span>
+                        <span className="font-medium text-neutral-550">Minimum 20 garments per style is required to submit a quote request.</span>
+                      </div>
+                    )}
+
+                    <div className="flex flex-col gap-2">
+                      <button 
+                        onClick={handleSubmitOrder}
+                        disabled={hasLowQuantityItems || isSubmitting} 
+                        className={`w-full py-3 rounded-xl text-xs font-bold transition-all ... `}
+                      >
+                        {isSubmitting ? 'Submitting...' : 'Submit Quote Request'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowSaveCartModal(true)}
+                        className="w-full py-2.5 rounded-xl text-[10px] font-bold bg-white border border-neutral-300 text-neutral-700 hover:bg-neutral-50 shadow-sm transition-all text-center flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <Save size={12} /> Save Cart for Later
+                      </button>
+                    </div>
                   </div>
                 </>
               )}
-
-              <div className="flex justify-between items-center text-sm font-bold text-neutral-500">
-                <span>Total Items</span>
-                <span>{orderItems.length} styles</span>
-              </div>
-              
-              {hasLowQuantityItems && (
-                <div className="text-[10px] text-red-650 bg-red-50/50 border border-red-100 rounded-2xl p-3 flex flex-col gap-1 leading-relaxed animate-in fade-in slide-in-from-top-2 duration-300">
-                  <span className="font-extrabold">⚠️ Order Minimum Requirement</span>
-                  <span className="font-medium text-neutral-500">A minimum of 20 garments per product style is required to submit a quote request. Please adjust your sizing quantities.</span>
-                </div>
-              )}
-
-              <button 
-                onClick={handleSubmitOrder}
-                disabled={orderItems.length === 0 || hasLowQuantityItems || isSubmitting} 
-                className={`w-full mt-4 py-3.5 rounded-xl text-sm font-bold transition-all ${(orderItems.length > 0 && !hasLowQuantityItems && !isSubmitting) ? 'bg-black text-white hover:bg-neutral-800 shadow-md transform active:scale-[0.98]' : 'bg-neutral-200 text-neutral-400 cursor-not-allowed'}`}
-              >
-                {isSubmitting ? 'Submitting...' : 'Submit Quote Request'}
-              </button>
-              {orderItems.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setShowSaveCartModal(true)}
-                  className="w-full py-3 rounded-xl text-xs font-bold bg-white border border-neutral-300 text-neutral-700 hover:bg-neutral-50 shadow-sm transition-all text-center flex items-center justify-center gap-1.5 cursor-pointer"
-                >
-                  <Save size={13} /> Save Cart for Later
-                </button>
-              )}
             </div>
-          </div>
-        </div>
-
-      </div>
-
-      {/* Slide-out Catalog Drawer */}
-      {isDrawerOpen && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/20 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-[550px] h-full bg-white shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
-            {/* Drawer Header */}
-            <div className="px-8 py-6 border-b border-neutral-100 flex items-center justify-between bg-neutral-50/50">
-              <div>
-                <h2 className="text-xl font-bold text-neutral-900">Select Garments from Library</h2>
-                <p className="text-sm font-medium text-neutral-500 mt-1">Choose from suggested, past, or catalog garments to add to your quote request</p>
-              </div>
-              <button 
-                onClick={() => setIsDrawerOpen(false)}
-                className="w-10 h-10 rounded-full bg-white border border-neutral-200 flex items-center justify-center text-neutral-500 hover:text-black hover:border-black transition-colors shadow-sm cursor-pointer"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            {/* Drawer Tabs */}
-            <div className="flex flex-col border-b border-neutral-100 bg-neutral-50/50">
-              <div className="flex gap-4 px-8 py-3 overflow-x-auto shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setActiveLibraryTab('rack')}
-                  className={`text-sm font-bold pb-1.5 border-b-2 whitespace-nowrap transition-all cursor-pointer ${
-                    activeLibraryTab === 'rack' 
-                      ? 'text-black border-black' 
-                      : 'text-neutral-400 border-transparent hover:text-black hover:border-black'
-                  }`}
-                >
-                  Design Your Rack ({activeRackItems.length})
-                </button>
-                {hasWovnRack && (
-                  <button
-                    type="button"
-                    onClick={() => setActiveLibraryTab('wovn')}
-                    className={`text-sm font-bold pb-1.5 border-b-2 whitespace-nowrap transition-all cursor-pointer ${
-                      activeLibraryTab === 'wovn' 
-                        ? 'text-black border-black' 
-                        : 'text-neutral-400 border-transparent hover:text-black hover:border-black'
-                    }`}
-                  >
-                    WOVN Catalog ({customerDecks.reduce((acc, deck) => acc + (deck.items || deck.garments || []).length, 0)})
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setActiveLibraryTab('suggested')}
-                  className={`text-sm font-bold pb-1.5 border-b-2 whitespace-nowrap transition-all cursor-pointer ${
-                    activeLibraryTab === 'suggested' 
-                      ? 'text-black border-black' 
-                      : 'text-neutral-400 border-transparent hover:text-black hover:border-black'
-                  }`}
-                >
-                  Suggested Items ({suggestedItems.length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveLibraryTab('past')}
-                  className={`text-sm font-bold pb-1.5 border-b-2 whitespace-nowrap transition-all cursor-pointer ${
-                    activeLibraryTab === 'past' 
-                      ? 'text-black border-black' 
-                      : 'text-neutral-400 border-transparent hover:text-black hover:border-black'
-                  }`}
-                >
-                  Past Garments ({pastGarments.length})
-                </button>
-              </div>
-
-              {activeLibraryTab === 'rack' && (
-                <div className="flex flex-wrap gap-2 px-8 pb-3 border-t border-neutral-100/50 pt-2.5 overflow-x-auto scrollbar-none">
-                  {Object.keys(customerRacks).map((catName) => (
-                    <button
-                      key={catName}
-                      type="button"
-                      onClick={() => setActiveRackCategory(catName)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all shrink-0 cursor-pointer ${
-                        activeRackCategory === catName
-                          ? 'bg-black text-white'
-                          : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
-                      }`}
-                    >
-                      {catName}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-            
-            {/* Drawer Content */}
-            <div className="flex-1 overflow-y-auto p-8 flex flex-col gap-6">
-              {activeLibraryTab === 'rack' && (
-                activeRackItems.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center p-8 text-center text-neutral-500">
-                    <PackagePlus size={32} className="mb-4 text-neutral-300" />
-                    <p>No garments configured for this category.</p>
-                  </div>
-                ) : (
-                  <div className="flex flex-col gap-3">
-                    {activeRackItems.map((item: any, idx: number) => {
-                      const style = item.customName || item.title || item.style || 'Custom Garment';
-                      const gender = item.gender || 'Unisex';
-                      const itemNum = item.style;
-                      const colors = item.colors || ['Custom Color'];
-                      const sizes = parseSizesFromItem(item, item.style || '');
-                      const image = getGarmentImage(item);
-                      const price = parseFloat(item.price || 0);
-
-                      return (
-                        <div key={item.id || idx} className="group flex items-center gap-5 bg-white border border-neutral-200 hover:border-black transition-colors rounded-2xl p-4 cursor-pointer shadow-[0_2px_10px_rgb(0,0,0,0.02)] hover:shadow-md">
-                          <div 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setExpandedImage({ src: image, alt: style });
-                            }}
-                            className="w-16 h-16 rounded-xl overflow-hidden bg-neutral-50 border border-neutral-100 shrink-0 flex items-center justify-center cursor-zoom-in hover:scale-105 hover:border-neutral-300 transition-all"
-                            title="Click to expand"
-                          >
-                            <img src={image} alt={style} className="w-full h-full object-contain p-1 mix-blend-multiply" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between mb-1">
-                               <h4 className="font-bold text-neutral-900 text-[15px] truncate pr-2">{style}</h4>
-                               <span className="text-[10px] font-bold text-neutral-600 bg-neutral-100 px-2 py-0.5 rounded-full shrink-0">{gender}</span>
-                            </div>
-                            <p className="text-xs text-neutral-400 font-medium mt-1 truncate">{colors.join(' • ')}</p>
-                          </div>
-                          <button 
-                            onClick={() => handleAddItem({ ...item, style, gender, itemNum, colors, sizes, image, price })}
-                            className="w-8 h-8 rounded-full bg-neutral-100 text-neutral-500 group-hover:bg-black group-hover:text-white flex items-center justify-center transition-colors shrink-0 cursor-pointer"
-                          >
-                             <PackagePlus size={16} strokeWidth={2.5} />
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )
-              )}
-
-              {activeLibraryTab === 'wovn' && (
-                isLoadingDecks ? (
-                  <div className="flex items-center justify-center p-8">
-                    <Loader2 className="animate-spin text-neutral-400" size={24} />
-                  </div>
-                ) : customerDecks.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center p-8 text-center text-neutral-500">
-                    <PackagePlus size={32} className="mb-4 text-neutral-300" />
-                    <p>No catalog decks connected for this client.</p>
-                  </div>
-                ) : (
-                  customerDecks.map((deck) => (
-                    <div key={deck.id || deck.name} className="flex flex-col gap-4 mb-4">
-                      <div className="bg-[#f0ebe1] rounded-2xl p-6 border border-[#e6e2db] flex flex-col justify-center items-center text-center">
-                         <h3 className="font-bold text-neutral-900 tracking-tight text-lg">{deck.name || "Catalog Deck"}</h3>
-                         {deck.name && (
-                           <p className="text-[#6b665c] font-bold mt-1 uppercase tracking-widest text-[10px]">Active Collection</p>
-                         )}
-                      </div>
-
-                      <div className="flex flex-col gap-3 mt-1">
-                        {(deck.items || deck.garments || []).map((item: any, idx: number) => {
-                          const style = item.garment_name || item.name || item.style || item.title || 'Unknown Style';
-                          const gender = item.gender || 'Unisex';
-                          const itemNum = item.itemNum || item.garment_id || item.sku || item.id || `GARMENT-${idx+1}`;
-                          
-                          let colors = findColorsInObj({ ...item }) || ['Custom Color'];
-                          if (colors.length === 0) colors = ['Custom Color'];
-                          
-                          let sizes = parseSizesFromItem(item, style);
-
-                          const image = item.mockup_image || item.mock_image || item.original_image || item.image || item.imageUrl || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
-                          
-                          const deckStr = JSON.stringify(deck).toLowerCase();
-                          const itemStr = JSON.stringify(item).toLowerCase();
-                          const isRush = deckStr.includes('rush') || itemStr.includes('rush') || deckStr.includes('rush_fee') || itemStr.includes('rush_fee');
-                          
-                          const basePrice = parseFloat(item.msrp || item.price || item.unit_cost || 0);
-                          const price = isRush ? basePrice * 1.15 : basePrice;
-
-                          return (
-                            <div key={item.id || idx} className="group flex items-center gap-5 bg-white border border-neutral-200 hover:border-black transition-colors rounded-2xl p-4 cursor-pointer shadow-[0_2px_10px_rgb(0,0,0,0.02)] hover:shadow-md">
-                              <div 
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setExpandedImage({ src: image, alt: style });
-                                }}
-                                className="w-16 h-16 rounded-xl overflow-hidden bg-neutral-50 border border-neutral-100 shrink-0 flex items-center justify-center cursor-zoom-in hover:scale-105 hover:border-neutral-300 transition-all"
-                                title="Click to expand"
-                              >
-                                <img src={image} alt={style} className="w-full h-full object-contain p-1 mix-blend-multiply" />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center justify-between mb-1">
-                                   <h4 className="font-bold text-neutral-900 text-[15px] truncate pr-2">{style}</h4>
-                                   <span className="text-[10px] font-bold text-neutral-600 bg-neutral-100 px-2 py-0.5 rounded-full shrink-0">{gender}</span>
-                                </div>
-                                {item.customSpecs && (item.customSpecs.quality || item.customSpecs.material || item.customSpecs.weight) && (
-                                  <p className="text-xs text-neutral-500 font-semibold mt-0.5">
-                                    {[item.customSpecs.quality, item.customSpecs.material, item.customSpecs.weight].filter(Boolean).join(' • ')}
-                                  </p>
-                                )}
-                                <p className="text-xs text-neutral-400 font-medium mt-1 truncate">{colors.join(' • ')}</p>
-                              </div>
-                              <button 
-                                onClick={() => handleAddItem({ ...item, style, gender, itemNum, colors, sizes, image, price })}
-                                className="w-8 h-8 rounded-full bg-neutral-100 text-neutral-500 group-hover:bg-black group-hover:text-white flex items-center justify-center transition-colors shrink-0 cursor-pointer"
-                              >
-                                 <PackagePlus size={16} strokeWidth={2.5} />
-                              </button>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))
-                )
-              )}
-
-              {activeLibraryTab === 'suggested' && (
-                suggestedItems.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center p-8 text-center text-neutral-500">
-                    <PackagePlus size={32} className="mb-4 text-neutral-300" />
-                    <p>No suggested garments found.</p>
-                  </div>
-                ) : (
-                  <div className="flex flex-col gap-3">
-                    {suggestedItems.map((item, idx) => {
-                      const style = item.style || 'Custom Garment';
-                      const itemNum = item.itemNum || '';
-                      const colors = item.colors || ['Custom Color'];
-                      const sizes = item.sizes || ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'];
-                      const image = item.image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
-                      const price = parseFloat(item.price || 0);
-
-                      return (
-                        <div key={item.id || idx} className="group flex items-center gap-5 bg-white border border-neutral-200 hover:border-black transition-colors rounded-2xl p-4 cursor-pointer shadow-[0_2px_10px_rgb(0,0,0,0.02)] hover:shadow-md">
-                          <div 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setExpandedImage({ src: image, alt: style });
-                            }}
-                            className="w-16 h-16 rounded-xl overflow-hidden bg-neutral-50 border border-neutral-100 shrink-0 flex items-center justify-center cursor-zoom-in hover:scale-105 hover:border-neutral-300 transition-all"
-                            title="Click to expand"
-                          >
-                            <img src={image} alt={style} className="w-full h-full object-contain p-1 mix-blend-multiply" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between mb-1">
-                               <h4 className="font-bold text-neutral-900 text-[15px] truncate pr-2">{style}</h4>
-                            </div>
-                            <p className="text-xs text-neutral-400 font-medium mt-1 truncate">{colors.join(' • ')}</p>
-                          </div>
-                          <button 
-                            onClick={() => handleAddItem({ ...item, style, itemNum, colors, sizes, image, price })}
-                            className="w-8 h-8 rounded-full bg-neutral-100 text-neutral-500 group-hover:bg-black group-hover:text-white flex items-center justify-center transition-colors shrink-0 cursor-pointer"
-                          >
-                             <PackagePlus size={16} strokeWidth={2.5} />
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )
-              )}
-
-              {activeLibraryTab === 'past' && (
-                pastGarments.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center p-8 text-center text-neutral-500">
-                    <RotateCcw size={32} className="mb-4 text-neutral-300 animate-pulse" />
-                    <p>No past ordered garments found.</p>
-                  </div>
-                ) : (
-                  <div className="flex flex-col gap-3">
-                    {pastGarments.map((item, idx) => {
-                      const style = item.style || 'Custom Garment';
-                      const itemNum = item.itemNum || '';
-                      const colors = item.colors || ['Custom Color'];
-                      const sizes = item.sizes || ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'];
-                      const image = item.image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
-                      const price = parseFloat(item.price || 0);
-
-                      return (
-                        <div key={item.id || idx} className="group flex items-center gap-5 bg-white border border-neutral-200 hover:border-black transition-colors rounded-2xl p-4 cursor-pointer shadow-[0_2px_10px_rgb(0,0,0,0.02)] hover:shadow-md">
-                          <div 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setExpandedImage({ src: image, alt: style });
-                            }}
-                            className="w-16 h-16 rounded-xl overflow-hidden bg-neutral-50 border border-neutral-100 shrink-0 flex items-center justify-center cursor-zoom-in hover:scale-105 hover:border-neutral-300 transition-all"
-                            title="Click to expand"
-                          >
-                            <img src={image} alt={style} className="w-full h-full object-contain p-1 mix-blend-multiply" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between mb-1">
-                               <h4 className="font-bold text-neutral-900 text-[15px] truncate pr-2">{style}</h4>
-                            </div>
-                            {price > 0 && (
-                                <p className="text-xs font-black text-black mt-1">
-                                    ${price.toFixed(2)}
-                                </p>
-                            )}
-                            <p className="text-xs text-neutral-400 font-medium mt-1 truncate">{colors.join(' • ')}</p>
-                          </div>
-                          <button 
-                            onClick={() => handleAddItem({ ...item, style, itemNum, colors, sizes, image, price })}
-                            className="w-8 h-8 rounded-full bg-neutral-100 text-neutral-500 group-hover:bg-black group-hover:text-white flex items-center justify-center transition-colors shrink-0 cursor-pointer"
-                          >
-                             <PackagePlus size={16} strokeWidth={2.5} />
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )
-              )}
-            </div>
-
           </div>
         </div>
       )}
-
       {isRepeatModalOpen && (
         <div className="fixed inset-0 z-50 flex justify-end bg-black/20 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="w-full max-w-[500px] h-full bg-white shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
