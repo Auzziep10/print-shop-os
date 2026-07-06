@@ -1681,7 +1681,7 @@ export function PortalCreateOrder() {
                     <div className="flex flex-col gap-1.5">
                       <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider pl-1">Delivery Option</label>
                       <div className="grid grid-cols-2 gap-2 bg-neutral-100 p-1 rounded-xl border border-neutral-200">
-                        {['Pickup', 'Shipping'].map((opt) => (
+                        {['Local Delivery', 'Shipping'].map((opt) => (
                           <button
                             key={opt}
                             type="button"
@@ -1699,48 +1699,43 @@ export function PortalCreateOrder() {
                     </div>
 
                     {/* Delivery Option details or Address input */}
-                    {deliveryOption === 'Pickup' ? (
-                      <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-4 flex flex-col gap-1 text-xs text-neutral-500 leading-relaxed font-semibold">
-                        <span className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-600 block mb-0.5">Pickup Location</span>
-                        Our print shop location. We'll notify you when it's ready.
-                      </div>
-                    ) : (
-                      <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-4 flex flex-col gap-3">
-                        <span className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-600">Shipping Address</span>
-                        <div className="flex flex-col gap-2.5">
+                    <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-4 flex flex-col gap-3">
+                      <span className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-600">
+                        {deliveryOption === 'Local Delivery' ? 'Delivery Address' : 'Shipping Address'}
+                      </span>
+                      <div className="flex flex-col gap-2.5">
+                        <input
+                          type="text"
+                          placeholder="Street Address"
+                          value={profileStreet}
+                          onChange={(e) => setProfileStreet(e.target.value)}
+                          className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:border-black transition-all"
+                        />
+                        <div className="grid grid-cols-3 gap-2">
                           <input
                             type="text"
-                            placeholder="Street Address"
-                            value={profileStreet}
-                            onChange={(e) => setProfileStreet(e.target.value)}
-                            className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:border-black transition-all"
+                            placeholder="City"
+                            value={profileCity}
+                            onChange={(e) => setProfileCity(e.target.value)}
+                            className="col-span-1 w-full bg-white border border-neutral-200 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:border-black transition-all"
                           />
-                          <div className="grid grid-cols-3 gap-2">
-                            <input
-                              type="text"
-                              placeholder="City"
-                              value={profileCity}
-                              onChange={(e) => setProfileCity(e.target.value)}
-                              className="col-span-1 w-full bg-white border border-neutral-200 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:border-black transition-all"
-                            />
-                            <input
-                              type="text"
-                              placeholder="State"
-                              value={profileState}
-                              onChange={(e) => setProfileState(e.target.value)}
-                              className="col-span-1 w-full bg-white border border-neutral-200 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:border-black transition-all"
-                            />
-                            <input
-                              type="text"
-                              placeholder="ZIP"
-                              value={profileZip}
-                              onChange={(e) => setProfileZip(e.target.value)}
-                              className="col-span-1 w-full bg-white border border-neutral-200 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:border-black transition-all"
-                            />
-                          </div>
+                          <input
+                            type="text"
+                            placeholder="State"
+                            value={profileState}
+                            onChange={(e) => setProfileState(e.target.value)}
+                            className="col-span-1 w-full bg-white border border-neutral-200 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:border-black transition-all"
+                          />
+                          <input
+                            type="text"
+                            placeholder="ZIP"
+                            value={profileZip}
+                            onChange={(e) => setProfileZip(e.target.value)}
+                            className="col-span-1 w-full bg-white border border-neutral-200 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:border-black transition-all"
+                          />
                         </div>
                       </div>
-                    )}
+                    </div>
 
                     {/* Resale Certificate for Wholesale */}
                     <div className="flex flex-col gap-2">
