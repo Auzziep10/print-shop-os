@@ -1602,8 +1602,12 @@ export function PortalCreateOrder() {
 
       {/* Slide-out Cart Drawer */}
       {isCartOpen && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/20 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-[650px] h-full bg-white shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+        <>
+          <div 
+            onClick={() => setIsCartOpen(false)}
+            className="fixed inset-0 z-50 bg-black/20 backdrop-blur-sm animate-in fade-in duration-200 cursor-pointer"
+          />
+          <div className="fixed top-0 right-0 z-50 w-full max-w-[650px] h-full bg-white shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
             {/* Drawer Header */}
             <div className="px-6 py-5 border-b border-neutral-100 flex items-center justify-between bg-neutral-50/50 shrink-0">
               <div>
@@ -1983,11 +1987,15 @@ export function PortalCreateOrder() {
               )}
             </div>
           </div>
-        </div>
+        </>
       )}
       {isRepeatModalOpen && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/20 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-[500px] h-full bg-white shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+        <>
+          <div 
+            onClick={() => setIsRepeatModalOpen(false)}
+            className="fixed inset-0 z-50 bg-black/20 backdrop-blur-sm animate-in fade-in duration-200 cursor-pointer"
+          />
+          <div className="fixed top-0 right-0 z-50 w-full max-w-[500px] h-full bg-white shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
             
             {/* Drawer Header */}
             <div className="px-8 py-6 border-b border-neutral-100 flex items-center justify-between bg-neutral-50/50">
@@ -2052,7 +2060,7 @@ export function PortalCreateOrder() {
               )}
             </div>
           </div>
-        </div>
+        </>
       )}
       {customizingItem && (
         <GarmentCustomizerModal
