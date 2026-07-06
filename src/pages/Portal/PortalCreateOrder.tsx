@@ -777,12 +777,14 @@ export function PortalCreateOrder() {
           if (tabParam) {
             setActiveLibraryTab(tabParam);
           } else {
-            if (categories.length > 0) {
+            if (customerData.suggestedItems && customerData.suggestedItems.length > 0) {
+              setActiveLibraryTab('suggested');
+            } else if (categories.length > 0) {
               setActiveLibraryTab('rack');
             } else if (isRackActive) {
               setActiveLibraryTab('wovn');
             } else {
-              setActiveLibraryTab(customerData.suggestedItems && customerData.suggestedItems.length > 0 ? 'suggested' : 'past');
+              setActiveLibraryTab('past');
             }
           }
           
@@ -1238,17 +1240,19 @@ export function PortalCreateOrder() {
               WOVN Catalog ({customerDecks.reduce((acc, deck) => acc + (deck.items || deck.garments || []).length, 0)})
             </button>
           )}
-          <button
-            type="button"
-            onClick={() => setActiveLibraryTab('suggested')}
-            className={`text-sm font-bold pb-1.5 border-b-2 whitespace-nowrap transition-all cursor-pointer ${
-              activeLibraryTab === 'suggested' 
-                ? 'text-black border-black' 
-                : 'text-neutral-400 border-transparent hover:text-black hover:border-black'
-            }`}
-          >
-            Suggested ({suggestedItems.length})
-          </button>
+          {suggestedItems.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setActiveLibraryTab('suggested')}
+              className={`text-sm font-bold pb-1.5 border-b-2 whitespace-nowrap transition-all cursor-pointer ${
+                activeLibraryTab === 'suggested' 
+                  ? 'text-black border-black' 
+                  : 'text-neutral-450 hover:text-black hover:border-black border-transparent'
+              }`}
+            >
+              Suggested ({suggestedItems.length})
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setActiveLibraryTab('past')}
