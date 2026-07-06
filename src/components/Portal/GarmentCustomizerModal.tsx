@@ -1518,16 +1518,16 @@ export function GarmentCustomizerModal({
                     </label>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-4 gap-2.5 max-h-[160px] overflow-y-auto pr-1">
+                  <div className="grid grid-cols-3 gap-3 max-h-[220px] overflow-y-auto pr-1">
                     {assets.map((asset) => {
-                      const isSelected = selectedLogo?.id === asset.id;
-                      return (
-                        <div
-                          key={asset.id}
-                          onClick={() => setSelectedLogo(asset)}
-                          className={`w-full aspect-square rounded-xl overflow-hidden border flex items-center justify-center p-1 bg-checkerboard relative transition-all cursor-pointer ${
-                            isSelected ? 'border-black ring-2 ring-black scale-[0.98]' : 'border-neutral-200 hover:border-neutral-400'
-                          }`}
+                       const isSelected = selectedLogo?.id === asset.id;
+                       return (
+                         <div
+                           key={asset.id}
+                           onClick={() => setSelectedLogo(asset)}
+                           className={`w-full h-20 rounded-xl overflow-hidden border flex items-center justify-center p-1 bg-checkerboard relative transition-all cursor-pointer ${
+                             isSelected ? 'border-black ring-2 ring-black scale-[0.98]' : 'border-neutral-200 hover:border-neutral-400'
+                           }`}
                           title={asset.name}
                           role="button"
                           tabIndex={0}
