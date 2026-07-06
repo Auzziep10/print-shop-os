@@ -300,34 +300,45 @@ export function PortalLayout() {
 
       {/* Top Header */}
       <header className={`flex flex-col lg:flex-row items-center justify-between px-6 lg:px-10 bg-white border-b border-black/5 gap-4 lg:gap-8 ${customer?.logo ? 'py-4' : 'py-6'}`}>
-        <div 
-          onClick={() => navigate(customerId ? `/portal/${customerId}` : '/portal')}
-          className="flex items-center cursor-pointer hover:opacity-80 transition-opacity"
-          title="Go to Orders Dashboard"
-        >
-          {/* Main Logo */}
-          {isLoadingCustomer ? (
-            <div className="h-8 w-24 bg-gray-150/40 rounded animate-pulse" />
-          ) : customer?.logo ? (
-            <img src={customer.logo} alt={customer.company || "Customer Logo"} className="h-16 object-contain max-w-[260px]" />
-          ) : (
-            <img src="/logo.png" alt="WOVN" className="h-8" />
-          )}
+        {/* Left Section: Logo & Create Order Button */}
+        <div className="flex items-center gap-6 shrink-0 w-full lg:w-auto justify-between lg:justify-start">
+          <div 
+            onClick={() => navigate(customerId ? `/portal/${customerId}` : '/portal')}
+            className="flex items-center cursor-pointer hover:opacity-80 transition-opacity"
+            title="Go to Orders Dashboard"
+          >
+            {/* Main Logo */}
+            {isLoadingCustomer ? (
+              <div className="h-8 w-24 bg-gray-150/40 rounded animate-pulse" />
+            ) : customer?.logo ? (
+              <img src={customer.logo} alt={customer.company || "Customer Logo"} className="h-16 object-contain max-w-[260px]" />
+            ) : (
+              <img src="/logo.png" alt="WOVN" className="h-8" />
+            )}
+          </div>
+
+          <button 
+            data-tour="create-order-btn"
+            onClick={() => handleCreateOrder(cartCount > 0)}
+            className="bg-black text-white px-5 py-2.5 rounded-full text-xs font-bold tracking-wide hover:bg-black/80 hover:scale-105 active:scale-95 transition-all shadow-[0_4px_14px_0_rgb(0,0,0,0.15)] shrink-0"
+          >
+            {cartCount > 0 ? "+ Items" : "Create Order +"}
+          </button>
         </div>
  
-        {/* Center Search Pill */}
-        <div className="hidden xl:flex flex-1 justify-center px-12">
-          <div className="relative w-full max-w-2xl group">
+        {/* Center Section: Search Pill (Centered & Smaller) */}
+        <div className="hidden xl:flex flex-1 justify-center px-6">
+          <div className="relative w-full max-w-sm group">
             <input 
               type="text" 
               placeholder="Search" 
-              className="w-full pl-6 pr-10 py-3 bg-white border border-gray-200 rounded-full text-sm font-medium focus:outline-none focus:border-gray-300 focus:shadow-sm transition-all placeholder:text-gray-400"
+              className="w-full pl-6 pr-10 py-2.5 bg-white border border-gray-200 rounded-full text-sm font-medium focus:outline-none focus:border-gray-300 focus:shadow-sm transition-all placeholder:text-gray-400"
             />
-            <Search className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-gray-600 transition-colors" size={18} strokeWidth={2.5} />
+            <Search className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-gray-600 transition-colors" size={16} strokeWidth={2.5} />
           </div>
         </div>
  
-        {/* Right Nav Options */}
+        {/* Right Section: Navigation Options */}
         <div className="flex flex-wrap items-center justify-center lg:justify-end gap-3 sm:gap-4 md:gap-6 w-full lg:w-auto">
           <button 
             data-tour="orders-tab"
@@ -340,7 +351,7 @@ export function PortalLayout() {
           >
             Orders
           </button>
-
+ 
           <button 
             data-tour="vault-tab"
             onClick={() => navigate(customerId ? `/portal/${customerId}/vault` : '/portal/vault')}
@@ -352,7 +363,7 @@ export function PortalLayout() {
           >
             Asset Vault
           </button>
-
+ 
           <button 
             data-tour="saved-carts-tab"
             onClick={() => navigate(customerId ? `/portal/${customerId}/create?tab=saved` : '/portal/create?tab=saved')}
@@ -364,7 +375,6 @@ export function PortalLayout() {
           >
             Saved Carts
           </button>
-          
           
           <button
             id="reorder-cart-btn"
@@ -393,15 +403,7 @@ export function PortalLayout() {
             </div>
             <span className="font-extrabold uppercase text-[10px] tracking-wider text-emerald-600 whitespace-nowrap">Cart</span>
           </button>
-
-           <button 
-            data-tour="create-order-btn"
-            onClick={() => handleCreateOrder(cartCount > 0)}
-            className="bg-black text-white px-5 py-2.5 rounded-full text-xs font-bold tracking-wide hover:bg-black/80 hover:scale-105 active:scale-95 transition-all shadow-[0_4px_14px_0_rgb(0,0,0,0.15)] mr-2"
-          >
-            {cartCount > 0 ? "+ Items" : "Create Order +"}
-          </button>
-
+ 
           <button 
             onClick={() => setIsHelpOpen(true)}
             className="w-10 h-10 rounded-full border border-black/20 text-neutral-500 hover:text-black flex items-center justify-center hover:bg-neutral-50 hover:scale-105 active:scale-95 transition-all shadow-[0_2px_8px_0_rgb(0,0,0,0.02)] cursor-pointer"
