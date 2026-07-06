@@ -44,6 +44,10 @@ export function QuoTab() {
   const [apiKey, setApiKey] = useState('');
   const [fromNumber, setFromNumber] = useState('');
   const [templates, setTemplates] = useState<Record<string, StatusTemplate>>(DEFAULT_TEMPLATES);
+  const [welcomeTemplate, setWelcomeTemplate] = useState<StatusTemplate>({
+    enabled: true,
+    template: 'Hi {customerName}, welcome to {companyName}! Your portal account has been created. Log in here: {portalUrl}'
+  });
 
   // Status message states
   const [saveStatus, setSaveStatus] = useState<{ success: boolean; message: string } | null>(null);
@@ -65,6 +69,9 @@ export function QuoTab() {
               ...DEFAULT_TEMPLATES,
               ...data.templates
             });
+          }
+          if (data.welcome) {
+            setWelcomeTemplate(data.welcome);
           }
         }
       } catch (err) {
@@ -90,6 +97,7 @@ export function QuoTab() {
           apiKey: apiKey.trim(),
           fromNumber: fromNumber.trim(),
           templates: templates,
+          welcome: welcomeTemplate,
           updatedAt: new Date().toISOString()
         },
         { merge: true }
@@ -264,6 +272,49 @@ export function QuoTab() {
               <p className="text-[11px] text-brand-secondary/70 mt-1 flex items-center gap-1">
                 <Phone size={12} /> Must be in E.164 format (with country code, e.g. +1).
               </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Welcome Template */}
+        <div className="bg-white border border-brand-border rounded-xl p-6 shadow-sm space-y-6">
+          <div className="border-b border-brand-border/40 pb-2 flex justify-between items-center">
+            <h3 className="text-sm font-bold uppercase tracking-widest text-brand-secondary">
+              Customer Welcome Notification (Account Created)
+            </h3>
+            <span className="text-xs text-brand-secondary/70">
+              Variables: <code className="bg-neutral-100 px-1 py-0.5 rounded font-mono text-[10px]">{'{customerName}'}</code>, <code className="bg-neutral-100 px-1 py-0.5 rounded font-mono text-[10px]">{'{companyName}'}</code>, <code className="bg-neutral-100 px-1 py-0.5 rounded font-mono text-[10px]">{'{portalUrl}'}</code>
+            </span>
+          </div>
+
+          <div className="flex flex-col md:flex-row gap-4 items-start">
+            <div className="w-full md:w-1/3 flex items-center justify-between shrink-0">
+              <div>
+                <span className="text-xs font-semibold text-brand-primary">Welcome SMS</span>
+                <p className="text-[11px] text-brand-secondary/70">Sent immediately upon customer creation</p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  className="sr-only peer"
+                  checked={welcomeTemplate.enabled}
+                  onChange={() => setWelcomeTemplate(prev => ({ ...prev, enabled: !prev.enabled }))}
+                />
+                <div className="w-9 h-5 bg-neutral-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-brand-primary"></div>
+              </label>
+            </div>
+
+            <div className="w-full md:flex-1">
+              <textarea
+                rows={2}
+                disabled={!welcomeTemplate.enabled}
+                value={welcomeTemplate.template}
+                onChange={(e) => setWelcomeTemplate(prev => ({ ...prev, template: e.target.value }))}
+                className={`w-full text-xs bg-brand-bg/50 border border-brand-border rounded-lg p-3 focus:border-brand-primary focus:outline-none transition-colors ${
+                  !welcomeTemplate.enabled ? 'bg-neutral-50 border-neutral-200 text-neutral-400 cursor-not-allowed' : ''
+                }`}
+                placeholder="Enter welcome SMS message template"
+              />
             </div>
           </div>
         </div>

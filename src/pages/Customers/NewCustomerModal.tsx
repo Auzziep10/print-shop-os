@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { X, Building2, Mail, Phone, MapPin, Loader2, User, Briefcase } from 'lucide-react';
 import { db } from '../../lib/firebase';
 import { collection, addDoc, doc, setDoc } from 'firebase/firestore';
+import { sendCustomerWelcomeSMS } from '../../lib/smsService';
+import { sendCustomerWelcomeEmail } from '../../lib/emailService';
 import { tokens } from '../../lib/tokens';
 
 interface NewCustomerModalProps {
@@ -56,6 +58,14 @@ export function NewCustomerModal({ isOpen, onClose, onSuccess }: NewCustomerModa
           phone: formData.phone.trim() || '-',
           companyName: formData.company.trim() || formData.contactName.trim() || '-'
         });
+      }
+
+      // Trigger Welcome Notifications
+      if (formData.email.trim()) {
+        sendCustomerWelcomeEmail(docRef.id);
+      }
+      if (formData.phone.trim()) {
+        sendCustomerWelcomeSMS(docRef.id);
       }
 
       onSuccess(docRef.id);

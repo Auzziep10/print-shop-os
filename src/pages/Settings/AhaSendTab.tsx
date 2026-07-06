@@ -83,6 +83,11 @@ export function AhaSendTab() {
   const [fromName, setFromName] = useState('');
   const [accountId, setAccountId] = useState('');
   const [templates, setTemplates] = useState<Record<string, StatusEmailTemplate>>(DEFAULT_EMAIL_TEMPLATES);
+  const [welcomeTemplate, setWelcomeTemplate] = useState<StatusEmailTemplate>({
+    enabled: true,
+    subject: 'Welcome to your Client Portal',
+    template: 'Hi {customerName},\n\nWelcome! A customer account has been created for you.\n\nYou can access your client portal and view all your orders, invoices, and designs by logging in with your email ({customerEmail}) here:\n{portalUrl}\n\nBest regards,\nWOVN Team'
+  });
 
   // Status message states
   const [saveStatus, setSaveStatus] = useState<{ success: boolean; message: string } | null>(null);
@@ -104,6 +109,9 @@ export function AhaSendTab() {
               ...prev,
               ...data.templates
             }));
+          }
+          if (data.welcome) {
+            setWelcomeTemplate(data.welcome);
           }
         }
       } catch (err) {
@@ -136,6 +144,7 @@ export function AhaSendTab() {
           fromName: fromName.trim(),
           accountId: accountId.trim(),
           templates: templates,
+          welcome: welcomeTemplate,
           updatedAt: new Date().toISOString()
         },
         { merge: true }
@@ -384,6 +393,65 @@ export function AhaSendTab() {
                 <p className="text-[11px] text-brand-secondary/70 mt-1">
                   The friendly name displayed in recipient inboxes.
                 </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Welcome Template */}
+        <div className="bg-white border border-brand-border rounded-xl p-6 shadow-sm space-y-6">
+          <div className="border-b border-brand-border/40 pb-2 flex justify-between items-center">
+            <h3 className="text-sm font-bold uppercase tracking-widest text-brand-secondary">
+              Customer Welcome Email (Account Created)
+            </h3>
+            <span className="text-xs text-brand-secondary/70">
+              Variables: <code className="bg-neutral-100 px-1 py-0.5 rounded font-mono text-[10px]">{'{customerName}'}</code>, <code className="bg-neutral-100 px-1 py-0.5 rounded font-mono text-[10px]">{'{companyName}'}</code>, <code className="bg-neutral-100 px-1 py-0.5 rounded font-mono text-[10px]">{'{portalUrl}'}</code>, <code className="bg-neutral-100 px-1 py-0.5 rounded font-mono text-[10px]">{'{customerEmail}'}</code>
+            </span>
+          </div>
+
+          <div className="flex flex-col lg:flex-row gap-6 items-start">
+            <div className="w-full lg:w-1/4 flex items-center justify-between shrink-0">
+              <div>
+                <span className="text-xs font-bold text-brand-primary">Welcome Email</span>
+                <p className="text-[11px] text-brand-secondary/70 mt-0.5">Sent immediately upon customer creation</p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  className="sr-only peer"
+                  checked={welcomeTemplate.enabled}
+                  onChange={() => setWelcomeTemplate(prev => ({ ...prev, enabled: !prev.enabled }))}
+                />
+                <div className="w-9 h-5 bg-neutral-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-brand-primary"></div>
+              </label>
+            </div>
+
+            <div className="w-full lg:flex-1 space-y-3">
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary/70">Email Subject</label>
+                <input
+                  type="text"
+                  disabled={!welcomeTemplate.enabled}
+                  value={welcomeTemplate.subject}
+                  onChange={(e) => setWelcomeTemplate(prev => ({ ...prev, subject: e.target.value }))}
+                  className={`w-full text-xs bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 focus:border-brand-primary focus:outline-none transition-colors ${
+                    !welcomeTemplate.enabled ? 'bg-neutral-50 border-neutral-200 text-neutral-450 cursor-not-allowed font-semibold' : 'font-semibold text-neutral-800'
+                  }`}
+                  placeholder="e.g. Welcome to your Client Portal"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary/70">Email Body Message</label>
+                <textarea
+                  rows={4}
+                  disabled={!welcomeTemplate.enabled}
+                  value={welcomeTemplate.template}
+                  onChange={(e) => setWelcomeTemplate(prev => ({ ...prev, template: e.target.value }))}
+                  className={`w-full text-xs bg-brand-bg/50 border border-brand-border rounded-lg p-3 focus:border-brand-primary focus:outline-none transition-colors ${
+                    !welcomeTemplate.enabled ? 'bg-neutral-50 border-neutral-200 text-neutral-400 cursor-not-allowed' : ''
+                  }`}
+                  placeholder="Enter welcome email body template"
+                />
               </div>
             </div>
           </div>
