@@ -156,7 +156,7 @@ export function PortalTourOverlay({
       ]
     },
     search_youth: {
-      title: 'Youth Sizing & Global Search',
+      title: 'Youth Sizing',
       steps: [
         {
           target: 'create-order-btn',
@@ -171,14 +171,6 @@ export function PortalTourOverlay({
           title: 'Step 2: Add Youth Sizes',
           content: 'Click "+ Add Youth Sizing" to reveal the youth size grid (YXS to YXL).',
           position: 'bottom',
-          requiredPath: `/portal/${customerId}/create`,
-          pathName: 'Create Order Builder'
-        },
-        {
-          target: 'search-global-catalog-btn',
-          title: 'Step 3: Global Catalog Search',
-          content: 'Click "+ Search Global Blank Catalog" to search SanMar blanks directly.',
-          position: 'top',
           requiredPath: `/portal/${customerId}/create`,
           pathName: 'Create Order Builder'
         }

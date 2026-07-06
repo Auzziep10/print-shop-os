@@ -54,14 +54,12 @@ export function PortalHelpDrawer({ isOpen, onClose, onStartTour }: PortalHelpDra
     },
     {
       id: 'search_youth',
-      title: 'Youth Sizes & Global Blank Catalog Search',
-      description: 'Find out how to include youth size matrices and search SanMar\'s global catalog for new items.',
+      title: 'Youth Sizing',
+      description: 'Learn how to include youth size matrices (YXS - YXL) for your custom garments.',
       icon: <PlusCircle size={20} className="text-amber-500" />,
       steps: [
         'Open the Quote Builder or Reorder screen.',
-        'To add youth sizes (YXS - YXL) to any garment, click the "+ Add Youth Sizing" button above its sizing matrix.',
-        'To browse and add garments beyond your curated library, click the "+ Search Global Blank Catalog" button at the bottom of the list.',
-        'Search the global catalog directly, select colors and size matrices, and add the new blanks to your quote builder.'
+        'To add youth sizes (YXS - YXL) to any garment in your cart, click the "+ Add Youth Sizing" button above its sizing matrix.'
       ]
     },
     {

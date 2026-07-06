@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { ArrowLeft, PackagePlus, X, Trash2, ChevronDown, RotateCcw, Calendar, Loader2, Sparkles, Save, User, Copy, Upload, ShoppingCart, PlusCircle } from 'lucide-react';
+import { ArrowLeft, PackagePlus, X, Trash2, ChevronDown, RotateCcw, Calendar, Loader2, Sparkles, Save, User, Copy, Upload, ShoppingCart } from 'lucide-react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { db, storage } from '../../lib/firebase';
 import { doc, getDoc, collection, query, where, getDocs, setDoc, deleteDoc } from 'firebase/firestore';
@@ -1598,20 +1598,6 @@ export function PortalCreateOrder() {
             </div>
           )}
         </div>
-
-        {activeLibraryTab !== 'saved' && (
-          <div className="mt-8 pt-6 border-t border-neutral-100 flex justify-center">
-            <button
-              type="button"
-              data-tour="search-global-catalog-btn"
-              onClick={() => setIsGarmentBrowserOpen(true)}
-              className="bg-white border border-neutral-200 hover:border-black text-neutral-800 hover:text-black text-xs font-bold px-6 py-3 rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-2 hover:scale-105 active:scale-95 duration-200"
-            >
-              <PlusCircle size={14} />
-              <span>+ Search Global Blank Catalog</span>
-            </button>
-          </div>
-        )}
       </div>
 
       {/* Slide-out Cart Drawer */}
