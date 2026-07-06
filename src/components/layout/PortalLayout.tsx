@@ -301,7 +301,7 @@ export function PortalLayout() {
       {/* Top Header */}
       <header className={`flex flex-col lg:flex-row items-center justify-between px-6 lg:px-10 bg-white border-b border-black/5 gap-4 lg:gap-8 ${customer?.logo ? 'py-4' : 'py-6'}`}>
         {/* Left Section: Logo & Create Order Button */}
-        <div className="flex items-center gap-6 shrink-0 w-full lg:w-auto justify-between lg:justify-start">
+        <div className="flex items-center gap-12 shrink-0 w-full lg:w-auto justify-between lg:justify-start">
           <div 
             onClick={() => navigate(customerId ? `/portal/${customerId}` : '/portal')}
             className="flex items-center cursor-pointer hover:opacity-80 transition-opacity"
