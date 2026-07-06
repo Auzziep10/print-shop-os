@@ -1294,7 +1294,7 @@ export function CustomerDetail() {
                  <div className="flex flex-col gap-1">
                     <label className="text-xs font-bold text-brand-secondary uppercase tracking-widest">Fulfillment Type</label>
                     <select className="w-full bg-brand-bg border border-brand-border/60 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-brand-primary/30 transition-colors font-medium text-brand-primary" value={editCompanyForm.fulfillmentType} onChange={e => setEditCompanyForm({...editCompanyForm, fulfillmentType: e.target.value})}>
-                      <option value="Standard">Standard Drop-Ship</option>
+                      <option value="Standard">Delivered</option>
                       <option value="Kitting">Inventory & Kitting</option>
                     </select>
                  </div>
@@ -1627,7 +1627,7 @@ export function CustomerDetail() {
                     className="w-full bg-white border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
                   >
                     <option value="">Default (From Customer)</option>
-                    <option value="Standard">Standard Drop-Ship</option>
+                    <option value="Standard">Delivered</option>
                     <option value="Kitting">Inventory & Kitting</option>
                   </select>
                 </div>

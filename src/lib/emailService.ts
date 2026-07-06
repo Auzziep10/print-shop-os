@@ -3,21 +3,6 @@ import { db, auth } from './firebase';
 
 export async function sendOrderStatusEmail(orderId: string, newStatusIndex: number) {
   try {
-    const ahasendSnap = await getDoc(doc(db, 'settings', 'ahasend'));
-    if (!ahasendSnap.exists()) {
-      console.log('[Email Service] AhaSend integration is not configured in settings.');
-      return;
-    }
-
-    const ahasendData = ahasendSnap.data();
-    const statusKey = newStatusIndex.toString();
-    const templateConfig = ahasendData.templates?.[statusKey];
-
-    if (!templateConfig || !templateConfig.enabled || !templateConfig.template) {
-      console.log(`[Email Service] Email notifications are disabled or not configured for status index ${newStatusIndex}.`);
-      return;
-    }
-
     const orderSnap = await getDoc(doc(db, 'orders', orderId));
     if (!orderSnap.exists()) {
       console.error(`[Email Service] Order ${orderId} not found.`);
@@ -28,6 +13,7 @@ export async function sendOrderStatusEmail(orderId: string, newStatusIndex: numb
     let recipientEmail = '';
     let customerName = 'Customer';
     let companyName = 'Unknown Customer';
+    let isKitting = false;
 
     if (order.customerId && order.customerId !== 'Shopify Temporary') {
       const customerSnap = await getDoc(doc(db, 'customers', order.customerId));
@@ -36,6 +22,7 @@ export async function sendOrderStatusEmail(orderId: string, newStatusIndex: numb
         recipientEmail = customer.email || '';
         customerName = customer.contactName || customer.name || customer.company || 'Customer';
         companyName = customer.company || 'Unknown Customer';
+        isKitting = order.fulfillmentType === 'Kitting' || (!order.fulfillmentType && customer.fulfillmentType === 'Kitting');
       }
     }
 
@@ -45,6 +32,29 @@ export async function sendOrderStatusEmail(orderId: string, newStatusIndex: numb
 
     if (!recipientEmail) {
       console.warn(`[Email Service] Skip Email: No valid email address found for order ${orderId}.`);
+      return;
+    }
+
+    const ahasendSnap = await getDoc(doc(db, 'settings', 'ahasend'));
+    if (!ahasendSnap.exists()) {
+      console.log('[Email Service] AhaSend integration is not configured in settings.');
+      return;
+    }
+
+    const ahasendData = ahasendSnap.data();
+    const statusKey = newStatusIndex.toString();
+    
+    // Choose kittingTemplates or standard templates
+    const templatesToUse = isKitting ? (ahasendData.kittingTemplates || {}) : (ahasendData.templates || {});
+    let templateConfig = templatesToUse[statusKey];
+    
+    // Fallback to standard template if kitting template is not set/enabled
+    if (isKitting && (!templateConfig || !templateConfig.enabled || !templateConfig.template)) {
+      templateConfig = ahasendData.templates?.[statusKey];
+    }
+
+    if (!templateConfig || !templateConfig.enabled || !templateConfig.template) {
+      console.log(`[Email Service] Email notifications are disabled or not configured for status index ${newStatusIndex} (isKitting: ${isKitting}).`);
       return;
     }
 

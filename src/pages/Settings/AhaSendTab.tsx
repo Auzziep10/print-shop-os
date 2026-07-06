@@ -59,7 +59,21 @@ const DEFAULT_EMAIL_TEMPLATES: Record<string, StatusEmailTemplate> = {
   }
 };
 
-const STATUS_LABELS = [
+const DEFAULT_KITTING_EMAIL_TEMPLATES: Record<string, StatusEmailTemplate> = {
+  ...DEFAULT_EMAIL_TEMPLATES,
+  '7': { 
+    enabled: true, 
+    subject: 'Order #{orderId} is in Inventory!',
+    template: 'Hi {customerName},\n\nYour Order #{orderId} ("{orderTitle}") has been completed and received into inventory! You can view and manage these items via the Client Portal:\n{portalUrl}\n\nBest regards,\nWOVN Team'
+  },
+  '8': { 
+    enabled: true, 
+    subject: 'Order #{orderId} is now Live on Shopify!',
+    template: 'Hi {customerName},\n\nYour Order #{orderId} ("{orderTitle}") is now live on your Shopify store!\n\nBest regards,\nWOVN Team'
+  }
+};
+
+const STANDARD_STATUS_LABELS = [
   'Request Created (Quote)',
   'Under Review',
   'Quote Prepared',
@@ -67,8 +81,20 @@ const STATUS_LABELS = [
   'Sourcing',
   'Ordered',
   'In Production',
-  'Shipped / Inventory',
-  'Received / Live'
+  'Shipped',
+  'Received'
+];
+
+const KITTING_STATUS_LABELS = [
+  'Request Created (Quote)',
+  'Under Review',
+  'Quote Prepared',
+  'Awaiting Payment',
+  'Sourcing',
+  'Ordered',
+  'In Production',
+  'Inventory',
+  'Live'
 ];
 
 export function AhaSendTab() {
@@ -83,6 +109,8 @@ export function AhaSendTab() {
   const [fromName, setFromName] = useState('');
   const [accountId, setAccountId] = useState('');
   const [templates, setTemplates] = useState<Record<string, StatusEmailTemplate>>(DEFAULT_EMAIL_TEMPLATES);
+  const [kittingTemplates, setKittingTemplates] = useState<Record<string, StatusEmailTemplate>>(DEFAULT_KITTING_EMAIL_TEMPLATES);
+  const [activeTab, setActiveTab] = useState<'Standard' | 'Kitting'>('Standard');
   const [welcomeTemplate, setWelcomeTemplate] = useState<StatusEmailTemplate>({
     enabled: true,
     subject: 'Welcome to your Client Portal',
@@ -108,6 +136,12 @@ export function AhaSendTab() {
             setTemplates(prev => ({
               ...prev,
               ...data.templates
+            }));
+          }
+          if (data.kittingTemplates) {
+            setKittingTemplates(prev => ({
+              ...prev,
+              ...data.kittingTemplates
             }));
           }
           if (data.welcome) {
@@ -144,6 +178,7 @@ export function AhaSendTab() {
           fromName: fromName.trim(),
           accountId: accountId.trim(),
           templates: templates,
+          kittingTemplates: kittingTemplates,
           welcome: welcomeTemplate,
           updatedAt: new Date().toISOString()
         },
@@ -159,42 +194,81 @@ export function AhaSendTab() {
   };
 
   const handleTemplateToggle = (statusKey: string) => {
-    setTemplates(prev => {
-      const current = prev[statusKey] || { enabled: false, subject: '', template: '' };
-      return {
-        ...prev,
-        [statusKey]: {
-          ...current,
-          enabled: !current.enabled
-        }
-      };
-    });
+    if (activeTab === 'Standard') {
+      setTemplates(prev => {
+        const current = prev[statusKey] || { enabled: false, subject: '', template: '' };
+        return {
+          ...prev,
+          [statusKey]: {
+            ...current,
+            enabled: !current.enabled
+          }
+        };
+      });
+    } else {
+      setKittingTemplates(prev => {
+        const current = prev[statusKey] || { enabled: false, subject: '', template: '' };
+        return {
+          ...prev,
+          [statusKey]: {
+            ...current,
+            enabled: !current.enabled
+          }
+        };
+      });
+    }
   };
 
   const handleTemplateSubjectChange = (statusKey: string, val: string) => {
-    setTemplates(prev => {
-      const current = prev[statusKey] || { enabled: false, subject: '', template: '' };
-      return {
-        ...prev,
-        [statusKey]: {
-          ...current,
-          subject: val
-        }
-      };
-    });
+    if (activeTab === 'Standard') {
+      setTemplates(prev => {
+        const current = prev[statusKey] || { enabled: false, subject: '', template: '' };
+        return {
+          ...prev,
+          [statusKey]: {
+            ...current,
+            subject: val
+          }
+        };
+      });
+    } else {
+      setKittingTemplates(prev => {
+        const current = prev[statusKey] || { enabled: false, subject: '', template: '' };
+        return {
+          ...prev,
+          [statusKey]: {
+            ...current,
+            subject: val
+          }
+        };
+      });
+    }
   };
 
   const handleTemplateTextChange = (statusKey: string, val: string) => {
-    setTemplates(prev => {
-      const current = prev[statusKey] || { enabled: false, subject: '', template: '' };
-      return {
-        ...prev,
-        [statusKey]: {
-          ...current,
-          template: val
-        }
-      };
-    });
+    if (activeTab === 'Standard') {
+      setTemplates(prev => {
+        const current = prev[statusKey] || { enabled: false, subject: '', template: '' };
+        return {
+          ...prev,
+          [statusKey]: {
+            ...current,
+            template: val
+          }
+        };
+      });
+    } else {
+      setKittingTemplates(prev => {
+        const current = prev[statusKey] || { enabled: false, subject: '', template: '' };
+        return {
+          ...prev,
+          [statusKey]: {
+            ...current,
+            template: val
+          }
+        };
+      });
+    }
   };
 
   const handleTestConnection = async () => {
@@ -459,19 +533,47 @@ export function AhaSendTab() {
 
         {/* Email Status Templates */}
         <div className="bg-white border border-brand-border rounded-xl p-6 shadow-sm space-y-6">
-          <div className="border-b border-brand-border/40 pb-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-            <h3 className="text-sm font-bold uppercase tracking-widest text-brand-secondary">
-              Status Change Email Templates
-            </h3>
-            <span className="text-xs text-brand-secondary/70">
-              Variables: <code className="bg-neutral-100 px-1 py-0.5 rounded font-mono text-[10px]">{'{customerName}'}</code>, <code className="bg-neutral-100 px-1 py-0.5 rounded font-mono text-[10px]">{'{orderId}'}</code>, <code className="bg-neutral-100 px-1 py-0.5 rounded font-mono text-[10px]">{'{orderTitle}'}</code>, <code className="bg-neutral-100 px-1 py-0.5 rounded font-mono text-[10px]">{'{trackingCarrier}'}</code>, <code className="bg-neutral-100 px-1 py-0.5 rounded font-mono text-[10px]">{'{trackingNumber}'}</code>, <code className="bg-neutral-100 px-1 py-0.5 rounded font-mono text-[10px]">{'{portalUrl}'}</code>, <code className="bg-neutral-100 px-1 py-0.5 rounded font-mono text-[10px]">{'{invoiceUrl}'}</code>, <code className="bg-neutral-100 px-1 py-0.5 rounded font-mono text-[10px]">{'{orderUrl}'}</code>
-            </span>
+          <div className="border-b border-brand-border/40 pb-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex flex-col gap-1">
+              <h3 className="text-sm font-bold uppercase tracking-widest text-brand-secondary">
+                Status Change Email Templates
+              </h3>
+              <span className="text-xs text-brand-secondary/70 mt-1">
+                Variables: <code className="bg-neutral-100 px-1 py-0.5 rounded font-mono text-[10px]">{'{customerName}'}</code>, <code className="bg-neutral-100 px-1 py-0.5 rounded font-mono text-[10px]">{'{orderId}'}</code>, <code className="bg-neutral-100 px-1 py-0.5 rounded font-mono text-[10px]">{'{orderTitle}'}</code>, <code className="bg-neutral-100 px-1 py-0.5 rounded font-mono text-[10px]">{'{trackingCarrier}'}</code>, <code className="bg-neutral-100 px-1 py-0.5 rounded font-mono text-[10px]">{'{trackingNumber}'}</code>, <code className="bg-neutral-100 px-1 py-0.5 rounded font-mono text-[10px]">{'{portalUrl}'}</code>, <code className="bg-neutral-100 px-1 py-0.5 rounded font-mono text-[10px]">{'{invoiceUrl}'}</code>, <code className="bg-neutral-100 px-1 py-0.5 rounded font-mono text-[10px]">{'{orderUrl}'}</code>
+              </span>
+            </div>
+            
+            {/* Tabs for Standard vs Kitting */}
+            <div className="flex bg-neutral-100 p-0.5 rounded-lg border border-neutral-200 shrink-0">
+              <button
+                type="button"
+                onClick={() => setActiveTab('Standard')}
+                className={`px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                  activeTab === 'Standard'
+                    ? 'bg-white shadow-xs text-brand-primary'
+                    : 'text-brand-secondary hover:text-brand-primary'
+                }`}
+              >
+                Delivered Customers
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('Kitting')}
+                className={`px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                  activeTab === 'Kitting'
+                    ? 'bg-white shadow-xs text-brand-primary'
+                    : 'text-brand-secondary hover:text-brand-primary'
+                }`}
+              >
+                Kitting Customers
+              </button>
+            </div>
           </div>
 
           <div className="space-y-6 divide-y divide-brand-border/30">
-            {STATUS_LABELS.map((label, index) => {
+            {(activeTab === 'Standard' ? STANDARD_STATUS_LABELS : KITTING_STATUS_LABELS).map((label, index) => {
               const statusKey = index.toString();
-              const templateConfig = templates[statusKey] || { enabled: false, subject: '', template: '' };
+              const templateConfig = (activeTab === 'Standard' ? templates : kittingTemplates)[statusKey] || { enabled: false, subject: '', template: '' };
 
               return (
                 <div key={statusKey} className={`pt-6 first:pt-0 flex flex-col lg:flex-row gap-6 items-start ${!templateConfig.enabled ? 'opacity-60' : ''}`}>

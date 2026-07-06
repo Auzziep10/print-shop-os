@@ -22,7 +22,13 @@ const DEFAULT_TEMPLATES: Record<string, StatusTemplate> = {
   '8': { enabled: true, template: 'Hi {customerName}, Order #{orderId} has been marked as Received/Live! Thank you for choosing us.' }
 };
 
-const STATUS_LABELS = [
+const DEFAULT_KITTING_TEMPLATES: Record<string, StatusTemplate> = {
+  ...DEFAULT_TEMPLATES,
+  '7': { enabled: true, template: 'Hi {customerName}, Order #{orderId} ("{orderTitle}") is now in Inventory! View in portal: {portalUrl}' },
+  '8': { enabled: true, template: 'Hi {customerName}, Order #{orderId} is now Live on Shopify! View details: {portalUrl}' }
+};
+
+const STANDARD_STATUS_LABELS = [
   'Request Created (Quote)',
   'Under Review',
   'Quote Prepared',
@@ -30,8 +36,20 @@ const STATUS_LABELS = [
   'Sourcing',
   'Ordered',
   'In Production',
-  'Shipped / Inventory',
-  'Received / Live'
+  'Shipped',
+  'Received'
+];
+
+const KITTING_STATUS_LABELS = [
+  'Request Created (Quote)',
+  'Under Review',
+  'Quote Prepared',
+  'Awaiting Payment',
+  'Sourcing',
+  'Ordered',
+  'In Production',
+  'Inventory',
+  'Live'
 ];
 
 export function QuoTab() {
@@ -44,6 +62,8 @@ export function QuoTab() {
   const [apiKey, setApiKey] = useState('');
   const [fromNumber, setFromNumber] = useState('');
   const [templates, setTemplates] = useState<Record<string, StatusTemplate>>(DEFAULT_TEMPLATES);
+  const [kittingTemplates, setKittingTemplates] = useState<Record<string, StatusTemplate>>(DEFAULT_KITTING_TEMPLATES);
+  const [activeTab, setActiveTab] = useState<'Standard' | 'Kitting'>('Standard');
   const [welcomeTemplate, setWelcomeTemplate] = useState<StatusTemplate>({
     enabled: true,
     template: 'Hi {customerName}, welcome to {companyName}! Your portal account has been created. Log in here: {portalUrl}'
@@ -68,6 +88,12 @@ export function QuoTab() {
             setTemplates({
               ...DEFAULT_TEMPLATES,
               ...data.templates
+            });
+          }
+          if (data.kittingTemplates) {
+            setKittingTemplates({
+              ...DEFAULT_KITTING_TEMPLATES,
+              ...data.kittingTemplates
             });
           }
           if (data.welcome) {
@@ -97,6 +123,7 @@ export function QuoTab() {
           apiKey: apiKey.trim(),
           fromNumber: fromNumber.trim(),
           templates: templates,
+          kittingTemplates: kittingTemplates,
           welcome: welcomeTemplate,
           updatedAt: new Date().toISOString()
         },
@@ -157,23 +184,43 @@ export function QuoTab() {
   };
 
   const handleTemplateToggle = (statusKey: string) => {
-    setTemplates(prev => ({
-      ...prev,
-      [statusKey]: {
-        ...prev[statusKey],
-        enabled: !prev[statusKey].enabled
-      }
-    }));
+    if (activeTab === 'Standard') {
+      setTemplates(prev => ({
+        ...prev,
+        [statusKey]: {
+          ...prev[statusKey],
+          enabled: !prev[statusKey].enabled
+        }
+      }));
+    } else {
+      setKittingTemplates(prev => ({
+        ...prev,
+        [statusKey]: {
+          ...prev[statusKey],
+          enabled: !prev[statusKey].enabled
+        }
+      }));
+    }
   };
 
   const handleTemplateTextChange = (statusKey: string, text: string) => {
-    setTemplates(prev => ({
-      ...prev,
-      [statusKey]: {
-        ...prev[statusKey],
-        template: text
-      }
-    }));
+    if (activeTab === 'Standard') {
+      setTemplates(prev => ({
+        ...prev,
+        [statusKey]: {
+          ...prev[statusKey],
+          template: text
+        }
+      }));
+    } else {
+      setKittingTemplates(prev => ({
+        ...prev,
+        [statusKey]: {
+          ...prev[statusKey],
+          template: text
+        }
+      }));
+    }
   };
 
   if (loading) {
@@ -321,19 +368,47 @@ export function QuoTab() {
 
         {/* Status Templates */}
         <div className="bg-white border border-brand-border rounded-xl p-6 shadow-sm space-y-6">
-          <div className="border-b border-brand-border/40 pb-2 flex justify-between items-center">
-            <h3 className="text-sm font-bold uppercase tracking-widest text-brand-secondary">
-              Status Change Notification Templates
-            </h3>
-            <span className="text-xs text-brand-secondary/70">
-              Variables: <code className="bg-neutral-100 px-1 py-0.5 rounded font-mono text-[10px]">{'{customerName}'}</code>, <code className="bg-neutral-100 px-1 py-0.5 rounded font-mono text-[10px]">{'{orderId}'}</code>, <code className="bg-neutral-100 px-1 py-0.5 rounded font-mono text-[10px]">{'{orderTitle}'}</code>, <code className="bg-neutral-100 px-1 py-0.5 rounded font-mono text-[10px]">{'{trackingCarrier}'}</code>, <code className="bg-neutral-100 px-1 py-0.5 rounded font-mono text-[10px]">{'{trackingNumber}'}</code>, <code className="bg-neutral-100 px-1 py-0.5 rounded font-mono text-[10px]">{'{portalUrl}'}</code>, <code className="bg-neutral-100 px-1 py-0.5 rounded font-mono text-[10px]">{'{invoiceUrl}'}</code>, <code className="bg-neutral-100 px-1 py-0.5 rounded font-mono text-[10px]">{'{orderUrl}'}</code>
-            </span>
+          <div className="border-b border-brand-border/40 pb-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex flex-col gap-1">
+              <h3 className="text-sm font-bold uppercase tracking-widest text-brand-secondary">
+                Status Change Notification Templates
+              </h3>
+              <span className="text-xs text-brand-secondary/70 mt-1">
+                Variables: <code className="bg-neutral-100 px-1 py-0.5 rounded font-mono text-[10px]">{'{customerName}'}</code>, <code className="bg-neutral-100 px-1 py-0.5 rounded font-mono text-[10px]">{'{orderId}'}</code>, <code className="bg-neutral-100 px-1 py-0.5 rounded font-mono text-[10px]">{'{orderTitle}'}</code>, <code className="bg-neutral-100 px-1 py-0.5 rounded font-mono text-[10px]">{'{trackingCarrier}'}</code>, <code className="bg-neutral-100 px-1 py-0.5 rounded font-mono text-[10px]">{'{trackingNumber}'}</code>, <code className="bg-neutral-100 px-1 py-0.5 rounded font-mono text-[10px]">{'{portalUrl}'}</code>, <code className="bg-neutral-100 px-1 py-0.5 rounded font-mono text-[10px]">{'{invoiceUrl}'}</code>, <code className="bg-neutral-100 px-1 py-0.5 rounded font-mono text-[10px]">{'{orderUrl}'}</code>
+              </span>
+            </div>
+            
+            {/* Tabs for Standard vs Kitting */}
+            <div className="flex bg-neutral-100 p-0.5 rounded-lg border border-neutral-200 shrink-0">
+              <button
+                type="button"
+                onClick={() => setActiveTab('Standard')}
+                className={`px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                  activeTab === 'Standard'
+                    ? 'bg-white shadow-xs text-brand-primary'
+                    : 'text-brand-secondary hover:text-brand-primary'
+                }`}
+              >
+                Delivered Customers
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('Kitting')}
+                className={`px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                  activeTab === 'Kitting'
+                    ? 'bg-white shadow-xs text-brand-primary'
+                    : 'text-brand-secondary hover:text-brand-primary'
+                }`}
+              >
+                Kitting Customers
+              </button>
+            </div>
           </div>
 
           <div className="space-y-6 divide-y divide-brand-border/30">
-            {STATUS_LABELS.map((label, index) => {
+            {(activeTab === 'Standard' ? STANDARD_STATUS_LABELS : KITTING_STATUS_LABELS).map((label, index) => {
               const statusKey = index.toString();
-              const templateConfig = templates[statusKey] || { enabled: false, template: '' };
+              const templateConfig = (activeTab === 'Standard' ? templates : kittingTemplates)[statusKey] || { enabled: false, template: '' };
 
               return (
                 <div key={statusKey} className={`pt-4 first:pt-0 flex flex-col md:flex-row gap-4 items-start ${!templateConfig.enabled ? 'opacity-60' : ''}`}>

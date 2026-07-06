@@ -18,21 +18,6 @@ function normalizePhoneNumber(phone: string): string {
 
 export async function sendOrderStatusSMS(orderId: string, newStatusIndex: number) {
   try {
-    const quoSnap = await getDoc(doc(db, 'settings', 'quo'));
-    if (!quoSnap.exists()) {
-      console.log('[SMS Service] QUO integration is not configured in settings.');
-      return;
-    }
-
-    const quoData = quoSnap.data();
-    const statusKey = newStatusIndex.toString();
-    const templateConfig = quoData.templates?.[statusKey];
-
-    if (!templateConfig || !templateConfig.enabled || !templateConfig.template) {
-      console.log(`[SMS Service] SMS notifications are disabled or not configured for status index ${newStatusIndex}.`);
-      return;
-    }
-
     const orderSnap = await getDoc(doc(db, 'orders', orderId));
     if (!orderSnap.exists()) {
       console.error(`[SMS Service] Order ${orderId} not found.`);
@@ -43,6 +28,7 @@ export async function sendOrderStatusSMS(orderId: string, newStatusIndex: number
     let recipientPhone = '';
     let customerName = 'Customer';
     let companyName = 'Unknown Customer';
+    let isKitting = false;
 
     if (order.customerId && order.customerId !== 'Shopify Temporary') {
       const customerSnap = await getDoc(doc(db, 'customers', order.customerId));
@@ -51,11 +37,35 @@ export async function sendOrderStatusSMS(orderId: string, newStatusIndex: number
         recipientPhone = customer.phone || '';
         customerName = customer.contactName || customer.name || customer.company || 'Customer';
         companyName = customer.company || 'Unknown Customer';
+        isKitting = order.fulfillmentType === 'Kitting' || (!order.fulfillmentType && customer.fulfillmentType === 'Kitting');
       }
     }
 
     if (!recipientPhone && order.shippingAddress?.phone) {
       recipientPhone = order.shippingAddress.phone;
+    }
+
+    const quoSnap = await getDoc(doc(db, 'settings', 'quo'));
+    if (!quoSnap.exists()) {
+      console.log('[SMS Service] QUO integration is not configured in settings.');
+      return;
+    }
+
+    const quoData = quoSnap.data();
+    const statusKey = newStatusIndex.toString();
+    
+    // Choose kittingTemplates or standard templates
+    const templatesToUse = isKitting ? (quoData.kittingTemplates || {}) : (quoData.templates || {});
+    let templateConfig = templatesToUse[statusKey];
+    
+    // Fallback to standard template if kitting template is not set/enabled
+    if (isKitting && (!templateConfig || !templateConfig.enabled || !templateConfig.template)) {
+      templateConfig = quoData.templates?.[statusKey];
+    }
+
+    if (!templateConfig || !templateConfig.enabled || !templateConfig.template) {
+      console.log(`[SMS Service] SMS notifications are disabled or not configured for status index ${newStatusIndex} (isKitting: ${isKitting}).`);
+      return;
     }
 
     const normalizedPhone = normalizePhoneNumber(recipientPhone);

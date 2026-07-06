@@ -4385,7 +4385,7 @@ export function OrderDetail() {
                           className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
                         >
                           <option value="">Default (From Customer)</option>
-                          <option value="Standard">Standard Drop-Ship</option>
+                          <option value="Standard">Delivered</option>
                           <option value="Kitting">Inventory & Kitting</option>
                         </select>
                       </div>
