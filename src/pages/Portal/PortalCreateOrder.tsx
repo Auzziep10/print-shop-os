@@ -1063,7 +1063,8 @@ export function PortalCreateOrder() {
       quantities: qtyMap
     };
     setOrderItems(prev => [...prev, newItem]);
-    setIsCartOpen(true); // Open the cart drawer
+    setCustomizingItem(newItem); // Open the customizer modal right away
+    setIsCartOpen(false); // Ensure cart drawer is closed so customizer is visible
   };
 
   const handleSelectSanMarGarment = (product: any, initialColor: string) => {
