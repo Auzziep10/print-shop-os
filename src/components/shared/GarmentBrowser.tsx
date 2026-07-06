@@ -207,6 +207,7 @@ export function GarmentBrowser({ isOpen, onClose, onSelect, allowedStyleCodes }:
   
   // Track the active preview color for each product style code
   const [productPreviewColors, setProductPreviewColors] = useState<Record<string, string>>({});
+  const [expandedProducts, setExpandedProducts] = useState<Record<string, boolean>>({});
 
   // Reset visibleCount when queries or filters change
   useEffect(() => {
@@ -375,7 +376,7 @@ export function GarmentBrowser({ isOpen, onClose, onSelect, allowedStyleCodes }:
                             Available Colors ({product.colors.length})
                           </span>
                           <div className="flex flex-wrap gap-1.5">
-                            {product.colors.slice(0, 8).map(color => {
+                            {(expandedProducts[product.style] ? product.colors : product.colors.slice(0, 8)).map(color => {
                               const hex = getSwatchColor(color, true);
                               const isActive = currentPreviewColor === color;
                               const isWhite = color.toLowerCase() === 'white';
@@ -414,10 +415,37 @@ export function GarmentBrowser({ isOpen, onClose, onSelect, allowedStyleCodes }:
                                 </button>
                               );
                             })}
-                            {product.colors.length > 8 && (
-                              <span className="text-[10px] font-bold text-neutral-400 self-center pl-1 select-none">
+                            {product.colors.length > 8 && !expandedProducts[product.style] && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setExpandedProducts(prev => ({
+                                    ...prev,
+                                    [product.style]: true
+                                  }));
+                                }}
+                                className="text-[10px] font-extrabold text-neutral-400 hover:text-black self-center pl-1 cursor-pointer select-none hover:underline"
+                                title="Click to show all colors"
+                              >
                                 +{product.colors.length - 8}
-                              </span>
+                              </button>
+                            )}
+                            {expandedProducts[product.style] && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setExpandedProducts(prev => ({
+                                    ...prev,
+                                    [product.style]: false
+                                  }));
+                                }}
+                                className="text-[10px] font-extrabold text-neutral-400 hover:text-black self-center pl-1 cursor-pointer select-none hover:underline"
+                                title="Click to collapse"
+                              >
+                                Show Less
+                              </button>
                             )}
                           </div>
                         </div>
