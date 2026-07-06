@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { ArrowLeft, PackagePlus, X, Trash2, ChevronDown, RotateCcw, Calendar, Loader2, Sparkles, Save, User, Copy, Upload, ShoppingCart } from 'lucide-react';
+import { ArrowLeft, PackagePlus, X, Trash2, ChevronDown, RotateCcw, Calendar, Loader2, Sparkles, Save, User, Copy, Upload, ShoppingCart, PlusCircle } from 'lucide-react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { db, storage } from '../../lib/firebase';
 import { doc, getDoc, collection, query, where, getDocs, setDoc, deleteDoc } from 'firebase/firestore';
@@ -1204,7 +1204,7 @@ export function PortalCreateOrder() {
       </div>
 
       {/* Main Full Screen Catalog Selector */}
-      <div className="bg-white rounded-3xl p-8 shadow-[0_4px_24px_rgb(0,0,0,0.02)] border border-neutral-100 flex flex-col gap-6">
+      <div data-tour="catalog-grid" className="bg-white rounded-3xl p-8 shadow-[0_4px_24px_rgb(0,0,0,0.02)] border border-neutral-100 flex flex-col gap-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h3 className="text-xl font-serif text-neutral-900">Your Catalog</h3>
@@ -1598,6 +1598,20 @@ export function PortalCreateOrder() {
             </div>
           )}
         </div>
+
+        {activeLibraryTab !== 'saved' && (
+          <div className="mt-8 pt-6 border-t border-neutral-100 flex justify-center">
+            <button
+              type="button"
+              data-tour="search-global-catalog-btn"
+              onClick={() => setIsGarmentBrowserOpen(true)}
+              className="bg-white border border-neutral-200 hover:border-black text-neutral-800 hover:text-black text-xs font-bold px-6 py-3 rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-2 hover:scale-105 active:scale-95 duration-200"
+            >
+              <PlusCircle size={14} />
+              <span>+ Search Global Blank Catalog</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Slide-out Cart Drawer */}
@@ -1726,6 +1740,7 @@ export function PortalCreateOrder() {
                                     </p>
                                     <button
                                       type="button"
+                                      data-tour="customize-btn"
                                       onClick={() => setCustomizingItem(item)}
                                       className="flex items-center gap-1.5 bg-black hover:bg-neutral-800 text-white px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all shadow-xs w-fit cursor-pointer select-none"
                                     >
@@ -1763,6 +1778,7 @@ export function PortalCreateOrder() {
                             <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Quantities</span>
                             <button
                               type="button"
+                              data-tour="add-youth-sizing-btn"
                               onClick={() => {
                                 const youthSizes = { 'YXS': 0, 'YS': 0, 'YM': 0, 'YL': 0, 'YXL': 0 };
                                 setOrderItems(prev => prev.map(o => o.instanceId === item.instanceId ? {
@@ -1775,7 +1791,7 @@ export function PortalCreateOrder() {
                               + Youth Sizing
                             </button>
                           </div>
-                          <div className="flex flex-wrap gap-1.5 w-full">
+                          <div data-tour="sizing-matrix" className="flex flex-wrap gap-1.5 w-full">
                             {Object.keys(item.quantities).sort(sortSizes).map((size) => (
                               <div key={size} className="flex-1 min-w-[45px] flex flex-col bg-white border border-neutral-200 rounded-lg overflow-hidden focus-within:border-black focus-within:ring-1 focus-within:ring-black transition-all">
                                 <div className="bg-neutral-50 text-neutral-505 text-[9px] font-bold py-1 uppercase tracking-wide flex items-center justify-center border-b border-neutral-200">
@@ -1968,6 +1984,7 @@ export function PortalCreateOrder() {
 
                     <div className="flex flex-col gap-2">
                       <button 
+                        data-tour="quote-submit"
                         onClick={handleSubmitOrder}
                         disabled={hasLowQuantityItems || isSubmitting} 
                         className={`w-full py-3 rounded-xl text-xs font-bold transition-all ... `}

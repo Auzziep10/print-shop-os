@@ -77,44 +77,44 @@ export function PortalTourOverlay({
           pathName: 'Orders Dashboard'
         },
         {
-          target: 'request-quote-link',
-          title: 'Step 2: Choose Request Quote',
-          content: 'If you want mockups and pricing first, click "Request Quote" to open the request form.',
+          target: 'catalog-grid',
+          title: 'Step 2: Add Garments from Library',
+          content: 'Browse the catalog tabs and add suggested, past, or rack garments to your request.',
+          position: 'top',
+          requiredPath: `/portal/${customerId}/create`,
+          pathName: 'Create Order Builder'
+        },
+        {
+          target: 'reorder-cart-btn',
+          title: 'Step 3: Open Cart Drawer',
+          content: 'Click the "Cart" button in the header to review your selected garments and options.',
           position: 'bottom',
           requiredPath: `/portal/${customerId}/create`,
           pathName: 'Create Order Builder'
         },
         {
-          target: 'quote-library',
-          title: 'Step 3: Select Garments from Library',
-          content: 'Choose from suggested, past, or catalog garments to add to your quote request.',
+          target: 'sizing-matrix',
+          title: 'Step 4: Specify Quantities',
+          content: 'In the cart drawer, specify the required quantities by size for your chosen styles.',
           position: 'top',
-          requiredPath: `/portal/${customerId}/quote`,
-          pathName: 'Request Quote Form'
+          requiredPath: `/portal/${customerId}/create`,
+          pathName: 'Create Order Builder'
         },
         {
-          target: 'quote-items',
-          title: 'Step 4: Specify Quantities & Colors',
-          content: 'In the products list, specify the required quantities by size and select your colors.',
+          target: 'customize-btn',
+          title: 'Step 5: Customize Placement & Artwork',
+          content: 'Click the "Customize Placements & Artwork" button to specify logo placements and attach mockups.',
           position: 'top',
-          requiredPath: `/portal/${customerId}/quote`,
-          pathName: 'Request Quote Form'
-        },
-        {
-          target: 'quote-upload',
-          title: 'Step 5: Upload Artwork File',
-          content: 'Upload your design mockup file (PDF, AI, PNG, JPEG, ZIP) or select a file from your Asset Vault.',
-          position: 'top',
-          requiredPath: `/portal/${customerId}/quote`,
-          pathName: 'Request Quote Form'
+          requiredPath: `/portal/${customerId}/create`,
+          pathName: 'Create Order Builder'
         },
         {
           target: 'quote-submit',
           title: 'Step 6: Submit Quote Request',
-          content: 'Click the "Submit Quote Request" button to submit your specifications. We will draft pricing and mockups for your review.',
+          content: 'Click the "Submit Quote Request" button at the bottom of the drawer to submit your request.',
           position: 'top',
-          requiredPath: `/portal/${customerId}/quote`,
-          pathName: 'Request Quote Form'
+          requiredPath: `/portal/${customerId}/create`,
+          pathName: 'Create Order Builder'
         }
       ]
     },
@@ -217,44 +217,44 @@ export function PortalTourOverlay({
           pathName: 'Orders Dashboard'
         },
         {
-          target: 'request-quote-link',
-          title: 'Step 2: Choose Request Quote',
-          content: 'Click the "Request Quote" button to open the custom quote request builder.',
+          target: 'catalog-grid',
+          title: 'Step 2: Add Garment from Library',
+          content: 'Select any catalog garment to add it to your order request.',
+          position: 'top',
+          requiredPath: `/portal/${customerId}/create`,
+          pathName: 'Create Order Builder'
+        },
+        {
+          target: 'reorder-cart-btn',
+          title: 'Step 3: Open Cart Drawer',
+          content: 'Click the "Cart" button in the header to view your selected garments.',
           position: 'bottom',
           requiredPath: `/portal/${customerId}/create`,
           pathName: 'Create Order Builder'
         },
         {
-          target: 'quote-library',
-          title: 'Step 3: Add Garment from Library',
-          content: 'Select a library tab and click "+ Add to Request" on any garment card to add it to your products list.',
-          position: 'top',
-          requiredPath: `/portal/${customerId}/quote`,
-          pathName: 'Request Quote Form'
-        },
-        {
-          target: 'open-mockup-creator',
+          target: 'customize-btn',
           title: 'Step 4: Open Mockup Creator',
-          content: 'Click "Open Mockup Creator" on your added product card to open the visual customizer workspace.',
+          content: 'Click "Customize Placements & Artwork" on your added product card to open the visual customizer workspace.',
           position: 'top',
-          requiredPath: `/portal/${customerId}/quote`,
-          pathName: 'Request Quote Form'
+          requiredPath: `/portal/${customerId}/create`,
+          pathName: 'Create Order Builder'
         },
         {
           target: 'save-customization-btn',
           title: 'Step 5: Place Logos & Save',
           content: 'Select your garment color, upload or pick your logo from your vault, drag to position it, and click "Save Customization" to generate your mockups.',
           position: 'top',
-          requiredPath: `/portal/${customerId}/quote`,
-          pathName: 'Request Quote Form'
+          requiredPath: `/portal/${customerId}/create`,
+          pathName: 'Create Order Builder'
         },
         {
           target: 'quote-submit',
           title: 'Step 6: Submit Quote Request',
-          content: 'Fill out your sizes, upload any additional design files, and click "Submit Quote Request" to send your specifications to our team.',
+          content: 'Fill out your sizes and click "Submit Quote Request" to send your specifications to our team.',
           position: 'top',
-          requiredPath: `/portal/${customerId}/quote`,
-          pathName: 'Request Quote Form'
+          requiredPath: `/portal/${customerId}/create`,
+          pathName: 'Create Order Builder'
         }
       ]
     },
@@ -340,6 +340,15 @@ export function PortalTourOverlay({
     const interval = setInterval(checkModalState, 200);
     return () => clearInterval(interval);
   }, [activeTour, stepIndex, onNext, onBack]);
+
+  // Auto-open cart drawer if target is inside the cart drawer
+  useEffect(() => {
+    if (!currentStep) return;
+    const cartTargets = ['sizing-matrix', 'customize-btn', 'quote-submit', 'add-youth-sizing-btn'];
+    if (cartTargets.includes(currentStep.target)) {
+      window.dispatchEvent(new CustomEvent('wovn_open_cart_drawer'));
+    }
+  }, [stepIndex, activeTour, currentStep]);
 
   // Sync window size on resize
   useEffect(() => {
