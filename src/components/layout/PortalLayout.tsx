@@ -319,7 +319,7 @@ export function PortalLayout() {
 
           <button 
             data-tour="create-order-btn"
-            onClick={() => handleCreateOrder(cartCount > 0)}
+            onClick={() => handleCreateOrder(false)}
             className="bg-black text-white px-5 py-2.5 rounded-full text-xs font-bold tracking-wide hover:bg-black/80 hover:scale-105 active:scale-95 transition-all shadow-[0_4px_14px_0_rgb(0,0,0,0.15)] shrink-0"
           >
             {cartCount > 0 ? "+ Items" : "Create Order +"}
