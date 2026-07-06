@@ -1995,7 +1995,11 @@ export function PortalCreateOrder() {
                         data-tour="quote-submit"
                         onClick={handleSubmitOrder}
                         disabled={hasLowQuantityItems || isSubmitting} 
-                        className={`w-full py-3 rounded-xl text-xs font-bold transition-all ... `}
+                        className={`w-full py-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-sm duration-200 ${
+                          hasLowQuantityItems || isSubmitting
+                            ? 'bg-neutral-100 text-neutral-400 cursor-not-allowed shadow-none'
+                            : 'bg-black text-white hover:bg-neutral-900 hover:scale-[1.01] active:scale-[0.99] cursor-pointer'
+                        }`}
                       >
                         {isSubmitting ? 'Submitting...' : 'Submit Quote Request'}
                       </button>
