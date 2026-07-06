@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { ArrowLeft, PackagePlus, X, Trash2, ChevronDown, RotateCcw, Calendar, Loader2, Sparkles, Save, User, Copy, Upload, ShoppingCart } from 'lucide-react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { db, storage } from '../../lib/firebase';
@@ -228,6 +228,124 @@ export function PortalCreateOrder() {
 
   const [pendingPreselected, setPendingPreselected] = useState<any[] | null>(null);
   const [isInitialLoadDone, setIsInitialLoadDone] = useState(false);
+
+  const addressInputRef = useRef<HTMLInputElement>(null);
+  const modalAddressInputRef = useRef<HTMLInputElement>(null);
+
+  // Load Google Maps API script dynamically
+  useEffect(() => {
+    if ((window as any).google?.maps?.places) return;
+    
+    const existingScript = document.getElementById('google-maps-sdk');
+    if (existingScript) return;
+    
+    const apiKey = import.meta.env.VITE_FIREBASE_API_KEY || '';
+    const script = document.createElement('script');
+    script.id = 'google-maps-sdk';
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
+    script.async = true;
+    script.defer = true;
+    document.head.appendChild(script);
+  }, []);
+
+  // Initialize Autocomplete for address inputs
+  useEffect(() => {
+    let autocomplete: any = null;
+    let modalAutocomplete: any = null;
+    
+    const initAutocomplete = () => {
+      const maps = (window as any).google?.maps;
+      if (!maps || !maps.places) return;
+      
+      // 1. Drawer Autocomplete
+      if (addressInputRef.current && !autocomplete) {
+        autocomplete = new maps.places.Autocomplete(addressInputRef.current, {
+          types: ['address'],
+          componentRestrictions: { country: 'us' }
+        });
+        
+        autocomplete.addListener('place_changed', () => {
+          const place = autocomplete.getPlace();
+          if (!place.address_components) return;
+          
+          let streetNumber = '';
+          let route = '';
+          let city = '';
+          let state = '';
+          let zip = '';
+          
+          place.address_components.forEach((component: any) => {
+            const types = component.types;
+            if (types.includes('street_number')) {
+              streetNumber = component.long_name;
+            } else if (types.includes('route')) {
+              route = component.long_name;
+            } else if (types.includes('locality')) {
+              city = component.long_name;
+            } else if (types.includes('administrative_area_level_1')) {
+              state = component.short_name;
+            } else if (types.includes('postal_code')) {
+              zip = component.long_name;
+            }
+          });
+          
+          setProfileStreet(`${streetNumber} ${route}`.trim());
+          setProfileCity(city);
+          setProfileState(state);
+          setProfileZip(zip);
+        });
+      }
+      
+      // 2. Modal Autocomplete
+      if (modalAddressInputRef.current && !modalAutocomplete) {
+        modalAutocomplete = new maps.places.Autocomplete(modalAddressInputRef.current, {
+          types: ['address'],
+          componentRestrictions: { country: 'us' }
+        });
+        
+        modalAutocomplete.addListener('place_changed', () => {
+          const place = modalAutocomplete.getPlace();
+          if (!place.address_components) return;
+          
+          let streetNumber = '';
+          let route = '';
+          let city = '';
+          let state = '';
+          let zip = '';
+          
+          place.address_components.forEach((component: any) => {
+            const types = component.types;
+            if (types.includes('street_number')) {
+              streetNumber = component.long_name;
+            } else if (types.includes('route')) {
+              route = component.long_name;
+            } else if (types.includes('locality')) {
+              city = component.long_name;
+            } else if (types.includes('administrative_area_level_1')) {
+              state = component.short_name;
+            } else if (types.includes('postal_code')) {
+              zip = component.long_name;
+            }
+          });
+          
+          setProfileStreet(`${streetNumber} ${route}`.trim());
+          setProfileCity(city);
+          setProfileState(state);
+          setProfileZip(zip);
+        });
+      }
+    };
+
+    const script = document.getElementById('google-maps-sdk');
+    
+    if ((window as any).google?.maps?.places) {
+      const timer = setTimeout(initAutocomplete, 100);
+      return () => clearTimeout(timer);
+    } else if (script) {
+      script.addEventListener('load', initAutocomplete);
+      return () => script.removeEventListener('load', initAutocomplete);
+    }
+  }, [isCartOpen, showIncompleteProfileModal]);
 
   // Listen to custom event for opening cart drawer from parent layout
   useEffect(() => {
@@ -1707,6 +1825,7 @@ export function PortalCreateOrder() {
                       </span>
                       <div className="flex flex-col gap-2.5">
                         <input
+                          ref={addressInputRef}
                           type="text"
                           placeholder="Street Address"
                           value={profileStreet}
@@ -2207,6 +2326,7 @@ export function PortalCreateOrder() {
                   <div className="flex flex-col gap-1.5">
                     <label className="text-[10px] uppercase font-bold text-neutral-500 pl-1">Street Address</label>
                     <input 
+                      ref={modalAddressInputRef}
                       type="text"
                       value={profileStreet}
                       onChange={(e) => setProfileStreet(e.target.value)}
@@ -2366,6 +2486,38 @@ export function PortalCreateOrder() {
           </div>
         </div>
       )}
+
+      <style>{`
+        .pac-container {
+          border-radius: 16px !important;
+          border: 1px solid #e5e5e0 !important;
+          box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08) !important;
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+          padding: 8px 0 !important;
+          margin-top: 4px !important;
+          z-index: 99999 !important;
+        }
+        .pac-item {
+          padding: 8px 16px !important;
+          font-size: 13px !important;
+          color: #444 !important;
+          cursor: pointer !important;
+          border-top: none !important;
+        }
+        .pac-item:hover, .pac-item-selected {
+          background-color: #f7f7f5 !important;
+        }
+        .pac-item-query {
+          font-size: 13px !important;
+          color: #111 !important;
+        }
+        .pac-matched {
+          font-weight: 700 !important;
+        }
+        .pac-icon {
+          display: none !important;
+        }
+      `}</style>
 
     </div>
   );
