@@ -234,12 +234,17 @@ export function PortalCreateOrder() {
 
   // Load Google Maps API script dynamically
   useEffect(() => {
+    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
+    if (!apiKey) {
+      console.warn("VITE_GOOGLE_MAPS_API_KEY is not configured. Google Places address autocomplete is disabled.");
+      return;
+    }
+    
     if ((window as any).google?.maps?.places) return;
     
     const existingScript = document.getElementById('google-maps-sdk');
     if (existingScript) return;
     
-    const apiKey = import.meta.env.VITE_FIREBASE_API_KEY || '';
     const script = document.createElement('script');
     script.id = 'google-maps-sdk';
     script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
@@ -1039,10 +1044,22 @@ export function PortalCreateOrder() {
     const qtyMap: any = {};
     itemSizes.forEach((s: string) => qtyMap[s] = 0);
 
+    let defaultColor = item.selectedColor || item.colors?.[0] || 'Custom Color';
+    if (!item.selectedColor && item.image && item.images) {
+      const matchedColor = Object.keys(item.images).find(color => {
+        const val = item.images[color];
+        const imgUrl = typeof val === 'string' ? val : val?.front;
+        return imgUrl === item.image;
+      });
+      if (matchedColor) {
+        defaultColor = matchedColor;
+      }
+    }
+
     const newItem = {
       ...item,
       instanceId: Math.random().toString(36).substring(7),
-      selectedColor: item.colors?.[0] || 'Custom Color',
+      selectedColor: defaultColor,
       quantities: qtyMap
     };
     setOrderItems(prev => [...prev, newItem]);
@@ -1069,7 +1086,8 @@ export function PortalCreateOrder() {
       colors,
       sizes,
       price,
-      gender
+      gender,
+      selectedColor: initialColor
     });
     
     setIsGarmentBrowserOpen(false);
