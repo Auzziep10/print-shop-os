@@ -326,7 +326,7 @@ export function QuoTab() {
               Status Change Notification Templates
             </h3>
             <span className="text-xs text-brand-secondary/70">
-              Variables: <code className="bg-neutral-100 px-1 py-0.5 rounded font-mono text-[10px]">{'{customerName}'}</code>, <code className="bg-neutral-100 px-1 py-0.5 rounded font-mono text-[10px]">{'{orderId}'}</code>, <code className="bg-neutral-100 px-1 py-0.5 rounded font-mono text-[10px]">{'{orderTitle}'}</code>, <code className="bg-neutral-100 px-1 py-0.5 rounded font-mono text-[10px]">{'{trackingCarrier}'}</code>, <code className="bg-neutral-100 px-1 py-0.5 rounded font-mono text-[10px]">{'{trackingNumber}'}</code>
+              Variables: <code className="bg-neutral-100 px-1 py-0.5 rounded font-mono text-[10px]">{'{customerName}'}</code>, <code className="bg-neutral-100 px-1 py-0.5 rounded font-mono text-[10px]">{'{orderId}'}</code>, <code className="bg-neutral-100 px-1 py-0.5 rounded font-mono text-[10px]">{'{orderTitle}'}</code>, <code className="bg-neutral-100 px-1 py-0.5 rounded font-mono text-[10px]">{'{trackingCarrier}'}</code>, <code className="bg-neutral-100 px-1 py-0.5 rounded font-mono text-[10px]">{'{trackingNumber}'}</code>, <code className="bg-neutral-100 px-1 py-0.5 rounded font-mono text-[10px]">{'{portalUrl}'}</code>, <code className="bg-neutral-100 px-1 py-0.5 rounded font-mono text-[10px]">{'{invoiceUrl}'}</code>, <code className="bg-neutral-100 px-1 py-0.5 rounded font-mono text-[10px]">{'{orderUrl}'}</code>
             </span>
           </div>
 
