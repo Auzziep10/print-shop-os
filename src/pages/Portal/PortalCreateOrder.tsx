@@ -1741,18 +1741,19 @@ export function PortalCreateOrder() {
 
                     {/* Resale Certificate for Wholesale */}
                     <div className="flex flex-col gap-2">
-                      <div className="flex justify-between items-center pl-1">
-                        <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Order Type</label>
-                        <div className="flex items-center gap-1.5">
+                      {/* Order Type Selection */}
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider pl-1">Order Type</label>
+                        <div className="grid grid-cols-2 gap-2 bg-neutral-100 p-1 rounded-xl border border-neutral-200">
                           {['Retail', 'Wholesale'].map((type) => (
                             <button
                               key={type}
                               type="button"
                               onClick={() => setOrderType(type as any)}
-                              className={`px-2 py-0.5 rounded text-[9px] font-bold border transition-all cursor-pointer ${
-                                orderType === type 
-                                  ? 'bg-black text-white border-black' 
-                                  : 'bg-white text-neutral-450 border-neutral-200 hover:border-neutral-300'
+                              className={`py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                                orderType === type
+                                  ? 'bg-white text-black shadow-xs'
+                                  : 'text-neutral-500 hover:text-black'
                               }`}
                             >
                               {type}
