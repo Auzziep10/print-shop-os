@@ -979,29 +979,59 @@ export function PortalCreateOrder() {
            if (item.logoUrlRightSleeve) {
              artworks.push({ url: item.logoUrlRightSleeve, originalUrl: item.logoUrlRightSleeve, name: item.logoNameRightSleeve || 'Right Sleeve Logo', width: 3.5, height: 3.5, quantity: totalQty });
            }
+           if (item.logoUrlTag) {
+             artworks.push({ url: item.logoUrlTag, originalUrl: item.logoUrlTag, name: 'Size Tag Print', width: 2.5, height: 2.5, quantity: totalQty });
+           }
 
            return {
-             id: item.instanceId || Date.now().toString(),
-             style: item.style || 'Custom Garment',
-             color: item.selectedColor || '',
-             price: Math.round(p * 100) / 100,
-             total: Math.round(p * totalQty * 100) / 100,
-             itemNum: item.itemNum || '',
-             gender: item.gender || 'Unisex',
-             qty: totalQty,
-             image: item.customized ? item.image : (item.images?.[item.selectedColor] || item.image || ''),
-             notes: item.logoPlacement ? `Mockup Placement: ${item.logoPlacement}` : '',
-             sizes: item.quantities,
-             artworks: artworks,
-             logoUrl: item.logoUrl || null,
-             logoName: item.logoName || null,
-             logoUrlBack: item.logoUrlBack || null,
-             logoNameBack: item.logoNameBack || null,
-             logoUrlLeftSleeve: item.logoUrlLeftSleeve || null,
-             logoNameLeftSleeve: item.logoNameLeftSleeve || null,
-             logoUrlRightSleeve: item.logoUrlRightSleeve || null,
-             logoNameRightSleeve: item.logoNameRightSleeve || null,
-           }
+              id: item.instanceId || Date.now().toString(),
+              style: item.style || 'Custom Garment',
+              color: item.selectedColor || '',
+              price: Math.round(p * 100) / 100,
+              total: Math.round(p * totalQty * 100) / 100,
+              itemNum: item.itemNum || '',
+              gender: item.gender || 'Unisex',
+              qty: totalQty,
+              image: item.customized ? item.image : (item.images?.[item.selectedColor] || item.image || ''),
+              notes: item.logoPlacement ? `Mockup Placement: ${item.logoPlacement}` : '',
+              sizes: item.quantities,
+              artworks: artworks,
+              customized: item.customized || false,
+              logoPlacement: item.logoPlacement || '',
+              logoUrl: item.logoUrl || null,
+              logoName: item.logoName || null,
+              logoUrlBack: item.logoUrlBack || null,
+              logoNameBack: item.logoNameBack || null,
+              logoUrlLeftSleeve: item.logoUrlLeftSleeve || null,
+              logoNameLeftSleeve: item.logoNameLeftSleeve || null,
+              logoUrlRightSleeve: item.logoUrlRightSleeve || null,
+              logoNameRightSleeve: item.logoNameRightSleeve || null,
+              customScaleFront: item.customScaleFront ?? null,
+              customOffsetXFront: item.customOffsetXFront ?? null,
+              customOffsetYFront: item.customOffsetYFront ?? null,
+              customRotationFront: item.customRotationFront ?? null,
+              customScaleBack: item.customScaleBack ?? null,
+              customOffsetXBack: item.customOffsetXBack ?? null,
+              customOffsetYBack: item.customOffsetYBack ?? null,
+              customRotationBack: item.customRotationBack ?? null,
+              customScaleLeftSleeve: item.customScaleLeftSleeve ?? null,
+              customOffsetXLeftSleeve: item.customOffsetXLeftSleeve ?? null,
+              customOffsetYLeftSleeve: item.customOffsetYLeftSleeve ?? null,
+              customRotationLeftSleeve: item.customRotationLeftSleeve ?? null,
+              customScaleRightSleeve: item.customScaleRightSleeve ?? null,
+              customOffsetXRightSleeve: item.customOffsetXRightSleeve ?? null,
+              customOffsetYRightSleeve: item.customOffsetYRightSleeve ?? null,
+              customRotationRightSleeve: item.customRotationRightSleeve ?? null,
+              logoUrlTag: item.logoUrlTag || null,
+              tagLayout: item.tagLayout || null,
+              tagSizeX: item.tagSizeX ?? null,
+              tagSizeY: item.tagSizeY ?? null,
+              tagSizeScale: item.tagSizeScale ?? null,
+              tagSizeFont: item.tagSizeFont ?? null,
+              tagSizeColor: item.tagSizeColor ?? null,
+              tagSizeBold: item.tagSizeBold ?? null,
+              tagSizeItalic: item.tagSizeItalic ?? null,
+            }
         })
       };
 
@@ -1175,6 +1205,7 @@ export function PortalCreateOrder() {
     if (item.logoUrlBack) count++;
     if (item.logoUrlLeftSleeve) count++;
     if (item.logoUrlRightSleeve) count++;
+    if (item.logoUrlTag) count++;
     return count || 1;
   };
 
@@ -1743,6 +1774,7 @@ export function PortalCreateOrder() {
                                 if (item.logoUrlBack) activePlacements.push("Back");
                                 if (item.logoUrlLeftSleeve) activePlacements.push("Left Sleeve");
                                 if (item.logoUrlRightSleeve) activePlacements.push("Right Sleeve");
+                                if (item.logoUrlTag) activePlacements.push("Size Tag");
                                 const count = activePlacements.length;
                                 return (
                                   <div className="flex flex-col gap-1.5 mt-1.5">
@@ -2137,7 +2169,17 @@ export function PortalCreateOrder() {
             customScaleRightSleeve: customizingItem.customScaleRightSleeve,
             customOffsetXRightSleeve: customizingItem.customOffsetXRightSleeve,
             customOffsetYRightSleeve: customizingItem.customOffsetYRightSleeve,
-            customRotationRightSleeve: customizingItem.customRotationRightSleeve
+            customRotationRightSleeve: customizingItem.customRotationRightSleeve,
+            // Tag properties
+            logoUrlTag: customizingItem.logoUrlTag || null,
+            tagLayout: customizingItem.tagLayout || null,
+            tagSizeX: customizingItem.tagSizeX,
+            tagSizeY: customizingItem.tagSizeY,
+            tagSizeScale: customizingItem.tagSizeScale,
+            tagSizeFont: customizingItem.tagSizeFont,
+            tagSizeColor: customizingItem.tagSizeColor,
+            tagSizeBold: customizingItem.tagSizeBold,
+            tagSizeItalic: customizingItem.tagSizeItalic
           }}
           customerId={customerId || 'CUS-001'}
           onSave={(customizedData) => {
@@ -2179,7 +2221,17 @@ export function PortalCreateOrder() {
               customScaleRightSleeve: customizedData.customScaleRightSleeve,
               customOffsetXRightSleeve: customizedData.customOffsetXRightSleeve,
               customOffsetYRightSleeve: customizedData.customOffsetYRightSleeve,
-              customRotationRightSleeve: customizedData.customRotationRightSleeve
+              customRotationRightSleeve: customizedData.customRotationRightSleeve,
+              // Tag properties
+              logoUrlTag: customizedData.logoUrlTag || null,
+              tagLayout: customizedData.tagLayout || null,
+              tagSizeX: customizedData.tagSizeX,
+              tagSizeY: customizedData.tagSizeY,
+              tagSizeScale: customizedData.tagSizeScale,
+              tagSizeFont: customizedData.tagSizeFont,
+              tagSizeColor: customizedData.tagSizeColor,
+              tagSizeBold: customizedData.tagSizeBold,
+              tagSizeItalic: customizedData.tagSizeItalic
             } : item));
             setIsCartOpen(true);
           }}

@@ -12,7 +12,7 @@ const DEFAULT_SETTINGS: StorefrontSettingsShape = {
   heroSubtitle:
     'Choose a themed collection to design a cohesive line, or start from our curated basics.',
   contactPhone: '(888) 896-8607',
-  email: 'hello@inktheory.com',
+  email: 'hello@inktheory.studio',
 };
 
 /**

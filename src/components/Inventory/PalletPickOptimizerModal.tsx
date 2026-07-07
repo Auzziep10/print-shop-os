@@ -1449,7 +1449,7 @@ export function PalletPickOptimizerModal({ isOpen, onClose, preSelectedOrder, on
       <div style={{ display: 'none' }} aria-hidden="true">
         {optimizationResult?.route.flatMap(pallet => 
           pallet.boxes.map((box: any) => {
-            const qrUrl = `${window.location.hostname === 'localhost' ? 'https://print-shop-os.vercel.app' : window.location.origin}/inventory/scan?p=${pallet.palletId}&b=${box.boxId}`;
+            const qrUrl = `${window.location.hostname === 'localhost' ? 'https://inktheory.studio' : window.location.origin}/inventory/scan?p=${pallet.palletId}&b=${box.boxId}`;
             return (
               <div key={box.boxId} id={`qr-code-${box.boxId}`}>
                 <QRCode value={qrUrl} size={100} level="L" />

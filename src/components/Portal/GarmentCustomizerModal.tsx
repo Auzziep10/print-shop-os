@@ -2,12 +2,22 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../../lib/firebase';
-import { X, Upload, Loader2, Check, FileText, Sparkles, RefreshCw, Type, Image as ImageIcon, Sliders, Trash2, Bold, Italic, Search, Shirt } from 'lucide-react';
+import { X, Upload, Loader2, Check, FileText, Sparkles, RefreshCw, Type, Image as ImageIcon, Sliders, Trash2, Bold, Italic, Search, Shirt, Plus } from 'lucide-react';
 import { generateRotatedGarment } from '../../lib/geminiService';
 import { getSwatchColor } from '../shared/GarmentBrowser';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
 
 const sanmarCatalog = sanmarCatalogJson as any[];
+
+const loadImg = (src: string): Promise<HTMLImageElement> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.src = src;
+    img.onload = () => resolve(img);
+    img.onerror = (e) => reject(e);
+  });
+};
 
 
 const findFuzzyColorKey = (catalogImages: Record<string, any>, targetColor: string): string | null => {
@@ -77,7 +87,7 @@ export function GarmentCustomizerModal({
   onSave,
   showCatalogSearch = false
 }: GarmentCustomizerModalProps) {
-  const [activeTab, setActiveTab] = useState<'front' | 'back' | 'sleeve'>('front');
+  const [activeTab, setActiveTab] = useState<'front' | 'back' | 'sleeve' | 'tag'>('front');
   const [isSleeveMirrored, setIsSleeveMirrored] = useState(false);
   const [selectedColor, setSelectedColor] = useState<string>('Custom Color');
   const [isColorDropdownOpen, setIsColorDropdownOpen] = useState(false);
@@ -179,6 +189,24 @@ export function GarmentCustomizerModal({
   const [rotationRightSleeve, setRotationRightSleeve] = useState(0);
   const placementRightSleeve = 'Right Sleeve';
 
+  const [tagLogos, setTagLogos] = useState<any[]>([]);
+  const [tagTexts, setTagTexts] = useState<any[]>([]);
+  const [tagSize, setTagSize] = useState<any>({
+    scale: 35,
+    x: 50,
+    y: 75,
+    rotation: 0,
+    font: 'Graduate',
+    color: '#111111',
+    bold: true,
+    italic: false
+  });
+  const [selectedTagElementId, setSelectedTagElementId] = useState<string | null>(null);
+  const [tagDesignName, setTagDesignName] = useState<string>('My Custom Tag');
+  const [activeElementDrag, setActiveElementDrag] = useState<{ id: string; type: 'logo' | 'text' | 'size' } | null>(null);
+  const [activeElementResize, setActiveElementResize] = useState<{ id: string; type: 'logo' | 'text' | 'size' } | null>(null);
+  const [isSavingTagAsset, setIsSavingTagAsset] = useState(false);
+
   const [activeDesignerTab, setActiveDesignerTab] = useState<'upload' | 'text'>('upload');
   const [textInput, setTextInput] = useState('');
   const [textFont, setTextFont] = useState('Graduate');
@@ -215,6 +243,29 @@ export function GarmentCustomizerModal({
     else if (activeTab === 'sleeve') {
       if (isSleeveMirrored) setSelectedLogoRightSleeve(asset);
       else setSelectedLogoLeftSleeve(asset);
+    } else if (activeTab === 'tag') {
+      if (!asset) return;
+      if (asset.type === 'tag_design') {
+        if (asset.tagLayout) {
+          setTagLogos(asset.tagLayout.placedTagLogos || []);
+          setTagTexts(asset.tagLayout.placedTagTexts || []);
+          setTagSize(asset.tagLayout.tagSizeElement || { scale: 35, x: 50, y: 75, rotation: 0, font: 'Graduate', color: '#111111', bold: true, italic: false });
+          setSelectedTagElementId(null);
+        }
+        return;
+      }
+      const newLogoId = `tag-logo-${Date.now()}`;
+      const newLogo = {
+        id: newLogoId,
+        url: asset.url,
+        name: asset.name,
+        scale: 30,
+        x: 50,
+        y: 45,
+        rotation: 0
+      };
+      setTagLogos(prev => [...prev, newLogo]);
+      setSelectedTagElementId(newLogoId);
     }
   };
 
@@ -224,13 +275,9 @@ export function GarmentCustomizerModal({
       return;
     }
 
-    // Parse extension
     const ext = selectedLogo.name.split('.').pop()?.toUpperCase() || 'Unknown';
-    setLogoFileInfo({
-      type: ext
-    });
+    setLogoFileInfo({ type: ext });
 
-    // Resolution fetch for image formats
     const extLower = ext.toLowerCase();
     const isRenderable = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(extLower);
 
@@ -245,7 +292,6 @@ export function GarmentCustomizerModal({
       img.src = selectedLogo.url;
     }
 
-    // File size fetch
     fetch(selectedLogo.url, { method: 'HEAD' })
       .then(res => {
         const bytes = res.headers.get('content-length');
@@ -263,46 +309,95 @@ export function GarmentCustomizerModal({
       .catch(err => {
         console.warn("Could not fetch file headers for size:", err);
       });
-
   }, [selectedLogo]);
 
   const scale = useMemo(() => {
+    if (activeTab === 'tag') {
+      if (selectedTagElementId === 'size-tag-placeholder') return tagSize.scale;
+      if (selectedTagElementId?.startsWith('tag-logo-')) {
+        return tagLogos.find(l => l.id === selectedTagElementId)?.scale || 30;
+      }
+      if (selectedTagElementId?.startsWith('tag-text-')) {
+        return tagTexts.find(t => t.id === selectedTagElementId)?.scale || 25;
+      }
+      return 30;
+    }
     if (activeTab === 'front') return scaleFront;
     if (activeTab === 'back') return scaleBack;
     if (activeTab === 'sleeve') {
       return isSleeveMirrored ? scaleRightSleeve : scaleLeftSleeve;
     }
     return 30;
-  }, [activeTab, isSleeveMirrored, scaleFront, scaleBack, scaleLeftSleeve, scaleRightSleeve]);
+  }, [activeTab, isSleeveMirrored, scaleFront, scaleBack, scaleLeftSleeve, scaleRightSleeve, selectedTagElementId, tagLogos, tagTexts, tagSize]);
 
   const offsetX = useMemo(() => {
+    if (activeTab === 'tag') {
+      if (selectedTagElementId === 'size-tag-placeholder') return tagSize.x;
+      if (selectedTagElementId?.startsWith('tag-logo-')) {
+        return tagLogos.find(l => l.id === selectedTagElementId)?.x || 50;
+      }
+      if (selectedTagElementId?.startsWith('tag-text-')) {
+        return tagTexts.find(t => t.id === selectedTagElementId)?.x || 50;
+      }
+      return 50;
+    }
     if (activeTab === 'front') return offsetXFront;
     if (activeTab === 'back') return offsetXBack;
     if (activeTab === 'sleeve') {
       return isSleeveMirrored ? offsetXRightSleeve : offsetXLeftSleeve;
     }
     return 50;
-  }, [activeTab, isSleeveMirrored, offsetXFront, offsetXBack, offsetXLeftSleeve, offsetXRightSleeve]);
+  }, [activeTab, isSleeveMirrored, offsetXFront, offsetXBack, offsetXLeftSleeve, offsetXRightSleeve, selectedTagElementId, tagLogos, tagTexts, tagSize]);
 
   const offsetY = useMemo(() => {
+    if (activeTab === 'tag') {
+      if (selectedTagElementId === 'size-tag-placeholder') return tagSize.y;
+      if (selectedTagElementId?.startsWith('tag-logo-')) {
+        return tagLogos.find(l => l.id === selectedTagElementId)?.y || 50;
+      }
+      if (selectedTagElementId?.startsWith('tag-text-')) {
+        return tagTexts.find(t => t.id === selectedTagElementId)?.y || 50;
+      }
+      return 50;
+    }
     if (activeTab === 'front') return offsetYFront;
     if (activeTab === 'back') return offsetYBack;
     if (activeTab === 'sleeve') {
       return isSleeveMirrored ? offsetYRightSleeve : offsetYLeftSleeve;
     }
     return 50;
-  }, [activeTab, isSleeveMirrored, offsetYFront, offsetYBack, offsetYLeftSleeve, offsetYRightSleeve]);
+  }, [activeTab, isSleeveMirrored, offsetYFront, offsetYBack, offsetYLeftSleeve, offsetYRightSleeve, selectedTagElementId, tagLogos, tagTexts, tagSize]);
 
   const rotation = useMemo(() => {
+    if (activeTab === 'tag') {
+      if (selectedTagElementId === 'size-tag-placeholder') return tagSize.rotation;
+      if (selectedTagElementId?.startsWith('tag-logo-')) {
+        return tagLogos.find(l => l.id === selectedTagElementId)?.rotation || 0;
+      }
+      if (selectedTagElementId?.startsWith('tag-text-')) {
+        return tagTexts.find(t => t.id === selectedTagElementId)?.rotation || 0;
+      }
+      return 0;
+    }
     if (activeTab === 'front') return rotationFront;
     if (activeTab === 'back') return rotationBack;
     if (activeTab === 'sleeve') {
       return isSleeveMirrored ? rotationRightSleeve : rotationLeftSleeve;
     }
     return 0;
-  }, [activeTab, isSleeveMirrored, rotationFront, rotationBack, rotationLeftSleeve, rotationRightSleeve]);
+  }, [activeTab, isSleeveMirrored, rotationFront, rotationBack, rotationLeftSleeve, rotationRightSleeve, selectedTagElementId, tagLogos, tagTexts, tagSize]);
 
   const setRotation = (val: number) => {
+    if (activeTab === 'tag') {
+      if (selectedTagElementId === 'size-tag-placeholder') {
+        setTagSize((prev: any) => ({ ...prev, rotation: val }));
+      } else if (selectedTagElementId?.startsWith('tag-logo-')) {
+        setTagLogos(prev => prev.map(l => l.id === selectedTagElementId ? { ...l, rotation: val } : l));
+      } else if (selectedTagElementId?.startsWith('tag-text-')) {
+        setTagTexts(prev => prev.map(t => t.id === selectedTagElementId ? { ...t, rotation: val } : t));
+      }
+      return;
+    }
     if (activeTab === 'front') setRotationFront(val);
     else if (activeTab === 'back') setRotationBack(val);
     else if (activeTab === 'sleeve') {
@@ -312,6 +407,16 @@ export function GarmentCustomizerModal({
   };
 
   const setScale = (val: number) => {
+    if (activeTab === 'tag') {
+      if (selectedTagElementId === 'size-tag-placeholder') {
+        setTagSize((prev: any) => ({ ...prev, scale: val }));
+      } else if (selectedTagElementId?.startsWith('tag-logo-')) {
+        setTagLogos(prev => prev.map(l => l.id === selectedTagElementId ? { ...l, scale: val } : l));
+      } else if (selectedTagElementId?.startsWith('tag-text-')) {
+        setTagTexts(prev => prev.map(t => t.id === selectedTagElementId ? { ...t, scale: val } : t));
+      }
+      return;
+    }
     if (activeTab === 'front') setScaleFront(val);
     else if (activeTab === 'back') setScaleBack(val);
     else if (activeTab === 'sleeve') {
@@ -321,6 +426,17 @@ export function GarmentCustomizerModal({
   };
 
   const handleClearPlacement = () => {
+    if (activeTab === 'tag') {
+      if (selectedTagElementId) {
+        if (selectedTagElementId.startsWith('tag-logo-')) {
+          setTagLogos(prev => prev.filter(l => l.id !== selectedTagElementId));
+        } else if (selectedTagElementId.startsWith('tag-text-')) {
+          setTagTexts(prev => prev.filter(t => t.id !== selectedTagElementId));
+        }
+        setSelectedTagElementId(null);
+      }
+      return;
+    }
     setSelectedLogo(null);
     if (activeTab === 'front') {
       setScaleFront(30);
@@ -394,6 +510,68 @@ export function GarmentCustomizerModal({
 
   // Case-insensitive image resolver
   const { frontImage, backImage, sleeveImage } = useMemo(() => {
+    // 1. Resolve from garment.images case-insensitively first if selectedColor is chosen
+    let resolvedFront = null;
+    let resolvedBack = null;
+
+    if (selectedColor) {
+      const garmentImages = activeGarment?.images || {};
+      const garmentImgKey = findFuzzyColorKey(garmentImages, selectedColor);
+      const garmentColorVal = garmentImgKey ? garmentImages[garmentImgKey] : null;
+
+      resolvedFront = garmentColorVal?.front || (typeof garmentColorVal === 'string' ? garmentColorVal : null);
+      resolvedBack = garmentColorVal?.back || null;
+
+      const garmentBackImages = activeGarment?.backImages || {};
+      const garmentBackImgKey = findFuzzyColorKey(garmentBackImages, selectedColor);
+      if (garmentBackImgKey) {
+        resolvedBack = garmentBackImages[garmentBackImgKey];
+      }
+
+      if (catalogProduct) {
+        const catalogImages = catalogProduct.images || {};
+        const catalogImgKey = findFuzzyColorKey(catalogImages, selectedColor);
+        const catalogColorVal = catalogImgKey ? catalogImages[catalogImgKey] : null;
+        if (!resolvedFront) {
+          resolvedFront = catalogColorVal?.front || (typeof catalogColorVal === 'string' ? catalogColorVal : null);
+        }
+        if (!resolvedBack) {
+          resolvedBack = catalogColorVal?.back || null;
+        }
+      }
+    }
+
+    // 2. If we resolved images for the selectedColor, use them!
+    if (resolvedFront) {
+      if (resolvedBack && resolvedFront) {
+        const rBackLower = resolvedBack.toLowerCase();
+        const rFrontLower = resolvedFront.toLowerCase();
+        if (rBackLower === rFrontLower) {
+          resolvedBack = null;
+        }
+      }
+
+      const cleanColor = (selectedColor || '').trim();
+      const styleCode = catalogProduct ? catalogProduct.style.toUpperCase() : '';
+      const colorLower = cleanColor.toLowerCase();
+      
+      let localLeftSleeve = null;
+      if (styleCode === 'NL6210') {
+        if (colorLower.includes('charcoal')) {
+          localLeftSleeve = '/mockups/NL6210/left_sleeve.png';
+        } else if (colorLower.includes('black')) {
+          localLeftSleeve = '/mockups/NL6210/black_left_sleeve.png';
+        }
+      }
+
+      return {
+        frontImage: resolvedFront,
+        backImage: resolvedBack || generatedViews.back || null,
+        sleeveImage: localLeftSleeve || generatedViews['sleeve'] || null
+      };
+    }
+
+    // 3. Fallback to originalFrontImage if we couldn't resolve color-specific images
     if (activeGarment?.originalFrontImage) {
       return {
         frontImage: activeGarment.originalFrontImage,
@@ -402,84 +580,10 @@ export function GarmentCustomizerModal({
       };
     }
 
-    if (!selectedColor) {
-      return {
-        frontImage: activeGarment?.image || '',
-        backImage: null,
-        sleeveImage: null
-      };
-    }
-
-    // 1. Resolve from garment.images case-insensitively
-    const garmentImages = activeGarment?.images || {};
-    const garmentImgKey = findFuzzyColorKey(garmentImages, selectedColor);
-    const garmentColorVal = garmentImgKey ? garmentImages[garmentImgKey] : null;
-
-    const garmentFront = garmentColorVal?.front || (typeof garmentColorVal === 'string' ? garmentColorVal : null);
-    let garmentBack = garmentColorVal?.back || null;
-
-    // 2. Resolve garment.backImages case-insensitively
-    const garmentBackImages = activeGarment?.backImages || {};
-    const garmentBackImgKey = findFuzzyColorKey(garmentBackImages, selectedColor);
-    if (garmentBackImgKey) {
-      garmentBack = garmentBackImages[garmentBackImgKey];
-    }
-
-    // 3. Fallback to catalogProduct case-insensitively if front/back are missing
-    let catalogFront = null;
-    let catalogBack = null;
-    if (catalogProduct) {
-      const catalogImages = catalogProduct.images || {};
-      const catalogImgKey = findFuzzyColorKey(catalogImages, selectedColor);
-      const catalogColorVal = catalogImgKey ? catalogImages[catalogImgKey] : null;
-      catalogFront = catalogColorVal?.front || (typeof catalogColorVal === 'string' ? catalogColorVal : null);
-      catalogBack = catalogColorVal?.back || null;
-    }
-
-    // Defensive fallback: if garmentBack is identical to garmentFront or is clearly a front image, and we have a distinct catalogBack, use catalogBack instead
-    if (garmentBack && catalogBack) {
-      const gBackLower = garmentBack.toLowerCase();
-      const gFrontLower = (garmentFront || '').toLowerCase();
-      if (gBackLower === gFrontLower || (gBackLower.includes('_front') && !catalogBack.toLowerCase().includes('_front'))) {
-        garmentBack = null;
-      }
-    }
-
-    const cleanColor = selectedColor.trim();
-
-    // Map high-quality pre-generated sleeve mockups for NL6210 (Charcoal and Black)
-    const styleCode = catalogProduct ? catalogProduct.style.toUpperCase() : '';
-    const colorLower = cleanColor.toLowerCase();
-    
-    let localLeftSleeve = null;
-    if (styleCode === 'NL6210') {
-      if (colorLower.includes('charcoal')) {
-        localLeftSleeve = '/mockups/NL6210/left_sleeve.png';
-      } else if (colorLower.includes('black')) {
-        localLeftSleeve = '/mockups/NL6210/black_left_sleeve.png';
-      }
-    }
-
-    const finalFront = garmentFront || catalogFront || activeGarment?.image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
-    const finalBack = garmentBack || generatedViews.back || catalogBack || null;
-    const finalSleeve = localLeftSleeve || generatedViews['sleeve'] || null;
-
-    console.log("GARMENT_CUSTOMIZER_DEBUG:", {
-      activeGarment,
-      catalogProduct,
-      selectedColor,
-      garmentFront,
-      garmentBack,
-      catalogFront,
-      catalogBack,
-      finalFront,
-      finalBack
-    });
-
-    return { 
-      frontImage: finalFront, 
-      backImage: finalBack,
-      sleeveImage: finalSleeve
+    return {
+      frontImage: activeGarment?.image || '',
+      backImage: null,
+      sleeveImage: null
     };
   }, [activeGarment, selectedColor, catalogProduct, generatedViews]);
 
@@ -621,6 +725,110 @@ export function GarmentCustomizerModal({
     };
   };
 
+  const updateSelectedTagTextProperty = (updates: Partial<any>) => {
+    if (selectedTagElementId === 'size-tag-placeholder') {
+      setTagSize((prev: any) => ({ ...prev, ...updates }));
+    } else if (selectedTagElementId?.startsWith('tag-text-')) {
+      setTagTexts(prev => prev.map(t => t.id === selectedTagElementId ? { ...t, ...updates } : t));
+    }
+  };
+
+  const handleAddTextToTag = () => {
+    if (!textInput.trim()) return;
+    const newTextId = `tag-text-${Date.now()}`;
+    const newText = {
+      id: newTextId,
+      text: textInput.trim(),
+      scale: 25,
+      x: 50,
+      y: 50,
+      rotation: 0,
+      font: textFont,
+      color: textColor,
+      bold: textBold,
+      italic: textItalic
+    };
+    setTagTexts(prev => [...prev, newText]);
+    setSelectedTagElementId(newTextId);
+    setTextInput('');
+  };
+
+  useEffect(() => {
+    if (activeTab === 'tag' && selectedTagElementId) {
+      if (selectedTagElementId === 'size-tag-placeholder') {
+        setTextFont(tagSize.font);
+        setTextColor(tagSize.color);
+        setTextBold(tagSize.bold);
+        setTextItalic(tagSize.italic);
+      } else {
+        const txtItem = tagTexts.find(t => t.id === selectedTagElementId);
+        if (txtItem) {
+          setTextInput(txtItem.text);
+          setTextFont(txtItem.font);
+          setTextColor(txtItem.color);
+          setTextBold(txtItem.bold);
+          setTextItalic(txtItem.italic);
+        }
+      }
+    }
+  }, [selectedTagElementId, activeTab]);
+
+  const handleElementMouseDown = (e: React.MouseEvent, id: string, type: 'logo' | 'text' | 'size') => {
+    e.stopPropagation();
+    e.preventDefault();
+    setSelectedTagElementId(id);
+    setActiveElementDrag({ id, type });
+
+    let currentX = 50;
+    let currentY = 50;
+
+    if (type === 'logo') {
+      const item = tagLogos.find(l => l.id === id);
+      if (item) {
+        currentX = item.x;
+        currentY = item.y;
+      }
+    } else if (type === 'text') {
+      const item = tagTexts.find(t => t.id === id);
+      if (item) {
+        currentX = item.x;
+        currentY = item.y;
+      }
+    } else if (type === 'size') {
+      currentX = tagSize.x;
+      currentY = tagSize.y;
+    }
+
+    dragStartPos.current = {
+      x: e.clientX,
+      y: e.clientY,
+      offsetX: currentX,
+      offsetY: currentY
+    };
+  };
+
+  const handleElementResizeMouseDown = (e: React.MouseEvent, id: string, type: 'logo' | 'text' | 'size') => {
+    e.stopPropagation();
+    e.preventDefault();
+    setActiveElementResize({ id, type });
+
+    let currentScale = 30;
+    const containerWidth = previewRef.current?.getBoundingClientRect().width || 320;
+    if (type === 'logo') {
+      currentScale = tagLogos.find(l => l.id === id)?.scale || 30;
+    } else if (type === 'text') {
+      currentScale = tagTexts.find(t => t.id === id)?.scale || 25;
+    } else if (type === 'size') {
+      currentScale = tagSize.scale;
+    }
+
+    resizeStartPos.current = {
+      x: e.clientX,
+      scale: currentScale,
+      containerWidth
+    };
+  };
+
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (isDragging && previewRef.current) {
@@ -670,14 +878,46 @@ export function GarmentCustomizerModal({
           }
         }
       }
+
+      if (activeElementDrag && previewRef.current) {
+        const rect = previewRef.current.getBoundingClientRect();
+        const valX = Math.max(0, Math.min(100, Math.round(((e.clientX - rect.left) / rect.width) * 100)));
+        const valY = Math.max(0, Math.min(100, Math.round(((e.clientY - rect.top) / rect.height) * 100)));
+
+        const { id, type } = activeElementDrag;
+        if (type === 'logo') {
+          setTagLogos(prev => prev.map(l => l.id === id ? { ...l, x: valX, y: valY } : l));
+        } else if (type === 'text') {
+          setTagTexts(prev => prev.map(t => t.id === id ? { ...t, x: valX, y: valY } : t));
+        } else if (type === 'size') {
+          setTagSize((prev: any) => ({ ...prev, x: valX, y: valY }));
+        }
+      }
+
+      if (activeElementResize) {
+        const deltaX = e.clientX - resizeStartPos.current.x;
+        const containerWidth = resizeStartPos.current.containerWidth || 320;
+        const valScale = Math.max(10, Math.min(150, Math.round(resizeStartPos.current.scale + (deltaX / containerWidth) * 100)));
+
+        const { id, type } = activeElementResize;
+        if (type === 'logo') {
+          setTagLogos(prev => prev.map(l => l.id === id ? { ...l, scale: valScale } : l));
+        } else if (type === 'text') {
+          setTagTexts(prev => prev.map(t => t.id === id ? { ...t, scale: valScale } : t));
+        } else if (type === 'size') {
+          setTagSize((prev: any) => ({ ...prev, scale: valScale }));
+        }
+      }
     };
 
     const handleMouseUp = () => {
       setIsDragging(false);
       setIsResizing(false);
+      setActiveElementDrag(null);
+      setActiveElementResize(null);
     };
 
-    if (isDragging || isResizing) {
+    if (isDragging || isResizing || activeElementDrag || activeElementResize) {
       window.addEventListener('mousemove', handleMouseMove);
       window.addEventListener('mouseup', handleMouseUp);
     }
@@ -686,7 +926,7 @@ export function GarmentCustomizerModal({
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isDragging, isResizing, scale, offsetX, offsetY, activeTab]);
+  }, [isDragging, isResizing, activeElementDrag, activeElementResize, scale, offsetX, offsetY, activeTab]);
 
   // Initialize and restore saved customization settings if editing an existing customization
   useEffect(() => {
@@ -694,7 +934,9 @@ export function GarmentCustomizerModal({
       setSelectedColor(garment.selectedColor || garment.colors?.[0] || 'Custom Color');
     }
 
-    if (garment && garment.customized) {
+    const hasLogos = !!(garment && (garment.customized || garment.logoUrl || garment.logoUrlBack || garment.logoUrlLeftSleeve || garment.logoUrlRightSleeve));
+
+    if (hasLogos) {
       if (garment.logoUrl) {
         setSelectedLogoFront({ url: garment.logoUrl, name: garment.logoName || 'Front Logo' });
       } else {
@@ -761,6 +1003,17 @@ export function GarmentCustomizerModal({
       setOffsetYRightSleeve(50);
       setRotationRightSleeve(0);
     }
+
+    if (garment && garment.tagLayout) {
+      setTagLogos(garment.tagLayout.placedTagLogos || []);
+      setTagTexts(garment.tagLayout.placedTagTexts || []);
+      setTagSize(garment.tagLayout.tagSizeElement || { scale: 35, x: 50, y: 75, rotation: 0, font: 'Graduate', color: '#111111', bold: true, italic: false });
+    } else {
+      setTagLogos([]);
+      setTagTexts([]);
+      setTagSize({ scale: 35, x: 50, y: 75, rotation: 0, font: 'Graduate', color: '#111111', bold: true, italic: false });
+    }
+    setSelectedTagElementId(null);
   }, [garment, isOpen]);
 
   // Fetch customer assets (logos)
@@ -774,7 +1027,8 @@ export function GarmentCustomizerModal({
         if (docSnap.exists()) {
           const data = docSnap.data();
           setAssets(data.assets || []);
-          if (data.assets && data.assets.length > 0 && !garment?.customized) {
+          const isAlreadyCustomized = !!(garment?.customized || garment?.logoUrl || garment?.logoUrlBack || garment?.logoUrlLeftSleeve || garment?.logoUrlRightSleeve);
+          if (data.assets && data.assets.length > 0 && !isAlreadyCustomized) {
             setSelectedLogoFront(data.assets[0]);
           }
         }
@@ -785,7 +1039,7 @@ export function GarmentCustomizerModal({
       }
     };
     fetchAssets();
-  }, [customerId, isOpen, garment?.customized]);
+  }, [customerId, isOpen, garment]);
 
   if (!isOpen || !activeGarment) return null;
 
@@ -819,6 +1073,122 @@ export function GarmentCustomizerModal({
       alert("Failed to upload logo.");
     } finally {
       setIsUploading(false);
+    }
+  };
+
+  const compileTagCanvas = async (includeSizePlaceholder: boolean, sizeChar: string = 'M') => {
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = 600;
+    tempCanvas.height = 600;
+    const tempCtx = tempCanvas.getContext('2d');
+    if (!tempCtx) return null;
+
+    tempCtx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
+
+    for (const logo of tagLogos) {
+      try {
+        const logoImg = await loadImg(logo.url);
+        const logoWidth = 600 * (logo.scale / 100);
+        const aspect = logoImg.height / logoImg.width;
+        const logoHeight = logoWidth * aspect;
+
+        const logoCenterX = 600 * (logo.x / 100);
+        const logoCenterY = 600 * (logo.y / 100);
+
+        tempCtx.save();
+        tempCtx.translate(logoCenterX, logoCenterY);
+        tempCtx.rotate((logo.rotation * Math.PI) / 180);
+        tempCtx.drawImage(logoImg, -logoWidth / 2, -logoHeight / 2, logoWidth, logoHeight);
+        tempCtx.restore();
+      } catch (e) {
+        console.error("Failed to draw logo on tag canvas", e);
+      }
+    }
+
+    for (const txt of tagTexts) {
+      tempCtx.save();
+      const fontSize = txt.scale * 3.5;
+      tempCtx.font = `${txt.italic ? 'italic' : ''} ${txt.bold ? 'bold' : ''} ${fontSize}px ${txt.font}`.trim();
+      tempCtx.fillStyle = txt.color;
+      tempCtx.textAlign = 'center';
+      tempCtx.textBaseline = 'middle';
+
+      const textCenterX = 600 * (txt.x / 100);
+      const textCenterY = 600 * (txt.y / 100);
+
+      tempCtx.translate(textCenterX, textCenterY);
+      tempCtx.rotate((txt.rotation * Math.PI) / 180);
+      
+      const lines = txt.text.split('\n');
+      const lineHeight = fontSize * 1.2;
+      
+      lines.forEach((line: string, index: number) => {
+        const yOffset = (index - (lines.length - 1) / 2) * lineHeight;
+        tempCtx.fillText(line, 0, yOffset);
+      });
+      
+      tempCtx.restore();
+    }
+
+    if (includeSizePlaceholder) {
+      tempCtx.save();
+      const fontSize = tagSize.scale * 3.5;
+      tempCtx.font = `${tagSize.italic ? 'italic' : ''} ${tagSize.bold ? 'bold' : ''} ${fontSize}px ${tagSize.font}`.trim();
+      tempCtx.fillStyle = tagSize.color;
+      tempCtx.textAlign = 'center';
+      tempCtx.textBaseline = 'middle';
+
+      const sizeCenterX = 600 * (tagSize.x / 100);
+      const sizeCenterY = 600 * (tagSize.y / 100);
+
+      tempCtx.translate(sizeCenterX, sizeCenterY);
+      tempCtx.rotate((tagSize.rotation * Math.PI) / 180);
+      tempCtx.fillText(sizeChar, 0, 0);
+      tempCtx.restore();
+    }
+
+    return tempCanvas;
+  };
+
+  const handleSaveTagToVault = async () => {
+    if (tagLogos.length === 0 && tagTexts.length === 0) return;
+    setIsSavingTagAsset(true);
+    try {
+      const tagCanvas = await compileTagCanvas(true, 'M');
+      if (!tagCanvas) throw new Error("Could not compile tag canvas");
+
+      const blob = await new Promise<Blob | null>((resolve) => tagCanvas.toBlob(resolve, 'image/png'));
+      if (!blob) throw new Error("Could not convert tag to blob");
+
+      const storageRef = ref(storage, `portal/${customerId}/vault/tag_${Date.now()}.png`);
+      await uploadBytes(storageRef, blob);
+      const downloadUrl = await getDownloadURL(storageRef);
+
+      const newTagAsset = {
+        id: `tag-design-${Date.now()}`,
+        name: tagDesignName || `Tag Design ${new Date().toLocaleDateString()}`,
+        url: downloadUrl,
+        type: 'tag_design',
+        tagLayout: {
+          placedTagLogos: tagLogos,
+          placedTagTexts: tagTexts,
+          tagSizeElement: tagSize
+        },
+        uploadedAt: new Date().toISOString()
+      };
+
+      const updatedAssets = [...assets, newTagAsset];
+      await updateDoc(doc(db, 'customers', customerId), {
+        assets: updatedAssets
+      });
+
+      setAssets(updatedAssets);
+      alert("Tag design successfully saved to your vault!");
+    } catch (err) {
+      console.error("Failed to save tag design:", err);
+      alert("Failed to save tag design.");
+    } finally {
+      setIsSavingTagAsset(false);
     }
   };
 
@@ -1031,11 +1401,27 @@ export function GarmentCustomizerModal({
         customizedSleeveImage = await generateAndUploadSide(sleeveImage || frontImage, selectedLogoRightSleeve, scaleRightSleeve, offsetXRightSleeve, offsetYRightSleeve, rotationRightSleeve, 'Right Sleeve');
       }
 
+      // Generate size tag base image
+      let logoUrlTag = null;
+      const isTagCustomized = tagLogos.length > 0 || tagTexts.length > 0;
+      if (isTagCustomized) {
+        const tagBaseCanvas = await compileTagCanvas(false);
+        if (tagBaseCanvas) {
+          const tagBlob = await new Promise<Blob | null>((resolve) => tagBaseCanvas.toBlob(resolve, 'image/png'));
+          if (tagBlob) {
+            const tagRef = ref(storage, `portal/${customerId}/customizations/${Date.now()}_tag_base.png`);
+            await uploadBytes(tagRef, tagBlob);
+            logoUrlTag = await getDownloadURL(tagRef);
+          }
+        }
+      }
+
       const placementParts: string[] = [];
       if (hasFront) placementParts.push(`Front: ${placementFront}`);
       if (hasBack) placementParts.push(`Back: ${placementBack}`);
       if (hasLeftSleeve) placementParts.push(`Left Sleeve: ${placementLeftSleeve}`);
       if (hasRightSleeve) placementParts.push(`Right Sleeve: ${placementRightSleeve}`);
+      if (isTagCustomized) placementParts.push('Tag: Custom Tag');
 
       onSave({
         ...activeGarment,
@@ -1072,7 +1458,21 @@ export function GarmentCustomizerModal({
         customScaleRightSleeve: scaleRightSleeve,
         customOffsetXRightSleeve: offsetXRightSleeve,
         customOffsetYRightSleeve: offsetYRightSleeve,
-        customRotationRightSleeve: rotationRightSleeve
+        customRotationRightSleeve: rotationRightSleeve,
+        // Tag properties
+        logoUrlTag,
+        tagLayout: isTagCustomized ? {
+          placedTagLogos: tagLogos,
+          placedTagTexts: tagTexts,
+          tagSizeElement: tagSize
+        } : null,
+        tagSizeX: tagSize.x,
+        tagSizeY: tagSize.y,
+        tagSizeScale: tagSize.scale,
+        tagSizeFont: tagSize.font,
+        tagSizeColor: tagSize.color,
+        tagSizeBold: tagSize.bold,
+        tagSizeItalic: tagSize.italic
       });
 
       onClose();
@@ -1080,11 +1480,13 @@ export function GarmentCustomizerModal({
       console.error("Failed to generate and save mockup:", err);
       alert("Error generating customized preview. Using original garment image.");
       
+      const isTagCustomized = tagLogos.length > 0 || tagTexts.length > 0;
       const placementParts: string[] = [];
       if (selectedLogoFront) placementParts.push(`Front: ${placementFront}`);
       if (selectedLogoBack) placementParts.push(`Back: ${placementBack}`);
       if (selectedLogoLeftSleeve) placementParts.push(`Left Sleeve: ${placementLeftSleeve}`);
       if (selectedLogoRightSleeve) placementParts.push(`Right Sleeve: ${placementRightSleeve}`);
+      if (isTagCustomized) placementParts.push('Tag: Custom Tag');
 
       onSave({
         ...activeGarment,
@@ -1098,7 +1500,21 @@ export function GarmentCustomizerModal({
         logoUrlLeftSleeve: selectedLogoLeftSleeve?.url || null,
         logoNameLeftSleeve: selectedLogoLeftSleeve?.name || null,
         logoUrlRightSleeve: selectedLogoRightSleeve?.url || null,
-        logoNameRightSleeve: selectedLogoRightSleeve?.name || null
+        logoNameRightSleeve: selectedLogoRightSleeve?.name || null,
+        // Tag properties
+        logoUrlTag: null,
+        tagLayout: isTagCustomized ? {
+          placedTagLogos: tagLogos,
+          placedTagTexts: tagTexts,
+          tagSizeElement: tagSize
+        } : null,
+        tagSizeX: tagSize.x,
+        tagSizeY: tagSize.y,
+        tagSizeScale: tagSize.scale,
+        tagSizeFont: tagSize.font,
+        tagSizeColor: tagSize.color,
+        tagSizeBold: tagSize.bold,
+        tagSizeItalic: tagSize.italic
       });
       onClose();
     } finally {
@@ -1146,7 +1562,8 @@ export function GarmentCustomizerModal({
               {[
                 { id: 'front', label: 'Front View' },
                 { id: 'back', label: 'Back View' },
-                { id: 'sleeve', label: 'Sleeve' }
+                { id: 'sleeve', label: 'Sleeve' },
+                { id: 'tag', label: 'Size Tag' }
               ].map((tab) => (
                 <button
                   key={tab.id}
@@ -1186,93 +1603,196 @@ export function GarmentCustomizerModal({
           >
             {/* Zoom Wrapper to enlarge shirt */}
             <div className="relative w-full h-full flex items-center justify-center scale-[1.1]">
-              {/* Main Garment Image */}
-              {(!needsGeneration || isGenerated) && (
-                <img 
-                  src={proxiedActiveMockupImage} 
-                  alt={activeGarment.style} 
-                  style={{ transform: (activeTab === 'sleeve' && isSleeveMirrored) ? 'scaleX(-1)' : 'none' }}
-                  className="max-w-full max-h-full object-contain mix-blend-multiply select-none pointer-events-none animate-in fade-in duration-500" 
-                />
+              {activeTab !== 'tag' && (
+                <>
+                  {/* Main Garment Image */}
+                  {(!needsGeneration || isGenerated) && (
+                    <img 
+                      src={proxiedActiveMockupImage} 
+                      alt={activeGarment.style} 
+                      style={{ transform: (activeTab === 'sleeve' && isSleeveMirrored) ? 'scaleX(-1)' : 'none' }}
+                      className="max-w-full max-h-full object-contain mix-blend-multiply select-none pointer-events-none animate-in fade-in duration-500" 
+                    />
+                  )}
+
+                  {/* Logo Overlay */}
+                  {(!needsGeneration || isGenerated) && selectedLogo && (selectedLogo.isText || isImageFile(selectedLogo.name)) && (
+                    <div 
+                      onMouseDown={handleDragMouseDown}
+                      style={{
+                        width: `${scale * 0.36}%`,
+                        left: `${offsetX}%`,
+                        top: `${offsetY}%`,
+                        transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
+                        zIndex: 20
+                      }}
+                      className="absolute flex items-center justify-center border border-dashed border-black/40 group/logo select-none cursor-move p-1 bg-transparent"
+                    >
+                      <img 
+                        src={selectedLogo.url} 
+                        alt="Logo Overlay" 
+                        className="max-w-full max-h-full object-contain pointer-events-none" 
+                      />
+                      <div 
+                        onMouseDown={handleResizeMouseDown}
+                        className="absolute bottom-[-6px] right-[-6px] w-3.5 h-3.5 bg-black border-2 border-white rounded-full cursor-se-resize shadow-md hover:scale-125 transition-transform z-30"
+                      />
+                    </div>
+                  )}
+                  
+                  {(!needsGeneration || isGenerated) && selectedLogo && !(selectedLogo.isText || isImageFile(selectedLogo.name)) && (
+                    <div 
+                      onMouseDown={handleDragMouseDown}
+                      style={{
+                        left: `${offsetX}%`,
+                        top: `${offsetY}%`,
+                        transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
+                        zIndex: 20
+                      }}
+                      className="absolute bg-neutral-900/80 text-white rounded-xl px-3.5 py-2 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-md border border-white/20 cursor-move select-none p-1 group/logo"
+                    >
+                      <FileText size={12} />
+                      <span>{selectedLogo.name.split('.').pop() || 'FILE'}</span>
+                      <div 
+                        onMouseDown={handleResizeMouseDown}
+                        className="absolute bottom-[-6px] right-[-6px] w-3.5 h-3.5 bg-black border-2 border-white rounded-full cursor-se-resize shadow-md hover:scale-125 transition-transform z-30"
+                      />
+                    </div>
+                  )}
+
+                  {/* AI Generation Trigger Overlay */}
+                  {needsGeneration && !isGenerated && (
+                    <div className="absolute inset-0 bg-neutral-50/95 flex flex-col items-center justify-center p-8 text-center animate-in fade-in duration-300">
+                      <div className="w-16 h-16 bg-white border border-neutral-200 rounded-full flex items-center justify-center shadow-md mb-4 active:scale-95 transition-transform">
+                        {isGeneratingView ? (
+                          <Loader2 size={24} className="text-neutral-500 animate-spin" />
+                        ) : (
+                          <Sparkles size={24} className="text-neutral-700 animate-pulse" />
+                        )}
+                      </div>
+                      <h3 className="font-serif text-lg text-neutral-900 mb-1.5">Preview Required</h3>
+                      <p className="text-[11px] text-neutral-500 max-w-[280px] leading-relaxed mb-6 font-medium">
+                        No catalog asset exists for the {activeTab.replace('-', ' ')} view. Generate a side profile preview to place your logo.
+                      </p>
+                      <button
+                        type="button"
+                        disabled={isGeneratingView}
+                        onClick={handleGenerateView}
+                        className="px-6 py-3 bg-black hover:bg-neutral-800 disabled:bg-neutral-400 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center gap-2 cursor-pointer active:scale-95 disabled:scale-100 disabled:cursor-not-allowed"
+                      >
+                        {isGeneratingView ? (
+                          <>
+                            <Loader2 size={13} className="animate-spin" />
+                            <span>Generating...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles size={13} />
+                            <span>Generate Preview</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
+                </>
               )}
 
-              {/* Logo Overlay */}
-              {(!needsGeneration || isGenerated) && selectedLogo && (selectedLogo.isText || isImageFile(selectedLogo.name)) && (
-                <div 
-                  onMouseDown={handleDragMouseDown}
-                  style={{
-                    width: `${scale * 0.36}%`,
-                    left: `${offsetX}%`,
-                    top: `${offsetY}%`,
-                    transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
-                    zIndex: 20
-                  }}
-                  className="absolute flex items-center justify-center border border-dashed border-black/40 group/logo select-none cursor-move p-1 bg-transparent"
-                >
-                  <img 
-                    src={selectedLogo.url} 
-                    alt="Logo Overlay" 
-                    className="max-w-full max-h-full object-contain pointer-events-none" 
-                  />
-                  <div 
-                    onMouseDown={handleResizeMouseDown}
-                    className="absolute bottom-[-6px] right-[-6px] w-3.5 h-3.5 bg-black border-2 border-white rounded-full cursor-se-resize shadow-md hover:scale-125 transition-transform z-30"
-                  />
-                </div>
-              )}
-              
-              {(!needsGeneration || isGenerated) && selectedLogo && !(selectedLogo.isText || isImageFile(selectedLogo.name)) && (
-                <div 
-                  onMouseDown={handleDragMouseDown}
-                  style={{
-                    left: `${offsetX}%`,
-                    top: `${offsetY}%`,
-                    transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
-                    zIndex: 20
-                  }}
-                  className="absolute bg-neutral-900/80 text-white rounded-xl px-3.5 py-2 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-md border border-white/20 cursor-move select-none p-1 group/logo"
-                >
-                  <FileText size={12} />
-                  <span>{selectedLogo.name.split('.').pop() || 'FILE'}</span>
-                  <div 
-                    onMouseDown={handleResizeMouseDown}
-                    className="absolute bottom-[-6px] right-[-6px] w-3.5 h-3.5 bg-black border-2 border-white rounded-full cursor-se-resize shadow-md hover:scale-125 transition-transform z-30"
-                  />
-                </div>
-              )}
+              {activeTab === 'tag' && (
+                <div className="relative w-80 h-80 bg-neutral-50 border-2 border-dashed border-neutral-300 rounded-[1.5rem] shadow-inner flex items-center justify-center overflow-hidden z-10 select-none">
+                  {/* Grid background */}
+                  <div className="absolute inset-0 opacity-5 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle, #000 1px, transparent 1px)', backgroundSize: '16px 16px' }} />
+                  
+                  {/* Placed Logos */}
+                  {tagLogos.map((logo) => {
+                    const isSelected = selectedTagElementId === logo.id;
+                    return (
+                      <div
+                        key={logo.id}
+                        onMouseDown={(e) => handleElementMouseDown(e, logo.id, 'logo')}
+                        style={{
+                          width: `${logo.scale}%`,
+                          left: `${logo.x}%`,
+                          top: `${logo.y}%`,
+                          transform: `translate(-50%, -50%) rotate(${logo.rotation}deg)`,
+                          zIndex: isSelected ? 30 : 20
+                        }}
+                        className={`absolute flex items-center justify-center p-1 bg-transparent cursor-move ${isSelected ? 'border border-black ring-1 ring-black/30 bg-white/5' : 'border border-dashed border-transparent hover:border-neutral-300'}`}
+                      >
+                        <img src={logo.url} alt={logo.name} className="max-w-full max-h-full object-contain pointer-events-none" />
+                        {isSelected && (
+                          <div
+                            onMouseDown={(e) => handleElementResizeMouseDown(e, logo.id, 'logo')}
+                            className="absolute bottom-[-6px] right-[-6px] w-3.5 h-3.5 bg-black border-2 border-white rounded-full cursor-se-resize shadow-md hover:scale-125 transition-transform z-30"
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
 
-              {/* AI Generation Trigger Overlay */}
-              {needsGeneration && !isGenerated && (
-                <div className="absolute inset-0 bg-neutral-50/95 flex flex-col items-center justify-center p-8 text-center animate-in fade-in duration-300">
-                  <div className="w-16 h-16 bg-white border border-neutral-200 rounded-full flex items-center justify-center shadow-md mb-4 active:scale-95 transition-transform">
-                    {isGeneratingView ? (
-                      <Loader2 size={24} className="text-neutral-500 animate-spin" />
-                    ) : (
-                      <Sparkles size={24} className="text-neutral-700 animate-pulse" />
-                    )}
-                  </div>
-                  <h3 className="font-serif text-lg text-neutral-900 mb-1.5">Preview Required</h3>
-                  <p className="text-[11px] text-neutral-500 max-w-[280px] leading-relaxed mb-6 font-medium">
-                    No catalog asset exists for the {activeTab.replace('-', ' ')} view. Generate a side profile preview to place your logo.
-                  </p>
-                  <button
-                    type="button"
-                    disabled={isGeneratingView}
-                    onClick={handleGenerateView}
-                    className="px-6 py-3 bg-black hover:bg-neutral-800 disabled:bg-neutral-400 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center gap-2 cursor-pointer active:scale-95 disabled:scale-100 disabled:cursor-not-allowed"
-                  >
-                    {isGeneratingView ? (
-                      <>
-                        <Loader2 size={13} className="animate-spin" />
-                        <span>Generating...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles size={13} />
-                        <span>Generate Preview</span>
-                      </>
-                    )}
-                  </button>
+                  {/* Placed Texts */}
+                  {tagTexts.map((textItem) => {
+                    const isSelected = selectedTagElementId === textItem.id;
+                    return (
+                      <div
+                        key={textItem.id}
+                        onMouseDown={(e) => handleElementMouseDown(e, textItem.id, 'text')}
+                        style={{
+                          left: `${textItem.x}%`,
+                          top: `${textItem.y}%`,
+                          transform: `translate(-50%, -50%) rotate(${textItem.rotation}deg)`,
+                          zIndex: isSelected ? 30 : 20,
+                          fontFamily: textItem.font,
+                          color: textItem.color,
+                          fontSize: `${textItem.scale * 0.75}px`,
+                          fontWeight: textItem.bold ? 'bold' : 'normal',
+                          fontStyle: textItem.italic ? 'italic' : 'normal',
+                          whiteSpace: 'pre'
+                        }}
+                        className={`absolute text-center px-2 py-1 leading-normal cursor-move ${isSelected ? 'border border-black ring-1 ring-black/30 bg-white/20' : 'border border-transparent hover:border-neutral-200'}`}
+                      >
+                        {textItem.text}
+                        {isSelected && (
+                          <div
+                            onMouseDown={(e) => handleElementResizeMouseDown(e, textItem.id, 'text')}
+                            className="absolute bottom-[-6px] right-[-6px] w-3.5 h-3.5 bg-black border-2 border-white rounded-full cursor-se-resize shadow-md hover:scale-125 transition-transform z-30"
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  {/* Size Placeholder Element */}
+                  {(() => {
+                    const isSelected = selectedTagElementId === 'size-tag-placeholder';
+                    return (
+                      <div
+                        onMouseDown={(e) => handleElementMouseDown(e, 'size-tag-placeholder', 'size')}
+                        style={{
+                          left: `${tagSize.x}%`,
+                          top: `${tagSize.y}%`,
+                          transform: `translate(-50%, -50%) rotate(${tagSize.rotation}deg)`,
+                          zIndex: isSelected ? 30 : 20,
+                          fontFamily: tagSize.font,
+                          color: tagSize.color,
+                          fontSize: `${tagSize.scale * 0.75}px`,
+                          fontWeight: tagSize.bold ? 'bold' : 'normal',
+                          fontStyle: tagSize.italic ? 'italic' : 'normal'
+                        }}
+                        className={`absolute text-center px-3 py-1 cursor-move leading-none ${isSelected ? 'border border-black ring-1 ring-black/30 bg-white/20' : 'border border-dashed border-red-400/40 hover:border-red-400/80 bg-red-50/10'}`}
+                      >
+                        <span className="relative flex items-center justify-center min-w-[20px] min-h-[20px]">
+                          M
+                          <span className="absolute -top-4 left-1/2 -translate-x-1/2 bg-red-650 text-[6px] text-white px-1 py-0.5 rounded font-sans uppercase font-bold tracking-wider leading-none shadow select-none pointer-events-none whitespace-nowrap z-40">Size Tag</span>
+                        </span>
+                        {isSelected && (
+                          <div
+                            onMouseDown={(e) => handleElementResizeMouseDown(e, 'size-tag-placeholder', 'size')}
+                            className="absolute bottom-[-6px] right-[-6px] w-3.5 h-3.5 bg-black border-2 border-white rounded-full cursor-se-resize shadow-md hover:scale-125 transition-transform z-30"
+                          />
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
             </div>
@@ -1520,7 +2040,9 @@ export function GarmentCustomizerModal({
                 ) : (
                   <div className="grid grid-cols-3 gap-3 max-h-[220px] overflow-y-auto pr-1">
                     {assets.map((asset) => {
-                       const isSelected = selectedLogo?.id === asset.id;
+                       const isSelected = activeTab === 'tag'
+                         ? selectedTagElementId === asset.id
+                         : selectedLogo?.id === asset.id;
                        return (
                          <div
                            key={asset.id}
@@ -1537,7 +2059,10 @@ export function GarmentCustomizerModal({
                             }
                           }}
                         >
-                          {isImageFile(asset.name) ? (
+                          {asset.type === 'tag_design' && (
+                            <span className="absolute top-1 left-1 bg-black text-[7px] text-white px-1 py-0.5 rounded font-sans uppercase font-bold tracking-wider leading-none shadow select-none pointer-events-none z-10">Tag</span>
+                          )}
+                          {isImageFile(asset.name) || asset.type === 'tag_design' ? (
                             <img 
                               src={asset.url} 
                               alt={asset.name} 
@@ -1596,7 +2121,12 @@ export function GarmentCustomizerModal({
                   <input
                     type="text"
                     value={textInput}
-                    onChange={(e) => setTextInput(e.target.value)}
+                    onChange={(e) => {
+                      setTextInput(e.target.value);
+                      if (activeTab === 'tag') {
+                        updateSelectedTagTextProperty({ text: e.target.value });
+                      }
+                    }}
                     placeholder="Enter custom text..."
                     className="w-full bg-neutral-50 border border-neutral-200 hover:border-neutral-300 focus:border-black focus:bg-white rounded-xl px-4 py-2.5 text-sm font-bold transition-all outline-none animate-in fade-in duration-200"
                   />
@@ -1609,7 +2139,12 @@ export function GarmentCustomizerModal({
                     <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Font</label>
                     <select
                       value={textFont}
-                      onChange={(e) => setTextFont(e.target.value)}
+                      onChange={(e) => {
+                        setTextFont(e.target.value);
+                        if (activeTab === 'tag') {
+                          updateSelectedTagTextProperty({ font: e.target.value });
+                        }
+                      }}
                       className="w-full bg-neutral-50 border border-neutral-200 hover:border-neutral-300 focus:border-black focus:bg-white rounded-xl px-3 py-2.5 text-xs font-bold transition-all outline-none"
                     >
                       {SUPPORTED_FONTS.map((font) => (
@@ -1626,7 +2161,15 @@ export function GarmentCustomizerModal({
                     <div className="flex border border-neutral-200 rounded-xl overflow-hidden h-[38px] p-0.5 bg-neutral-50">
                       <button
                         type="button"
-                        onClick={() => setTextBold(b => !b)}
+                        onClick={() => {
+                          setTextBold(b => {
+                            const next = !b;
+                            if (activeTab === 'tag') {
+                              updateSelectedTagTextProperty({ bold: next });
+                            }
+                            return next;
+                          });
+                        }}
                         className={`flex-1 flex items-center justify-center rounded-lg transition-all cursor-pointer ${
                           textBold ? 'bg-black text-white' : 'text-neutral-500 hover:text-black hover:bg-neutral-200/50'
                         }`}
@@ -1636,7 +2179,15 @@ export function GarmentCustomizerModal({
                       </button>
                       <button
                         type="button"
-                        onClick={() => setTextItalic(i => !i)}
+                        onClick={() => {
+                          setTextItalic(i => {
+                            const next = !i;
+                            if (activeTab === 'tag') {
+                              updateSelectedTagTextProperty({ italic: next });
+                            }
+                            return next;
+                          });
+                        }}
                         className={`flex-1 flex items-center justify-center rounded-lg transition-all cursor-pointer ${
                           textItalic ? 'bg-black text-white' : 'text-neutral-500 hover:text-black hover:bg-neutral-200/50'
                         }`}
@@ -1667,7 +2218,12 @@ export function GarmentCustomizerModal({
                         <button
                           key={col.hex}
                           type="button"
-                          onClick={() => setTextColor(col.hex)}
+                          onClick={() => {
+                            setTextColor(col.hex);
+                            if (activeTab === 'tag') {
+                              updateSelectedTagTextProperty({ color: col.hex });
+                            }
+                          }}
                           className={`w-6 h-6 rounded-full border relative flex items-center justify-center transition-all hover:scale-110 cursor-pointer ${
                             isColSelected ? 'border-black ring-1 ring-black scale-105' : 'border-neutral-300'
                           }`}
@@ -1685,24 +2241,40 @@ export function GarmentCustomizerModal({
                       <input
                         type="color"
                         value={textColor}
-                        onChange={(e) => setTextColor(e.target.value)}
+                        onChange={(e) => {
+                          setTextColor(e.target.value);
+                          if (activeTab === 'tag') {
+                            updateSelectedTagTextProperty({ color: e.target.value });
+                          }
+                        }}
                         className="absolute inset-0 w-[200%] h-[200%] -translate-x-[25%] -translate-y-[25%] cursor-pointer border-0 p-0"
                         title="Custom Color"
                       />
                     </div>
                   </div>
                 </div>
+
+                {activeTab === 'tag' && (
+                  <button
+                    type="button"
+                    onClick={handleAddTextToTag}
+                    className="w-full bg-black hover:bg-neutral-800 text-white py-2.5 rounded-xl text-xs font-bold transition-all shadow-md mt-2 flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Plus size={13} />
+                    <span>Add Text to Tag</span>
+                  </button>
+                )}
               </div>
             )}
           </div>
 
-          {/* Adjustments Section (visible only when selectedLogo exists) */}
-          {selectedLogo && (
+          {/* Adjustments Section (visible when selectedLogo exists OR when on Tag tab and an element is selected) */}
+          {(selectedLogo || (activeTab === 'tag' && selectedTagElementId)) && (
             <div className="flex flex-col gap-4 border-t border-neutral-100 pt-6 animate-in fade-in duration-200">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-bold uppercase tracking-widest text-neutral-500 flex items-center gap-1.5">
                   <Sliders size={13} />
-                  <span>Logo Adjustments</span>
+                  <span>{activeTab === 'tag' ? 'Element Adjustments' : 'Logo Adjustments'}</span>
                 </label>
                 <button
                   type="button"
@@ -1748,6 +2320,37 @@ export function GarmentCustomizerModal({
             </div>
           )}
 
+          {/* Save Tag Design to Vault Section */}
+          {activeTab === 'tag' && (
+            <div className="flex flex-col gap-4 border-t border-neutral-100 pt-6 animate-in fade-in duration-200">
+              <label className="text-xs font-bold uppercase tracking-widest text-neutral-500 flex items-center gap-1.5">
+                <Sparkles size={13} />
+                <span>Save Tag to Vault</span>
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={tagDesignName}
+                  onChange={(e) => setTagDesignName(e.target.value)}
+                  placeholder="Enter tag name..."
+                  className="flex-1 bg-neutral-50 border border-neutral-200 focus:border-black focus:bg-white rounded-xl px-3 py-2 text-xs font-bold transition-all outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={handleSaveTagToVault}
+                  disabled={isSavingTagAsset || (tagLogos.length === 0 && tagTexts.length === 0)}
+                  className="bg-black text-white hover:bg-neutral-800 text-xs font-bold px-4 py-2 rounded-xl transition-all shadow-md flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSavingTagAsset ? (
+                    <Loader2 size={12} className="animate-spin" />
+                  ) : (
+                    <span>Save Tag</span>
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
+
         </div>
       </div>
 
@@ -1759,6 +2362,7 @@ export function GarmentCustomizerModal({
           if (selectedLogoBack) activePlacements.push("Back");
           if (selectedLogoLeftSleeve) activePlacements.push("Left Sleeve");
           if (selectedLogoRightSleeve) activePlacements.push("Right Sleeve");
+          if (tagLogos.length > 0 || tagTexts.length > 0) activePlacements.push("Size Tag");
           const count = activePlacements.length;
           return (
             <div className="flex flex-col items-start gap-0.5">

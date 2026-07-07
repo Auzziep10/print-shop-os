@@ -1693,7 +1693,7 @@ export function ProductsTab({
                                <div className="shrink-0 flex flex-col items-center justify-between border-l-4 border-black pl-4 w-36">
                                    <div className="flex flex-col items-center">
                                        <div className="p-1 border-4 border-black bg-white mb-1 shrink-0">
-                                           <QRCode value={`${window.location.hostname === 'localhost' ? 'https://print-shop-os.vercel.app' : window.location.origin}/inventory/scan?p=${printingBox.id}&b=${printingBox.boxes?.[0]?.id || ''}`} size={90} level="L" />
+                                           <QRCode value={`${window.location.hostname === 'localhost' ? 'https://inktheory.studio' : window.location.origin}/inventory/scan?p=${printingBox.id}&b=${printingBox.boxes?.[0]?.id || ''}`} size={90} level="L" />
                                        </div>
                                        <p className="text-[7px] font-black uppercase tracking-widest text-center mt-1 w-full text-black">Scan to Subtract Items</p>
                                    </div>

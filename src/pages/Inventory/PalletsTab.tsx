@@ -999,7 +999,7 @@ export function PalletsTab({ onJumpToWarehouse, initialActivePalletId, onOpenSho
                                             <div className="shrink-0 flex flex-col items-center justify-between border-l-4 border-black pl-4 w-40">
                                                 <div className="flex flex-col items-center">
                                                     <div className="p-1 border-4 border-black bg-white mb-2">
-                                                        <QRCode value={`${window.location.hostname === 'localhost' ? 'https://print-shop-os.vercel.app' : window.location.origin}/inventory/scan?p=${printingBox.pallet.id}&b=${boxToPrint.id}`} size={100} level="L" />
+                                                        <QRCode value={`${window.location.hostname === 'localhost' ? 'https://inktheory.studio' : window.location.origin}/inventory/scan?p=${printingBox.pallet.id}&b=${boxToPrint.id}`} size={100} level="L" />
                                                     </div>
                                                     <p className="text-[8px] font-black uppercase tracking-widest text-center mt-1 w-full text-black">Scan to View Info</p>
                                                 </div>
@@ -1040,7 +1040,7 @@ export function PalletsTab({ onJumpToWarehouse, initialActivePalletId, onOpenSho
                                  
                                  <div className="shrink-0 flex flex-col items-center justify-center border-l-4 border-black pl-6 pr-2">
                                      <div className="p-1.5 border-4 border-black bg-white mb-2">
-                                         <QRCode value={`${window.location.hostname === 'localhost' ? 'https://print-shop-os.vercel.app' : window.location.origin}/inventory/scan?p=${printingBox.pallet.id}`} size={110} level="M" />
+                                         <QRCode value={`${window.location.hostname === 'localhost' ? 'https://inktheory.studio' : window.location.origin}/inventory/scan?p=${printingBox.pallet.id}`} size={110} level="M" />
                                      </div>
                                      <p className="text-[10px] font-black uppercase tracking-widest text-center w-full text-black leading-tight">Scan To Register<br/>Boxes</p>
                                  </div>
@@ -1109,7 +1109,7 @@ export function PalletsTab({ onJumpToWarehouse, initialActivePalletId, onOpenSho
                                                         <span className="text-[9px] uppercase font-bold text-gray-800">{totalUnits} Units</span>
                                                     </div>
                                                     <div className="shrink-0 flex items-center justify-center pr-2">
-                                                        <QRCode value={`${window.location.hostname === 'localhost' ? 'https://print-shop-os.vercel.app' : window.location.origin}/inventory/scan?p=${printingBox.pallet.id}&b=${lbl.box.id}`} size={56} level="L" />
+                                                        <QRCode value={`${window.location.hostname === 'localhost' ? 'https://inktheory.studio' : window.location.origin}/inventory/scan?p=${printingBox.pallet.id}&b=${lbl.box.id}`} size={56} level="L" />
                                                     </div>
                                                   </div>
                                                 </div>
@@ -1156,7 +1156,7 @@ export function PalletsTab({ onJumpToWarehouse, initialActivePalletId, onOpenSho
                    <p className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-6">{mobileQrPallet.id}</p>
                    
                    <div className="bg-white p-4 border-4 border-black rounded-xl mb-6 shadow-sm">
-                       <QRCode value={`${window.location.hostname === 'localhost' ? 'https://print-shop-os.vercel.app' : window.location.origin}/inventory/scan?id=${mobileQrPallet.id}`} size={200} />
+                       <QRCode value={`${window.location.hostname === 'localhost' ? 'https://inktheory.studio' : window.location.origin}/inventory/scan?id=${mobileQrPallet.id}`} size={200} />
                    </div>
                    
                    <p className="text-xs text-center text-brand-secondary px-4 font-medium leading-relaxed">

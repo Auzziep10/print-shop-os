@@ -650,6 +650,9 @@ export function PortalRequestQuote() {
            if (p.logoUrlRightSleeve) {
              artworks.push({ url: p.logoUrlRightSleeve, originalUrl: p.logoUrlRightSleeve, name: p.logoNameRightSleeve || 'Right Sleeve Logo', width: 3.5, height: 3.5, quantity: totalQty });
            }
+           if (p.logoUrlTag) {
+             artworks.push({ url: p.logoUrlTag, originalUrl: p.logoUrlTag, name: 'Size Tag Print', width: 2.5, height: 2.5, quantity: totalQty });
+           }
            if (artworks.length === 0 && p.artworkUrl) {
              artworks.push({ url: p.artworkUrl, originalUrl: p.artworkUrl, name: p.artworkName || 'Artwork', width: 3.5, height: 3.5, quantity: totalQty });
            }
@@ -664,6 +667,8 @@ export function PortalRequestQuote() {
               notes: p.logoPlacement ? `Mockup Placement: ${p.logoPlacement}` : '',
               sizes: p.sizes || {},
               artworks: artworks,
+              customized: p.customized || false,
+              logoPlacement: p.logoPlacement || '',
               logoUrl: p.logoUrl || null,
               logoName: p.logoName || null,
               logoUrlBack: p.logoUrlBack || null,
@@ -672,6 +677,31 @@ export function PortalRequestQuote() {
               logoNameLeftSleeve: p.logoNameLeftSleeve || null,
               logoUrlRightSleeve: p.logoUrlRightSleeve || null,
               logoNameRightSleeve: p.logoNameRightSleeve || null,
+              customScaleFront: p.customScaleFront ?? null,
+              customOffsetXFront: p.customOffsetXFront ?? null,
+              customOffsetYFront: p.customOffsetYFront ?? null,
+              customRotationFront: p.customRotationFront ?? null,
+              customScaleBack: p.customScaleBack ?? null,
+              customOffsetXBack: p.customOffsetXBack ?? null,
+              customOffsetYBack: p.customOffsetYBack ?? null,
+              customRotationBack: p.customRotationBack ?? null,
+              customScaleLeftSleeve: p.customScaleLeftSleeve ?? null,
+              customOffsetXLeftSleeve: p.customOffsetXLeftSleeve ?? null,
+              customOffsetYLeftSleeve: p.customOffsetYLeftSleeve ?? null,
+              customRotationLeftSleeve: p.customRotationLeftSleeve ?? null,
+              customScaleRightSleeve: p.customScaleRightSleeve ?? null,
+              customOffsetXRightSleeve: p.customOffsetXRightSleeve ?? null,
+              customOffsetYRightSleeve: p.customOffsetYRightSleeve ?? null,
+              customRotationRightSleeve: p.customRotationRightSleeve ?? null,
+              logoUrlTag: p.logoUrlTag || null,
+              tagLayout: p.tagLayout || null,
+              tagSizeX: p.tagSizeX ?? null,
+              tagSizeY: p.tagSizeY ?? null,
+              tagSizeScale: p.tagSizeScale ?? null,
+              tagSizeFont: p.tagSizeFont ?? null,
+              tagSizeColor: p.tagSizeColor ?? null,
+              tagSizeBold: p.tagSizeBold ?? null,
+              tagSizeItalic: p.tagSizeItalic ?? null,
            };
         }),
         shippingAddress: {
@@ -1170,6 +1200,7 @@ export function PortalRequestQuote() {
                             if (product.logoUrlBack) activePlacements.push("Back");
                             if (product.logoUrlLeftSleeve) activePlacements.push("Left Sleeve");
                             if (product.logoUrlRightSleeve) activePlacements.push("Right Sleeve");
+                            if (product.logoUrlTag) activePlacements.push("Size Tag");
                             const count = activePlacements.length;
                             return (
                               <span className="text-[10px] bg-neutral-100 text-neutral-800 px-1.5 py-0.5 rounded border border-neutral-200 font-bold">
@@ -1370,6 +1401,7 @@ export function PortalRequestQuote() {
                         {product.logoUrlBack && <span>• <b>Back Placement:</b> {product.logoNameBack || 'Logo'}</span>}
                         {product.logoUrlLeftSleeve && <span>• <b>Left Sleeve:</b> {product.logoNameLeftSleeve || 'Logo'}</span>}
                         {product.logoUrlRightSleeve && <span>• <b>Right Sleeve:</b> {product.logoNameRightSleeve || 'Logo'}</span>}
+                        {product.logoUrlTag && <span>• <b>Size Tag:</b> Custom designed size tag</span>}
                       </div>
                     )}
                   </div>
@@ -1459,7 +1491,17 @@ export function PortalRequestQuote() {
             customScaleRightSleeve: customizingProduct.customScaleRightSleeve,
             customOffsetXRightSleeve: customizingProduct.customOffsetXRightSleeve,
             customOffsetYRightSleeve: customizingProduct.customOffsetYRightSleeve,
-            customRotationRightSleeve: customizingProduct.customRotationRightSleeve
+            customRotationRightSleeve: customizingProduct.customRotationRightSleeve,
+            // Tag properties
+            logoUrlTag: customizingProduct.logoUrlTag || null,
+            tagLayout: customizingProduct.tagLayout || null,
+            tagSizeX: customizingProduct.tagSizeX,
+            tagSizeY: customizingProduct.tagSizeY,
+            tagSizeScale: customizingProduct.tagSizeScale,
+            tagSizeFont: customizingProduct.tagSizeFont,
+            tagSizeColor: customizingProduct.tagSizeColor,
+            tagSizeBold: customizingProduct.tagSizeBold,
+            tagSizeItalic: customizingProduct.tagSizeItalic
           }}
           customerId={customerId || 'CUS-001'}
           onSave={(customizedData) => {
@@ -1502,7 +1544,17 @@ export function PortalRequestQuote() {
               customScaleRightSleeve: customizedData.customScaleRightSleeve,
               customOffsetXRightSleeve: customizedData.customOffsetXRightSleeve,
               customOffsetYRightSleeve: customizedData.customOffsetYRightSleeve,
-              customRotationRightSleeve: customizedData.customRotationRightSleeve
+              customRotationRightSleeve: customizedData.customRotationRightSleeve,
+              // Tag properties
+              logoUrlTag: customizedData.logoUrlTag || null,
+              tagLayout: customizedData.tagLayout || null,
+              tagSizeX: customizedData.tagSizeX,
+              tagSizeY: customizedData.tagSizeY,
+              tagSizeScale: customizedData.tagSizeScale,
+              tagSizeFont: customizedData.tagSizeFont,
+              tagSizeColor: customizedData.tagSizeColor,
+              tagSizeBold: customizedData.tagSizeBold,
+              tagSizeItalic: customizedData.tagSizeItalic
             } : p));
           }}
         />

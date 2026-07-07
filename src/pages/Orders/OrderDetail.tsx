@@ -1001,6 +1001,7 @@ export function OrderDetail() {
   const [isUploadingGang, setIsUploadingGang] = useState(false);
   const [isZipping, setIsZipping] = useState(false);
   const [generatingItemId, setGeneratingItemId] = useState<string | null>(null);
+  const [generatingTagItemId, setGeneratingTagItemId] = useState<string | null>(null);
   const [previewMode, setPreviewMode] = useState<Record<string, 'print' | 'cut'>>({});
   const [trackingBoxId, setTrackingBoxId] = useState<string | null>(null);
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
@@ -1016,6 +1017,7 @@ export function OrderDetail() {
     if (item.logoUrlBack) count++;
     if (item.logoUrlLeftSleeve) count++;
     if (item.logoUrlRightSleeve) count++;
+    if (item.logoUrlTag) count++;
     return count || 1;
   };
 
@@ -1746,6 +1748,124 @@ export function OrderDetail() {
       alert('Failed to generate print files: ' + (err as Error).message);
     } finally {
       setGeneratingItemId(null);
+    }
+  };
+
+  const handleGenerateTagGangSheet = async (item: any) => {
+    if (!id || !order) return;
+    setGeneratingTagItemId(item.id);
+    try {
+      const sizesMap = item.sizes || {};
+      const activeSizes = Object.entries(sizesMap)
+        .map(([sz, qty]) => ({ size: sz, qty: Number(qty) }))
+        .filter(s => s.qty > 0);
+
+      if (activeSizes.length === 0) {
+        throw new Error("No quantities ordered for this item.");
+      }
+
+      if (!item.logoUrlTag) {
+        throw new Error("No custom tag designed for this item.");
+      }
+
+      const tagBaseImg = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.src = item.logoUrlTag;
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error("Failed to load base tag image"));
+      });
+
+      const tagDim = 750;
+      const padding = 50;
+      const sheetWidth = 6600; 
+      const tagsPerRow = Math.floor(sheetWidth / (tagDim + padding)); 
+
+      const totalTags = activeSizes.reduce((sum, s) => sum + s.qty, 0);
+      const totalRows = Math.ceil(totalTags / tagsPerRow);
+      const sheetHeight = totalRows * (tagDim + padding) + padding;
+
+      const gangCanvas = document.createElement('canvas');
+      gangCanvas.width = sheetWidth;
+      gangCanvas.height = sheetHeight;
+      const gangCtx = gangCanvas.getContext('2d');
+      if (!gangCtx) throw new Error("Could not get 2D context for gang sheet");
+
+      gangCtx.clearRect(0, 0, sheetWidth, sheetHeight);
+
+      let currentCol = 0;
+      let currentRow = 0;
+
+      for (const sizeInfo of activeSizes) {
+        const { size, qty } = sizeInfo;
+
+        const singleCanvas = document.createElement('canvas');
+        singleCanvas.width = tagDim;
+        singleCanvas.height = tagDim;
+        const singleCtx = singleCanvas.getContext('2d');
+        if (!singleCtx) continue;
+
+        singleCtx.drawImage(tagBaseImg, 0, 0, tagDim, tagDim);
+
+        const fontName = item.tagSizeFont || 'Graduate';
+        const fontColor = item.tagSizeColor || '#111111';
+        const isBold = item.tagSizeBold !== false;
+        const isItalic = item.tagSizeItalic === true;
+        const tagSizeScale = item.tagSizeScale || 35;
+        
+        const fontPx = tagSizeScale * 3.5 * (750 / 600); 
+
+        singleCtx.save();
+        singleCtx.font = `${isItalic ? 'italic' : ''} ${isBold ? 'bold' : ''} ${fontPx}px ${fontName}`.trim();
+        singleCtx.fillStyle = fontColor;
+        singleCtx.textAlign = 'center';
+        singleCtx.textBaseline = 'middle';
+
+        const sizeX = tagDim * ((item.tagSizeX ?? 50) / 100);
+        const sizeY = tagDim * ((item.tagSizeY ?? 75) / 100);
+
+        singleCtx.translate(sizeX, sizeY);
+        if (item.tagLayout?.tagSizeElement?.rotation) {
+          singleCtx.rotate((item.tagLayout.tagSizeElement.rotation * Math.PI) / 180);
+        }
+        singleCtx.fillText(size, 0, 0);
+        singleCtx.restore();
+
+        for (let q = 0; q < qty; q++) {
+          const posX = padding + currentCol * (tagDim + padding);
+          const posY = padding + currentRow * (tagDim + padding);
+
+          gangCtx.drawImage(singleCanvas, posX, posY, tagDim, tagDim);
+
+          currentCol++;
+          if (currentCol >= tagsPerRow) {
+            currentCol = 0;
+            currentRow++;
+          }
+        }
+      }
+
+      const gangBlob = await new Promise<Blob | null>((resolve) => gangCanvas.toBlob(resolve, 'image/png'));
+      if (!gangBlob) throw new Error("Failed to create blob for tag gang sheet");
+
+      const storageRef = ref(storage, `production-sheets/${id}/${item.id}-tag-gang-sheet.png`);
+      await uploadBytes(storageRef, gangBlob);
+      const tagPrintReadyUrl = await getDownloadURL(storageRef);
+
+      const updatedItems = order.items.map((i: any) => {
+        if (i.id === item.id) {
+          return { ...i, tagPrintReadyUrl };
+        }
+        return i;
+      });
+
+      await updateDoc(doc(db, 'orders', id), { items: updatedItems });
+      alert("Tag gang sheet successfully generated!");
+    } catch (err) {
+      console.error("Error generating tag gang sheet:", err);
+      alert("Failed to generate tag gang sheet: " + (err as Error).message);
+    } finally {
+      setGeneratingTagItemId(null);
     }
   };
 
@@ -3279,6 +3399,39 @@ export function OrderDetail() {
                               <span>Cut SVG</span>
                             </a>
                           </div>
+
+                          {item.logoUrlTag && (
+                            <div className="flex flex-col gap-2 border-t border-neutral-800/60 pt-2 mt-1">
+                              <button
+                                onClick={() => handleGenerateTagGangSheet(item)}
+                                disabled={generatingTagItemId === item.id}
+                                className="w-full bg-white/10 hover:bg-white/15 text-white py-2 rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+                              >
+                                {generatingTagItemId === item.id ? (
+                                  <>
+                                    <Loader2 size={14} className="animate-spin" />
+                                    <span>Generating Tag Sheet...</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Printer size={14} className="text-purple-400" />
+                                    <span>{item.tagPrintReadyUrl ? 'Regenerate Tag Sheet' : 'Generate Tag Gang Sheet'}</span>
+                                  </>
+                                )}
+                              </button>
+                              {item.tagPrintReadyUrl && (
+                                <a
+                                  href={item.tagPrintReadyUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="flex items-center justify-center gap-1.5 text-[11px] font-bold text-center border py-2 rounded-xl transition-all border-neutral-800 text-neutral-300 bg-neutral-850 hover:bg-neutral-800 hover:text-white shadow-sm"
+                                >
+                                  <Download size={12} />
+                                  <span>Download Tag PNG</span>
+                                </a>
+                              )}
+                            </div>
+                          )}
                           
                           <div className="grid grid-cols-2 gap-2 mt-1">
                             <button
