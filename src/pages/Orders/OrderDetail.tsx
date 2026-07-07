@@ -761,6 +761,22 @@ const generateFinalSheetsForPrintAndCut = async (
 };
 
 
+const isPrintableItem = (item: any) => {
+  if (!item) return false;
+  return (
+    item.itemType === 'gang_sheet' ||
+    (item.itemType === 'garment' && (
+      (Array.isArray(item.artworks) && item.artworks.length > 0) ||
+      !!item.logoUrl ||
+      !!item.logoUrlBack ||
+      !!item.logoUrlLeftSleeve ||
+      !!item.logoUrlRightSleeve ||
+      !!item.logoUrlTag
+    ))
+  );
+};
+
+
 export function OrderDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -1872,12 +1888,12 @@ export function OrderDetail() {
   const handleToggleReadyToPrint = async () => {
     if (!id || !order) return;
     
-    const gangSheetItems = (order.items || []).filter((item: any) => item.itemType === 'gang_sheet');
-    const allReady = gangSheetItems.every((item: any) => item.readyToPrint);
+    const printableItems = (order.items || []).filter(isPrintableItem);
+    const allReady = printableItems.every((item: any) => item.readyToPrint);
     const newReadyState = !allReady;
 
     const updatedItems = order.items.map((item: any) => {
-      if (item.itemType === 'gang_sheet') {
+      if (isPrintableItem(item)) {
         return { 
           ...item, 
           readyToPrint: newReadyState,
@@ -2000,10 +2016,10 @@ export function OrderDetail() {
       const zip = new JSZip();
       let hasFiles = false;
 
-      // Find all gang sheet items in this order
-      const gangSheetItems = (order.items || []).filter((item: any) => item.itemType === 'gang_sheet');
+      // Find all printable items in this order
+      const printableItems = (order.items || []).filter(isPrintableItem);
 
-      for (const item of gangSheetItems) {
+      for (const item of printableItems) {
         if (item.printReadyUrl) {
           try {
             const printRes = await fetch(item.printReadyUrl);
@@ -2024,6 +2040,17 @@ export function OrderDetail() {
             hasFiles = true;
           } catch (err) {
             console.error(`Failed to fetch cut file for item ${item.id}`, err);
+          }
+        }
+        if (item.tagPrintReadyUrl) {
+          try {
+            const tagRes = await fetch(item.tagPrintReadyUrl);
+            const tagBlob = await tagRes.blob();
+            const filenameTag = `${order.id}-${item.id}-tag-print.png`;
+            zip.file(filenameTag, tagBlob);
+            hasFiles = true;
+          } catch (err) {
+            console.error(`Failed to fetch tag file for item ${item.id}`, err);
           }
         }
       }
@@ -3257,7 +3284,7 @@ export function OrderDetail() {
           </div>
 
           {/* Production Assets Section */}
-          {order.items?.some((item: any) => item.itemType === 'gang_sheet') && (
+          {order.items?.some(isPrintableItem) && (
             <div className="bg-white p-6 rounded-card border border-brand-border shadow-sm mt-8">
               <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-6 pb-2 border-b border-brand-border">
                 <div className="flex items-center gap-2">
@@ -3269,7 +3296,7 @@ export function OrderDetail() {
                     variant="outline" 
                     onClick={handleDownloadAllZip}
                     className="gap-2" 
-                    disabled={isZipping || !order.items?.some((item: any) => item.printReadyUrl || item.cutReadyUrl)}
+                    disabled={isZipping || !order.items?.some((item: any) => item.printReadyUrl || item.cutReadyUrl || item.tagPrintReadyUrl)}
                   >
                     {isZipping ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
                     Download All Sheets (ZIP)
@@ -3279,7 +3306,7 @@ export function OrderDetail() {
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {order.items
-                  ?.filter((item: any) => item.itemType === 'gang_sheet')
+                  ?.filter(isPrintableItem)
                   .map((item: any) => {
                     const isPrintReady = !!(item.printReadyUrl && item.cutReadyUrl);
                     const currentPreviewMode = previewMode[item.id] || 'print';
@@ -3292,7 +3319,15 @@ export function OrderDetail() {
                           <div>
                             <h3 className="font-bold text-sm text-neutral-100">{item.style || 'DTF Gang Sheet'}</h3>
                             <p className="text-[11px] font-semibold text-neutral-400 mt-0.5">
-                              {item.sheetSizeName || 'DTF Gang Sheet'} • {item.sheetWidth}" x {item.sheetHeight}" • {item.quantity} {item.quantity === 1 ? 'Sheet' : 'Sheets'}
+                              {item.itemType === 'gang_sheet' ? (
+                                <>
+                                  {item.sheetSizeName || 'DTF Gang Sheet'} • {item.sheetWidth}" x {item.sheetHeight}" • {item.quantity} {item.quantity === 1 ? 'Sheet' : 'Sheets'}
+                                </>
+                              ) : (
+                                <>
+                                  Custom Placement Prints • {Object.values(item.sizes || {}).reduce((sum: number, val: any) => sum + (parseInt(val) || 0), 0) || item.quantity || 1} Garments
+                                </>
+                              )}
                             </p>
                           </div>
                           
