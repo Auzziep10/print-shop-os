@@ -19,6 +19,47 @@ const loadImg = (src: string): Promise<HTMLImageElement> => {
   });
 };
 
+export const WashingSymbol = ({ color = 'currentColor' }: { color?: string }) => (
+  <svg viewBox="0 0 100 100" fill="none" stroke={color} strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" className="w-full h-full">
+    <path d="M15 35 L22 75 A 5 5 0 0 0 27 80 L73 80 A 5 5 0 0 0 78 75 L85 35" />
+    <path d="M10 35 C 20 30, 25 40, 35 35 C 45 30, 50 40, 60 35 C 70 30, 75 40, 90 35" />
+    <line x1="20" y1="88" x2="80" y2="88" strokeWidth="4" />
+    <line x1="25" y1="94" x2="75" y2="94" strokeWidth="4" />
+  </svg>
+);
+
+export const BleachingSymbol = ({ color = 'currentColor' }: { color?: string }) => (
+  <svg viewBox="0 0 100 100" fill="none" stroke={color} strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" className="w-full h-full">
+    <polygon points="50,15 90,85 10,85" />
+    <line x1="25" y1="35" x2="75" y2="85" />
+    <line x1="75" y1="35" x2="25" y2="85" />
+  </svg>
+);
+
+export const DryingSymbol = ({ color = 'currentColor' }: { color?: string }) => (
+  <svg viewBox="0 0 100 100" fill="none" stroke={color} strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" className="w-full h-full">
+    <rect x="15" y="15" width="70" height="70" rx="5" />
+    <circle cx="50" cy="50" r="25" />
+    <circle cx="50" cy="50" r="5" fill={color} />
+  </svg>
+);
+
+export const IroningSymbol = ({ color = 'currentColor' }: { color?: string }) => (
+  <svg viewBox="0 0 100 100" fill="none" stroke={color} strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" className="w-full h-full">
+    <path d="M20 75 L80 75 C 80 50, 75 40, 55 40 L30 40 C 20 40, 20 75, 20 75 Z" />
+    <path d="M60 40 L60 30 L35 30 C 25 30, 25 45, 25 45" />
+    <circle cx="45" cy="60" r="5" fill={color} />
+  </svg>
+);
+
+export const DryCleanSymbol = ({ color = 'currentColor' }: { color?: string }) => (
+  <svg viewBox="0 0 100 100" fill="none" stroke={color} strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" className="w-full h-full">
+    <circle cx="50" cy="50" r="30" />
+    <line x1="25" y1="25" x2="75" y2="75" />
+    <line x1="75" y1="25" x2="25" y2="75" />
+  </svg>
+);
+
 
 const findFuzzyColorKey = (catalogImages: Record<string, any>, targetColor: string): string | null => {
   if (!targetColor || !catalogImages) return null;
@@ -132,6 +173,8 @@ export function GarmentCustomizerModal({
     }
   }, [activeGarment]);
 
+
+
   // Filter products for catalog search
   const filteredCatalogProducts = useMemo(() => {
     if (!searchQuery.trim()) return [];
@@ -201,13 +244,32 @@ export function GarmentCustomizerModal({
     bold: true,
     italic: false
   });
+  const [tagCareSymbols, setTagCareSymbols] = useState<any>({
+    visible: false,
+    showWash: true,
+    showBleach: true,
+    showDry: true,
+    showIron: true,
+    showDryClean: true,
+    x: 50,
+    y: 55,
+    scale: 30,
+    color: '#111111',
+    rotation: 0
+  });
   const [selectedTagElementId, setSelectedTagElementId] = useState<string | null>(null);
   const [tagDesignName, setTagDesignName] = useState<string>('My Custom Tag');
-  const [activeElementDrag, setActiveElementDrag] = useState<{ id: string; type: 'logo' | 'text' | 'size' } | null>(null);
-  const [activeElementResize, setActiveElementResize] = useState<{ id: string; type: 'logo' | 'text' | 'size' } | null>(null);
+  const [activeElementDrag, setActiveElementDrag] = useState<{ id: string; type: 'logo' | 'text' | 'size' | 'care_symbols' } | null>(null);
+  const [activeElementResize, setActiveElementResize] = useState<{ id: string; type: 'logo' | 'text' | 'size' | 'care_symbols' } | null>(null);
   const [isSavingTagAsset, setIsSavingTagAsset] = useState(false);
 
   const [activeDesignerTab, setActiveDesignerTab] = useState<'upload' | 'text'>('upload');
+
+  useEffect(() => {
+    if (activeTab !== 'tag' && (activeDesignerTab as string) === 'care') {
+      setActiveDesignerTab('upload');
+    }
+  }, [activeTab, activeDesignerTab]);
   const [textInput, setTextInput] = useState('');
   const [textFont, setTextFont] = useState('Graduate');
   const [textColor, setTextColor] = useState('#FFFFFF');
@@ -250,6 +312,7 @@ export function GarmentCustomizerModal({
           setTagLogos(asset.tagLayout.placedTagLogos || []);
           setTagTexts(asset.tagLayout.placedTagTexts || []);
           setTagSize(asset.tagLayout.tagSizeElement || { scale: 35, x: 50, y: 75, rotation: 0, font: 'Graduate', color: '#111111', bold: true, italic: false });
+          setTagCareSymbols(asset.tagLayout.tagCareSymbols || { visible: false, showWash: true, showBleach: true, showDry: true, showIron: true, showDryClean: true, x: 50, y: 55, scale: 30, color: '#111111', rotation: 0 });
           setSelectedTagElementId(null);
         }
         return;
@@ -314,6 +377,7 @@ export function GarmentCustomizerModal({
   const scale = useMemo(() => {
     if (activeTab === 'tag') {
       if (selectedTagElementId === 'size-tag-placeholder') return tagSize.scale;
+      if (selectedTagElementId === 'care-symbols-placeholder') return tagCareSymbols.scale;
       if (selectedTagElementId?.startsWith('tag-logo-')) {
         return tagLogos.find(l => l.id === selectedTagElementId)?.scale || 30;
       }
@@ -328,11 +392,12 @@ export function GarmentCustomizerModal({
       return isSleeveMirrored ? scaleRightSleeve : scaleLeftSleeve;
     }
     return 30;
-  }, [activeTab, isSleeveMirrored, scaleFront, scaleBack, scaleLeftSleeve, scaleRightSleeve, selectedTagElementId, tagLogos, tagTexts, tagSize]);
+  }, [activeTab, isSleeveMirrored, scaleFront, scaleBack, scaleLeftSleeve, scaleRightSleeve, selectedTagElementId, tagLogos, tagTexts, tagSize, tagCareSymbols]);
 
   const offsetX = useMemo(() => {
     if (activeTab === 'tag') {
       if (selectedTagElementId === 'size-tag-placeholder') return tagSize.x;
+      if (selectedTagElementId === 'care-symbols-placeholder') return tagCareSymbols.x;
       if (selectedTagElementId?.startsWith('tag-logo-')) {
         return tagLogos.find(l => l.id === selectedTagElementId)?.x || 50;
       }
@@ -347,11 +412,12 @@ export function GarmentCustomizerModal({
       return isSleeveMirrored ? offsetXRightSleeve : offsetXLeftSleeve;
     }
     return 50;
-  }, [activeTab, isSleeveMirrored, offsetXFront, offsetXBack, offsetXLeftSleeve, offsetXRightSleeve, selectedTagElementId, tagLogos, tagTexts, tagSize]);
+  }, [activeTab, isSleeveMirrored, offsetXFront, offsetXBack, offsetXLeftSleeve, offsetXRightSleeve, selectedTagElementId, tagLogos, tagTexts, tagSize, tagCareSymbols]);
 
   const offsetY = useMemo(() => {
     if (activeTab === 'tag') {
       if (selectedTagElementId === 'size-tag-placeholder') return tagSize.y;
+      if (selectedTagElementId === 'care-symbols-placeholder') return tagCareSymbols.y;
       if (selectedTagElementId?.startsWith('tag-logo-')) {
         return tagLogos.find(l => l.id === selectedTagElementId)?.y || 50;
       }
@@ -366,11 +432,12 @@ export function GarmentCustomizerModal({
       return isSleeveMirrored ? offsetYRightSleeve : offsetYLeftSleeve;
     }
     return 50;
-  }, [activeTab, isSleeveMirrored, offsetYFront, offsetYBack, offsetYLeftSleeve, offsetYRightSleeve, selectedTagElementId, tagLogos, tagTexts, tagSize]);
+  }, [activeTab, isSleeveMirrored, offsetYFront, offsetYBack, offsetYLeftSleeve, offsetYRightSleeve, selectedTagElementId, tagLogos, tagTexts, tagSize, tagCareSymbols]);
 
   const rotation = useMemo(() => {
     if (activeTab === 'tag') {
       if (selectedTagElementId === 'size-tag-placeholder') return tagSize.rotation;
+      if (selectedTagElementId === 'care-symbols-placeholder') return tagCareSymbols.rotation;
       if (selectedTagElementId?.startsWith('tag-logo-')) {
         return tagLogos.find(l => l.id === selectedTagElementId)?.rotation || 0;
       }
@@ -385,12 +452,14 @@ export function GarmentCustomizerModal({
       return isSleeveMirrored ? rotationRightSleeve : rotationLeftSleeve;
     }
     return 0;
-  }, [activeTab, isSleeveMirrored, rotationFront, rotationBack, rotationLeftSleeve, rotationRightSleeve, selectedTagElementId, tagLogos, tagTexts, tagSize]);
+  }, [activeTab, isSleeveMirrored, rotationFront, rotationBack, rotationLeftSleeve, rotationRightSleeve, selectedTagElementId, tagLogos, tagTexts, tagSize, tagCareSymbols]);
 
   const setRotation = (val: number) => {
     if (activeTab === 'tag') {
       if (selectedTagElementId === 'size-tag-placeholder') {
         setTagSize((prev: any) => ({ ...prev, rotation: val }));
+      } else if (selectedTagElementId === 'care-symbols-placeholder') {
+        setTagCareSymbols((prev: any) => ({ ...prev, rotation: val }));
       } else if (selectedTagElementId?.startsWith('tag-logo-')) {
         setTagLogos(prev => prev.map(l => l.id === selectedTagElementId ? { ...l, rotation: val } : l));
       } else if (selectedTagElementId?.startsWith('tag-text-')) {
@@ -410,6 +479,8 @@ export function GarmentCustomizerModal({
     if (activeTab === 'tag') {
       if (selectedTagElementId === 'size-tag-placeholder') {
         setTagSize((prev: any) => ({ ...prev, scale: val }));
+      } else if (selectedTagElementId === 'care-symbols-placeholder') {
+        setTagCareSymbols((prev: any) => ({ ...prev, scale: val }));
       } else if (selectedTagElementId?.startsWith('tag-logo-')) {
         setTagLogos(prev => prev.map(l => l.id === selectedTagElementId ? { ...l, scale: val } : l));
       } else if (selectedTagElementId?.startsWith('tag-text-')) {
@@ -432,6 +503,8 @@ export function GarmentCustomizerModal({
           setTagLogos(prev => prev.filter(l => l.id !== selectedTagElementId));
         } else if (selectedTagElementId.startsWith('tag-text-')) {
           setTagTexts(prev => prev.filter(t => t.id !== selectedTagElementId));
+        } else if (selectedTagElementId === 'care-symbols-placeholder') {
+          setTagCareSymbols((prev: any) => ({ ...prev, visible: false }));
         }
         setSelectedTagElementId(null);
       }
@@ -773,7 +846,7 @@ export function GarmentCustomizerModal({
     }
   }, [selectedTagElementId, activeTab]);
 
-  const handleElementMouseDown = (e: React.MouseEvent, id: string, type: 'logo' | 'text' | 'size') => {
+  const handleElementMouseDown = (e: React.MouseEvent, id: string, type: 'logo' | 'text' | 'size' | 'care_symbols') => {
     e.stopPropagation();
     e.preventDefault();
     setSelectedTagElementId(id);
@@ -797,6 +870,9 @@ export function GarmentCustomizerModal({
     } else if (type === 'size') {
       currentX = tagSize.x;
       currentY = tagSize.y;
+    } else if (type === 'care_symbols') {
+      currentX = tagCareSymbols.x;
+      currentY = tagCareSymbols.y;
     }
 
     dragStartPos.current = {
@@ -807,7 +883,7 @@ export function GarmentCustomizerModal({
     };
   };
 
-  const handleElementResizeMouseDown = (e: React.MouseEvent, id: string, type: 'logo' | 'text' | 'size') => {
+  const handleElementResizeMouseDown = (e: React.MouseEvent, id: string, type: 'logo' | 'text' | 'size' | 'care_symbols') => {
     e.stopPropagation();
     e.preventDefault();
     setActiveElementResize({ id, type });
@@ -820,6 +896,8 @@ export function GarmentCustomizerModal({
       currentScale = tagTexts.find(t => t.id === id)?.scale || 25;
     } else if (type === 'size') {
       currentScale = tagSize.scale;
+    } else if (type === 'care_symbols') {
+      currentScale = tagCareSymbols.scale;
     }
 
     resizeStartPos.current = {
@@ -891,6 +969,8 @@ export function GarmentCustomizerModal({
           setTagTexts(prev => prev.map(t => t.id === id ? { ...t, x: valX, y: valY } : t));
         } else if (type === 'size') {
           setTagSize((prev: any) => ({ ...prev, x: valX, y: valY }));
+        } else if (type === 'care_symbols') {
+          setTagCareSymbols((prev: any) => ({ ...prev, x: valX, y: valY }));
         }
       }
 
@@ -906,6 +986,8 @@ export function GarmentCustomizerModal({
           setTagTexts(prev => prev.map(t => t.id === id ? { ...t, scale: valScale } : t));
         } else if (type === 'size') {
           setTagSize((prev: any) => ({ ...prev, scale: valScale }));
+        } else if (type === 'care_symbols') {
+          setTagCareSymbols((prev: any) => ({ ...prev, scale: valScale }));
         }
       }
     };
@@ -1008,10 +1090,12 @@ export function GarmentCustomizerModal({
       setTagLogos(garment.tagLayout.placedTagLogos || []);
       setTagTexts(garment.tagLayout.placedTagTexts || []);
       setTagSize(garment.tagLayout.tagSizeElement || { scale: 35, x: 50, y: 75, rotation: 0, font: 'Graduate', color: '#111111', bold: true, italic: false });
+      setTagCareSymbols(garment.tagLayout.tagCareSymbols || { visible: false, showWash: true, showBleach: true, showDry: true, showIron: true, showDryClean: true, x: 50, y: 55, scale: 30, color: '#111111', rotation: 0 });
     } else {
       setTagLogos([]);
       setTagTexts([]);
       setTagSize({ scale: 35, x: 50, y: 75, rotation: 0, font: 'Graduate', color: '#111111', bold: true, italic: false });
+      setTagCareSymbols({ visible: false, showWash: true, showBleach: true, showDry: true, showIron: true, showDryClean: true, x: 50, y: 55, scale: 30, color: '#111111', rotation: 0 });
     }
     setSelectedTagElementId(null);
   }, [garment, isOpen]);
@@ -1130,6 +1214,81 @@ export function GarmentCustomizerModal({
       tempCtx.restore();
     }
 
+    if (tagCareSymbols.visible) {
+      const activeSymsSvg: string[] = [];
+      if (tagCareSymbols.showWash) {
+        activeSymsSvg.push(`
+          <g transform="translate(${activeSymsSvg.length * 110}, 0)">
+            <path d="M15 35 L22 75 A 5 5 0 0 0 27 80 L73 80 A 5 5 0 0 0 78 75 L85 35" fill="none" stroke="${tagCareSymbols.color}" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
+            <path d="M10 35 C 20 30, 25 40, 35 35 C 45 30, 50 40, 60 35 C 70 30, 75 40, 90 35" fill="none" stroke="${tagCareSymbols.color}" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
+            <line x1="20" y1="88" x2="80" y2="88" stroke="${tagCareSymbols.color}" stroke-width="4" stroke-linecap="round" />
+            <line x1="25" y1="94" x2="75" y2="94" stroke="${tagCareSymbols.color}" stroke-width="4" stroke-linecap="round" />
+          </g>
+        `);
+      }
+      if (tagCareSymbols.showBleach) {
+        activeSymsSvg.push(`
+          <g transform="translate(${activeSymsSvg.length * 110}, 0)">
+            <polygon points="50,15 90,85 10,85" fill="none" stroke="${tagCareSymbols.color}" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
+            <line x1="25" y1="35" x2="75" y2="85" stroke="${tagCareSymbols.color}" stroke-width="6" stroke-linecap="round" />
+            <line x1="75" y1="35" x2="25" y2="85" stroke="${tagCareSymbols.color}" stroke-width="6" stroke-linecap="round" />
+          </g>
+        `);
+      }
+      if (tagCareSymbols.showDry) {
+        activeSymsSvg.push(`
+          <g transform="translate(${activeSymsSvg.length * 110}, 0)">
+            <rect x="15" y="15" width="70" height="70" rx="5" fill="none" stroke="${tagCareSymbols.color}" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
+            <circle cx="50" cy="50" r="25" fill="none" stroke="${tagCareSymbols.color}" stroke-width="6" />
+            <circle cx="50" cy="50" r="5" fill="${tagCareSymbols.color}" />
+          </g>
+        `);
+      }
+      if (tagCareSymbols.showIron) {
+        activeSymsSvg.push(`
+          <g transform="translate(${activeSymsSvg.length * 110}, 0)">
+            <path d="M20 75 L80 75 C 80 50, 75 40, 55 40 L30 40 C 20 40, 20 75, 20 75 Z" fill="none" stroke="${tagCareSymbols.color}" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
+            <path d="M60 40 L60 30 L35 30 C 25 30, 25 45, 25 45" fill="none" stroke="${tagCareSymbols.color}" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
+            <circle cx="45" cy="60" r="5" fill="${tagCareSymbols.color}" />
+          </g>
+        `);
+      }
+      if (tagCareSymbols.showDryClean) {
+        activeSymsSvg.push(`
+          <g transform="translate(${activeSymsSvg.length * 110}, 0)">
+            <circle cx="50" cy="50" r="30" fill="none" stroke="${tagCareSymbols.color}" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
+            <line x1="25" y1="25" x2="75" y2="75" stroke="${tagCareSymbols.color}" stroke-width="6" stroke-linecap="round" />
+            <line x1="75" y1="25" x2="25" y2="75" stroke="${tagCareSymbols.color}" stroke-width="6" stroke-linecap="round" />
+          </g>
+        `);
+      }
+
+      if (activeSymsSvg.length > 0) {
+        try {
+          const totalWidth = activeSymsSvg.length * 110 - 10;
+          const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${totalWidth} 100" width="${totalWidth}" height="100">${activeSymsSvg.join('')}</svg>`;
+          const encodedSvg = encodeURIComponent(svgContent).replace(/'/g, "%27").replace(/"/g, "%22");
+          const svgDataUrl = `data:image/svg+xml;charset=utf-8,${encodedSvg}`;
+
+          const careImg = await loadImg(svgDataUrl);
+          const drawWidth = tagCareSymbols.scale * 3.5;
+          const aspect = 100 / totalWidth;
+          const drawHeight = drawWidth * aspect;
+
+          const careCenterX = 600 * (tagCareSymbols.x / 100);
+          const careCenterY = 600 * (tagCareSymbols.y / 100);
+
+          tempCtx.save();
+          tempCtx.translate(careCenterX, careCenterY);
+          tempCtx.rotate((tagCareSymbols.rotation * Math.PI) / 180);
+          tempCtx.drawImage(careImg, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
+          tempCtx.restore();
+        } catch (e) {
+          console.error("Failed to draw care symbols on tag canvas", e);
+        }
+      }
+    }
+
     if (includeSizePlaceholder) {
       tempCtx.save();
       const fontSize = tagSize.scale * 3.5;
@@ -1172,7 +1331,8 @@ export function GarmentCustomizerModal({
         tagLayout: {
           placedTagLogos: tagLogos,
           placedTagTexts: tagTexts,
-          tagSizeElement: tagSize
+          tagSizeElement: tagSize,
+          tagCareSymbols: tagCareSymbols
         },
         uploadedAt: new Date().toISOString()
       };
@@ -1403,7 +1563,7 @@ export function GarmentCustomizerModal({
 
       // Generate size tag base image
       let logoUrlTag = null;
-      const isTagCustomized = tagLogos.length > 0 || tagTexts.length > 0;
+      const isTagCustomized = tagLogos.length > 0 || tagTexts.length > 0 || tagCareSymbols.visible;
       if (isTagCustomized) {
         const tagBaseCanvas = await compileTagCanvas(false);
         if (tagBaseCanvas) {
@@ -1464,7 +1624,8 @@ export function GarmentCustomizerModal({
         tagLayout: isTagCustomized ? {
           placedTagLogos: tagLogos,
           placedTagTexts: tagTexts,
-          tagSizeElement: tagSize
+          tagSizeElement: tagSize,
+          tagCareSymbols: tagCareSymbols
         } : null,
         tagSizeX: tagSize.x,
         tagSizeY: tagSize.y,
@@ -1480,7 +1641,7 @@ export function GarmentCustomizerModal({
       console.error("Failed to generate and save mockup:", err);
       alert("Error generating customized preview. Using original garment image.");
       
-      const isTagCustomized = tagLogos.length > 0 || tagTexts.length > 0;
+      const isTagCustomized = tagLogos.length > 0 || tagTexts.length > 0 || tagCareSymbols.visible;
       const placementParts: string[] = [];
       if (selectedLogoFront) placementParts.push(`Front: ${placementFront}`);
       if (selectedLogoBack) placementParts.push(`Back: ${placementBack}`);
@@ -1506,7 +1667,8 @@ export function GarmentCustomizerModal({
         tagLayout: isTagCustomized ? {
           placedTagLogos: tagLogos,
           placedTagTexts: tagTexts,
-          tagSizeElement: tagSize
+          tagSizeElement: tagSize,
+          tagCareSymbols: tagCareSymbols
         } : null,
         tagSizeX: tagSize.x,
         tagSizeY: tagSize.y,
@@ -1793,6 +1955,44 @@ export function GarmentCustomizerModal({
                       </div>
                     );
                   })()}
+
+                  {/* Care Symbols Element */}
+                  {tagCareSymbols.visible && (() => {
+                    const isSelected = selectedTagElementId === 'care-symbols-placeholder';
+                    const activeSyms = [];
+                    if (tagCareSymbols.showWash) activeSyms.push(<div key="wash" className="w-6 h-6 shrink-0"><WashingSymbol color={tagCareSymbols.color} /></div>);
+                    if (tagCareSymbols.showBleach) activeSyms.push(<div key="bleach" className="w-6 h-6 shrink-0"><BleachingSymbol color={tagCareSymbols.color} /></div>);
+                    if (tagCareSymbols.showDry) activeSyms.push(<div key="dry" className="w-6 h-6 shrink-0"><DryingSymbol color={tagCareSymbols.color} /></div>);
+                    if (tagCareSymbols.showIron) activeSyms.push(<div key="iron" className="w-6 h-6 shrink-0"><IroningSymbol color={tagCareSymbols.color} /></div>);
+                    if (tagCareSymbols.showDryClean) activeSyms.push(<div key="dryclean" className="w-6 h-6 shrink-0"><DryCleanSymbol color={tagCareSymbols.color} /></div>);
+
+                    return (
+                      <div
+                        onMouseDown={(e) => handleElementMouseDown(e, 'care-symbols-placeholder', 'care_symbols')}
+                        style={{
+                          left: `${tagCareSymbols.x}%`,
+                          top: `${tagCareSymbols.y}%`,
+                          transform: `translate(-50%, -50%) rotate(${tagCareSymbols.rotation}deg)`,
+                          zIndex: isSelected ? 30 : 20,
+                          color: tagCareSymbols.color,
+                          width: `${tagCareSymbols.scale * 3.5}px`,
+                        }}
+                        className={`absolute flex items-center justify-center p-1.5 cursor-move ${isSelected ? 'border border-black ring-1 ring-black/30 bg-white/20' : 'border border-dashed border-neutral-300 hover:border-neutral-400 bg-white/5'}`}
+                      >
+                        <div className="flex items-center gap-1 w-full justify-center">
+                          {activeSyms.length > 0 ? activeSyms : (
+                            <span className="text-[9px] text-neutral-400 select-none">No active symbols</span>
+                          )}
+                        </div>
+                        {isSelected && (
+                          <div
+                            onMouseDown={(e) => handleElementResizeMouseDown(e, 'care-symbols-placeholder', 'care_symbols')}
+                            className="absolute bottom-[-6px] right-[-6px] w-3.5 h-3.5 bg-black border-2 border-white rounded-full cursor-se-resize shadow-md hover:scale-125 transition-transform z-30"
+                          />
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
             </div>
@@ -2012,6 +2212,20 @@ export function GarmentCustomizerModal({
                 <Type size={13} />
                 <span>Custom Text</span>
               </button>
+              {activeTab === 'tag' && (
+                <button
+                  type="button"
+                  onClick={() => setActiveDesignerTab('care' as any)}
+                  className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                    (activeDesignerTab as string) === 'care'
+                      ? 'bg-white text-black shadow-sm'
+                      : 'text-neutral-500 hover:text-black'
+                  }`}
+                >
+                  <Sparkles size={13} />
+                  <span>Care Symbols</span>
+                </button>
+              )}
             </div>
 
             {/* Upload/Vault Content */}
@@ -2263,6 +2477,135 @@ export function GarmentCustomizerModal({
                     <Plus size={13} />
                     <span>Add Text to Tag</span>
                   </button>
+                )}
+              </div>
+            )}
+
+            {/* Care Symbols Content */}
+            {(activeDesignerTab as string) === 'care' && (
+              <div className="flex flex-col gap-4 animate-in fade-in duration-200">
+                {!tagCareSymbols.visible ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTagCareSymbols((prev: any) => ({ ...prev, visible: true }));
+                      setSelectedTagElementId('care-symbols-placeholder');
+                    }}
+                    className="w-full bg-black hover:bg-neutral-800 text-white py-2.5 rounded-xl text-xs font-bold transition-all shadow-md mt-2 flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Plus size={13} />
+                    <span>Add Care Symbols to Tag</span>
+                  </button>
+                ) : (
+                  <div className="flex flex-col gap-4">
+                    <span className="text-xs font-bold text-neutral-800">Toggle Care Symbols</span>
+                    <div className="flex flex-col gap-2.5 bg-neutral-50 border border-neutral-150 p-4 rounded-2xl">
+                      <label className="flex items-center gap-3 text-xs font-bold text-neutral-700 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={tagCareSymbols.showWash}
+                          onChange={(e) => setTagCareSymbols((prev: any) => ({ ...prev, showWash: e.target.checked }))}
+                          className="rounded border-neutral-300 text-black focus:ring-black h-4 w-4"
+                        />
+                        <span>Machine Wash Normal</span>
+                      </label>
+                      <label className="flex items-center gap-3 text-xs font-bold text-neutral-700 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={tagCareSymbols.showBleach}
+                          onChange={(e) => setTagCareSymbols((prev: any) => ({ ...prev, showBleach: e.target.checked }))}
+                          className="rounded border-neutral-300 text-black focus:ring-black h-4 w-4"
+                        />
+                        <span>Do Not Bleach</span>
+                      </label>
+                      <label className="flex items-center gap-3 text-xs font-bold text-neutral-700 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={tagCareSymbols.showDry}
+                          onChange={(e) => setTagCareSymbols((prev: any) => ({ ...prev, showDry: e.target.checked }))}
+                          className="rounded border-neutral-300 text-black focus:ring-black h-4 w-4"
+                        />
+                        <span>Tumble Dry Low</span>
+                      </label>
+                      <label className="flex items-center gap-3 text-xs font-bold text-neutral-700 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={tagCareSymbols.showIron}
+                          onChange={(e) => setTagCareSymbols((prev: any) => ({ ...prev, showIron: e.target.checked }))}
+                          className="rounded border-neutral-300 text-black focus:ring-black h-4 w-4"
+                        />
+                        <span>Iron Low Heat</span>
+                      </label>
+                      <label className="flex items-center gap-3 text-xs font-bold text-neutral-700 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={tagCareSymbols.showDryClean}
+                          onChange={(e) => setTagCareSymbols((prev: any) => ({ ...prev, showDryClean: e.target.checked }))}
+                          className="rounded border-neutral-300 text-black focus:ring-black h-4 w-4"
+                        />
+                        <span>Do Not Dry Clean</span>
+                      </label>
+                    </div>
+
+                    {/* Color Selector */}
+                    <div className="flex flex-col gap-1.5 border-t border-neutral-100 pt-3">
+                      <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Symbols Color</label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {[
+                          { name: 'White', hex: '#FFFFFF' },
+                          { name: 'Black', hex: '#000000' },
+                          { name: 'Red', hex: '#E11D48' },
+                          { name: 'Royal', hex: '#1D4ED8' },
+                          { name: 'Navy', hex: '#1E3A8A' },
+                          { name: 'Gold', hex: '#F59E0B' },
+                          { name: 'Green', hex: '#15803D' },
+                          { name: 'Grey', hex: '#6B7280' },
+                        ].map((col) => {
+                          const isColSelected = tagCareSymbols.color.toLowerCase() === col.hex.toLowerCase();
+                          return (
+                            <button
+                              key={col.hex}
+                              type="button"
+                              onClick={() => setTagCareSymbols((prev: any) => ({ ...prev, color: col.hex }))}
+                              className={`w-6 h-6 rounded-full border relative flex items-center justify-center transition-all hover:scale-110 cursor-pointer ${
+                                isColSelected ? 'border-black ring-1 ring-black scale-105' : 'border-neutral-300'
+                              }`}
+                              style={{ backgroundColor: col.hex }}
+                              title={col.name}
+                            >
+                              {isColSelected && (
+                                <Check size={10} className={col.hex === '#FFFFFF' ? 'text-black' : 'text-white'} strokeWidth={4} />
+                              )}
+                            </button>
+                          );
+                        })}
+                        {/* Custom Color Picker Swatch */}
+                        <div className="relative w-6 h-6 rounded-full border border-neutral-300 overflow-hidden hover:scale-110 transition-transform">
+                          <input
+                            type="color"
+                            value={tagCareSymbols.color}
+                            onChange={(e) => setTagCareSymbols((prev: any) => ({ ...prev, color: e.target.value }))}
+                            className="absolute inset-0 w-[200%] h-[200%] -translate-x-[25%] -translate-y-[25%] cursor-pointer border-0 p-0"
+                            title="Custom Color"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTagCareSymbols((prev: any) => ({ ...prev, visible: false }));
+                        if (selectedTagElementId === 'care-symbols-placeholder') {
+                          setSelectedTagElementId(null);
+                        }
+                      }}
+                      className="w-full bg-red-500 hover:bg-red-650 text-white py-2.5 rounded-xl text-xs font-bold transition-all shadow-md mt-2 flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <Trash2 size={13} />
+                      <span>Remove Care Symbols</span>
+                    </button>
+                  </div>
                 )}
               </div>
             )}
