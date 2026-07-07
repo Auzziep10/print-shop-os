@@ -1271,9 +1271,8 @@ export function GarmentCustomizerModal({
           const svgDataUrl = `data:image/svg+xml;charset=utf-8,${encodedSvg}`;
 
           const careImg = await loadImg(svgDataUrl);
-          const drawWidth = tagCareSymbols.scale * 3.5;
-          const aspect = 100 / totalWidth;
-          const drawHeight = drawWidth * aspect;
+          const drawHeight = tagCareSymbols.scale * 3.5;
+          const drawWidth = drawHeight * (totalWidth / 100);
 
           const careCenterX = 600 * (tagCareSymbols.x / 100);
           const careCenterY = 600 * (tagCareSymbols.y / 100);
@@ -1960,11 +1959,13 @@ export function GarmentCustomizerModal({
                   {tagCareSymbols.visible && (() => {
                     const isSelected = selectedTagElementId === 'care-symbols-placeholder';
                     const activeSyms = [];
-                    if (tagCareSymbols.showWash) activeSyms.push(<div key="wash" className="w-6 h-6 shrink-0"><WashingSymbol color={tagCareSymbols.color} /></div>);
-                    if (tagCareSymbols.showBleach) activeSyms.push(<div key="bleach" className="w-6 h-6 shrink-0"><BleachingSymbol color={tagCareSymbols.color} /></div>);
-                    if (tagCareSymbols.showDry) activeSyms.push(<div key="dry" className="w-6 h-6 shrink-0"><DryingSymbol color={tagCareSymbols.color} /></div>);
-                    if (tagCareSymbols.showIron) activeSyms.push(<div key="iron" className="w-6 h-6 shrink-0"><IroningSymbol color={tagCareSymbols.color} /></div>);
-                    if (tagCareSymbols.showDryClean) activeSyms.push(<div key="dryclean" className="w-6 h-6 shrink-0"><DryCleanSymbol color={tagCareSymbols.color} /></div>);
+                    const symbolSize = Math.max(12, tagCareSymbols.scale * 0.75);
+
+                    if (tagCareSymbols.showWash) activeSyms.push(<div key="wash" style={{ width: `${symbolSize}px`, height: `${symbolSize}px` }} className="shrink-0"><WashingSymbol color={tagCareSymbols.color} /></div>);
+                    if (tagCareSymbols.showBleach) activeSyms.push(<div key="bleach" style={{ width: `${symbolSize}px`, height: `${symbolSize}px` }} className="shrink-0"><BleachingSymbol color={tagCareSymbols.color} /></div>);
+                    if (tagCareSymbols.showDry) activeSyms.push(<div key="dry" style={{ width: `${symbolSize}px`, height: `${symbolSize}px` }} className="shrink-0"><DryingSymbol color={tagCareSymbols.color} /></div>);
+                    if (tagCareSymbols.showIron) activeSyms.push(<div key="iron" style={{ width: `${symbolSize}px`, height: `${symbolSize}px` }} className="shrink-0"><IroningSymbol color={tagCareSymbols.color} /></div>);
+                    if (tagCareSymbols.showDryClean) activeSyms.push(<div key="dryclean" style={{ width: `${symbolSize}px`, height: `${symbolSize}px` }} className="shrink-0"><DryCleanSymbol color={tagCareSymbols.color} /></div>);
 
                     return (
                       <div
@@ -1975,13 +1976,13 @@ export function GarmentCustomizerModal({
                           transform: `translate(-50%, -50%) rotate(${tagCareSymbols.rotation}deg)`,
                           zIndex: isSelected ? 30 : 20,
                           color: tagCareSymbols.color,
-                          width: `${tagCareSymbols.scale * 3.5}px`,
+                          width: 'fit-content'
                         }}
                         className={`absolute flex items-center justify-center p-1.5 cursor-move ${isSelected ? 'border border-black ring-1 ring-black/30 bg-white/20' : 'border border-dashed border-neutral-300 hover:border-neutral-400 bg-white/5'}`}
                       >
-                        <div className="flex items-center gap-1 w-full justify-center">
+                        <div className="flex items-center gap-1.5 justify-center">
                           {activeSyms.length > 0 ? activeSyms : (
-                            <span className="text-[9px] text-neutral-400 select-none">No active symbols</span>
+                            <span className="text-[9px] text-neutral-400 select-none px-2">No active symbols</span>
                           )}
                         </div>
                         {isSelected && (
