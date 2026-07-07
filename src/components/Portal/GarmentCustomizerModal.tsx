@@ -252,7 +252,7 @@ export function GarmentCustomizerModal({
     showIron: true,
     showDryClean: true,
     x: 50,
-    y: 55,
+    y: 45,
     scale: 30,
     color: '#111111',
     rotation: 0
@@ -1939,9 +1939,9 @@ export function GarmentCustomizerModal({
                           fontWeight: tagSize.bold ? 'bold' : 'normal',
                           fontStyle: tagSize.italic ? 'italic' : 'normal'
                         }}
-                        className={`absolute text-center px-3 py-1 cursor-move leading-none ${isSelected ? 'border border-black ring-1 ring-black/30 bg-white/20' : 'border border-dashed border-red-400/40 hover:border-red-400/80 bg-red-50/10'}`}
+                        className={`absolute flex items-center justify-center cursor-move leading-none p-1.5 ${isSelected ? 'border border-black ring-1 ring-black/30 bg-white/20' : 'border border-dashed border-red-400/40 hover:border-red-400/80 bg-red-50/10'}`}
                       >
-                        <span className="relative flex items-center justify-center min-w-[20px] min-h-[20px]">
+                        <span className="relative select-none flex items-center justify-center">
                           M
                           <span className="absolute -top-4 left-1/2 -translate-x-1/2 bg-red-650 text-[6px] text-white px-1 py-0.5 rounded font-sans uppercase font-bold tracking-wider leading-none shadow select-none pointer-events-none whitespace-nowrap z-40">Size Tag</span>
                         </span>
