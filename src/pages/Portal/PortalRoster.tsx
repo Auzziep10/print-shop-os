@@ -46,6 +46,11 @@ export function PortalRoster() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSizeFilter, setSelectedSizeFilter] = useState('All');
 
+  // Tab control & Standard Sizing
+  const [activeTab, setActiveTab] = useState<'roster' | 'standard'>('roster');
+  const [standardOrder, setStandardOrder] = useState<Record<string, number>>({});
+  const [isSavingStandard, setIsSavingStandard] = useState(false);
+
   // Single Member Form
   const [newMemberName, setNewMemberName] = useState('');
   const [newMemberSize, setNewMemberSize] = useState('M');
@@ -72,6 +77,17 @@ export function PortalRoster() {
         const data = snapshot.data();
         setRoster(data.teamRoster || []);
         setCustomerName(data.company || data.name || 'Your Company');
+
+        // Populate standard order template
+        const loadedStandard = data.standardOrder || {};
+        const initialStandard: Record<string, number> = { ...loadedStandard };
+        const DEFAULT_STANDARD_SIZES = ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL', 'OSFA'];
+        DEFAULT_STANDARD_SIZES.forEach(s => {
+          if (initialStandard[s] === undefined) {
+            initialStandard[s] = 0;
+          }
+        });
+        setStandardOrder(initialStandard);
       }
       setLoading(false);
     }, (err) => {
@@ -245,6 +261,21 @@ export function PortalRoster() {
     }
   };
 
+  const handleSaveStandardOrder = async () => {
+    setIsSavingStandard(true);
+    try {
+      await updateDoc(doc(db, 'customers', currentCustomerId), {
+        standardOrder: standardOrder
+      });
+      alert("Standard Order sizing template saved successfully!");
+    } catch (err) {
+      console.error("Error saving standard order:", err);
+      alert("Failed to save standard order. Please try again.");
+    } finally {
+      setIsSavingStandard(false);
+    }
+  };
+
   // Generate size spread data for visuals
   const sizeSpread = roster.reduce<Record<string, number>>((acc, member) => {
     acc[member.size] = (acc[member.size] || 0) + 1;
@@ -291,12 +322,36 @@ export function PortalRoster() {
         </div>
       </div>
 
+      {/* Sub-tab selection */}
+      <div className="flex border-b border-neutral-200 mb-8 gap-6">
+        <button
+          onClick={() => setActiveTab('roster')}
+          className={`pb-3 text-sm font-semibold border-b-2 transition-all cursor-pointer ${
+            activeTab === 'roster'
+              ? 'text-black border-black font-bold'
+              : 'text-neutral-400 border-transparent hover:text-black hover:border-black'
+          }`}
+        >
+          Team Roster Sizing
+        </button>
+        <button
+          onClick={() => setActiveTab('standard')}
+          className={`pb-3 text-sm font-semibold border-b-2 transition-all cursor-pointer ${
+            activeTab === 'standard'
+              ? 'text-black border-black font-bold'
+              : 'text-neutral-400 border-transparent hover:text-black hover:border-black'
+          }`}
+        >
+          Standard Order Sizing
+        </button>
+      </div>
+
       {loading ? (
         <div className="flex flex-col items-center justify-center py-24 gap-3 text-neutral-500">
           <RefreshCw size={32} className="animate-spin text-neutral-400" />
           <p className="text-sm font-semibold">Loading roster data...</p>
         </div>
-      ) : (
+      ) : activeTab === 'roster' ? (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
           {/* Left Column: Stats & Add form */}
@@ -518,6 +573,89 @@ export function PortalRoster() {
             
           </div>
 
+        </div>
+      ) : (
+        <div className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-[0_2px_12px_rgb(0,0,0,0.02)] flex flex-col gap-6">
+          <div>
+            <h2 className="text-base font-bold text-neutral-900 mb-1">Predefined Standard Order Template</h2>
+            <p className="text-xs text-neutral-500 max-w-2xl leading-relaxed">
+              Define the size run quantities you regularly order for inventory restocks, marketing events, or recurring drops. You can quickly apply this template to any garment in your cart.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-3 items-end">
+            <button
+              type="button"
+              onClick={() => {
+                const youthSizes = ['YXS', 'YS', 'YM', 'YL', 'YXL'];
+                setStandardOrder(prev => {
+                  const next = { ...prev };
+                  youthSizes.forEach(s => {
+                    if (next[s] === undefined) next[s] = 0;
+                  });
+                  return next;
+                });
+              }}
+              className="text-xs font-bold bg-white border border-neutral-300 hover:border-black text-neutral-800 px-4 py-2 rounded-xl transition-all cursor-pointer"
+            >
+              + Include Youth Sizing
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (confirm("Reset all standard order quantities to 0?")) {
+                  const next: Record<string, number> = {};
+                  Object.keys(standardOrder).forEach(k => {
+                    next[k] = 0;
+                  });
+                  setStandardOrder(next);
+                }
+              }}
+              className="text-xs font-bold text-red-650 bg-red-50 border border-red-200 hover:bg-red-100 px-4 py-2 rounded-xl transition-all cursor-pointer"
+            >
+              Reset Template
+            </button>
+          </div>
+
+          {/* Matrix Inputs Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3 border-t border-b border-neutral-100 py-6">
+            {Object.keys(standardOrder).sort(sortSizes).map((size) => (
+              <div key={size} className="flex flex-col bg-neutral-50 border border-neutral-200 rounded-xl overflow-hidden focus-within:border-black focus-within:ring-1 focus-within:ring-black transition-all">
+                <div className="bg-neutral-100 text-neutral-500 text-[10px] font-bold py-2 uppercase tracking-wider flex items-center justify-center border-b border-neutral-200">
+                  {size}
+                </div>
+                <input
+                  type="number"
+                  min="0"
+                  placeholder="0"
+                  value={standardOrder[size] || ''}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value) || 0;
+                    setStandardOrder(prev => ({ ...prev, [size]: Math.max(0, val) }));
+                  }}
+                  className="w-full h-10 text-center text-sm font-bold text-neutral-900 focus:outline-none bg-white font-semibold"
+                />
+              </div>
+            ))}
+          </div>
+
+          {/* Visual Breakdown summary */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-neutral-50 p-4 border border-neutral-200 rounded-xl">
+            <div>
+              <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest block mb-0.5">Template Summary</span>
+              <span className="text-sm font-bold text-neutral-800">
+                {Object.values(standardOrder).reduce((s, v) => s + (v || 0), 0)} Total units configured
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={handleSaveStandardOrder}
+              disabled={isSavingStandard}
+              className="px-6 py-2.5 bg-black text-white hover:bg-neutral-800 disabled:bg-neutral-200 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
+            >
+              {isSavingStandard ? 'Saving...' : 'Save Standard Order Sizing'}
+            </button>
+          </div>
         </div>
       )}
 

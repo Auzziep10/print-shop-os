@@ -223,7 +223,7 @@ export function PortalCreateOrder() {
   const [pastGarments, setPastGarments] = useState<any[]>([]);
   const [customizingItem, setCustomizingItem] = useState<any | null>(null);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
-  const [rosterApplyItem, setRosterApplyItem] = useState<any | null>(null);
+  const [applySizingItem, setApplySizingItem] = useState<{ item: any; type: 'roster' | 'standard' } | null>(null);
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
   const [expandedImage, setExpandedImage] = useState<{ src: string; alt: string } | null>(null);
 
@@ -1140,15 +1140,28 @@ export function PortalCreateOrder() {
     }));
   };
 
-  const handleApplyRosterSpread = (item: any, mode: 'overwrite' | 'add') => {
-    if (!customer?.teamRoster || customer.teamRoster.length === 0) return;
+  const handleApplyPredefinedSizing = (item: any, type: 'roster' | 'standard', mode: 'overwrite' | 'add') => {
+    if (type === 'roster' && (!customer?.teamRoster || customer.teamRoster.length === 0)) return;
+    if (type === 'standard' && !customer?.standardOrder) return;
 
-    // 1. Calculate spread from teamRoster
+    // 1. Get spread map
     const spread: Record<string, number> = {};
-    customer.teamRoster.forEach((member: any) => {
-      const size = member.size.toUpperCase();
-      spread[size] = (spread[size] || 0) + 1;
-    });
+    if (type === 'roster') {
+      customer.teamRoster.forEach((member: any) => {
+        const size = member.size.toUpperCase();
+        spread[size] = (spread[size] || 0) + 1;
+      });
+    } else {
+      // type === 'standard'
+      Object.keys(customer.standardOrder).forEach(size => {
+        const val = customer.standardOrder[size] || 0;
+        if (val > 0) {
+          spread[size.toUpperCase()] = val;
+        }
+      });
+    }
+
+    if (Object.keys(spread).length === 0) return;
 
     // 2. Identify youth sizes
     const youthSizes = ['YXS', 'YS', 'YM', 'YL', 'YXL'];
@@ -1180,15 +1193,15 @@ export function PortalCreateOrder() {
         newQuantities[size] += spread[size];
       } else {
         let matched = false;
-        const normalizedRosterSize = size.trim();
+        const normalizedSize = size.trim();
 
         const keyMatch = Object.keys(newQuantities).find(k => {
           const kNorm = k.toUpperCase().trim();
-          if (kNorm === normalizedRosterSize) return true;
-          if ((kNorm === '2XL' || kNorm === 'XXL') && (normalizedRosterSize === '2XL' || normalizedRosterSize === 'XXL')) return true;
-          if ((kNorm === '3XL' || kNorm === 'XXXL') && (normalizedRosterSize === '3XL' || normalizedRosterSize === 'XXXL')) return true;
-          if ((kNorm === '4XL' || kNorm === 'XXXXL') && (normalizedRosterSize === '4XL' || normalizedRosterSize === 'XXXXL')) return true;
-          if ((kNorm === '5XL' || kNorm === 'XXXXXL') && (normalizedRosterSize === '5XL' || normalizedRosterSize === 'XXXXXL')) return true;
+          if (kNorm === normalizedSize) return true;
+          if ((kNorm === '2XL' || kNorm === 'XXL') && (normalizedSize === '2XL' || normalizedSize === 'XXL')) return true;
+          if ((kNorm === '3XL' || kNorm === 'XXXL') && (normalizedSize === '3XL' || normalizedSize === 'XXXL')) return true;
+          if ((kNorm === '4XL' || kNorm === 'XXXXL') && (normalizedSize === '4XL' || normalizedSize === 'XXXXL')) return true;
+          if ((kNorm === '5XL' || kNorm === 'XXXXXL') && (normalizedSize === '5XL' || normalizedSize === 'XXXXXL')) return true;
           return false;
         });
 
@@ -1216,10 +1229,10 @@ export function PortalCreateOrder() {
       return o;
     }));
 
-    setRosterApplyItem(null);
+    setApplySizingItem(null);
 
     if (skippedSizes.length > 0) {
-      alert(`Applied team roster sizing! However, some sizes were skipped because they are not available for this garment style: ${Array.from(new Set(skippedSizes)).join(', ')}`);
+      alert(`Applied sizing template! However, some sizes were skipped because they are not available for this garment style: ${Array.from(new Set(skippedSizes)).join(', ')}`);
     }
   };
 
@@ -1911,10 +1924,19 @@ export function PortalCreateOrder() {
                               {customer?.teamRoster && customer.teamRoster.length > 0 && (
                                 <button
                                   type="button"
-                                  onClick={() => setRosterApplyItem(item)}
+                                  onClick={() => setApplySizingItem({ item, type: 'roster' })}
                                   className="text-[9px] font-bold uppercase tracking-wider text-emerald-600 hover:text-emerald-700 bg-emerald-50 border border-emerald-250 hover:border-emerald-350 px-2.5 py-0.5 rounded-full transition-all cursor-pointer flex items-center gap-1"
                                 >
                                   <Users size={10} /> Apply Roster ({customer.teamRoster.length})
+                                </button>
+                              )}
+                              {customer?.standardOrder && Object.values(customer.standardOrder).some(v => (v as number) > 0) && (
+                                <button
+                                  type="button"
+                                  onClick={() => setApplySizingItem({ item, type: 'standard' })}
+                                  className="text-[9px] font-bold uppercase tracking-wider text-blue-600 hover:text-blue-700 bg-blue-50 border border-blue-200 hover:border-blue-350 px-2.5 py-0.5 rounded-full transition-all cursor-pointer flex items-center gap-1"
+                                >
+                                  Apply Standard
                                 </button>
                               )}
                               <button
@@ -2337,17 +2359,19 @@ export function PortalCreateOrder() {
         />
       )}
 
-      {rosterApplyItem && (
+      {applySizingItem && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
           <div className="bg-white border border-neutral-200 rounded-2xl shadow-2xl max-w-md w-full flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
             {/* Header */}
             <div className="px-6 py-4 border-b border-neutral-100 flex items-center justify-between">
               <h3 className="text-base font-bold text-neutral-900 flex items-center gap-2">
                 <Users size={18} className="text-neutral-500" />
-                <span>Apply Team Sizing Spread</span>
+                <span>
+                  {applySizingItem.type === 'roster' ? 'Apply Team Sizing Spread' : 'Apply Predefined Standard Sizing'}
+                </span>
               </h3>
               <button 
-                onClick={() => setRosterApplyItem(null)}
+                onClick={() => setApplySizingItem(null)}
                 className="p-1 text-neutral-400 hover:text-black hover:bg-neutral-100 rounded-lg transition-all cursor-pointer"
               >
                 <X size={18} />
@@ -2357,22 +2381,32 @@ export function PortalCreateOrder() {
             {/* Body */}
             <div className="p-6 flex flex-col gap-4">
               <p className="text-xs text-neutral-500 leading-relaxed">
-                Apply your team's sizing distribution to <strong className="text-neutral-800">{rosterApplyItem.style}</strong>.
+                Apply sizing distribution to <strong className="text-neutral-800">{applySizingItem.item.style}</strong>.
               </p>
 
-              {/* Roster Size Spread Display */}
+              {/* Spread Display */}
               {(() => {
                 const spread: Record<string, number> = {};
-                customer?.teamRoster?.forEach((member: any) => {
-                  const size = member.size.toUpperCase();
-                  spread[size] = (spread[size] || 0) + 1;
-                });
+                if (applySizingItem.type === 'roster') {
+                  customer?.teamRoster?.forEach((member: any) => {
+                    const size = member.size.toUpperCase();
+                    spread[size] = (spread[size] || 0) + 1;
+                  });
+                } else {
+                  Object.keys(customer?.standardOrder || {}).forEach(size => {
+                    const val = customer.standardOrder[size] || 0;
+                    if (val > 0) {
+                      spread[size.toUpperCase()] = val;
+                    }
+                  });
+                }
+
                 const sortedSizes = Object.keys(spread).sort(sortSizes);
                 
                 // Check for skipped sizes
                 const youthSizes = ['YXS', 'YS', 'YM', 'YL', 'YXL'];
                 const hasYouthSizes = Object.keys(spread).some(s => youthSizes.includes(s));
-                const availableGarmentSizes = rosterApplyItem.sizes || [];
+                const availableGarmentSizes = applySizingItem.item.sizes || [];
                 
                 const skipped: string[] = [];
                 Object.keys(spread).forEach(s => {
@@ -2383,10 +2417,12 @@ export function PortalCreateOrder() {
                   }
                 });
 
+                const totalUnits = Object.values(spread).reduce((sum, v) => sum + v, 0);
+
                 return (
                   <div className="flex flex-col gap-3">
                     <span className="text-[10px] font-bold text-neutral-450 uppercase tracking-wider pl-0.5">
-                      Spread to apply ({customer?.teamRoster?.length || 0} members)
+                      Spread to apply ({totalUnits} total units)
                     </span>
                     <div className="bg-neutral-50 rounded-xl border border-neutral-200/60 p-3.5 flex flex-wrap gap-2">
                       {sortedSizes.map(size => (
@@ -2419,7 +2455,7 @@ export function PortalCreateOrder() {
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
-                    onClick={() => handleApplyRosterSpread(rosterApplyItem, 'overwrite')}
+                    onClick={() => handleApplyPredefinedSizing(applySizingItem.item, applySizingItem.type, 'overwrite')}
                     className="flex flex-col items-center justify-center p-3 border border-neutral-200 hover:border-black rounded-xl bg-neutral-50/50 hover:bg-white text-center cursor-pointer transition-all"
                   >
                     <span className="text-xs font-bold text-neutral-900">Overwrite</span>
@@ -2427,7 +2463,7 @@ export function PortalCreateOrder() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleApplyRosterSpread(rosterApplyItem, 'add')}
+                    onClick={() => handleApplyPredefinedSizing(applySizingItem.item, applySizingItem.type, 'add')}
                     className="flex flex-col items-center justify-center p-3 border border-neutral-200 hover:border-black rounded-xl bg-neutral-50/50 hover:bg-white text-center cursor-pointer transition-all"
                   >
                     <span className="text-xs font-bold text-neutral-900">Add / Merge</span>
@@ -2441,7 +2477,7 @@ export function PortalCreateOrder() {
             <div className="px-6 py-4 border-t border-neutral-100 flex items-center justify-end bg-neutral-50/50">
               <button
                 type="button"
-                onClick={() => setRosterApplyItem(null)}
+                onClick={() => setApplySizingItem(null)}
                 className="px-4 py-2 bg-white border border-neutral-250 hover:border-black rounded-lg text-xs font-bold text-neutral-750 transition-all cursor-pointer"
               >
                 Cancel
