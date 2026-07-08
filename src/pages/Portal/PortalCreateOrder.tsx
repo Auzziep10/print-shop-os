@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { ArrowLeft, PackagePlus, X, Trash2, ChevronDown, RotateCcw, Calendar, Loader2, Sparkles, Save, User, Copy, Upload, ShoppingCart } from 'lucide-react';
+import { ArrowLeft, PackagePlus, X, Trash2, ChevronDown, RotateCcw, Calendar, Loader2, Sparkles, Save, User, Copy, Upload, ShoppingCart, Users, Info } from 'lucide-react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { db, storage } from '../../lib/firebase';
 import { doc, getDoc, collection, query, where, getDocs, setDoc, deleteDoc } from 'firebase/firestore';
@@ -223,6 +223,7 @@ export function PortalCreateOrder() {
   const [pastGarments, setPastGarments] = useState<any[]>([]);
   const [customizingItem, setCustomizingItem] = useState<any | null>(null);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+  const [rosterApplyItem, setRosterApplyItem] = useState<any | null>(null);
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
   const [expandedImage, setExpandedImage] = useState<{ src: string; alt: string } | null>(null);
 
@@ -1139,6 +1140,89 @@ export function PortalCreateOrder() {
     }));
   };
 
+  const handleApplyRosterSpread = (item: any, mode: 'overwrite' | 'add') => {
+    if (!customer?.teamRoster || customer.teamRoster.length === 0) return;
+
+    // 1. Calculate spread from teamRoster
+    const spread: Record<string, number> = {};
+    customer.teamRoster.forEach((member: any) => {
+      const size = member.size.toUpperCase();
+      spread[size] = (spread[size] || 0) + 1;
+    });
+
+    // 2. Identify youth sizes
+    const youthSizes = ['YXS', 'YS', 'YM', 'YL', 'YXL'];
+    const hasYouthSizes = Object.keys(spread).some(s => youthSizes.includes(s));
+
+    // 3. Prepare quantities map
+    const baseQuantities = { ...(item.quantities || {}) };
+    if (hasYouthSizes) {
+      youthSizes.forEach(s => {
+        if (baseQuantities[s] === undefined) {
+          baseQuantities[s] = 0;
+        }
+      });
+    }
+
+    const newQuantities = { ...baseQuantities };
+
+    // Reset values if overwriting
+    if (mode === 'overwrite') {
+      Object.keys(newQuantities).forEach(k => {
+        newQuantities[k] = 0;
+      });
+    }
+
+    // 4. Apply spread counts
+    const skippedSizes: string[] = [];
+    Object.keys(spread).forEach(size => {
+      if (newQuantities[size] !== undefined) {
+        newQuantities[size] += spread[size];
+      } else {
+        let matched = false;
+        const normalizedRosterSize = size.trim();
+
+        const keyMatch = Object.keys(newQuantities).find(k => {
+          const kNorm = k.toUpperCase().trim();
+          if (kNorm === normalizedRosterSize) return true;
+          if ((kNorm === '2XL' || kNorm === 'XXL') && (normalizedRosterSize === '2XL' || normalizedRosterSize === 'XXL')) return true;
+          if ((kNorm === '3XL' || kNorm === 'XXXL') && (normalizedRosterSize === '3XL' || normalizedRosterSize === 'XXXL')) return true;
+          if ((kNorm === '4XL' || kNorm === 'XXXXL') && (normalizedRosterSize === '4XL' || normalizedRosterSize === 'XXXXL')) return true;
+          if ((kNorm === '5XL' || kNorm === 'XXXXXL') && (normalizedRosterSize === '5XL' || normalizedRosterSize === 'XXXXXL')) return true;
+          return false;
+        });
+
+        if (keyMatch) {
+          newQuantities[keyMatch] += spread[size];
+          matched = true;
+        }
+
+        if (!matched) {
+          skippedSizes.push(size);
+        }
+      }
+    });
+
+    // 5. Update state
+    setOrderItems(prev => prev.map(o => {
+      if (o.instanceId === item.instanceId) {
+        const updatedSizes = Array.from(new Set([...(o.sizes || []), ...Object.keys(newQuantities)]));
+        return {
+          ...o,
+          sizes: updatedSizes,
+          quantities: newQuantities
+        };
+      }
+      return o;
+    }));
+
+    setRosterApplyItem(null);
+
+    if (skippedSizes.length > 0) {
+      alert(`Applied team roster sizing! However, some sizes were skipped because they are not available for this garment style: ${Array.from(new Set(skippedSizes)).join(', ')}`);
+    }
+  };
+
   const handleRemoveItem = (instanceId: string) => {
     const itemToRemove = orderItems.find(item => item.instanceId === instanceId);
     setOrderItems(prev => prev.filter(item => item.instanceId !== instanceId));
@@ -1823,20 +1907,31 @@ export function PortalCreateOrder() {
                         <div className="bg-neutral-50 rounded-xl p-3 flex flex-col items-start border border-neutral-200/60 gap-2">
                           <div className="flex justify-between items-center w-full">
                             <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Quantities</span>
-                            <button
-                              type="button"
-                              data-tour="add-youth-sizing-btn"
-                              onClick={() => {
-                                const youthSizes = { 'YXS': 0, 'YS': 0, 'YM': 0, 'YL': 0, 'YXL': 0 };
-                                setOrderItems(prev => prev.map(o => o.instanceId === item.instanceId ? {
-                                  ...o,
-                                  quantities: { ...youthSizes, ...(o.quantities || {}) }
-                                } : o));
-                              }}
-                              className="text-[9px] font-bold uppercase tracking-wider text-neutral-500 hover:text-black bg-white border border-neutral-200 hover:border-neutral-450 px-2 py-0.5 rounded-full transition-all cursor-pointer"
-                            >
-                              + Youth Sizing
-                            </button>
+                            <div className="flex items-center gap-1.5">
+                              {customer?.teamRoster && customer.teamRoster.length > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => setRosterApplyItem(item)}
+                                  className="text-[9px] font-bold uppercase tracking-wider text-emerald-600 hover:text-emerald-700 bg-emerald-50 border border-emerald-250 hover:border-emerald-350 px-2.5 py-0.5 rounded-full transition-all cursor-pointer flex items-center gap-1"
+                                >
+                                  <Users size={10} /> Apply Roster ({customer.teamRoster.length})
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                data-tour="add-youth-sizing-btn"
+                                onClick={() => {
+                                  const youthSizes = { 'YXS': 0, 'YS': 0, 'YM': 0, 'YL': 0, 'YXL': 0 };
+                                  setOrderItems(prev => prev.map(o => o.instanceId === item.instanceId ? {
+                                    ...o,
+                                    quantities: { ...youthSizes, ...(o.quantities || {}) }
+                                  } : o));
+                                }}
+                                className="text-[9px] font-bold uppercase tracking-wider text-neutral-500 hover:text-black bg-white border border-neutral-200 hover:border-neutral-450 px-2 py-0.5 rounded-full transition-all cursor-pointer"
+                              >
+                                + Youth Sizing
+                              </button>
+                            </div>
                           </div>
                           <div data-tour="sizing-matrix" className="flex flex-wrap gap-1.5 w-full">
                             {Object.keys(item.quantities).sort(sortSizes).map((size) => (
@@ -2240,6 +2335,120 @@ export function PortalCreateOrder() {
             setIsCartOpen(true);
           }}
         />
+      )}
+
+      {rosterApplyItem && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+          <div className="bg-white border border-neutral-200 rounded-2xl shadow-2xl max-w-md w-full flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-neutral-100 flex items-center justify-between">
+              <h3 className="text-base font-bold text-neutral-900 flex items-center gap-2">
+                <Users size={18} className="text-neutral-500" />
+                <span>Apply Team Sizing Spread</span>
+              </h3>
+              <button 
+                onClick={() => setRosterApplyItem(null)}
+                className="p-1 text-neutral-400 hover:text-black hover:bg-neutral-100 rounded-lg transition-all cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-6 flex flex-col gap-4">
+              <p className="text-xs text-neutral-500 leading-relaxed">
+                Apply your team's sizing distribution to <strong className="text-neutral-800">{rosterApplyItem.style}</strong>.
+              </p>
+
+              {/* Roster Size Spread Display */}
+              {(() => {
+                const spread: Record<string, number> = {};
+                customer?.teamRoster?.forEach((member: any) => {
+                  const size = member.size.toUpperCase();
+                  spread[size] = (spread[size] || 0) + 1;
+                });
+                const sortedSizes = Object.keys(spread).sort(sortSizes);
+                
+                // Check for skipped sizes
+                const youthSizes = ['YXS', 'YS', 'YM', 'YL', 'YXL'];
+                const hasYouthSizes = Object.keys(spread).some(s => youthSizes.includes(s));
+                const availableGarmentSizes = rosterApplyItem.sizes || [];
+                
+                const skipped: string[] = [];
+                Object.keys(spread).forEach(s => {
+                  const isYouth = youthSizes.includes(s);
+                  const isSupported = availableGarmentSizes.includes(s) || isYouth; // youth sizes will be auto-enabled
+                  if (!isSupported) {
+                    skipped.push(s);
+                  }
+                });
+
+                return (
+                  <div className="flex flex-col gap-3">
+                    <span className="text-[10px] font-bold text-neutral-450 uppercase tracking-wider pl-0.5">
+                      Spread to apply ({customer?.teamRoster?.length || 0} members)
+                    </span>
+                    <div className="bg-neutral-50 rounded-xl border border-neutral-200/60 p-3.5 flex flex-wrap gap-2">
+                      {sortedSizes.map(size => (
+                        <div key={size} className="bg-white border border-neutral-150 rounded-lg px-2.5 py-1.5 flex items-center gap-2 shadow-xs">
+                          <span className="text-[10px] font-extrabold text-neutral-500 uppercase">{size}</span>
+                          <span className="text-xs font-bold text-neutral-800 bg-neutral-100 px-1.5 py-0.5 rounded-sm">{spread[size]}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {hasYouthSizes && (
+                      <div className="flex items-center gap-2 text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg p-2.5">
+                        <Sparkles size={12} className="shrink-0 text-emerald-500 animate-pulse" />
+                        <span>Youth Sizing will be automatically enabled for this garment to accommodate youth size inputs.</span>
+                      </div>
+                    )}
+
+                    {skipped.length > 0 && (
+                      <div className="flex items-start gap-2 text-[10px] text-amber-700 bg-amber-50 border border-amber-100 rounded-lg p-2.5">
+                        <Info size={12} className="shrink-0 text-amber-500 mt-0.5" />
+                        <span>Warning: The sizes <strong>{skipped.join(', ')}</strong> are not available for this garment style and will be skipped.</span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              <div className="border-t border-neutral-100 pt-4 flex flex-col gap-2">
+                <span className="text-[10px] font-bold text-neutral-450 uppercase tracking-wider pl-0.5">Application Method</span>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => handleApplyRosterSpread(rosterApplyItem, 'overwrite')}
+                    className="flex flex-col items-center justify-center p-3 border border-neutral-200 hover:border-black rounded-xl bg-neutral-50/50 hover:bg-white text-center cursor-pointer transition-all"
+                  >
+                    <span className="text-xs font-bold text-neutral-900">Overwrite</span>
+                    <span className="text-[9px] text-neutral-455 mt-1">Replace current quantities</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleApplyRosterSpread(rosterApplyItem, 'add')}
+                    className="flex flex-col items-center justify-center p-3 border border-neutral-200 hover:border-black rounded-xl bg-neutral-50/50 hover:bg-white text-center cursor-pointer transition-all"
+                  >
+                    <span className="text-xs font-bold text-neutral-900">Add / Merge</span>
+                    <span className="text-[9px] text-neutral-455 mt-1">Add to current quantities</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-neutral-100 flex items-center justify-end bg-neutral-50/50">
+              <button
+                type="button"
+                onClick={() => setRosterApplyItem(null)}
+                className="px-4 py-2 bg-white border border-neutral-250 hover:border-black rounded-lg text-xs font-bold text-neutral-750 transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Lightbox Image Preview Modal */}

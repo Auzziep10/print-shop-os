@@ -344,7 +344,7 @@ export function PortalLayout() {
             data-tour="orders-tab"
             onClick={() => navigate(customerId ? `/portal/${customerId}` : '/portal')}
             className={`text-[13px] font-semibold tracking-wide pb-0.5 border-b-2 transition-all ${
-              location.pathname.startsWith('/portal') && !location.pathname.endsWith('/create') && !location.pathname.endsWith('/quote') && !location.pathname.endsWith('/vault')
+              location.pathname.startsWith('/portal') && !location.pathname.endsWith('/create') && !location.pathname.endsWith('/quote') && !location.pathname.endsWith('/vault') && !location.pathname.endsWith('/roster')
                 ? 'text-black border-black'
                 : 'text-gray-400 border-transparent hover:text-black hover:border-black'
             }`}
@@ -362,6 +362,18 @@ export function PortalLayout() {
             }`}
           >
             Asset Vault
+          </button>
+
+          <button 
+            data-tour="roster-tab"
+            onClick={() => navigate(customerId ? `/portal/${customerId}/roster` : '/portal/roster')}
+            className={`text-[13px] font-semibold tracking-wide pb-0.5 border-b-2 transition-all ${
+              location.pathname.endsWith('/roster')
+                ? 'text-black border-black'
+                : 'text-gray-400 border-transparent hover:text-black hover:border-black'
+            }`}
+          >
+            Team Roster
           </button>
  
           <button 
