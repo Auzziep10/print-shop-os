@@ -1391,11 +1391,15 @@ export function PortalCreateOrder() {
                         <h4 className="font-bold text-neutral-900 text-sm truncate max-w-[80%] text-center">{style}</h4>
                         <span className="text-[9px] font-bold text-neutral-500 bg-neutral-100 px-2 py-0.5 rounded-full shrink-0">{gender}</span>
                       </div>
-                      {item.customSpecs && (item.customSpecs.quality || item.customSpecs.material || item.customSpecs.weight) && (
-                        <p className="text-[10px] text-neutral-500 font-semibold mt-0.5 text-center">
-                          {[item.customSpecs.quality, item.customSpecs.material, item.customSpecs.weight].filter(Boolean).join(' • ')}
-                        </p>
-                      )}
+                      {(() => {
+                        const desc = item.customSpecs?.description !== undefined ? item.customSpecs.description : item.description;
+                        if (!desc) return null;
+                        return (
+                          <p className="text-[10px] text-neutral-500 font-semibold mt-0.5 text-center line-clamp-2" title={desc}>
+                            {desc}
+                          </p>
+                        );
+                      })()}
                       <p className="text-[10px] text-neutral-400 font-medium mt-1 truncate w-full text-center">{colors.join(' • ')}</p>
                     </div>
                     <span className="text-xs font-bold text-neutral-800 bg-neutral-100 group-hover:bg-black group-hover:text-white px-4 py-2 rounded-xl transition-all mt-4 w-full text-center">+ Add to Request</span>

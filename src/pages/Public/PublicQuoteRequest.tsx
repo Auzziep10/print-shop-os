@@ -354,8 +354,8 @@ export function PublicQuoteRequest() {
       basics?: Record<string, Record<string, string>>;
     };
     customSpecs?: {
-      racks?: Record<string, Record<string, { quality?: string; material?: string; weight?: string }>>;
-      basics?: Record<string, Record<string, { quality?: string; material?: string; weight?: string }>>;
+      racks?: Record<string, Record<string, { description?: string }>>;
+      basics?: Record<string, Record<string, { description?: string }>>;
     };
     defaultColors?: {
       racks?: Record<string, Record<string, string>>;
@@ -1949,10 +1949,11 @@ export function PublicQuoteRequest() {
                         </span>
                         {(() => {
                           const specs = catalogSettings.customSpecs?.racks?.[selectedThemeCategory]?.[item.slot];
-                          if (!specs || (!specs.quality && !specs.material && !specs.weight)) return null;
+                          const desc = specs?.description !== undefined ? specs.description : item.product.description;
+                          if (!desc) return null;
                           return (
-                            <span className="text-xs text-neutral-500 font-medium block mt-1">
-                              {[specs.quality, specs.material, specs.weight].filter(Boolean).join(' • ')}
+                            <span className="text-xs text-neutral-500 font-medium block mt-1 line-clamp-3" title={desc}>
+                              {desc}
                             </span>
                           );
                         })()}
@@ -2032,14 +2033,8 @@ export function PublicQuoteRequest() {
                             <h4 className="text-sm font-bold text-neutral-800 truncate mt-0.5">{item.title}</h4>
                             {(() => {
                               const specs = catalogSettings.customSpecs?.basics?.[selectedBasicsCategory]?.[slot];
-                              if (specs && (specs.quality || specs.material || specs.weight)) {
-                                return (
-                                  <p className="text-xs text-neutral-500 font-semibold mt-1">
-                                    {[specs.quality, specs.material, specs.weight].filter(Boolean).join(' • ')}
-                                  </p>
-                                );
-                              }
-                              return <p className="text-xs text-neutral-500 line-clamp-2 mt-1 leading-relaxed">{item.description}</p>;
+                              const desc = specs?.description !== undefined ? specs.description : item.description;
+                              return <p className="text-xs text-neutral-500 line-clamp-2 mt-1 leading-relaxed" title={desc}>{desc}</p>;
                             })()}
                           </div>
                         </div>

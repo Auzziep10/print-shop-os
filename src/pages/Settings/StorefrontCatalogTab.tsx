@@ -658,103 +658,37 @@ export function StorefrontCatalogTab() {
                       />
                     </div>
 
-                    <div className="grid grid-cols-3 gap-2">
-                      <div>
-                        <label className="text-[9px] font-extrabold uppercase tracking-wider text-neutral-400 block mb-1">
-                          Quality
-                        </label>
-                        <input
-                          type="text"
-                          value={customSpecs.racks?.[activeRackCategory]?.[slot]?.quality || ''}
-                          placeholder="Quality"
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setCustomSpecs(prev => {
-                              const racks = prev.racks || {};
-                              const cat = racks[activeRackCategory] || {};
-                              const slotSpecs = cat[slot] || {};
-                              return {
-                                ...prev,
-                                racks: {
-                                  ...racks,
-                                  [activeRackCategory]: {
-                                    ...cat,
-                                    [slot]: {
-                                      ...slotSpecs,
-                                      quality: val
-                                    }
+                    <div>
+                      <label className="text-[9px] font-extrabold uppercase tracking-wider text-neutral-400 block mb-1">
+                        Description
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={customSpecs.racks?.[activeRackCategory]?.[slot]?.description !== undefined ? customSpecs.racks[activeRackCategory][slot].description : p.description || ''}
+                        placeholder="Garment description..."
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setCustomSpecs(prev => {
+                            const racks = prev.racks || {};
+                            const cat = racks[activeRackCategory] || {};
+                            const slotSpecs = cat[slot] || {};
+                            return {
+                              ...prev,
+                              racks: {
+                                ...racks,
+                                [activeRackCategory]: {
+                                  ...cat,
+                                  [slot]: {
+                                    ...slotSpecs,
+                                    description: val
                                   }
                                 }
-                              };
-                            });
-                          }}
-                          className="w-full bg-white border border-brand-border rounded-xl px-2 py-1 text-[11px] text-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary transition-all placeholder:text-neutral-400"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[9px] font-extrabold uppercase tracking-wider text-neutral-400 block mb-1">
-                          Material
-                        </label>
-                        <input
-                          type="text"
-                          value={customSpecs.racks?.[activeRackCategory]?.[slot]?.material || ''}
-                          placeholder="Material"
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setCustomSpecs(prev => {
-                              const racks = prev.racks || {};
-                              const cat = racks[activeRackCategory] || {};
-                              const slotSpecs = cat[slot] || {};
-                              return {
-                                ...prev,
-                                racks: {
-                                  ...racks,
-                                  [activeRackCategory]: {
-                                    ...cat,
-                                    [slot]: {
-                                      ...slotSpecs,
-                                      material: val
-                                    }
-                                  }
-                                }
-                              };
-                            });
-                          }}
-                          className="w-full bg-white border border-brand-border rounded-xl px-2 py-1 text-[11px] text-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary transition-all placeholder:text-neutral-400"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[9px] font-extrabold uppercase tracking-wider text-neutral-400 block mb-1">
-                          Weight
-                        </label>
-                        <input
-                          type="text"
-                          value={customSpecs.racks?.[activeRackCategory]?.[slot]?.weight || ''}
-                          placeholder="Weight"
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setCustomSpecs(prev => {
-                              const racks = prev.racks || {};
-                              const cat = racks[activeRackCategory] || {};
-                              const slotSpecs = cat[slot] || {};
-                              return {
-                                ...prev,
-                                racks: {
-                                  ...racks,
-                                  [activeRackCategory]: {
-                                    ...cat,
-                                    [slot]: {
-                                      ...slotSpecs,
-                                      weight: val
-                                    }
-                                  }
-                                }
-                              };
-                            });
-                          }}
-                          className="w-full bg-white border border-brand-border rounded-xl px-2 py-1 text-[11px] text-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary transition-all placeholder:text-neutral-400"
-                        />
-                      </div>
+                              }
+                            };
+                          });
+                        }}
+                        className="w-full bg-white border border-brand-border rounded-xl px-3 py-2 text-xs text-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary transition-all placeholder:text-neutral-400 resize-y"
+                      />
                     </div>
 
                     {/* Default Color Selector */}
@@ -907,103 +841,37 @@ export function StorefrontCatalogTab() {
                       />
                     </div>
 
-                    <div className="grid grid-cols-3 gap-2">
-                      <div>
-                        <label className="text-[9px] font-extrabold uppercase tracking-wider text-neutral-400 block mb-1">
-                          Quality
-                        </label>
-                        <input
-                          type="text"
-                          value={customSpecs.basics?.[activeBasicsCategory]?.[slot]?.quality || ''}
-                          placeholder="Quality"
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setCustomSpecs(prev => {
-                              const basics = prev.basics || {};
-                              const cat = basics[activeBasicsCategory] || {};
-                              const slotSpecs = cat[slot] || {};
-                              return {
-                                ...prev,
-                                basics: {
-                                  ...basics,
-                                  [activeBasicsCategory]: {
-                                    ...cat,
-                                    [slot]: {
-                                      ...slotSpecs,
-                                      quality: val
-                                    }
+                    <div>
+                      <label className="text-[9px] font-extrabold uppercase tracking-wider text-neutral-400 block mb-1">
+                        Description
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={customSpecs.basics?.[activeBasicsCategory]?.[slot]?.description !== undefined ? customSpecs.basics[activeBasicsCategory][slot].description : p.description || ''}
+                        placeholder="Garment description..."
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setCustomSpecs(prev => {
+                            const basics = prev.basics || {};
+                            const cat = basics[activeBasicsCategory] || {};
+                            const slotSpecs = cat[slot] || {};
+                            return {
+                              ...prev,
+                              basics: {
+                                ...basics,
+                                [activeBasicsCategory]: {
+                                  ...cat,
+                                  [slot]: {
+                                    ...slotSpecs,
+                                    description: val
                                   }
                                 }
-                              };
-                            });
-                          }}
-                          className="w-full bg-white border border-brand-border rounded-xl px-2 py-1 text-[11px] text-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary transition-all placeholder:text-neutral-400"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[9px] font-extrabold uppercase tracking-wider text-neutral-400 block mb-1">
-                          Material
-                        </label>
-                        <input
-                          type="text"
-                          value={customSpecs.basics?.[activeBasicsCategory]?.[slot]?.material || ''}
-                          placeholder="Material"
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setCustomSpecs(prev => {
-                              const basics = prev.basics || {};
-                              const cat = basics[activeBasicsCategory] || {};
-                              const slotSpecs = cat[slot] || {};
-                              return {
-                                ...prev,
-                                basics: {
-                                  ...basics,
-                                  [activeBasicsCategory]: {
-                                    ...cat,
-                                    [slot]: {
-                                      ...slotSpecs,
-                                      material: val
-                                    }
-                                  }
-                                }
-                              };
-                            });
-                          }}
-                          className="w-full bg-white border border-brand-border rounded-xl px-2 py-1 text-[11px] text-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary transition-all placeholder:text-neutral-400"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[9px] font-extrabold uppercase tracking-wider text-neutral-400 block mb-1">
-                          Weight
-                        </label>
-                        <input
-                          type="text"
-                          value={customSpecs.basics?.[activeBasicsCategory]?.[slot]?.weight || ''}
-                          placeholder="Weight"
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setCustomSpecs(prev => {
-                              const basics = prev.basics || {};
-                              const cat = basics[activeBasicsCategory] || {};
-                              const slotSpecs = cat[slot] || {};
-                              return {
-                                ...prev,
-                                basics: {
-                                  ...basics,
-                                  [activeBasicsCategory]: {
-                                    ...cat,
-                                    [slot]: {
-                                      ...slotSpecs,
-                                      weight: val
-                                    }
-                                  }
-                                }
-                              };
-                            });
-                          }}
-                          className="w-full bg-white border border-brand-border rounded-xl px-2 py-1 text-[11px] text-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary transition-all placeholder:text-neutral-400"
-                        />
-                      </div>
+                              }
+                            };
+                          });
+                        }}
+                        className="w-full bg-white border border-brand-border rounded-xl px-3 py-2 text-xs text-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary transition-all placeholder:text-neutral-400 resize-y"
+                      />
                     </div>
 
                     {/* Default Color Selector */}
