@@ -33,7 +33,17 @@ export function PortalTourOverlay({
   const [rect, setRect] = useState<DOMRect | null>(null);
   const [windowSize, setWindowSize] = useState({ width: window.innerWidth, height: window.innerHeight });
   const tooltipRef = useRef<HTMLDivElement>(null);
-  const [tooltipStyle, setTooltipStyle] = useState<React.CSSProperties>({});
+  const [isCustomizerOpen, setIsCustomizerOpen] = useState(false);
+
+  useEffect(() => {
+    const checkCustomizer = () => {
+      const hasSaveBtn = !!document.querySelector('[data-tour="save-customization-btn"]');
+      setIsCustomizerOpen(hasSaveBtn);
+    };
+    checkCustomizer();
+    const interval = setInterval(checkCustomizer, 250);
+    return () => clearInterval(interval);
+  }, []);
 
   const tours: Record<string, { title: string; steps: TourStep[] }> = {
     tracking: {
@@ -444,7 +454,7 @@ export function PortalTourOverlay({
         elementToElevate.style.position = originalAncestorPosition;
       }
     };
-  }, [currentStep.target, isCorrectPath, stepIndex]);
+  }, [currentStep.target, isCorrectPath, stepIndex, isCustomizerOpen]);
 
   // Position tooltip relative to target rect
   useEffect(() => {
@@ -559,9 +569,9 @@ export function PortalTourOverlay({
           </div>
 
           {(() => {
-            const isCustomizerOpen = currentStep.target === 'catalog-grid' && !!document.querySelector('[data-tour="save-customization-btn"]');
-            const displayTitle = isCustomizerOpen ? "Step 2: Customize & Save" : currentStep.title;
-            const displayContent = isCustomizerOpen 
+            const showCustomizerInstructions = currentStep.target === 'catalog-grid' && isCustomizerOpen;
+            const displayTitle = showCustomizerInstructions ? "Step 2: Customize & Save" : currentStep.title;
+            const displayContent = showCustomizerInstructions 
               ? "Customize your garment! Choose a color, select a logo from your vault, drag to position, and click 'Save Customization' to add it to your request." 
               : currentStep.content;
             return (

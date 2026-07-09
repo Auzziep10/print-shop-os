@@ -3,7 +3,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { db, storage } from '../../lib/firebase';
-import { Upload, Trash2, Loader2, FileText, Image as ImageIcon, ArrowLeft, Plus, X, Edit2, Check, Eraser, Undo, ZoomIn, ZoomOut, RotateCw, Palette } from 'lucide-react';
+import { Upload, Trash2, Loader2, FileText, Image as ImageIcon, ArrowLeft, Plus, X, Edit2, Check, Eraser, Undo, ZoomIn, ZoomOut, RotateCw, Palette, Crop } from 'lucide-react';
+import Cropper from 'react-easy-crop';
+import { getCroppedImg } from '../../lib/cropUtils';
 
 export function PortalAssetVault() {
   const { customerId } = useParams();
@@ -23,6 +25,7 @@ export function PortalAssetVault() {
   const [pendingAssetImage, setPendingAssetImage] = useState<string | null>(null);
   const [originalAssetImage, setOriginalAssetImage] = useState<string | null>(null);
   const [erasingAssetUrl, setErasingAssetUrl] = useState<string | null>(null);
+  const [croppingAssetUrl, setCroppingAssetUrl] = useState<string | null>(null);
   const [recolorColor, setRecolorColor] = useState('#000000');
   const [isRecoloring, setIsRecoloring] = useState(false);
 
@@ -648,8 +651,8 @@ export function PortalAssetVault() {
               <div className="p-8 flex flex-col justify-between bg-neutral-50/50">
                 <div className="space-y-6">
                   <div>
-                    <h4 className="text-xs uppercase tracking-widest font-bold text-neutral-400 mb-2">Background Removal</h4>
-                    <p className="text-neutral-500 text-xs mb-4">To place this logo cleanly on garments, erase solid backgrounds to transparency (making it a PNG).</p>
+                    <h4 className="text-xs uppercase tracking-widest font-bold text-neutral-400 mb-2">Image Processing Tools</h4>
+                    <p className="text-neutral-500 text-xs mb-4">Prepare your logo for garments by cropping or erasing its background.</p>
                   </div>
 
                   <div className="space-y-3">
@@ -665,6 +668,23 @@ export function PortalAssetVault() {
                         <div>
                           <span className="font-bold text-sm block text-neutral-900">Manual Background Eraser</span>
                           <span className="text-[11px] text-neutral-500 block mt-0.5">Click sections of color to erase manually</span>
+                        </div>
+                      </div>
+                      <Plus size={16} className="text-neutral-400 group-hover:translate-x-1 transition-transform" />
+                    </button>
+
+                    <button
+                      onClick={() => setCroppingAssetUrl(pendingAssetImage)}
+                      disabled={isUploading}
+                      className="w-full flex items-center justify-between p-4 bg-white border border-neutral-200 rounded-2xl hover:border-black transition-all text-left shadow-sm disabled:opacity-50 group hover:shadow-md cursor-pointer"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="p-2.5 bg-neutral-100 rounded-xl text-neutral-900 group-hover:bg-black group-hover:text-white transition-all group-hover:scale-110">
+                          <Crop size={18} />
+                        </div>
+                        <div>
+                          <span className="font-bold text-sm block text-neutral-900">Crop / Resize Asset</span>
+                          <span className="text-[11px] text-neutral-500 block mt-0.5">Adjust borders and crop your logo</span>
                         </div>
                       </div>
                       <Plus size={16} className="text-neutral-400 group-hover:translate-x-1 transition-transform" />
@@ -713,6 +733,18 @@ export function PortalAssetVault() {
           onSave={(newUrl) => {
             setPendingAssetImage(newUrl);
             setErasingAssetUrl(null);
+          }}
+        />
+      )}
+
+      {/* Crop / Resize Modal */}
+      {croppingAssetUrl && (
+        <CropAssetModal
+          currentUrl={croppingAssetUrl}
+          onClose={() => setCroppingAssetUrl(null)}
+          onSave={(newUrl) => {
+            setPendingAssetImage(newUrl);
+            setCroppingAssetUrl(null);
           }}
         />
       )}
@@ -1058,6 +1090,96 @@ function BackgroundEraserModal({ currentUrl, onClose, onSave }: {
             <button onClick={handleSave} disabled={isProcessing} className="px-6 py-3 bg-zinc-900 text-white rounded-full text-xs font-bold tracking-widest uppercase hover:bg-zinc-800 transition-colors disabled:opacity-50 flex items-center gap-2 cursor-pointer">
               {isProcessing && <Loader2 className="animate-spin" size={14} />}
               {isProcessing ? 'Processing...' : 'Apply Eraser'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CropAssetModal({ currentUrl, onClose, onSave }: {
+  currentUrl: string,
+  onClose: () => void,
+  onSave: (newUrl: string) => void
+}) {
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const onCropComplete = (_croppedArea: any, croppedAreaPixels: any) => {
+    setCroppedAreaPixels(croppedAreaPixels);
+  };
+
+  const handleSave = async () => {
+    if (!currentUrl || !croppedAreaPixels) return;
+    setIsProcessing(true);
+    try {
+      const croppedFile = await getCroppedImg(currentUrl, croppedAreaPixels);
+      if (croppedFile) {
+        const reader = new FileReader();
+        reader.readAsDataURL(croppedFile);
+        reader.onloadend = () => {
+          onSave(reader.result as string);
+        };
+      } else {
+        alert('Failed to crop image');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Failed to crop image');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[220] flex items-center justify-center p-6 animate-in fade-in duration-200" onClick={onClose}>
+      <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-xl overflow-hidden flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
+        <div className="p-6 md:p-8 border-b border-zinc-100 flex items-center justify-between">
+          <div>
+            <h3 className="font-serif text-2xl text-neutral-900">Crop & Resize</h3>
+            <p className="text-zinc-500 text-sm mt-1">Pan and zoom the image below so no part of the logo is cropped out of the square box.</p>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-zinc-50 rounded-full transition-colors cursor-pointer"><X size={20} /></button>
+        </div>
+        
+        <div className="relative w-full h-[350px] bg-neutral-100 overflow-hidden bg-checkerboard">
+          <Cropper
+            image={currentUrl}
+            crop={crop}
+            zoom={zoom}
+            aspect={1}
+            objectFit="contain"
+            restrictPosition={false}
+            onCropChange={setCrop}
+            onCropComplete={onCropComplete}
+            onZoomChange={setZoom}
+            showGrid={false}
+          />
+        </div>
+        
+        <div className="p-6 md:p-8 bg-white shrink-0">
+          <div className="flex items-center gap-4 mb-6 px-4">
+            <span className="text-[10px] font-bold uppercase text-zinc-400 tracking-widest font-mono">Zoom</span>
+            <input
+              type="range"
+              value={zoom}
+              min={0.1}
+              max={3}
+              step={0.05}
+              aria-label="Zoom"
+              onChange={(e) => setZoom(Number(e.target.value))}
+              className="flex-1 accent-zinc-900 cursor-pointer"
+            />
+          </div>
+
+          <div className="flex gap-4">
+            <button onClick={onClose} className="flex-1 py-3.5 border border-neutral-250 hover:border-black rounded-full text-xs font-bold tracking-widest uppercase transition-all cursor-pointer">Cancel</button>
+            <button onClick={handleSave} disabled={isProcessing} className="flex-1 py-3.5 bg-black text-white rounded-full text-xs font-bold tracking-widest uppercase hover:bg-neutral-800 transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer shadow-md">
+              {isProcessing && <Loader2 className="animate-spin" size={14} />}
+              <span>Apply Crop</span>
             </button>
           </div>
         </div>
