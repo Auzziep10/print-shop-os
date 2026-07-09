@@ -1793,6 +1793,17 @@ export function OrderDetail() {
         img.onerror = () => reject(new Error("Failed to load base tag image"));
       });
 
+      // Wait for the custom size font to load in the browser to prevent fallback to standard serif
+      const fontName = item.tagSizeFont || 'Graduate';
+      const isBold = item.tagSizeBold !== false;
+      const isItalic = item.tagSizeItalic === true;
+      const fontSpec = `${isItalic ? 'italic' : ''} ${isBold ? 'bold' : ''} 16px "${fontName}"`.trim();
+      try {
+        await document.fonts.load(fontSpec);
+      } catch (e) {
+        console.warn("Failed to load size font before tag generation:", fontName, e);
+      }
+
       const tagDim = 750;
       const padding = 50;
       const sheetWidth = 6600; 
@@ -1824,16 +1835,13 @@ export function OrderDetail() {
 
         singleCtx.drawImage(tagBaseImg, 0, 0, tagDim, tagDim);
 
-        const fontName = item.tagSizeFont || 'Graduate';
         const fontColor = item.tagSizeColor || '#111111';
-        const isBold = item.tagSizeBold !== false;
-        const isItalic = item.tagSizeItalic === true;
         const tagSizeScale = item.tagSizeScale || 35;
         
-        const fontPx = tagSizeScale * 3.5 * (750 / 600); 
+        const fontPx = tagSizeScale * 1.40625 * (750 / 600); 
 
         singleCtx.save();
-        singleCtx.font = `${isItalic ? 'italic' : ''} ${isBold ? 'bold' : ''} ${fontPx}px ${fontName}`.trim();
+        singleCtx.font = `${isItalic ? 'italic' : ''} ${isBold ? 'bold' : ''} ${fontPx}px "${fontName}"`.trim();
         singleCtx.fillStyle = fontColor;
         singleCtx.textAlign = 'center';
         singleCtx.textBaseline = 'middle';

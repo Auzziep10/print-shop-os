@@ -1250,7 +1250,7 @@ export function GarmentCustomizerModal({
 
     for (const txt of tagTexts) {
       tempCtx.save();
-      const fontSize = txt.scale * 3.5;
+      const fontSize = txt.scale * 1.40625;
       tempCtx.font = `${txt.italic ? 'italic' : ''} ${txt.bold ? 'bold' : ''} ${fontSize}px ${txt.font}`.trim();
       tempCtx.fillStyle = txt.color;
       tempCtx.textAlign = 'center';
@@ -1330,7 +1330,7 @@ export function GarmentCustomizerModal({
           const svgDataUrl = `data:image/svg+xml;charset=utf-8,${encodedSvg}`;
 
           const careImg = await loadImg(svgDataUrl);
-          const drawHeight = tagCareSymbols.scale * 3.5;
+          const drawHeight = tagCareSymbols.scale * 1.40625;
           const drawWidth = drawHeight * (totalWidth / 100);
 
           const careCenterX = 600 * (tagCareSymbols.x / 100);
@@ -1349,7 +1349,7 @@ export function GarmentCustomizerModal({
 
     if (includeSizePlaceholder) {
       tempCtx.save();
-      const fontSize = tagSize.scale * 3.5;
+      const fontSize = tagSize.scale * 1.40625;
       tempCtx.font = `${tagSize.italic ? 'italic' : ''} ${tagSize.bold ? 'bold' : ''} ${fontSize}px ${tagSize.font}`.trim();
       tempCtx.fillStyle = tagSize.color;
       tempCtx.textAlign = 'center';
