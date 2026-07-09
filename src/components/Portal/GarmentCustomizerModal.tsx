@@ -2160,7 +2160,7 @@ export function GarmentCustomizerModal({
                                 {product.title.replace(`${product.brand} `, '').replace(/®/g, '').trim()}
                               </h5>
                               <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-wide">
-                                {product.colors?.length || 0} colors • ${product.price?.toFixed(2) || '0.00'}
+                                {product.colors?.length || 0} colors
                               </span>
                             </div>
                           </button>

@@ -1582,9 +1582,6 @@ export function PortalCreateOrder() {
                         <div className="flex items-center justify-center gap-2 mb-1 w-full">
                           <h4 className="font-bold text-neutral-900 text-sm truncate max-w-[85%] text-center">{style}</h4>
                         </div>
-                        {price > 0 && (
-                          <p className="text-xs font-black text-black mt-1">${price.toFixed(2)}</p>
-                        )}
                         <p className="text-[10px] text-neutral-400 font-medium mt-1 truncate w-full text-center">{colors.join(' • ')}</p>
                       </div>
                       <span className="text-xs font-bold text-neutral-800 bg-neutral-100 group-hover:bg-black group-hover:text-white px-4 py-2 rounded-xl transition-all mt-4 w-full text-center">+ Add to Request</span>
@@ -2291,9 +2288,6 @@ export function PortalCreateOrder() {
                             <h4 className="font-serif text-lg text-neutral-900 leading-tight group-hover:text-black transition-colors">{prevOrder.title}</h4>
                             <p className="text-xs font-bold text-neutral-500 mt-1 uppercase tracking-wider">{prevOrder.portalId || 'Portal Order'}</p>
                           </div>
-                          <span className="text-sm font-black text-black shrink-0">
-                            ${(prevOrder.totalAmount || 0).toFixed(2)}
-                          </span>
                         </div>
 
                         <div className="flex items-center gap-4 text-xs font-medium text-neutral-500 border-t border-neutral-100 pt-3">
