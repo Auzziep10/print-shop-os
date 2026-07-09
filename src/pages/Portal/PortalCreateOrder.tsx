@@ -943,7 +943,7 @@ export function PortalCreateOrder() {
         id: orderId,
         portalId: portalId,
         customerId: customerId,
-        title: `Portal Order - ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric'})}`,
+        title: `${profileCompany ? profileCompany.trim() : 'Portal'} Order - ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric'})}`,
         statusIndex: 0, 
         date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric'}),
         createdAt: new Date().toISOString(),
