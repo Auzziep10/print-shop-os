@@ -598,7 +598,7 @@ export function PublicQuoteRequest() {
     const stylesMap = catalogSettings.racks[themeName] || DEFAULT_RACKS.Athleisure;
     const items: DesignRackItem[] = [];
 
-    const slots = ['hat', 'shirt', 'polo', 'crewneck', 'hoodie', 'longsleeve'];
+    const slots = Object.keys(stylesMap);
 
     slots.forEach(slot => {
       const styleId = (stylesMap as any)[slot];
@@ -1730,7 +1730,7 @@ export function PublicQuoteRequest() {
                     Design Your Rack
                   </h2>
                   <p className="text-[11px] text-zinc-300 leading-relaxed font-light transition-opacity duration-300 opacity-80 group-hover:opacity-100 font-sans">
-                    Configure a unified apparel collection with our standard 6-item rack (Hat, Tee, Polo, Crewneck, Hoodie, and Long Sleeve). All overlayed with your branding instantly.
+                    Configure a unified apparel collection with our curated theme collections. All overlayed with your branding instantly.
                   </p>
                 </div>
 
@@ -1887,7 +1887,7 @@ export function PublicQuoteRequest() {
                 </div>
 
                 <div className="flex flex-wrap items-center justify-center gap-2 pb-4 border-b border-neutral-100">
-                  {Object.keys(DEFAULT_RACKS).map(catName => {
+                  {Object.keys(catalogSettings.racks || DEFAULT_RACKS).map(catName => {
                     const isSelected = selectedThemeCategory === catName;
                     return (
                       <button
@@ -1907,7 +1907,7 @@ export function PublicQuoteRequest() {
 
                 {/* Pre-selected garments rack representation */}
                 <div className="space-y-4 pt-4 border-t border-neutral-200/50">
-                  <span className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-400 block">Curated Standard 6-Item Rack</span>
+                  <span className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-400 block">Curated Standard {rackItems.length}-Item Rack</span>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                     {rackItems.map(item => (
                       <div 

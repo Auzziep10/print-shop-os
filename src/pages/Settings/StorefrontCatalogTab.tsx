@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
-import { Loader2, Save, Search, Check, Info, Crosshair, X, Trash2, Plus, Edit2 } from 'lucide-react';
+import { Loader2, Save, Search, Check, Info, Crosshair, X, Trash2, Plus, Edit2, ImageIcon } from 'lucide-react';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
@@ -552,6 +552,99 @@ export function StorefrontCatalogTab() {
     setActiveRackCategory(newActive);
   };
 
+  const handleAddSlot = () => {
+    const name = window.prompt("Enter a name for the new product slot (e.g. Jacket, Pants, Accessories):");
+    if (!name) return;
+    const cleanName = name.trim();
+    if (!cleanName) return;
+
+    const slotKey = cleanName.toLowerCase()
+      .replace(/[^a-z0-9\s]/g, '')
+      .trim()
+      .replace(/\s+/g, '_');
+
+    if (racks[activeRackCategory]?.[slotKey] !== undefined) {
+      alert(`A slot named "${cleanName}" already exists in this collection.`);
+      return;
+    }
+
+    setRacks(prev => ({
+      ...prev,
+      [activeRackCategory]: {
+        ...prev[activeRackCategory],
+        [slotKey]: ''
+      }
+    }));
+
+    setCustomNames(prev => {
+      const racks = prev.racks || {};
+      const catObj = racks[activeRackCategory] || {};
+      return {
+        ...prev,
+        racks: {
+          ...racks,
+          [activeRackCategory]: {
+            ...catObj,
+            [slotKey]: cleanName
+          }
+        }
+      };
+    });
+  };
+
+  const handleDeleteSlot = (slotKey: string) => {
+    if (!window.confirm(`Are you sure you want to delete the slot "${slotKey}"?`)) return;
+    setRacks(prev => {
+      const updated = { ...prev };
+      if (updated[activeRackCategory]) {
+        const catObj = { ...updated[activeRackCategory] };
+        delete catObj[slotKey];
+        updated[activeRackCategory] = catObj;
+      }
+      return updated;
+    });
+
+    setCustomNames(prev => {
+      const updated = { ...prev };
+      if (updated.racks && updated.racks[activeRackCategory]) {
+        const catObj = { ...updated.racks[activeRackCategory] };
+        delete catObj[slotKey];
+        updated.racks[activeRackCategory] = catObj;
+      }
+      return updated;
+    });
+
+    setCustomSpecs(prev => {
+      const updated = { ...prev };
+      if (updated.racks && updated.racks[activeRackCategory]) {
+        const catObj = { ...updated.racks[activeRackCategory] };
+        delete catObj[slotKey];
+        updated.racks[activeRackCategory] = catObj;
+      }
+      return updated;
+    });
+
+    setDefaultColors(prev => {
+      const updated = { ...prev };
+      if (updated.racks && updated.racks[activeRackCategory]) {
+        const catObj = { ...updated.racks[activeRackCategory] };
+        delete catObj[slotKey];
+        updated.racks[activeRackCategory] = catObj;
+      }
+      return updated;
+    });
+
+    setLogoPlacements(prev => {
+      const updated = { ...prev };
+      if (updated.racks && updated.racks[activeRackCategory]) {
+        const catObj = { ...updated.racks[activeRackCategory] };
+        delete catObj[slotKey];
+        updated.racks[activeRackCategory] = catObj;
+      }
+      return updated;
+    });
+  };
+
   const handleApplyPlacement = (box: LogoBox) => {
     if (!placementTarget) return;
     const { mode, category, slot } = placementTarget;
@@ -698,8 +791,17 @@ export function StorefrontCatalogTab() {
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-100 hover:bg-neutral-200 border border-brand-border rounded-lg text-xs font-bold text-brand-primary transition-all cursor-pointer animate-in fade-in duration-150"
                 title="Add a new theme/collection"
               >
-                <Plus size={12} className="text-neutral-505" />
+                <Plus size={12} className="text-neutral-500" />
                 <span>Add Theme</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleAddSlot}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-100 hover:bg-neutral-200 border border-brand-border rounded-lg text-xs font-bold text-brand-primary transition-all cursor-pointer animate-in fade-in duration-150"
+                title="Add a new product slot to this collection"
+              >
+                <Plus size={12} className="text-neutral-500" />
+                <span>Add Slot</span>
               </button>
               <button
                 type="button"
@@ -707,7 +809,7 @@ export function StorefrontCatalogTab() {
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-100 hover:bg-neutral-200 border border-brand-border rounded-lg text-xs font-bold text-brand-primary transition-all cursor-pointer animate-in fade-in duration-150"
                 title="Rename currently selected theme"
               >
-                <Edit2 size={12} className="text-neutral-505" />
+                <Edit2 size={12} className="text-neutral-500" />
                 <span>Rename</span>
               </button>
               <button
@@ -726,12 +828,12 @@ export function StorefrontCatalogTab() {
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex gap-3 text-amber-800 text-xs">
             <Info size={16} className="shrink-0 mt-0.5" />
             <p>
-              Each theme/collection consists of exactly 6 pre-curated products to construct the "standard rack". Click <strong>Change</strong> to select a new product for any slot.
+              Configure the pre-curated products to construct the "standard rack" for this theme. You can add, rename, or delete slots to fit different occasions. Click <strong>Change</strong> to select a product for any slot.
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {['hat', 'shirt', 'polo', 'crewneck', 'hoodie', 'longsleeve'].map(slot => {
+            {Object.keys(racks[activeRackCategory] || {}).map(slot => {
               const style = racks[activeRackCategory]?.[slot] || '';
               const p = getProductDetails(style) as any;
               const customName = customNames.racks?.[activeRackCategory]?.[slot] || '';
@@ -740,12 +842,22 @@ export function StorefrontCatalogTab() {
                 <div key={slot} className="border border-brand-border rounded-2xl p-5 bg-neutral-50/50 flex flex-col justify-between gap-4">
                   <div className="space-y-3">
                     <div>
-                      <span className="text-[10px] font-extrabold uppercase tracking-widest text-brand-secondary block mb-1">
-                        {slot.replace('longsleeve', 'long sleeve')} Slot
-                      </span>
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <span className="text-[10px] font-extrabold uppercase tracking-widest text-brand-secondary block">
+                          {slot.replace(/_/g, ' ').replace('longsleeve', 'long sleeve')} Slot
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteSlot(slot)}
+                          className="text-red-550 hover:text-red-700 hover:bg-red-50 rounded p-1 transition-colors cursor-pointer"
+                          title={`Delete slot "${slot}"`}
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
 
                       {/* Image Preview */}
-                      {p.style && (
+                      {p.style ? (
                         <div className="w-full h-36 bg-white border border-brand-border/60 rounded-xl flex items-center justify-center p-2 mb-3 relative overflow-hidden bg-checkerboard">
                           <img 
                             src={getGarmentImage(p, defaultColors.racks?.[activeRackCategory]?.[slot])} 
@@ -753,10 +865,15 @@ export function StorefrontCatalogTab() {
                             className="max-w-full max-h-full object-contain mix-blend-multiply" 
                           />
                         </div>
+                      ) : (
+                        <div className="w-full h-36 bg-white border border-dashed border-neutral-300 rounded-xl flex flex-col items-center justify-center gap-1.5 p-4 mb-3">
+                          <ImageIcon size={28} className="text-neutral-300 animate-pulse" />
+                          <span className="text-[10px] font-bold uppercase text-neutral-400">No Product Assigned</span>
+                        </div>
                       )}
 
                       <h4 className="text-sm font-bold text-brand-primary leading-snug">
-                        {p.brand} {p.style}
+                        {p.brand} {p.style || '(Empty Slot)'}
                       </h4>
                       <p className="text-xs text-brand-secondary mt-1 font-medium truncate" title={customName || p.title}>
                         {customName || p.title}
