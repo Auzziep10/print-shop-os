@@ -1804,23 +1804,21 @@ export function OrderDetail() {
         console.warn("Failed to load size font before tag generation:", fontName, e);
       }
 
+      const BASE_DPI = 300;
+      const MARGIN_PX = 300; // 1.0 inch
+      const HEADER_HEIGHT_PX = 300; // 1.0 inch
+      const yOffset = 750; // (1.0 margin + 1.0 header + 0.5 gap) * 300
+      
       const tagDim = 750;
       const padding = 50;
-      const sheetWidth = 6600; 
-      const tagsPerRow = Math.floor(sheetWidth / (tagDim + padding)); 
+      const finalCanvasWidth = 6600; // 22 inches * 300 DPI
+      const tagsPerRow = Math.floor((6000 + padding) / (tagDim + padding)); // 7 tags per row (6000px printable width)
 
-      const totalTags = activeSizes.reduce((sum, s) => sum + s.qty, 0);
-      const totalRows = Math.ceil(totalTags / tagsPerRow);
-      const sheetHeight = totalRows * (tagDim + padding) + padding;
+      // Center tags horizontally
+      const startX = 300 + (6000 - (tagsPerRow * tagDim + (tagsPerRow - 1) * padding)) / 2; // 525px
 
-      const gangCanvas = document.createElement('canvas');
-      gangCanvas.width = sheetWidth;
-      gangCanvas.height = sheetHeight;
-      const gangCtx = gangCanvas.getContext('2d');
-      if (!gangCtx) throw new Error("Could not get 2D context for gang sheet");
-
-      gangCtx.clearRect(0, 0, sheetWidth, sheetHeight);
-
+      // Place all tags
+      const placements: Array<{ x: number; y: number; canvas: HTMLCanvasElement; size: string }> = [];
       let currentCol = 0;
       let currentRow = 0;
 
@@ -1837,7 +1835,6 @@ export function OrderDetail() {
 
         const fontColor = item.tagSizeColor || '#111111';
         const tagSizeScale = item.tagSizeScale || 35;
-        
         const fontPx = tagSizeScale * 1.40625 * (750 / 600); 
 
         singleCtx.save();
@@ -1857,10 +1854,10 @@ export function OrderDetail() {
         singleCtx.restore();
 
         for (let q = 0; q < qty; q++) {
-          const posX = padding + currentCol * (tagDim + padding);
-          const posY = padding + currentRow * (tagDim + padding);
+          const posX = startX + currentCol * (tagDim + padding);
+          const posY = yOffset + currentRow * (tagDim + padding);
 
-          gangCtx.drawImage(singleCanvas, posX, posY, tagDim, tagDim);
+          placements.push({ x: posX, y: posY, canvas: singleCanvas, size });
 
           currentCol++;
           if (currentCol >= tagsPerRow) {
@@ -1870,22 +1867,141 @@ export function OrderDetail() {
         }
       }
 
-      const gangBlob = await new Promise<Blob | null>((resolve) => gangCanvas.toBlob(resolve, 'image/png'));
-      if (!gangBlob) throw new Error("Failed to create blob for tag gang sheet");
+      const totalRows = Math.ceil(placements.length / tagsPerRow);
+      const sheetContentHeight = totalRows * (tagDim + padding) + padding;
+      const finalCanvasHeight = yOffset + sheetContentHeight + MARGIN_PX;
 
-      const storageRef = ref(storage, `production-sheets/${id}/${item.id}-tag-gang-sheet.png`);
-      await uploadBytes(storageRef, gangBlob);
-      const tagPrintReadyUrl = await getDownloadURL(storageRef);
+      // Create print and cut canvases
+      const printCanvas = document.createElement('canvas');
+      printCanvas.width = finalCanvasWidth;
+      printCanvas.height = finalCanvasHeight;
+      const printCtx = printCanvas.getContext('2d');
+      if (!printCtx) throw new Error("Could not get 2D context for print canvas");
+
+      const cutCanvas = document.createElement('canvas');
+      cutCanvas.width = finalCanvasWidth;
+      cutCanvas.height = finalCanvasHeight;
+      const cutCtx = cutCanvas.getContext('2d');
+      if (!cutCtx) throw new Error("Could not get 2D context for cut canvas");
+
+      // Draw solid white backgrounds for print & cut
+      printCtx.fillStyle = 'white';
+      printCtx.fillRect(0, 0, finalCanvasWidth, finalCanvasHeight);
+
+      cutCtx.fillStyle = 'white';
+      cutCtx.fillRect(0, 0, finalCanvasWidth, finalCanvasHeight);
+
+      // Draw all tag placements onto print canvas
+      placements.forEach(p => {
+        printCtx.drawImage(p.canvas, p.x, p.y, tagDim, tagDim);
+      });
+
+      // --- Draw Headers and QR Codes ---
+      const origin = window.location.origin;
+      const qrUrl = `${origin}/admin?orderId=${order.id}`;
+      const qrCodeDataUrl = await QRCodeLib.toDataURL(qrUrl, { width: HEADER_HEIGHT_PX - 20, margin: 1 });
+      
+      const qrImg = new window.Image();
+      await new Promise(resolve => { qrImg.onload = resolve; qrImg.src = qrCodeDataUrl; });
+
+      const FONT_SIZE_LARGE = BASE_DPI / 4;
+      const FONT_SIZE_MEDIUM = BASE_DPI / 6;
+      const FONT_SIZE_SMALL = BASE_DPI / 8;
+
+      const drawHeader = (ctx: CanvasRenderingContext2D, isCut: boolean) => {
+        const headerY = 1.0 * BASE_DPI;
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, headerY, finalCanvasWidth, HEADER_HEIGHT_PX);
+        
+        const contentStartX = (0.5 * BASE_DPI) + (0.5 * BASE_DPI) + 50; 
+        
+        if (!isCut) {
+          ctx.drawImage(qrImg, contentStartX, headerY + 10);
+        }
+
+        ctx.fillStyle = 'black';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+
+        const textX = isCut ? contentStartX : contentStartX + (HEADER_HEIGHT_PX - 20) + 20;
+
+        let textY = headerY + 15;
+        ctx.font = `bold ${FONT_SIZE_LARGE}px Arial`;
+        ctx.fillText(`Order: ${order.id}`, textX, textY);
+        textY += FONT_SIZE_LARGE + 15;
+        
+        ctx.font = `bold ${FONT_SIZE_MEDIUM}px Arial`;
+        ctx.fillText(`To: ${order.customerName || 'Customer'}`, textX, textY);
+        textY += FONT_SIZE_MEDIUM + 10;
+        
+        ctx.font = `${FONT_SIZE_SMALL}px Arial`;
+        const shippingAddress = order.shippingAddress;
+        const shipToName = shippingAddress ? `${shippingAddress.street || ''}, ${shippingAddress.city || ''}, ${shippingAddress.state || ''} ${shippingAddress.zip || ''}` : 'Pickup';
+        ctx.fillText(`Ship To: ${shipToName}`, textX, textY);
+        textY += FONT_SIZE_SMALL + 15;
+        
+        ctx.fillText(`Sheet: Size Tag Gang Sheet (${item.style || 'Custom Garment'})`, textX, textY);
+      };
+
+      drawHeader(printCtx, false);
+      drawHeader(cutCtx, true);
+
+      // Draw Graphtec registration marks
+      drawGraphtecRegistrationMarks(printCtx, finalCanvasWidth, finalCanvasHeight, 0.5 * BASE_DPI, true);
+      drawGraphtecRegistrationMarks(cutCtx, finalCanvasWidth, finalCanvasHeight, 0.5 * BASE_DPI, false);
+
+      // Generate SVG cut paths content
+      let svgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="${finalCanvasWidth}" height="${finalCanvasHeight}" viewBox="0 0 ${finalCanvasWidth} ${finalCanvasHeight}">\n`;
+      svgContent += `  <!-- Background -->\n`;
+      svgContent += `  <rect width="${finalCanvasWidth}" height="${finalCanvasHeight}" fill="white" />\n`;
+
+      const xLeft = MARGIN_PX / 2; // 150px
+      const xRight = finalCanvasWidth - MARGIN_PX / 2;
+      const yTop = MARGIN_PX / 2;
+      const yBottom = finalCanvasHeight - MARGIN_PX / 2;
+      const markLength = MARGIN_PX / 2;
+      const thickness = 0.04 * BASE_DPI; // 12px
+
+      svgContent += `  <!-- Graphtec Registration Marks -->\n`;
+      svgContent += `  <rect x="${xLeft}" y="${yTop}" width="${markLength}" height="${thickness}" fill="black" />\n`;
+      svgContent += `  <rect x="${xLeft}" y="${yTop}" width="${thickness}" height="${markLength}" fill="black" />\n`;
+      svgContent += `  <rect x="${xRight - markLength}" y="${yTop}" width="${markLength}" height="${thickness}" fill="black" />\n`;
+      svgContent += `  <rect x="${xRight - thickness}" y="${yTop}" width="${thickness}" height="${markLength}" fill="black" />\n`;
+      svgContent += `  <rect x="${xLeft}" y="${yBottom - thickness}" width="${markLength}" height="${thickness}" fill="black" />\n`;
+      svgContent += `  <rect x="${xLeft}" y="${yBottom - markLength}" width="${thickness}" height="${markLength}" fill="black" />\n`;
+      svgContent += `  <rect x="${xRight - markLength}" y="${yBottom - thickness}" width="${markLength}" height="${thickness}" fill="black" />\n`;
+      svgContent += `  <rect x="${xRight - thickness}" y="${yBottom - markLength}" width="${thickness}" height="${markLength}" fill="black" />\n`;
+
+      svgContent += `  <!-- Cut Paths (Tag Rectangles) -->\n`;
+      placements.forEach(p => {
+        svgContent += `  <rect x="${p.x}" y="${p.y}" width="${tagDim}" height="${tagDim}" fill="none" stroke="black" stroke-width="4" />\n`;
+      });
+      svgContent += `</svg>`;
+
+      const cutDataUrl = 'data:image/svg+xml;base64,' + window.btoa(unescape(encodeURIComponent(svgContent)));
+
+      const printStorageRef = ref(storage, `production-sheets/${id}/${item.id}-tag-print.png`);
+      const cutStorageRef = ref(storage, `production-sheets/${id}/${item.id}-tag-cut.svg`);
+
+      // Upload both PNG print and SVG cut files to Firebase
+      const printBlob = await new Promise<Blob | null>((resolve) => printCanvas.toBlob(resolve, 'image/png'));
+      if (!printBlob) throw new Error("Failed to create blob for tag print sheet");
+      await uploadBytes(printStorageRef, printBlob);
+
+      await uploadString(cutStorageRef, cutDataUrl, 'data_url');
+
+      const tagPrintReadyUrl = await getDownloadURL(printStorageRef);
+      const tagCutReadyUrl = await getDownloadURL(cutStorageRef);
 
       const updatedItems = order.items.map((i: any) => {
         if (i.id === item.id) {
-          return { ...i, tagPrintReadyUrl };
+          return { ...i, tagPrintReadyUrl, tagCutReadyUrl };
         }
         return i;
       });
 
       await updateDoc(doc(db, 'orders', id), { items: updatedItems });
-      alert("Tag gang sheet successfully generated!");
+      alert("Tag gang sheet and cut files successfully generated!");
     } catch (err) {
       console.error("Error generating tag gang sheet:", err);
       alert("Failed to generate tag gang sheet: " + (err as Error).message);
@@ -2060,6 +2176,17 @@ export function OrderDetail() {
             hasFiles = true;
           } catch (err) {
             console.error(`Failed to fetch tag file for item ${item.id}`, err);
+          }
+        }
+        if (item.tagCutReadyUrl) {
+          try {
+            const tagCutRes = await fetch(item.tagCutReadyUrl);
+            const tagCutBlob = await tagCutRes.blob();
+            const filenameTagCut = `${order.id}-${item.id}-tag-cut.svg`;
+            zip.file(filenameTagCut, tagCutBlob);
+            hasFiles = true;
+          } catch (err) {
+            console.error(`Failed to fetch tag cut file for item ${item.id}`, err);
           }
         }
       }
@@ -3419,42 +3546,83 @@ export function OrderDetail() {
                   </PillButton>
                 </div>
               </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {order.items
-                  ?.filter(isPrintableItem)
-                  .map((item: any) => {
-                    const isPrintReady = !!(item.printReadyUrl && item.cutReadyUrl);
-                    const currentPreviewMode = previewMode[item.id] || 'print';
-                    const activePreviewUrl = currentPreviewMode === 'print' ? (item.printReadyUrl || item.originalSheetUrl || item.image) : (item.cutReadyUrl || item.originalSheetUrl || item.image);
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {(() => {
+                  const productionCards: Array<{
+                    id: string;
+                    item: any;
+                    type: 'art' | 'tag';
+                    title: string;
+                    description: string;
+                    isPrintReady: boolean;
+                    printUrl: string | null;
+                    cutUrl: string | null;
+                    isGenerating: boolean;
+                    generateFunc: () => void;
+                  }> = [];
 
-                     return (
-                      <div key={item.id} className="bg-neutral-900 text-white rounded-2xl border border-neutral-800 p-5 flex flex-col gap-4 shadow-xl">
+                  (order.items || []).forEach((item: any) => {
+                    const hasArt = item.itemType === 'gang_sheet' || 
+                      ((Array.isArray(item.artworks) && item.artworks.length > 0) || !!item.logoUrl || !!item.logoUrlBack || !!item.logoUrlLeftSleeve || !!item.logoUrlRightSleeve);
+                    
+                    if (hasArt) {
+                      productionCards.push({
+                        id: `${item.id}-art`,
+                        item: item,
+                        type: 'art',
+                        title: item.itemType === 'gang_sheet' ? (item.sheetSizeName || 'DTF Gang Sheet') : `${item.style || 'Garment'} - Main Art`,
+                        description: item.itemType === 'gang_sheet'
+                          ? `${item.sheetSizeName || 'DTF Gang Sheet'} • ${item.sheetWidth}" x ${item.sheetHeight}" • ${item.quantity} ${item.quantity === 1 ? 'Sheet' : 'Sheets'}`
+                          : `Custom Placement Prints • ${Object.values(item.sizes || {}).reduce((sum: number, val: any) => sum + (parseInt(val) || 0), 0) || item.quantity || 1} Garments`,
+                        isPrintReady: !!(item.printReadyUrl && item.cutReadyUrl),
+                        printUrl: item.printReadyUrl || null,
+                        cutUrl: item.cutReadyUrl || null,
+                        isGenerating: generatingItemId === item.id,
+                        generateFunc: () => handleGeneratePrintFile(item)
+                      });
+                    }
+
+                    if (item.logoUrlTag) {
+                      productionCards.push({
+                        id: `${item.id}-tag`,
+                        item: item,
+                        type: 'tag',
+                        title: `${item.style || 'Garment'} - Neck Tag`,
+                        description: `Custom Size Tags • ${Object.values(item.sizes || {}).reduce((sum: number, val: any) => sum + (parseInt(val) || 0), 0) || item.quantity || 1} Tags`,
+                        isPrintReady: !!(item.tagPrintReadyUrl && item.tagCutReadyUrl),
+                        printUrl: item.tagPrintReadyUrl || null,
+                        cutUrl: item.tagCutReadyUrl || null,
+                        isGenerating: generatingTagItemId === item.id,
+                        generateFunc: () => handleGenerateTagGangSheet(item)
+                      });
+                    }
+                  });
+
+                  return productionCards.map((card) => {
+                    const currentPreviewMode = previewMode[card.id] || 'print';
+                    const activePreviewUrl = currentPreviewMode === 'print' 
+                      ? (card.printUrl || (card.type === 'art' ? (card.item.originalSheetUrl || card.item.image) : card.item.logoUrlTag))
+                      : (card.cutUrl || (card.type === 'art' ? (card.item.originalSheetUrl || card.item.image) : card.item.logoUrlTag));
+
+                    return (
+                      <div key={card.id} className="bg-neutral-900 text-white rounded-2xl border border-neutral-800 p-5 flex flex-col gap-4 shadow-xl">
                         {/* Card Header */}
                         <div className="flex justify-between items-start gap-4">
                           <div>
-                            <h3 className="font-bold text-sm text-neutral-100">{item.style || 'DTF Gang Sheet'}</h3>
+                            <h3 className="font-bold text-sm text-neutral-100">{card.title}</h3>
                             <p className="text-[11px] font-semibold text-neutral-400 mt-0.5">
-                              {item.itemType === 'gang_sheet' ? (
-                                <>
-                                  {item.sheetSizeName || 'DTF Gang Sheet'} • {item.sheetWidth}" x {item.sheetHeight}" • {item.quantity} {item.quantity === 1 ? 'Sheet' : 'Sheets'}
-                                </>
-                              ) : (
-                                <>
-                                  Custom Placement Prints • {Object.values(item.sizes || {}).reduce((sum: number, val: any) => sum + (parseInt(val) || 0), 0) || item.quantity || 1} Garments
-                                </>
-                              )}
+                              {card.description}
                             </p>
                           </div>
                           
                           <div className="flex flex-col items-end gap-1.5 shrink-0">
                             <div className="flex items-center gap-1.5">
-                              {item.printed ? (
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-450 bg-emerald-950/80 border border-emerald-800 px-2 py-0.5 rounded shadow-sm flex items-center gap-0.5">
+                              {card.item.printed ? (
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-450 bg-emerald-955/80 border border-emerald-800 px-2 py-0.5 rounded shadow-sm flex items-center gap-0.5">
                                   <Check size={10} strokeWidth={3} /> Printed
                                 </span>
-                              ) : item.readyToPrint ? (
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-purple-400 bg-purple-950/80 border border-purple-800 px-2 py-0.5 rounded shadow-sm flex items-center gap-0.5 animate-pulse">
+                              ) : card.item.readyToPrint ? (
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-purple-450 bg-purple-955/80 border border-purple-800 px-2 py-0.5 rounded shadow-sm flex items-center gap-0.5 animate-pulse">
                                   <Printer size={10} /> Ready
                                 </span>
                               ) : (
@@ -3463,7 +3631,7 @@ export function OrderDetail() {
                                 </span>
                               )}
 
-                              {isPrintReady ? (
+                              {card.isPrintReady ? (
                                 <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-455 bg-emerald-955/80 border border-emerald-850 px-2 py-0.5 rounded shadow-sm">
                                   Print Ready
                                 </span>
@@ -3483,7 +3651,7 @@ export function OrderDetail() {
                               src={activePreviewUrl} 
                               alt="Layout Preview" 
                               className="w-full h-full object-contain p-4 hover:scale-105 transition-transform duration-300 cursor-zoom-in"
-                              onClick={() => setExpandedImage({ src: activePreviewUrl, alt: `${item.style} - ${currentPreviewMode}` })}
+                              onClick={() => setExpandedImage({ src: activePreviewUrl, alt: `${card.title} - ${currentPreviewMode}` })}
                             />
                           ) : (
                             <div className="flex flex-col items-center gap-2 text-neutral-500 text-center p-6">
@@ -3493,16 +3661,16 @@ export function OrderDetail() {
                           )}
 
                           {/* Layer Control Badge */}
-                          {isPrintReady && (
+                          {card.isPrintReady && (
                             <div className="absolute top-3 left-3 bg-neutral-900/90 border border-neutral-800 rounded-lg p-0.5 flex shadow-lg">
                               <button
-                                onClick={() => setPreviewMode(prev => ({ ...prev, [item.id]: 'print' }))}
+                                onClick={() => setPreviewMode(prev => ({ ...prev, [card.id]: 'print' }))}
                                 className={`text-[10px] uppercase font-bold tracking-wider px-2 py-1 rounded-md transition-all ${currentPreviewMode === 'print' ? 'bg-white text-black shadow-sm' : 'text-neutral-400 hover:text-white'}`}
                               >
                                 Print
                               </button>
                               <button
-                                onClick={() => setPreviewMode(prev => ({ ...prev, [item.id]: 'cut' }))}
+                                onClick={() => setPreviewMode(prev => ({ ...prev, [card.id]: 'cut' }))}
                                 className={`text-[10px] uppercase font-bold tracking-wider px-2 py-1 rounded-md transition-all ${currentPreviewMode === 'cut' ? 'bg-white text-black shadow-sm' : 'text-neutral-400 hover:text-white'}`}
                               >
                                 Cut Line
@@ -3514,104 +3682,72 @@ export function OrderDetail() {
                         {/* Actions Footer */}
                         <div className="flex flex-col gap-2 mt-auto">
                           <button
-                            onClick={() => handleGeneratePrintFile(item)}
-                            disabled={generatingItemId === item.id}
-                            className="w-full bg-white hover:bg-neutral-100 text-black py-2.5 rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 disabled:opacity-50"
+                            onClick={card.generateFunc}
+                            disabled={card.isGenerating}
+                            className="w-full bg-white hover:bg-neutral-100 text-black py-2.5 rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
                           >
-                            {generatingItemId === item.id ? (
+                            {card.isGenerating ? (
                               <>
                                 <Loader2 size={14} className="animate-spin" />
-                                <span>Generating Canvas...</span>
+                                <span>Generating...</span>
                               </>
                             ) : (
                               <>
                                 <Sparkles size={14} />
-                                <span>{isPrintReady ? 'Regenerate Production Files' : 'Generate Production Files'}</span>
+                                <span>{card.isPrintReady ? 'Regenerate Production Files' : 'Generate Production Files'}</span>
                               </>
                             )}
                           </button>
                           <div className="grid grid-cols-2 gap-2">
                             <a
-                              href={item.printReadyUrl || '#'}
+                              href={card.printUrl || '#'}
                               target="_blank"
                               rel="noreferrer"
-                              className={`flex items-center justify-center gap-1.5 text-[11px] font-bold text-center border py-2 rounded-xl transition-all ${item.printReadyUrl ? 'border-neutral-800 text-neutral-300 bg-neutral-850 hover:bg-neutral-800 hover:text-white shadow-sm' : 'border-neutral-800/40 text-neutral-600 bg-neutral-900 pointer-events-none'}`}
+                              className={`flex items-center justify-center gap-1.5 text-[11px] font-bold text-center border py-2 rounded-xl transition-all ${card.printUrl ? 'border-neutral-800 text-neutral-300 bg-neutral-850 hover:bg-neutral-800 hover:text-white shadow-sm' : 'border-neutral-800/40 text-neutral-600 bg-neutral-900 pointer-events-none'}`}
                             >
                               <Download size={12} />
                               <span>Print PNG</span>
                             </a>
                             <a
-                              href={item.cutReadyUrl || '#'}
+                              href={card.cutUrl || '#'}
                               target="_blank"
                               rel="noreferrer"
-                              className={`flex items-center justify-center gap-1.5 text-[11px] font-bold text-center border py-2 rounded-xl transition-all ${item.cutReadyUrl ? 'border-neutral-800 text-neutral-300 bg-neutral-850 hover:bg-neutral-800 hover:text-white shadow-sm' : 'border-neutral-800/40 text-neutral-600 bg-neutral-900 pointer-events-none'}`}
+                              className={`flex items-center justify-center gap-1.5 text-[11px] font-bold text-center border py-2 rounded-xl transition-all ${card.cutUrl ? 'border-neutral-800 text-neutral-300 bg-neutral-850 hover:bg-neutral-800 hover:text-white shadow-sm' : 'border-neutral-800/40 text-neutral-600 bg-neutral-900 pointer-events-none'}`}
                             >
                               <Download size={12} />
                               <span>Cut SVG</span>
                             </a>
                           </div>
 
-                          {item.logoUrlTag && (
-                            <div className="flex flex-col gap-2 border-t border-neutral-800/60 pt-2 mt-1">
-                              <button
-                                onClick={() => handleGenerateTagGangSheet(item)}
-                                disabled={generatingTagItemId === item.id}
-                                className="w-full bg-white/10 hover:bg-white/15 text-white py-2 rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
-                              >
-                                {generatingTagItemId === item.id ? (
-                                  <>
-                                    <Loader2 size={14} className="animate-spin" />
-                                    <span>Generating Tag Sheet...</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <Printer size={14} className="text-purple-400" />
-                                    <span>{item.tagPrintReadyUrl ? 'Regenerate Tag Sheet' : 'Generate Tag Gang Sheet'}</span>
-                                  </>
-                                )}
-                              </button>
-                              {item.tagPrintReadyUrl && (
-                                <a
-                                  href={item.tagPrintReadyUrl}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="flex items-center justify-center gap-1.5 text-[11px] font-bold text-center border py-2 rounded-xl transition-all border-neutral-800 text-neutral-300 bg-neutral-850 hover:bg-neutral-800 hover:text-white shadow-sm"
-                                >
-                                  <Download size={12} />
-                                  <span>Download Tag PNG</span>
-                                </a>
-                              )}
-                            </div>
-                          )}
-                          
                           <div className="grid grid-cols-2 gap-2 mt-1">
                             <button
-                              onClick={() => handleToggleItemReadyToPrint(item.id)}
+                              onClick={() => handleToggleItemReadyToPrint(card.item.id)}
                               className={`flex items-center justify-center gap-1 text-[11px] font-bold text-center border py-2 rounded-xl transition-all cursor-pointer ${
-                                item.readyToPrint
-                                  ? 'border-purple-800 text-purple-300 bg-purple-950/40 hover:bg-purple-950 hover:text-white'
+                                card.item.readyToPrint
+                                  ? 'border-purple-800 text-purple-300 bg-purple-955/40 hover:bg-purple-955 hover:text-white'
                                   : 'border-neutral-800 text-neutral-450 bg-neutral-900 hover:bg-neutral-850 hover:text-white'
                               }`}
                             >
                               <Printer size={12} />
-                              <span>{item.readyToPrint ? 'Ready (Notified)' : 'Notify Printer'}</span>
+                              <span>{card.item.readyToPrint ? 'Ready (Notified)' : 'Notify Printer'}</span>
                             </button>
                             <button
-                              onClick={() => handleToggleItemPrinted(item.id)}
+                              onClick={() => handleToggleItemPrinted(card.item.id)}
                               className={`flex items-center justify-center gap-1 text-[11px] font-bold text-center border py-2 rounded-xl transition-all cursor-pointer ${
-                                item.printed
-                                  ? 'border-emerald-800 text-emerald-300 bg-emerald-950/40 hover:bg-emerald-950 hover:text-white'
+                                card.item.printed
+                                  ? 'border-emerald-800 text-emerald-300 bg-emerald-955/40 hover:bg-emerald-955 hover:text-white'
                                   : 'border-neutral-800 text-neutral-450 bg-neutral-900 hover:bg-neutral-850 hover:text-white'
                               }`}
                             >
                               <Check size={12} />
-                              <span>{item.printed ? 'Printed (Reset)' : 'Mark Printed'}</span>
+                              <span>{card.item.printed ? 'Printed (Reset)' : 'Mark Printed'}</span>
                             </button>
                           </div>
                         </div>
                       </div>
                     );
-                  })}
+                  });
+                })()}
               </div>
             </div>
           )}
