@@ -763,9 +763,10 @@ const generateFinalSheetsForPrintAndCut = async (
 
 const isPrintableItem = (item: any) => {
   if (!item) return false;
+  const isGarment = !item.itemType || item.itemType === 'garment';
   return (
     item.itemType === 'gang_sheet' ||
-    (item.itemType === 'garment' && (
+    (isGarment && (
       (Array.isArray(item.artworks) && item.artworks.length > 0) ||
       !!item.logoUrl ||
       !!item.logoUrlBack ||

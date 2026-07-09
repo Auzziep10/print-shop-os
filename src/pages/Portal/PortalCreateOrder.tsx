@@ -991,6 +991,7 @@ export function PortalCreateOrder() {
 
            return {
               id: item.instanceId || Date.now().toString(),
+              itemType: 'garment',
               style: item.style || 'Custom Garment',
               color: item.selectedColor || '',
               price: Math.round(p * 100) / 100,
