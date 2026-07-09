@@ -184,7 +184,8 @@ export function CustomerDetail() {
       image: swatchUrl || (Object.values(product.images)[0] as any)?.front || (Object.values(product.images)[0] as any) || '',
       colors: product.colors.join(', '),
       price: product.price.toString(),
-      gender: 'Unisex'
+      gender: 'Unisex',
+      visible: true
     });
     setSelectedSanMarProduct(product);
     setSelectedInitialColor(initialColor);
