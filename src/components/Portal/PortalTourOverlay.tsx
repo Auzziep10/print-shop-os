@@ -34,6 +34,7 @@ export function PortalTourOverlay({
   const [windowSize, setWindowSize] = useState({ width: window.innerWidth, height: window.innerHeight });
   const tooltipRef = useRef<HTMLDivElement>(null);
   const [isCustomizerOpen, setIsCustomizerOpen] = useState(false);
+  const [tooltipStyle, setTooltipStyle] = useState<React.CSSProperties>({});
 
   useEffect(() => {
     const checkCustomizer = () => {
