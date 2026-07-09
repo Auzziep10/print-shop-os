@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
-import { ArrowLeft, Mail, Phone, MapPin, Building2, ExternalLink, Plus, Loader2, Upload, X, Check, Edit3, ChevronRight, Trash2, FileText, Crop } from 'lucide-react';
+import { ArrowLeft, Mail, Phone, MapPin, Building2, ExternalLink, Plus, Loader2, Upload, X, Check, Edit3, ChevronRight, Trash2, FileText, Crop, Eye, EyeOff } from 'lucide-react';
 
 import { storage, db } from '../../lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -133,7 +133,9 @@ export function CustomerDetail() {
   };
 
   const [suggestedItems, setSuggestedItems] = useState<any[]>([]);
-  const [activeGarmentTab, setActiveGarmentTab] = useState<'suggested' | 'past'>('suggested');
+  const [sampleItems, setSampleItems] = useState<any[]>([]);
+  const [activeGarmentTab, setActiveGarmentTab] = useState<'suggested' | 'samples' | 'past'>('suggested');
+  const [suggestedModalType, setSuggestedModalType] = useState<'suggested' | 'sample'>('suggested');
   const [assets, setAssets] = useState<any[]>([]);
   const [isAddingSuggestedModalOpen, setIsAddingSuggestedModalOpen] = useState(false);
   const [editingSuggestedItem, setEditingSuggestedItem] = useState<any | null>(null);
@@ -144,7 +146,8 @@ export function CustomerDetail() {
     image: '',
     colors: '',
     price: '',
-    gender: 'Unisex'
+    gender: 'Unisex',
+    visible: true
   });
   const [isUploadingLogoVault, setIsUploadingLogoVault] = useState(false);
   const [isUploadingMockup, setIsUploadingMockup] = useState(false);
@@ -195,17 +198,19 @@ export function CustomerDetail() {
 
   const handleAddSuggestedItem = async (garmentToAdd?: any) => {
     if (!id) return;
+    const isSample = suggestedModalType === 'sample';
     let itemObj: any = {};
     if (garmentToAdd) {
       itemObj = {
-        id: `sugg-${Date.now()}`,
-        style: garmentToAdd.style || garmentToAdd.name || garmentToAdd.garment_name || 'Suggested Garment',
+        id: isSample ? `samp-${Date.now()}` : `sugg-${Date.now()}`,
+        style: garmentToAdd.style || garmentToAdd.name || garmentToAdd.garment_name || (isSample ? 'Sample Garment' : 'Suggested Garment'),
         itemNum: garmentToAdd.itemNum || garmentToAdd.garment_id || garmentToAdd.sku || '',
         description: garmentToAdd.description || '',
         image: garmentToAdd.image || garmentToAdd.original_image || garmentToAdd.mockup_image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200',
         colors: garmentToAdd.colors || ['Custom Color'],
         price: parseFloat(garmentToAdd.price || garmentToAdd.msrp || 0),
-        gender: garmentToAdd.gender || 'Unisex'
+        gender: garmentToAdd.gender || 'Unisex',
+        ...(isSample ? { visible: garmentToAdd.visible ?? true } : {})
       };
     } else {
       if (!customSuggestedItem.style) {
@@ -243,7 +248,7 @@ export function CustomerDetail() {
       }
 
       itemObj = {
-        id: editingSuggestedItem ? editingSuggestedItem.id : `sugg-${Date.now()}`,
+        id: editingSuggestedItem ? editingSuggestedItem.id : (isSample ? `samp-${Date.now()}` : `sugg-${Date.now()}`),
         style: customSuggestedItem.style,
         itemNum: customSuggestedItem.itemNum || '',
         description: customSuggestedItem.description || '',
@@ -252,28 +257,37 @@ export function CustomerDetail() {
         images: imagesMap,
         backImages: backImagesMap,
         price: parseFloat(customSuggestedItem.price) || 0,
-        gender: customSuggestedItem.gender || 'Unisex'
+        gender: customSuggestedItem.gender || 'Unisex',
+        ...(isSample ? { visible: customSuggestedItem.visible ?? true } : {})
       };
     }
 
+    const currentList = isSample ? sampleItems : suggestedItems;
     const updated = editingSuggestedItem
-      ? suggestedItems.map(item => item.id === editingSuggestedItem.id ? itemObj : item)
-      : [...suggestedItems, itemObj];
+      ? currentList.map(item => item.id === editingSuggestedItem.id ? itemObj : item)
+      : [...currentList, itemObj];
       
     try {
-      await updateDoc(doc(db, 'customers', id), {
-        suggestedItems: updated
-      });
-      setSuggestedItems(updated);
+      if (isSample) {
+        await updateDoc(doc(db, 'customers', id), {
+          sampleItems: updated
+        });
+        setSampleItems(updated);
+      } else {
+        await updateDoc(doc(db, 'customers', id), {
+          suggestedItems: updated
+        });
+        setSuggestedItems(updated);
+      }
       setIsAddingSuggestedModalOpen(false);
-      setCustomSuggestedItem({ style: '', itemNum: '', description: '', image: '', colors: '', price: '', gender: 'Unisex' });
+      setCustomSuggestedItem({ style: '', itemNum: '', description: '', image: '', colors: '', price: '', gender: 'Unisex', visible: true });
       setEditingSuggestedItem(null);
       setSelectedSanMarProduct(null);
       setSelectedColors({});
       setSelectedInitialColor('');
     } catch (err) {
-      console.error("Error saving suggested item:", err);
-      alert("Failed to suggest garment.");
+      console.error(`Error saving ${isSample ? 'sample' : 'suggested'} item:`, err);
+      alert(`Failed to save ${isSample ? 'sample' : 'suggested'} garment.`);
     }
   };
 
@@ -289,6 +303,38 @@ export function CustomerDetail() {
       setSuggestedItems(updated);
     } catch (err) {
       console.error("Error deleting suggested item:", err);
+    }
+  };
+
+  const handleDeleteSampleItem = async (itemId: string) => {
+    if (!id) return;
+    if (!window.confirm("Remove this sample garment?")) return;
+    
+    const updated = sampleItems.filter(item => item.id !== itemId);
+    try {
+      await updateDoc(doc(db, 'customers', id), {
+        sampleItems: updated
+      });
+      setSampleItems(updated);
+    } catch (err) {
+      console.error("Error deleting sample item:", err);
+      alert("Failed to delete sample garment.");
+    }
+  };
+
+  const handleToggleSampleVisibility = async (itemId: string, currentVisible: boolean) => {
+    if (!id) return;
+    const updated = sampleItems.map(item => 
+      item.id === itemId ? { ...item, visible: !currentVisible } : item
+    );
+    try {
+      await updateDoc(doc(db, 'customers', id), {
+        sampleItems: updated
+      });
+      setSampleItems(updated);
+    } catch (err) {
+      console.error("Error toggling sample visibility:", err);
+      alert("Failed to update visibility.");
     }
   };
 
@@ -463,6 +509,7 @@ export function CustomerDetail() {
           const data = d.data();
           setLiveCustomerData(data);
           setSuggestedItems(data.suggestedItems || []);
+          setSampleItems(data.sampleItems || []);
           setAssets(data.assets || []);
           
           if (data.logo) setLiveLogo(data.logo);
@@ -954,6 +1001,17 @@ export function CustomerDetail() {
                       Suggested ({suggestedItems.length})
                     </button>
                     <button
+                      type="button"
+                      onClick={() => setActiveGarmentTab('samples')}
+                      className={`font-serif text-2xl pb-1 border-b-2 transition-all cursor-pointer ${
+                        activeGarmentTab === 'samples'
+                          ? 'text-brand-primary border-brand-primary font-bold'
+                          : 'text-brand-secondary border-transparent hover:text-brand-primary'
+                      }`}
+                    >
+                      Sample Items ({sampleItems.length})
+                    </button>
+                    <button
                       onClick={() => setActiveGarmentTab('past')}
                       className={`font-serif text-2xl pb-1 border-b-2 transition-all cursor-pointer ${
                         activeGarmentTab === 'past'
@@ -965,19 +1023,26 @@ export function CustomerDetail() {
                     </button>
                   </div>
                   {activeGarmentTab === 'suggested' && (
-                    <PillButton variant="outline" className="px-4 text-xs font-bold gap-1 cursor-pointer" onClick={() => setIsAddingSuggestedModalOpen(true)}>
+                    <PillButton variant="outline" className="px-4 text-xs font-bold gap-1 cursor-pointer" onClick={() => { setSuggestedModalType('suggested'); setIsAddingSuggestedModalOpen(true); }}>
                       <Plus size={14} /> Add Suggestion
+                    </PillButton>
+                  )}
+                  {activeGarmentTab === 'samples' && (
+                    <PillButton variant="outline" className="px-4 text-xs font-bold gap-1 cursor-pointer" onClick={() => { setSuggestedModalType('sample'); setIsAddingSuggestedModalOpen(true); }}>
+                      <Plus size={14} /> Add Sample Item
                     </PillButton>
                   )}
                 </div>
                 <p className="text-xs text-brand-secondary">
                   {activeGarmentTab === 'suggested' 
                     ? 'Items recommended for this customer to order or quote.' 
+                    : activeGarmentTab === 'samples'
+                    ? 'Blank or sample garments available to client portal.'
                     : 'Garments previously ordered by this customer.'}
                 </p>
               </div>
 
-              {activeGarmentTab === 'suggested' ? (
+              {activeGarmentTab === 'suggested' && (
                 suggestedItems.length === 0 ? (
                   <div className="bg-brand-bg/50 rounded-xl p-8 text-center text-sm font-medium text-brand-secondary border border-dashed border-brand-border/60 my-4">
                     No recommended garments yet. Click above to suggest some.
@@ -1002,6 +1067,7 @@ export function CustomerDetail() {
                           <button
                             onClick={() => {
                               setEditingSuggestedItem(item);
+                              setSuggestedModalType('suggested');
                               setCustomSuggestedItem({
                                 style: item.style,
                                 itemNum: item.itemNum || '',
@@ -1009,7 +1075,8 @@ export function CustomerDetail() {
                                 image: item.image || '',
                                 colors: Array.isArray(item.colors) ? item.colors.join(', ') : (item.colors || ''),
                                 price: String(item.price || ''),
-                                gender: item.gender || 'Unisex'
+                                gender: item.gender || 'Unisex',
+                                visible: true
                               });
                               setIsAddingSuggestedModalOpen(true);
                             }}
@@ -1030,7 +1097,81 @@ export function CustomerDetail() {
                     ))}
                   </div>
                 )
-              ) : (
+              )}
+
+              {activeGarmentTab === 'samples' && (
+                sampleItems.length === 0 ? (
+                  <div className="bg-brand-bg/50 rounded-xl p-8 text-center text-sm font-medium text-brand-secondary border border-dashed border-brand-border/60 my-4">
+                    No sample items yet. Click above to add some.
+                  </div>
+                ) : (
+                  <div className="space-y-3 max-h-[350px] overflow-y-auto pr-1">
+                    {sampleItems.map((item) => (
+                      <div key={item.id} className="flex items-center gap-4 bg-brand-bg/30 border border-brand-border/60 rounded-2xl p-3 hover:border-brand-primary/20 transition-colors">
+                        <div className="w-12 h-12 bg-white border border-brand-border rounded-xl overflow-hidden flex items-center justify-center p-1 shrink-0">
+                          <img src={item.image} alt={item.style} className="max-w-full max-h-full object-contain mix-blend-multiply" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-bold text-neutral-900 text-sm truncate">{item.style}</h4>
+                            <span className="text-[9px] font-bold text-neutral-500 bg-neutral-100 px-1.5 py-0.5 rounded-full shrink-0">
+                              {item.gender || 'Unisex'}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleToggleSampleVisibility(item.id, item.visible ?? true)}
+                              className={`flex items-center gap-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-full border transition-all ${
+                                (item.visible ?? true)
+                                  ? 'bg-emerald-50 border-emerald-250 text-emerald-700 hover:bg-emerald-100'
+                                  : 'bg-zinc-50 border-zinc-200 text-zinc-500 hover:bg-zinc-100'
+                              }`}
+                              title={item.visible ?? true ? "Visible to client portal. Click to hide." : "Hidden from client portal. Click to show."}
+                            >
+                              {(item.visible ?? true) ? <Eye size={10} /> : <EyeOff size={10} />}
+                              <span>{(item.visible ?? true) ? 'Visible' : 'Hidden'}</span>
+                            </button>
+                          </div>
+                          <p className="text-xs text-brand-secondary truncate mt-0.5">{item.itemNum || 'Custom Item'} • ${item.price.toFixed(2)}</p>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingSuggestedItem(item);
+                              setSuggestedModalType('sample');
+                              setCustomSuggestedItem({
+                                style: item.style,
+                                itemNum: item.itemNum || '',
+                                description: item.description || '',
+                                image: item.image || '',
+                                colors: Array.isArray(item.colors) ? item.colors.join(', ') : (item.colors || ''),
+                                price: String(item.price || ''),
+                                gender: item.gender || 'Unisex',
+                                visible: item.visible ?? true
+                              });
+                              setIsAddingSuggestedModalOpen(true);
+                            }}
+                            className="text-neutral-400 hover:text-brand-primary transition-colors p-2 cursor-pointer"
+                            title="Edit Sample Item"
+                          >
+                            <Edit3 size={16} />
+                          </button>
+                          <button 
+                            type="button"
+                            onClick={() => handleDeleteSampleItem(item.id)}
+                            className="text-neutral-400 hover:text-red-500 transition-colors p-2 cursor-pointer"
+                            title="Remove Sample Item"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )
+              )}
+
+              {activeGarmentTab === 'past' && (
                 pastGarments.length === 0 ? (
                   <div className="bg-brand-bg/50 rounded-xl p-8 text-center text-sm font-medium text-brand-secondary border border-dashed border-brand-border/60 my-4">
                     No past garments found for this customer.
@@ -1743,13 +1884,15 @@ export function CustomerDetail() {
           <div className="bg-white max-w-lg w-full rounded-2xl shadow-2xl p-6 border border-brand-border flex flex-col">
             <div className="flex justify-between items-center mb-6">
               <h3 className="font-serif text-xl text-brand-primary">
-                {editingSuggestedItem ? "Edit Suggested Garment" : "Add Suggested Garment"}
+                {suggestedModalType === 'sample' 
+                  ? (editingSuggestedItem ? "Edit Sample Garment" : "Add Sample Garment") 
+                  : (editingSuggestedItem ? "Edit Suggested Garment" : "Add Suggested Garment")}
               </h3>
               <button 
                 onClick={() => {
                   setIsAddingSuggestedModalOpen(false);
                   setEditingSuggestedItem(null);
-                  setCustomSuggestedItem({ style: '', itemNum: '', description: '', image: '', colors: '', price: '', gender: 'Unisex' });
+                  setCustomSuggestedItem({ style: '', itemNum: '', description: '', image: '', colors: '', price: '', gender: 'Unisex', visible: true });
                   setSelectedSanMarProduct(null);
                   setSelectedColors({});
                   setSelectedInitialColor('');
@@ -1765,7 +1908,9 @@ export function CustomerDetail() {
               {/* Option A: Select from active customer decks */}
               {!editingSuggestedItem && customerDecks.length > 0 && (
                 <div className="flex flex-col gap-2.5">
-                  <h4 className="text-xs font-bold uppercase tracking-widest text-neutral-500">A. Suggest from Assigned Decks</h4>
+                  <h4 className="text-xs font-bold uppercase tracking-widest text-neutral-500">
+                    {suggestedModalType === 'sample' ? "A. Add Sample from Assigned Decks" : "A. Suggest from Assigned Decks"}
+                  </h4>
                   <div className="grid grid-cols-1 gap-2">
                     {customerDecks.map((deck) => 
                       (deck.items || deck.garments || []).map((item: any, idx: number) => {
@@ -1784,7 +1929,9 @@ export function CustomerDetail() {
                               <p className="text-xs font-bold text-neutral-900 truncate">{style}</p>
                               <p className="text-[10px] text-neutral-500 font-semibold">{item.itemNum || item.garment_id || ''}</p>
                             </div>
-                            <span className="text-xs text-brand-primary font-bold pr-2">+ Suggest</span>
+                            <span className="text-xs text-brand-primary font-bold pr-2">
+                              {suggestedModalType === 'sample' ? "+ Add Sample" : "+ Suggest"}
+                            </span>
                           </button>
                         );
                       })
@@ -1796,7 +1943,11 @@ export function CustomerDetail() {
               {/* Option B: Add completely custom suggested item */}
               <div className="flex flex-col gap-4 border-t border-neutral-100 pt-6">
                 <h4 className="text-xs font-bold uppercase tracking-widest text-neutral-500">
-                  {editingSuggestedItem ? "Garment Details" : "B. Add custom or blanks catalog recommendation"}
+                  {editingSuggestedItem 
+                    ? "Garment Details" 
+                    : (suggestedModalType === 'sample' 
+                      ? "B. Add custom or blanks catalog sample" 
+                      : "B. Add custom or blanks catalog recommendation")}
                 </h4>
                 
                 {!editingSuggestedItem && (
@@ -1830,7 +1981,7 @@ export function CustomerDetail() {
                       onClick={() => {
                         setSelectedSanMarProduct(null);
                         setSelectedColors({});
-                        setCustomSuggestedItem({ style: '', itemNum: '', description: '', image: '', colors: '', price: '', gender: 'Unisex' });
+                        setCustomSuggestedItem({ style: '', itemNum: '', description: '', image: '', colors: '', price: '', gender: 'Unisex', visible: true });
                       }}
                       className="text-xs font-bold text-red-500 hover:text-red-700 transition-colors cursor-pointer"
                     >
@@ -2009,8 +2160,22 @@ export function CustomerDetail() {
                   )}
                 </div>
 
-                <PillButton variant="filled" className="w-full justify-center py-3 mt-2" onClick={() => handleAddSuggestedItem()}>
-                  {editingSuggestedItem ? "Save Changes" : "Suggest Custom Garment"}
+                {suggestedModalType === 'sample' && (
+                  <label className="flex items-center gap-2 mt-4 cursor-pointer select-none">
+                    <input 
+                      type="checkbox" 
+                      checked={customSuggestedItem.visible ?? true} 
+                      onChange={e => setCustomSuggestedItem({...customSuggestedItem, visible: e.target.checked})} 
+                      className="rounded border-neutral-300 accent-black text-black w-4 h-4 focus:ring-0"
+                    />
+                    <span className="text-xs font-bold text-neutral-700 uppercase tracking-wide">Visible in Client Portal</span>
+                  </label>
+                )}
+
+                <PillButton variant="filled" className="w-full justify-center py-3 mt-4 animate-scale-in" onClick={() => handleAddSuggestedItem()}>
+                  {editingSuggestedItem 
+                    ? "Save Changes" 
+                    : (suggestedModalType === 'sample' ? "Add Sample Garment" : "Suggest Custom Garment")}
                 </PillButton>
               </div>
 

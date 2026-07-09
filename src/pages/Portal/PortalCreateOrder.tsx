@@ -220,6 +220,7 @@ export function PortalCreateOrder() {
   const [activeRackCategory, setActiveRackCategory] = useState('Athleisure');
   const [activeLibraryTab, setActiveLibraryTab] = useState('rack');
   const [suggestedItems, setSuggestedItems] = useState<any[]>([]);
+  const [sampleItems, setSampleItems] = useState<any[]>([]);
   const [pastGarments, setPastGarments] = useState<any[]>([]);
   const [customizingItem, setCustomizingItem] = useState<any | null>(null);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
@@ -779,6 +780,8 @@ export function PortalCreateOrder() {
           const isRackActive = deckIds.length > 0;
           setHasWovnRack(isRackActive);
           setSuggestedItems(customerData.suggestedItems || []);
+          const visibleSamples = (customerData.sampleItems || []).filter((item: any) => item.visible !== false);
+          setSampleItems(visibleSamples);
           
           const searchParams = new URLSearchParams(window.location.search);
           const tabParam = searchParams.get('tab');
@@ -787,6 +790,8 @@ export function PortalCreateOrder() {
           } else {
             if (customerData.suggestedItems && customerData.suggestedItems.length > 0) {
               setActiveLibraryTab('suggested');
+            } else if (visibleSamples.length > 0) {
+              setActiveLibraryTab('samples');
             } else if (categories.length > 0) {
               setActiveLibraryTab('rack');
             } else if (isRackActive) {
@@ -1402,6 +1407,19 @@ export function PortalCreateOrder() {
               Suggested ({suggestedItems.length})
             </button>
           )}
+          {sampleItems.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setActiveLibraryTab('samples')}
+              className={`text-sm font-bold pb-1.5 border-b-2 whitespace-nowrap transition-all cursor-pointer ${
+                activeLibraryTab === 'samples' 
+                  ? 'text-black border-black' 
+                  : 'text-neutral-450 hover:text-black hover:border-black border-transparent'
+              }`}
+            >
+              Sample Items ({sampleItems.length})
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setActiveLibraryTab('past')}
@@ -1586,6 +1604,56 @@ export function PortalCreateOrder() {
             ) : (
               suggestedItems.map((item: any, idx: number) => {
                 const style = item.style || item.title || 'Suggested Style';
+                const gender = item.gender || 'Unisex';
+                const itemNum = item.itemNum || item.style;
+                const colors = item.colors || ['Custom Color'];
+                const sizes = parseSizesFromItem(item, item.style || '');
+                const image = item.image || item.mockup_image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
+                const price = parseFloat(item.price || 0);
+
+                return (
+                  <div 
+                    key={item.id || idx} 
+                    onClick={() => handleAddItem({ ...item, style, gender, itemNum, colors, sizes, image, price })}
+                    className="group bg-white hover:bg-neutral-50/50 border border-neutral-200 hover:border-neutral-450 rounded-3xl p-5 flex flex-col items-center justify-between cursor-pointer transition-all hover:shadow-md relative"
+                  >
+                    <div 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setExpandedImage({ src: image, alt: style });
+                      }}
+                      className="w-full h-64 flex items-center justify-center mb-3 relative cursor-zoom-in"
+                      title="Click to expand mockup"
+                    >
+                      <img 
+                        src={image} 
+                        alt={style} 
+                        className="max-w-full max-h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300" 
+                      />
+                    </div>
+                    <div className="w-full flex flex-col items-center">
+                      <div className="flex items-center justify-center gap-2 mb-1 w-full">
+                        <h4 className="font-bold text-neutral-900 text-sm truncate max-w-[80%] text-center">{style}</h4>
+                        <span className="text-[9px] font-bold text-neutral-500 bg-neutral-100 px-2 py-0.5 rounded-full shrink-0">{gender}</span>
+                      </div>
+                      <p className="text-[10px] text-neutral-400 font-medium mt-1 truncate w-full text-center">{colors.join(' • ')}</p>
+                    </div>
+                    <span className="text-xs font-bold text-neutral-800 bg-neutral-100 group-hover:bg-black group-hover:text-white px-4 py-2 rounded-xl transition-all mt-4 w-full text-center">+ Add to Request</span>
+                  </div>
+                );
+              })
+            )
+          )}
+
+          {activeLibraryTab === 'samples' && (
+            sampleItems.length === 0 ? (
+              <div className="col-span-full flex flex-col items-center justify-center p-8 text-center text-neutral-500 min-h-[200px]">
+                <PackagePlus size={32} className="mb-4 text-neutral-300" />
+                <p>No sample items found.</p>
+              </div>
+            ) : (
+              sampleItems.map((item: any, idx: number) => {
+                const style = item.style || item.title || 'Sample Style';
                 const gender = item.gender || 'Unisex';
                 const itemNum = item.itemNum || item.style;
                 const colors = item.colors || ['Custom Color'];
