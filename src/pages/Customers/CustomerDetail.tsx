@@ -990,37 +990,60 @@ export function CustomerDetail() {
             <div>
               <div className="flex flex-col gap-3 border-b border-brand-border/60 pb-4 mb-4">
                 <div className="flex items-center justify-between">
-                  <div className="flex gap-4">
+                  <div className="flex gap-6 items-center">
                     <button
+                      type="button"
                       onClick={() => setActiveGarmentTab('suggested')}
-                      className={`font-serif text-2xl pb-1 border-b-2 transition-all cursor-pointer ${
+                      className={`flex items-center pb-2 text-sm font-bold transition-all border-b-2 cursor-pointer ${
                         activeGarmentTab === 'suggested'
-                          ? 'text-brand-primary border-brand-primary font-bold'
-                          : 'text-brand-secondary border-transparent hover:text-brand-primary'
+                          ? 'text-neutral-900 border-neutral-900'
+                          : 'text-neutral-400 border-transparent hover:text-neutral-700 hover:border-neutral-200'
                       }`}
                     >
-                      Suggested ({suggestedItems.length})
+                      <span>Suggested</span>
+                      <span className={`ml-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold transition-all ${
+                        activeGarmentTab === 'suggested'
+                          ? 'bg-neutral-900 text-white'
+                          : 'bg-neutral-100 text-neutral-500'
+                      }`}>
+                        {suggestedItems.length}
+                      </span>
                     </button>
                     <button
                       type="button"
                       onClick={() => setActiveGarmentTab('samples')}
-                      className={`font-serif text-2xl pb-1 border-b-2 transition-all cursor-pointer ${
+                      className={`flex items-center pb-2 text-sm font-bold transition-all border-b-2 cursor-pointer ${
                         activeGarmentTab === 'samples'
-                          ? 'text-brand-primary border-brand-primary font-bold'
-                          : 'text-brand-secondary border-transparent hover:text-brand-primary'
+                          ? 'text-neutral-900 border-neutral-900'
+                          : 'text-neutral-400 border-transparent hover:text-neutral-700 hover:border-neutral-200'
                       }`}
                     >
-                      Sample Items ({sampleItems.length})
+                      <span>Sample Items</span>
+                      <span className={`ml-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold transition-all ${
+                        activeGarmentTab === 'samples'
+                          ? 'bg-neutral-900 text-white'
+                          : 'bg-neutral-100 text-neutral-500'
+                      }`}>
+                        {sampleItems.length}
+                      </span>
                     </button>
                     <button
+                      type="button"
                       onClick={() => setActiveGarmentTab('past')}
-                      className={`font-serif text-2xl pb-1 border-b-2 transition-all cursor-pointer ${
+                      className={`flex items-center pb-2 text-sm font-bold transition-all border-b-2 cursor-pointer ${
                         activeGarmentTab === 'past'
-                          ? 'text-brand-primary border-brand-primary font-bold'
-                          : 'text-brand-secondary border-transparent hover:text-brand-primary'
+                          ? 'text-neutral-900 border-neutral-900'
+                          : 'text-neutral-400 border-transparent hover:text-neutral-700 hover:border-neutral-200'
                       }`}
                     >
-                      Past Ordered ({pastGarments.length})
+                      <span>Past Ordered</span>
+                      <span className={`ml-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold transition-all ${
+                        activeGarmentTab === 'past'
+                          ? 'bg-neutral-900 text-white'
+                          : 'bg-neutral-100 text-neutral-500'
+                      }`}>
+                        {pastGarments.length}
+                      </span>
                     </button>
                   </div>
                   {activeGarmentTab === 'suggested' && (
