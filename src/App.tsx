@@ -4,36 +4,54 @@ import { AppLayout } from './components/layout/AppLayout';
 import { PortalLayout } from './components/layout/PortalLayout';
 import { AuthProvider, useAuth, type PermissionKey } from './contexts/AuthContext';
 
-// Lazy-loaded page components
-const Dashboard = lazy(() => import('./pages/Dashboard/Dashboard').then(m => ({ default: m.Dashboard })));
-const Team = lazy(() => import('./pages/Team/Team').then(m => ({ default: m.Team })));
-const TeamMeetingsPage = lazy(() => import('./pages/Team/TeamMeetingsPage').then(m => ({ default: m.TeamMeetingsPage })));
-const OrdersList = lazy(() => import('./pages/Orders/OrdersList').then(m => ({ default: m.OrdersList })));
-const OrderDetail = lazy(() => import('./pages/Orders/OrderDetail').then(m => ({ default: m.OrderDetail })));
-const CustomersList = lazy(() => import('./pages/Customers/CustomersList').then(m => ({ default: m.CustomersList })));
-const CustomerDetail = lazy(() => import('./pages/Customers/CustomerDetail').then(m => ({ default: m.CustomerDetail })));
-const Login = lazy(() => import('./pages/Auth/Login').then(m => ({ default: m.Login })));
-const PortalOrders = lazy(() => import('./pages/Portal/PortalOrders').then(m => ({ default: m.PortalOrders })));
-const PortalCreateOrder = lazy(() => import('./pages/Portal/PortalCreateOrder').then(m => ({ default: m.PortalCreateOrder })));
-const PortalRequestQuote = lazy(() => import('./pages/Portal/PortalRequestQuote').then(m => ({ default: m.PortalRequestQuote })));
-const PortalAssetVault = lazy(() => import('./pages/Portal/PortalAssetVault').then(m => ({ default: m.PortalAssetVault })));
-const PortalRoster = lazy(() => import('./pages/Portal/PortalRoster').then(m => ({ default: m.PortalRoster })));
-const SeedData = lazy(() => import('./pages/Seed').then(m => ({ default: m.SeedData })));
-const Settings = lazy(() => import('./pages/Settings/Settings').then(m => ({ default: m.Settings })));
-const WaitingRoom = lazy(() => import('./pages/Auth/WaitingRoom').then(m => ({ default: m.WaitingRoom })));
-const PackingSlipView = lazy(() => import('./pages/Public/PackingSlipView').then(m => ({ default: m.PackingSlipView })));
-const OrderSummaryView = lazy(() => import('./pages/Public/OrderSummaryView').then(m => ({ default: m.OrderSummaryView })));
-const PrintLabel = lazy(() => import('./pages/Print/PrintLabel').then(m => ({ default: m.PrintLabel })));
-const PrintLabelsSheet = lazy(() => import('./pages/Print/PrintLabelsSheet').then(m => ({ default: m.PrintLabelsSheet })));
-const PrintCourierLabel = lazy(() => import('./pages/Print/PrintCourierLabel').then(m => ({ default: m.PrintCourierLabel })));
-const PrintItemLabels = lazy(() => import('./pages/Print/PrintItemLabels').then(m => ({ default: m.PrintItemLabels })));
-const PublicQuoteRequest = lazy(() => import('./pages/Public/PublicQuoteRequest').then(m => ({ default: m.PublicQuoteRequest })));
-const InvoiceView = lazy(() => import('./pages/Public/InvoiceView').then(m => ({ default: m.InvoiceView })));
-const SmsConsent = lazy(() => import('./pages/Public/SmsConsent').then(m => ({ default: m.SmsConsent })));
-const Inventory = lazy(() => import('./pages/Inventory/Inventory').then(m => ({ default: m.Inventory })));
-const InventoryScan = lazy(() => import('./pages/Inventory/InventoryScan').then(m => ({ default: m.InventoryScan })));
-const MobileUpload = lazy(() => import('./pages/MobileUpload/MobileUpload').then(m => ({ default: m.MobileUpload })));
-const ImmersiveLandingPage = lazy(() => import('./pages/Public/Landing/ImmersiveLandingPage').then(m => ({ default: m.ImmersiveLandingPage })));
+// Helper to automatically reload the page if a dynamically imported bundle fails to fetch (e.g. after a redeployment)
+const safeLazy = (importFunc: () => Promise<any>) => {
+  return lazy(async () => {
+    try {
+      return await importFunc();
+    } catch (error) {
+      console.error("Failed to load chunk, forcing reload:", error);
+      const lastReload = localStorage.getItem('last_chunk_reload');
+      const now = Date.now();
+      if (!lastReload || now - parseInt(lastReload, 10) > 15000) {
+        localStorage.setItem('last_chunk_reload', String(now));
+        window.location.reload();
+      }
+      throw error;
+    }
+  });
+};
+
+// Lazy-loaded page components wrapped with safeLazy
+const Dashboard = safeLazy(() => import('./pages/Dashboard/Dashboard').then(m => ({ default: m.Dashboard })));
+const Team = safeLazy(() => import('./pages/Team/Team').then(m => ({ default: m.Team })));
+const TeamMeetingsPage = safeLazy(() => import('./pages/Team/TeamMeetingsPage').then(m => ({ default: m.TeamMeetingsPage })));
+const OrdersList = safeLazy(() => import('./pages/Orders/OrdersList').then(m => ({ default: m.OrdersList })));
+const OrderDetail = safeLazy(() => import('./pages/Orders/OrderDetail').then(m => ({ default: m.OrderDetail })));
+const CustomersList = safeLazy(() => import('./pages/Customers/CustomersList').then(m => ({ default: m.CustomersList })));
+const CustomerDetail = safeLazy(() => import('./pages/Customers/CustomerDetail').then(m => ({ default: m.CustomerDetail })));
+const Login = safeLazy(() => import('./pages/Auth/Login').then(m => ({ default: m.Login })));
+const PortalOrders = safeLazy(() => import('./pages/Portal/PortalOrders').then(m => ({ default: m.PortalOrders })));
+const PortalCreateOrder = safeLazy(() => import('./pages/Portal/PortalCreateOrder').then(m => ({ default: m.PortalCreateOrder })));
+const PortalRequestQuote = safeLazy(() => import('./pages/Portal/PortalRequestQuote').then(m => ({ default: m.PortalRequestQuote })));
+const PortalAssetVault = safeLazy(() => import('./pages/Portal/PortalAssetVault').then(m => ({ default: m.PortalAssetVault })));
+const PortalRoster = safeLazy(() => import('./pages/Portal/PortalRoster').then(m => ({ default: m.PortalRoster })));
+const SeedData = safeLazy(() => import('./pages/Seed').then(m => ({ default: m.SeedData })));
+const Settings = safeLazy(() => import('./pages/Settings/Settings').then(m => ({ default: m.Settings })));
+const WaitingRoom = safeLazy(() => import('./pages/Auth/WaitingRoom').then(m => ({ default: m.WaitingRoom })));
+const PackingSlipView = safeLazy(() => import('./pages/Public/PackingSlipView').then(m => ({ default: m.PackingSlipView })));
+const OrderSummaryView = safeLazy(() => import('./pages/Public/OrderSummaryView').then(m => ({ default: m.OrderSummaryView })));
+const PrintLabel = safeLazy(() => import('./pages/Print/PrintLabel').then(m => ({ default: m.PrintLabel })));
+const PrintLabelsSheet = safeLazy(() => import('./pages/Print/PrintLabelsSheet').then(m => ({ default: m.PrintLabelsSheet })));
+const PrintCourierLabel = safeLazy(() => import('./pages/Print/PrintCourierLabel').then(m => ({ default: m.PrintCourierLabel })));
+const PrintItemLabels = safeLazy(() => import('./pages/Print/PrintItemLabels').then(m => ({ default: m.PrintItemLabels })));
+const PublicQuoteRequest = safeLazy(() => import('./pages/Public/PublicQuoteRequest').then(m => ({ default: m.PublicQuoteRequest })));
+const InvoiceView = safeLazy(() => import('./pages/Public/InvoiceView').then(m => ({ default: m.InvoiceView })));
+const SmsConsent = safeLazy(() => import('./pages/Public/SmsConsent').then(m => ({ default: m.SmsConsent })));
+const Inventory = safeLazy(() => import('./pages/Inventory/Inventory').then(m => ({ default: m.Inventory })));
+const InventoryScan = safeLazy(() => import('./pages/Inventory/InventoryScan').then(m => ({ default: m.InventoryScan })));
+const MobileUpload = safeLazy(() => import('./pages/MobileUpload/MobileUpload').then(m => ({ default: m.MobileUpload })));
+const ImmersiveLandingPage = safeLazy(() => import('./pages/Public/Landing/ImmersiveLandingPage').then(m => ({ default: m.ImmersiveLandingPage })));
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, userData, loading } = useAuth();
