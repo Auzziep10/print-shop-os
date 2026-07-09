@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
-import { Loader2, Save, Search, Check, Info, Crosshair, X, Trash2 } from 'lucide-react';
+import { Loader2, Save, Search, Check, Info, Crosshair, X, Trash2, Plus, Edit2 } from 'lucide-react';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
@@ -448,6 +448,110 @@ export function StorefrontCatalogTab() {
     setActiveSelectTarget(null);
   };
 
+  const handleAddTheme = () => {
+    const themeName = prompt("Enter a name for the new theme/collection:");
+    if (!themeName) return;
+    
+    const cleanName = themeName.trim();
+    if (!cleanName) {
+      alert("Theme name cannot be empty.");
+      return;
+    }
+    
+    if (racks[cleanName]) {
+      alert("A theme with this name already exists.");
+      return;
+    }
+
+    // Copy current active theme slots to initialize the new theme
+    const currentSlots = racks[activeRackCategory] || {
+      hat: 'STC70',
+      shirt: 'BC3001',
+      polo: 'ST640',
+      crewneck: 'DT1304',
+      hoodie: 'BC3719',
+      longsleeve: 'BC3501'
+    };
+
+    setRacks(prev => ({
+      ...prev,
+      [cleanName]: { ...currentSlots }
+    }));
+    setActiveRackCategory(cleanName);
+  };
+
+  const handleRenameTheme = () => {
+    const newName = prompt(`Enter a new name for the theme "${activeRackCategory}":`, activeRackCategory);
+    if (!newName) return;
+
+    const cleanNewName = newName.trim();
+    if (!cleanNewName || cleanNewName === activeRackCategory) return;
+
+    if (racks[cleanNewName]) {
+      alert("A theme with this name already exists.");
+      return;
+    }
+
+    const currentSlots = racks[activeRackCategory];
+    const newRacks = { ...racks };
+    delete newRacks[activeRackCategory];
+    newRacks[cleanNewName] = currentSlots;
+
+    // We also need to copy/rename customNames, customSpecs, defaultColors, and logoPlacements if they exist!
+    const newCustomNames = { ...customNames };
+    if (newCustomNames.racks?.[activeRackCategory]) {
+      newCustomNames.racks[cleanNewName] = newCustomNames.racks[activeRackCategory];
+      delete newCustomNames.racks[activeRackCategory];
+    }
+
+    const newCustomSpecs = { ...customSpecs };
+    if (newCustomSpecs.racks?.[activeRackCategory]) {
+      newCustomSpecs.racks[cleanNewName] = newCustomSpecs.racks[activeRackCategory];
+      delete newCustomSpecs.racks[activeRackCategory];
+    }
+
+    const newDefaultColors = { ...defaultColors };
+    if (newDefaultColors.racks?.[activeRackCategory]) {
+      newDefaultColors.racks[cleanNewName] = newDefaultColors.racks[activeRackCategory];
+      delete newDefaultColors.racks[activeRackCategory];
+    }
+
+    const newLogoPlacements = { ...logoPlacements };
+    if (newLogoPlacements.racks?.[activeRackCategory]) {
+      newLogoPlacements.racks[cleanNewName] = newLogoPlacements.racks[activeRackCategory];
+      delete newLogoPlacements.racks[activeRackCategory];
+    }
+
+    setRacks(newRacks);
+    setCustomNames(newCustomNames);
+    setCustomSpecs(newCustomSpecs);
+    setDefaultColors(newDefaultColors);
+    setLogoPlacements(newLogoPlacements);
+    setActiveRackCategory(cleanNewName);
+  };
+
+  const handleDeleteTheme = () => {
+    const keys = Object.keys(racks);
+    if (keys.length <= 1) {
+      alert("You must keep at least one theme collection.");
+      return;
+    }
+
+    if (!confirm(`Are you sure you want to delete the theme "${activeRackCategory}"?`)) {
+      return;
+    }
+
+    const newRacks = { ...racks };
+    delete newRacks[activeRackCategory];
+
+    // Find new active category
+    const remainingKeys = Object.keys(newRacks);
+    const newActive = remainingKeys[0];
+
+    setRacks(newRacks);
+    setActiveRackCategory(newActive);
+  };
+
   const handleApplyPlacement = (box: LogoBox) => {
     if (!placementTarget) return;
     const { mode, category, slot } = placementTarget;
@@ -573,17 +677,50 @@ export function StorefrontCatalogTab() {
       {/* Rack Collections Manager */}
       {activeSubMode === 'racks' && (
         <div className="space-y-6 animate-in fade-in duration-200">
-          <div className="flex items-center gap-4">
-            <span className="text-xs font-bold text-neutral-500 uppercase tracking-widest">Select Collection:</span>
-            <select
-              value={activeRackCategory}
-              onChange={(e) => setActiveRackCategory(e.target.value)}
-              className="bg-white border border-brand-border rounded-xl px-3 py-2 text-xs font-bold text-brand-primary focus:outline-none"
-            >
-              {Object.keys(racks).map(cat => (
-                <option key={cat} value={cat}>{cat}</option>
-              ))}
-            </select>
+          <div className="flex items-center gap-4 flex-wrap">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-neutral-500 uppercase tracking-widest">Select Collection:</span>
+              <select
+                value={activeRackCategory}
+                onChange={(e) => setActiveRackCategory(e.target.value)}
+                className="bg-white border border-brand-border rounded-xl px-3 py-2 text-xs font-bold text-brand-primary focus:outline-none cursor-pointer"
+              >
+                {Object.keys(racks).map(cat => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleAddTheme}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-100 hover:bg-neutral-200 border border-brand-border rounded-lg text-xs font-bold text-brand-primary transition-all cursor-pointer animate-in fade-in duration-150"
+                title="Add a new theme/collection"
+              >
+                <Plus size={12} className="text-neutral-505" />
+                <span>Add Theme</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleRenameTheme}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-100 hover:bg-neutral-200 border border-brand-border rounded-lg text-xs font-bold text-brand-primary transition-all cursor-pointer animate-in fade-in duration-150"
+                title="Rename currently selected theme"
+              >
+                <Edit2 size={12} className="text-neutral-505" />
+                <span>Rename</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteTheme}
+                disabled={Object.keys(racks).length <= 1}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 hover:bg-red-100 border border-red-200 disabled:opacity-40 disabled:pointer-events-none rounded-lg text-xs font-bold text-red-700 transition-all cursor-pointer animate-in fade-in duration-150"
+                title="Delete currently selected theme"
+              >
+                <Trash2 size={12} />
+                <span>Delete</span>
+              </button>
+            </div>
           </div>
 
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex gap-3 text-amber-800 text-xs">
