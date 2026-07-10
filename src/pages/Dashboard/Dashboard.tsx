@@ -50,23 +50,23 @@ export function Dashboard() {
   const printQueueItems = useMemo(() => {
     const list: any[] = [];
     orders.forEach((order: any) => {
-      const hasGangSheets = (order.items || []).some((item: any) => item.itemType === 'gang_sheet');
-      if (hasGangSheets) {
-        order.items.forEach((item: any) => {
-          if (item.itemType === 'gang_sheet') {
-            list.push({
-              ...item,
-              orderId: order.id,
-              orderTitle: order.title,
-              orderPortalId: order.portalId,
-              orderCustomerId: order.customerId,
-              orderPriority: order.priority,
-              orderShipDate: order.shipDate,
-              orderStatusIndex: order.statusIndex
-            });
-          }
-        });
-      }
+      (order.items || []).forEach((item: any) => {
+        const isGangSheet = item.itemType === 'gang_sheet';
+        const isCustomGarment = item.itemType === 'garment' && item.printReadyUrl;
+        
+        if (isGangSheet || isCustomGarment) {
+          list.push({
+            ...item,
+            orderId: order.id,
+            orderTitle: order.title,
+            orderPortalId: order.portalId,
+            orderCustomerId: order.customerId,
+            orderPriority: order.priority,
+            orderShipDate: order.shipDate,
+            orderStatusIndex: order.statusIndex
+          });
+        }
+      });
     });
     return list;
   }, [orders]);
@@ -923,7 +923,7 @@ export function Dashboard() {
                         </div>
                         <h4 className="font-semibold text-brand-primary text-sm line-clamp-1">{item.orderTitle}</h4>
                         <p className="text-[11px] font-semibold text-neutral-400 mt-1">
-                          {item.style || 'DTF Gang Sheet'} • {item.sheetWidth}" x {item.sheetHeight}" • {item.quantity} {item.quantity === 1 ? 'Sheet' : 'Sheets'}
+                          {item.style || 'DTF Gang Sheet'} • {item.sheetWidth || 22}" x {item.sheetHeight || 24}" • {item.quantity || item.qty || 1} { (item.quantity || item.qty || 1) === 1 ? 'Sheet' : 'Sheets' }
                         </p>
                       </div>
 

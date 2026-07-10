@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { db, storage } from '../../lib/firebase';
-import { Upload, Trash2, Loader2, FileText, Image as ImageIcon, ArrowLeft, Plus, X, Edit2, Check, Eraser, Undo, ZoomIn, ZoomOut, RotateCw, Palette, Crop } from 'lucide-react';
+import { Upload, Trash2, Loader2, FileText, Image as ImageIcon, ArrowLeft, Plus, X, Edit2, Check, Eraser, Undo, ZoomIn, ZoomOut, RotateCw, Palette, Crop, GripVertical, Folder, FolderPlus, ChevronRight } from 'lucide-react';
 import Cropper from 'react-easy-crop';
 import { getCroppedImg } from '../../lib/cropUtils';
 
@@ -28,6 +28,169 @@ export function PortalAssetVault() {
   const [croppingAssetUrl, setCroppingAssetUrl] = useState<string | null>(null);
   const [recolorColor, setRecolorColor] = useState('#000000');
   const [isRecoloring, setIsRecoloring] = useState(false);
+
+  // Drag and drop sorting states & handlers
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    if (draggedIndex === null || draggedIndex === index) return;
+    
+    // Swap items locally for real-time visual sorting feedback
+    const updated = [...assets];
+    const draggedItem = updated[draggedIndex];
+    updated.splice(draggedIndex, 1);
+    updated.splice(index, 0, draggedItem);
+    
+    setAssets(updated);
+    setDraggedIndex(index);
+  };
+
+  const handleDragEnd = async () => {
+    setDraggedIndex(null);
+    try {
+      await updateDoc(doc(db, 'customers', currentCustomerId), {
+        assets: assets
+      });
+    } catch (err) {
+      console.error("Failed to save sorted assets:", err);
+    }
+  };
+
+  // Folder states & handlers
+  const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
+  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
+
+  const handleCreateFolder = async () => {
+    if (!newFolderName.trim()) return;
+    setIsCreatingFolder(false);
+    
+    const folderId = `folder-${Date.now()}`;
+    const newFolder = {
+      id: folderId,
+      name: newFolderName.trim(),
+      type: 'folder',
+      uploadedAt: new Date().toISOString()
+    };
+    
+    const updated = [...assets, newFolder];
+    setAssets(updated);
+    setNewFolderName('');
+    
+    try {
+      await updateDoc(doc(db, 'customers', currentCustomerId), {
+        assets: updated
+      });
+    } catch (err) {
+      console.error("Failed to create folder:", err);
+      alert("Failed to create folder.");
+    }
+  };
+
+  const handleDropOnFolder = async (e: React.DragEvent, folderId: string) => {
+    e.preventDefault();
+    const draggedIdxStr = e.dataTransfer.getData('text/plain');
+    if (draggedIdxStr === '') return;
+    const dragIdx = parseInt(draggedIdxStr);
+    if (isNaN(dragIdx) || dragIdx < 0 || dragIdx >= assets.length) return;
+    
+    const draggedAsset = assets[dragIdx];
+    if (draggedAsset.type === 'folder') return; // Do not support folders inside folders
+    
+    const updated = assets.map((a, idx) => {
+      if (idx === dragIdx) {
+        return { ...a, folderId };
+      }
+      return a;
+    });
+    
+    setAssets(updated);
+    
+    try {
+      await updateDoc(doc(db, 'customers', currentCustomerId), {
+        assets: updated
+      });
+    } catch (err) {
+      console.error("Failed to move asset to folder:", err);
+    }
+  };
+
+  const handleDeleteFolder = async (folderId: string) => {
+    if (!window.confirm("Are you sure you want to delete this folder? The logos inside will be moved back to the root folder.")) return;
+    
+    const updated = assets
+      .filter(a => a.id !== folderId)
+      .map(a => {
+        if (a.folderId === folderId) {
+          const { folderId: _, ...rest } = a;
+          return rest;
+        }
+        return a;
+      });
+      
+    setAssets(updated);
+    if (activeFolderId === folderId) {
+      setActiveFolderId(null);
+    }
+    
+    try {
+      await updateDoc(doc(db, 'customers', currentCustomerId), {
+        assets: updated
+      });
+    } catch (err) {
+      console.error("Failed to delete folder:", err);
+      alert("Failed to delete folder.");
+    }
+  };
+
+  const handleMoveAssetFolder = async (assetId: string, folderId: string | null) => {
+    const updated = assets.map(a => {
+      if (a.id === assetId) {
+        if (folderId === null) {
+          const { folderId: _, ...rest } = a;
+          return rest;
+        }
+        return { ...a, folderId };
+      }
+      return a;
+    });
+    setAssets(updated);
+    if (selectedAsset && selectedAsset.id === assetId) {
+      setSelectedAsset((prev: any) => {
+        if (!prev) return null;
+        if (folderId === null) {
+          const { folderId: _, ...rest } = prev;
+          return rest;
+        }
+        return { ...prev, folderId };
+      });
+    }
+    
+    try {
+      await updateDoc(doc(db, 'customers', currentCustomerId), {
+        assets: updated
+      });
+    } catch (err) {
+      console.error("Failed to move asset folder:", err);
+      alert("Failed to move asset folder.");
+    }
+  };
+
+  const visibleAssets = useMemo(() => {
+    if (activeFolderId === null) {
+      // In root, we show all folders AND all assets that are not inside any folder
+      return assets.filter(a => a.type === 'folder' || !a.folderId);
+    } else {
+      // Inside a folder, we show all assets that belong to this folder
+      return assets.filter(a => a.folderId === activeFolderId);
+    }
+  }, [assets, activeFolderId]);
 
   useEffect(() => {
     const fetchCustomer = async () => {
@@ -290,8 +453,8 @@ export function PortalAssetVault() {
     return ext === 'pdf';
   };
 
-  const isPreviewable = (name: string) => {
-    return isImageFile(name) || isPdfFile(name);
+  const isPreviewable = (name: string, type?: string) => {
+    return isImageFile(name) || isPdfFile(name) || type === 'tag_design';
   };
 
   if (isLoading) {
@@ -326,50 +489,249 @@ export function PortalAssetVault() {
           </p>
         </div>
         
-        <label 
-          data-tour="vault-upload-btn"
-          className="bg-black text-white px-6 py-3.5 rounded-full text-[13px] font-bold tracking-wide hover:bg-neutral-800 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-md flex items-center gap-2 cursor-pointer"
-        >
-          <input type="file" multiple className="hidden" onChange={handleFileUpload} accept="image/*,application/pdf,.ai,.eps,.psd,.cdr,.zip" />
-          {isUploading ? (
-            <Loader2 className="animate-spin" size={16} />
+        <div className="flex items-center gap-3 shrink-0">
+          {isCreatingFolder ? (
+            <div className="flex items-center gap-2 bg-white border border-neutral-300 rounded-full pl-4 pr-1 py-1.5 shadow-sm">
+              <input
+                type="text"
+                placeholder="Folder name..."
+                value={newFolderName}
+                onChange={(e) => setNewFolderName(e.target.value)}
+                className="text-xs font-semibold focus:outline-none w-36 bg-transparent text-neutral-900"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleCreateFolder();
+                  if (e.key === 'Escape') setIsCreatingFolder(false);
+                }}
+                autoFocus
+              />
+              <button
+                onClick={handleCreateFolder}
+                className="bg-black text-white hover:bg-neutral-800 px-3 py-1.5 rounded-full text-[11px] font-bold transition-all cursor-pointer"
+              >
+                Create
+              </button>
+              <button
+                onClick={() => setIsCreatingFolder(false)}
+                className="text-neutral-500 hover:text-black p-1.5 rounded-full transition-all cursor-pointer"
+              >
+                <X size={14} />
+              </button>
+            </div>
           ) : (
-            <Plus size={16} />
+            <button
+              onClick={() => setIsCreatingFolder(true)}
+              className="bg-white hover:bg-neutral-50 text-neutral-800 border border-neutral-300 px-5 py-3.5 rounded-full text-[13px] font-bold tracking-wide hover:scale-[1.02] active:scale-[0.98] transition-all shadow-sm flex items-center gap-2 cursor-pointer"
+            >
+              <FolderPlus size={16} />
+              New Folder
+            </button>
           )}
-          {isUploading ? "Uploading..." : "Upload New Asset"}
-        </label>
+
+          <label 
+            data-tour="vault-upload-btn"
+            className="bg-black text-white px-6 py-3.5 rounded-full text-[13px] font-bold tracking-wide hover:bg-neutral-800 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-md flex items-center gap-2 cursor-pointer"
+          >
+            <input type="file" multiple className="hidden" onChange={handleFileUpload} accept="image/*,application/pdf,.ai,.eps,.psd,.cdr,.zip" />
+            {isUploading ? (
+              <Loader2 className="animate-spin" size={16} />
+            ) : (
+              <Plus size={16} />
+            )}
+            {isUploading ? "Uploading..." : "Upload New Asset"}
+          </label>
+        </div>
       </div>
 
-      {assets.length === 0 ? (
+      {activeFolderId !== null && (
+        <div className="flex items-center gap-2 text-sm font-bold text-neutral-600 bg-neutral-100/60 border border-neutral-200/60 px-4 py-2.5 rounded-2xl w-fit -mt-2">
+          <button 
+            onClick={() => setActiveFolderId(null)}
+            className="hover:text-black transition-colors cursor-pointer"
+          >
+            Root
+          </button>
+          <ChevronRight size={14} className="text-neutral-400" />
+          <span className="text-neutral-900 font-extrabold">
+            {assets.find(a => a.id === activeFolderId)?.name || 'Folder'}
+          </span>
+        </div>
+      )}
+
+      {visibleAssets.length === 0 ? (
         <div className="bg-white rounded-3xl p-12 shadow-[0_4px_24px_rgb(0,0,0,0.02)] border border-neutral-100 flex flex-col items-center justify-center min-h-[350px] text-center gap-4">
-          <div className="w-16 h-16 bg-neutral-100 rounded-full flex items-center justify-center text-neutral-400">
-            <Upload size={28} strokeWidth={1.5} />
+          <div className="w-16 h-16 bg-neutral-100 rounded-full flex items-center justify-center text-neutral-450">
+            {activeFolderId !== null ? <Folder size={28} strokeWidth={1.5} /> : <Upload size={28} strokeWidth={1.5} />}
           </div>
           <div>
-            <h3 className="text-lg font-bold text-neutral-900 mb-1">Your vault is empty</h3>
+            <h3 className="text-lg font-bold text-neutral-900 mb-1">
+              {activeFolderId !== null ? "This folder is empty" : "Your vault is empty"}
+            </h3>
             <p className="text-neutral-500 text-sm max-w-xs mx-auto">
-              Upload files like logos, brand assets, and custom artworks so they're saved for your future orders.
+              {activeFolderId !== null 
+                ? "Drag assets onto this folder in the Root directory or upload new designs inside here to organize your vault."
+                : "Upload files like logos, brand assets, and custom artworks so they're saved for your future orders."}
             </p>
           </div>
-          <label className="mt-2 bg-[#f0ebe1] text-neutral-900 border border-[#e6e2db] px-8 py-3.5 rounded-full text-[13px] font-bold tracking-wide hover:bg-[#e6e2db] hover:scale-[1.02] active:scale-[0.98] transition-all shadow-sm flex items-center gap-2 cursor-pointer">
-            <input type="file" multiple className="hidden" onChange={handleFileUpload} accept="image/*,application/pdf,.ai,.eps,.psd,.cdr,.zip" />
-            <Upload size={14} /> Upload First File
-          </label>
+          {activeFolderId !== null ? (
+            <button
+              onClick={() => setActiveFolderId(null)}
+              className="mt-2 bg-[#f0ebe1] text-neutral-900 border border-[#e6e2db] px-8 py-3.5 rounded-full text-[13px] font-bold tracking-wide hover:bg-[#e6e2db] hover:scale-[1.02] active:scale-[0.98] transition-all shadow-sm cursor-pointer"
+            >
+              Back to Root
+            </button>
+          ) : (
+            <label className="mt-2 bg-[#f0ebe1] text-neutral-900 border border-[#e6e2db] px-8 py-3.5 rounded-full text-[13px] font-bold tracking-wide hover:bg-[#e6e2db] hover:scale-[1.02] active:scale-[0.98] transition-all shadow-sm flex items-center gap-2 cursor-pointer">
+              <input type="file" multiple className="hidden" onChange={handleFileUpload} accept="image/*,application/pdf,.ai,.eps,.psd,.cdr,.zip" />
+              <Upload size={14} /> Upload First File
+            </label>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mt-4">
-          {assets.map((asset) => (
+          {/* Back button card if inside a folder */}
+          {activeFolderId !== null && (
             <div 
-              key={asset.id} 
-              className="bg-white rounded-3xl border border-neutral-200/60 shadow-[0_4px_16px_rgb(0,0,0,0.01)] hover:shadow-md hover:border-black/20 transition-all p-5 flex flex-col justify-between min-h-[220px] relative group"
+              onClick={() => setActiveFolderId(null)}
+              className="bg-neutral-50 hover:bg-neutral-100/60 rounded-3xl border border-dashed border-neutral-300 shadow-inner p-5 flex flex-col items-center justify-center min-h-[220px] cursor-pointer group hover:border-black/30 transition-all gap-3"
             >
+              <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center text-neutral-450 group-hover:scale-105 transition-transform border border-neutral-200 shadow-sm">
+                <ArrowLeft size={20} strokeWidth={2.5} />
+              </div>
+              <span className="text-xs font-bold text-neutral-600 group-hover:text-black">Back to Root</span>
+            </div>
+          )}
+
+          {visibleAssets.map((asset, index) => {
+            const isFolder = asset.type === 'folder';
+            
+            if (isFolder) {
+              const contentsCount = assets.filter(a => a.folderId === asset.id).length;
+              return (
+                <div 
+                  key={asset.id} 
+                  draggable={editingAssetId === null}
+                  onDragStart={(e) => handleDragStart(e, index)}
+                  onDragOver={(e) => handleDragOver(e, index)}
+                  onDragEnd={handleDragEnd}
+                  onDragEnter={(e) => e.preventDefault()}
+                  onDrop={(e) => handleDropOnFolder(e, asset.id)}
+                  onClick={() => setActiveFolderId(asset.id)}
+                  className={`bg-white rounded-3xl border transition-all p-5 flex flex-col justify-between min-h-[220px] relative group hover:shadow-md hover:border-black/20 cursor-pointer ${
+                    draggedIndex === index 
+                      ? 'opacity-40 border-black/40 scale-[0.98] rotate-1 shadow-inner bg-neutral-50/50' 
+                      : 'border-neutral-200/60 shadow-[0_4px_16px_rgb(0,0,0,0.01)]'
+                  }`}
+                >
+                  {/* Drag handle icon */}
+                  {editingAssetId === null && (
+                    <div className="absolute top-4.5 left-4.5 opacity-0 group-hover:opacity-40 transition-opacity cursor-grab z-10 pointer-events-none text-neutral-800">
+                      <GripVertical size={13} strokeWidth={2.5} />
+                    </div>
+                  )}
+
+                  <div className="flex-1 flex flex-col justify-center items-center gap-4 text-center mt-2">
+                    <div className="w-16 h-16 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-500 border border-amber-100 group-hover:scale-105 transition-all shadow-sm">
+                      <Folder size={32} strokeWidth={2} className="fill-amber-400/20" />
+                    </div>
+                    <div className="px-1 min-w-0 w-full">
+                      {editingAssetId === asset.id ? (
+                        <div className="flex items-center gap-1.5 mt-1 w-full" onClick={(e) => e.stopPropagation()}>
+                          <input 
+                            type="text" 
+                            value={editingAssetName} 
+                            onChange={(e) => setEditingAssetName(e.target.value)}
+                            className="flex-1 min-w-0 px-2 py-1 text-xs bg-neutral-50 border border-black/20 rounded-md focus:outline-none focus:border-black/50 font-medium text-neutral-900"
+                            autoFocus
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleSaveRename(asset.id);
+                              if (e.key === 'Escape') setEditingAssetId(null);
+                            }}
+                          />
+                          <button 
+                            onClick={() => handleSaveRename(asset.id)}
+                            className="p-1 hover:bg-neutral-100 rounded text-green-600 hover:text-green-700 transition-colors shrink-0 cursor-pointer"
+                            title="Save name"
+                          >
+                            <Check size={14} strokeWidth={2.5} />
+                          </button>
+                          <button 
+                            onClick={() => setEditingAssetId(null)}
+                            className="p-1 hover:bg-neutral-100 rounded text-red-600 hover:text-red-700 transition-colors shrink-0 cursor-pointer"
+                            title="Cancel"
+                          >
+                            <X size={14} strokeWidth={2.5} />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col gap-1">
+                          <h3 className="font-extrabold text-neutral-800 text-sm truncate px-4">
+                            {asset.name}
+                          </h3>
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 bg-neutral-50 border border-neutral-100 px-2.5 py-0.5 rounded-full w-fit mx-auto shadow-sm">
+                            {contentsCount} {contentsCount === 1 ? 'logo' : 'logos'}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Actions Footer */}
+                  {editingAssetId !== asset.id && (
+                    <div className="flex justify-end items-center gap-1 pt-3 border-t border-neutral-100 mt-2">
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingAssetId(asset.id);
+                          setEditingAssetName(asset.name);
+                        }}
+                        className="p-2 text-neutral-450 hover:text-neutral-900 hover:bg-neutral-100 rounded-full transition-colors cursor-pointer"
+                        title="Rename Folder"
+                      >
+                        <Edit2 size={13} />
+                      </button>
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteFolder(asset.id);
+                        }}
+                        className="p-2 text-red-450 hover:text-red-650 hover:bg-red-50 rounded-full transition-colors cursor-pointer"
+                        title="Delete Folder"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
+            return (
+              <div 
+                key={asset.id} 
+                draggable={editingAssetId === null}
+                onDragStart={(e) => handleDragStart(e, index)}
+                onDragOver={(e) => handleDragOver(e, index)}
+                onDragEnd={handleDragEnd}
+                className={`bg-white rounded-3xl border transition-all p-5 flex flex-col justify-between min-h-[220px] relative group ${
+                  draggedIndex === index 
+                    ? 'opacity-40 border-black/40 scale-[0.98] rotate-1 shadow-inner bg-neutral-50/50' 
+                    : 'border-neutral-200/60 shadow-[0_4px_16px_rgb(0,0,0,0.01)] hover:shadow-md hover:border-black/20 cursor-grab active:cursor-grabbing'
+                }`}
+              >
+              {/* Drag handle icon */}
+              {editingAssetId === null && (
+                <div className="absolute top-4.5 left-4.5 opacity-0 group-hover:opacity-40 transition-opacity cursor-grab z-10 pointer-events-none text-neutral-800">
+                  <GripVertical size={13} strokeWidth={2.5} />
+                </div>
+              )}
+
               {/* Card Top: Preview or Icon */}
               <div className="flex-1 flex flex-col gap-4">
-                <div 
-                  onClick={() => isPreviewable(asset.name) && setSelectedAsset(asset)}
-                  className={`w-full h-32 bg-checkerboard rounded-2xl overflow-hidden border border-neutral-100 flex items-center justify-center p-2 relative shadow-inner ${isPreviewable(asset.name) ? 'cursor-zoom-in' : ''}`}
+                 <div 
+                  onClick={() => isPreviewable(asset.name, asset.type) && setSelectedAsset(asset)}
+                  className={`w-full h-32 bg-checkerboard rounded-2xl overflow-hidden border border-neutral-100 flex items-center justify-center p-2 relative shadow-inner ${isPreviewable(asset.name, asset.type) ? 'cursor-zoom-in' : ''}`}
                 >
-                  {isImageFile(asset.name) ? (
+                  {isImageFile(asset.name) || asset.type === 'tag_design' ? (
                     <img 
                       src={asset.url} 
                       alt={asset.name} 
@@ -476,7 +838,8 @@ export function PortalAssetVault() {
                 </button>
               </div>
             </div>
-          ))}
+          );
+        })}
         </div>
       )}
 
@@ -559,6 +922,23 @@ export function PortalAssetVault() {
                   <Eraser size={10} />
                   <span>Erase Background</span>
                 </button>
+              )}
+
+              {/* Move to Folder Selection */}
+              {selectedAsset.type !== 'folder' && (
+                <div className="bg-neutral-800/80 border border-neutral-700/50 rounded-full p-1 pl-3 pr-2 flex items-center gap-2">
+                  <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Folder:</span>
+                  <select
+                    value={selectedAsset.folderId || ''}
+                    onChange={(e) => handleMoveAssetFolder(selectedAsset.id, e.target.value || null)}
+                    className="bg-neutral-900 text-white text-[10px] font-bold uppercase tracking-wider border-0 rounded-full px-2.5 py-1 focus:ring-1 focus:ring-white outline-none cursor-pointer"
+                  >
+                    <option value="">Root / Unassigned</option>
+                    {assets.filter(a => a.type === 'folder').map(f => (
+                      <option key={f.id} value={f.id}>{f.name}</option>
+                    ))}
+                  </select>
+                </div>
               )}
 
               {/* Close */}

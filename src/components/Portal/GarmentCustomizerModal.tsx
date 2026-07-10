@@ -2367,7 +2367,7 @@ export function GarmentCustomizerModal({
                   </div>
                 ) : (
                   <div className="grid grid-cols-3 gap-3 max-h-[220px] overflow-y-auto pr-1">
-                    {assets.map((asset) => {
+                    {assets.filter((asset) => asset.type !== 'folder').map((asset) => {
                        const isSelected = activeTab === 'tag'
                          ? selectedTagElementId === asset.id
                          : selectedLogo?.id === asset.id;

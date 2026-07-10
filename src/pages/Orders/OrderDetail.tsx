@@ -3147,119 +3147,13 @@ export function OrderDetail() {
                                            href={item.image} 
                                            target="_blank" 
                                            rel="noreferrer" 
-                                           onClick={(e) => e.stopPropagation()}
+                                           onClick={(e) => e.stopPropagation()} 
                                            className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-widest text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 transition-all px-3 py-1.5 rounded-full shadow-sm hover:shadow-md hover:-translate-y-[1px] shrink-0 whitespace-nowrap"
                                            title="Download full resolution design file"
                                          >
                                             <Download size={12} strokeWidth={3} />
                                             <span>Download Artwork</span>
                                          </a>
-                                       )}
-
-                                       {/* Dynamic Inline Production Sheet Actions */}
-                                       {isPrintableItem(item) && (
-                                         <>
-                                           {/* Artwork Gang Sheet Actions */}
-                                           {Array.isArray(item.artworks) && item.artworks.length > 0 && (
-                                             <>
-                                               {item.printReadyUrl ? (
-                                                 <>
-                                                   <a 
-                                                     href={item.printReadyUrl} 
-                                                     target="_blank" 
-                                                     rel="noreferrer" 
-                                                     onClick={(e) => e.stopPropagation()}
-                                                     className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-widest text-white bg-purple-600 border border-purple-600 hover:bg-purple-700 hover:border-purple-700 transition-all px-3 py-1.5 rounded-full shadow-sm hover:shadow-md hover:-translate-y-[1px] shrink-0 whitespace-nowrap"
-                                                     title="Download print-ready production files"
-                                                   >
-                                                      <Download size={12} strokeWidth={3} />
-                                                      <span>Download Art Sheet</span>
-                                                   </a>
-                                                   {item.cutReadyUrl && (
-                                                     <a 
-                                                       href={item.cutReadyUrl} 
-                                                       target="_blank" 
-                                                       rel="noreferrer" 
-                                                       onClick={(e) => e.stopPropagation()}
-                                                       className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-widest text-purple-700 bg-purple-50 border border-purple-200 hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-all px-3 py-1.5 rounded-full shadow-sm hover:shadow-md hover:-translate-y-[1px] shrink-0 whitespace-nowrap"
-                                                       title="Download cut-ready SVG file"
-                                                     >
-                                                        <Download size={12} strokeWidth={3} />
-                                                        <span>Cut SVG</span>
-                                                     </a>
-                                                   )}
-                                                   <button 
-                                                     onClick={(e) => {
-                                                       e.stopPropagation();
-                                                       handleGeneratePrintFile(item);
-                                                     }}
-                                                     disabled={generatingItemId === item.id}
-                                                     className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-widest text-neutral-600 bg-neutral-50 border border-neutral-200 hover:bg-neutral-800 hover:text-white hover:border-neutral-800 transition-all px-3 py-1.5 rounded-full shadow-sm hover:shadow-md hover:-translate-y-[1px] shrink-0 whitespace-nowrap cursor-pointer"
-                                                   >
-                                                      {generatingItemId === item.id ? <Loader2 size={12} className="animate-spin" /> : <Printer size={12} strokeWidth={3} />}
-                                                      <span>Regenerate Art Sheet</span>
-                                                   </button>
-                                                 </>
-                                               ) : (
-                                                 <button 
-                                                   onClick={(e) => {
-                                                     e.stopPropagation();
-                                                     handleGeneratePrintFile(item);
-                                                   }}
-                                                   disabled={generatingItemId === item.id}
-                                                   className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-widest text-purple-700 bg-purple-50 border border-purple-250 hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-all px-3 py-1.5 rounded-full shadow-sm hover:shadow-md hover:-translate-y-[1px] shrink-0 whitespace-nowrap cursor-pointer animate-pulse"
-                                                 >
-                                                    {generatingItemId === item.id ? <Loader2 size={12} className="animate-spin" /> : <Printer size={12} strokeWidth={3} />}
-                                                    <span>Generate Art Sheet</span>
-                                                 </button>
-                                               )}
-                                             </>
-                                           )}
-
-                                           {/* Size Tag Gang Sheet Actions */}
-                                           {item.logoUrlTag && (
-                                             <>
-                                               {item.tagPrintReadyUrl ? (
-                                                 <>
-                                                   <a 
-                                                     href={item.tagPrintReadyUrl} 
-                                                     target="_blank" 
-                                                     rel="noreferrer" 
-                                                     onClick={(e) => e.stopPropagation()}
-                                                     className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-widest text-white bg-teal-600 border border-teal-600 hover:bg-teal-700 hover:border-teal-700 transition-all px-3 py-1.5 rounded-full shadow-sm hover:shadow-md hover:-translate-y-[1px] shrink-0 whitespace-nowrap"
-                                                     title="Download print-ready tag gang sheet"
-                                                   >
-                                                      <Download size={12} strokeWidth={3} />
-                                                      <span>Download Tag Sheet</span>
-                                                   </a>
-                                                   <button 
-                                                     onClick={(e) => {
-                                                       e.stopPropagation();
-                                                       handleGenerateTagGangSheet(item);
-                                                     }}
-                                                     disabled={generatingTagItemId === item.id}
-                                                     className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-widest text-neutral-600 bg-neutral-50 border border-neutral-200 hover:bg-neutral-800 hover:text-white hover:border-neutral-800 transition-all px-3 py-1.5 rounded-full shadow-sm hover:shadow-md hover:-translate-y-[1px] shrink-0 whitespace-nowrap cursor-pointer"
-                                                   >
-                                                      {generatingTagItemId === item.id ? <Loader2 size={12} className="animate-spin" /> : <Printer size={12} strokeWidth={3} />}
-                                                      <span>Regenerate Tag Sheet</span>
-                                                   </button>
-                                                 </>
-                                               ) : (
-                                                 <button 
-                                                   onClick={(e) => {
-                                                     e.stopPropagation();
-                                                     handleGenerateTagGangSheet(item);
-                                                   }}
-                                                   disabled={generatingTagItemId === item.id}
-                                                   className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-widest text-teal-700 bg-teal-50 border border-teal-200 hover:bg-teal-600 hover:text-white hover:border-teal-600 transition-all px-3 py-1.5 rounded-full shadow-sm hover:shadow-md hover:-translate-y-[1px] shrink-0 whitespace-nowrap cursor-pointer animate-pulse"
-                                                 >
-                                                    {generatingTagItemId === item.id ? <Loader2 size={12} className="animate-spin" /> : <Printer size={12} strokeWidth={3} />}
-                                                    <span>Generate Tag Sheet</span>
-                                                 </button>
-                                               )}
-                                             </>
-                                           )}
-                                         </>
                                        )}
 
                                        {(() => {
