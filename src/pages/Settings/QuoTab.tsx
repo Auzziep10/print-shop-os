@@ -73,6 +73,7 @@ export function QuoTab() {
   const [saveStatus, setSaveStatus] = useState<{ success: boolean; message: string } | null>(null);
   const [testStatus, setTestStatus] = useState<{ success: boolean; message: string } | null>(null);
   const [testPhone, setTestPhone] = useState('');
+  const [testingSingle, setTestingSingle] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -180,6 +181,103 @@ export function QuoTab() {
       setTestStatus({ success: false, message: `Test failed: ${err.message || 'Unknown error'}` });
     } finally {
       setTesting(false);
+    }
+  };
+
+  const handleTestSingleTemplate = async (templateId: string, tab?: 'Standard' | 'Kitting') => {
+    if (!apiKey || !fromNumber || !testPhone) {
+      setTestStatus({ success: false, message: 'Please provide API Key, Sender Number, and a Test Mobile Number.' });
+      return;
+    }
+
+    const testId = tab ? `${tab}-${templateId}` : templateId;
+    setTestingSingle(testId);
+    setTestStatus(null);
+    setSaveStatus(null);
+
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        throw new Error('You must be logged in to test templates.');
+      }
+
+      const idToken = await currentUser.getIdToken();
+      const baseUrl = window.location.origin;
+
+      let content = '';
+      let label = '';
+
+      if (templateId === 'welcome') {
+        label = 'Welcome SMS';
+        content = welcomeTemplate.template || '';
+        content = content.replace(/{customerName}/g, 'Jane Doe (Test)');
+        content = content.replace(/{companyName}/g, 'Test Company Inc.');
+        content = content.replace(/{portalUrl}/g, `${baseUrl}/portal`);
+      } else {
+        const index = parseInt(templateId);
+        const statusLabel = tab === 'Standard' ? STANDARD_STATUS_LABELS[index] : KITTING_STATUS_LABELS[index];
+        label = `${tab} Status SMS: ${statusLabel}`;
+
+        const templateConfig = (tab === 'Standard' ? templates : kittingTemplates)[templateId] || { enabled: false, template: '' };
+        content = templateConfig.template || '';
+
+        // Replace variables
+        const variables = {
+          customerName: 'Jane Doe (Test)',
+          companyName: 'Test Company Inc.',
+          orderId: '1001-T',
+          orderTitle: 'Custom Hoodies & Tees (Test Order)',
+          trackingCarrier: 'UPS',
+          trackingNumber: '1Z999AA10123456784',
+          portalUrl: `${baseUrl}/portal`,
+          invoiceUrl: `${baseUrl}/invoice/test-order-id`,
+          orderUrl: `${baseUrl}/order-summary/test-order-id`
+        };
+
+        const replaceVars = (str: string) => {
+          let out = str;
+          out = out.replace(/{customerName}/g, variables.customerName);
+          out = out.replace(/{companyName}/g, variables.companyName);
+          out = out.replace(/{orderId}/g, variables.orderId);
+          out = out.replace(/{orderTitle}/g, variables.orderTitle);
+          out = out.replace(/{trackingCarrier}/g, variables.trackingCarrier);
+          out = out.replace(/{trackingNumber}/g, variables.trackingNumber);
+          out = out.replace(/{portalUrl}/g, variables.portalUrl);
+          out = out.replace(/{invoiceUrl}/g, variables.invoiceUrl);
+          out = out.replace(/{orderUrl}/g, variables.orderUrl);
+          return out;
+        };
+
+        content = replaceVars(content);
+      }
+
+      // Add a small prefix indicating it's a test send
+      const testContent = `[TEST] ${content}`;
+
+      const response = await fetch('/api/sms/send', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`
+        },
+        body: JSON.stringify({
+          to: testPhone.trim(),
+          content: testContent
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setTestStatus({ success: true, message: `Test SMS for "${label}" sent successfully to ${testPhone.trim()}! Please check the phone.` });
+      } else {
+        setTestStatus({ success: false, message: `Failed to send test SMS: ${data.error || data.details || 'Unknown error'}` });
+      }
+    } catch (err: any) {
+      console.error("Error testing template:", err);
+      setTestStatus({ success: false, message: `Failed to send test SMS: ${err.message || 'Unknown error'}` });
+    } finally {
+      setTestingSingle(null);
     }
   };
 
@@ -335,20 +433,37 @@ export function QuoTab() {
           </div>
 
           <div className="flex flex-col md:flex-row gap-4 items-start">
-            <div className="w-full md:w-1/3 flex items-center justify-between shrink-0">
-              <div>
-                <span className="text-xs font-semibold text-brand-primary">Welcome SMS</span>
-                <p className="text-[11px] text-brand-secondary/70">Sent immediately upon customer creation</p>
+            <div className="w-full md:w-1/3 flex flex-col justify-between shrink-0 gap-3">
+              <div className="flex items-center justify-between w-full">
+                <div>
+                  <span className="text-xs font-semibold text-brand-primary">Welcome SMS</span>
+                  <p className="text-[11px] text-brand-secondary/70 font-medium">Sent immediately upon customer creation</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input 
+                    type="checkbox" 
+                    className="sr-only peer"
+                    checked={welcomeTemplate.enabled}
+                    onChange={() => setWelcomeTemplate(prev => ({ ...prev, enabled: !prev.enabled }))}
+                  />
+                  <div className="w-9 h-5 bg-neutral-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-brand-primary"></div>
+                </label>
               </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input 
-                  type="checkbox" 
-                  className="sr-only peer"
-                  checked={welcomeTemplate.enabled}
-                  onChange={() => setWelcomeTemplate(prev => ({ ...prev, enabled: !prev.enabled }))}
-                />
-                <div className="w-9 h-5 bg-neutral-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-brand-primary"></div>
-              </label>
+              {welcomeTemplate.enabled && (
+                <button
+                  type="button"
+                  onClick={() => handleTestSingleTemplate('welcome')}
+                  disabled={testing || testingSingle !== null || !apiKey || !fromNumber || !testPhone}
+                  className="w-full text-[10px] font-bold uppercase tracking-wider bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 rounded-lg py-1.5 px-3 flex items-center justify-center gap-1.5 transition-colors cursor-pointer text-brand-secondary hover:text-brand-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {testingSingle === 'welcome' ? (
+                    <Loader2 className="animate-spin" size={12} />
+                  ) : (
+                    <SendHorizontal size={12} />
+                  )}
+                  Send Test SMS
+                </button>
+              )}
             </div>
 
             <div className="w-full md:flex-1">
@@ -412,20 +527,37 @@ export function QuoTab() {
 
               return (
                 <div key={statusKey} className={`pt-4 first:pt-0 flex flex-col md:flex-row gap-4 items-start ${!templateConfig.enabled ? 'opacity-60' : ''}`}>
-                  <div className="w-full md:w-1/3 flex items-center justify-between shrink-0">
-                    <div>
-                      <span className="text-xs font-semibold text-brand-primary">{label}</span>
-                      <p className="text-[11px] text-brand-secondary/70">Status Index: {index}</p>
+                  <div className="w-full md:w-1/3 flex flex-col justify-between shrink-0 gap-3">
+                    <div className="flex items-center justify-between w-full">
+                      <div>
+                        <span className="text-xs font-semibold text-brand-primary">{label}</span>
+                        <p className="text-[11px] text-brand-secondary/70 font-medium">Status Index: {index}</p>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          className="sr-only peer"
+                          checked={templateConfig.enabled}
+                          onChange={() => handleTemplateToggle(statusKey)}
+                        />
+                        <div className="w-9 h-5 bg-neutral-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-brand-primary"></div>
+                      </label>
                     </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input 
-                        type="checkbox" 
-                        className="sr-only peer"
-                        checked={templateConfig.enabled}
-                        onChange={() => handleTemplateToggle(statusKey)}
-                      />
-                      <div className="w-9 h-5 bg-neutral-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-brand-primary"></div>
-                    </label>
+                    {templateConfig.enabled && (
+                      <button
+                        type="button"
+                        onClick={() => handleTestSingleTemplate(statusKey, activeTab)}
+                        disabled={testing || testingSingle !== null || !apiKey || !fromNumber || !testPhone}
+                        className="w-full text-[10px] font-bold uppercase tracking-wider bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 rounded-lg py-1.5 px-3 flex items-center justify-center gap-1.5 transition-colors cursor-pointer text-brand-secondary hover:text-brand-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {testingSingle === `${activeTab}-${statusKey}` ? (
+                          <Loader2 className="animate-spin" size={12} />
+                        ) : (
+                          <SendHorizontal size={12} />
+                        )}
+                        Send Test SMS
+                      </button>
+                    )}
                   </div>
 
                   <div className="w-full md:flex-1">
