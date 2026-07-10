@@ -11,6 +11,20 @@ import sanmarCatalogJson from '../../data/sanmar-catalog.json';
 
 const sanmarCatalog = sanmarCatalogJson as any[];
 
+const getImageAspectRatio = (url: string): Promise<number> => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.src = url;
+    img.onload = () => {
+      resolve(img.naturalWidth ? (img.naturalHeight / img.naturalWidth) : 1.0);
+    };
+    img.onerror = () => {
+      resolve(1.0);
+    };
+  });
+};
+
 const DEFAULT_RACKS = {
   Athleisure: { hat: 'STC70', shirt: 'BC3001', polo: 'ST640', crewneck: 'DT1304', hoodie: 'BC3719', longsleeve: 'BC3501' },
   Casual: { hat: '112', shirt: '64000', polo: '64800', crewneck: 'SF000', hoodie: '18500', longsleeve: '6014' },
@@ -939,6 +953,99 @@ export function PortalCreateOrder() {
 
       const orderId = `order-${Date.now()}`;
       
+      // Map item artworks asynchronously to resolve natural aspect ratios and calculate heights proportionally
+      const resolvedItems = await Promise.all(orderItems.map(async (item) => {
+         const totalQty = Object.values(item.quantities as Record<string, number>).reduce((q, val) => q + val, 0);
+         const p = parseFloat(item.price) || 0;
+         
+         const artworks = [];
+         if (item.logoUrl) {
+           const aspect = await getImageAspectRatio(item.logoUrl);
+           const w = item.logoWidthFront || 3.5;
+           const h = parseFloat((w * aspect).toFixed(2));
+           artworks.push({ url: item.logoUrl, originalUrl: item.logoUrl, name: item.logoName || 'Front Logo', width: w, height: h, aspectRatio: aspect, quantity: totalQty });
+         }
+         if (item.logoUrlBack) {
+           const aspect = await getImageAspectRatio(item.logoUrlBack);
+           const w = item.logoWidthBack || 3.5;
+           const h = parseFloat((w * aspect).toFixed(2));
+           artworks.push({ url: item.logoUrlBack, originalUrl: item.logoUrlBack, name: item.logoNameBack || 'Back Logo', width: w, height: h, aspectRatio: aspect, quantity: totalQty });
+         }
+         if (item.logoUrlLeftSleeve) {
+           const aspect = await getImageAspectRatio(item.logoUrlLeftSleeve);
+           const w = item.logoWidthLeftSleeve || 3.5;
+           const h = parseFloat((w * aspect).toFixed(2));
+           artworks.push({ url: item.logoUrlLeftSleeve, originalUrl: item.logoUrlLeftSleeve, name: item.logoNameLeftSleeve || 'Left Sleeve Logo', width: w, height: h, aspectRatio: aspect, quantity: totalQty });
+         }
+         if (item.logoUrlRightSleeve) {
+           const aspect = await getImageAspectRatio(item.logoUrlRightSleeve);
+           const w = item.logoWidthRightSleeve || 3.5;
+           const h = parseFloat((w * aspect).toFixed(2));
+           artworks.push({ url: item.logoUrlRightSleeve, originalUrl: item.logoUrlRightSleeve, name: item.logoNameRightSleeve || 'Right Sleeve Logo', width: w, height: h, aspectRatio: aspect, quantity: totalQty });
+         }
+         if (item.logoUrlTag) {
+           const aspect = await getImageAspectRatio(item.logoUrlTag);
+           const w = 2.5;
+           const h = parseFloat((w * aspect).toFixed(2));
+           artworks.push({ url: item.logoUrlTag, originalUrl: item.logoUrlTag, name: 'Size Tag Print', width: w, height: h, aspectRatio: aspect, quantity: totalQty });
+         }
+
+         return {
+            id: item.instanceId || Date.now().toString(),
+            itemType: 'garment',
+            style: item.style || 'Custom Garment',
+            color: item.selectedColor || '',
+            price: Math.round(p * 100) / 100,
+            total: Math.round(p * totalQty * 100) / 100,
+            itemNum: item.itemNum || '',
+            gender: item.gender || 'Unisex',
+            qty: totalQty,
+            image: item.customized ? item.image : (item.images?.[item.selectedColor] || item.image || ''),
+            notes: item.logoPlacement ? `Mockup Placement: ${item.logoPlacement}` : '',
+            sizes: item.quantities,
+            artworks: artworks,
+            customized: item.customized || false,
+            logoPlacement: item.logoPlacement || '',
+            logoUrl: item.logoUrl || null,
+            logoName: item.logoName || null,
+            logoWidthFront: item.logoWidthFront || null,
+            logoUrlBack: item.logoUrlBack || null,
+            logoNameBack: item.logoNameBack || null,
+            logoWidthBack: item.logoWidthBack || null,
+            logoUrlLeftSleeve: item.logoUrlLeftSleeve || null,
+            logoNameLeftSleeve: item.logoNameLeftSleeve || null,
+            logoWidthLeftSleeve: item.logoWidthLeftSleeve || null,
+            logoUrlRightSleeve: item.logoUrlRightSleeve || null,
+            logoNameRightSleeve: item.logoNameRightSleeve || null,
+            logoWidthRightSleeve: item.logoWidthRightSleeve || null,
+            customScaleFront: item.customScaleFront ?? null,
+            customOffsetXFront: item.customOffsetXFront ?? null,
+            customOffsetYFront: item.customOffsetYFront ?? null,
+            customRotationFront: item.customRotationFront ?? null,
+            customScaleBack: item.customScaleBack ?? null,
+            customOffsetXBack: item.customOffsetXBack ?? null,
+            customOffsetYBack: item.customOffsetYBack ?? null,
+            customRotationBack: item.customRotationBack ?? null,
+            customScaleLeftSleeve: item.customScaleLeftSleeve ?? null,
+            customOffsetXLeftSleeve: item.customOffsetXLeftSleeve ?? null,
+            customOffsetYLeftSleeve: item.customOffsetYLeftSleeve ?? null,
+            customRotationLeftSleeve: item.customRotationLeftSleeve ?? null,
+            customScaleRightSleeve: item.customScaleRightSleeve ?? null,
+            customOffsetXRightSleeve: item.customOffsetXRightSleeve ?? null,
+            customOffsetYRightSleeve: item.customOffsetYRightSleeve ?? null,
+            customRotationRightSleeve: item.customRotationRightSleeve ?? null,
+            logoUrlTag: item.logoUrlTag || null,
+            tagLayout: item.tagLayout || null,
+            tagSizeX: item.tagSizeX ?? null,
+            tagSizeY: item.tagSizeY ?? null,
+            tagSizeScale: item.tagSizeScale ?? null,
+            tagSizeFont: item.tagSizeFont ?? null,
+            tagSizeColor: item.tagSizeColor ?? null,
+            tagSizeBold: item.tagSizeBold ?? null,
+            tagSizeItalic: item.tagSizeItalic ?? null,
+         };
+      }));
+
       const payload = {
         id: orderId,
         portalId: portalId,
@@ -968,82 +1075,7 @@ export function PortalCreateOrder() {
            const totalQty = Object.values(item.quantities as Record<string, number>).reduce((q, val) => q + val, 0);
            return sum + (totalQty * (parseFloat(item.price) || 0));
         }, 0) * 100) / 100,
-        items: orderItems.map(item => {
-           const totalQty = Object.values(item.quantities as Record<string, number>).reduce((q, val) => q + val, 0);
-           const p = parseFloat(item.price) || 0;
-           
-           const artworks = [];
-           if (item.logoUrl) {
-             artworks.push({ url: item.logoUrl, originalUrl: item.logoUrl, name: item.logoName || 'Front Logo', width: item.logoWidthFront || 3.5, height: 3.5, quantity: totalQty });
-           }
-           if (item.logoUrlBack) {
-             artworks.push({ url: item.logoUrlBack, originalUrl: item.logoUrlBack, name: item.logoNameBack || 'Back Logo', width: item.logoWidthBack || 3.5, height: 3.5, quantity: totalQty });
-           }
-           if (item.logoUrlLeftSleeve) {
-             artworks.push({ url: item.logoUrlLeftSleeve, originalUrl: item.logoUrlLeftSleeve, name: item.logoNameLeftSleeve || 'Left Sleeve Logo', width: item.logoWidthLeftSleeve || 3.5, height: 3.5, quantity: totalQty });
-           }
-           if (item.logoUrlRightSleeve) {
-             artworks.push({ url: item.logoUrlRightSleeve, originalUrl: item.logoUrlRightSleeve, name: item.logoNameRightSleeve || 'Right Sleeve Logo', width: item.logoWidthRightSleeve || 3.5, height: 3.5, quantity: totalQty });
-           }
-           if (item.logoUrlTag) {
-             artworks.push({ url: item.logoUrlTag, originalUrl: item.logoUrlTag, name: 'Size Tag Print', width: 2.5, height: 2.5, quantity: totalQty });
-           }
-
-           return {
-              id: item.instanceId || Date.now().toString(),
-              itemType: 'garment',
-              style: item.style || 'Custom Garment',
-              color: item.selectedColor || '',
-              price: Math.round(p * 100) / 100,
-              total: Math.round(p * totalQty * 100) / 100,
-              itemNum: item.itemNum || '',
-              gender: item.gender || 'Unisex',
-              qty: totalQty,
-              image: item.customized ? item.image : (item.images?.[item.selectedColor] || item.image || ''),
-              notes: item.logoPlacement ? `Mockup Placement: ${item.logoPlacement}` : '',
-              sizes: item.quantities,
-              artworks: artworks,
-              customized: item.customized || false,
-              logoPlacement: item.logoPlacement || '',
-              logoUrl: item.logoUrl || null,
-              logoName: item.logoName || null,
-              logoWidthFront: item.logoWidthFront || null,
-              logoUrlBack: item.logoUrlBack || null,
-              logoNameBack: item.logoNameBack || null,
-              logoWidthBack: item.logoWidthBack || null,
-              logoUrlLeftSleeve: item.logoUrlLeftSleeve || null,
-              logoNameLeftSleeve: item.logoNameLeftSleeve || null,
-              logoWidthLeftSleeve: item.logoWidthLeftSleeve || null,
-              logoUrlRightSleeve: item.logoUrlRightSleeve || null,
-              logoNameRightSleeve: item.logoNameRightSleeve || null,
-              logoWidthRightSleeve: item.logoWidthRightSleeve || null,
-              customScaleFront: item.customScaleFront ?? null,
-              customOffsetXFront: item.customOffsetXFront ?? null,
-              customOffsetYFront: item.customOffsetYFront ?? null,
-              customRotationFront: item.customRotationFront ?? null,
-              customScaleBack: item.customScaleBack ?? null,
-              customOffsetXBack: item.customOffsetXBack ?? null,
-              customOffsetYBack: item.customOffsetYBack ?? null,
-              customRotationBack: item.customRotationBack ?? null,
-              customScaleLeftSleeve: item.customScaleLeftSleeve ?? null,
-              customOffsetXLeftSleeve: item.customOffsetXLeftSleeve ?? null,
-              customOffsetYLeftSleeve: item.customOffsetYLeftSleeve ?? null,
-              customRotationLeftSleeve: item.customRotationLeftSleeve ?? null,
-              customScaleRightSleeve: item.customScaleRightSleeve ?? null,
-              customOffsetXRightSleeve: item.customOffsetXRightSleeve ?? null,
-              customOffsetYRightSleeve: item.customOffsetYRightSleeve ?? null,
-              customRotationRightSleeve: item.customRotationRightSleeve ?? null,
-              logoUrlTag: item.logoUrlTag || null,
-              tagLayout: item.tagLayout || null,
-              tagSizeX: item.tagSizeX ?? null,
-              tagSizeY: item.tagSizeY ?? null,
-              tagSizeScale: item.tagSizeScale ?? null,
-              tagSizeFont: item.tagSizeFont ?? null,
-              tagSizeColor: item.tagSizeColor ?? null,
-              tagSizeBold: item.tagSizeBold ?? null,
-              tagSizeItalic: item.tagSizeItalic ?? null,
-            }
-        })
+        items: resolvedItems
       };
 
       await setDoc(doc(db, 'orders', orderId), payload);
@@ -2340,12 +2372,16 @@ export function PortalCreateOrder() {
             customized: customizingItem.customized || false,
             logoUrl: customizingItem.logoUrl || null,
             logoName: customizingItem.logoName || null,
+            logoWidthFront: customizingItem.logoWidthFront || null,
             logoUrlBack: customizingItem.logoUrlBack || null,
             logoNameBack: customizingItem.logoNameBack || null,
+            logoWidthBack: customizingItem.logoWidthBack || null,
             logoUrlLeftSleeve: customizingItem.logoUrlLeftSleeve || null,
             logoNameLeftSleeve: customizingItem.logoNameLeftSleeve || null,
+            logoWidthLeftSleeve: customizingItem.logoWidthLeftSleeve || null,
             logoUrlRightSleeve: customizingItem.logoUrlRightSleeve || null,
             logoNameRightSleeve: customizingItem.logoNameRightSleeve || null,
+            logoWidthRightSleeve: customizingItem.logoWidthRightSleeve || null,
             customScaleFront: customizingItem.customScaleFront,
             customOffsetXFront: customizingItem.customOffsetXFront,
             customOffsetYFront: customizingItem.customOffsetYFront,
@@ -2391,12 +2427,16 @@ export function PortalCreateOrder() {
               customizedSleeveImage: customizedData.customizedSleeveImage,
               logoUrl: customizedData.logoUrl,
               logoName: customizedData.logoName,
+              logoWidthFront: customizedData.logoWidthFront || null,
               logoUrlBack: customizedData.logoUrlBack,
               logoNameBack: customizedData.logoNameBack,
+              logoWidthBack: customizedData.logoWidthBack || null,
               logoUrlLeftSleeve: customizedData.logoUrlLeftSleeve || null,
               logoNameLeftSleeve: customizedData.logoNameLeftSleeve || null,
+              logoWidthLeftSleeve: customizedData.logoWidthLeftSleeve || null,
               logoUrlRightSleeve: customizedData.logoUrlRightSleeve || null,
               logoNameRightSleeve: customizedData.logoNameRightSleeve || null,
+              logoWidthRightSleeve: customizedData.logoWidthRightSleeve || null,
               colors: customizedData.colors || item.colors,
               customScaleFront: customizedData.customScaleFront,
               customOffsetXFront: customizedData.customOffsetXFront,

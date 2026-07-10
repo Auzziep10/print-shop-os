@@ -9,6 +9,20 @@ import sanmarCatalogJson from '../../data/sanmar-catalog.json';
 
 const sanmarCatalog = sanmarCatalogJson as any[];
 
+const getImageAspectRatio = (url: string): Promise<number> => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.src = url;
+    img.onload = () => {
+      resolve(img.naturalWidth ? (img.naturalHeight / img.naturalWidth) : 1.0);
+    };
+    img.onerror = () => {
+      resolve(1.0);
+    };
+  });
+};
+
 const DEFAULT_RACKS = {
   Athleisure: { hat: 'STC70', shirt: 'BC3001', polo: 'ST640', crewneck: 'DT1304', hoodie: 'BC3719', longsleeve: 'BC3501' },
   Casual: { hat: '112', shirt: '64000', polo: '64800', crewneck: 'SF000', hoodie: '18500', longsleeve: '6014' },
@@ -624,6 +638,101 @@ export function PortalRequestQuote() {
       const count = maxCount + 1;
       const portalId = `${prefix}${count}`;
 
+      // Map products asynchronously to resolve natural aspect ratios and calculate heights proportionally
+      const resolvedItems = await Promise.all(products.map(async (p) => {
+         const sizeQtySum = p.sizes ? Object.values(p.sizes).reduce((acc: number, val: any) => acc + (parseInt(val.toString()) || 0), 0) : 0;
+         const totalQty = sizeQtySum || p.qty || 0;
+         
+         const artworks = [];
+         if (p.logoUrl) {
+           const aspect = await getImageAspectRatio(p.logoUrl);
+           const w = p.logoWidthFront || 3.5;
+           const h = parseFloat((w * aspect).toFixed(2));
+           artworks.push({ url: p.logoUrl, originalUrl: p.logoUrl, name: p.logoName || 'Front Logo', width: w, height: h, aspectRatio: aspect, quantity: totalQty });
+         }
+         if (p.logoUrlBack) {
+           const aspect = await getImageAspectRatio(p.logoUrlBack);
+           const w = p.logoWidthBack || 3.5;
+           const h = parseFloat((w * aspect).toFixed(2));
+           artworks.push({ url: p.logoUrlBack, originalUrl: p.logoUrlBack, name: p.logoNameBack || 'Back Logo', width: w, height: h, aspectRatio: aspect, quantity: totalQty });
+         }
+         if (p.logoUrlLeftSleeve) {
+           const aspect = await getImageAspectRatio(p.logoUrlLeftSleeve);
+           const w = p.logoWidthLeftSleeve || 3.5;
+           const h = parseFloat((w * aspect).toFixed(2));
+           artworks.push({ url: p.logoUrlLeftSleeve, originalUrl: p.logoUrlLeftSleeve, name: p.logoNameLeftSleeve || 'Left Sleeve Logo', width: w, height: h, aspectRatio: aspect, quantity: totalQty });
+         }
+         if (p.logoUrlRightSleeve) {
+           const aspect = await getImageAspectRatio(p.logoUrlRightSleeve);
+           const w = p.logoWidthRightSleeve || 3.5;
+           const h = parseFloat((w * aspect).toFixed(2));
+           artworks.push({ url: p.logoUrlRightSleeve, originalUrl: p.logoUrlRightSleeve, name: p.logoNameRightSleeve || 'Right Sleeve Logo', width: w, height: h, aspectRatio: aspect, quantity: totalQty });
+         }
+         if (p.logoUrlTag) {
+           const aspect = await getImageAspectRatio(p.logoUrlTag);
+           const w = 2.5;
+           const h = parseFloat((w * aspect).toFixed(2));
+           artworks.push({ url: p.logoUrlTag, originalUrl: p.logoUrlTag, name: 'Size Tag Print', width: w, height: h, aspectRatio: aspect, quantity: totalQty });
+         }
+         if (artworks.length === 0 && p.artworkUrl) {
+           const aspect = await getImageAspectRatio(p.artworkUrl);
+           const w = 3.5;
+           const h = parseFloat((w * aspect).toFixed(2));
+           artworks.push({ url: p.artworkUrl, originalUrl: p.artworkUrl, name: p.artworkName || 'Artwork', width: w, height: h, aspectRatio: aspect, quantity: totalQty });
+         }
+
+         return {
+            id: p.id || Date.now(),
+            style: p.garmentName || 'Custom Garment',
+            itemNum: p.itemNum || '',
+            color: p.color || '',
+            qty: totalQty,
+            image: p.artworkUrl || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200',
+            notes: p.logoPlacement ? `Mockup Placement: ${p.logoPlacement}` : '',
+            sizes: p.sizes || {},
+            artworks: artworks,
+            customized: p.customized || false,
+            logoPlacement: p.logoPlacement || '',
+            logoUrl: p.logoUrl || null,
+            logoName: p.logoName || null,
+            logoWidthFront: p.logoWidthFront || null,
+            logoUrlBack: p.logoUrlBack || null,
+            logoNameBack: p.logoNameBack || null,
+            logoWidthBack: p.logoWidthBack || null,
+            logoUrlLeftSleeve: p.logoUrlLeftSleeve || null,
+            logoNameLeftSleeve: p.logoNameLeftSleeve || null,
+            logoWidthLeftSleeve: p.logoWidthLeftSleeve || null,
+            logoUrlRightSleeve: p.logoUrlRightSleeve || null,
+            logoNameRightSleeve: p.logoNameRightSleeve || null,
+            logoWidthRightSleeve: p.logoWidthRightSleeve || null,
+            customScaleFront: p.customScaleFront ?? null,
+            customOffsetXFront: p.customOffsetXFront ?? null,
+            customOffsetYFront: p.customOffsetYFront ?? null,
+            customRotationFront: p.customRotationFront ?? null,
+            customScaleBack: p.customScaleBack ?? null,
+            customOffsetXBack: p.customOffsetXBack ?? null,
+            customOffsetYBack: p.customOffsetYBack ?? null,
+            customRotationBack: p.customRotationBack ?? null,
+            customScaleLeftSleeve: p.customScaleLeftSleeve ?? null,
+            customOffsetXLeftSleeve: p.customOffsetXLeftSleeve ?? null,
+            customOffsetYLeftSleeve: p.customOffsetYLeftSleeve ?? null,
+            customRotationLeftSleeve: p.customRotationLeftSleeve ?? null,
+            customScaleRightSleeve: p.customScaleRightSleeve ?? null,
+            customOffsetXRightSleeve: p.customOffsetXRightSleeve ?? null,
+            customOffsetYRightSleeve: p.customOffsetYRightSleeve ?? null,
+            customRotationRightSleeve: p.customRotationRightSleeve ?? null,
+            logoUrlTag: p.logoUrlTag || null,
+            tagLayout: p.tagLayout || null,
+            tagSizeX: p.tagSizeX ?? null,
+            tagSizeY: p.tagSizeY ?? null,
+            tagSizeScale: p.tagSizeScale ?? null,
+            tagSizeFont: p.tagSizeFont ?? null,
+            tagSizeColor: p.tagSizeColor ?? null,
+            tagSizeBold: p.tagSizeBold ?? null,
+            tagSizeItalic: p.tagSizeItalic ?? null,
+         };
+      }));
+
       const payload = {
         id: `quote-${Date.now()}`,
         portalId: portalId,
@@ -633,81 +742,7 @@ export function PortalRequestQuote() {
         date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric'}),
         createdAt: new Date().toISOString(),
         packaging: selectedPackaging,
-        items: products.map(p => {
-           const sizeQtySum = p.sizes ? Object.values(p.sizes).reduce((acc: number, val: any) => acc + (parseInt(val.toString()) || 0), 0) : 0;
-           const totalQty = sizeQtySum || p.qty || 0;
-           
-           const artworks = [];
-           if (p.logoUrl) {
-             artworks.push({ url: p.logoUrl, originalUrl: p.logoUrl, name: p.logoName || 'Front Logo', width: p.logoWidthFront || 3.5, height: 3.5, quantity: totalQty });
-           }
-           if (p.logoUrlBack) {
-             artworks.push({ url: p.logoUrlBack, originalUrl: p.logoUrlBack, name: p.logoNameBack || 'Back Logo', width: p.logoWidthBack || 3.5, height: 3.5, quantity: totalQty });
-           }
-           if (p.logoUrlLeftSleeve) {
-             artworks.push({ url: p.logoUrlLeftSleeve, originalUrl: p.logoUrlLeftSleeve, name: p.logoNameLeftSleeve || 'Left Sleeve Logo', width: p.logoWidthLeftSleeve || 3.5, height: 3.5, quantity: totalQty });
-           }
-           if (p.logoUrlRightSleeve) {
-             artworks.push({ url: p.logoUrlRightSleeve, originalUrl: p.logoUrlRightSleeve, name: p.logoNameRightSleeve || 'Right Sleeve Logo', width: p.logoWidthRightSleeve || 3.5, height: 3.5, quantity: totalQty });
-           }
-           if (p.logoUrlTag) {
-             artworks.push({ url: p.logoUrlTag, originalUrl: p.logoUrlTag, name: 'Size Tag Print', width: 2.5, height: 2.5, quantity: totalQty });
-           }
-           if (artworks.length === 0 && p.artworkUrl) {
-             artworks.push({ url: p.artworkUrl, originalUrl: p.artworkUrl, name: p.artworkName || 'Artwork', width: 3.5, height: 3.5, quantity: totalQty });
-           }
-
-           return {
-              id: p.id || Date.now(),
-              style: p.garmentName || 'Custom Garment',
-              itemNum: p.itemNum || '',
-              color: p.color || '',
-              qty: totalQty,
-              image: p.artworkUrl || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200',
-              notes: p.logoPlacement ? `Mockup Placement: ${p.logoPlacement}` : '',
-              sizes: p.sizes || {},
-              artworks: artworks,
-              customized: p.customized || false,
-              logoPlacement: p.logoPlacement || '',
-              logoUrl: p.logoUrl || null,
-              logoName: p.logoName || null,
-              logoWidthFront: p.logoWidthFront || null,
-              logoUrlBack: p.logoUrlBack || null,
-              logoNameBack: p.logoNameBack || null,
-              logoWidthBack: p.logoWidthBack || null,
-              logoUrlLeftSleeve: p.logoUrlLeftSleeve || null,
-              logoNameLeftSleeve: p.logoNameLeftSleeve || null,
-              logoWidthLeftSleeve: p.logoWidthLeftSleeve || null,
-              logoUrlRightSleeve: p.logoUrlRightSleeve || null,
-              logoNameRightSleeve: p.logoNameRightSleeve || null,
-              logoWidthRightSleeve: p.logoWidthRightSleeve || null,
-              customScaleFront: p.customScaleFront ?? null,
-              customOffsetXFront: p.customOffsetXFront ?? null,
-              customOffsetYFront: p.customOffsetYFront ?? null,
-              customRotationFront: p.customRotationFront ?? null,
-              customScaleBack: p.customScaleBack ?? null,
-              customOffsetXBack: p.customOffsetXBack ?? null,
-              customOffsetYBack: p.customOffsetYBack ?? null,
-              customRotationBack: p.customRotationBack ?? null,
-              customScaleLeftSleeve: p.customScaleLeftSleeve ?? null,
-              customOffsetXLeftSleeve: p.customOffsetXLeftSleeve ?? null,
-              customOffsetYLeftSleeve: p.customOffsetYLeftSleeve ?? null,
-              customRotationLeftSleeve: p.customRotationLeftSleeve ?? null,
-              customScaleRightSleeve: p.customScaleRightSleeve ?? null,
-              customOffsetXRightSleeve: p.customOffsetXRightSleeve ?? null,
-              customOffsetYRightSleeve: p.customOffsetYRightSleeve ?? null,
-              customRotationRightSleeve: p.customRotationRightSleeve ?? null,
-              logoUrlTag: p.logoUrlTag || null,
-              tagLayout: p.tagLayout || null,
-              tagSizeX: p.tagSizeX ?? null,
-              tagSizeY: p.tagSizeY ?? null,
-              tagSizeScale: p.tagSizeScale ?? null,
-              tagSizeFont: p.tagSizeFont ?? null,
-              tagSizeColor: p.tagSizeColor ?? null,
-              tagSizeBold: p.tagSizeBold ?? null,
-              tagSizeItalic: p.tagSizeItalic ?? null,
-           };
-        }),
+        items: resolvedItems,
         shippingAddress: {
            street1: shippingAddress.line1,
            city: shippingAddress.city,
@@ -1474,12 +1509,16 @@ export function PortalRequestQuote() {
             customized: customizingProduct.customized || false,
             logoUrl: customizingProduct.logoUrl || null,
             logoName: customizingProduct.logoName || null,
+            logoWidthFront: customizingProduct.logoWidthFront || null,
             logoUrlBack: customizingProduct.logoUrlBack || null,
             logoNameBack: customizingProduct.logoNameBack || null,
+            logoWidthBack: customizingProduct.logoWidthBack || null,
             logoUrlLeftSleeve: customizingProduct.logoUrlLeftSleeve || null,
             logoNameLeftSleeve: customizingProduct.logoNameLeftSleeve || null,
+            logoWidthLeftSleeve: customizingProduct.logoWidthLeftSleeve || null,
             logoUrlRightSleeve: customizingProduct.logoUrlRightSleeve || null,
             logoNameRightSleeve: customizingProduct.logoNameRightSleeve || null,
+            logoWidthRightSleeve: customizingProduct.logoWidthRightSleeve || null,
             customScaleFront: customizingProduct.customScaleFront,
             customOffsetXFront: customizingProduct.customOffsetXFront,
             customOffsetYFront: customizingProduct.customOffsetYFront,
@@ -1526,12 +1565,16 @@ export function PortalRequestQuote() {
               customizedSleeveImage: customizedData.customizedSleeveImage,
               logoUrl: customizedData.logoUrl,
               logoName: customizedData.logoName,
+              logoWidthFront: customizedData.logoWidthFront || null,
               logoUrlBack: customizedData.logoUrlBack,
               logoNameBack: customizedData.logoNameBack,
+              logoWidthBack: customizedData.logoWidthBack || null,
               logoUrlLeftSleeve: customizedData.logoUrlLeftSleeve || null,
               logoNameLeftSleeve: customizedData.logoNameLeftSleeve || null,
+              logoWidthLeftSleeve: customizedData.logoWidthLeftSleeve || null,
               logoUrlRightSleeve: customizedData.logoUrlRightSleeve || null,
               logoNameRightSleeve: customizedData.logoNameRightSleeve || null,
+              logoWidthRightSleeve: customizedData.logoWidthRightSleeve || null,
               colors: customizedData.colors || p.colors,
               customScaleFront: customizedData.customScaleFront,
               customOffsetXFront: customizedData.customOffsetXFront,

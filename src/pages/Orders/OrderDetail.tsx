@@ -3830,7 +3830,9 @@ export function OrderDetail() {
                                             const w = parseFloat(e.target.value) || 0;
                                             setEditingArtworks(prev => {
                                               const next = [...prev];
-                                              next[idx] = { ...next[idx], width: w };
+                                              const aspect = next[idx].aspectRatio || 1.0;
+                                              const newHeight = parseFloat((w * aspect).toFixed(2));
+                                              next[idx] = { ...next[idx], width: w, height: newHeight };
                                               return next;
                                             });
                                           }}
