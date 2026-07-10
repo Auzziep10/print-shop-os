@@ -597,11 +597,12 @@ const generateFinalSheetsForPrintAndCut = async (
     const FONT_SIZE_LARGE = BASE_DPI / 4;
     const FONT_SIZE_MEDIUM = BASE_DPI / 6;
     const FONT_SIZE_SMALL = BASE_DPI / 8;
-
     const drawHeader = (ctx: CanvasRenderingContext2D, isCut: boolean) => {
         const headerY = 1.0 * BASE_DPI;
-        ctx.fillStyle = 'white';
-        ctx.fillRect(0, headerY, finalCanvasWidth, HEADER_HEIGHT_PX);
+        if (isCut) {
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, headerY, finalCanvasWidth, HEADER_HEIGHT_PX);
+        }
         
         const contentStartX = (0.5 * BASE_DPI) + (0.5 * BASE_DPI) + 50; 
         
@@ -1020,6 +1021,8 @@ export function OrderDetail() {
   const [generatingItemId, setGeneratingItemId] = useState<string | null>(null);
   const [generatingTagItemId, setGeneratingTagItemId] = useState<string | null>(null);
   const [previewMode, setPreviewMode] = useState<Record<string, 'print' | 'cut'>>({});
+  const [editingSpecsCardId, setEditingSpecsCardId] = useState<string | null>(null);
+  const [editingArtworks, setEditingArtworks] = useState<any[]>([]);
   const [trackingBoxId, setTrackingBoxId] = useState<string | null>(null);
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
   const [dragOverItemId, setDragOverItemId] = useState<string | null>(null);
@@ -1732,6 +1735,93 @@ export function OrderDetail() {
     }
   };
 
+  const [isUploadingInlineLogo, setIsUploadingInlineLogo] = useState(false);
+
+  const handleInlineLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>, itemId: string, idx: number) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploadingInlineLogo(true);
+    try {
+      const imgObj = new Image();
+      imgObj.src = URL.createObjectURL(file);
+      await new Promise((resolve) => {
+        imgObj.onload = resolve;
+        imgObj.onerror = resolve;
+      });
+      const aspect = imgObj.naturalWidth ? (imgObj.naturalHeight / imgObj.naturalWidth) : 1.0;
+
+      const storageRef = ref(storage, `orders/${id}/items/${itemId}/logo-${idx}-${Date.now()}`);
+      await uploadBytes(storageRef, file);
+      const url = await getDownloadURL(storageRef);
+      
+      setEditingArtworks(prev => {
+        const next = [...prev];
+        const defaultWidth = 3.5;
+        const calculatedHeight = parseFloat((defaultWidth * aspect).toFixed(2));
+        if (next.length === 0 || !next[idx]) {
+          const newItem = { id: `art-${Date.now()}`, name: file.name, url, width: defaultWidth, height: calculatedHeight, aspectRatio: aspect, quantity: 10 };
+          if (next[idx] === undefined) {
+            next[idx] = newItem;
+          } else {
+            next.push(newItem);
+          }
+        } else {
+          next[idx] = {
+            ...next[idx],
+            id: next[idx].id || `art-${Date.now()}`,
+            name: file.name,
+            url,
+            imageUrl: url,
+            originalUrl: url,
+            width: next[idx].width || defaultWidth,
+            height: parseFloat(((next[idx].width || defaultWidth) * aspect).toFixed(2)),
+            aspectRatio: aspect
+          };
+        }
+        return next;
+      });
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsUploadingInlineLogo(false);
+    }
+  };
+
+  const handleSaveInlineSpecs = async (item: any) => {
+    if (!id || !order) return;
+    try {
+      const updatedItems = (order.items || []).map((orderItem: any) => {
+        if (orderItem.id === item.id) {
+          const mappedArtworks = editingArtworks.map(art => {
+            const w = parseFloat(art.width) || 3.5;
+            const aspect = art.aspectRatio || 1.0;
+            const h = parseFloat((w * aspect).toFixed(2));
+            return {
+              ...art,
+              width: w,
+              height: h
+            };
+          });
+          return {
+            ...orderItem,
+            artworks: mappedArtworks
+          };
+        }
+        return orderItem;
+      });
+
+      await updateDoc(doc(db, 'orders', id), {
+        items: updatedItems
+      });
+
+      setEditingSpecsCardId(null);
+      alert("Specifications updated successfully!");
+    } catch (err) {
+      console.error("Failed to save inline specs:", err);
+      alert("Failed to save specifications.");
+    }
+  };
+
   const handleGeneratePrintFile = async (item: any) => {
     if (!id || !order) return;
     setGeneratingItemId(item.id);
@@ -1885,9 +1975,6 @@ export function OrderDetail() {
       if (!cutCtx) throw new Error("Could not get 2D context for cut canvas");
 
       // Draw solid white backgrounds for print & cut
-      printCtx.fillStyle = 'white';
-      printCtx.fillRect(0, 0, finalCanvasWidth, finalCanvasHeight);
-
       cutCtx.fillStyle = 'white';
       cutCtx.fillRect(0, 0, finalCanvasWidth, finalCanvasHeight);
 
@@ -1910,8 +1997,10 @@ export function OrderDetail() {
 
       const drawHeader = (ctx: CanvasRenderingContext2D, isCut: boolean) => {
         const headerY = 1.0 * BASE_DPI;
-        ctx.fillStyle = 'white';
-        ctx.fillRect(0, headerY, finalCanvasWidth, HEADER_HEIGHT_PX);
+        if (isCut) {
+          ctx.fillStyle = 'white';
+          ctx.fillRect(0, headerY, finalCanvasWidth, HEADER_HEIGHT_PX);
+        }
         
         const contentStartX = (0.5 * BASE_DPI) + (0.5 * BASE_DPI) + 50; 
         
@@ -3613,6 +3702,22 @@ export function OrderDetail() {
                             <p className="text-[11px] font-semibold text-neutral-400 mt-0.5">
                               {card.description}
                             </p>
+                            {card.type === 'art' && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (editingSpecsCardId === card.id) {
+                                    setEditingSpecsCardId(null);
+                                  } else {
+                                    setEditingSpecsCardId(card.id);
+                                    setEditingArtworks(card.item.artworks || []);
+                                  }
+                                }}
+                                className="text-[10px] font-bold text-neutral-400 hover:text-white uppercase tracking-wider underline cursor-pointer mt-1.5 block"
+                              >
+                                {editingSpecsCardId === card.id ? 'Cancel Adjusting' : 'Adjust Layout/Logos'}
+                              </button>
+                            )}
                           </div>
                           
                           <div className="flex flex-col items-end gap-1.5 shrink-0">
@@ -3645,39 +3750,173 @@ export function OrderDetail() {
                         </div>
 
                         {/* Preview Box */}
-                        <div className="relative aspect-[3/4] w-full bg-neutral-950 border border-neutral-800 rounded-xl overflow-hidden flex items-center justify-center bg-checkerboard">
-                          {activePreviewUrl ? (
-                            <img 
-                              src={activePreviewUrl} 
-                              alt="Layout Preview" 
-                              className="w-full h-full object-contain p-4 hover:scale-105 transition-transform duration-300 cursor-zoom-in"
-                              onClick={() => setExpandedImage({ src: activePreviewUrl, alt: `${card.title} - ${currentPreviewMode}` })}
-                            />
-                          ) : (
-                            <div className="flex flex-col items-center gap-2 text-neutral-500 text-center p-6">
-                              <ImageIcon size={32} />
-                              <span className="text-xs font-semibold">No Artwork Preview Available</span>
+                        {editingSpecsCardId === card.id ? (
+                          <div className="flex flex-col gap-3 bg-neutral-950/40 border border-neutral-850 p-4 rounded-xl max-h-[350px] overflow-y-auto">
+                            <div className="flex justify-between items-center border-b border-neutral-800 pb-2 mb-1">
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">Configure Logos</span>
+                              <label className="text-[10px] font-bold text-neutral-350 hover:text-white cursor-pointer flex items-center gap-1">
+                                <Plus size={10} /> Add Logo
+                                <input
+                                  type="file"
+                                  className="hidden"
+                                  accept="image/*"
+                                  onChange={(e) => handleInlineLogoUpload(e, card.item.id, editingArtworks.length)}
+                                />
+                              </label>
                             </div>
-                          )}
+                            
+                            {editingArtworks.length === 0 ? (
+                              <p className="text-[11px] text-neutral-500 italic py-4 text-center">No logos configured. Click Add Logo.</p>
+                            ) : (
+                              <div className="flex flex-col gap-3">
+                                {editingArtworks.map((art, idx) => (
+                                  <div key={art.id || idx} className="bg-neutral-900 border border-neutral-800 rounded-lg p-3 relative flex flex-col gap-2">
+                                    {/* Delete button */}
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setEditingArtworks(prev => prev.filter((_, i) => i !== idx));
+                                      }}
+                                      className="absolute top-2 right-2 text-red-450 hover:text-red-500 cursor-pointer"
+                                    >
+                                      <Trash2 size={12} />
+                                    </button>
 
-                          {/* Layer Control Badge */}
-                          {card.isPrintReady && (
-                            <div className="absolute top-3 left-3 bg-neutral-900/90 border border-neutral-800 rounded-lg p-0.5 flex shadow-lg">
-                              <button
-                                onClick={() => setPreviewMode(prev => ({ ...prev, [card.id]: 'print' }))}
-                                className={`text-[10px] uppercase font-bold tracking-wider px-2 py-1 rounded-md transition-all ${currentPreviewMode === 'print' ? 'bg-white text-black shadow-sm' : 'text-neutral-400 hover:text-white'}`}
-                              >
-                                Print
-                              </button>
-                              <button
-                                onClick={() => setPreviewMode(prev => ({ ...prev, [card.id]: 'cut' }))}
-                                className={`text-[10px] uppercase font-bold tracking-wider px-2 py-1 rounded-md transition-all ${currentPreviewMode === 'cut' ? 'bg-white text-black shadow-sm' : 'text-neutral-400 hover:text-white'}`}
-                              >
-                                Cut Line
-                              </button>
-                            </div>
-                          )}
-                        </div>
+                                    <div className="flex gap-3 items-center">
+                                      <div className="w-10 h-10 bg-white border border-neutral-800 rounded flex items-center justify-center overflow-hidden shrink-0 relative bg-checkerboard">
+                                        {art.url ? (
+                                          <>
+                                            <img src={art.url} alt="" className="w-full h-full object-contain p-0.5" />
+                                            <label className="absolute inset-0 cursor-pointer flex items-center justify-center bg-black/40 opacity-0 hover:opacity-100 transition-opacity">
+                                              <Upload size={10} className="text-white" />
+                                              <input
+                                                type="file"
+                                                className="hidden"
+                                                accept="image/*"
+                                                onChange={(e) => handleInlineLogoUpload(e, card.item.id, idx)}
+                                              />
+                                            </label>
+                                          </>
+                                        ) : (
+                                          <label className="absolute inset-0 cursor-pointer flex flex-col items-center justify-center hover:bg-neutral-800 transition-colors">
+                                            <Upload size={12} className="text-neutral-500" />
+                                            <input
+                                              type="file"
+                                              className="hidden"
+                                              accept="image/*"
+                                              onChange={(e) => handleInlineLogoUpload(e, card.item.id, idx)}
+                                            />
+                                          </label>
+                                        )}
+                                      </div>
+                                      
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-[10px] font-bold text-neutral-350 truncate" title={art.name || 'Logo'}>
+                                          {art.name || 'Unnamed Logo'}
+                                        </p>
+                                      </div>
+                                    </div>
+
+                                    {/* Width, Height, Quantity inputs */}
+                                    <div className="grid grid-cols-3 gap-1.5 mt-1">
+                                      <div>
+                                        <label className="text-[8px] font-bold uppercase tracking-wider text-neutral-500 block mb-0.5">Width (in)</label>
+                                        <input
+                                          type="number"
+                                          step="0.1"
+                                          className="w-full bg-neutral-950 border border-neutral-850 rounded px-1.5 py-1 text-[10px] text-white font-bold"
+                                          value={art.width || 3.5}
+                                          onChange={(e) => {
+                                            const w = parseFloat(e.target.value) || 0;
+                                            setEditingArtworks(prev => {
+                                              const next = [...prev];
+                                              next[idx] = { ...next[idx], width: w };
+                                              return next;
+                                            });
+                                          }}
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="text-[8px] font-bold uppercase tracking-wider text-neutral-500 block mb-0.5">Height (in)</label>
+                                        <input
+                                          type="text"
+                                          disabled
+                                          className="w-full bg-neutral-950/60 border border-neutral-850/60 rounded px-1.5 py-1 text-[10px] text-neutral-500 font-bold cursor-not-allowed"
+                                          value={art.height || 3.5}
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="text-[8px] font-bold uppercase tracking-wider text-neutral-500 block mb-0.5">Quantity</label>
+                                        <input
+                                          type="number"
+                                          className="w-full bg-neutral-950 border border-neutral-850 rounded px-1.5 py-1 text-[10px] text-white font-bold"
+                                          value={art.quantity || 1}
+                                          onChange={(e) => {
+                                            const q = parseInt(e.target.value) || 1;
+                                            setEditingArtworks(prev => {
+                                              const next = [...prev];
+                                              next[idx] = { ...next[idx], quantity: q };
+                                              return next;
+                                            });
+                                          }}
+                                        />
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            
+                            <button
+                              type="button"
+                              onClick={() => handleSaveInlineSpecs(card.item)}
+                              disabled={isUploadingInlineLogo}
+                              className="w-full mt-2 bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-white py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                            >
+                              {isUploadingInlineLogo ? (
+                                <>
+                                  <Loader2 size={12} className="animate-spin" />
+                                  <span>Uploading Image...</span>
+                                </>
+                              ) : (
+                                <span>Save Specs</span>
+                              )}
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="relative aspect-[3/4] w-full bg-neutral-950 border border-neutral-800 rounded-xl overflow-hidden flex items-center justify-center bg-checkerboard">
+                            {activePreviewUrl ? (
+                              <img 
+                                src={activePreviewUrl} 
+                                alt="Layout Preview" 
+                                className="w-full h-full object-contain p-4 hover:scale-105 transition-transform duration-300 cursor-zoom-in"
+                                onClick={() => setExpandedImage({ src: activePreviewUrl, alt: `${card.title} - ${currentPreviewMode}` })}
+                              />
+                            ) : (
+                              <div className="flex flex-col items-center gap-2 text-neutral-500 text-center p-6">
+                                <ImageIcon size={32} />
+                                <span className="text-xs font-semibold">No Artwork Preview Available</span>
+                              </div>
+                            )}
+
+                            {card.isPrintReady && (
+                              <div className="absolute top-3 left-3 bg-neutral-900/90 border border-neutral-800 rounded-lg p-0.5 flex shadow-lg">
+                                <button
+                                  onClick={() => setPreviewMode(prev => ({ ...prev, [card.id]: 'print' }))}
+                                  className={`text-[10px] uppercase font-bold tracking-wider px-2 py-1 rounded-md transition-all ${currentPreviewMode === 'print' ? 'bg-white text-black shadow-sm' : 'text-neutral-400 hover:text-white'}`}
+                                >
+                                  Print
+                                </button>
+                                <button
+                                  onClick={() => setPreviewMode(prev => ({ ...prev, [card.id]: 'cut' }))}
+                                  className={`text-[10px] uppercase font-bold tracking-wider px-2 py-1 rounded-md transition-all ${currentPreviewMode === 'cut' ? 'bg-white text-black shadow-sm' : 'text-neutral-400 hover:text-white'}`}
+                                >
+                                  Cut Line
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
 
                         {/* Actions Footer */}
                         <div className="flex flex-col gap-2 mt-auto">

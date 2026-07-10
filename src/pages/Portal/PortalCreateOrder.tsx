@@ -974,16 +974,16 @@ export function PortalCreateOrder() {
            
            const artworks = [];
            if (item.logoUrl) {
-             artworks.push({ url: item.logoUrl, originalUrl: item.logoUrl, name: item.logoName || 'Front Logo', width: 3.5, height: 3.5, quantity: totalQty });
+             artworks.push({ url: item.logoUrl, originalUrl: item.logoUrl, name: item.logoName || 'Front Logo', width: item.logoWidthFront || 3.5, height: 3.5, quantity: totalQty });
            }
            if (item.logoUrlBack) {
-             artworks.push({ url: item.logoUrlBack, originalUrl: item.logoUrlBack, name: item.logoNameBack || 'Back Logo', width: 3.5, height: 3.5, quantity: totalQty });
+             artworks.push({ url: item.logoUrlBack, originalUrl: item.logoUrlBack, name: item.logoNameBack || 'Back Logo', width: item.logoWidthBack || 3.5, height: 3.5, quantity: totalQty });
            }
            if (item.logoUrlLeftSleeve) {
-             artworks.push({ url: item.logoUrlLeftSleeve, originalUrl: item.logoUrlLeftSleeve, name: item.logoNameLeftSleeve || 'Left Sleeve Logo', width: 3.5, height: 3.5, quantity: totalQty });
+             artworks.push({ url: item.logoUrlLeftSleeve, originalUrl: item.logoUrlLeftSleeve, name: item.logoNameLeftSleeve || 'Left Sleeve Logo', width: item.logoWidthLeftSleeve || 3.5, height: 3.5, quantity: totalQty });
            }
            if (item.logoUrlRightSleeve) {
-             artworks.push({ url: item.logoUrlRightSleeve, originalUrl: item.logoUrlRightSleeve, name: item.logoNameRightSleeve || 'Right Sleeve Logo', width: 3.5, height: 3.5, quantity: totalQty });
+             artworks.push({ url: item.logoUrlRightSleeve, originalUrl: item.logoUrlRightSleeve, name: item.logoNameRightSleeve || 'Right Sleeve Logo', width: item.logoWidthRightSleeve || 3.5, height: 3.5, quantity: totalQty });
            }
            if (item.logoUrlTag) {
              artworks.push({ url: item.logoUrlTag, originalUrl: item.logoUrlTag, name: 'Size Tag Print', width: 2.5, height: 2.5, quantity: totalQty });
@@ -1007,12 +1007,16 @@ export function PortalCreateOrder() {
               logoPlacement: item.logoPlacement || '',
               logoUrl: item.logoUrl || null,
               logoName: item.logoName || null,
+              logoWidthFront: item.logoWidthFront || null,
               logoUrlBack: item.logoUrlBack || null,
               logoNameBack: item.logoNameBack || null,
+              logoWidthBack: item.logoWidthBack || null,
               logoUrlLeftSleeve: item.logoUrlLeftSleeve || null,
               logoNameLeftSleeve: item.logoNameLeftSleeve || null,
+              logoWidthLeftSleeve: item.logoWidthLeftSleeve || null,
               logoUrlRightSleeve: item.logoUrlRightSleeve || null,
               logoNameRightSleeve: item.logoNameRightSleeve || null,
+              logoWidthRightSleeve: item.logoWidthRightSleeve || null,
               customScaleFront: item.customScaleFront ?? null,
               customOffsetXFront: item.customOffsetXFront ?? null,
               customOffsetYFront: item.customOffsetYFront ?? null,

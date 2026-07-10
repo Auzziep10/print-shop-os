@@ -235,6 +235,11 @@ export function GarmentCustomizerModal({
   const [rotationRightSleeve, setRotationRightSleeve] = useState(0);
   const placementRightSleeve = 'Right Sleeve';
 
+  const [widthFront, setWidthFront] = useState<string>('');
+  const [widthBack, setWidthBack] = useState<string>('');
+  const [widthLeftSleeve, setWidthLeftSleeve] = useState<string>('');
+  const [widthRightSleeve, setWidthRightSleeve] = useState<string>('');
+
   const [tagLogos, setTagLogos] = useState<any[]>([]);
   const [tagTexts, setTagTexts] = useState<any[]>([]);
   const [tagSize, setTagSize] = useState<any>({
@@ -1043,6 +1048,11 @@ export function GarmentCustomizerModal({
         setSelectedLogoRightSleeve(null);
       }
 
+      setWidthFront(String(garment.logoWidthFront ?? garment.widthFront ?? ''));
+      setWidthBack(String(garment.logoWidthBack ?? garment.widthBack ?? ''));
+      setWidthLeftSleeve(String(garment.logoWidthLeftSleeve ?? garment.widthLeftSleeve ?? ''));
+      setWidthRightSleeve(String(garment.logoWidthRightSleeve ?? garment.widthRightSleeve ?? ''));
+
       setScaleFront(garment.customScaleFront ?? 30);
       setOffsetXFront(garment.customOffsetXFront ?? 50);
       setOffsetYFront(garment.customOffsetYFront ?? 45);
@@ -1067,6 +1077,11 @@ export function GarmentCustomizerModal({
       setSelectedLogoBack(null);
       setSelectedLogoLeftSleeve(null);
       setSelectedLogoRightSleeve(null);
+
+      setWidthFront('');
+      setWidthBack('');
+      setWidthLeftSleeve('');
+      setWidthRightSleeve('');
 
       setScaleFront(30);
       setOffsetXFront(50);
@@ -1411,6 +1426,30 @@ export function GarmentCustomizerModal({
   };
 
   const handleSave = async () => {
+    // Validation check for widths
+    if (selectedLogoFront && !widthFront.trim()) {
+      alert("Please enter the print width for the Front placement.");
+      setActiveTab('front');
+      return;
+    }
+    if (selectedLogoBack && !widthBack.trim()) {
+      alert("Please enter the print width for the Back placement.");
+      setActiveTab('back');
+      return;
+    }
+    if (selectedLogoLeftSleeve && !widthLeftSleeve.trim()) {
+      alert("Please enter the print width for the Left Sleeve placement.");
+      setActiveTab('sleeve');
+      setIsSleeveMirrored(false);
+      return;
+    }
+    if (selectedLogoRightSleeve && !widthRightSleeve.trim()) {
+      alert("Please enter the print width for the Right Sleeve placement.");
+      setActiveTab('sleeve');
+      setIsSleeveMirrored(true);
+      return;
+    }
+
     if (isSaving) return;
     setIsSaving(true);
 
@@ -1655,12 +1694,16 @@ export function GarmentCustomizerModal({
         customizedSleeveImage,
         logoUrl: selectedLogoFront?.url || null,
         logoName: selectedLogoFront?.name || null,
+        logoWidthFront: selectedLogoFront ? parseFloat(widthFront) : null,
         logoUrlBack: selectedLogoBack?.url || null,
         logoNameBack: selectedLogoBack?.name || null,
+        logoWidthBack: selectedLogoBack ? parseFloat(widthBack) : null,
         logoUrlLeftSleeve: selectedLogoLeftSleeve?.url || null,
         logoNameLeftSleeve: selectedLogoLeftSleeve?.name || null,
+        logoWidthLeftSleeve: selectedLogoLeftSleeve ? parseFloat(widthLeftSleeve) : null,
         logoUrlRightSleeve: selectedLogoRightSleeve?.url || null,
         logoNameRightSleeve: selectedLogoRightSleeve?.name || null,
+        logoWidthRightSleeve: selectedLogoRightSleeve ? parseFloat(widthRightSleeve) : null,
         customScaleFront: scaleFront,
         customOffsetXFront: offsetXFront,
         customOffsetYFront: offsetYFront,
@@ -1714,12 +1757,16 @@ export function GarmentCustomizerModal({
         logoPlacement: placementParts.join(', ') || 'Front',
         logoUrl: selectedLogoFront?.url || null,
         logoName: selectedLogoFront?.name || null,
+        logoWidthFront: selectedLogoFront ? parseFloat(widthFront) : null,
         logoUrlBack: selectedLogoBack?.url || null,
         logoNameBack: selectedLogoBack?.name || null,
+        logoWidthBack: selectedLogoBack ? parseFloat(widthBack) : null,
         logoUrlLeftSleeve: selectedLogoLeftSleeve?.url || null,
         logoNameLeftSleeve: selectedLogoLeftSleeve?.name || null,
+        logoWidthLeftSleeve: selectedLogoLeftSleeve ? parseFloat(widthLeftSleeve) : null,
         logoUrlRightSleeve: selectedLogoRightSleeve?.url || null,
         logoNameRightSleeve: selectedLogoRightSleeve?.name || null,
+        logoWidthRightSleeve: selectedLogoRightSleeve ? parseFloat(widthRightSleeve) : null,
         // Tag properties
         logoUrlTag: null,
         tagLayout: isTagCustomized ? {
@@ -2756,6 +2803,47 @@ export function GarmentCustomizerModal({
                   className="w-full h-1.5 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-black"
                 />
               </div>
+            </div>
+          )}
+
+          {/* Required Placement Width Input */}
+          {((activeTab === 'front' && selectedLogoFront) ||
+            (activeTab === 'back' && selectedLogoBack) ||
+            (activeTab === 'sleeve' && !isSleeveMirrored && selectedLogoLeftSleeve) ||
+            (activeTab === 'sleeve' && isSleeveMirrored && selectedLogoRightSleeve)) && (
+            <div className="flex flex-col gap-1.5 border-t border-neutral-100 pt-6 animate-in fade-in duration-200">
+              <label className="text-xs font-bold uppercase tracking-widest text-neutral-500 flex items-center gap-1">
+                <span>Print Width (Inches)</span>
+                <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="number"
+                step="0.1"
+                min="0.5"
+                max="22"
+                placeholder="e.g. 10.5"
+                value={
+                  activeTab === 'front'
+                    ? widthFront
+                    : activeTab === 'back'
+                    ? widthBack
+                    : isSleeveMirrored
+                    ? widthRightSleeve
+                    : widthLeftSleeve
+                }
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (activeTab === 'front') setWidthFront(val);
+                  else if (activeTab === 'back') setWidthBack(val);
+                  else if (isSleeveMirrored) setWidthRightSleeve(val);
+                  else setWidthLeftSleeve(val);
+                }}
+                className="w-full bg-neutral-50 border border-neutral-200 hover:border-neutral-300 focus:border-black focus:bg-white rounded-xl px-4 py-2.5 text-sm font-bold transition-all outline-none"
+                required
+              />
+              <span className="text-[10px] text-neutral-400 font-semibold mt-0.5">
+                Specify the exact target width in inches for printing this placement.
+              </span>
             </div>
           )}
 

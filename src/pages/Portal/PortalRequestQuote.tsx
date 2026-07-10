@@ -639,16 +639,16 @@ export function PortalRequestQuote() {
            
            const artworks = [];
            if (p.logoUrl) {
-             artworks.push({ url: p.logoUrl, originalUrl: p.logoUrl, name: p.logoName || 'Front Logo', width: 3.5, height: 3.5, quantity: totalQty });
+             artworks.push({ url: p.logoUrl, originalUrl: p.logoUrl, name: p.logoName || 'Front Logo', width: p.logoWidthFront || 3.5, height: 3.5, quantity: totalQty });
            }
            if (p.logoUrlBack) {
-             artworks.push({ url: p.logoUrlBack, originalUrl: p.logoUrlBack, name: p.logoNameBack || 'Back Logo', width: 3.5, height: 3.5, quantity: totalQty });
+             artworks.push({ url: p.logoUrlBack, originalUrl: p.logoUrlBack, name: p.logoNameBack || 'Back Logo', width: p.logoWidthBack || 3.5, height: 3.5, quantity: totalQty });
            }
            if (p.logoUrlLeftSleeve) {
-             artworks.push({ url: p.logoUrlLeftSleeve, originalUrl: p.logoUrlLeftSleeve, name: p.logoNameLeftSleeve || 'Left Sleeve Logo', width: 3.5, height: 3.5, quantity: totalQty });
+             artworks.push({ url: p.logoUrlLeftSleeve, originalUrl: p.logoUrlLeftSleeve, name: p.logoNameLeftSleeve || 'Left Sleeve Logo', width: p.logoWidthLeftSleeve || 3.5, height: 3.5, quantity: totalQty });
            }
            if (p.logoUrlRightSleeve) {
-             artworks.push({ url: p.logoUrlRightSleeve, originalUrl: p.logoUrlRightSleeve, name: p.logoNameRightSleeve || 'Right Sleeve Logo', width: 3.5, height: 3.5, quantity: totalQty });
+             artworks.push({ url: p.logoUrlRightSleeve, originalUrl: p.logoUrlRightSleeve, name: p.logoNameRightSleeve || 'Right Sleeve Logo', width: p.logoWidthRightSleeve || 3.5, height: 3.5, quantity: totalQty });
            }
            if (p.logoUrlTag) {
              artworks.push({ url: p.logoUrlTag, originalUrl: p.logoUrlTag, name: 'Size Tag Print', width: 2.5, height: 2.5, quantity: totalQty });
@@ -671,12 +671,16 @@ export function PortalRequestQuote() {
               logoPlacement: p.logoPlacement || '',
               logoUrl: p.logoUrl || null,
               logoName: p.logoName || null,
+              logoWidthFront: p.logoWidthFront || null,
               logoUrlBack: p.logoUrlBack || null,
               logoNameBack: p.logoNameBack || null,
+              logoWidthBack: p.logoWidthBack || null,
               logoUrlLeftSleeve: p.logoUrlLeftSleeve || null,
               logoNameLeftSleeve: p.logoNameLeftSleeve || null,
+              logoWidthLeftSleeve: p.logoWidthLeftSleeve || null,
               logoUrlRightSleeve: p.logoUrlRightSleeve || null,
               logoNameRightSleeve: p.logoNameRightSleeve || null,
+              logoWidthRightSleeve: p.logoWidthRightSleeve || null,
               customScaleFront: p.customScaleFront ?? null,
               customOffsetXFront: p.customOffsetXFront ?? null,
               customOffsetYFront: p.customOffsetYFront ?? null,
