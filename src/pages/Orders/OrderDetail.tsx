@@ -784,7 +784,7 @@ const generateFinalSheetsForPrintAndCut = async (
 
     // --- Draw Headers and QR Codes ---
     const origin = window.location.origin;
-    const qrUrl = `${origin}/admin?orderId=${orderId}`;
+    const qrUrl = `${origin}/orders/${orderId}`;
     const qrCodeDataUrl = await QRCodeLib.toDataURL(qrUrl, { width: HEADER_HEIGHT_PX - 20, margin: 1 });
     
     const qrImg = new window.Image();
@@ -2181,7 +2181,7 @@ export function OrderDetail() {
 
       // --- Draw Headers and QR Codes ---
       const origin = window.location.origin;
-      const qrUrl = `${origin}/admin?orderId=${order.id}`;
+      const qrUrl = `${origin}/orders/${order.id}`;
       const qrCodeDataUrl = await QRCodeLib.toDataURL(qrUrl, { width: HEADER_HEIGHT_PX - 20, margin: 1 });
       
       const qrImg = new window.Image();
