@@ -272,6 +272,77 @@ const findContourPaths = (canvas: HTMLCanvasElement): string[] => {
     return paths;
 };
 
+// Injects standard PNG physical resolution (pHYs) metadata chunk to set print DPI
+const injectDpiInPngDataUrl = (dataUrl: string, dpi: number): string => {
+    const matches = dataUrl.match(/^data:image\/png;base64,(.*)$/);
+    if (!matches) return dataUrl;
+
+    const base64Str = matches[1];
+    const binaryStr = window.atob(base64Str);
+    const len = binaryStr.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+        bytes[i] = binaryStr.charCodeAt(i);
+    }
+
+    const physPxPerMeter = Math.round(dpi / 0.0254);
+
+    const physData = new Uint8Array(9);
+    physData[0] = (physPxPerMeter >>> 24) & 0xff;
+    physData[1] = (physPxPerMeter >>> 16) & 0xff;
+    physData[2] = (physPxPerMeter >>> 8) & 0xff;
+    physData[3] = physPxPerMeter & 0xff;
+    physData[4] = (physPxPerMeter >>> 24) & 0xff;
+    physData[5] = (physPxPerMeter >>> 16) & 0xff;
+    physData[6] = (physPxPerMeter >>> 8) & 0xff;
+    physData[7] = physPxPerMeter & 0xff;
+    physData[8] = 1; // unit meter
+
+    const typeBytes = new Uint8Array([112, 72, 121, 83]); // 'pHYs'
+
+    const crcBytes = new Uint8Array(4 + 9);
+    crcBytes.set(typeBytes, 0);
+    crcBytes.set(physData, 4);
+
+    let crcVal = 0xFFFFFFFF;
+    for (let i = 0; i < crcBytes.length; i++) {
+        crcVal ^= crcBytes[i];
+        for (let j = 0; j < 8; j++) {
+            if (crcVal & 1) {
+                crcVal = (crcVal >>> 1) ^ 0xEDB88320;
+            } else {
+                crcVal = crcVal >>> 1;
+            }
+        }
+    }
+    crcVal = (crcVal ^ 0xFFFFFFFF) >>> 0;
+
+    const physChunk = new Uint8Array(4 + 4 + 9 + 4);
+    physChunk[0] = 0;
+    physChunk[1] = 0;
+    physChunk[2] = 0;
+    physChunk[3] = 9;
+    physChunk.set(typeBytes, 4);
+    physChunk.set(physData, 8);
+    physChunk[17] = (crcVal >>> 24) & 0xff;
+    physChunk[18] = (crcVal >>> 16) & 0xff;
+    physChunk[19] = (crcVal >>> 8) & 0xff;
+    physChunk[20] = crcVal & 0xff;
+
+    const result = new Uint8Array(bytes.length + physChunk.length);
+    result.set(bytes.subarray(0, 33), 0);
+    result.set(physChunk, 33);
+    result.set(bytes.subarray(33), 33 + physChunk.length);
+
+    let binaryStrNew = '';
+    const chunkSize = 8192;
+    for (let i = 0; i < result.length; i += chunkSize) {
+        binaryStrNew += String.fromCharCode.apply(null, Array.from(result.subarray(i, i + chunkSize)));
+    }
+    const base64New = window.btoa(binaryStrNew);
+    return `data:image/png;base64,${base64New}`;
+};
+
 // Generates both print-ready sheet (artworks + marks + header) and cut-ready sheet (cut paths + marks + header)
 const generateFinalSheetsForPrintAndCut = async (
     orderItem: any,
@@ -846,7 +917,7 @@ const generateFinalSheetsForPrintAndCut = async (
     const cutDataUrl = 'data:image/svg+xml;base64,' + window.btoa(unescape(encodeURIComponent(svgContent)));
 
     return {
-        printDataUrl: printCanvas.toDataURL('image/png'),
+        printDataUrl: injectDpiInPngDataUrl(printCanvas.toDataURL('image/png'), 300),
         cutDataUrl: cutDataUrl,
         sheetHeight: sheetContentHeightInches
     };
@@ -2164,9 +2235,8 @@ export function OrderDetail() {
       const cutStorageRef = ref(storage, `production-sheets/${id}/${item.id}-tag-cut.svg`);
 
       // Upload both PNG print and SVG cut files to Firebase
-      const printBlob = await new Promise<Blob | null>((resolve) => printCanvas.toBlob(resolve, 'image/png'));
-      if (!printBlob) throw new Error("Failed to create blob for tag print sheet");
-      await uploadBytes(printStorageRef, printBlob);
+      const tagPrintDataUrl = injectDpiInPngDataUrl(printCanvas.toDataURL('image/png'), 300);
+      await uploadString(printStorageRef, tagPrintDataUrl, 'data_url');
 
       await uploadString(cutStorageRef, cutDataUrl, 'data_url');
 
