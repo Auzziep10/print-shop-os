@@ -298,41 +298,75 @@ const injectDpiInPngDataUrl = (dataUrl: string, dpi: number): string => {
     physData[7] = physPxPerMeter & 0xff;
     physData[8] = 1; // unit meter
 
-    const typeBytes = new Uint8Array([112, 72, 121, 83]); // 'pHYs'
+    const typeBytes = new Uint8Array([112, 72, 121, 115]); // 'pHYs' (lowercase s is 115, not 83)
+
+    // Compute CRC32
+    const computeCrc32 = (data: Uint8Array): number => {
+        let crc = 0xFFFFFFFF;
+        for (let i = 0; i < data.length; i++) {
+            crc ^= data[i];
+            for (let j = 0; j < 8; j++) {
+                if (crc & 1) {
+                    crc = (crc >>> 1) ^ 0xEDB88320;
+                } else {
+                    crc = crc >>> 1;
+                }
+            }
+        }
+        return (crc ^ 0xFFFFFFFF) >>> 0;
+    };
 
     const crcBytes = new Uint8Array(4 + 9);
     crcBytes.set(typeBytes, 0);
     crcBytes.set(physData, 4);
+    const crcVal = computeCrc32(crcBytes);
 
-    let crcVal = 0xFFFFFFFF;
-    for (let i = 0; i < crcBytes.length; i++) {
-        crcVal ^= crcBytes[i];
-        for (let j = 0; j < 8; j++) {
-            if (crcVal & 1) {
-                crcVal = (crcVal >>> 1) ^ 0xEDB88320;
-            } else {
-                crcVal = crcVal >>> 1;
-            }
+    // Search for existing pHYs chunk in PNG to avoid duplicates
+    let existingPhysIndex = -1;
+    let idx = 8; // skip PNG signature
+    while (idx < bytes.length - 12) {
+        const length = (bytes[idx] << 24) | (bytes[idx + 1] << 16) | (bytes[idx + 2] << 8) | bytes[idx + 3];
+        const chunkType = String.fromCharCode(bytes[idx + 4], bytes[idx + 5], bytes[idx + 6], bytes[idx + 7]);
+        
+        if (chunkType === 'pHYs') {
+            existingPhysIndex = idx;
+            break;
         }
+        if (chunkType === 'IEND') {
+            break;
+        }
+        idx += 4 + 4 + length + 4; // length (4) + type (4) + data (length) + crc (4)
     }
-    crcVal = (crcVal ^ 0xFFFFFFFF) >>> 0;
 
-    const physChunk = new Uint8Array(4 + 4 + 9 + 4);
-    physChunk[0] = 0;
-    physChunk[1] = 0;
-    physChunk[2] = 0;
-    physChunk[3] = 9;
-    physChunk.set(typeBytes, 4);
-    physChunk.set(physData, 8);
-    physChunk[17] = (crcVal >>> 24) & 0xff;
-    physChunk[18] = (crcVal >>> 16) & 0xff;
-    physChunk[19] = (crcVal >>> 8) & 0xff;
-    physChunk[20] = crcVal & 0xff;
+    let result: Uint8Array;
 
-    const result = new Uint8Array(bytes.length + physChunk.length);
-    result.set(bytes.subarray(0, 33), 0);
-    result.set(physChunk, 33);
-    result.set(bytes.subarray(33), 33 + physChunk.length);
+    if (existingPhysIndex !== -1) {
+        // Overwrite the existing pHYs chunk in-place
+        result = new Uint8Array(bytes);
+        result.set(physData, existingPhysIndex + 8);
+        result[existingPhysIndex + 17] = (crcVal >>> 24) & 0xff;
+        result[existingPhysIndex + 18] = (crcVal >>> 16) & 0xff;
+        result[existingPhysIndex + 19] = (crcVal >>> 8) & 0xff;
+        result[existingPhysIndex + 20] = crcVal & 0xff;
+    } else {
+        // Insert new pHYs chunk right after IHDR chunk (ends at index 33)
+        const physChunk = new Uint8Array(4 + 4 + 9 + 4);
+        physChunk[0] = 0;
+        physChunk[1] = 0;
+        physChunk[2] = 0;
+        physChunk[3] = 9;
+        physChunk.set(typeBytes, 4);
+        physChunk.set(physData, 8);
+        physChunk[17] = (crcVal >>> 24) & 0xff;
+        physChunk[18] = (crcVal >>> 16) & 0xff;
+        physChunk[19] = (crcVal >>> 8) & 0xff;
+        physChunk[20] = crcVal & 0xff;
+
+        result = new Uint8Array(bytes.length + physChunk.length);
+        result.set(bytes.subarray(0, 33), 0);
+        result.set(physChunk, 33);
+        result.set(bytes.subarray(33), 33 + physChunk.length);
+    }
 
     let binaryStrNew = '';
     const chunkSize = 8192;
