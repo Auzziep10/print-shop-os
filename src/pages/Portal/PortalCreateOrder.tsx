@@ -1351,24 +1351,17 @@ export function PortalCreateOrder() {
         </div>
       </div>
 
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-1.5">
         <h1 className="text-4xl font-serif text-neutral-900 tracking-tight flex items-center gap-4">
-          Create New Quote Request
+          Start Your Order
         </h1>
-        <p className="text-neutral-500 font-medium text-sm max-w-xl leading-relaxed">
-          Select garments, upload artwork, and construct your request. We'll generate mockups for your review.
+        <p className="text-neutral-500 font-medium text-sm">
+          Select a garment below to get started.
         </p>
       </div>
 
       {/* Main Full Screen Catalog Selector */}
       <div data-tour="catalog-grid" className="bg-white rounded-3xl p-8 shadow-[0_4px_24px_rgb(0,0,0,0.02)] border border-neutral-100 flex flex-col gap-6">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h3 className="text-xl font-serif text-neutral-900">Your Catalog</h3>
-            <p className="text-sm font-medium text-neutral-500 mt-1">Select from your approved collection, suggested, or past styles to begin building your order.</p>
-          </div>
-        </div>
-
         {/* Library Tabs */}
         <div className="flex gap-4 border-b border-neutral-100 py-3 overflow-x-auto shrink-0 bg-neutral-50/50 px-4 rounded-xl">
           <button
@@ -1380,7 +1373,7 @@ export function PortalCreateOrder() {
                 : 'text-neutral-400 border-transparent hover:text-black hover:border-black'
             }`}
           >
-            Design Your Rack ({activeRackItems.length})
+            Your Rack ({activeRackItems.length})
           </button>
           {hasWovnRack && (
             <button
