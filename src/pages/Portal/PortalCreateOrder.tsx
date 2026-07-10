@@ -1312,6 +1312,15 @@ export function PortalCreateOrder() {
     return count || 1;
   };
 
+  if (!customer || isLoadingDecks) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] gap-3">
+        <Loader2 className="animate-spin w-8 h-8 text-neutral-400" />
+        <p className="text-neutral-500 font-medium text-xs">Loading order builder...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-[1200px] mx-auto w-full flex flex-col gap-8 animate-in fade-in zoom-in-95 duration-300 pb-20">
       {/* Header Area */}
