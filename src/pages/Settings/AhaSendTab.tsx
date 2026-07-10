@@ -120,6 +120,7 @@ export function AhaSendTab() {
   // Status message states
   const [saveStatus, setSaveStatus] = useState<{ success: boolean; message: string } | null>(null);
   const [testStatus, setTestStatus] = useState<{ success: boolean; message: string } | null>(null);
+  const [testingSingle, setTestingSingle] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -339,6 +340,133 @@ export function AhaSendTab() {
     }
   };
 
+  const handleTestSingleTemplate = async (templateId: string, tab?: 'Standard' | 'Kitting') => {
+    if (!apiKey || !fromEmail) {
+      setTestStatus({ success: false, message: 'Please provide both an API Key and Sender Email before testing.' });
+      return;
+    }
+
+    if (apiKey.startsWith('aha-sk-') && !accountId) {
+      setTestStatus({ success: false, message: 'Please provide an Account ID before testing.' });
+      return;
+    }
+
+    const testId = tab ? `${tab}-${templateId}` : templateId;
+    setTestingSingle(testId);
+    setTestStatus(null);
+    setSaveStatus(null);
+
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        throw new Error('You must be logged in to test templates.');
+      }
+
+      const idToken = await currentUser.getIdToken();
+      const baseUrl = window.location.origin;
+
+      let subject = '';
+      let bodyText = '';
+      let emailTypeLabel = '';
+
+      if (templateId === 'welcome') {
+        emailTypeLabel = 'Welcome Email';
+        subject = welcomeTemplate.subject || 'Welcome to your Client Portal';
+        bodyText = welcomeTemplate.template || '';
+
+        // Replace variables
+        subject = subject.replace(/{customerName}/g, 'Jane Doe (Test)');
+        subject = subject.replace(/{companyName}/g, 'Test Company Inc.');
+        subject = subject.replace(/{portalUrl}/g, `${baseUrl}/portal`);
+        subject = subject.replace(/{customerEmail}/g, currentUser.email || 'test@example.com');
+
+        bodyText = bodyText.replace(/{customerName}/g, 'Jane Doe (Test)');
+        bodyText = bodyText.replace(/{companyName}/g, 'Test Company Inc.');
+        bodyText = bodyText.replace(/{portalUrl}/g, `${baseUrl}/portal`);
+        bodyText = bodyText.replace(/{customerEmail}/g, currentUser.email || 'test@example.com');
+      } else {
+        const index = parseInt(templateId);
+        const label = tab === 'Standard' ? STANDARD_STATUS_LABELS[index] : KITTING_STATUS_LABELS[index];
+        emailTypeLabel = `${tab} Status: ${label}`;
+
+        const templateConfig = (tab === 'Standard' ? templates : kittingTemplates)[templateId] || { enabled: false, subject: '', template: '' };
+        subject = templateConfig.subject || `Order #1001-T Status Update`;
+        bodyText = templateConfig.template || '';
+
+        // Replace variables
+        const variables = {
+          customerName: 'Jane Doe (Test)',
+          companyName: 'Test Company Inc.',
+          orderId: '1001-T',
+          orderTitle: 'Custom Hoodies & Tees (Test Order)',
+          trackingCarrier: 'UPS',
+          trackingNumber: '1Z999AA10123456784',
+          portalUrl: `${baseUrl}/portal`,
+          invoiceUrl: `${baseUrl}/invoice/test-order-id`,
+          orderUrl: `${baseUrl}/order-summary/test-order-id`
+        };
+
+        const replaceVars = (str: string) => {
+          let out = str;
+          out = out.replace(/{customerName}/g, variables.customerName);
+          out = out.replace(/{companyName}/g, variables.companyName);
+          out = out.replace(/{orderId}/g, variables.orderId);
+          out = out.replace(/{orderTitle}/g, variables.orderTitle);
+          out = out.replace(/{trackingCarrier}/g, variables.trackingCarrier);
+          out = out.replace(/{trackingNumber}/g, variables.trackingNumber);
+          out = out.replace(/{portalUrl}/g, variables.portalUrl);
+          out = out.replace(/{invoiceUrl}/g, variables.invoiceUrl);
+          out = out.replace(/{orderUrl}/g, variables.orderUrl);
+          return out;
+        };
+
+        subject = replaceVars(subject);
+        bodyText = replaceVars(bodyText);
+      }
+
+      const htmlBody = `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; color: #333; line-height: 1.6; background-color: #f7f7f5;">
+          <div style="background-color: #ffffff; border: 1px solid #e5e5e0; border-radius: 16px; padding: 32px; box-shadow: 0 4px 12px rgba(0,0,0,0.025);">
+            <div style="margin-bottom: 20px; border-bottom: 1px solid #f0f0ed; padding-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+              <h2 style="font-size: 18px; color: #111; margin: 0; font-weight: 700; font-family: Georgia, Cambria, 'Times New Roman', Times, serif;">${emailTypeLabel} Preview</h2>
+              <span style="font-size: 10px; background-color: #f0f0ed; color: #666; padding: 4px 8px; border-radius: 9999px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Test Email</span>
+            </div>
+            <div style="font-size: 15px; color: #444; white-space: pre-wrap;">${bodyText}</div>
+            <hr style="border: 0; border-top: 1px solid #f0f0ed; margin: 32px 0 20px 0;" />
+            <p style="font-size: 11px; color: #999; text-align: center; margin: 0;">This is a test notification generated from your Client Portal's settings.</p>
+          </div>
+        </div>
+      `;
+
+      const response = await fetch('/api/email/send', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`
+        },
+        body: JSON.stringify({
+          to: currentUser.email || '',
+          subject: `[TEST] ${subject}`,
+          text: bodyText,
+          html: htmlBody
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setTestStatus({ success: true, message: `Test email for "${emailTypeLabel}" sent successfully to ${currentUser.email}! Check your inbox.` });
+      } else {
+        setTestStatus({ success: false, message: `Failed to send test email: ${data.error || data.details || 'Unknown error'}` });
+      }
+    } catch (err: any) {
+      console.error("Error testing template:", err);
+      setTestStatus({ success: false, message: `Failed to send test email: ${err.message || 'Unknown error'}` });
+    } finally {
+      setTestingSingle(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center py-12">
@@ -484,20 +612,37 @@ export function AhaSendTab() {
           </div>
 
           <div className="flex flex-col lg:flex-row gap-6 items-start">
-            <div className="w-full lg:w-1/4 flex items-center justify-between shrink-0">
-              <div>
-                <span className="text-xs font-bold text-brand-primary">Welcome Email</span>
-                <p className="text-[11px] text-brand-secondary/70 mt-0.5">Sent immediately upon customer creation</p>
+            <div className="w-full lg:w-1/4 flex flex-col justify-between shrink-0 gap-4">
+              <div className="flex items-center justify-between w-full">
+                <div>
+                  <span className="text-xs font-bold text-brand-primary">Welcome Email</span>
+                  <p className="text-[11px] text-brand-secondary/70 mt-0.5">Sent immediately upon customer creation</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input 
+                    type="checkbox" 
+                    className="sr-only peer"
+                    checked={welcomeTemplate.enabled}
+                    onChange={() => setWelcomeTemplate(prev => ({ ...prev, enabled: !prev.enabled }))}
+                  />
+                  <div className="w-9 h-5 bg-neutral-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-brand-primary"></div>
+                </label>
               </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input 
-                  type="checkbox" 
-                  className="sr-only peer"
-                  checked={welcomeTemplate.enabled}
-                  onChange={() => setWelcomeTemplate(prev => ({ ...prev, enabled: !prev.enabled }))}
-                />
-                <div className="w-9 h-5 bg-neutral-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-brand-primary"></div>
-              </label>
+              {welcomeTemplate.enabled && (
+                <button
+                  type="button"
+                  onClick={() => handleTestSingleTemplate('welcome')}
+                  disabled={testing || testingSingle !== null || !apiKey || !fromEmail}
+                  className="w-full text-[10px] font-bold uppercase tracking-wider bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 rounded-lg py-1.5 px-3 flex items-center justify-center gap-1.5 transition-colors cursor-pointer text-brand-secondary hover:text-brand-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {testingSingle === 'welcome' ? (
+                    <Loader2 className="animate-spin" size={12} />
+                  ) : (
+                    <SendHorizontal size={12} />
+                  )}
+                  Send Test Email
+                </button>
+              )}
             </div>
 
             <div className="w-full lg:flex-1 space-y-3">
@@ -577,20 +722,37 @@ export function AhaSendTab() {
 
               return (
                 <div key={statusKey} className={`pt-6 first:pt-0 flex flex-col lg:flex-row gap-6 items-start ${!templateConfig.enabled ? 'opacity-60' : ''}`}>
-                  <div className="w-full lg:w-1/4 flex items-center justify-between shrink-0">
-                    <div>
-                      <span className="text-xs font-bold text-brand-primary">{label}</span>
-                      <p className="text-[11px] text-brand-secondary/70 mt-0.5">Status Index: {index}</p>
+                  <div className="w-full lg:w-1/4 flex flex-col justify-between shrink-0 gap-4">
+                    <div className="flex items-center justify-between w-full">
+                      <div>
+                        <span className="text-xs font-bold text-brand-primary">{label}</span>
+                        <p className="text-[11px] text-brand-secondary/70 mt-0.5">Status Index: {index}</p>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          className="sr-only peer"
+                          checked={templateConfig.enabled}
+                          onChange={() => handleTemplateToggle(statusKey)}
+                        />
+                        <div className="w-9 h-5 bg-neutral-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-brand-primary"></div>
+                      </label>
                     </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input 
-                        type="checkbox" 
-                        className="sr-only peer"
-                        checked={templateConfig.enabled}
-                        onChange={() => handleTemplateToggle(statusKey)}
-                      />
-                      <div className="w-9 h-5 bg-neutral-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-brand-primary"></div>
-                    </label>
+                    {templateConfig.enabled && (
+                      <button
+                        type="button"
+                        onClick={() => handleTestSingleTemplate(statusKey, activeTab)}
+                        disabled={testing || testingSingle !== null || !apiKey || !fromEmail}
+                        className="w-full text-[10px] font-bold uppercase tracking-wider bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 rounded-lg py-1.5 px-3 flex items-center justify-center gap-1.5 transition-colors cursor-pointer text-brand-secondary hover:text-brand-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {testingSingle === `${activeTab}-${statusKey}` ? (
+                          <Loader2 className="animate-spin" size={12} />
+                        ) : (
+                          <SendHorizontal size={12} />
+                        )}
+                        Send Test Email
+                      </button>
+                    )}
                   </div>
 
                   <div className="w-full lg:flex-1 space-y-3">
