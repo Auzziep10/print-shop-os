@@ -285,7 +285,9 @@ const generateFinalSheetsForPrintAndCut = async (
 
     const isVinyl = isVinylItem(orderItem);
 
-    let isSingleTransferLayout = orderItem.sheetSizeName === 'Single Design Transfer';
+    let isSingleTransferLayout = orderItem.sheetSizeName === 'Single Design Transfer' ||
+        orderItem.itemType === 'garment' ||
+        (Array.isArray(orderItem.artworks) && orderItem.artworks.some((art: any) => art.url && art.url !== orderItem.image));
     const isAutoLayout = (orderItem.sheetSizeName || '').toLowerCase().includes('auto-layout');
     
     let designWidthInches = isSingleTransferLayout ? 22 : (orderItem.sheetWidth || 22);
