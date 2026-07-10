@@ -54,9 +54,48 @@ export function Dashboard() {
         const isGangSheet = item.itemType === 'gang_sheet';
         const isCustomGarment = item.itemType === 'garment' && item.printReadyUrl;
         
+        // 1. Push main artwork gang sheet if present
         if (isGangSheet || isCustomGarment) {
           list.push({
             ...item,
+            id: `${item.id}-art`,
+            realItemId: item.id,
+            type: 'art',
+            readyToPrint: !!item.readyToPrint,
+            printed: !!item.printed,
+            printedAt: item.printedAt || null,
+            printedBy: item.printedBy || null,
+            style: item.itemType === 'gang_sheet' ? (item.sheetSizeName || 'DTF Gang Sheet') : `${item.style || 'Garment'} - Main Art`,
+            sheetWidth: item.sheetWidth || 22,
+            sheetHeight: item.sheetHeight || 24,
+            printReadyUrl: item.printReadyUrl,
+            cutReadyUrl: item.cutReadyUrl,
+            orderId: order.id,
+            orderTitle: order.title,
+            orderPortalId: order.portalId,
+            orderCustomerId: order.customerId,
+            orderPriority: order.priority,
+            orderShipDate: order.shipDate,
+            orderStatusIndex: order.statusIndex
+          });
+        }
+
+        // 2. Push neck tag gang sheet if present and generated
+        if (item.logoUrlTag && item.tagPrintReadyUrl) {
+          list.push({
+            ...item,
+            id: `${item.id}-tag`,
+            realItemId: item.id,
+            type: 'tag',
+            readyToPrint: !!item.tagReadyToPrint,
+            printed: !!item.tagPrinted,
+            printedAt: item.tagPrintedAt || null,
+            printedBy: item.tagPrintedBy || null,
+            style: `${item.style || 'Garment'} - Neck Tag`,
+            sheetWidth: 22,
+            sheetHeight: 24, // default tag sheet height
+            printReadyUrl: item.tagPrintReadyUrl,
+            cutReadyUrl: item.tagCutReadyUrl,
             orderId: order.id,
             orderTitle: order.title,
             orderPortalId: order.portalId,
@@ -96,26 +135,39 @@ export function Dashboard() {
     return printQueueItems.filter(item => item.readyToPrint && !item.printed && item.orderPriority === 'rush').length;
   }, [printQueueItems]);
 
-  const handleMarkPrinted = async (orderId: string, itemId: string) => {
+  const handleMarkPrinted = async (orderId: string, queueItemId: string) => {
     const orderObj = orders.find(o => o.id === orderId);
     if (!orderObj) return;
 
+    const isTag = queueItemId.endsWith('-tag');
+    const realItemId = queueItemId.replace('-art', '').replace('-tag', '');
+
     const updatedItems = (orderObj.items || []).map((item: any) => {
-      if (item.id === itemId) {
-        return {
-          ...item,
-          printed: true,
-          printedAt: new Date().toISOString(),
-          printedBy: userData?.name || userData?.email?.split('@')[0] || 'Printer'
-        };
+      if (item.id === realItemId) {
+        if (isTag) {
+          return {
+            ...item,
+            tagPrinted: true,
+            tagPrintedAt: new Date().toISOString(),
+            tagPrintedBy: userData?.name || userData?.email?.split('@')[0] || 'Printer'
+          };
+        } else {
+          return {
+            ...item,
+            printed: true,
+            printedAt: new Date().toISOString(),
+            printedBy: userData?.name || userData?.email?.split('@')[0] || 'Printer'
+          };
+        }
       }
       return item;
     });
 
-    const targetItem = (orderObj.items || []).find((item: any) => item.id === itemId);
+    const targetItem = (orderObj.items || []).find((item: any) => item.id === realItemId);
 
     try {
-      const message = `Marked gang sheet "${targetItem?.style || 'DTF Gang Sheet'}" as printed from Printers Dashboard`;
+      const label = isTag ? 'neck tag gang sheet' : 'gang sheet';
+      const message = `Marked ${label} "${targetItem?.style || 'DTF Gang Sheet'}" as printed from Printers Dashboard`;
       const newActivity = {
         id: `act-${Date.now()}`,
         type: 'system',
@@ -133,26 +185,39 @@ export function Dashboard() {
     }
   };
 
-  const handleMarkUnprinted = async (orderId: string, itemId: string) => {
+  const handleMarkUnprinted = async (orderId: string, queueItemId: string) => {
     const orderObj = orders.find(o => o.id === orderId);
     if (!orderObj) return;
 
+    const isTag = queueItemId.endsWith('-tag');
+    const realItemId = queueItemId.replace('-art', '').replace('-tag', '');
+
     const updatedItems = (orderObj.items || []).map((item: any) => {
-      if (item.id === itemId) {
-        return {
-          ...item,
-          printed: false,
-          printedAt: null,
-          printedBy: null
-        };
+      if (item.id === realItemId) {
+        if (isTag) {
+          return {
+            ...item,
+            tagPrinted: false,
+            tagPrintedAt: null,
+            tagPrintedBy: null
+          };
+        } else {
+          return {
+            ...item,
+            printed: false,
+            printedAt: null,
+            printedBy: null
+          };
+        }
       }
       return item;
     });
 
-    const targetItem = (orderObj.items || []).find((item: any) => item.id === itemId);
+    const targetItem = (orderObj.items || []).find((item: any) => item.id === realItemId);
 
     try {
-      const message = `Marked gang sheet "${targetItem?.style || 'DTF Gang Sheet'}" as unprinted from Printers Dashboard`;
+      const label = isTag ? 'neck tag gang sheet' : 'gang sheet';
+      const message = `Marked ${label} "${targetItem?.style || 'DTF Gang Sheet'}" as unprinted from Printers Dashboard`;
       const newActivity = {
         id: `act-${Date.now()}`,
         type: 'system',

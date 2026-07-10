@@ -2232,29 +2232,40 @@ export function OrderDetail() {
     }
   };
 
-  const handleToggleItemReadyToPrint = async (itemId: string) => {
+  const handleToggleItemReadyToPrint = async (itemId: string, type: 'art' | 'tag' = 'art') => {
     if (!id || !order) return;
     
     const updatedItems = order.items.map((item: any) => {
       if (item.id === itemId) {
-        const nextReadyState = !item.readyToPrint;
-        return { 
-          ...item, 
-          readyToPrint: nextReadyState,
-          readyToPrintAt: nextReadyState ? new Date().toISOString() : null,
-          readyToPrintBy: nextReadyState ? (userData?.name || user?.displayName || user?.email?.split('@')[0] || 'Staff') : null
-        };
+        if (type === 'tag') {
+          const nextReadyState = !item.tagReadyToPrint;
+          return { 
+            ...item, 
+            tagReadyToPrint: nextReadyState,
+            tagReadyToPrintAt: nextReadyState ? new Date().toISOString() : null,
+            tagReadyToPrintBy: nextReadyState ? (userData?.name || user?.displayName || user?.email?.split('@')[0] || 'Staff') : null
+          };
+        } else {
+          const nextReadyState = !item.readyToPrint;
+          return { 
+            ...item, 
+            readyToPrint: nextReadyState,
+            readyToPrintAt: nextReadyState ? new Date().toISOString() : null,
+            readyToPrintBy: nextReadyState ? (userData?.name || user?.displayName || user?.email?.split('@')[0] || 'Staff') : null
+          };
+        }
       }
       return item;
     });
 
     const targetItem = order.items.find((item: any) => item.id === itemId);
-    const isNowReady = !targetItem?.readyToPrint;
+    const isNowReady = type === 'tag' ? !targetItem?.tagReadyToPrint : !targetItem?.readyToPrint;
 
     try {
+      const label = type === 'tag' ? 'neck tag gang sheet' : 'gang sheet';
       const message = isNowReady 
-        ? `Marked gang sheet "${targetItem?.style || 'DTF Gang Sheet'}" as ready to print`
-        : `Unmarked gang sheet "${targetItem?.style || 'DTF Gang Sheet'}" as ready to print`;
+        ? `Marked ${label} "${targetItem?.style || 'DTF Gang Sheet'}" as ready to print`
+        : `Unmarked ${label} "${targetItem?.style || 'DTF Gang Sheet'}" as ready to print`;
 
       const newActivity = {
         id: `act-${Date.now()}`,
@@ -2273,29 +2284,40 @@ export function OrderDetail() {
     }
   };
 
-  const handleToggleItemPrinted = async (itemId: string) => {
+  const handleToggleItemPrinted = async (itemId: string, type: 'art' | 'tag' = 'art') => {
     if (!id || !order) return;
     
     const updatedItems = order.items.map((item: any) => {
       if (item.id === itemId) {
-        const nextPrintedState = !item.printed;
-        return { 
-          ...item, 
-          printed: nextPrintedState,
-          printedAt: nextPrintedState ? new Date().toISOString() : null,
-          printedBy: nextPrintedState ? (userData?.name || user?.displayName || user?.email?.split('@')[0] || 'Staff') : null
-        };
+        if (type === 'tag') {
+          const nextPrintedState = !item.tagPrinted;
+          return { 
+            ...item, 
+            tagPrinted: nextPrintedState,
+            tagPrintedAt: nextPrintedState ? new Date().toISOString() : null,
+            tagPrintedBy: nextPrintedState ? (userData?.name || user?.displayName || user?.email?.split('@')[0] || 'Staff') : null
+          };
+        } else {
+          const nextPrintedState = !item.printed;
+          return { 
+            ...item, 
+            printed: nextPrintedState,
+            printedAt: nextPrintedState ? new Date().toISOString() : null,
+            printedBy: nextPrintedState ? (userData?.name || user?.displayName || user?.email?.split('@')[0] || 'Staff') : null
+          };
+        }
       }
       return item;
     });
 
     const targetItem = order.items.find((item: any) => item.id === itemId);
-    const isNowPrinted = !targetItem?.printed;
+    const isNowPrinted = type === 'tag' ? !targetItem?.tagPrinted : !targetItem?.printed;
 
     try {
+      const label = type === 'tag' ? 'neck tag gang sheet' : 'gang sheet';
       const message = isNowPrinted 
-        ? `Marked gang sheet "${targetItem?.style || 'DTF Gang Sheet'}" as printed`
-        : `Marked gang sheet "${targetItem?.style || 'DTF Gang Sheet'}" as unprinted`;
+        ? `Marked ${label} "${targetItem?.style || 'DTF Gang Sheet'}" as printed`
+        : `Marked ${label} "${targetItem?.style || 'DTF Gang Sheet'}" as unprinted`;
 
       const newActivity = {
         id: `act-${Date.now()}`,
@@ -3629,6 +3651,8 @@ export function OrderDetail() {
                     title: string;
                     description: string;
                     isPrintReady: boolean;
+                    isReady: boolean;
+                    isPrinted: boolean;
                     printUrl: string | null;
                     cutUrl: string | null;
                     isGenerating: boolean;
@@ -3649,6 +3673,8 @@ export function OrderDetail() {
                           ? `${item.sheetSizeName || 'DTF Gang Sheet'} • ${item.sheetWidth}" x ${item.sheetHeight}" • ${item.quantity} ${item.quantity === 1 ? 'Sheet' : 'Sheets'}`
                           : `Custom Placement Prints • ${Object.values(item.sizes || {}).reduce((sum: number, val: any) => sum + (parseInt(val) || 0), 0) || item.quantity || 1} Garments`,
                         isPrintReady: !!(item.printReadyUrl && item.cutReadyUrl),
+                        isReady: !!item.readyToPrint,
+                        isPrinted: !!item.printed,
                         printUrl: item.printReadyUrl || null,
                         cutUrl: item.cutReadyUrl || null,
                         isGenerating: generatingItemId === item.id,
@@ -3664,6 +3690,8 @@ export function OrderDetail() {
                         title: `${item.style || 'Garment'} - Neck Tag`,
                         description: `Custom Size Tags • ${Object.values(item.sizes || {}).reduce((sum: number, val: any) => sum + (parseInt(val) || 0), 0) || item.quantity || 1} Tags`,
                         isPrintReady: !!(item.tagPrintReadyUrl && item.tagCutReadyUrl),
+                        isReady: !!item.tagReadyToPrint,
+                        isPrinted: !!item.tagPrinted,
                         printUrl: item.tagPrintReadyUrl || null,
                         cutUrl: item.tagCutReadyUrl || null,
                         isGenerating: generatingTagItemId === item.id,
@@ -3707,11 +3735,11 @@ export function OrderDetail() {
                           
                           <div className="flex flex-col items-end gap-1.5 shrink-0">
                             <div className="flex items-center gap-1.5">
-                              {card.item.printed ? (
+                              {card.isPrinted ? (
                                 <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-450 bg-emerald-955/80 border border-emerald-800 px-2 py-0.5 rounded shadow-sm flex items-center gap-0.5">
                                   <Check size={10} strokeWidth={3} /> Printed
                                 </span>
-                              ) : card.item.readyToPrint ? (
+                              ) : card.isReady ? (
                                 <span className="text-[10px] font-bold uppercase tracking-wider text-purple-450 bg-purple-955/80 border border-purple-800 px-2 py-0.5 rounded shadow-sm flex items-center gap-0.5 animate-pulse">
                                   <Printer size={10} /> Ready
                                 </span>
@@ -3978,26 +4006,26 @@ export function OrderDetail() {
 
                           <div className="grid grid-cols-2 gap-2 mt-1">
                             <button
-                              onClick={() => handleToggleItemReadyToPrint(card.item.id)}
+                              onClick={() => handleToggleItemReadyToPrint(card.item.id, card.type)}
                               className={`flex items-center justify-center gap-1 text-[11px] font-bold text-center border py-2 rounded-xl transition-all cursor-pointer ${
-                                card.item.readyToPrint
+                                card.isReady
                                   ? 'border-purple-800 text-purple-300 bg-purple-955/40 hover:bg-purple-955 hover:text-white'
                                   : 'border-neutral-800 text-neutral-450 bg-neutral-900 hover:bg-neutral-850 hover:text-white'
                               }`}
                             >
                               <Printer size={12} />
-                              <span>{card.item.readyToPrint ? 'Ready (Notified)' : 'Notify Printer'}</span>
+                              <span>{card.isReady ? 'Ready (Notified)' : 'Notify Printer'}</span>
                             </button>
                             <button
-                              onClick={() => handleToggleItemPrinted(card.item.id)}
+                              onClick={() => handleToggleItemPrinted(card.item.id, card.type)}
                               className={`flex items-center justify-center gap-1 text-[11px] font-bold text-center border py-2 rounded-xl transition-all cursor-pointer ${
-                                card.item.printed
+                                card.isPrinted
                                   ? 'border-emerald-800 text-emerald-300 bg-emerald-955/40 hover:bg-emerald-955 hover:text-white'
                                   : 'border-neutral-800 text-neutral-450 bg-neutral-900 hover:bg-neutral-850 hover:text-white'
                               }`}
                             >
                               <Check size={12} />
-                              <span>{card.item.printed ? 'Printed (Reset)' : 'Mark Printed'}</span>
+                              <span>{card.isPrinted ? 'Printed (Reset)' : 'Mark Printed'}</span>
                             </button>
                           </div>
                         </div>
