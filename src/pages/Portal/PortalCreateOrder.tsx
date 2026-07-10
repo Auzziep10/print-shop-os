@@ -792,7 +792,7 @@ export function PortalCreateOrder() {
               setActiveLibraryTab('suggested');
             } else if (visibleSamples.length > 0) {
               setActiveLibraryTab('samples');
-            } else if (categories.length > 0) {
+            } else if (categories.length > 0 && !customerData.disableRack) {
               setActiveLibraryTab('rack');
             } else if (isRackActive) {
               setActiveLibraryTab('wovn');
@@ -1364,17 +1364,19 @@ export function PortalCreateOrder() {
       <div data-tour="catalog-grid" className="bg-white rounded-3xl p-8 shadow-[0_4px_24px_rgb(0,0,0,0.02)] border border-neutral-100 flex flex-col gap-6">
         {/* Library Tabs */}
         <div className="flex gap-4 border-b border-neutral-100 py-3 overflow-x-auto shrink-0 bg-neutral-50/50 px-4 rounded-xl">
-          <button
-            type="button"
-            onClick={() => setActiveLibraryTab('rack')}
-            className={`text-sm font-bold pb-1.5 border-b-2 whitespace-nowrap transition-all cursor-pointer ${
-              activeLibraryTab === 'rack' 
-                ? 'text-black border-black' 
-                : 'text-neutral-400 border-transparent hover:text-black hover:border-black'
-            }`}
-          >
-            Your Rack ({activeRackItems.length})
-          </button>
+          {!customer?.disableRack && (
+            <button
+              type="button"
+              onClick={() => setActiveLibraryTab('rack')}
+              className={`text-sm font-bold pb-1.5 border-b-2 whitespace-nowrap transition-all cursor-pointer ${
+                activeLibraryTab === 'rack' 
+                  ? 'text-black border-black' 
+                  : 'text-neutral-400 border-transparent hover:text-black hover:border-black'
+              }`}
+            >
+              Your Rack ({activeRackItems.length})
+            </button>
+          )}
           {hasWovnRack && (
             <button
               type="button"
@@ -1438,7 +1440,7 @@ export function PortalCreateOrder() {
           </button>
         </div>
 
-        {activeLibraryTab === 'rack' && (
+        {activeLibraryTab === 'rack' && !customer?.disableRack && (
           <div className="flex flex-wrap gap-2 pb-2 border-b border-neutral-100">
             {Object.keys(customerRacks).map((catName) => (
               <button
@@ -1459,7 +1461,7 @@ export function PortalCreateOrder() {
 
         {/* Library Grid Content */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {activeLibraryTab === 'rack' && (
+          {activeLibraryTab === 'rack' && !customer?.disableRack && (
             activeRackItems.length === 0 ? (
               <div className="col-span-full flex flex-col items-center justify-center p-8 text-center text-neutral-500 min-h-[200px]">
                 <PackagePlus size={32} className="mb-4 text-neutral-300" />

@@ -91,7 +91,8 @@ export function CustomerDetail() {
     shippingZip: '',
     type: 'B2C',
     net30Terms: true,
-    fulfillmentType: 'Standard'
+    fulfillmentType: 'Standard',
+    disableRack: false
   });
   
   const [contacts, setContacts] = useState<any[]>([]);
@@ -533,7 +534,8 @@ export function CustomerDetail() {
             shippingZip: data.shippingZip || '',
             type: data.type || 'B2C',
             net30Terms: data.net30Terms ?? true,
-            fulfillmentType: data.fulfillmentType ?? 'Standard'
+            fulfillmentType: data.fulfillmentType ?? 'Standard',
+            disableRack: data.disableRack ?? false
           });
 
            // Fetch the names for the linked catalogs immediately so they don't say "Linked WOVN Deck"
@@ -613,7 +615,8 @@ export function CustomerDetail() {
         shippingZip: editCompanyForm.shippingZip,
         type: editCompanyForm.type,
         net30Terms: editCompanyForm.net30Terms,
-        fulfillmentType: editCompanyForm.fulfillmentType
+        fulfillmentType: editCompanyForm.fulfillmentType,
+        disableRack: editCompanyForm.disableRack
       }, { merge: true });
       
       setLiveCustomerData({
@@ -624,7 +627,8 @@ export function CustomerDetail() {
         location: editCompanyForm.location,
         type: editCompanyForm.type,
         net30Terms: editCompanyForm.net30Terms,
-        fulfillmentType: editCompanyForm.fulfillmentType
+        fulfillmentType: editCompanyForm.fulfillmentType,
+        disableRack: editCompanyForm.disableRack
       });
       setIsEditDialogOpen(false);
     } catch (e) {
@@ -1501,10 +1505,16 @@ export function CustomerDetail() {
                       <option value="Kitting">Inventory & Kitting</option>
                     </select>
                  </div>
-                 <div className="col-span-2 flex items-center pt-2 pl-2 gap-3 mb-2">
-                    <input type="checkbox" id="net30" checked={editCompanyForm.net30Terms} onChange={e => setEditCompanyForm({...editCompanyForm, net30Terms: e.target.checked})} className="w-4 h-4 accent-brand-primary cursor-pointer" />
-                    <label htmlFor="net30" className="text-xs font-bold text-brand-primary uppercase tracking-widest cursor-pointer mt-0.5">ALLOW NET 30 TERMS</label>
-                 </div>
+                  <div className="col-span-2 flex flex-col gap-2 pt-2 pl-2 mb-2">
+                    <div className="flex items-center gap-3">
+                      <input type="checkbox" id="net30" checked={editCompanyForm.net30Terms} onChange={e => setEditCompanyForm({...editCompanyForm, net30Terms: e.target.checked})} className="w-4 h-4 accent-brand-primary cursor-pointer" />
+                      <label htmlFor="net30" className="text-xs font-bold text-brand-primary uppercase tracking-widest cursor-pointer mt-0.5">ALLOW NET 30 TERMS</label>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <input type="checkbox" id="disableRack" checked={editCompanyForm.disableRack} onChange={e => setEditCompanyForm({...editCompanyForm, disableRack: e.target.checked})} className="w-4 h-4 accent-brand-primary cursor-pointer" />
+                      <label htmlFor="disableRack" className="text-xs font-bold text-brand-primary uppercase tracking-widest cursor-pointer mt-0.5">DISABLE "YOUR RACK" TAB IN CLIENT PORTAL</label>
+                    </div>
+                  </div>
                </div>
 
                {/* WOVN Catalog Link */}
