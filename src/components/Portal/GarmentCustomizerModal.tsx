@@ -2414,58 +2414,7 @@ export function GarmentCustomizerModal({
                   </div>
                 )}
 
-                {selectedLogo && logoFileInfo && (
-                  <div className="flex flex-col gap-2">
-                    <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-3 flex flex-col gap-1.5 text-[11px] mt-2 animate-in fade-in slide-in-from-top-2 duration-300">
-                      <span className="font-extrabold uppercase tracking-widest text-[9px] text-neutral-400">File Information</span>
-                      <div className="flex flex-col gap-1 w-full text-neutral-600">
-                        <div className="flex justify-between border-b border-neutral-100 pb-1">
-                          <span className="font-semibold">Name:</span>
-                          <span className="text-neutral-900 font-bold truncate max-w-[150px]" title={selectedLogo.name}>{selectedLogo.name}</span>
-                        </div>
-                        <div className="flex justify-between border-b border-neutral-100 pb-1">
-                          <span className="font-semibold">Format:</span>
-                          <span className="text-neutral-900 font-extrabold">{logoFileInfo.type || 'N/A'}</span>
-                        </div>
-                        <div className="flex justify-between border-b border-neutral-100 pb-1">
-                          <span className="font-semibold">Resolution:</span>
-                          <span className="text-neutral-900 font-bold">{logoFileInfo.resolution || 'Vector / Non-raster'}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="font-semibold">File Size:</span>
-                          <span className="text-neutral-900 font-bold">{logoFileInfo.size || 'Calculating...'}</span>
-                        </div>
-                      </div>
-                    </div>
 
-                    {isImageFile(selectedLogo.name) && (
-                      <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-3 flex flex-col gap-2 text-[11px] animate-in fade-in duration-300">
-                        <span className="font-extrabold uppercase tracking-widest text-[9px] text-neutral-400">Recolor Logo</span>
-                        <div className="flex items-center gap-2">
-                          <div className="relative w-5 h-5 shrink-0 group rounded-full overflow-hidden border border-neutral-350 shadow-inner">
-                            <input
-                              type="color"
-                              value={recolorColor}
-                              onChange={(e) => setRecolorColor(e.target.value)}
-                              className="absolute -inset-4 opacity-0 w-16 h-16 cursor-pointer z-10"
-                              title="Pick a color"
-                            />
-                            <div className="absolute inset-0 pointer-events-none" style={{ backgroundColor: recolorColor }} />
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => handleRecolorAsset(selectedLogo, recolorColor)}
-                            disabled={isRecoloring}
-                            className="flex-1 py-1.5 px-3 bg-zinc-900 text-white hover:bg-zinc-800 rounded-lg font-bold text-[10px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
-                          >
-                            {isRecoloring ? <Loader2 className="animate-spin" size={10} /> : <Palette size={10} />}
-                            <span>Recolor & Apply</span>
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
               </div>
             )}
 
@@ -2875,6 +2824,59 @@ export function GarmentCustomizerModal({
                   )}
                 </button>
               </div>
+            </div>
+          )}
+
+          {selectedLogo && logoFileInfo && (
+            <div className="flex flex-col gap-2 border-t border-neutral-100 pt-6 animate-in fade-in duration-200">
+              <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-3 flex flex-col gap-1.5 text-[11px]">
+                <span className="font-extrabold uppercase tracking-widest text-[9px] text-neutral-400">File Information</span>
+                <div className="flex flex-col gap-1 w-full text-neutral-600">
+                  <div className="flex justify-between border-b border-neutral-100 pb-1">
+                    <span className="font-semibold">Name:</span>
+                    <span className="text-neutral-900 font-bold truncate max-w-[150px]" title={selectedLogo.name}>{selectedLogo.name}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-neutral-100 pb-1">
+                    <span className="font-semibold">Format:</span>
+                    <span className="text-neutral-900 font-extrabold">{logoFileInfo.type || 'N/A'}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-neutral-100 pb-1">
+                    <span className="font-semibold">Resolution:</span>
+                    <span className="text-neutral-900 font-bold">{logoFileInfo.resolution || 'Vector / Non-raster'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-semibold">File Size:</span>
+                    <span className="text-neutral-900 font-bold">{logoFileInfo.size || 'Calculating...'}</span>
+                  </div>
+                </div>
+              </div>
+
+              {isImageFile(selectedLogo.name) && (
+                <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-3 flex flex-col gap-2 text-[11px] animate-in fade-in duration-300">
+                  <span className="font-extrabold uppercase tracking-widest text-[9px] text-neutral-400">Recolor Logo</span>
+                  <div className="flex items-center gap-2">
+                    <div className="relative w-5 h-5 shrink-0 group rounded-full overflow-hidden border border-neutral-350 shadow-inner">
+                      <input
+                        type="color"
+                        value={recolorColor}
+                        onChange={(e) => setRecolorColor(e.target.value)}
+                        className="absolute -inset-4 opacity-0 w-16 h-16 cursor-pointer z-10"
+                        title="Pick a color"
+                      />
+                      <div className="absolute inset-0 pointer-events-none" style={{ backgroundColor: recolorColor }} />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleRecolorAsset(selectedLogo, recolorColor)}
+                      disabled={isRecoloring}
+                      className="flex-1 py-1.5 px-3 bg-zinc-900 text-white hover:bg-zinc-800 rounded-lg font-bold text-[10px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                    >
+                      {isRecoloring ? <Loader2 className="animate-spin" size={10} /> : <Palette size={10} />}
+                      <span>Recolor & Apply</span>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
