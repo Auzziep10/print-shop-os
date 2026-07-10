@@ -252,6 +252,17 @@ export function GarmentCustomizerModal({
     bold: true,
     italic: false
   });
+  const [tagBlend, setTagBlend] = useState<any>({
+    visible: true,
+    scale: 20,
+    x: 50,
+    y: 45,
+    rotation: 0,
+    font: 'Inter',
+    color: '#111111',
+    bold: false,
+    italic: false
+  });
   const [tagCareSymbols, setTagCareSymbols] = useState<any>({
     visible: false,
     showWash: true,
@@ -260,16 +271,68 @@ export function GarmentCustomizerModal({
     showIron: true,
     showDryClean: true,
     x: 50,
-    y: 45,
+    y: 55,
     scale: 30,
     color: '#111111',
     rotation: 0
   });
   const [selectedTagElementId, setSelectedTagElementId] = useState<string | null>(null);
   const [tagDesignName, setTagDesignName] = useState<string>('My Custom Tag');
-  const [activeElementDrag, setActiveElementDrag] = useState<{ id: string; type: 'logo' | 'text' | 'size' | 'care_symbols' } | null>(null);
-  const [activeElementResize, setActiveElementResize] = useState<{ id: string; type: 'logo' | 'text' | 'size' | 'care_symbols' } | null>(null);
+  const [activeElementDrag, setActiveElementDrag] = useState<{ id: string; type: 'logo' | 'text' | 'size' | 'care_symbols' | 'blend' } | null>(null);
+  const [activeElementResize, setActiveElementResize] = useState<{ id: string; type: 'logo' | 'text' | 'size' | 'care_symbols' | 'blend' } | null>(null);
   const [isSavingTagAsset, setIsSavingTagAsset] = useState(false);
+
+  // Helper to extract fabric blend description dynamically from the garment catalog text
+  const cleanBlendText = (text: string): string => {
+    let t = text.trim();
+    t = t.replace(/\b\d+\s+singles\b.*/gi, '');
+    t = t.replace(/retail fit.*/gi, '');
+    t = t.replace(/tear-away.*/gi, '');
+    
+    return t
+      .replace(/\b[a-z]/g, (char) => char.toUpperCase())
+      .replace(/\bPoly\b/g, 'Polyester')
+      .replace(/\bCotton\/poly\b/g, 'Cotton / Polyester')
+      .replace(/\bCotton\/polyester\b/g, 'Cotton / Polyester')
+      .trim();
+  };
+
+  const getGarmentBlend = (garmentObj: any, color: string): string => {
+    if (!garmentObj) return '100% Cotton';
+    const desc = (garmentObj.description || garmentObj.desc || '').toLowerCase();
+    if (!desc) return '100% Cotton';
+
+    const col = (color || '').toLowerCase();
+
+    if (col.includes('athletic heather') || col.includes('black heather')) {
+      const match = desc.match(/(athletic heather|black heather):\s*([^:]+?)(?=\b[a-z]+:|$)/i);
+      if (match) return cleanBlendText(match[2]);
+    }
+    if (col.includes('ash')) {
+      const match = desc.match(/ash:\s*([^:]+?)(?=\b[a-z]+:|$)/i);
+      if (match) return cleanBlendText(match[2]);
+    }
+    if (col.includes('heather') || col.includes('cvc') || col.includes('blend')) {
+      const match = desc.match(/(heather cvc|blend colors):\s*([^:]+?)(?=\b[a-z]+:|$)/i);
+      if (match) return cleanBlendText(match[2]);
+    }
+    if (col.includes('prism')) {
+      const match = desc.match(/prism:\s*([^:]+?)(?=\b[a-z]+:|$)/i);
+      if (match) return cleanBlendText(match[2]);
+    }
+
+    const solidMatch = desc.match(/(solid colors|solids):\s*([^:]+?)(?=\b[a-z]+:|$)/i);
+    if (solidMatch) {
+      return cleanBlendText(solidMatch[2]);
+    }
+
+    const generalMatch = desc.match(/\b(\d+%\s+[a-zA-Z\s]+|\d+\/\d+\s+[a-zA-Z\s/]+)/);
+    if (generalMatch) {
+      return cleanBlendText(generalMatch[0]);
+    }
+
+    return '100% Cotton';
+  };
 
   const [activeDesignerTab, setActiveDesignerTab] = useState<'upload' | 'text'>('upload');
 
@@ -321,6 +384,7 @@ export function GarmentCustomizerModal({
           setTagTexts(asset.tagLayout.placedTagTexts || []);
           setTagSize(asset.tagLayout.tagSizeElement || { scale: 35, x: 50, y: 75, rotation: 0, font: 'Graduate', color: '#111111', bold: true, italic: false });
           setTagCareSymbols(asset.tagLayout.tagCareSymbols || { visible: false, showWash: true, showBleach: true, showDry: true, showIron: true, showDryClean: true, x: 50, y: 55, scale: 30, color: '#111111', rotation: 0 });
+          setTagBlend(asset.tagLayout.tagBlend || { visible: true, scale: 20, x: 50, y: 45, rotation: 0, font: 'Inter', color: '#111111', bold: false, italic: false });
           setSelectedTagElementId(null);
         }
         return;
@@ -385,6 +449,7 @@ export function GarmentCustomizerModal({
   const scale = useMemo(() => {
     if (activeTab === 'tag') {
       if (selectedTagElementId === 'size-tag-placeholder') return tagSize.scale;
+      if (selectedTagElementId === 'blend-tag-placeholder') return tagBlend.scale;
       if (selectedTagElementId === 'care-symbols-placeholder') return tagCareSymbols.scale;
       if (selectedTagElementId?.startsWith('tag-logo-')) {
         return tagLogos.find(l => l.id === selectedTagElementId)?.scale || 30;
@@ -400,11 +465,12 @@ export function GarmentCustomizerModal({
       return isSleeveMirrored ? scaleRightSleeve : scaleLeftSleeve;
     }
     return 30;
-  }, [activeTab, isSleeveMirrored, scaleFront, scaleBack, scaleLeftSleeve, scaleRightSleeve, selectedTagElementId, tagLogos, tagTexts, tagSize, tagCareSymbols]);
+  }, [activeTab, isSleeveMirrored, scaleFront, scaleBack, scaleLeftSleeve, scaleRightSleeve, selectedTagElementId, tagLogos, tagTexts, tagSize, tagCareSymbols, tagBlend]);
 
   const offsetX = useMemo(() => {
     if (activeTab === 'tag') {
       if (selectedTagElementId === 'size-tag-placeholder') return tagSize.x;
+      if (selectedTagElementId === 'blend-tag-placeholder') return tagBlend.x;
       if (selectedTagElementId === 'care-symbols-placeholder') return tagCareSymbols.x;
       if (selectedTagElementId?.startsWith('tag-logo-')) {
         return tagLogos.find(l => l.id === selectedTagElementId)?.x || 50;
@@ -420,11 +486,12 @@ export function GarmentCustomizerModal({
       return isSleeveMirrored ? offsetXRightSleeve : offsetXLeftSleeve;
     }
     return 50;
-  }, [activeTab, isSleeveMirrored, offsetXFront, offsetXBack, offsetXLeftSleeve, offsetXRightSleeve, selectedTagElementId, tagLogos, tagTexts, tagSize, tagCareSymbols]);
+  }, [activeTab, isSleeveMirrored, offsetXFront, offsetXBack, offsetXLeftSleeve, offsetXRightSleeve, selectedTagElementId, tagLogos, tagTexts, tagSize, tagCareSymbols, tagBlend]);
 
   const offsetY = useMemo(() => {
     if (activeTab === 'tag') {
       if (selectedTagElementId === 'size-tag-placeholder') return tagSize.y;
+      if (selectedTagElementId === 'blend-tag-placeholder') return tagBlend.y;
       if (selectedTagElementId === 'care-symbols-placeholder') return tagCareSymbols.y;
       if (selectedTagElementId?.startsWith('tag-logo-')) {
         return tagLogos.find(l => l.id === selectedTagElementId)?.y || 50;
@@ -440,11 +507,12 @@ export function GarmentCustomizerModal({
       return isSleeveMirrored ? offsetYRightSleeve : offsetYLeftSleeve;
     }
     return 50;
-  }, [activeTab, isSleeveMirrored, offsetYFront, offsetYBack, offsetYLeftSleeve, offsetYRightSleeve, selectedTagElementId, tagLogos, tagTexts, tagSize, tagCareSymbols]);
+  }, [activeTab, isSleeveMirrored, offsetYFront, offsetYBack, offsetYLeftSleeve, offsetYRightSleeve, selectedTagElementId, tagLogos, tagTexts, tagSize, tagCareSymbols, tagBlend]);
 
   const rotation = useMemo(() => {
     if (activeTab === 'tag') {
       if (selectedTagElementId === 'size-tag-placeholder') return tagSize.rotation;
+      if (selectedTagElementId === 'blend-tag-placeholder') return tagBlend.rotation;
       if (selectedTagElementId === 'care-symbols-placeholder') return tagCareSymbols.rotation;
       if (selectedTagElementId?.startsWith('tag-logo-')) {
         return tagLogos.find(l => l.id === selectedTagElementId)?.rotation || 0;
@@ -460,12 +528,14 @@ export function GarmentCustomizerModal({
       return isSleeveMirrored ? rotationRightSleeve : rotationLeftSleeve;
     }
     return 0;
-  }, [activeTab, isSleeveMirrored, rotationFront, rotationBack, rotationLeftSleeve, rotationRightSleeve, selectedTagElementId, tagLogos, tagTexts, tagSize, tagCareSymbols]);
+  }, [activeTab, isSleeveMirrored, rotationFront, rotationBack, rotationLeftSleeve, rotationRightSleeve, selectedTagElementId, tagLogos, tagTexts, tagSize, tagCareSymbols, tagBlend]);
 
   const setRotation = (val: number) => {
     if (activeTab === 'tag') {
       if (selectedTagElementId === 'size-tag-placeholder') {
         setTagSize((prev: any) => ({ ...prev, rotation: val }));
+      } else if (selectedTagElementId === 'blend-tag-placeholder') {
+        setTagBlend((prev: any) => ({ ...prev, rotation: val }));
       } else if (selectedTagElementId === 'care-symbols-placeholder') {
         setTagCareSymbols((prev: any) => ({ ...prev, rotation: val }));
       } else if (selectedTagElementId?.startsWith('tag-logo-')) {
@@ -487,6 +557,8 @@ export function GarmentCustomizerModal({
     if (activeTab === 'tag') {
       if (selectedTagElementId === 'size-tag-placeholder') {
         setTagSize((prev: any) => ({ ...prev, scale: val }));
+      } else if (selectedTagElementId === 'blend-tag-placeholder') {
+        setTagBlend((prev: any) => ({ ...prev, scale: val }));
       } else if (selectedTagElementId === 'care-symbols-placeholder') {
         setTagCareSymbols((prev: any) => ({ ...prev, scale: val }));
       } else if (selectedTagElementId?.startsWith('tag-logo-')) {
@@ -513,6 +585,8 @@ export function GarmentCustomizerModal({
           setTagTexts(prev => prev.filter(t => t.id !== selectedTagElementId));
         } else if (selectedTagElementId === 'care-symbols-placeholder') {
           setTagCareSymbols((prev: any) => ({ ...prev, visible: false }));
+        } else if (selectedTagElementId === 'blend-tag-placeholder') {
+          setTagBlend((prev: any) => ({ ...prev, visible: false }));
         }
         setSelectedTagElementId(null);
       }
@@ -841,6 +915,11 @@ export function GarmentCustomizerModal({
         setTextColor(tagSize.color);
         setTextBold(tagSize.bold);
         setTextItalic(tagSize.italic);
+      } else if (selectedTagElementId === 'blend-tag-placeholder') {
+        setTextFont(tagBlend.font);
+        setTextColor(tagBlend.color);
+        setTextBold(tagBlend.bold);
+        setTextItalic(tagBlend.italic);
       } else {
         const txtItem = tagTexts.find(t => t.id === selectedTagElementId);
         if (txtItem) {
@@ -852,9 +931,9 @@ export function GarmentCustomizerModal({
         }
       }
     }
-  }, [selectedTagElementId, activeTab]);
+  }, [selectedTagElementId, activeTab, tagSize, tagBlend, tagTexts]);
 
-  const handleElementMouseDown = (e: React.MouseEvent, id: string, type: 'logo' | 'text' | 'size' | 'care_symbols') => {
+  const handleElementMouseDown = (e: React.MouseEvent, id: string, type: 'logo' | 'text' | 'size' | 'care_symbols' | 'blend') => {
     e.stopPropagation();
     e.preventDefault();
     setSelectedTagElementId(id);
@@ -881,6 +960,9 @@ export function GarmentCustomizerModal({
     } else if (type === 'care_symbols') {
       currentX = tagCareSymbols.x;
       currentY = tagCareSymbols.y;
+    } else if (type === 'blend') {
+      currentX = tagBlend.x;
+      currentY = tagBlend.y;
     }
 
     dragStartPos.current = {
@@ -891,7 +973,7 @@ export function GarmentCustomizerModal({
     };
   };
 
-  const handleElementResizeMouseDown = (e: React.MouseEvent, id: string, type: 'logo' | 'text' | 'size' | 'care_symbols') => {
+  const handleElementResizeMouseDown = (e: React.MouseEvent, id: string, type: 'logo' | 'text' | 'size' | 'care_symbols' | 'blend') => {
     e.stopPropagation();
     e.preventDefault();
     setActiveElementResize({ id, type });
@@ -906,6 +988,8 @@ export function GarmentCustomizerModal({
       currentScale = tagSize.scale;
     } else if (type === 'care_symbols') {
       currentScale = tagCareSymbols.scale;
+    } else if (type === 'blend') {
+      currentScale = tagBlend.scale;
     }
 
     resizeStartPos.current = {
@@ -979,6 +1063,8 @@ export function GarmentCustomizerModal({
           setTagSize((prev: any) => ({ ...prev, x: valX, y: valY }));
         } else if (type === 'care_symbols') {
           setTagCareSymbols((prev: any) => ({ ...prev, x: valX, y: valY }));
+        } else if (type === 'blend') {
+          setTagBlend((prev: any) => ({ ...prev, x: valX, y: valY }));
         }
       }
 
@@ -996,6 +1082,8 @@ export function GarmentCustomizerModal({
           setTagSize((prev: any) => ({ ...prev, scale: valScale }));
         } else if (type === 'care_symbols') {
           setTagCareSymbols((prev: any) => ({ ...prev, scale: valScale }));
+        } else if (type === 'blend') {
+          setTagBlend((prev: any) => ({ ...prev, scale: valScale }));
         }
       }
     };
@@ -1109,11 +1197,13 @@ export function GarmentCustomizerModal({
       setTagTexts(garment.tagLayout.placedTagTexts || []);
       setTagSize(garment.tagLayout.tagSizeElement || { scale: 35, x: 50, y: 75, rotation: 0, font: 'Graduate', color: '#111111', bold: true, italic: false });
       setTagCareSymbols(garment.tagLayout.tagCareSymbols || { visible: false, showWash: true, showBleach: true, showDry: true, showIron: true, showDryClean: true, x: 50, y: 55, scale: 30, color: '#111111', rotation: 0 });
+      setTagBlend(garment.tagLayout.tagBlend || { visible: true, scale: 20, x: 50, y: 45, rotation: 0, font: 'Inter', color: '#111111', bold: false, italic: false });
     } else {
       setTagLogos([]);
       setTagTexts([]);
       setTagSize({ scale: 35, x: 50, y: 75, rotation: 0, font: 'Graduate', color: '#111111', bold: true, italic: false });
       setTagCareSymbols({ visible: false, showWash: true, showBleach: true, showDry: true, showIron: true, showDryClean: true, x: 50, y: 55, scale: 30, color: '#111111', rotation: 0 });
+      setTagBlend({ visible: true, scale: 20, x: 50, y: 45, rotation: 0, font: 'Inter', color: '#111111', bold: false, italic: false });
     }
     setSelectedTagElementId(null);
   }, [garment, isOpen]);
@@ -1379,6 +1469,25 @@ export function GarmentCustomizerModal({
       tempCtx.restore();
     }
 
+    if (tagBlend.visible) {
+      tempCtx.save();
+      const fontSize = tagBlend.scale * 1.40625 * 0.5333; // slightly scaled down font size for the longer blend text compared to size char
+      tempCtx.font = `${tagBlend.italic ? 'italic' : ''} ${tagBlend.bold ? 'bold' : ''} ${fontSize}px ${tagBlend.font}`.trim();
+      tempCtx.fillStyle = tagBlend.color;
+      tempCtx.textAlign = 'center';
+      tempCtx.textBaseline = 'middle';
+
+      const blendCenterX = 600 * (tagBlend.x / 100);
+      const blendCenterY = 600 * (tagBlend.y / 100);
+
+      tempCtx.translate(blendCenterX, blendCenterY);
+      tempCtx.rotate((tagBlend.rotation * Math.PI) / 180);
+
+      const blendText = getGarmentBlend(activeGarment, selectedColor);
+      tempCtx.fillText(blendText, 0, 0);
+      tempCtx.restore();
+    }
+
     return tempCanvas;
   };
 
@@ -1405,7 +1514,8 @@ export function GarmentCustomizerModal({
           placedTagLogos: tagLogos,
           placedTagTexts: tagTexts,
           tagSizeElement: tagSize,
-          tagCareSymbols: tagCareSymbols
+          tagCareSymbols: tagCareSymbols,
+          tagBlend: tagBlend
         },
         uploadedAt: new Date().toISOString()
       };
@@ -1660,7 +1770,7 @@ export function GarmentCustomizerModal({
 
       // Generate size tag base image
       let logoUrlTag = null;
-      const isTagCustomized = tagLogos.length > 0 || tagTexts.length > 0 || tagCareSymbols.visible;
+      const isTagCustomized = tagLogos.length > 0 || tagTexts.length > 0 || tagCareSymbols.visible || tagBlend.visible;
       if (isTagCustomized) {
         const tagBaseCanvas = await compileTagCanvas(false);
         if (tagBaseCanvas) {
@@ -1726,7 +1836,8 @@ export function GarmentCustomizerModal({
           placedTagLogos: tagLogos,
           placedTagTexts: tagTexts,
           tagSizeElement: tagSize,
-          tagCareSymbols: tagCareSymbols
+          tagCareSymbols: tagCareSymbols,
+          tagBlend: tagBlend
         } : null,
         tagSizeX: tagSize.x,
         tagSizeY: tagSize.y,
@@ -1742,7 +1853,7 @@ export function GarmentCustomizerModal({
       console.error("Failed to generate and save mockup:", err);
       alert("Error generating customized preview. Using original garment image.");
       
-      const isTagCustomized = tagLogos.length > 0 || tagTexts.length > 0 || tagCareSymbols.visible;
+      const isTagCustomized = tagLogos.length > 0 || tagTexts.length > 0 || tagCareSymbols.visible || tagBlend.visible;
       const placementParts: string[] = [];
       if (selectedLogoFront) placementParts.push(`Front: ${placementFront}`);
       if (selectedLogoBack) placementParts.push(`Back: ${placementBack}`);
@@ -1773,7 +1884,8 @@ export function GarmentCustomizerModal({
           placedTagLogos: tagLogos,
           placedTagTexts: tagTexts,
           tagSizeElement: tagSize,
-          tagCareSymbols: tagCareSymbols
+          tagCareSymbols: tagCareSymbols,
+          tagBlend: tagBlend
         } : null,
         tagSizeX: tagSize.x,
         tagSizeY: tagSize.y,
@@ -1965,9 +2077,20 @@ export function GarmentCustomizerModal({
               )}
 
               {activeTab === 'tag' && (
-                <div className="relative w-80 h-80 bg-neutral-50 border-2 border-dashed border-neutral-300 rounded-[1.5rem] shadow-inner flex items-center justify-center overflow-hidden z-10 select-none">
-                  {/* Grid background */}
-                  <div className="absolute inset-0 opacity-5 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle, #000 1px, transparent 1px)', backgroundSize: '16px 16px' }} />
+                <div 
+                  style={{
+                    backgroundImage: `
+                      linear-gradient(45deg, #e0e0e0 25%, transparent 25%), 
+                      linear-gradient(-45deg, #e0e0e0 25%, transparent 25%), 
+                      linear-gradient(45deg, transparent 75%, #e0e0e0 75%), 
+                      linear-gradient(-45deg, transparent 75%, #e0e0e0 75%)
+                    `,
+                    backgroundSize: '16px 16px',
+                    backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0px',
+                    backgroundColor: '#f0f0f0'
+                  }}
+                  className="relative w-80 h-80 border-2 border-dashed border-neutral-300 rounded-[1.5rem] shadow-inner flex items-center justify-center overflow-hidden z-10 select-none"
+                >
                   
                   {/* Placed Logos */}
                   {tagLogos.map((logo) => {
@@ -2094,6 +2217,41 @@ export function GarmentCustomizerModal({
                         {isSelected && (
                           <div
                             onMouseDown={(e) => handleElementResizeMouseDown(e, 'care-symbols-placeholder', 'care_symbols')}
+                            className="absolute bottom-[-6px] right-[-6px] w-3.5 h-3.5 bg-black border-2 border-white rounded-full cursor-se-resize shadow-md hover:scale-125 transition-transform z-30"
+                          />
+                        )}
+                      </div>
+                    );
+                  })()}
+
+                  {/* Fabric Blend Element */}
+                  {tagBlend.visible && (() => {
+                    const isSelected = selectedTagElementId === 'blend-tag-placeholder';
+                    const blendText = getGarmentBlend(activeGarment, selectedColor);
+                    return (
+                      <div
+                        onMouseDown={(e) => handleElementMouseDown(e, 'blend-tag-placeholder', 'blend')}
+                        style={{
+                          left: `${tagBlend.x}%`,
+                          top: `${tagBlend.y}%`,
+                          transform: `translate(-50%, -50%) rotate(${tagBlend.rotation}deg)`,
+                          zIndex: isSelected ? 30 : 20,
+                          fontFamily: tagBlend.font,
+                          color: tagBlend.color,
+                          fontSize: `${tagBlend.scale * 0.4}px`,
+                          fontWeight: tagBlend.bold ? 'bold' : 'normal',
+                          fontStyle: tagBlend.italic ? 'italic' : 'normal',
+                          maxWidth: '85%'
+                        }}
+                        className={`absolute flex items-center justify-center cursor-move leading-none p-1.5 whitespace-nowrap text-center ${isSelected ? 'border border-black ring-1 ring-black/30 bg-white/20' : 'border border-dashed border-emerald-400/40 hover:border-emerald-400/80 bg-emerald-50/10'}`}
+                      >
+                        <span className="relative select-none flex items-center justify-center">
+                          {blendText}
+                          <span className="absolute -top-4 left-1/2 -translate-x-1/2 bg-emerald-650 text-[6px] text-white px-1 py-0.5 rounded font-sans uppercase font-bold tracking-wider leading-none shadow select-none pointer-events-none whitespace-nowrap z-40">Fabric Blend</span>
+                        </span>
+                        {isSelected && (
+                          <div
+                            onMouseDown={(e) => handleElementResizeMouseDown(e, 'blend-tag-placeholder', 'blend')}
                             className="absolute bottom-[-6px] right-[-6px] w-3.5 h-3.5 bg-black border-2 border-white rounded-full cursor-se-resize shadow-md hover:scale-125 transition-transform z-30"
                           />
                         )}
@@ -2301,44 +2459,58 @@ export function GarmentCustomizerModal({
 
           {/* Logo / Text Mode Tabs */}
           <div className="flex flex-col gap-4 border-t border-neutral-100 pt-6">
-            <div className="flex bg-neutral-100 p-1 rounded-xl gap-1">
+            <div className="flex flex-wrap bg-neutral-100 p-1 rounded-xl gap-1">
               <button
                 type="button"
                 onClick={() => setActiveDesignerTab('upload')}
-                className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                className={`flex-1 min-w-[70px] py-2 rounded-lg text-[10px] font-bold transition-all flex items-center justify-center gap-1 cursor-pointer ${
                   activeDesignerTab === 'upload'
                     ? 'bg-white text-black shadow-sm'
                     : 'text-neutral-500 hover:text-black'
                 }`}
               >
-                <ImageIcon size={13} />
-                <span>Logo File</span>
+                <ImageIcon size={12} />
+                <span>Logo</span>
               </button>
               <button
                 type="button"
                 onClick={() => setActiveDesignerTab('text')}
-                className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                className={`flex-1 min-w-[70px] py-2 rounded-lg text-[10px] font-bold transition-all flex items-center justify-center gap-1 cursor-pointer ${
                   activeDesignerTab === 'text'
                     ? 'bg-white text-black shadow-sm'
                     : 'text-neutral-500 hover:text-black'
                 }`}
               >
-                <Type size={13} />
-                <span>Custom Text</span>
+                <Type size={12} />
+                <span>Text</span>
               </button>
               {activeTab === 'tag' && (
-                <button
-                  type="button"
-                  onClick={() => setActiveDesignerTab('care' as any)}
-                  className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                    (activeDesignerTab as string) === 'care'
-                      ? 'bg-white text-black shadow-sm'
-                      : 'text-neutral-500 hover:text-black'
-                  }`}
-                >
-                  <Sparkles size={13} />
-                  <span>Care Symbols</span>
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setActiveDesignerTab('care' as any)}
+                    className={`flex-1 min-w-[70px] py-2 rounded-lg text-[10px] font-bold transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                      (activeDesignerTab as string) === 'care'
+                        ? 'bg-white text-black shadow-sm'
+                        : 'text-neutral-500 hover:text-black'
+                    }`}
+                  >
+                    <Sparkles size={12} />
+                    <span>Care</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveDesignerTab('blend' as any)}
+                    className={`flex-1 min-w-[70px] py-2 rounded-lg text-[10px] font-bold transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                      (activeDesignerTab as string) === 'blend'
+                        ? 'bg-white text-black shadow-sm'
+                        : 'text-neutral-500 hover:text-black'
+                    }`}
+                  >
+                    <Palette size={12} />
+                    <span>Blend</span>
+                  </button>
+                </>
               )}
             </div>
 
@@ -2697,6 +2869,136 @@ export function GarmentCustomizerModal({
                       <Trash2 size={13} />
                       <span>Remove Care Symbols</span>
                     </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Fabric Blend Content */}
+            {(activeDesignerTab as string) === 'blend' && (
+              <div className="flex flex-col gap-4 animate-in fade-in duration-200">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Fabric Blend Text</label>
+                  <div className="bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-3 text-xs text-neutral-600 leading-relaxed">
+                    <span className="font-semibold text-neutral-800">Derived Composition:</span>
+                    <p className="font-bold text-neutral-900 mt-1 text-sm font-sans">{getGarmentBlend(activeGarment, selectedColor)}</p>
+                    <p className="mt-2 text-[10px] text-neutral-400">
+                      The blend is automatically extracted from the {activeGarment.style} shirt catalog description and matches the selected color.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Toggle Visibility */}
+                <div className="flex items-center justify-between border-t border-neutral-100 pt-3">
+                  <span className="text-xs font-bold text-neutral-800">Show on Tag</span>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={tagBlend.visible}
+                      onChange={(e) => {
+                        const show = e.target.checked;
+                        setTagBlend((prev: any) => ({ ...prev, visible: show }));
+                        if (show) {
+                          setSelectedTagElementId('blend-tag-placeholder');
+                        } else if (selectedTagElementId === 'blend-tag-placeholder') {
+                          setSelectedTagElementId(null);
+                        }
+                      }}
+                      className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-neutral-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-black"></div>
+                  </label>
+                </div>
+
+                {tagBlend.visible && (
+                  <div className="flex flex-col gap-4 border-t border-neutral-100 pt-3">
+                    {/* Font Dropdown */}
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Font Family</label>
+                      <select
+                        value={tagBlend.font}
+                        onChange={(e) => setTagBlend((prev: any) => ({ ...prev, font: e.target.value }))}
+                        className="w-full bg-neutral-50 border border-neutral-200 hover:border-neutral-300 focus:border-black focus:bg-white rounded-xl px-3 py-2.5 text-xs font-bold transition-all outline-none"
+                      >
+                        {SUPPORTED_FONTS.map((font) => (
+                          <option key={font.value} value={font.value} style={{ fontFamily: font.value }}>
+                            {font.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Font Styles (Bold / Italic) */}
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Styles</label>
+                      <div className="flex border border-neutral-200 rounded-xl overflow-hidden h-[38px] p-0.5 bg-neutral-50 max-w-[120px]">
+                        <button
+                          type="button"
+                          onClick={() => setTagBlend((prev: any) => ({ ...prev, bold: !prev.bold }))}
+                          className={`flex-1 flex items-center justify-center rounded-lg transition-all cursor-pointer ${
+                            tagBlend.bold ? 'bg-black text-white' : 'text-neutral-500 hover:text-black hover:bg-neutral-200/50'
+                          }`}
+                          title="Bold"
+                        >
+                          <Bold size={13} strokeWidth={3} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setTagBlend((prev: any) => ({ ...prev, italic: !prev.italic }))}
+                          className={`flex-1 flex items-center justify-center rounded-lg transition-all cursor-pointer ${
+                            tagBlend.italic ? 'bg-black text-white' : 'text-neutral-500 hover:text-black hover:bg-neutral-200/50'
+                          }`}
+                          title="Italic"
+                        >
+                          <Italic size={13} strokeWidth={3} />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Color Selection */}
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Color</label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {[
+                          { name: 'White', hex: '#FFFFFF' },
+                          { name: 'Black', hex: '#000000' },
+                          { name: 'Red', hex: '#E11D48' },
+                          { name: 'Royal', hex: '#1D4ED8' },
+                          { name: 'Navy', hex: '#1E3A8A' },
+                          { name: 'Gold', hex: '#F59E0B' },
+                          { name: 'Green', hex: '#15803D' },
+                          { name: 'Grey', hex: '#6B7280' },
+                        ].map((col) => {
+                          const isColSelected = tagBlend.color.toLowerCase() === col.hex.toLowerCase();
+                          return (
+                            <button
+                              key={col.hex}
+                              type="button"
+                              onClick={() => setTagBlend((prev: any) => ({ ...prev, color: col.hex }))}
+                              className={`w-6 h-6 rounded-full border relative flex items-center justify-center transition-all hover:scale-110 cursor-pointer ${
+                                isColSelected ? 'border-black ring-1 ring-black scale-105' : 'border-neutral-300'
+                              }`}
+                              style={{ backgroundColor: col.hex }}
+                              title={col.name}
+                            >
+                              {isColSelected && (
+                                <Check size={10} className={col.hex === '#FFFFFF' ? 'text-black' : 'text-white'} strokeWidth={4} />
+                              )}
+                            </button>
+                          );
+                        })}
+                        {/* Custom Color Picker Swatch */}
+                        <div className="relative w-6 h-6 rounded-full border border-neutral-300 overflow-hidden hover:scale-110 transition-transform">
+                          <input
+                            type="color"
+                            value={tagBlend.color}
+                            onChange={(e) => setTagBlend((prev: any) => ({ ...prev, color: e.target.value }))}
+                            className="absolute inset-0 w-[200%] h-[200%] -translate-x-[25%] -translate-y-[25%] cursor-pointer border-0 p-0"
+                            title="Custom Color"
+                          />
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
