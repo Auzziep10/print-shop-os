@@ -333,8 +333,9 @@ const generateFinalSheetsForPrintAndCut = async (
         y: number; // inches
         w: number; // inches
         h: number; // inches
+        rotated?: boolean;
     }
-    const rawPlacements: Placement[] = [];
+    let rawPlacements: Placement[] = [];
 
     if (isSingleTransferLayout) {
         const instances: Array<{
@@ -387,57 +388,129 @@ const generateFinalSheetsForPrintAndCut = async (
         // Sort instances by height descending for optimal shelf packing
         instances.sort((a, b) => b.h - a.h);
 
-        // Shelf packing algorithm
+        // Multiple orientation shelf packing runs to find the absolute minimum sheet height
         interface Shelf {
             y: number;
             height: number;
             currentX: number;
         }
-        const shelves: Shelf[] = [];
 
-        instances.forEach(inst => {
-            let placed = false;
-            for (const shelf of shelves) {
-                if (shelf.currentX + inst.w <= designWidthInches) {
-                    rawPlacements.push({
-                        url: inst.url,
-                        x: shelf.currentX,
-                        y: shelf.y,
-                        w: inst.w,
-                        h: inst.h
-                    });
-                    shelf.currentX += inst.w + SPACING_INCHES;
-                    placed = true;
-                    break;
+        interface PackResult {
+            placements: Placement[];
+            height: number;
+        }
+
+        const runPacking = (
+            items: Array<{ url: string; w: number; h: number }>,
+            rotationMode: 'none' | 'auto' | 'force'
+        ): PackResult => {
+            const placementsList: Placement[] = [];
+            const shelves: Shelf[] = [];
+
+            const getDims = (w: number, h: number, currentX: number) => {
+                const normW = w;
+                const normH = h;
+                const rotW = h;
+                const rotH = w;
+
+                if (rotationMode === 'none') {
+                    return { w: normW, h: normH, rotated: false };
                 }
-            }
+                if (rotationMode === 'force') {
+                    return { w: rotW, h: rotH, rotated: true };
+                }
 
-            if (!placed) {
-                const newY = shelves.length === 0 
-                    ? SPACING_INCHES 
-                    : shelves[shelves.length - 1].y + shelves[shelves.length - 1].height + SPACING_INCHES;
-                
-                shelves.push({
-                    y: newY,
-                    height: inst.h,
-                    currentX: inst.w + SPACING_INCHES
-                });
+                // 'auto' mode:
+                const fitsNorm = currentX + normW <= designWidthInches;
+                const fitsRot = currentX + rotW <= designWidthInches;
 
-                rawPlacements.push({
-                    url: inst.url,
-                    x: 0,
-                    y: newY,
-                    w: inst.w,
-                    h: inst.h
-                });
-            }
-        });
+                if (fitsNorm && fitsRot) {
+                    // Choose the one that leaves more room on the shelf (smaller width)
+                    if (normW <= rotW) {
+                        return { w: normW, h: normH, rotated: false };
+                    } else {
+                        return { w: rotW, h: rotH, rotated: true };
+                    }
+                } else if (fitsNorm) {
+                    return { w: normW, h: normH, rotated: false };
+                } else if (fitsRot) {
+                    return { w: rotW, h: rotH, rotated: true };
+                } else {
+                    // Neither fits. Choose orientation with smaller height to minimize shelf expansion
+                    if (normH <= rotH) {
+                        return { w: normW, h: normH, rotated: false };
+                    } else {
+                        return { w: rotW, h: rotH, rotated: true };
+                    }
+                }
+            };
 
-        const totalContentHeightInches = shelves.length === 0 
-            ? 0 
-            : shelves[shelves.length - 1].y + shelves[shelves.length - 1].height + SPACING_INCHES;
-        
-        sheetContentHeightInches = totalContentHeightInches;
+            items.forEach(inst => {
+                let placed = false;
+                for (const shelf of shelves) {
+                    const dims = getDims(inst.w, inst.h, shelf.currentX);
+                    if (shelf.currentX + dims.w <= designWidthInches) {
+                        placementsList.push({
+                            url: inst.url,
+                            x: shelf.currentX,
+                            y: shelf.y,
+                            w: dims.w,
+                            h: dims.h,
+                            rotated: dims.rotated
+                        });
+                        shelf.currentX += dims.w + SPACING_INCHES;
+                        if (dims.h > shelf.height) {
+                            shelf.height = dims.h;
+                        }
+                        placed = true;
+                        break;
+                    }
+                }
+
+                if (!placed) {
+                    const dims = getDims(inst.w, inst.h, 0);
+                    const newY = shelves.length === 0 
+                        ? SPACING_INCHES 
+                        : shelves[shelves.length - 1].y + shelves[shelves.length - 1].height + SPACING_INCHES;
+                    
+                    shelves.push({
+                        y: newY,
+                        height: dims.h,
+                        currentX: dims.w + SPACING_INCHES
+                    });
+
+                    placementsList.push({
+                        url: inst.url,
+                        x: 0,
+                        y: newY,
+                        w: dims.w,
+                        h: dims.h,
+                        rotated: dims.rotated
+                    });
+                }
+            });
+
+            const totalHeight = shelves.length === 0 
+                ? 0 
+                : shelves[shelves.length - 1].y + shelves[shelves.length - 1].height + SPACING_INCHES;
+
+            return { placements: placementsList, height: totalHeight };
+        };
+
+        const resultNone = runPacking(instances, 'none');
+        const resultAuto = runPacking(instances, 'auto');
+        const resultForce = runPacking(instances, 'force');
+
+        let bestResult = resultNone;
+        if (resultAuto.height < bestResult.height) {
+            bestResult = resultAuto;
+        }
+        if (resultForce.height < bestResult.height) {
+            bestResult = resultForce;
+        }
+
+        rawPlacements = bestResult.placements;
+        sheetContentHeightInches = bestResult.height;
     } else {
         sheetContentHeightInches = orderItem.sheetHeight || 24;
     }
@@ -462,13 +535,15 @@ const generateFinalSheetsForPrintAndCut = async (
         y: number;
         wPx: number;
         hPx: number;
+        rotated: boolean;
     }
     const placements: PixelPlacement[] = rawPlacements.map(p => ({
         url: p.url,
         x: p.x * BASE_DPI,
         y: p.y * BASE_DPI,
         wPx: p.w * BASE_DPI,
-        hPx: p.h * BASE_DPI
+        hPx: p.h * BASE_DPI,
+        rotated: !!p.rotated
     }));
 
     const finalCanvasWidth = (designWidthInches + (2 * MARGIN_INCHES)) * BASE_DPI;
@@ -507,8 +582,22 @@ const generateFinalSheetsForPrintAndCut = async (
 
             const img = loadedImages[p.url];
             if (img) {
-                printCtx.drawImage(img, printX, printY, p.wPx, p.hPx);
-                designCtx.drawImage(img, designX, designY, p.wPx, p.hPx);
+                if (p.rotated) {
+                    printCtx.save();
+                    printCtx.translate(printX + p.wPx / 2, printY + p.hPx / 2);
+                    printCtx.rotate(Math.PI / 2);
+                    printCtx.drawImage(img, -p.hPx / 2, -p.wPx / 2, p.hPx, p.wPx);
+                    printCtx.restore();
+
+                    designCtx.save();
+                    designCtx.translate(designX + p.wPx / 2, designY + p.hPx / 2);
+                    designCtx.rotate(Math.PI / 2);
+                    designCtx.drawImage(img, -p.hPx / 2, -p.wPx / 2, p.hPx, p.wPx);
+                    designCtx.restore();
+                } else {
+                    printCtx.drawImage(img, printX, printY, p.wPx, p.hPx);
+                    designCtx.drawImage(img, designX, designY, p.wPx, p.hPx);
+                }
             }
 
             if (!isVinyl) {
