@@ -3901,6 +3901,37 @@ export function OrderDetail() {
                               </div>
                             )}
 
+                            {!card.isPrintReady && (
+                              <div className="absolute inset-0 bg-neutral-950/85 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center gap-3 transition-all z-10">
+                                <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-full">
+                                  <Printer size={24} className="text-amber-400 animate-bounce" />
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                  <span className="text-xs font-bold text-neutral-100">Production Files Required</span>
+                                  <span className="text-[10px] text-neutral-400 max-w-[200px] leading-relaxed">
+                                    The print-ready transparent gang sheet and cut files have not been generated yet.
+                                  </span>
+                                </div>
+                                <button
+                                  onClick={card.generateFunc}
+                                  disabled={card.isGenerating}
+                                  className="mt-2 bg-amber-500 hover:bg-amber-450 text-neutral-950 font-black text-xs uppercase tracking-wider px-5 py-2.5 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-md hover:shadow-lg disabled:opacity-50"
+                                >
+                                  {card.isGenerating ? (
+                                    <>
+                                      <Loader2 size={12} className="animate-spin" />
+                                      <span>Generating...</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Sparkles size={12} />
+                                      <span>Generate Gang Sheet</span>
+                                    </>
+                                  )}
+                                </button>
+                              </div>
+                            )}
+
                             {card.isPrintReady && (
                               <div className="absolute top-3 left-3 bg-neutral-900/90 border border-neutral-800 rounded-lg p-0.5 flex shadow-lg">
                                 <button
