@@ -62,6 +62,39 @@ export function PortalAssetVault() {
     }
   };
 
+  // Right-click context menu states
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; assetId: string } | null>(null);
+  const [menuPos, setMenuPos] = useState({ x: 0, y: 0 });
+
+  useEffect(() => {
+    const handleCloseMenu = () => setContextMenu(null);
+    window.addEventListener('click', handleCloseMenu);
+    window.addEventListener('scroll', handleCloseMenu, true);
+    window.addEventListener('resize', handleCloseMenu);
+    return () => {
+      window.removeEventListener('click', handleCloseMenu);
+      window.removeEventListener('scroll', handleCloseMenu, true);
+      window.removeEventListener('resize', handleCloseMenu);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (contextMenu) {
+      const menuWidth = 224; // w-56 is 14rem = 224px
+      const menuHeight = 150; // estimate
+      let x = contextMenu.x;
+      let y = contextMenu.y;
+
+      if (x + menuWidth > window.innerWidth) {
+        x = window.innerWidth - menuWidth - 10;
+      }
+      if (y + menuHeight > window.innerHeight) {
+        y = window.innerHeight - menuHeight - 10;
+      }
+      setMenuPos({ x, y });
+    }
+  }, [contextMenu]);
+
   // Folder states & handlers
   const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
@@ -712,6 +745,14 @@ export function PortalAssetVault() {
                 onDragStart={(e) => handleDragStart(e, index)}
                 onDragOver={(e) => handleDragOver(e, index)}
                 onDragEnd={handleDragEnd}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  setContextMenu({
+                    x: e.clientX,
+                    y: e.clientY,
+                    assetId: asset.id
+                  });
+                }}
                 className={`bg-white rounded-3xl border transition-all p-5 flex flex-col justify-between min-h-[220px] relative group ${
                   draggedIndex === index 
                     ? 'opacity-40 border-black/40 scale-[0.98] rotate-1 shadow-inner bg-neutral-50/50' 
@@ -1127,6 +1168,58 @@ export function PortalAssetVault() {
             setCroppingAssetUrl(null);
           }}
         />
+      )}
+      {/* Custom Right-Click Context Menu for Organizing Assets into Folders */}
+      {contextMenu && (
+        <div 
+          className="fixed z-[100] bg-neutral-900/95 border border-neutral-800 text-white rounded-2xl shadow-2xl py-2 px-1.5 w-56 backdrop-blur-md animate-in fade-in zoom-in-95 duration-100 flex flex-col gap-0.5"
+          style={{ 
+            top: menuPos.y, 
+            left: menuPos.x 
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="px-3 py-1 text-[9px] font-extrabold text-neutral-400 uppercase tracking-widest border-b border-neutral-800/60 pb-1.5 mb-1.5 flex items-center gap-1.5">
+            <Folder size={10} className="text-neutral-450" /> Move to Folder
+          </div>
+          
+          {/* Option to move to Root if it is currently inside a folder */}
+          {assets.find(a => a.id === contextMenu.assetId)?.folderId && (
+            <button
+              onClick={() => {
+                handleMoveAssetFolder(contextMenu.assetId, null);
+                setContextMenu(null);
+              }}
+              className="w-full text-left px-3 py-2 text-xs font-bold rounded-xl hover:bg-neutral-800 hover:text-white transition-all flex items-center gap-2 cursor-pointer text-neutral-300"
+            >
+              <Folder size={14} className="text-neutral-500 fill-neutral-500/10" />
+              <span>Root Folder</span>
+            </button>
+          )}
+
+          {/* List all folders except the current one */}
+          {assets.filter(a => a.type === 'folder' && a.id !== assets.find(img => img.id === contextMenu.assetId)?.folderId).map(f => (
+            <button
+              key={f.id}
+              onClick={() => {
+                handleMoveAssetFolder(contextMenu.assetId, f.id);
+                setContextMenu(null);
+              }}
+              className="w-full text-left px-3 py-2 text-xs font-bold rounded-xl hover:bg-neutral-800 hover:text-white transition-all flex items-center gap-2 cursor-pointer text-neutral-300 truncate"
+              title={f.name}
+            >
+              <Folder size={14} className="text-amber-500 fill-amber-500/10" />
+              <span className="truncate">{f.name}</span>
+            </button>
+          ))}
+
+          {/* If there are no folders available */}
+          {assets.filter(a => a.type === 'folder').length === 0 && (
+            <div className="px-3 py-2 text-xs font-semibold text-neutral-500 italic">
+              No folders created yet
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
