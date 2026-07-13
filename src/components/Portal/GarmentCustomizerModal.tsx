@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../../lib/firebase';
-import { X, Upload, Loader2, Check, FileText, Sparkles, RefreshCw, Type, Image as ImageIcon, Sliders, Trash2, Bold, Italic, Search, Shirt, Plus, Palette } from 'lucide-react';
+import { X, Upload, Loader2, Check, FileText, Sparkles, RefreshCw, Type, Image as ImageIcon, Sliders, Trash2, Bold, Italic, Search, Shirt, Plus, Palette, AlertCircle } from 'lucide-react';
 import { generateRotatedGarment } from '../../lib/geminiService';
 import { getSwatchColor } from '../shared/GarmentBrowser';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
@@ -1554,30 +1554,6 @@ export function GarmentCustomizerModal({
   };
 
   const handleSave = async () => {
-    // Validation check for widths
-    if (selectedLogoFront && !widthFront.trim()) {
-      alert("Please enter the print width for the Front placement.");
-      setActiveTab('front');
-      return;
-    }
-    if (selectedLogoBack && !widthBack.trim()) {
-      alert("Please enter the print width for the Back placement.");
-      setActiveTab('back');
-      return;
-    }
-    if (selectedLogoLeftSleeve && !widthLeftSleeve.trim()) {
-      alert("Please enter the print width for the Left Sleeve placement.");
-      setActiveTab('sleeve');
-      setIsSleeveMirrored(false);
-      return;
-    }
-    if (selectedLogoRightSleeve && !widthRightSleeve.trim()) {
-      alert("Please enter the print width for the Right Sleeve placement.");
-      setActiveTab('sleeve');
-      setIsSleeveMirrored(true);
-      return;
-    }
-
     if (isSaving) return;
     setIsSaving(true);
 
@@ -1822,16 +1798,16 @@ export function GarmentCustomizerModal({
         customizedSleeveImage,
         logoUrl: selectedLogoFront?.url || null,
         logoName: selectedLogoFront?.name || null,
-        logoWidthFront: selectedLogoFront ? parseFloat(widthFront) : null,
+        logoWidthFront: (selectedLogoFront && widthFront.trim()) ? parseFloat(widthFront) : null,
         logoUrlBack: selectedLogoBack?.url || null,
         logoNameBack: selectedLogoBack?.name || null,
-        logoWidthBack: selectedLogoBack ? parseFloat(widthBack) : null,
+        logoWidthBack: (selectedLogoBack && widthBack.trim()) ? parseFloat(widthBack) : null,
         logoUrlLeftSleeve: selectedLogoLeftSleeve?.url || null,
         logoNameLeftSleeve: selectedLogoLeftSleeve?.name || null,
-        logoWidthLeftSleeve: selectedLogoLeftSleeve ? parseFloat(widthLeftSleeve) : null,
+        logoWidthLeftSleeve: (selectedLogoLeftSleeve && widthLeftSleeve.trim()) ? parseFloat(widthLeftSleeve) : null,
         logoUrlRightSleeve: selectedLogoRightSleeve?.url || null,
         logoNameRightSleeve: selectedLogoRightSleeve?.name || null,
-        logoWidthRightSleeve: selectedLogoRightSleeve ? parseFloat(widthRightSleeve) : null,
+        logoWidthRightSleeve: (selectedLogoRightSleeve && widthRightSleeve.trim()) ? parseFloat(widthRightSleeve) : null,
         customScaleFront: scaleFront,
         customOffsetXFront: offsetXFront,
         customOffsetYFront: offsetYFront,
@@ -1886,16 +1862,16 @@ export function GarmentCustomizerModal({
         logoPlacement: placementParts.join(', ') || 'Front',
         logoUrl: selectedLogoFront?.url || null,
         logoName: selectedLogoFront?.name || null,
-        logoWidthFront: selectedLogoFront ? parseFloat(widthFront) : null,
+        logoWidthFront: (selectedLogoFront && widthFront.trim()) ? parseFloat(widthFront) : null,
         logoUrlBack: selectedLogoBack?.url || null,
         logoNameBack: selectedLogoBack?.name || null,
-        logoWidthBack: selectedLogoBack ? parseFloat(widthBack) : null,
+        logoWidthBack: (selectedLogoBack && widthBack.trim()) ? parseFloat(widthBack) : null,
         logoUrlLeftSleeve: selectedLogoLeftSleeve?.url || null,
         logoNameLeftSleeve: selectedLogoLeftSleeve?.name || null,
-        logoWidthLeftSleeve: selectedLogoLeftSleeve ? parseFloat(widthLeftSleeve) : null,
+        logoWidthLeftSleeve: (selectedLogoLeftSleeve && widthLeftSleeve.trim()) ? parseFloat(widthLeftSleeve) : null,
         logoUrlRightSleeve: selectedLogoRightSleeve?.url || null,
         logoNameRightSleeve: selectedLogoRightSleeve?.name || null,
-        logoWidthRightSleeve: selectedLogoRightSleeve ? parseFloat(widthRightSleeve) : null,
+        logoWidthRightSleeve: (selectedLogoRightSleeve && widthRightSleeve.trim()) ? parseFloat(widthRightSleeve) : null,
         // Tag properties
         logoUrlTag: null,
         tagLayout: isTagCustomized ? {
@@ -2281,12 +2257,24 @@ export function GarmentCustomizerModal({
             </div>
 
             <div className="absolute bottom-4 left-4 flex flex-col gap-1.5 z-30">
-              <span className="text-[9px] font-bold uppercase tracking-widest text-neutral-400 bg-neutral-50 border border-neutral-200 px-2 py-0.5 rounded shadow-sm self-start">
-                Active Placement: {activeTab === 'sleeve' ? (isSleeveMirrored ? 'SLEEVE (MIRRORED)' : 'SLEEVE') : activeTab.toUpperCase()}
-              </span>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-[9px] font-bold uppercase tracking-widest text-neutral-400 bg-neutral-50 border border-neutral-200 px-2 py-0.5 rounded shadow-sm">
+                  Active Placement: {activeTab === 'sleeve' ? (isSleeveMirrored ? 'SLEEVE (MIRRORED)' : 'SLEEVE') : activeTab.toUpperCase()}
+                </span>
+                {activeTab !== 'tag' && (
+                  <span className="text-[9px] font-bold uppercase tracking-widest text-neutral-400 bg-neutral-50 border border-neutral-200 px-2 py-0.5 rounded shadow-sm">
+                    Size: Large
+                  </span>
+                )}
+              </div>
               {activeTab === 'tag' && (
-                <span className="text-[9px] font-bold uppercase tracking-widest text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded shadow-sm self-start animate-in slide-in-from-bottom-2 duration-200">
+                <span className="text-[9px] font-bold uppercase tracking-widest text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded shadow-sm animate-in slide-in-from-bottom-2 duration-200">
                   Tag Dimensions: 2.5" W x 2.5" H (300 DPI)
+                </span>
+              )}
+              {activeTab !== 'tag' && (
+                <span className="text-[9px] font-semibold text-neutral-450 leading-normal max-w-[280px] select-none">
+                  * Standard print dimensions will be applied based off the image unless specified in Optional Width.
                 </span>
               )}
             </div>
@@ -3150,17 +3138,16 @@ export function GarmentCustomizerModal({
             (activeTab === 'back' && selectedLogoBack) ||
             (activeTab === 'sleeve' && !isSleeveMirrored && selectedLogoLeftSleeve) ||
             (activeTab === 'sleeve' && isSleeveMirrored && selectedLogoRightSleeve)) && (
-            <div className="flex flex-col gap-1.5 border-t border-neutral-100 pt-6 animate-in fade-in duration-200">
-              <label className="text-xs font-bold uppercase tracking-widest text-neutral-500 flex items-center gap-1">
-                <span>Print Width (Inches)</span>
-                <span className="text-red-500">*</span>
+            <div className="flex flex-col gap-2 border-t border-neutral-100 pt-6 animate-in fade-in duration-200">
+              <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">
+                Optional Width (Inches)
               </label>
               <input
                 type="number"
                 step="0.1"
                 min="0.5"
                 max="22"
-                placeholder="e.g. 10.5"
+                placeholder="Standard size (leave blank)"
                 value={
                   activeTab === 'front'
                     ? widthFront
@@ -3178,11 +3165,13 @@ export function GarmentCustomizerModal({
                   else setWidthLeftSleeve(val);
                 }}
                 className="w-full bg-neutral-50 border border-neutral-200 hover:border-neutral-300 focus:border-black focus:bg-white rounded-xl px-4 py-2.5 text-sm font-bold transition-all outline-none"
-                required
               />
-              <span className="text-[10px] text-neutral-400 font-semibold mt-0.5">
-                Specify the exact target width in inches for printing this placement.
-              </span>
+              <div className="bg-amber-50/70 border border-amber-250/70 text-amber-900 rounded-2xl p-3 flex gap-2 mt-1">
+                <AlertCircle size={16} className="text-amber-600 shrink-0 mt-0.5" />
+                <span className="text-[10.5px] leading-relaxed font-medium">
+                  <strong>Disclaimer:</strong> Our standard print dimensions will be applied based off the image unless otherwise specified in this Optional Width section.
+                </span>
+              </div>
             </div>
           )}
 
