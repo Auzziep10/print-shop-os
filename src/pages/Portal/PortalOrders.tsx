@@ -4,7 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useOrders } from '../../hooks/useOrders';
 import { db } from '../../lib/firebase';
 import QRCode from 'react-qr-code';
-import { doc, getDoc, deleteDoc, writeBatch, updateDoc, arrayUnion } from 'firebase/firestore';
+import { doc, getDoc, deleteDoc, writeBatch } from 'firebase/firestore';
 import { getTrackingLink } from '../../lib/utils';
 import { StripePaymentModal } from '../../components/Orders/StripePaymentModal';
 
@@ -197,24 +197,6 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
     return count || 1;
   };
 
-  const handleApproveOrder = async (e: React.MouseEvent, orderId: string) => {
-    e.stopPropagation();
-    try {
-      await updateDoc(doc(db, 'orders', orderId), {
-        statusIndex: 3, // Move to Awaiting Payment
-        activities: arrayUnion({
-          id: `act-${Date.now()}`,
-          type: 'system',
-          message: 'Order approved by customer.',
-          user: 'Customer',
-          timestamp: new Date().toISOString()
-        })
-      });
-      // Order approved by customer
-    } catch (err) {
-      console.error("Error approving order", err);
-    }
-  };
 
   useEffect(() => {
     if (orders) {
