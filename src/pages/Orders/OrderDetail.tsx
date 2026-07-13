@@ -390,9 +390,13 @@ const generateFinalSheetsForPrintAndCut = async (
 
     const isVinyl = isVinylItem(orderItem);
 
+    const artworks = (orderItem.artworks || []).filter(
+        (art: any) => art.name !== 'Size Tag Print' && !art.name?.toLowerCase().includes('tag')
+    );
+
     let isSingleTransferLayout = orderItem.sheetSizeName === 'Single Design Transfer' ||
         orderItem.itemType === 'garment' ||
-        (Array.isArray(orderItem.artworks) && orderItem.artworks.some((art: any) => art.url && art.url !== orderItem.image));
+        (artworks.length > 0 && artworks.some((art: any) => art.url && art.url !== orderItem.image));
     const isAutoLayout = (orderItem.sheetSizeName || '').toLowerCase().includes('auto-layout');
     
     let designWidthInches = isSingleTransferLayout ? 22 : (orderItem.sheetWidth || 22);
@@ -400,8 +404,6 @@ const generateFinalSheetsForPrintAndCut = async (
     // Preload all unique images first to inspect actual aspect ratios
     const loadedImages: Record<string, HTMLImageElement> = {};
     const urlsToLoad = new Set<string>();
-    
-    const artworks = orderItem.artworks || [];
     if (isSingleTransferLayout) {
         artworks.forEach((art: any) => {
             const url = art.url || art.imageUrl || art.originalUrl || orderItem.originalSheetUrl || orderItem.image || '';
@@ -720,7 +722,9 @@ const generateFinalSheetsForPrintAndCut = async (
         });
     } else {
         // --- Standard Gang Sheet ---
-        const artworks = orderItem.artworks || [];
+        const artworks = (orderItem.artworks || []).filter(
+            (art: any) => art.name !== 'Size Tag Print' && !art.name?.toLowerCase().includes('tag')
+        );
         const sourceUrl = orderItem.originalSheetUrl || orderItem.image || '';
         const sourceImage = loadedImages[sourceUrl];
 
@@ -915,7 +919,9 @@ const generateFinalSheetsForPrintAndCut = async (
             });
         } else {
             // --- Standard Gang Sheet ---
-            const artworks = orderItem.artworks || [];
+            const artworks = (orderItem.artworks || []).filter(
+                (art: any) => art.name !== 'Size Tag Print' && !art.name?.toLowerCase().includes('tag')
+            );
             const sourceUrl = orderItem.originalSheetUrl || orderItem.image || '';
             const trace = uniqueContourPaths[sourceUrl];
 
@@ -2020,6 +2026,28 @@ export function OrderDetail() {
 
   const handleGeneratePrintFile = async (item: any) => {
     if (!id || !order) return;
+
+    // Check if any placement is missing dimensions (excluding tags)
+    const missingDimensions = (item.artworks || []).filter(
+      (art: any) => art.name !== 'Size Tag Print' && !art.name?.toLowerCase().includes('tag') && (!art.width || parseFloat(art.width) <= 0)
+    );
+
+    if (missingDimensions.length > 0) {
+      alert(`Missing Print Dimensions: Please enter the print width for "${missingDimensions.map(d => d.name).join(', ')}" under Adjust Layout/Logos first.`);
+      setEditingSpecsCardId(`${item.id}-art`);
+      setEditingArtworks(item.artworks || []);
+      // Scroll to the edit area smoothly
+      setTimeout(() => {
+        const el = document.getElementById(`specs-editor-${item.id}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          el.classList.add('ring-2', 'ring-red-500/50');
+          setTimeout(() => el.classList.remove('ring-2', 'ring-red-500/50'), 2000);
+        }
+      }, 100);
+      return;
+    }
+
     setGeneratingItemId(item.id);
     try {
       const { printDataUrl, cutDataUrl, sheetHeight } = await generateFinalSheetsForPrintAndCut(
@@ -3868,7 +3896,7 @@ export function OrderDetail() {
 
                         {/* Preview Box */}
                         {editingSpecsCardId === card.id ? (
-                          <div className="flex flex-col gap-3 bg-neutral-950/40 border border-neutral-850 p-4 rounded-xl max-h-[350px] overflow-y-auto">
+                          <div id={`specs-editor-${card.item.id}`} className="flex flex-col gap-3 bg-neutral-950/40 border border-neutral-850 p-4 rounded-xl max-h-[350px] overflow-y-auto transition-all">
                             <div className="flex justify-between items-center border-b border-neutral-800 pb-2 mb-1">
                               <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">Configure Logos</span>
                               <label className="text-[10px] font-bold text-neutral-350 hover:text-white cursor-pointer flex items-center gap-1">
@@ -3941,8 +3969,13 @@ export function OrderDetail() {
                                         <input
                                           type="number"
                                           step="0.1"
-                                          className="w-full bg-neutral-950 border border-neutral-850 rounded px-1.5 py-1 text-[10px] text-white font-bold"
-                                          value={art.width || 3.5}
+                                          placeholder="Required width"
+                                          className={`w-full bg-neutral-950 border rounded px-1.5 py-1 text-[10px] text-white font-bold ${
+                                            (!art.width || parseFloat(art.width) <= 0)
+                                              ? 'border-red-500/80 ring-1 ring-red-500/20 bg-red-950/10'
+                                              : 'border-neutral-850'
+                                          }`}
+                                          value={art.width || ''}
                                           onChange={(e) => {
                                             const w = parseFloat(e.target.value) || 0;
                                             setEditingArtworks(prev => {
