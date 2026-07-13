@@ -131,7 +131,7 @@ const CheckoutForm = ({ order, onSuccess, onCancel }: { order: any, onSuccess: (
         <button
           type="submit"
           disabled={!stripe || isProcessing}
-          className="flex-1 bg-black text-white py-3.5 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-neutral-800 transition-all shadow-md flex justify-center items-center gap-2"
+          className="flex-1 bg-[#635BFF] text-white py-3.5 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-[#5249e5] transition-all shadow-md flex justify-center items-center gap-2 animate-pulse-purple cursor-pointer"
         >
           {isProcessing ? (
             <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div>
@@ -146,6 +146,32 @@ const CheckoutForm = ({ order, onSuccess, onCancel }: { order: any, onSuccess: (
 };
 
 export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, onClose: () => void, onSuccess: () => void }) {
+  const [statusIndex, setStatusIndex] = useState<number>(order.statusIndex);
+  const [isApproving, setIsApproving] = useState<boolean>(false);
+
+  const handleApproveQuote = async () => {
+    setIsApproving(true);
+    try {
+      const orderRef = doc(db, 'orders', order.id);
+      await updateDoc(orderRef, {
+        statusIndex: 3, // Move to pending payment
+        activities: arrayUnion({
+          id: `act-${Date.now()}`,
+          type: 'system',
+          message: 'Quote approved by customer.',
+          user: 'Customer',
+          timestamp: new Date().toISOString()
+        })
+      });
+      setStatusIndex(3);
+    } catch (err) {
+      console.error("Failed to approve quote:", err);
+      alert("Failed to approve quote.");
+    } finally {
+      setIsApproving(false);
+    }
+  };
+
   // Parse regular items, tax, and shipping
   let itemsSubtotal = 0;
   let taxAmount = 0;
@@ -226,16 +252,16 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
         </div>
 
         {/* Drawer Scrollable Content */}
-        <div className="flex-1 overflow-y-auto p-6 bg-neutral-50/20 flex flex-col gap-6 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto p-6 bg-neutral-50/20 flex flex-col gap-6 custom-scrollbar animate-in fade-in duration-350">
           
           {/* Garments List Section */}
           <div className="flex flex-col gap-3">
             <h3 className="text-[10px] font-bold tracking-widest text-neutral-450 uppercase mb-1">Garments in Cart ({regularItems.length})</h3>
             <div className="flex flex-col gap-3">
               {regularItems.map((item: any, idx: number) => (
-                <div key={idx} className="flex gap-4 items-center bg-white p-4 rounded-2xl border border-neutral-200/50 shadow-2xs">
+                <div key={idx} className="flex gap-4 items-center bg-white p-4 rounded-2xl border border-neutral-200/50 shadow-2xs animate-in slide-in-from-bottom duration-250" style={{ animationDelay: `${idx * 50}ms` }}>
                   {item.image ? (
-                    <div className="w-14 h-14 shrink-0 bg-white rounded-xl border border-neutral-100 p-1 flex items-center justify-center">
+                    <div className="w-14 h-14 shrink-0 bg-white rounded-xl border border-neutral-100 p-1 flex items-center justify-center animate-in zoom-in duration-200">
                       <img src={item.image} alt={item.style} className="max-w-full max-h-full object-contain mix-blend-multiply" />
                     </div>
                   ) : (
@@ -250,7 +276,7 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
                     </p>
                     {/* Sizes Display Spread */}
                     {item.sizes && Object.keys(item.sizes).length > 0 && (
-                      <div className="flex gap-1 mt-1.5 flex-wrap">
+                      <div className="flex gap-1 mt-1.5 flex-wrap animate-in fade-in duration-300">
                         {Object.entries(item.sizes).map(([size, q]: [string, any]) => {
                           if (!q) return null;
                           return (
@@ -310,26 +336,56 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
             </div>
           </div>
 
-          {/* Payment Section */}
-          <div className="flex flex-col gap-3">
-            <h3 className="text-[10px] font-bold tracking-widest text-neutral-450 uppercase mb-1">Payment Method</h3>
-            <div className="bg-white rounded-2xl p-5 border border-neutral-200/50 shadow-2xs flex flex-col gap-4">
-              <div className="flex items-center gap-2 pb-3 border-b border-neutral-100">
-                <CreditCard size={18} className="text-[#635BFF]" />
-                <span className="text-xs font-bold text-neutral-800 uppercase tracking-wider">Pay Securely with Card</span>
-              </div>
-              
-              <div className="bg-neutral-50/50 rounded-xl p-3 border border-neutral-100 text-xs text-neutral-600 leading-normal">
-                <p className="font-bold text-neutral-800 mb-0.5">Order Title:</p>
-                <p className="line-clamp-1">{order.title}</p>
-              </div>
+        </div>
 
+        {/* Sticky Payment / Approval Footer Container */}
+        <div className="shrink-0 bg-white border-t border-neutral-200 p-6 shadow-[0_-8px_30px_rgb(0,0,0,0.06)] z-20">
+          <style>{`
+            @keyframes pulse-subtle-purple {
+              0%, 100% { transform: scale(1); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
+              50% { transform: scale(1.02); box-shadow: 0 10px 15px -3px rgba(99, 91, 255, 0.45), 0 4px 6px -2px rgba(99, 91, 255, 0.25); }
+            }
+            @keyframes pulse-subtle-black {
+              0%, 100% { transform: scale(1); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
+              50% { transform: scale(1.02); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.35), 0 4px 6px -2px rgba(0, 0, 0, 0.2); }
+            }
+            .animate-pulse-purple {
+              animation: pulse-subtle-purple 2s infinite ease-in-out;
+            }
+            .animate-pulse-black {
+              animation: pulse-subtle-black 2s infinite ease-in-out;
+            }
+          `}</style>
+          
+          {statusIndex === 2 ? (
+            <div className="flex flex-col gap-3 animate-in fade-in duration-300">
+              <button
+                type="button"
+                onClick={handleApproveQuote}
+                disabled={isApproving}
+                className="w-full bg-black text-white hover:bg-neutral-800 py-4 rounded-xl text-xs font-bold uppercase tracking-widest transition-all shadow-md flex justify-center items-center gap-2 animate-pulse-black cursor-pointer"
+              >
+                {isApproving ? (
+                  <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div>
+                ) : (
+                  <span>Approve Quote</span>
+                )}
+              </button>
+              <span className="text-[10px] text-neutral-400 font-semibold text-center leading-normal block">
+                Review garments & total pricing above before approving.
+              </span>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3 animate-in fade-in duration-300">
+              <div className="flex items-center gap-2 pb-2 border-b border-neutral-100 mb-1">
+                <CreditCard size={15} className="text-[#635BFF]" />
+                <span className="text-[10px] font-extrabold text-neutral-500 uppercase tracking-widest">Pay Securely with Card</span>
+              </div>
               <Elements stripe={stripePromise}>
                 <CheckoutForm order={orderWithTotal} onSuccess={onSuccess} onCancel={onClose} />
               </Elements>
             </div>
-          </div>
-
+          )}
         </div>
 
         {/* Footer Security Badges */}

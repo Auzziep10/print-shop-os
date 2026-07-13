@@ -460,6 +460,22 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
 
   return (
     <>
+      <style>{`
+        @keyframes pulse-subtle-purple {
+          0%, 100% { transform: scale(1); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
+          50% { transform: scale(1.03); box-shadow: 0 10px 15px -3px rgba(99, 91, 255, 0.45), 0 4px 6px -2px rgba(99, 91, 255, 0.25); }
+        }
+        @keyframes pulse-subtle-black {
+          0%, 100% { transform: scale(1); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
+          50% { transform: scale(1.03); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.35), 0 4px 6px -2px rgba(0, 0, 0, 0.2); }
+        }
+        .animate-pulse-purple {
+          animation: pulse-subtle-purple 2s infinite ease-in-out;
+        }
+        .animate-pulse-black {
+          animation: pulse-subtle-black 2s infinite ease-in-out;
+        }
+      `}</style>
       <div 
         data-tour="orders-list"
         className={`max-w-[1600px] mx-auto flex flex-col gap-6 ${hideHeader ? 'mt-0' : 'mt-8'}`}
@@ -1145,8 +1161,8 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                      </button>
                    );
                  } else if (isLocalPickup) {
-                   return (
-                     <button 
+                    return (
+                      <button 
                        className="flex-1 xl:flex-none bg-white border border-brand-border/50 text-[12px] font-bold text-gray-400 rounded-full py-3 xl:py-4 transition-all tracking-wide cursor-default text-center px-1"
                        onClick={(e) => e.stopPropagation()}
                     >
@@ -1156,16 +1172,16 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                  } else if (order.statusIndex === 2) {
                     return (
                       <button 
-                        className="flex-1 xl:flex-none bg-black border border-black hover:bg-neutral-800 text-white text-[12px] font-bold rounded-full py-3 xl:py-4 transition-all tracking-wide text-center shadow-md"
-                        onClick={(e) => handleApproveOrder(e, order.id)}
+                        className="flex-1 xl:flex-none bg-black border border-black hover:bg-neutral-800 text-white text-[12px] font-bold rounded-full py-3 xl:py-4 transition-all tracking-wide text-center shadow-md animate-pulse-black cursor-pointer"
+                        onClick={(e) => { e.stopPropagation(); setPayingOrder(order); }}
                      >
-                       Approve Order
+                       View Quote
                      </button>
                     );
                   } else if (order.statusIndex === 3) {
                     return (
                       <button 
-                        className="flex-1 xl:flex-none bg-[#635BFF] border border-[#635BFF] hover:bg-[#5249e5] text-white text-[12px] font-bold rounded-full py-3 xl:py-4 transition-all tracking-wide text-center shadow-md"
+                        className="flex-1 xl:flex-none bg-[#635BFF] border border-[#635BFF] hover:bg-[#5249e5] text-white text-[12px] font-bold rounded-full py-3 xl:py-4 transition-all tracking-wide text-center shadow-md animate-pulse-purple cursor-pointer"
                         onClick={(e) => { e.stopPropagation(); setPayingOrder(order); }}
                      >
                        Pay Now
