@@ -2033,7 +2033,7 @@ export function OrderDetail() {
     );
 
     if (missingDimensions.length > 0) {
-      alert(`Missing Print Dimensions: Please enter the print width for "${missingDimensions.map(d => d.name).join(', ')}" under Adjust Layout/Logos first.`);
+      alert(`Missing Print Dimensions: Please enter the print width for "${missingDimensions.map((d: any) => d.name).join(', ')}" under Adjust Layout/Logos first.`);
       setEditingSpecsCardId(`${item.id}-art`);
       setEditingArtworks(item.artworks || []);
       // Scroll to the edit area smoothly
