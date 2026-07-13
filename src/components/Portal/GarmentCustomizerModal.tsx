@@ -250,7 +250,8 @@ export function GarmentCustomizerModal({
     font: 'Graduate',
     color: '#111111',
     bold: true,
-    italic: false
+    italic: false,
+    spelledOut: false
   });
   const [tagBlend, setTagBlend] = useState<any>({
     visible: true,
@@ -382,9 +383,11 @@ export function GarmentCustomizerModal({
         if (asset.tagLayout) {
           setTagLogos(asset.tagLayout.placedTagLogos || []);
           setTagTexts(asset.tagLayout.placedTagTexts || []);
-          setTagSize(asset.tagLayout.tagSizeElement || { scale: 35, x: 50, y: 75, rotation: 0, font: 'Graduate', color: '#111111', bold: true, italic: false });
+          setTagSize(asset.tagLayout.tagSizeElement || { scale: 35, x: 50, y: 75, rotation: 0, font: 'Graduate', color: '#111111', bold: true, italic: false, spelledOut: false });
           setTagCareSymbols(asset.tagLayout.tagCareSymbols || { visible: false, showWash: true, showBleach: true, showDry: true, showIron: true, showDryClean: true, x: 50, y: 55, scale: 30, color: '#111111', rotation: 0 });
-          setTagBlend(asset.tagLayout.tagBlend || { visible: true, scale: 20, x: 50, y: 45, rotation: 0, font: 'Inter', color: '#111111', bold: false, italic: false });
+          const loadedBlend = asset.tagLayout.tagBlend || { visible: true, scale: 20, x: 50, y: 45, rotation: 0, font: 'Inter', color: '#111111', bold: false, italic: false };
+          loadedBlend.visible = true; // force composition to always be visible
+          setTagBlend(loadedBlend);
           setSelectedTagElementId(null);
         }
         return;
@@ -1213,13 +1216,15 @@ export function GarmentCustomizerModal({
     if (garment && garment.tagLayout) {
       setTagLogos(garment.tagLayout.placedTagLogos || []);
       setTagTexts(garment.tagLayout.placedTagTexts || []);
-      setTagSize(garment.tagLayout.tagSizeElement || { scale: 35, x: 50, y: 75, rotation: 0, font: 'Graduate', color: '#111111', bold: true, italic: false });
+      setTagSize(garment.tagLayout.tagSizeElement || { scale: 35, x: 50, y: 75, rotation: 0, font: 'Graduate', color: '#111111', bold: true, italic: false, spelledOut: false });
       setTagCareSymbols(garment.tagLayout.tagCareSymbols || { visible: false, showWash: true, showBleach: true, showDry: true, showIron: true, showDryClean: true, x: 50, y: 55, scale: 30, color: '#111111', rotation: 0 });
-      setTagBlend(garment.tagLayout.tagBlend || { visible: true, scale: 20, x: 50, y: 45, rotation: 0, font: 'Inter', color: '#111111', bold: false, italic: false });
+      const loadedBlend = garment.tagLayout.tagBlend || { visible: true, scale: 20, x: 50, y: 45, rotation: 0, font: 'Inter', color: '#111111', bold: false, italic: false };
+      loadedBlend.visible = true; // force composition to always be visible
+      setTagBlend(loadedBlend);
     } else {
       setTagLogos([]);
       setTagTexts([]);
-      setTagSize({ scale: 35, x: 50, y: 75, rotation: 0, font: 'Graduate', color: '#111111', bold: true, italic: false });
+      setTagSize({ scale: 35, x: 50, y: 75, rotation: 0, font: 'Graduate', color: '#111111', bold: true, italic: false, spelledOut: false });
       setTagCareSymbols({ visible: false, showWash: true, showBleach: true, showDry: true, showIron: true, showDryClean: true, x: 50, y: 55, scale: 30, color: '#111111', rotation: 0 });
       setTagBlend({ visible: true, scale: 20, x: 50, y: 45, rotation: 0, font: 'Inter', color: '#111111', bold: false, italic: false });
     }
@@ -1340,6 +1345,19 @@ export function GarmentCustomizerModal({
     } finally {
       setIsRecoloring(false);
     }
+  };
+
+  const getSizeString = (char: string, spelledOut: boolean) => {
+    if (!spelledOut) return char.toUpperCase();
+    const c = char.toUpperCase().trim();
+    if (c === 'S') return 'SMALL';
+    if (c === 'M') return 'MEDIUM';
+    if (c === 'L') return 'LARGE';
+    if (c === 'XL') return 'X-LARGE';
+    if (c === 'XS') return 'X-SMALL';
+    if (c === 'XXL' || c === '2XL') return '2X-LARGE';
+    if (c === 'XXXL' || c === '3XL') return '3X-LARGE';
+    return c;
   };
 
   const compileTagCanvas = async (includeSizePlaceholder: boolean, sizeChar: string = 'M') => {
@@ -1483,7 +1501,8 @@ export function GarmentCustomizerModal({
 
       tempCtx.translate(sizeCenterX, sizeCenterY);
       tempCtx.rotate((tagSize.rotation * Math.PI) / 180);
-      tempCtx.fillText(sizeChar, 0, 0);
+      const displayedSize = getSizeString(sizeChar, tagSize.spelledOut);
+      tempCtx.fillText(displayedSize, 0, 0);
       tempCtx.restore();
     }
 
@@ -1839,7 +1858,8 @@ export function GarmentCustomizerModal({
         tagSizeFont: tagSize.font,
         tagSizeColor: tagSize.color,
         tagSizeBold: tagSize.bold,
-        tagSizeItalic: tagSize.italic
+        tagSizeItalic: tagSize.italic,
+        tagSizeSpelledOut: tagSize.spelledOut || false
       });
 
       onClose();
@@ -1887,7 +1907,8 @@ export function GarmentCustomizerModal({
         tagSizeFont: tagSize.font,
         tagSizeColor: tagSize.color,
         tagSizeBold: tagSize.bold,
-        tagSizeItalic: tagSize.italic
+        tagSizeItalic: tagSize.italic,
+        tagSizeSpelledOut: tagSize.spelledOut || false
       });
       onClose();
     } finally {
@@ -2165,7 +2186,7 @@ export function GarmentCustomizerModal({
                         className={`absolute flex items-center justify-center cursor-move leading-none p-1.5 ${isSelected ? 'border border-black ring-1 ring-black/30 bg-white/20' : 'border border-dashed border-red-400/40 hover:border-red-400/80 bg-red-50/10'}`}
                       >
                         <span className="relative select-none flex items-center justify-center">
-                          M
+                          {getSizeString('M', tagSize.spelledOut)}
                           <span className="absolute -top-4 left-1/2 -translate-x-1/2 bg-red-650 text-[6px] text-white px-1 py-0.5 rounded font-sans uppercase font-bold tracking-wider leading-none shadow select-none pointer-events-none whitespace-nowrap z-40">Size Tag</span>
                         </span>
                         {isSelected && (
@@ -2269,7 +2290,7 @@ export function GarmentCustomizerModal({
               </div>
               {activeTab === 'tag' && (
                 <span className="text-[9px] font-bold uppercase tracking-widest text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded shadow-sm animate-in slide-in-from-bottom-2 duration-200">
-                  Tag Dimensions: 2.5" W x 2.5" H (300 DPI)
+                  Art Board Dimensions: 2.5" W x 2.5" H (300 DPI)
                 </span>
               )}
               {activeTab !== 'tag' && (
@@ -3003,6 +3024,23 @@ export function GarmentCustomizerModal({
                         </div>
                       </div>
                     </div>
+
+                    {/* Spell Out Size option */}
+                    <div className="flex items-center justify-between border-t border-neutral-100 pt-3 mt-1">
+                      <span className="text-xs font-bold text-neutral-700">Spell Out Size Tag</span>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={tagSize.spelledOut || false}
+                          onChange={(e) => {
+                            const spell = e.target.checked;
+                            setTagSize((prev: any) => ({ ...prev, spelledOut: spell }));
+                          }}
+                          className="sr-only peer"
+                        />
+                        <div className="w-9 h-5 bg-neutral-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-black"></div>
+                      </label>
+                    </div>
                   </div>
                 </div>
 
@@ -3052,28 +3090,6 @@ export function GarmentCustomizerModal({
                     <div className="bg-neutral-50 border border-neutral-200 rounded-xl px-3.5 py-2.5 text-xs text-neutral-600 leading-normal">
                       <span className="font-semibold text-neutral-800 text-[10px] uppercase tracking-wider">Derived Composition:</span>
                       <p className="font-bold text-neutral-900 mt-0.5 text-xs font-sans">{getGarmentBlend(activeGarment, selectedColor)}</p>
-                    </div>
-
-                    {/* Toggle Visibility */}
-                    <div className="flex items-center justify-between bg-neutral-50/30 border border-neutral-200/50 px-3.5 py-2.5 rounded-xl">
-                      <span className="text-xs font-bold text-neutral-700">Show on Tag</span>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={tagBlend.visible}
-                          onChange={(e) => {
-                            const show = e.target.checked;
-                            setTagBlend((prev: any) => ({ ...prev, visible: show }));
-                            if (show) {
-                              setSelectedTagElementId('blend-tag-placeholder');
-                            } else if (selectedTagElementId === 'blend-tag-placeholder') {
-                              setSelectedTagElementId(null);
-                            }
-                          }}
-                          className="sr-only peer"
-                        />
-                        <div className="w-9 h-5 bg-neutral-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-black"></div>
-                      </label>
                     </div>
                   </div>
                 </div>
