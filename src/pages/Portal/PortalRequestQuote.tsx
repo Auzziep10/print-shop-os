@@ -889,7 +889,7 @@ export function PortalRequestQuote() {
           className="flex items-center gap-2 text-neutral-500 hover:text-black transition-colors font-medium text-sm group"
         >
           <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
-          Back to Orders
+          Back to Dashboard
         </button>
       </div>
 

@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { db } from '../../lib/firebase';
 import { doc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { useAuth } from '../../contexts/AuthContext';
 import { 
   Plus, Trash2, Edit2, Search, X, Users, Info, 
-  Upload, Check, RefreshCw 
+  Upload, Check, RefreshCw, ArrowLeft
 } from 'lucide-react';
 
 interface TeamMember {
@@ -35,12 +35,12 @@ const sortSizes = (a: string, b: string) => {
 
 export function PortalRoster() {
   const { customerId } = useParams();
+  const navigate = useNavigate();
   const { userData } = useAuth();
   const currentCustomerId = customerId || userData?.customerId || 'CUS-001';
 
   const [roster, setRoster] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
-  const [customerName, setCustomerName] = useState('');
   
   // Search & Filter
   const [searchTerm, setSearchTerm] = useState('');
@@ -76,7 +76,6 @@ export function PortalRoster() {
       if (snapshot.exists()) {
         const data = snapshot.data();
         setRoster(data.teamRoster || []);
-        setCustomerName(data.company || data.name || 'Your Company');
 
         // Populate standard order template
         const loadedStandard = data.standardOrder || {};
@@ -293,30 +292,36 @@ export function PortalRoster() {
   });
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-in fade-in duration-300">
+    <div className="max-w-[1200px] mx-auto w-full flex flex-col gap-8 animate-in fade-in duration-300 pb-20">
       
-      {/* Top Banner / Breadcrumb */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-neutral-150 pb-6 mb-8 gap-4">
-        <div>
-          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-neutral-400 mb-1">
-            <Users size={12} className="text-neutral-400" />
-            <span>Portal Customer Hub</span>
-            <span>/</span>
-            <span className="text-neutral-700">{customerName}</span>
-          </div>
-          <h1 className="text-3xl font-serif text-neutral-900 leading-tight">Team Sizing Roster</h1>
-          <p className="text-sm text-neutral-500 mt-2 max-w-xl leading-relaxed">
+      {/* Header Area */}
+      <div className="flex items-center justify-between mt-4">
+        <button 
+          onClick={() => navigate(customerId ? `/portal/${customerId}` : '/portal')}
+          className="flex items-center gap-2 text-neutral-500 hover:text-black transition-colors font-medium text-sm group"
+        >
+          <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
+          Back to Dashboard
+        </button>
+      </div>
+
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-neutral-150 pb-6 mb-2">
+        <div className="flex flex-col gap-2">
+          <h1 className="text-4xl font-serif text-neutral-900 tracking-tight">
+            Team Sizing Roster
+          </h1>
+          <p className="text-neutral-500 font-medium text-sm max-w-xl leading-relaxed font-sans">
             Manage your team's sizing profile here. When purchasing garments, you can apply this full size spread to any cart item in a single click.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 shrink-0">
           <button
             type="button"
             onClick={() => setIsBulkModalOpen(true)}
-            className="flex items-center justify-center gap-2 px-5 py-2.5 bg-white border border-neutral-350 hover:border-black rounded-full text-xs font-bold text-neutral-800 transition-all shadow-xs cursor-pointer"
+            className="bg-white hover:bg-neutral-50 text-neutral-800 border border-neutral-300 px-5 py-3.5 rounded-full text-[13px] font-bold tracking-wide hover:scale-[1.02] active:scale-[0.98] transition-all shadow-sm flex items-center gap-2 cursor-pointer"
           >
-            <Upload size={14} />
+            <Upload size={16} />
             <span>Bulk Import Roster</span>
           </button>
         </div>

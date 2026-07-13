@@ -348,7 +348,7 @@ export function PortalLayout() {
           <div 
             onClick={() => navigate(customerId ? `/portal/${customerId}` : '/portal')}
             className="flex items-center cursor-pointer hover:opacity-80 transition-opacity"
-            title="Go to Orders Dashboard"
+            title="Go to Dashboard"
           >
             {/* Main Logo */}
             {isLoadingCustomer ? (
@@ -388,11 +388,11 @@ export function PortalLayout() {
             onClick={() => navigate(customerId ? `/portal/${customerId}` : '/portal')}
             className={`text-[13px] font-semibold tracking-wide pb-0.5 border-b-2 transition-all ${
               location.pathname.startsWith('/portal') && !location.pathname.endsWith('/create') && !location.pathname.endsWith('/quote') && !location.pathname.endsWith('/vault') && !location.pathname.endsWith('/roster')
-                ? 'text-black border-black'
+                ? 'text-black border-black font-bold'
                 : 'text-gray-400 border-transparent hover:text-black hover:border-black'
             }`}
           >
-            Orders
+            Dashboard
           </button>
  
           <button 

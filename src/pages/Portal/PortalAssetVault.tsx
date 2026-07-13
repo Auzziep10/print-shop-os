@@ -516,10 +516,10 @@ export function PortalAssetVault() {
       <div className="flex items-center justify-between mt-4">
         <button 
           onClick={() => navigate(customerId ? `/portal/${customerId}` : '/portal')}
-          className="flex items-center gap-2 text-neutral-500 hover:text-black transition-colors font-medium text-sm group"
+          className="flex items-center gap-2 text-neutral-550 hover:text-black transition-colors font-medium text-sm group"
         >
           <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
-          Back to Orders
+          Back to Dashboard
         </button>
       </div>
 
@@ -600,19 +600,7 @@ export function PortalAssetVault() {
           All Logos
         </button>
 
-        {/* 'Root' Tab */}
-        <button
-          onClick={() => setActiveFolderId(null)}
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={(e) => handleDropOnFolder(e, 'root')}
-          className={`px-5 py-2.5 rounded-full text-xs font-bold tracking-wide transition-all border cursor-pointer ${
-            activeFolderId === null
-              ? 'bg-black text-white border-black shadow-sm'
-              : 'bg-white text-neutral-600 border-neutral-250 hover:bg-neutral-50 hover:text-black'
-          }`}
-        >
-          Unsorted / Root
-        </button>
+
 
         {/* Folder Tabs */}
         {assets.filter(a => a.type === 'folder').map((folder) => {
