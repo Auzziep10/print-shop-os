@@ -305,7 +305,7 @@ export function PortalRoster() {
         </button>
       </div>
 
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-6 mb-2">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div className="flex flex-col gap-2">
           <h1 className="text-4xl font-serif text-neutral-900 tracking-tight">
             Team Sizing Roster
@@ -328,7 +328,7 @@ export function PortalRoster() {
       </div>
 
       {/* Sub-tab selection */}
-      <div className="flex border-b border-neutral-200 mb-8 gap-6">
+      <div className="flex border-b border-neutral-200 mb-8 gap-6 -mt-2">
         <button
           onClick={() => setActiveTab('roster')}
           className={`pb-3 text-sm font-semibold border-b-2 transition-all cursor-pointer ${
