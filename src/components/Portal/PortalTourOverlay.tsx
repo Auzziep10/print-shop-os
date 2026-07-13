@@ -90,7 +90,7 @@ export function PortalTourOverlay({
         {
           target: 'catalog-grid',
           title: 'Step 2: Add Garment & Customize',
-          content: 'Browse the catalog and click "+ Add to Request" to open the customizer. Choose a color, select a logo from your vault, drag to position, and click "Save Customization".',
+          content: 'Browse the catalog and click the "+" button in the top right of a garment to open the customizer. Choose a color, select a logo from your vault, drag to position, and click "Save Customization".',
           position: 'top',
           requiredPath: `/portal/${customerId}/create`,
           pathName: 'Create Order Builder'
@@ -206,7 +206,7 @@ export function PortalTourOverlay({
         {
           target: 'catalog-grid',
           title: 'Step 2: Add Garment & Customize',
-          content: 'Browse the catalog and click "+ Add to Request" to open the customizer. Choose a color, select a logo from your vault, drag to position, and click "Save Customization".',
+          content: 'Browse the catalog and click the "+" button in the top right of a garment to open the customizer. Choose a color, select a logo from your vault, drag to position, and click "Save Customization".',
           position: 'top',
           requiredPath: `/portal/${customerId}/create`,
           pathName: 'Create Order Builder'

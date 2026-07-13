@@ -1,12 +1,12 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { ArrowLeft, PackagePlus, X, Trash2, ChevronDown, RotateCcw, Calendar, Loader2, Sparkles, Save, User, Copy, Upload, ShoppingCart, Users, Info } from 'lucide-react';
+import { ArrowLeft, PackagePlus, X, Trash2, ChevronDown, RotateCcw, Calendar, Loader2, Sparkles, Save, User, Copy, Upload, ShoppingCart, Users, Info, Plus } from 'lucide-react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { db, storage } from '../../lib/firebase';
 import { doc, getDoc, collection, query, where, getDocs, setDoc, deleteDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useAuth } from '../../contexts/AuthContext';
 import { GarmentCustomizerModal } from '../../components/Portal/GarmentCustomizerModal';
-import { GarmentBrowser } from '../../components/shared/GarmentBrowser';
+import { GarmentBrowser, getSwatchColor } from '../../components/shared/GarmentBrowser';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
 
 const sanmarCatalog = sanmarCatalogJson as any[];
@@ -233,6 +233,73 @@ export function PortalCreateOrder() {
   const [defaultColors, setDefaultColors] = useState<any>({ racks: {}, basics: {} });
   const [activeRackCategory, setActiveRackCategory] = useState('Athleisure');
   const [activeLibraryTab, setActiveLibraryTab] = useState('rack');
+
+  const renderGarmentCard = (item: any, style: string, gender: string, itemNum: string, colors: string[], sizes: any, image: string, price: number, key: string | number) => {
+    return (
+      <div 
+        key={key} 
+        onClick={() => handleAddItem({ ...item, style, gender, itemNum, colors, sizes, image, price })}
+        className="group bg-transparent flex flex-col justify-between cursor-pointer transition-all relative w-full border border-transparent p-2"
+      >
+        <div 
+          onClick={(e) => {
+            e.stopPropagation();
+            setExpandedImage({ src: image, alt: style });
+          }}
+          className="w-full h-64 flex items-center justify-center mb-3 relative cursor-zoom-in bg-transparent"
+          title="Click to expand mockup"
+        >
+          <img 
+            src={image} 
+            alt={style} 
+            className="max-w-full max-h-full object-contain mix-blend-multiply group-hover:scale-[1.03] transition-transform duration-300" 
+          />
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleAddItem({ ...item, style, gender, itemNum, colors, sizes, image, price });
+            }}
+            className="absolute top-2 right-2 w-8 h-8 rounded-full bg-white border border-neutral-200 text-neutral-800 flex items-center justify-center shadow-md hover:bg-black hover:text-white hover:border-black opacity-0 group-hover:opacity-100 transition-all duration-200 z-10"
+            title="Add to Request"
+          >
+            <Plus size={16} strokeWidth={2.5} />
+          </button>
+        </div>
+        <div className="w-full flex flex-col mt-2">
+          <div className="flex items-baseline justify-between w-full">
+            <h4 className="font-serif font-semibold text-neutral-900 text-base leading-tight tracking-wide truncate max-w-[75%]">{style}</h4>
+            {price > 0 && (
+              <span className="font-serif font-semibold text-neutral-950 text-sm shrink-0 ml-2">${price}</span>
+            )}
+          </div>
+          <div className="relative h-6 mt-1 flex items-center justify-start w-full">
+            {/* Gender tag - visible when not hovered */}
+            <div className="absolute inset-y-0 left-0 flex items-center transition-all duration-250 opacity-100 group-hover:opacity-0 group-hover:pointer-events-none">
+              <span className="text-[10px] font-bold text-neutral-400 tracking-wider uppercase font-inter">{gender}</span>
+            </div>
+            {/* Circle swatches - visible only on hover */}
+            <div className="absolute inset-y-0 left-0 flex items-center gap-1.5 transition-all duration-250 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto">
+              {colors.slice(0, 7).map((color: string, cIdx: number) => {
+                const swatchBg = getSwatchColor(color, true);
+                return (
+                  <span 
+                    key={cIdx} 
+                    className="w-3.5 h-3.5 rounded-full border border-neutral-200 shadow-xs shrink-0"
+                    style={{ background: swatchBg }}
+                    title={color}
+                  />
+                );
+              })}
+              {colors.length > 7 && (
+                <span className="text-[9px] font-bold text-neutral-455 font-inter">+{colors.length - 7}</span>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
   const [suggestedItems, setSuggestedItems] = useState<any[]>([]);
   const [sampleItems, setSampleItems] = useState<any[]>([]);
   const [pastGarments, setPastGarments] = useState<any[]>([]);
@@ -1522,45 +1589,7 @@ export function PortalCreateOrder() {
                 const image = getGarmentImage(item);
                 const price = parseFloat(item.price || 0);
 
-                return (
-                  <div 
-                    key={item.id || idx} 
-                    onClick={() => handleAddItem({ ...item, style, gender, itemNum, colors, sizes, image, price })}
-                    className="group bg-white hover:bg-neutral-50/50 border border-neutral-200 hover:border-neutral-450 rounded-3xl p-5 flex flex-col items-center justify-between cursor-pointer transition-all hover:shadow-md relative"
-                  >
-                    <div 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setExpandedImage({ src: image, alt: style });
-                      }}
-                      className="w-full h-64 flex items-center justify-center mb-3 relative cursor-zoom-in"
-                      title="Click to expand mockup"
-                    >
-                      <img 
-                        src={image} 
-                        alt={style} 
-                        className="max-w-full max-h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300" 
-                      />
-                    </div>
-                    <div className="w-full flex flex-col items-center">
-                      <div className="flex items-center justify-center gap-2 mb-1 w-full">
-                        <h4 className="font-bold text-neutral-900 text-sm truncate max-w-[80%] text-center">{style}</h4>
-                        <span className="text-[9px] font-bold text-neutral-500 bg-neutral-100 px-2 py-0.5 rounded-full shrink-0">{gender}</span>
-                      </div>
-                      {(() => {
-                        const desc = item.customSpecs?.description !== undefined ? item.customSpecs.description : item.description;
-                        if (!desc) return null;
-                        return (
-                          <p className="text-[10px] text-neutral-500 font-semibold mt-0.5 text-center line-clamp-2" title={desc}>
-                            {desc}
-                          </p>
-                        );
-                      })()}
-                      <p className="text-[10px] text-neutral-400 font-medium mt-1 truncate w-full text-center">{colors.join(' • ')}</p>
-                    </div>
-                    <span className="text-xs font-bold text-neutral-800 bg-neutral-100 group-hover:bg-black group-hover:text-white px-4 py-2 rounded-xl transition-all mt-4 w-full text-center">+ Add to Request</span>
-                  </div>
-                );
+                return renderGarmentCard(item, style, gender, itemNum, colors, sizes, image, price, item.id || idx);
               })
             )
           )}
@@ -1599,35 +1628,7 @@ export function PortalCreateOrder() {
                   const image = item.mockup_image || item.mock_image || item.original_image || item.image || item.imageUrl || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
                   const price = parseFloat(item.msrp || item.price || item.unit_cost || 0);
 
-                  return (
-                    <div 
-                      key={item.id || idx} 
-                      onClick={() => handleAddItem({ ...item, style, gender, itemNum, colors, sizes, image, price })}
-                      className="group bg-white hover:bg-neutral-50/50 border border-neutral-200 hover:border-neutral-450 rounded-3xl p-5 flex flex-col items-center justify-between cursor-pointer transition-all hover:shadow-md relative"
-                    >
-                      <div 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setExpandedImage({ src: image, alt: style });
-                        }}
-                        className="w-full h-64 flex items-center justify-center mb-3 relative cursor-zoom-in"
-                        title="Click to expand mockup"
-                      >
-                        <img 
-                          src={image} 
-                          alt={style} 
-                          className="max-w-full max-h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300" 
-                        />
-                      </div>
-                      <div className="w-full flex flex-col items-center">
-                        <div className="flex items-center justify-center gap-2 mb-1 w-full">
-                          <h4 className="font-bold text-neutral-900 text-sm truncate max-w-[85%] text-center">{style}</h4>
-                        </div>
-                        <p className="text-[10px] text-neutral-400 font-medium mt-1 truncate w-full text-center">{colors.join(' • ')}</p>
-                      </div>
-                      <span className="text-xs font-bold text-neutral-800 bg-neutral-100 group-hover:bg-black group-hover:text-white px-4 py-2 rounded-xl transition-all mt-4 w-full text-center">+ Add to Request</span>
-                    </div>
-                  );
+                  return renderGarmentCard(item, style, gender, itemNum, colors, sizes, image, price, item.id || idx);
                 });
               })()
             )
@@ -1649,36 +1650,7 @@ export function PortalCreateOrder() {
                 const image = item.image || item.mockup_image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
                 const price = parseFloat(item.price || 0);
 
-                return (
-                  <div 
-                    key={item.id || idx} 
-                    onClick={() => handleAddItem({ ...item, style, gender, itemNum, colors, sizes, image, price })}
-                    className="group bg-white hover:bg-neutral-50/50 border border-neutral-200 hover:border-neutral-450 rounded-3xl p-5 flex flex-col items-center justify-between cursor-pointer transition-all hover:shadow-md relative"
-                  >
-                    <div 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setExpandedImage({ src: image, alt: style });
-                      }}
-                      className="w-full h-64 flex items-center justify-center mb-3 relative cursor-zoom-in"
-                      title="Click to expand mockup"
-                    >
-                      <img 
-                        src={image} 
-                        alt={style} 
-                        className="max-w-full max-h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300" 
-                      />
-                    </div>
-                    <div className="w-full flex flex-col items-center">
-                      <div className="flex items-center justify-center gap-2 mb-1 w-full">
-                        <h4 className="font-bold text-neutral-900 text-sm truncate max-w-[80%] text-center">{style}</h4>
-                        <span className="text-[9px] font-bold text-neutral-500 bg-neutral-100 px-2 py-0.5 rounded-full shrink-0">{gender}</span>
-                      </div>
-                      <p className="text-[10px] text-neutral-400 font-medium mt-1 truncate w-full text-center">{colors.join(' • ')}</p>
-                    </div>
-                    <span className="text-xs font-bold text-neutral-800 bg-neutral-100 group-hover:bg-black group-hover:text-white px-4 py-2 rounded-xl transition-all mt-4 w-full text-center">+ Add to Request</span>
-                  </div>
-                );
+                return renderGarmentCard(item, style, gender, itemNum, colors, sizes, image, price, item.id || idx);
               })
             )
           )}
@@ -1699,36 +1671,7 @@ export function PortalCreateOrder() {
                 const image = item.image || item.mockup_image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
                 const price = parseFloat(item.price || 0);
 
-                return (
-                  <div 
-                    key={item.id || idx} 
-                    onClick={() => handleAddItem({ ...item, style, gender, itemNum, colors, sizes, image, price })}
-                    className="group bg-white hover:bg-neutral-50/50 border border-neutral-200 hover:border-neutral-450 rounded-3xl p-5 flex flex-col items-center justify-between cursor-pointer transition-all hover:shadow-md relative"
-                  >
-                    <div 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setExpandedImage({ src: image, alt: style });
-                      }}
-                      className="w-full h-64 flex items-center justify-center mb-3 relative cursor-zoom-in"
-                      title="Click to expand mockup"
-                    >
-                      <img 
-                        src={image} 
-                        alt={style} 
-                        className="max-w-full max-h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300" 
-                      />
-                    </div>
-                    <div className="w-full flex flex-col items-center">
-                      <div className="flex items-center justify-center gap-2 mb-1 w-full">
-                        <h4 className="font-bold text-neutral-900 text-sm truncate max-w-[80%] text-center">{style}</h4>
-                        <span className="text-[9px] font-bold text-neutral-500 bg-neutral-100 px-2 py-0.5 rounded-full shrink-0">{gender}</span>
-                      </div>
-                      <p className="text-[10px] text-neutral-400 font-medium mt-1 truncate w-full text-center">{colors.join(' • ')}</p>
-                    </div>
-                    <span className="text-xs font-bold text-neutral-800 bg-neutral-100 group-hover:bg-black group-hover:text-white px-4 py-2 rounded-xl transition-all mt-4 w-full text-center">+ Add to Request</span>
-                  </div>
-                );
+                return renderGarmentCard(item, style, gender, itemNum, colors, sizes, image, price, item.id || idx);
               })
             )
           )}
@@ -1749,36 +1692,7 @@ export function PortalCreateOrder() {
                 const image = item.image || item.mockup_image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
                 const price = parseFloat(item.price || 0);
 
-                return (
-                  <div 
-                    key={item.id || idx} 
-                    onClick={() => handleAddItem({ ...item, style, gender, itemNum, colors, sizes, image, price })}
-                    className="group bg-white hover:bg-neutral-50/50 border border-neutral-200 hover:border-neutral-455 rounded-3xl p-5 flex flex-col items-center justify-between cursor-pointer transition-all hover:shadow-md relative"
-                  >
-                    <div 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setExpandedImage({ src: image, alt: style });
-                      }}
-                      className="w-full h-64 flex items-center justify-center mb-3 relative cursor-zoom-in"
-                      title="Click to expand mockup"
-                    >
-                      <img 
-                        src={image} 
-                        alt={style} 
-                        className="max-w-full max-h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300" 
-                      />
-                    </div>
-                    <div className="w-full flex flex-col items-center">
-                      <div className="flex items-center justify-center gap-2 mb-1 w-full">
-                        <h4 className="font-bold text-neutral-900 text-sm truncate max-w-[80%] text-center">{style}</h4>
-                        <span className="text-[9px] font-bold text-neutral-500 bg-neutral-100 px-2 py-0.5 rounded-full shrink-0">{gender}</span>
-                      </div>
-                      <p className="text-[10px] text-neutral-400 font-medium mt-1 truncate w-full text-center">{colors.join(' • ')}</p>
-                    </div>
-                    <span className="text-xs font-bold text-neutral-800 bg-neutral-100 group-hover:bg-black group-hover:text-white px-4 py-2 rounded-xl transition-all mt-4 w-full text-center">+ Add to Request</span>
-                  </div>
-                );
+                return renderGarmentCard(item, style, gender, itemNum, colors, sizes, image, price, item.id || idx);
               })
             )
           )}

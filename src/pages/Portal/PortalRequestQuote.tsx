@@ -9,6 +9,34 @@ import sanmarCatalogJson from '../../data/sanmar-catalog.json';
 
 const sanmarCatalog = sanmarCatalogJson as any[];
 
+import { getSwatchColor } from '../../components/shared/GarmentBrowser';
+
+const findColorsInObj = (obj: any, maxDepth = 4): string[] | null => {
+  if (!obj || typeof obj !== 'object' || maxDepth === 0) return null;
+  const colorKeys = ['availableColors', 'available_colors', 'colors', 'Colors', 'color', 'Color', 'AvailableColors'];
+  for (const k of colorKeys) {
+      if (obj[k]) {
+          const val = obj[k];
+          if (Array.isArray(val) && val.length > 0 && typeof val[0] === 'string') return val;
+          if (typeof val === 'string' && val.trim().length > 0) return val.split(',').map(s=>s.trim());
+      }
+  }
+  if (Array.isArray(obj)) {
+      for (const i of obj) {
+          const res = findColorsInObj(i, maxDepth - 1);
+          if (res) return res;
+      }
+  } else {
+      for (const k of Object.keys(obj)) {
+          if (typeof obj[k] === 'object') {
+              const res = findColorsInObj(obj[k], maxDepth - 1);
+              if (res) return res;
+          }
+      }
+  }
+  return null;
+};
+
 const getImageAspectRatio = (url: string): Promise<number> => {
   return new Promise((resolve) => {
     const img = new Image();
@@ -160,6 +188,80 @@ export function PortalRequestQuote() {
   const [activeRackCategory, setActiveRackCategory] = useState('Athleisure');
   const [isLoadingLibrary, setIsLoadingLibrary] = useState(true);
   const [activeLibraryTab, setActiveLibraryTab] = useState('rack');
+
+  const renderGarmentCard = (item: any, idx: number) => {
+    const style = item.title || item.style || item.garment_name || item.name || 'Custom Garment';
+    const gender = item.gender || 'Unisex';
+    const colors = findColorsInObj({ ...item }) || item.colors || ['Custom Color'];
+    const formattedColors = colors.length === 0 ? ['Custom Color'] : colors;
+    const image = getGarmentImage(item);
+    const price = parseFloat(item.price || item.msrp || item.unit_cost || 0);
+
+    return (
+      <div 
+        key={item.id || `${style}-${idx}`} 
+        onClick={() => handleAddProductFromLibrary(item)}
+        className="group bg-transparent flex flex-col justify-between cursor-pointer transition-all relative w-full border border-transparent p-2"
+      >
+        <div 
+          onClick={(e) => {
+            e.stopPropagation();
+            setExpandedImage(image);
+          }}
+          className="w-full h-60 flex items-center justify-center mb-2 relative cursor-zoom-in bg-transparent"
+          title="Click to expand mockup"
+        >
+          <img 
+            src={image} 
+            alt={style} 
+            className="max-w-full max-h-full object-contain mix-blend-multiply group-hover:scale-[1.03] transition-transform duration-300" 
+          />
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleAddProductFromLibrary(item);
+            }}
+            className="absolute top-2 right-2 w-8 h-8 rounded-full bg-white border border-neutral-200 text-neutral-800 flex items-center justify-center shadow-md hover:bg-black hover:text-white hover:border-black opacity-0 group-hover:opacity-100 transition-all duration-200 z-10"
+            title="Add to Request"
+          >
+            <Plus size={16} strokeWidth={2.5} />
+          </button>
+        </div>
+        <div className="w-full flex flex-col mt-2">
+          <div className="flex items-baseline justify-between w-full">
+            <h4 className="font-serif font-semibold text-neutral-900 text-base leading-tight tracking-wide truncate max-w-[75%]">{style}</h4>
+            {price > 0 && (
+              <span className="font-serif font-semibold text-neutral-950 text-sm shrink-0 ml-2">${price}</span>
+            )}
+          </div>
+          <div className="relative h-6 mt-1 flex items-center justify-start w-full">
+            {/* Gender tag - visible when not hovered */}
+            <div className="absolute inset-y-0 left-0 flex items-center transition-all duration-250 opacity-100 group-hover:opacity-0 group-hover:pointer-events-none">
+              <span className="text-[10px] font-bold text-neutral-400 tracking-wider uppercase font-inter">{gender}</span>
+            </div>
+            {/* Circle swatches - visible only on hover */}
+            <div className="absolute inset-y-0 left-0 flex items-center gap-1.5 transition-all duration-250 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto">
+              {formattedColors.slice(0, 7).map((color: string, cIdx: number) => {
+                const swatchBg = getSwatchColor(color, true);
+                return (
+                  <span 
+                    key={cIdx} 
+                    className="w-3.5 h-3.5 rounded-full border border-neutral-200 shadow-xs shrink-0"
+                    style={{ background: swatchBg }}
+                    title={color}
+                  />
+                );
+              })}
+              {formattedColors.length > 7 && (
+                <span className="text-[9px] font-bold text-neutral-455 font-inter">+{formattedColors.length - 7}</span>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
   const [customizingProduct, setCustomizingProduct] = useState<any | null>(null);
   const [hoveredProductId, setHoveredProductId] = useState<number | null>(null);
   const [showShipping, setShowShipping] = useState(true);
@@ -1022,117 +1124,13 @@ export function PortalRequestQuote() {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-h-[600px] overflow-y-auto pr-1">
-              {activeLibraryTab === 'rack' && activeRackItems.map((item, idx) => (
-                <div 
-                  key={item.id || `${item.style}-${idx}`} 
-                  onClick={() => handleAddProductFromLibrary(item)}
-                  className="group bg-white hover:bg-neutral-50/50 border border-neutral-200 hover:border-neutral-400 rounded-2xl p-4 flex flex-col items-center justify-between cursor-pointer transition-all hover:shadow-md relative"
-                >
-                  <div 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setExpandedImage(getGarmentImage(item));
-                    }}
-                    className="w-full h-60 flex items-center justify-center mb-2 relative cursor-zoom-in"
-                    title="Click to expand mockup"
-                  >
-                    <img 
-                      src={getGarmentImage(item)} 
-                      alt={item.title || item.style} 
-                      className="max-w-full max-h-full object-contain mix-blend-multiply group-hover:scale-110 transition-transform duration-300" 
-                    />
-                  </div>
-                  <div className="w-full flex flex-col items-center">
-                    <p className="font-bold text-sm text-neutral-900 truncate w-full text-center">{item.title || item.style}</p>
-                    <p className="text-[10px] text-neutral-400 font-semibold uppercase tracking-wider truncate w-full text-center mt-0.5">{item.style || 'Catalog'}</p>
-                  </div>
-                  <span className="text-xs font-bold text-neutral-800 bg-neutral-100 group-hover:bg-black group-hover:text-white px-3 py-1.5 rounded-lg transition-all mt-3 w-full text-center">+ Add to Request</span>
-                </div>
-              ))}
+              {activeLibraryTab === 'rack' && activeRackItems.map((item, idx) => renderGarmentCard(item, idx))}
 
-              {activeLibraryTab === 'wovn' && wovnRack.map((item, idx) => (
-                <div 
-                  key={item.id || idx} 
-                  onClick={() => handleAddProductFromLibrary(item)}
-                  className="group bg-white hover:bg-neutral-50/50 border border-neutral-200 hover:border-neutral-400 rounded-2xl p-4 flex flex-col items-center justify-between cursor-pointer transition-all hover:shadow-md relative"
-                >
-                  <div 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setExpandedImage(item.image || item.original_image || item.mockup_image || item.mock_image || item.imageUrl || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200');
-                    }}
-                    className="w-full h-60 flex items-center justify-center mb-2 relative cursor-zoom-in"
-                    title="Click to expand mockup"
-                  >
-                    <img 
-                      src={item.image || item.original_image || item.mockup_image || item.mock_image || item.imageUrl || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200'} 
-                      alt={item.style || item.name} 
-                      className="max-w-full max-h-full object-contain mix-blend-multiply group-hover:scale-110 transition-transform duration-300" 
-                    />
-                  </div>
-                  <div className="w-full flex flex-col items-center">
-                    <p className="font-bold text-sm text-neutral-900 truncate w-full text-center">{item.style || item.name || item.garment_name}</p>
-                    <p className="text-[10px] text-neutral-400 font-semibold uppercase tracking-wider truncate w-full text-center mt-0.5">{item.itemNum || item.garment_id || 'Catalog'}</p>
-                  </div>
-                  <span className="text-xs font-bold text-neutral-800 bg-neutral-100 group-hover:bg-black group-hover:text-white px-3 py-1.5 rounded-lg transition-all mt-3 w-full text-center">+ Add to Request</span>
-                </div>
-              ))}
+              {activeLibraryTab === 'wovn' && wovnRack.map((item, idx) => renderGarmentCard(item, idx))}
               
-              {activeLibraryTab === 'suggested' && suggestedItems.map((item, idx) => (
-                <div 
-                  key={item.id || idx} 
-                  onClick={() => handleAddProductFromLibrary(item)}
-                  className="group bg-white hover:bg-neutral-50/50 border border-neutral-200 hover:border-neutral-400 rounded-2xl p-4 flex flex-col items-center justify-between cursor-pointer transition-all hover:shadow-md relative"
-                >
-                  <div 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setExpandedImage(item.image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200');
-                    }}
-                    className="w-full h-60 flex items-center justify-center mb-2 relative cursor-zoom-in"
-                    title="Click to expand mockup"
-                  >
-                    <img 
-                      src={item.image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200'} 
-                      alt={item.style} 
-                      className="max-w-full max-h-full object-contain mix-blend-multiply group-hover:scale-110 transition-transform duration-300" 
-                    />
-                  </div>
-                  <div className="w-full flex flex-col items-center">
-                    <p className="font-bold text-sm text-neutral-900 truncate w-full text-center">{item.style}</p>
-                    <p className="text-[10px] text-neutral-400 font-semibold uppercase tracking-wider truncate w-full text-center mt-0.5">{item.itemNum || 'Suggested'}</p>
-                  </div>
-                  <span className="text-xs font-bold text-neutral-800 bg-neutral-100 group-hover:bg-black group-hover:text-white px-3 py-1.5 rounded-lg transition-all mt-3 w-full text-center">+ Add to Request</span>
-                </div>
-              ))}
+              {activeLibraryTab === 'suggested' && suggestedItems.map((item, idx) => renderGarmentCard(item, idx))}
 
-              {activeLibraryTab === 'past' && pastGarments.map((item, idx) => (
-                <div 
-                  key={item.id || idx} 
-                  onClick={() => handleAddProductFromLibrary(item)}
-                  className="group bg-white hover:bg-neutral-50/50 border border-neutral-200 hover:border-neutral-400 rounded-2xl p-4 flex flex-col items-center justify-between cursor-pointer transition-all hover:shadow-md relative"
-                >
-                  <div 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setExpandedImage(item.image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200');
-                    }}
-                    className="w-full h-60 flex items-center justify-center mb-2 relative cursor-zoom-in"
-                    title="Click to expand mockup"
-                  >
-                    <img 
-                      src={item.image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200'} 
-                      alt={item.style} 
-                      className="max-w-full max-h-full object-contain mix-blend-multiply group-hover:scale-110 transition-transform duration-300" 
-                    />
-                  </div>
-                  <div className="w-full flex flex-col items-center">
-                    <p className="font-bold text-sm text-neutral-900 truncate w-full text-center">{item.style}</p>
-                    <p className="text-[10px] text-neutral-400 font-semibold uppercase tracking-wider truncate w-full text-center mt-0.5">{item.itemNum || 'Past Order'}</p>
-                  </div>
-                  <span className="text-xs font-bold text-neutral-800 bg-neutral-100 group-hover:bg-black group-hover:text-white px-3 py-1.5 rounded-lg transition-all mt-3 w-full text-center">+ Add to Request</span>
-                </div>
-              ))}
+              {activeLibraryTab === 'past' && pastGarments.map((item, idx) => renderGarmentCard(item, idx))}
 
               {activeLibraryTab === 'rack' && activeRackItems.length === 0 && (
                 <p className="col-span-full text-center py-6 text-sm text-neutral-400 italic">No rack garments configured.</p>
