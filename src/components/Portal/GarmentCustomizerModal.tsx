@@ -946,6 +946,17 @@ export function GarmentCustomizerModal({
     setSelectedTagElementId(id);
     setActiveElementDrag({ id, type });
 
+    // Switch active designer tab depending on selected element type
+    if (type === 'logo') {
+      setActiveDesignerTab('upload');
+    } else if (type === 'text') {
+      setActiveDesignerTab('text');
+    } else if (type === 'size' || type === 'blend') {
+      setActiveDesignerTab('blend' as any);
+    } else if (type === 'care_symbols') {
+      setActiveDesignerTab('care' as any);
+    }
+
     let currentX = 50;
     let currentY = 50;
 
@@ -2890,25 +2901,12 @@ export function GarmentCustomizerModal({
             {/* Fabric Blend & Size Font Content */}
             {(activeDesignerTab as string) === 'blend' && (
               <div className="flex flex-col gap-5 animate-in fade-in duration-200">
-                {/* section 1: Size Tag Font settings */}
+                {/* Unified Text Style & Font card */}
                 <div className="flex flex-col gap-3">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-800 flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>
-                      <span>Garment Size Tag</span>
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedTagElementId('size-tag-placeholder')}
-                      className={`text-[9px] font-bold px-2 py-0.5 rounded transition-all cursor-pointer ${
-                        selectedTagElementId === 'size-tag-placeholder'
-                          ? 'bg-neutral-800 text-white'
-                          : 'bg-neutral-100 text-neutral-500 hover:bg-neutral-200 hover:text-black'
-                      }`}
-                    >
-                      Select on Canvas
-                    </button>
-                  </div>
+                  <label className="text-xs font-bold uppercase tracking-widest text-neutral-800 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-black"></span>
+                    <span>Text Style & Font</span>
+                  </label>
 
                   <div className="flex flex-col gap-3 bg-neutral-50/50 border border-neutral-200/60 p-3 rounded-2xl">
                     {/* Font Dropdown */}
@@ -2916,7 +2914,11 @@ export function GarmentCustomizerModal({
                       <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">Font Family</label>
                       <select
                         value={tagSize.font}
-                        onChange={(e) => setTagSize((prev: any) => ({ ...prev, font: e.target.value }))}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setTagSize((prev: any) => ({ ...prev, font: val }));
+                          setTagBlend((prev: any) => ({ ...prev, font: val }));
+                        }}
                         className="w-full bg-white border border-neutral-200 hover:border-neutral-300 focus:border-black rounded-xl px-2.5 py-2 text-xs font-bold transition-all outline-none"
                       >
                         {SUPPORTED_FONTS.map((font) => (
@@ -2933,7 +2935,11 @@ export function GarmentCustomizerModal({
                       <div className="flex border border-neutral-200 rounded-xl overflow-hidden h-[34px] p-0.5 bg-white max-w-[100px]">
                         <button
                           type="button"
-                          onClick={() => setTagSize((prev: any) => ({ ...prev, bold: !prev.bold }))}
+                          onClick={() => {
+                            const newBold = !tagSize.bold;
+                            setTagSize((prev: any) => ({ ...prev, bold: newBold }));
+                            setTagBlend((prev: any) => ({ ...prev, bold: newBold }));
+                          }}
                           className={`flex-1 flex items-center justify-center rounded-lg transition-all cursor-pointer ${
                             tagSize.bold ? 'bg-black text-white' : 'text-neutral-500 hover:text-black hover:bg-neutral-150'
                           }`}
@@ -2943,7 +2949,11 @@ export function GarmentCustomizerModal({
                         </button>
                         <button
                           type="button"
-                          onClick={() => setTagSize((prev: any) => ({ ...prev, italic: !prev.italic }))}
+                          onClick={() => {
+                            const newItalic = !tagSize.italic;
+                            setTagSize((prev: any) => ({ ...prev, italic: newItalic }));
+                            setTagBlend((prev: any) => ({ ...prev, italic: newItalic }));
+                          }}
                           className={`flex-1 flex items-center justify-center rounded-lg transition-all cursor-pointer ${
                             tagSize.italic ? 'bg-black text-white' : 'text-neutral-500 hover:text-black hover:bg-neutral-150'
                           }`}
@@ -2973,7 +2983,10 @@ export function GarmentCustomizerModal({
                             <button
                               key={col.hex}
                               type="button"
-                              onClick={() => setTagSize((prev: any) => ({ ...prev, color: col.hex }))}
+                              onClick={() => {
+                                setTagSize((prev: any) => ({ ...prev, color: col.hex }));
+                                setTagBlend((prev: any) => ({ ...prev, color: col.hex }));
+                              }}
                               className={`w-5.5 h-5.5 rounded-full border relative flex items-center justify-center transition-all hover:scale-110 cursor-pointer ${
                                 isColSelected ? 'border-black ring-1 ring-black scale-105' : 'border-neutral-300'
                               }`}
@@ -2991,7 +3004,11 @@ export function GarmentCustomizerModal({
                           <input
                             type="color"
                             value={tagSize.color}
-                            onChange={(e) => setTagSize((prev: any) => ({ ...prev, color: e.target.value }))}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setTagSize((prev: any) => ({ ...prev, color: val }));
+                              setTagBlend((prev: any) => ({ ...prev, color: val }));
+                            }}
                             className="absolute inset-0 w-[200%] h-[200%] -translate-x-[25%] -translate-y-[25%] cursor-pointer border-0 p-0"
                             title="Custom Color"
                           />
@@ -3001,146 +3018,76 @@ export function GarmentCustomizerModal({
                   </div>
                 </div>
 
-                {/* section 2: Fabric Blend Settings */}
-                <div className="flex flex-col gap-3 border-t border-neutral-100 pt-4">
+                {/* Individual Element Controls */}
+                <div className="flex flex-col gap-4 border-t border-neutral-100 pt-4">
+                  {/* Size Element Row */}
                   <div className="flex items-center justify-between">
                     <label className="text-xs font-bold uppercase tracking-widest text-neutral-800 flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                      <span>Fabric Blend Details</span>
+                      <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>
+                      <span>Garment Size Tag</span>
                     </label>
-                    {tagBlend.visible && (
-                      <button
-                        type="button"
-                        onClick={() => setSelectedTagElementId('blend-tag-placeholder')}
-                        className={`text-[9px] font-bold px-2 py-0.5 rounded transition-all cursor-pointer ${
-                          selectedTagElementId === 'blend-tag-placeholder'
-                            ? 'bg-neutral-800 text-white'
-                            : 'bg-neutral-100 text-neutral-500 hover:bg-neutral-200 hover:text-black'
-                        }`}
-                      >
-                        Select on Canvas
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => setSelectedTagElementId('size-tag-placeholder')}
+                      className={`text-[9px] font-bold px-2 py-0.5 rounded transition-all cursor-pointer ${
+                        selectedTagElementId === 'size-tag-placeholder'
+                          ? 'bg-neutral-800 text-white'
+                          : 'bg-neutral-100 text-neutral-500 hover:bg-neutral-200 hover:text-black'
+                      }`}
+                    >
+                      Select on Canvas
+                    </button>
                   </div>
 
-                  <div className="bg-neutral-50 border border-neutral-200 rounded-xl px-3.5 py-2.5 text-xs text-neutral-600 leading-normal">
-                    <span className="font-semibold text-neutral-800 text-[10px] uppercase tracking-wider">Derived Composition:</span>
-                    <p className="font-bold text-neutral-900 mt-0.5 text-xs font-sans">{getGarmentBlend(activeGarment, selectedColor)}</p>
-                  </div>
-
-                  {/* Toggle Visibility */}
-                  <div className="flex items-center justify-between bg-neutral-50/30 border border-neutral-200/50 px-3.5 py-2.5 rounded-xl">
-                    <span className="text-xs font-bold text-neutral-700">Show on Tag</span>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={tagBlend.visible}
-                        onChange={(e) => {
-                          const show = e.target.checked;
-                          setTagBlend((prev: any) => ({ ...prev, visible: show }));
-                          if (show) {
-                            setSelectedTagElementId('blend-tag-placeholder');
-                          } else if (selectedTagElementId === 'blend-tag-placeholder') {
-                            setSelectedTagElementId(null);
-                          }
-                        }}
-                        className="sr-only peer"
-                      />
-                      <div className="w-9 h-5 bg-neutral-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-black"></div>
-                    </label>
-                  </div>
-
-                  {tagBlend.visible && (
-                    <div className="flex flex-col gap-3 bg-neutral-50/50 border border-neutral-200/60 p-3 rounded-2xl animate-in slide-in-from-top-1 duration-200">
-                      {/* Font Dropdown */}
-                      <div className="flex flex-col gap-1">
-                        <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">Font Family</label>
-                        <select
-                          value={tagBlend.font}
-                          onChange={(e) => setTagBlend((prev: any) => ({ ...prev, font: e.target.value }))}
-                          className="w-full bg-white border border-neutral-200 hover:border-neutral-300 focus:border-black rounded-xl px-2.5 py-2 text-xs font-bold transition-all outline-none"
+                  {/* Blend Element Row */}
+                  <div className="flex flex-col gap-3 border-t border-neutral-100/60 pt-4">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold uppercase tracking-widest text-neutral-800 flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                        <span>Fabric Blend Details</span>
+                      </label>
+                      {tagBlend.visible && (
+                        <button
+                          type="button"
+                          onClick={() => setSelectedTagElementId('blend-tag-placeholder')}
+                          className={`text-[9px] font-bold px-2 py-0.5 rounded transition-all cursor-pointer ${
+                            selectedTagElementId === 'blend-tag-placeholder'
+                              ? 'bg-neutral-800 text-white'
+                              : 'bg-neutral-100 text-neutral-500 hover:bg-neutral-200 hover:text-black'
+                          }`}
                         >
-                          {SUPPORTED_FONTS.map((font) => (
-                            <option key={font.value} value={font.value} style={{ fontFamily: font.value }}>
-                              {font.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      {/* Font Styles (Bold / Italic) */}
-                      <div className="flex flex-col gap-1">
-                        <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">Styles</label>
-                        <div className="flex border border-neutral-200 rounded-xl overflow-hidden h-[34px] p-0.5 bg-white max-w-[100px]">
-                          <button
-                            type="button"
-                            onClick={() => setTagBlend((prev: any) => ({ ...prev, bold: !prev.bold }))}
-                            className={`flex-1 flex items-center justify-center rounded-lg transition-all cursor-pointer ${
-                              tagBlend.bold ? 'bg-black text-white' : 'text-neutral-500 hover:text-black hover:bg-neutral-150'
-                            }`}
-                            title="Bold"
-                          >
-                            <Bold size={11} strokeWidth={3} />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setTagBlend((prev: any) => ({ ...prev, italic: !prev.italic }))}
-                            className={`flex-1 flex items-center justify-center rounded-lg transition-all cursor-pointer ${
-                              tagBlend.italic ? 'bg-black text-white' : 'text-neutral-500 hover:text-black hover:bg-neutral-150'
-                            }`}
-                            title="Italic"
-                          >
-                            <Italic size={11} strokeWidth={3} />
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Color Selection */}
-                      <div className="flex flex-col gap-1">
-                        <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">Color</label>
-                        <div className="flex flex-wrap gap-1.5">
-                          {[
-                            { name: 'White', hex: '#FFFFFF' },
-                            { name: 'Black', hex: '#000000' },
-                            { name: 'Red', hex: '#E11D48' },
-                            { name: 'Royal', hex: '#1D4ED8' },
-                            { name: 'Navy', hex: '#1E3A8A' },
-                            { name: 'Gold', hex: '#F59E0B' },
-                            { name: 'Green', hex: '#15803D' },
-                            { name: 'Grey', hex: '#6B7280' },
-                          ].map((col) => {
-                            const isColSelected = tagBlend.color.toLowerCase() === col.hex.toLowerCase();
-                            return (
-                              <button
-                                key={col.hex}
-                                type="button"
-                                onClick={() => setTagBlend((prev: any) => ({ ...prev, color: col.hex }))}
-                                className={`w-5.5 h-5.5 rounded-full border relative flex items-center justify-center transition-all hover:scale-110 cursor-pointer ${
-                                  isColSelected ? 'border-black ring-1 ring-black scale-105' : 'border-neutral-300'
-                                }`}
-                                style={{ backgroundColor: col.hex }}
-                                title={col.name}
-                              >
-                                {isColSelected && (
-                                  <Check size={8} className={col.hex === '#FFFFFF' ? 'text-black' : 'text-white'} strokeWidth={4} />
-                                )}
-                              </button>
-                            );
-                          })}
-                          {/* Custom Color Picker Swatch */}
-                          <div className="relative w-5.5 h-5.5 rounded-full border border-neutral-300 overflow-hidden hover:scale-110 transition-transform">
-                            <input
-                              type="color"
-                              value={tagBlend.color}
-                              onChange={(e) => setTagBlend((prev: any) => ({ ...prev, color: e.target.value }))}
-                              className="absolute inset-0 w-[200%] h-[200%] -translate-x-[25%] -translate-y-[25%] cursor-pointer border-0 p-0"
-                              title="Custom Color"
-                            />
-                          </div>
-                        </div>
-                      </div>
+                          Select on Canvas
+                        </button>
+                      )}
                     </div>
-                  )}
+
+                    <div className="bg-neutral-50 border border-neutral-200 rounded-xl px-3.5 py-2.5 text-xs text-neutral-600 leading-normal">
+                      <span className="font-semibold text-neutral-800 text-[10px] uppercase tracking-wider">Derived Composition:</span>
+                      <p className="font-bold text-neutral-900 mt-0.5 text-xs font-sans">{getGarmentBlend(activeGarment, selectedColor)}</p>
+                    </div>
+
+                    {/* Toggle Visibility */}
+                    <div className="flex items-center justify-between bg-neutral-50/30 border border-neutral-200/50 px-3.5 py-2.5 rounded-xl">
+                      <span className="text-xs font-bold text-neutral-700">Show on Tag</span>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={tagBlend.visible}
+                          onChange={(e) => {
+                            const show = e.target.checked;
+                            setTagBlend((prev: any) => ({ ...prev, visible: show }));
+                            if (show) {
+                              setSelectedTagElementId('blend-tag-placeholder');
+                            } else if (selectedTagElementId === 'blend-tag-placeholder') {
+                              setSelectedTagElementId(null);
+                            }
+                          }}
+                          className="sr-only peer"
+                        />
+                        <div className="w-9 h-5 bg-neutral-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-black"></div>
+                      </label>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
