@@ -525,67 +525,81 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                // Cap the visual progression so it doesn't touch the next node (Shipped) until officially shipped.
                const scaledRatio = completionRatio > 0.95 ? 0.95 : completionRatio;
                visualIndex += scaledRatio;
-           }
-        }
+            }
+         }
 
-        // Calculate the percentage width for the progress bar fill
-        const fillWidth = `${(visualIndex / (timelineSteps.length - 1)) * 100}%`;
+         // Calculate the percentage width for the progress bar fill
+         const fillWidth = `${(visualIndex / (timelineSteps.length - 1)) * 100}%`;
+         const needsAction = order.statusIndex === 2 || order.statusIndex === 3;
 
-        return (
-          <div 
-            key={order.id} 
-            data-tour={idx === 0 ? "order-card-0" : undefined}
-            className={`flex flex-col xl:flex-row gap-6 w-full items-start transition-transform ${draggedOrderId === order.id ? 'opacity-50 scale-95' : ''} ${dragOverOrderId === order.id ? 'border-t-4 border-brand-primary rounded-xl pt-2' : ''}`}
-            onDragOver={(e) => overrideCustomerId && handleDragOverOrder(e, order.id)}
-            onDrop={(e) => overrideCustomerId && handleDropOrder(e, order.id)}
-          >
-            
-            {/* Main Gray Capsule Wrapper */}
-            <div className="flex-1 w-full min-w-0">
-               
-               <div 
-                 onClick={() => {
-                   if (overrideCustomerId) {
-                     navigate(`/orders/${order.id}`);
-                   } else {
-                     setExpandedId(isExpanded ? null : order.id);
-                   }
-                 }}
-                 className={`w-full relative group/card bg-white border border-brand-border rounded-[2.5rem] p-6 lg:pr-10 transition-all cursor-pointer ${overrideCustomerId ? 'hover:border-black/50 hover:shadow-md' : 'hover:border-black/20'} ${isExpanded ? 'pb-8 shadow-sm' : ''}`}
-               >
-                 
-                 {/* Capsule Header Row */}
-                 <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 xl:gap-8 min-h-[80px] relative w-full">
-                   
-                   {/* Left: Logo & Title */}
-                   <div className="flex items-center gap-4 w-full xl:w-[420px] shrink-0 relative">
-                     {/* Grip handle for sorting visible only for admins */}
-                     {overrideCustomerId && (
-                       <div 
-                         className="flex-shrink-0 flex items-center justify-center cursor-grab active:cursor-grabbing text-neutral-300 hover:text-brand-primary transition-colors p-2 lg:-ml-4 xl:-ml-2" 
-                         title="Drag to reorder"
-                         draggable={true}
-                         onClick={(e) => e.stopPropagation()}
-                         onDragStart={(e) => handleDragStartOrder(e, order.id)}
-                         onDragEnd={() => { setDraggedOrderId(null); setDragOverOrderId(null); }}
-                       >
-                         <div className="grid grid-cols-2 grid-rows-3 gap-[3px]">
-                           {[...Array(6)].map((_, i) => (
-                             <div key={i} className="w-[4px] h-[4px] bg-current rounded-full" />
-                           ))}
-                         </div>
-                       </div>
+         return (
+           <div 
+             key={order.id} 
+             data-tour={idx === 0 ? "order-card-0" : undefined}
+             className={`flex flex-col xl:flex-row gap-6 w-full items-start transition-transform ${draggedOrderId === order.id ? 'opacity-50 scale-95' : ''} ${dragOverOrderId === order.id ? 'border-t-4 border-brand-primary rounded-xl pt-2' : ''}`}
+             onDragOver={(e) => overrideCustomerId && handleDragOverOrder(e, order.id)}
+             onDrop={(e) => overrideCustomerId && handleDropOrder(e, order.id)}
+           >
+             
+             {/* Main Gray Capsule Wrapper */}
+             <div className="flex-1 w-full min-w-0">
+                
+                <div 
+                  onClick={() => {
+                    if (overrideCustomerId) {
+                      navigate(`/orders/${order.id}`);
+                    } else {
+                      setExpandedId(isExpanded ? null : order.id);
+                    }
+                  }}
+                  className={`w-full relative group/card bg-white border rounded-[2.5rem] p-6 lg:pr-10 transition-all cursor-pointer ${
+                    needsAction 
+                      ? 'border-red-300 shadow-[0_0_20px_rgba(239,68,68,0.12)] hover:shadow-[0_0_25px_rgba(239,68,68,0.22)] hover:border-red-400' 
+                      : `border-brand-border ${overrideCustomerId ? 'hover:border-black/50 hover:shadow-md' : 'hover:border-black/20'}`
+                  } ${isExpanded ? 'pb-8 shadow-sm' : ''}`}
+                >
+                  
+                  {/* Capsule Header Row */}
+                  <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 xl:gap-8 min-h-[80px] relative w-full">
+                    
+                    {/* Left: Logo & Title */}
+                    <div className="flex items-center gap-4 w-full xl:w-[420px] shrink-0 relative">
+                      {/* Grip handle for sorting visible only for admins */}
+                      {overrideCustomerId && (
+                        <div 
+                          className="flex-shrink-0 flex items-center justify-center cursor-grab active:cursor-grabbing text-neutral-300 hover:text-brand-primary transition-colors p-2 lg:-ml-4 xl:-ml-2" 
+                          title="Drag to reorder"
+                          draggable={true}
+                          onClick={(e) => e.stopPropagation()}
+                          onDragStart={(e) => handleDragStartOrder(e, order.id)}
+                          onDragEnd={() => { setDraggedOrderId(null); setDragOverOrderId(null); }}
+                        >
+                          <div className="grid grid-cols-2 grid-rows-3 gap-[3px]">
+                            {[...Array(6)].map((_, i) => (
+                              <div key={i} className="w-[4px] h-[4px] bg-current rounded-full" />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                   <div className="w-20 h-20 shrink-0 flex items-center justify-center text-neutral-300">
+                     {fetchingLogo ? (
+                       <Loader2 className="animate-spin text-neutral-300" size={24} />
+                     ) : (customer?.croppedLogo || customer?.logo) ? (
+                       <img src={customer.croppedLogo || customer.logo} alt="Customer Logo" className="max-w-full max-h-full object-contain shrink-0 filter mix-blend-multiply opacity-90" />
+                     ) : (
+                       <Building2 size={32} strokeWidth={1.5} />
                      )}
-                  <div className="w-20 h-20 shrink-0 flex items-center justify-center text-neutral-300">
-                    {fetchingLogo ? (
-                      <Loader2 className="animate-spin text-neutral-300" size={24} />
-                    ) : (customer?.croppedLogo || customer?.logo) ? (
-                      <img src={customer.croppedLogo || customer.logo} alt="Customer Logo" className="max-w-full max-h-full object-contain shrink-0 filter mix-blend-multiply opacity-90" />
-                    ) : (
-                      <Building2 size={32} strokeWidth={1.5} />
-                    )}
-                  </div>
-                  <div>
+                   </div>
+                   <div className="flex flex-col justify-center">
+                     {needsAction && (
+                       <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-bold tracking-widest uppercase bg-red-50 text-red-600 border border-red-100 mb-1.5 self-start w-fit">
+                         <span className="relative flex h-1.5 w-1.5">
+                           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                           <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-500"></span>
+                         </span>
+                         Action Required
+                       </span>
+                     )}
                     <div 
                       className="flex items-center gap-3 cursor-pointer group z-20 relative"
                       onClick={(e) => {
