@@ -12,7 +12,42 @@ export function PortalLayout() {
   const { customerId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const { signOut, userData } = useAuth();
+  const { signOut, userData, user, loading } = useAuth();
+
+  // Authentication and authorization redirection guard
+  useEffect(() => {
+    if (loading) return;
+
+    // 1. If not authenticated, redirect to login
+    if (!user) {
+      navigate('/login', { state: { from: location }, replace: true });
+      return;
+    }
+
+    // 2. If client, enforce they only access their own customer ID
+    if (userData?.role === 'Client') {
+      const clientCustId = userData.customerId;
+      if (!clientCustId) {
+        navigate('/login', { replace: true });
+        return;
+      }
+
+      if (customerId !== clientCustId) {
+        let subPath = '';
+        if (location.pathname.endsWith('/vault')) subPath = '/vault';
+        else if (location.pathname.endsWith('/roster')) subPath = '/roster';
+        else if (location.pathname.endsWith('/quote')) subPath = '/quote';
+        else if (location.pathname.endsWith('/create')) subPath = '/create';
+
+        navigate(`/portal/${clientCustId}${subPath}`, { replace: true });
+      }
+    } else {
+      // 3. Admin/Staff view: redirect to main dashboard if they enter /portal directly without CUS ID
+      if (!customerId) {
+        navigate('/', { replace: true });
+      }
+    }
+  }, [loading, user, userData, customerId, location.pathname, navigate]);
   
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [activeTour, setActiveTour] = useState('');
@@ -287,6 +322,14 @@ export function PortalLayout() {
       state: openLibrary ? { openLibrary: true } : undefined
     });
   };
+
+  if (loading || !user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white text-black">
+        <div className="animate-spin w-8 h-8 border-4 border-black border-t-transparent rounded-full" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white text-black font-sans selection:bg-black selection:text-white">
