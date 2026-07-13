@@ -92,10 +92,10 @@ const CheckoutForm = ({ order, onSuccess, onCancel }: { order: any, onSuccess: (
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-      <div className="bg-neutral-50 p-4 rounded-xl border border-neutral-200">
-        <label className="text-xs font-bold text-neutral-750 mb-3 block uppercase tracking-wider">Card Information</label>
-        <div className="bg-white p-3 rounded-lg border border-neutral-300 shadow-sm">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+      <div className="bg-neutral-50 p-4 rounded-2xl border border-neutral-200/60">
+        <label className="text-[10px] font-bold text-neutral-500 mb-3 block uppercase tracking-widest">Card Information</label>
+        <div className="bg-white p-3 rounded-xl border border-neutral-300 shadow-sm">
           <CardElement options={{
             style: {
               base: {
@@ -114,16 +114,16 @@ const CheckoutForm = ({ order, onSuccess, onCancel }: { order: any, onSuccess: (
       </div>
       
       {error && (
-        <div className="text-sm text-red-500 font-semibold bg-red-50 p-3 rounded-lg border border-red-100">
+        <div className="text-sm text-red-500 font-semibold bg-red-50 p-3 rounded-xl border border-red-100">
           {error}
         </div>
       )}
 
-      <div className="flex gap-3 mt-2">
+      <div className="flex gap-3">
         <button
           type="button"
           onClick={onCancel}
-          className="flex-1 bg-white border border-neutral-200 text-neutral-900 py-3 rounded-xl text-sm font-bold hover:bg-neutral-50 transition-all shadow-sm"
+          className="flex-1 bg-white border border-neutral-200 text-neutral-900 py-3.5 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-neutral-50 transition-all shadow-sm"
           disabled={isProcessing}
         >
           Cancel
@@ -131,12 +131,12 @@ const CheckoutForm = ({ order, onSuccess, onCancel }: { order: any, onSuccess: (
         <button
           type="submit"
           disabled={!stripe || isProcessing}
-          className="flex-1 bg-black text-white py-3 rounded-xl text-sm font-bold tracking-wide hover:bg-neutral-800 transition-all shadow-md flex justify-center items-center gap-2"
+          className="flex-1 bg-black text-white py-3.5 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-neutral-800 transition-all shadow-md flex justify-center items-center gap-2"
         >
           {isProcessing ? (
             <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div>
           ) : (
-            <CreditCard size={16} />
+            <CreditCard size={14} />
           )}
           {isProcessing ? "Processing..." : `Pay ${order.totalFormatted || 'Now'}`}
         </button>
@@ -197,142 +197,145 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
   const orderWithTotal = { ...order, totalFormatted: formattedTotal };
 
   return (
-    <div className="fixed inset-0 z-[250] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 md:p-6 animate-in fade-in duration-200">
+    <div 
+      className="fixed inset-0 z-[250] flex justify-end bg-black/35 backdrop-blur-xs animate-in fade-in duration-300"
+      onClick={onClose}
+    >
       <div 
-        className="bg-white rounded-[2.5rem] w-full max-w-4xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col md:flex-row max-h-[90vh] md:max-h-[800px]"
+        className="bg-white w-full sm:max-w-[500px] h-full shadow-2xl overflow-hidden animate-in slide-in-from-right duration-300 flex flex-col relative border-l border-neutral-200"
         onClick={(e) => e.stopPropagation()}
       >
         
-        {/* Left Column: Cart Review & Details */}
-        <div className="flex-1 p-6 md:p-8 flex flex-col overflow-y-auto border-b md:border-b-0 md:border-r border-neutral-100 max-h-[45vh] md:max-h-none">
-          <div className="flex items-center justify-between mb-6 shrink-0">
-             <div className="flex items-center gap-3">
-               <div className="w-10 h-10 bg-neutral-100 rounded-full flex items-center justify-center text-neutral-800">
-                 <ShoppingCart size={20} />
-               </div>
-               <div>
-                 <h2 className="text-xl font-bold text-neutral-900">Review Your Order</h2>
-                 <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Please confirm order details</p>
-               </div>
+        {/* Drawer Header */}
+        <div className="flex items-center justify-between p-6 border-b border-neutral-100 shrink-0">
+          <div className="flex items-center gap-3">
+             <div className="w-10 h-10 bg-neutral-100 rounded-full flex items-center justify-center text-neutral-800">
+               <ShoppingCart size={20} />
              </div>
-             <button 
-               onClick={onClose}
-               className="md:hidden text-neutral-400 hover:text-neutral-900 transition-colors p-2 hover:bg-neutral-100 rounded-full"
-             >
-               <X size={20} />
-             </button>
+             <div>
+               <h2 className="text-lg font-bold text-neutral-900">Your Order Checkout</h2>
+               <p className="text-[10px] font-bold text-neutral-450 uppercase tracking-widest">Order #{order.portalId || order.id.substring(0,8)}</p>
+             </div>
           </div>
-
-          {/* Items List */}
-          <div className="flex-1 flex flex-col gap-4 overflow-y-auto pr-1 mb-6 custom-scrollbar min-h-0">
-            {regularItems.map((item: any, idx: number) => (
-              <div key={idx} className="flex gap-4 items-center bg-neutral-50/50 p-3 rounded-2xl border border-neutral-100/50">
-                {item.image ? (
-                  <div className="w-14 h-14 shrink-0 bg-white rounded-xl border border-neutral-200/50 p-1 flex items-center justify-center">
-                    <img src={item.image} alt={item.style} className="max-w-full max-h-full object-contain mix-blend-multiply" />
-                  </div>
-                ) : (
-                  <div className="w-14 h-14 shrink-0 bg-neutral-100 rounded-xl flex items-center justify-center text-neutral-350 border border-neutral-200/40">
-                    <Package size={20} />
-                  </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <p className="font-bold text-neutral-900 text-sm truncate">{item.style || 'Custom Garment'}</p>
-                  <p className="text-xs text-neutral-550 font-semibold mt-0.5 uppercase tracking-wide">
-                    {item.color ? `${item.color} • ` : ''}{item.qty} {item.qty === 1 ? 'Unit' : 'Units'}
-                  </p>
-                  {/* Sizes display */}
-                  {item.sizes && Object.keys(item.sizes).length > 0 && (
-                    <div className="flex gap-1 mt-1.5 flex-wrap">
-                      {Object.entries(item.sizes).map(([size, q]: [string, any]) => {
-                        if (!q) return null;
-                        return (
-                          <span key={size} className="text-[10px] font-bold bg-white border border-neutral-200 text-neutral-700 px-1.5 py-0.5 rounded uppercase leading-none">
-                            {size}: {q}
-                          </span>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-                <div className="text-right shrink-0 pl-2">
-                  <p className="font-bold text-neutral-900 text-sm">
-                    {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(item.total || (item.unitPrice * item.qty))}
-                  </p>
-                  {item.qty > 1 && (
-                    <p className="text-[10px] text-neutral-400 font-semibold mt-0.5">
-                      {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(item.unitPrice)} ea
-                    </p>
-                  )}
-                </div>
-              </div>
-            ))}
-            {regularItems.length === 0 && (
-              <p className="text-center py-6 text-sm text-neutral-400 italic">No items found in this order.</p>
-            )}
-          </div>
-
-          {/* Pricing Breakdown */}
-          <div className="mt-auto pt-4 border-t border-neutral-100 shrink-0 flex flex-col gap-2.5">
-            <div className="flex justify-between items-center text-xs font-semibold text-neutral-500 uppercase tracking-wider">
-              <span>Items Subtotal</span>
-              <span className="font-bold text-neutral-800">{formattedSubtotal}</span>
-            </div>
-            
-            <div className="flex justify-between items-center text-xs font-semibold text-neutral-500 uppercase tracking-wider">
-              <span>Shipping & Handling</span>
-              <span className="font-bold text-neutral-800">
-                {shippingAmount > 0 ? formattedShipping : 'Free'}
-              </span>
-            </div>
-
-            <div className="flex justify-between items-center text-xs font-semibold text-neutral-500 uppercase tracking-wider">
-              <span>Estimated Sales Tax</span>
-              <span className="font-bold text-neutral-800">
-                {taxAmount > 0 ? formattedTax : '$0.00'}
-              </span>
-            </div>
-
-            <div className="flex justify-between items-center pt-3 border-t border-neutral-150 mt-1">
-              <span className="text-sm font-serif italic text-neutral-500">Quoted Total</span>
-              <span className="text-2xl font-serif text-neutral-900 tracking-tight">{formattedTotal}</span>
-            </div>
-          </div>
+          <button 
+            onClick={onClose}
+            className="text-neutral-400 hover:text-neutral-900 transition-colors p-2 hover:bg-neutral-100 rounded-full"
+          >
+            <X size={20} />
+          </button>
         </div>
 
-        {/* Right Column: Stripe Checkout Form */}
-        <div className="w-full md:w-[380px] p-6 md:p-8 bg-neutral-50/50 flex flex-col justify-between max-h-[55vh] md:max-h-none overflow-y-auto shrink-0 border-t md:border-t-0 border-neutral-100">
-          <div className="flex flex-col h-full justify-between">
-            <div>
-              <div className="flex items-center justify-between mb-6 pb-2 border-b border-neutral-200/50">
-                <div className="flex items-center gap-2">
-                  <CreditCard size={18} className="text-[#635BFF]" />
-                  <span className="text-sm font-bold text-neutral-800 uppercase tracking-wider">Payment Details</span>
+        {/* Drawer Scrollable Content */}
+        <div className="flex-1 overflow-y-auto p-6 bg-neutral-50/20 flex flex-col gap-6 custom-scrollbar">
+          
+          {/* Garments List Section */}
+          <div className="flex flex-col gap-3">
+            <h3 className="text-[10px] font-bold tracking-widest text-neutral-450 uppercase mb-1">Garments in Cart ({regularItems.length})</h3>
+            <div className="flex flex-col gap-3">
+              {regularItems.map((item: any, idx: number) => (
+                <div key={idx} className="flex gap-4 items-center bg-white p-4 rounded-2xl border border-neutral-200/50 shadow-2xs">
+                  {item.image ? (
+                    <div className="w-14 h-14 shrink-0 bg-white rounded-xl border border-neutral-100 p-1 flex items-center justify-center">
+                      <img src={item.image} alt={item.style} className="max-w-full max-h-full object-contain mix-blend-multiply" />
+                    </div>
+                  ) : (
+                    <div className="w-14 h-14 shrink-0 bg-neutral-50 rounded-xl flex items-center justify-center text-neutral-350 border border-neutral-100">
+                      <Package size={20} />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-neutral-900 text-sm truncate">{item.style || 'Custom Garment'}</p>
+                    <p className="text-xs text-neutral-500 font-semibold mt-0.5 uppercase tracking-wide">
+                      {item.color ? `${item.color} • ` : ''}{item.qty} {item.qty === 1 ? 'Unit' : 'Units'}
+                    </p>
+                    {/* Sizes Display Spread */}
+                    {item.sizes && Object.keys(item.sizes).length > 0 && (
+                      <div className="flex gap-1 mt-1.5 flex-wrap">
+                        {Object.entries(item.sizes).map(([size, q]: [string, any]) => {
+                          if (!q) return null;
+                          return (
+                            <span key={size} className="text-[9px] font-bold bg-neutral-50 border border-neutral-200 text-neutral-600 px-1.5 py-0.5 rounded uppercase leading-none">
+                              {size}: {q}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-right shrink-0 pl-2">
+                    <p className="font-bold text-neutral-900 text-sm">
+                      {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(item.total || (item.unitPrice * item.qty))}
+                    </p>
+                    {item.qty > 1 && (
+                      <p className="text-[10px] text-neutral-400 font-semibold mt-0.5">
+                        {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(item.unitPrice)} ea
+                      </p>
+                    )}
+                  </div>
                 </div>
-                <button 
-                  onClick={onClose}
-                  className="hidden md:block text-neutral-450 hover:text-neutral-900 transition-colors p-1.5 hover:bg-neutral-200/50 rounded-full"
-                >
-                  <X size={18} />
-                </button>
+              ))}
+              {regularItems.length === 0 && (
+                <p className="text-center py-6 text-sm text-neutral-400 italic">No items found in this order.</p>
+              )}
+            </div>
+          </div>
+
+          {/* Pricing Breakdown Section */}
+          <div className="flex flex-col gap-3">
+            <h3 className="text-[10px] font-bold tracking-widest text-neutral-450 uppercase mb-1">Pricing Details</h3>
+            <div className="bg-white rounded-2xl p-4 border border-neutral-200/50 shadow-2xs flex flex-col gap-3">
+              <div className="flex justify-between items-center text-xs font-semibold text-neutral-500 uppercase tracking-wider">
+                <span>Items Subtotal</span>
+                <span className="font-bold text-neutral-800">{formattedSubtotal}</span>
+              </div>
+              
+              <div className="flex justify-between items-center text-xs font-semibold text-neutral-500 uppercase tracking-wider">
+                <span>Shipping & Handling</span>
+                <span className="font-bold text-neutral-800">
+                  {shippingAmount > 0 ? formattedShipping : 'Free'}
+                </span>
               </div>
 
-              <div className="bg-white rounded-2xl p-4 border border-neutral-200/50 mb-6">
-                <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-1">Paying For</p>
-                <p className="text-sm font-bold text-neutral-800 line-clamp-1">{order.title}</p>
-                <p className="text-xs text-neutral-500 font-semibold mt-1 uppercase tracking-wider">Order #{order.portalId || order.id.substring(0,8)}</p>
+              <div className="flex justify-between items-center text-xs font-semibold text-neutral-500 uppercase tracking-wider">
+                <span>Estimated Sales Tax</span>
+                <span className="font-bold text-neutral-800">
+                  {taxAmount > 0 ? formattedTax : '$0.00'}
+                </span>
+              </div>
+
+              <div className="flex justify-between items-center pt-3.5 border-t border-neutral-100 mt-1">
+                <span className="text-xs font-bold uppercase tracking-widest text-neutral-900">Total Price</span>
+                <span className="text-xl font-bold text-neutral-900 tracking-tight">{formattedTotal}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Payment Section */}
+          <div className="flex flex-col gap-3">
+            <h3 className="text-[10px] font-bold tracking-widest text-neutral-450 uppercase mb-1">Payment Method</h3>
+            <div className="bg-white rounded-2xl p-5 border border-neutral-200/50 shadow-2xs flex flex-col gap-4">
+              <div className="flex items-center gap-2 pb-3 border-b border-neutral-100">
+                <CreditCard size={18} className="text-[#635BFF]" />
+                <span className="text-xs font-bold text-neutral-800 uppercase tracking-wider">Pay Securely with Card</span>
+              </div>
+              
+              <div className="bg-neutral-50/50 rounded-xl p-3 border border-neutral-100 text-xs text-neutral-600 leading-normal">
+                <p className="font-bold text-neutral-800 mb-0.5">Order Title:</p>
+                <p className="line-clamp-1">{order.title}</p>
               </div>
 
               <Elements stripe={stripePromise}>
                 <CheckoutForm order={orderWithTotal} onSuccess={onSuccess} onCancel={onClose} />
               </Elements>
             </div>
-
-            <div className="mt-8 pt-4 border-t border-neutral-200/40 flex items-center justify-between text-[9px] font-bold tracking-wider text-neutral-400 uppercase">
-              <span>Powered by Stripe</span>
-              <span>Secure 256-bit SSL</span>
-            </div>
           </div>
+
+        </div>
+
+        {/* Footer Security Badges */}
+        <div className="p-4 bg-neutral-100 border-t border-neutral-200/60 shrink-0 flex items-center justify-between text-[9px] font-bold tracking-wider text-neutral-400 uppercase">
+          <span>Secure Checkout</span>
+          <span>Powered by Stripe</span>
         </div>
 
       </div>
