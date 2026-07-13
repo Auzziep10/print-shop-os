@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
-import { X, CreditCard, ShoppingCart, Package } from 'lucide-react';
+import { X, CreditCard, ShoppingCart, Package, MapPin, Building2 } from 'lucide-react';
 import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -221,6 +221,8 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
   const formattedTotal = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(finalTotal);
 
   const orderWithTotal = { ...order, totalFormatted: formattedTotal };
+  const hasShippingAddress = !!(order.shippingAddress && 
+    (order.shippingAddress.street1 || order.shippingAddress.street || order.shippingAddress.city));
 
   return (
     <div 
@@ -302,6 +304,44 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
               ))}
               {regularItems.length === 0 && (
                 <p className="text-center py-6 text-sm text-neutral-400 italic">No items found in this order.</p>
+              )}
+            </div>
+          </div>
+
+          {/* Delivery Details Section */}
+          <div className="flex flex-col gap-3">
+            <h3 className="text-[10px] font-bold tracking-widest text-neutral-450 uppercase mb-1">Delivery Details</h3>
+            <div className="bg-white rounded-2xl p-4 border border-neutral-200/50 shadow-2xs flex gap-3 items-start animate-in slide-in-from-bottom duration-250" style={{ animationDelay: '100ms' }}>
+              {hasShippingAddress ? (
+                <>
+                  <div className="w-8 h-8 rounded-full bg-neutral-100 flex items-center justify-center text-neutral-600 shrink-0 mt-0.5 animate-in zoom-in duration-200">
+                    <MapPin size={16} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold text-neutral-900 uppercase tracking-wide">Ship To</p>
+                    <div className="text-xs text-neutral-600 leading-relaxed font-semibold mt-1">
+                      {order.shippingAddress.name && <span className="block text-neutral-800 font-bold">{order.shippingAddress.name}</span>}
+                      {order.shippingAddress.company && <span className="block text-neutral-400 text-[10px] uppercase tracking-wider">{order.shippingAddress.company}</span>}
+                      <span className="block">{order.shippingAddress.street1 || order.shippingAddress.street}</span>
+                      {order.shippingAddress.street2 && <span className="block">{order.shippingAddress.street2}</span>}
+                      <span className="block">
+                        {order.shippingAddress.city}, {order.shippingAddress.state} {order.shippingAddress.zip}
+                      </span>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="w-8 h-8 rounded-full bg-neutral-100 flex items-center justify-center text-neutral-600 shrink-0 mt-0.5 animate-in zoom-in duration-200">
+                    <Building2 size={16} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold text-neutral-900 uppercase tracking-wide">Local Pickup</p>
+                    <p className="text-xs text-neutral-600 leading-relaxed font-semibold mt-1">
+                      Pickup from print shop office.
+                    </p>
+                  </div>
+                </>
               )}
             </div>
           </div>
