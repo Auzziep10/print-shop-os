@@ -201,7 +201,7 @@ export function PortalRequestQuote() {
       <div 
         key={item.id || `${style}-${idx}`} 
         onClick={() => handleAddProductFromLibrary(item)}
-        className="group bg-transparent flex flex-col justify-between cursor-pointer transition-all relative w-full border border-transparent p-2"
+        className="group bg-transparent flex flex-col justify-between cursor-pointer transition-all relative w-full border border-transparent p-0"
       >
         <div 
           onClick={(e) => {
@@ -230,15 +230,15 @@ export function PortalRequestQuote() {
         </div>
         <div className="w-full flex flex-col mt-2">
           <div className="flex items-baseline justify-between w-full">
-            <h4 className="font-serif font-semibold text-neutral-900 text-base leading-tight tracking-wide truncate max-w-[75%]">{style}</h4>
+            <h4 className="font-serif font-normal text-neutral-800 text-[17px] leading-tight tracking-wide truncate max-w-[75%]">{style}</h4>
             {price > 0 && (
-              <span className="font-serif font-semibold text-neutral-950 text-sm shrink-0 ml-2">${price}</span>
+              <span className="font-serif font-normal text-neutral-800 text-[17px] shrink-0 ml-2">${price}</span>
             )}
           </div>
           <div className="relative h-6 mt-1 flex items-center justify-start w-full">
             {/* Gender tag - visible when not hovered */}
             <div className="absolute inset-y-0 left-0 flex items-center transition-all duration-250 opacity-100 group-hover:opacity-0 group-hover:pointer-events-none">
-              <span className="text-[10px] font-bold text-neutral-400 tracking-wider uppercase font-inter">{gender}</span>
+              <span className="text-[10px] font-medium text-neutral-450 tracking-[0.18em] uppercase font-inter">{gender}</span>
             </div>
             {/* Circle swatches - visible only on hover */}
             <div className="absolute inset-y-0 left-0 flex items-center gap-1.5 transition-all duration-250 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto">
@@ -254,7 +254,7 @@ export function PortalRequestQuote() {
                 );
               })}
               {formattedColors.length > 7 && (
-                <span className="text-[9px] font-bold text-neutral-455 font-inter">+{formattedColors.length - 7}</span>
+                <span className="text-[9px] font-medium text-neutral-450 font-inter">+{formattedColors.length - 7}</span>
               )}
             </div>
           </div>
@@ -1064,13 +1064,13 @@ export function PortalRequestQuote() {
         </div>
 
         {/* Library Selector */}
-        <div data-tour="quote-library" className="bg-white rounded-3xl p-8 shadow-[0_4px_24px_rgb(0,0,0,0.02)] border border-neutral-100 flex flex-col gap-6">
+        <div data-tour="quote-library" className="flex flex-col gap-8 w-full mt-4 bg-transparent border-none shadow-none p-0 animate-in fade-in duration-300">
           <div className="flex flex-col gap-1">
             <h2 className="text-xl font-bold text-neutral-900">Select Garments from Library</h2>
             <p className="text-sm text-neutral-500">Choose from suggested, past, or catalog garments to add to your quote request</p>
           </div>
           
-          <div className="flex gap-4 border-b border-neutral-100 pb-3 overflow-x-auto">
+          <div className="flex gap-6 border-b border-neutral-200 pb-3 overflow-x-auto bg-transparent px-2">
             {['rack', 'wovn', 'suggested', 'past']
               .filter(tab => tab !== 'wovn' || wovnRack.length > 0)
               .map((tab) => {
@@ -1123,7 +1123,7 @@ export function PortalRequestQuote() {
               <Loader2 className="animate-spin text-neutral-400" size={24} />
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-h-[600px] overflow-y-auto pr-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-10 gap-y-14 max-h-[650px] overflow-y-auto pr-1">
               {activeLibraryTab === 'rack' && activeRackItems.map((item, idx) => renderGarmentCard(item, idx))}
 
               {activeLibraryTab === 'wovn' && wovnRack.map((item, idx) => renderGarmentCard(item, idx))}

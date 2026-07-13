@@ -239,7 +239,7 @@ export function PortalCreateOrder() {
       <div 
         key={key} 
         onClick={() => handleAddItem({ ...item, style, gender, itemNum, colors, sizes, image, price })}
-        className="group bg-transparent flex flex-col justify-between cursor-pointer transition-all relative w-full border border-transparent p-2"
+        className="group bg-transparent flex flex-col justify-between cursor-pointer transition-all relative w-full border border-transparent p-0"
       >
         <div 
           onClick={(e) => {
@@ -268,15 +268,15 @@ export function PortalCreateOrder() {
         </div>
         <div className="w-full flex flex-col mt-2">
           <div className="flex items-baseline justify-between w-full">
-            <h4 className="font-serif font-semibold text-neutral-900 text-base leading-tight tracking-wide truncate max-w-[75%]">{style}</h4>
+            <h4 className="font-serif font-normal text-neutral-800 text-[17px] leading-tight tracking-wide truncate max-w-[75%]">{style}</h4>
             {price > 0 && (
-              <span className="font-serif font-semibold text-neutral-950 text-sm shrink-0 ml-2">${price}</span>
+              <span className="font-serif font-normal text-neutral-800 text-[17px] shrink-0 ml-2">${price}</span>
             )}
           </div>
           <div className="relative h-6 mt-1 flex items-center justify-start w-full">
             {/* Gender tag - visible when not hovered */}
             <div className="absolute inset-y-0 left-0 flex items-center transition-all duration-250 opacity-100 group-hover:opacity-0 group-hover:pointer-events-none">
-              <span className="text-[10px] font-bold text-neutral-400 tracking-wider uppercase font-inter">{gender}</span>
+              <span className="text-[10px] font-medium text-neutral-450 tracking-[0.18em] uppercase font-inter">{gender}</span>
             </div>
             {/* Circle swatches - visible only on hover */}
             <div className="absolute inset-y-0 left-0 flex items-center gap-1.5 transition-all duration-250 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto">
@@ -292,7 +292,7 @@ export function PortalCreateOrder() {
                 );
               })}
               {colors.length > 7 && (
-                <span className="text-[9px] font-bold text-neutral-455 font-inter">+{colors.length - 7}</span>
+                <span className="text-[9px] font-medium text-neutral-450 font-inter">+{colors.length - 7}</span>
               )}
             </div>
           </div>
@@ -1473,9 +1473,9 @@ export function PortalCreateOrder() {
       </div>
 
       {/* Main Full Screen Catalog Selector */}
-      <div data-tour="catalog-grid" className="bg-white rounded-3xl p-8 shadow-[0_4px_24px_rgb(0,0,0,0.02)] border border-neutral-100 flex flex-col gap-6">
+      <div data-tour="catalog-grid" className="flex flex-col gap-8 w-full mt-4 bg-transparent border-none shadow-none p-0 animate-in fade-in duration-300">
         {/* Library Tabs */}
-        <div className="flex gap-4 border-b border-neutral-100 py-3 overflow-x-auto shrink-0 bg-neutral-50/50 px-4 rounded-xl">
+        <div className="flex gap-6 border-b border-neutral-200 py-3 overflow-x-auto shrink-0 px-2 bg-transparent">
           {!customer?.disableRack && (
             <button
               type="button"
@@ -1572,7 +1572,7 @@ export function PortalCreateOrder() {
         )}
 
         {/* Library Grid Content */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-10 gap-y-14">
           {activeLibraryTab === 'rack' && !customer?.disableRack && (
             activeRackItems.length === 0 ? (
               <div className="col-span-full flex flex-col items-center justify-center p-8 text-center text-neutral-500 min-h-[200px]">
