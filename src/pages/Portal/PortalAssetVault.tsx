@@ -587,20 +587,18 @@ export function PortalAssetVault() {
       </div>
 
       {/* Folder Tabs */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-neutral-200 pb-3 -mt-2">
+      <div className="flex border-b border-neutral-200 pb-px mb-8 gap-6 overflow-x-auto custom-scrollbar -mt-2">
         {/* 'All' Tab */}
         <button
           onClick={() => setActiveFolderId('all')}
-          className={`px-5 py-2.5 rounded-full text-xs font-bold tracking-wide transition-all border cursor-pointer ${
+          className={`pb-3 text-sm font-semibold border-b-2 transition-all cursor-pointer ${
             activeFolderId === 'all'
-              ? 'bg-black text-white border-black shadow-sm'
-              : 'bg-white text-neutral-600 border-neutral-250 hover:bg-neutral-50 hover:text-black'
+              ? 'text-black border-black font-bold'
+              : 'text-neutral-400 border-transparent hover:text-black hover:border-black'
           }`}
         >
           All Logos
         </button>
-
-
 
         {/* Folder Tabs */}
         {assets.filter(a => a.type === 'folder').map((folder) => {
@@ -609,48 +607,51 @@ export function PortalAssetVault() {
           return (
             <div 
               key={folder.id} 
-              className="flex items-center gap-1"
+              className={`flex items-center gap-1.5 pb-3 border-b-2 transition-all ${
+                isActive ? 'border-black' : 'border-transparent'
+              }`}
               onDragOver={(e) => e.preventDefault()}
               onDrop={(e) => handleDropOnFolder(e, folder.id)}
             >
               <button
                 onClick={() => setActiveFolderId(folder.id)}
-                className={`px-5 py-2.5 rounded-full text-xs font-bold tracking-wide transition-all border cursor-pointer flex items-center gap-2 max-w-[180px] ${
+                className={`text-sm font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
                   isActive
-                    ? 'bg-amber-500 text-white border-amber-500 shadow-sm'
-                    : 'bg-white text-neutral-600 border-neutral-250 hover:bg-neutral-50 hover:text-amber-500'
+                    ? 'text-black font-bold'
+                    : 'text-neutral-400 hover:text-black'
                 }`}
               >
-                <Folder size={12} className={isActive ? "fill-white/20" : "text-amber-500 fill-amber-500/10"} />
-                <span className="truncate">{folder.name}</span>
-                <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full ${isActive ? 'bg-amber-600 text-white' : 'bg-neutral-100 text-neutral-500'}`}>
+                <span>{folder.name}</span>
+                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                  isActive ? 'bg-black text-white' : 'bg-neutral-100 text-neutral-500'
+                }`}>
                   {contentsCount}
                 </span>
               </button>
 
               {/* Quick actions for Rename/Delete of the folder if selected */}
               {isActive && (
-                <div className="flex items-center gap-0.5 ml-1 border-l border-neutral-250 pl-2">
+                <div className="flex items-center gap-0.5 ml-1.5 border-l border-neutral-200 pl-1.5">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       setEditingAssetId(folder.id);
                       setEditingAssetName(folder.name);
                     }}
-                    className="p-1.5 text-neutral-450 hover:text-neutral-900 hover:bg-neutral-100 rounded-lg transition-colors cursor-pointer"
+                    className="p-1 text-neutral-400 hover:text-neutral-900 rounded transition-colors cursor-pointer"
                     title="Rename Folder"
                   >
-                    <Edit2 size={13} />
+                    <Edit2 size={12} />
                   </button>
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       handleDeleteFolder(folder.id);
                     }}
-                    className="p-1.5 text-red-450 hover:text-red-650 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                    className="p-1 text-red-500 hover:text-red-700 rounded transition-colors cursor-pointer"
                     title="Delete Folder"
                   >
-                    <Trash2 size={13} />
+                    <Trash2 size={12} />
                   </button>
                 </div>
               )}

@@ -1322,7 +1322,7 @@ export function GarmentCustomizerModal({
 
       setAssets(updatedAssets);
       setSelectedLogo(newAsset);
-      alert('Recolored copy added to vault and selected!');
+      alert('Recolored copy added to Asset Vault and selected!');
     } catch (err) {
       console.error(err);
       alert('Failed to recolor asset. Ensure image origin supports CORS.');
@@ -1533,7 +1533,7 @@ export function GarmentCustomizerModal({
       });
 
       setAssets(updatedAssets);
-      alert("Tag design successfully saved to your vault!");
+      alert("Tag design successfully saved to your Asset Vault!");
     } catch (err) {
       console.error("Failed to save tag design:", err);
       alert("Failed to save tag design.");
@@ -2531,7 +2531,7 @@ export function GarmentCustomizerModal({
             {activeDesignerTab === 'upload' && (
               <div className="flex flex-col gap-3">
                 <div className="flex justify-between items-center">
-                  <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Logo Vault</label>
+                  <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Asset Vault</label>
                   <label className="text-xs font-bold text-neutral-600 hover:text-black cursor-pointer flex items-center gap-1">
                     <input type="file" className="hidden" onChange={handleFileUpload} accept="image/*,application/pdf,.ai,.eps,.svg" />
                     <Upload size={12} /> Upload New
@@ -2544,7 +2544,7 @@ export function GarmentCustomizerModal({
                   </div>
                 ) : assets.length === 0 ? (
                   <div className="bg-neutral-50 rounded-2xl p-4 text-center border border-dashed border-neutral-200">
-                    <p className="text-xs font-semibold text-neutral-500">No logos saved in your vault.</p>
+                    <p className="text-xs font-semibold text-neutral-500">No assets saved in your Asset Vault.</p>
                     <label className="text-xs font-bold text-black hover:underline cursor-pointer mt-1 inline-block">
                       <input type="file" className="hidden" onChange={handleFileUpload} accept="image/*,application/pdf,.ai,.eps,.svg" />
                       Upload logo to begin
@@ -3239,12 +3239,12 @@ export function GarmentCustomizerModal({
             </div>
           )}
 
-          {/* Save Tag Design to Vault Section */}
+          {/* Save Tag Design to Asset Vault Section */}
           {activeTab === 'tag' && (
             <div className="flex flex-col gap-4 border-t border-neutral-100 pt-6 animate-in fade-in duration-200">
               <label className="text-xs font-bold uppercase tracking-widest text-neutral-500 flex items-center gap-1.5">
                 <Sparkles size={13} />
-                <span>Save Tag to Vault</span>
+                <span>Save Tag to Asset Vault</span>
               </label>
               <div className="flex gap-2">
                 <input
