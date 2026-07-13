@@ -305,7 +305,7 @@ export function PortalRoster() {
         </button>
       </div>
 
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-neutral-150 pb-6 mb-2">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-6 mb-2">
         <div className="flex flex-col gap-2">
           <h1 className="text-4xl font-serif text-neutral-900 tracking-tight">
             Team Sizing Roster
