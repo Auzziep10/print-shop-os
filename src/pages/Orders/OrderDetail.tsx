@@ -1576,6 +1576,7 @@ export function OrderDetail() {
   const [receiptName, setReceiptName] = useState('');
   const [isUploadingReceipt, setIsUploadingReceipt] = useState(false);
   const [selectedCostItems, setSelectedCostItems] = useState<Record<string, string[]>>({});
+  const [isCostsCollapsed, setIsCostsCollapsed] = useState(true);
   
   // Shopify Product Search
   const [shopifySearchQuery, setShopifySearchQuery] = useState('');
@@ -4826,12 +4827,25 @@ export function OrderDetail() {
           {/* Costs & Receipts Tracker Section */}
           {hasPermission('viewPricing') && (
             <div className="bg-white p-6 rounded-card border border-brand-border shadow-sm mt-8">
-             <div className="flex justify-between items-center mb-6 pb-2 border-b border-brand-border">
-                <div className="flex items-center gap-2">
-                   <DollarSign className="text-brand-primary animate-pulse" size={22} />
-                   <h2 className={tokens.typography.h2}>Costs & Receipts</h2>
-                </div>
-             </div>
+              <div 
+                className="flex justify-between items-center cursor-pointer select-none group"
+                onClick={() => setIsCostsCollapsed(!isCostsCollapsed)}
+              >
+                 <div className="flex items-center gap-2">
+                    <DollarSign className="text-brand-primary animate-pulse" size={22} />
+                    <h2 className={tokens.typography.h2}>Costs & Receipts</h2>
+                 </div>
+                 <div className="flex items-center gap-2 text-brand-secondary group-hover:text-brand-primary transition-colors text-xs font-bold uppercase tracking-wider">
+                   <span>{isCostsCollapsed ? 'Show' : 'Hide'}</span>
+                   <ChevronDown 
+                     size={18} 
+                     className={`transform transition-transform duration-200 ${isCostsCollapsed ? '' : 'rotate-180'}`} 
+                   />
+                 </div>
+              </div>
+              
+              {!isCostsCollapsed && (
+                <div className="mt-6 pt-6 border-t border-brand-border">
              
              {/* Financial metrics dashboard */}
              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
@@ -5673,6 +5687,16 @@ export function OrderDetail() {
 
                      rawActivities = keptActivities.map((act: any) => {
                          let userAttr = normalizeUser((act.user || ''), allUsers);
+                         const customerEmailPrefix = customer?.email?.split('@')?.[0]?.toLowerCase();
+                         const actUserLower = act.user?.toLowerCase();
+                         if (
+                           act.user === order.customerId || 
+                           actUserLower === 'customer' || 
+                           actUserLower === customer?.email?.toLowerCase() ||
+                           (customerEmailPrefix && actUserLower?.startsWith(customerEmailPrefix))
+                         ) {
+                           userAttr = customer.contactName || customer.company || 'Customer';
+                         }
                          return { ...act, user: userAttr };
                      });
                      
@@ -5694,6 +5718,16 @@ export function OrderDetail() {
                          .sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
                          .map((act: any) => {
                              let userAttr = normalizeUser((act.user || ''), allUsers);
+                             const customerEmailPrefix = customer?.email?.split('@')?.[0]?.toLowerCase();
+                             const actUserLower = act.user?.toLowerCase();
+                             if (
+                               act.user === order.customerId || 
+                               actUserLower === 'customer' || 
+                               actUserLower === customer?.email?.toLowerCase() ||
+                               (customerEmailPrefix && actUserLower?.startsWith(customerEmailPrefix))
+                             ) {
+                               userAttr = customer.contactName || customer.company || 'Customer';
+                             }
                              return { ...act, user: userAttr };
                          });
                      finalDisplayedActivities = sortedActivities.slice(0, activityLimit);
