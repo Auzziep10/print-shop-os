@@ -16,6 +16,7 @@ const ICON_URLS = {
 export function Signatures() {
   const { userData } = useAuth();
   const [copied, setCopied] = useState(false);
+  const [copiedCode, setCopiedCode] = useState(false);
   const signatureRef = useRef<HTMLTableElement>(null);
   const [savingBanner, setSavingBanner] = useState(false);
   const [loadingBanner, setLoadingBanner] = useState(true);
@@ -321,6 +322,15 @@ export function Signatures() {
     }
   };
 
+  const copyRawHtmlCode = () => {
+    if (!signatureRef.current) return;
+    const htmlContent = signatureRef.current.outerHTML.replace(/\n/g, '').replace(/\s+/g, ' ').replace(/>\s+</g, '><').trim();
+    navigator.clipboard.writeText(htmlContent).then(() => {
+      setCopiedCode(true);
+      setTimeout(() => setCopiedCode(false), 2000);
+    });
+  };
+
   const handleFileUpload = async (
     e: React.ChangeEvent<HTMLInputElement>,
     type: 'profile' | 'banner' | 'logo'
@@ -377,13 +387,23 @@ export function Signatures() {
         <Info className="shrink-0 text-blue-500 mt-0.5" size={18} />
         <div>
           <p className="font-medium text-blue-900 mb-1">How to install your signature:</p>
-          <ol className="list-decimal pl-4 space-y-1 text-blue-800/80 text-xs">
-            <li>Click the <strong>Copy Signature</strong> button below.</li>
-            <li>Open your email client (e.g., Gmail) and go to <strong>Settings</strong> {'>'} <strong>Signatures</strong>.</li>
-            <li>Create a new signature or edit an existing one.</li>
-            <li>Click into the text box and press <strong>Cmd+V</strong> (Mac) or <strong>Ctrl+V</strong> (Windows) to paste. <em>(Note: Do not right-click {"->"} paste, use the keyboard shortcut to maintain formatting)</em></li>
-            <li>Save your changes!</li>
-          </ol>
+          {sigTargetPlatform === 'mac' ? (
+            <ol className="list-decimal pl-4 space-y-1 text-blue-800/80 text-xs">
+              <li>Click <strong>Copy Signature</strong> once to generate and upload the header image.</li>
+              <li>Click the <strong>Copy HTML Code</strong> button next to it to copy the source code.</li>
+              <li>Quit Apple Mail completely (Cmd+Q).</li>
+              <li>Create a placeholder signature in Mail settings, then open the newest <code>.mailsignature</code> file under <code>~/Library/Mail/V[10/11/12]/MailData/Signatures/</code>.</li>
+              <li>Replace everything below the metadata headers with the copied HTML code, save, and check the <strong>Locked</strong> box in File Info.</li>
+            </ol>
+          ) : (
+            <ol className="list-decimal pl-4 space-y-1 text-blue-800/80 text-xs">
+              <li>Click the <strong>Copy Signature</strong> button below.</li>
+              <li>Open your email client (e.g., Gmail) and go to <strong>Settings</strong> {'>'} <strong>Signatures</strong>.</li>
+              <li>Create a new signature or edit an existing one.</li>
+              <li>Click into the text box and press <strong>Cmd+V</strong> (Mac) or <strong>Ctrl+V</strong> (Windows) to paste. <em>(Note: Do not right-click {"->"} paste, use the keyboard shortcut to maintain formatting)</em></li>
+              <li>Save your changes!</li>
+            </ol>
+          )}
         </div>
       </div>
 
@@ -627,14 +647,27 @@ export function Signatures() {
                 <p className="text-xs text-brand-secondary">What you see is what gets copied.</p>
               </div>
               <div className="flex flex-col sm:items-end gap-2">
-                <button 
-                  onClick={generateCompositeAndCopy}
-                  disabled={generatingComposite}
-                  className="flex items-center justify-center gap-2 px-6 py-2 bg-black text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors shadow-sm disabled:opacity-50 w-full sm:w-auto"
-                >
-                  {generatingComposite ? <Loader2 size={16} className="animate-spin" /> : copied ? <CheckCircle size={16} className="text-green-400" /> : <Copy size={16} />}
-                  {generatingComposite ? 'Generating...' : copied ? 'Copied HTML!' : 'Copy Signature'}
-                </button>
+                <div className="flex gap-2 w-full sm:w-auto">
+                  <button 
+                    onClick={generateCompositeAndCopy}
+                    disabled={generatingComposite}
+                    className="flex items-center justify-center gap-2 px-6 py-2 bg-black text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors shadow-sm disabled:opacity-50 flex-1 sm:flex-none"
+                  >
+                    {generatingComposite ? <Loader2 size={16} className="animate-spin" /> : copied ? <CheckCircle size={16} className="text-green-400" /> : <Copy size={16} />}
+                    {generatingComposite ? 'Generating...' : copied ? 'Copied HTML!' : 'Copy Signature'}
+                  </button>
+                  {sigTargetPlatform === 'mac' && (
+                    <button 
+                      onClick={copyRawHtmlCode}
+                      disabled={generatingComposite || !compositeUrl}
+                      className="flex items-center justify-center gap-2 px-4 py-2 bg-white border border-brand-border text-brand-primary text-sm font-medium rounded-lg hover:bg-brand-bg transition-colors shadow-sm disabled:opacity-50 whitespace-nowrap"
+                      title="Copy raw HTML code for manual macOS signature installation"
+                    >
+                      {copiedCode ? <CheckCircle size={16} className="text-green-500" /> : <Copy size={16} />}
+                      {copiedCode ? 'Code Copied!' : 'Copy HTML Code'}
+                    </button>
+                  )}
+                </div>
                 <div className="flex bg-gray-100 p-1 rounded-lg text-xs font-semibold self-start sm:self-auto">
                   <button 
                     onClick={() => setSigTargetPlatform('pc')} 
@@ -656,8 +689,7 @@ export function Signatures() {
                   >
                     Apple Mail (100% Width Fix)
                   </button>
-                </div>
-              </div>
+                </div></div>
             </div>
             
             <div className="p-8 lg:p-12 flex-1 overflow-x-auto bg-gray-50 flex items-start justify-center min-h-[500px]">
