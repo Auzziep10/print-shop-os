@@ -6,11 +6,11 @@ import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { flushSync } from 'react-dom';
 import { db, storage } from '../../lib/firebase';
 
-const ICON_BASE64 = {
-  phone: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyCAYAAAAeP4ixAAAACXBIWXMAAAsTAAALEwEAmpwYAAACEElEQVR4nO3ZzYtNYRzA8Z/XUWJDGKJk5WUpWUrsyEYUNanBn6D8BbLDCv+BxcR4jSxQkxoLRnmLImXl5UZIqI9OcxY3Zu7c59zuuc9kPn/B/fac+5zn+Z2IGTN6B3swii94gK0xnWAezvpXA6tiOsAiXDe5a5E7rMQTUxuIXGE5XmjPJ/RHbjAfI9IMR25wXDUHIyd4UzHkA1ZELvBVdUORC7zUmf2RAwx1GPI8coCjHYZ8jxxgGX53EHI/coHbHYQM5HbSreIRZkcuMAtjFUJ2Rm6wLzHicuTI+KrcSwgZjFxhI34mnILXRa5wMmFVHmJh5Ah95Q9sV7F190WOsAHfEmIuYm7kCEekOV9sGJEjE09TWjkVGY+G7iTGnM5yZYwPJl5VeMzmRG6wBm8TYy5hQeQGm/AxMebmRO+ZYrVwqBzF/sKz4ohUZ8yWchacYqz5BIDtLd5TV4pBYV0xO/AjMaY4zgziapvTmQN13l9SY1T4j/XXEbOtwmOWqlHMFOqI2Yz3uu8GVtdx9H9XQ0yj2Gy6HbO2wkuzitGuhjSNlVJumFV87npI0yeKc10MGaklpCnocOJ9pl27ag0pY9Yn3jSncqb2iL+uzScSBhqttt/e30DLLfquah5jcWQ2N9ub+Lg9Le5DkaMyaDdulUf4yRRb+dKYDrCkPBVfKD4YlZ8BX+NYcc3u9e+b8d/6A8BzVur0abPMAAAAAElFTkSuQmCC",
-  email: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyCAYAAAAeP4ixAAAACXBIWXMAAAsTAAALEwEAmpwYAAABm0lEQVR4nO3XQYhNURgA4J+YiTIllJJSSilFUYqykJWynK3Z2crK1pKlpa2lrdiIYiEWykJNTdlgIWlqRE0yPk2dxen14t178e77u1/d3Tn3/uee85/zn4jBYDAYTIMkQhIhiZBESCIkHsiG/tuYZCAn8VR/vcCZPw6kOl8u4a3+eIfL2DLu/Bs3I9cwVxrP4zrWTM9aiWG+xDRXYpwo2VewWM3OHtzGD/83D+5ifxXHBbxps2s9wYnqRUfxwL/3GMdHvvuw6/bb6M90tDKyEvZOuhKanCNfcQM7yke24wo+6W51TB5cbZKbbQ7E9yO7x27cxHqLd33HHezruluG9l7ibBXAEdxr0P8RjlX9T+HZtEqUnyX4Q1VA5/H6N32WcbFqf6DMSqeK4m/VWt/K8tpVgttalt/Hqs3nsu63lTY7S1586WPR+AFLmwMpwS7gVnkWqkEulba9r35f4dyYa/VpPJ/FMv4+DuNgOYs2c2pm7yPrLbfmRlJfrGZSSCIkEZIISYQkQhIhiZBESCIkEZIIScRgMBgMYgp+AZ7xMRGVVHbYAAAAAElFTkSuQmCC",
-  globe: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyCAYAAAAeP4ixAAAACXBIWXMAAAsTAAALEwEAmpwYAAAGUUlEQVR4nO2ae5DWYxTHd9d2r41ULkWppNzCH9rRZYQZhs2tmEoU0R8mMZMuiu6MP5iiPxpmpEi6MFQzyiVlKAwp3bRhaCcySkm5dNk+5qzvs47f/N7f+76776rZ6fvX+zvP+T2/5zzPuTznnDcv7wRqKYAmwA3Ak8BiYAvwC/AxcBjYA2wDlgPTgNuAFnnHA4A6QF9gKXCI7HEU+AAYAjQ6VgLcD3znFmWCfAhMAm4FLgSaAfWAQuAUoCNQAowF3gZ+d+/vAh61k/2/hOgJbHYL2AgMA5pXYa7GwF3AR26+HaZ2NbP6fz5aKP03dUA2cBOQ73jqut/nA/PtJPQ8F+gex+s2aLUTyPgb51qIk4FVToXGhoUA9YH7gIVAS9EGyMgJJyXVsU0Yq2dTudnASCdsPnAPsM9tVptcCXE68KUm3g50dR+9E/heC+whunmuI25nvSABD4rWBjgg7zbChBO9A7BOvD8AF1RXiKbAek24AThT9NPkRgNmiW4G/VPEM8UJYqfVSfTRjr7e0c1+3hH9R+CcqgpxErDCGXQz0S+PLPYgcJbGnosIkUoQw0qdqqnmTkc/APTRO3Xl3QxbgaKqCDJFE5QBrUS7EvgtsqAXNNYJKM9CEMONGhsVoR8BBruTWSv6gmyFKNaiLCJ3c/TOwEztWkCsvgkBlhD1JVpBNkiu9wO9Gv8jmxU6gu9NMl9qJ3jaaSIPl3PDd2HshHEnEQHjY+X96u8tsgW2+v3QL1jatg0E0EG6YWvTX9FW6Tjfk3+viDmntVHbnkO8K7UwSL/qeJZJ++3Sjs+VYs7I2YNFwHPA39qUwtlT2ZXhqnphCgAvhLzANFuidlJc4kzgv/PBbTQye77HqOdozH8arEtabJrxfiNVKxA3iIO5SHyapcXABNMh4FrgMuAtiHyA62BLnIYfeV2ZwGfOI+4PcW39gV1ci55eJIg88Q0Rs83kxpb3QKTkGQjAVeLZ3ECz0jxmAobPkslRF15o6MuLpiup8Kr4umdA0EeFs/EBJ7tUr96zrG0jROkuwY36LkoTY4RTm1CDgR5JcEePS4R3+t6vjtOkDEafEbPllMkYZD4TM+rK8hq8XRNM9cj4rO0ofJqFBXE3KZhiJ6fSjNpifiW5ECQbeJpn2aupeLroeeP4wRZo8Fwi7WYkYTiyHvVEWSPSxeSsNkFSsPuOEFKNdhRz+F+kwoh4lrgrK4gR5U+56exyz/EUyD3Xx4NznkKcoSr+vEO/r28Nqm1gpRmqVrnim9bjlQr3KeyVa38Wmvss4+h+y11uXoSlkTc75qkgPhshlG2JgJicZq5xmQSELtpcKPLMSwfTxdlx+dAkLkZ3ia6ZHJFMT++X4Z3tmgh8Y/DfPGU5PDSOCmDS2N9d2mMr3mpuud3u3cGet0qB4L0ysDeRojHchnDp7FCRBKrb507jMvYkOur8OHAe8plrAjdD7gKuDRNYmU2+ZLlFS6xKktIrIoiqcUDSYIUqExZWa1IkVyVqWqSOt3MEtq0J1w88xgVuR3vTVuAUBk0nEoD0RbqBBbJKfwnCCl3uV2GbyfzvooNccWHlUqLLT/vbyXZmDVcrGJftPhgvRTD5Ex2xnL1z/XCFNFahrKNK6XaIma4cpB1pLK1kXJXDhqnAnZle0LTRXSfB5fG+u7SGF/zUnXP73bvDPSG8lF2c1S1IhQAQ50dbgpqmzPIlz/uDLpUVb+CFM3QToopoT/4cqRFEW2GmiOx8mnAnBrtvauQZ224AGtVDw+nkeVcZgeDI8lZmd2Ca2b18aczVNHfu8zVahf0VXRurttqHfUXO6ulPU6G7OPRzzL8Y/IPiELlEG+myV1SoVxu2E6lYd7xAHWxrtPF7w2p3C7t+iG1oK1F8RbwtDanIjadQG3E39DHWcd7/CWPAAAAAElFTkSuQmCC",
-  linkedin: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyCAYAAAAeP4ixAAAACXBIWXMAAAsTAAALEwEAmpwYAAABQ0lEQVR4nO3ZPUoDURSG4SOKnUbQVrDQHbgHBTNoKQp2lm7BRgIuxDXYGaMuxE7xh4BOKptXrkw15GbumMLvxvPCdGfu8DB/TGLmed6vAyeBatch4ZXJIeHEudtw7BXgWh2y2Xhw+5lbAO5lIW0CNoAvdQgwjzBzJQkBzoDnaoQBD5Fmh5H5DlnIMHLsMDLfkYUMs249h4QcYg6J5pCQQ8wh0RyiVqW1jBSIhEfC38bLqXo3KZAC/fYSIeXkO+F2koSo/creF7lnynA5JZ8Jz/Os3jeUEAlPAA8nBAF2s1wXsgAAAABJRU5ErkJggg=="
+const ICON_URLS = {
+  phone: "https://firebasestorage.googleapis.com/v0/b/wovn-catalog.firebasestorage.app/o/signatures%2Ficons%2Fphone.png?alt=media&token=be903116-e1c7-4412-986a-83b511e060e2",
+  email: "https://firebasestorage.googleapis.com/v0/b/wovn-catalog.firebasestorage.app/o/signatures%2Ficons%2Femail.png?alt=media&token=2cca23af-03ab-4f72-9c6e-5faeb895aa5f",
+  globe: "https://firebasestorage.googleapis.com/v0/b/wovn-catalog.firebasestorage.app/o/signatures%2Ficons%2Fglobe.png?alt=media&token=a7f48dd9-26bc-486d-ac18-e30c62a59eb4",
+  linkedin: "https://firebasestorage.googleapis.com/v0/b/wovn-catalog.firebasestorage.app/o/signatures%2Ficons%2Flinkedin.png?alt=media&token=b5e33666-0a30-44e2-88b0-4ed8f9a79f17"
 };
 
 export function Signatures() {
@@ -253,28 +253,21 @@ export function Signatures() {
       ctx.restore();
 
       // Export high-res canvas natively to PNG to support transparent background in Dark Mode
-      const bakedBase64 = canvas.toDataURL('image/png');
-
-      let finalUrl = '';
-      if (sigTargetPlatform === 'mac') {
-        finalUrl = bakedBase64;
-      } else {
-        const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png'));
-        if (!blob) throw new Error("Canvas export failed");
-        
-        const fileRef = ref(storage, `signatures/composites/${userData?.id}_${Date.now()}.png`);
-        const uploadTask = uploadBytesResumable(fileRef, blob);
-        
-        await new Promise<void>((resolve, reject) => {
-          uploadTask.on('state_changed', null, reject, () => resolve());
-        });
-        
-        finalUrl = await getDownloadURL(fileRef);
-      }
+      const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png'));
+      if (!blob) throw new Error("Canvas export failed");
+      
+      const fileRef = ref(storage, 'signatures/composites/' + (userData?.id || 'anonymous') + '_' + Date.now() + '.png');
+      const uploadTask = uploadBytesResumable(fileRef, blob);
+      
+      await new Promise<void>((resolve, reject) => {
+        uploadTask.on('state_changed', null, reject, () => resolve());
+      });
+      
+      const downloadURL = await getDownloadURL(fileRef);
       
       // Force React to synchronously update the DOM with the new composite URL
       flushSync(() => {
-        setCompositeUrl(finalUrl);
+        setCompositeUrl(downloadURL);
       });
       
       // Copy raw HTML string to completely bypass Chrome's visual layout engine converting % to fixed px
@@ -812,7 +805,7 @@ export function Signatures() {
                                             <tbody>
                                               <tr>
                                                 <td align="center" valign="middle">
-                                                  <img src={ICON_BASE64.phone} width="18" height="18" style={{ display: 'block', marginTop: '2px' }} alt="Phone" />
+                                                  <img src={ICON_URLS.phone} width="18" height="18" style={{ display: 'block', marginTop: '2px' }} alt="Phone" />
                                                 </td>
                                               </tr>
                                             </tbody>
@@ -827,7 +820,7 @@ export function Signatures() {
                                             <tbody>
                                               <tr>
                                                 <td align="center" valign="middle">
-                                                  <img src={ICON_BASE64.email} width="18" height="18" style={{ display: 'block', marginTop: '2px' }} alt="Email" />
+                                                  <img src={ICON_URLS.email} width="18" height="18" style={{ display: 'block', marginTop: '2px' }} alt="Email" />
                                                 </td>
                                               </tr>
                                             </tbody>
@@ -842,7 +835,7 @@ export function Signatures() {
                                             <tbody>
                                               <tr>
                                                 <td align="center" valign="middle">
-                                                  <img src={ICON_BASE64.globe} width="18" height="18" style={{ display: 'block' }} alt="Website" />
+                                                  <img src={ICON_URLS.globe} width="18" height="18" style={{ display: 'block' }} alt="Website" />
                                                 </td>
                                               </tr>
                                             </tbody>
@@ -857,7 +850,7 @@ export function Signatures() {
                                             <tbody>
                                               <tr>
                                                 <td align="center" valign="middle">
-                                                  <img src={ICON_BASE64.linkedin} width="18" height="18" style={{ display: 'block', marginBottom: '2px' }} alt="LinkedIn" />
+                                                  <img src={ICON_URLS.linkedin} width="18" height="18" style={{ display: 'block', marginBottom: '2px' }} alt="LinkedIn" />
                                                 </td>
                                               </tr>
                                             </tbody>
