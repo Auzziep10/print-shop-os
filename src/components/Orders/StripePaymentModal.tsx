@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { X, CreditCard, ShoppingCart, Package, MapPin, Building2 } from 'lucide-react';
@@ -148,6 +148,8 @@ const CheckoutForm = ({ order, onSuccess, onCancel }: { order: any, onSuccess: (
 export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, onClose: () => void, onSuccess: () => void }) {
   const [statusIndex, setStatusIndex] = useState<number>(order.statusIndex);
   const [isApproving, setIsApproving] = useState<boolean>(false);
+  const [calculatedTax, setCalculatedTax] = useState<number | null>(null);
+  const [isCalculatingTax, setIsCalculatingTax] = useState<boolean>(false);
 
   const handleApproveQuote = async () => {
     setIsApproving(true);
@@ -213,16 +215,48 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
     shippingAmount = parseFloat(String(order.shippingCost).replace(/[^0-9.]/g, '')) || 0;
   }
 
-  const finalTotal = itemsSubtotal + taxAmount + shippingAmount;
+  const hasShippingAddress = !!(order.shippingAddress && 
+    (order.shippingAddress.street1 || order.shippingAddress.street || order.shippingAddress.city));
+
+  useEffect(() => {
+    const calculateStripeTax = async () => {
+      if (!hasShippingAddress || regularItems.length === 0) return;
+      setIsCalculatingTax(true);
+      try {
+        const response = await fetch('/api/stripe/calculate-tax', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            shippingAddress: order.shippingAddress,
+            items: regularItems.map(item => ({
+              id: item.id || item.style || 'item',
+              amount: item.total,
+            })),
+          }),
+        });
+        const data = await response.json();
+        if (response.ok && data.taxAmount !== undefined) {
+          setCalculatedTax(data.taxAmount);
+        }
+      } catch (err) {
+        console.error('Failed to calculate Stripe tax:', err);
+      } finally {
+        setIsCalculatingTax(false);
+      }
+    };
+
+    calculateStripeTax();
+  }, [order.id, hasShippingAddress]);
+
+  const finalTaxAmount = calculatedTax !== null ? calculatedTax : taxAmount;
+  const finalTotal = itemsSubtotal + finalTaxAmount + shippingAmount;
 
   const formattedSubtotal = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(itemsSubtotal);
-  const formattedTax = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(taxAmount);
+  const formattedTax = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(finalTaxAmount);
   const formattedShipping = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(shippingAmount);
   const formattedTotal = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(finalTotal);
 
   const orderWithTotal = { ...order, totalFormatted: formattedTotal };
-  const hasShippingAddress = !!(order.shippingAddress && 
-    (order.shippingAddress.street1 || order.shippingAddress.street || order.shippingAddress.city));
 
   return (
     <div 
@@ -365,7 +399,11 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
               <div className="flex justify-between items-center text-xs font-semibold text-neutral-500 uppercase tracking-wider">
                 <span>Estimated Sales Tax</span>
                 <span className="font-bold text-neutral-800">
-                  {taxAmount > 0 ? formattedTax : '$0.00'}
+                  {isCalculatingTax ? (
+                    <span className="text-[10px] text-neutral-400 italic font-medium animate-pulse">Calculating...</span>
+                  ) : (
+                    finalTaxAmount > 0 ? formattedTax : '$0.00'
+                  )}
                 </span>
               </div>
 
