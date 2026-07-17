@@ -657,17 +657,18 @@ export function Signatures() {
                       <tr>
                         <td colSpan={2}>
                           {sigTargetPlatform === 'mac' ? (
-                            <div 
+                            <img 
+                              src={compositeUrl}
+                              alt="Signature Header"
+                              width="800"
+                              height="170"
                               style={{ 
-                                backgroundImage: `url('${compositeUrl}')`, 
-                                backgroundSize: 'cover', 
-                                backgroundPosition: 'left top', 
-                                backgroundRepeat: 'no-repeat', 
+                                display: 'block', 
                                 width: '100%', 
-                                paddingBottom: '21.25%', // 170 / 800 = 21.25%
+                                height: 'auto',
+                                maxWidth: '100%',
                                 borderTopLeftRadius: '24px',
-                                borderTopRightRadius: '24px',
-                                display: 'block'
+                                borderTopRightRadius: '24px'
                               }}
                             />
                           ) : (
