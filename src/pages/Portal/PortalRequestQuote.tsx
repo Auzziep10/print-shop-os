@@ -141,7 +141,7 @@ const parseSizesFromItem = (item: any, style = ''): string[] => {
 export function PortalRequestQuote() {
   const navigate = useNavigate();
   const { customerId } = useParams();
-  const { hasPermission } = useAuth();
+  const { hasPermission, userData } = useAuth();
   
   const [products, setProducts] = useState<any[]>([
     { id: 1, artworkUrl: null, artworkName: null, isUploading: false }
@@ -233,7 +233,7 @@ export function PortalRequestQuote() {
         <div className="w-full flex flex-col mt-2">
           <div className="flex items-baseline justify-between w-full">
             <h4 className="font-serif font-normal text-neutral-800 text-[17px] leading-tight tracking-wide truncate max-w-[75%]">{style}</h4>
-            {price > 0 && hasPermission('viewPricing') && (
+            {price > 0 && userData?.role !== 'Client' && hasPermission('viewPricing') && (
               <span className="font-serif font-normal text-neutral-800 text-[17px] shrink-0 ml-2">${price}</span>
             )}
           </div>
