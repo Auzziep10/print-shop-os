@@ -4,11 +4,15 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Loader2 } from 'lucide-react';
 
 export function Login() {
-  const { signInWithGoogle, user, userData, loading: authLoading } = useAuth();
+  const { signInWithGoogle, signInWithEmail, signUpWithEmail, sendPasswordReset, user, userData, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [authMode, setAuthMode] = useState<'signIn' | 'signUp' | 'forgotPassword'>('signIn');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const blobRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -46,13 +50,65 @@ export function Login() {
 
   const handleGoogleSignIn = () => {
     setError(null);
+    setMessage(null);
     setIsLoading(true);
     signInWithGoogle()
       .catch((err) => {
         console.error(err);
-        setError('Failed to sign in. Please try again.');
+        setError('Failed to sign in with Google. Please try again.');
         setIsLoading(false);
       });
+  };
+
+  const handleEmailAuthSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) {
+      setError('Email is required.');
+      return;
+    }
+    setError(null);
+    setMessage(null);
+    setIsLoading(true);
+
+    if (authMode === 'forgotPassword') {
+      sendPasswordReset(email)
+        .then(() => {
+          setMessage('A password reset link has been sent to your email.');
+          setIsLoading(false);
+        })
+        .catch((err) => {
+          console.error(err);
+          setError(err.message || 'Failed to send password reset email.');
+          setIsLoading(false);
+        });
+      return;
+    }
+
+    if (!password || password.length < 6) {
+      setError('Password must be at least 6 characters long.');
+      setIsLoading(false);
+      return;
+    }
+
+    if (authMode === 'signUp') {
+      signUpWithEmail(email, password)
+        .catch((err) => {
+          console.error(err);
+          setError(err.message || 'Failed to register. Please try again.');
+          setIsLoading(false);
+        });
+    } else {
+      signInWithEmail(email, password)
+        .catch((err) => {
+          console.error(err);
+          if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
+            setError('Invalid email or password.');
+          } else {
+            setError(err.message || 'Failed to sign in. Please try again.');
+          }
+          setIsLoading(false);
+        });
+    }
   };
 
   return (
@@ -98,17 +154,101 @@ export function Login() {
         <div className="backdrop-blur-md bg-black/40 border border-white/5 p-10 sm:p-12 rounded-3xl shadow-2xl transition-all duration-500 w-full relative overflow-hidden group">
           
           <h1 className="font-serif text-3xl sm:text-4xl text-white tracking-tight mb-3 drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)]">
-            Welcome
+            {authMode === 'signIn' ? 'Welcome' : authMode === 'signUp' ? 'Create Account' : 'Reset Password'}
           </h1>
-          <p className="text-[14px] sm:text-[15px] text-neutral-300/90 mb-10 leading-relaxed max-w-sm mx-auto font-medium">
-            Authenticate to securely access your bespoke production workspace.
+          <p className="text-[14px] sm:text-[15px] text-neutral-300/90 mb-6 leading-relaxed max-w-sm mx-auto font-medium">
+            {authMode === 'signIn' 
+              ? 'Authenticate to securely access your bespoke production workspace.' 
+              : authMode === 'signUp' 
+                ? 'Create a credential to access your bespoke production workspace.' 
+                : 'Enter your email address to receive a password reset link.'}
           </p>
 
           {error && (
-            <div className="mb-8 p-4 bg-red-950/30 border border-red-900/50 rounded-xl text-red-500 text-sm text-center font-medium backdrop-blur-sm">
+            <div className="mb-6 p-4 bg-red-950/30 border border-red-900/50 rounded-xl text-red-500 text-sm text-center font-medium backdrop-blur-sm">
               {error}
             </div>
           )}
+
+          {message && (
+            <div className="mb-6 p-4 bg-emerald-950/30 border border-emerald-900/50 rounded-xl text-emerald-400 text-sm text-center font-medium backdrop-blur-sm">
+              {message}
+            </div>
+          )}
+
+          <form onSubmit={handleEmailAuthSubmit} className="space-y-4 text-left w-full">
+            <div>
+              <label className="block text-[11px] uppercase tracking-wider font-bold text-neutral-400 mb-1.5">
+                Email Address
+              </label>
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:ring-1 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all duration-200"
+                placeholder="you@example.com"
+                disabled={isLoading}
+              />
+            </div>
+
+            {authMode !== 'forgotPassword' && (
+              <div>
+                <div className="flex justify-between items-center mb-1.5">
+                  <label className="block text-[11px] uppercase tracking-wider font-bold text-neutral-400">
+                    Password
+                  </label>
+                  {authMode === 'signIn' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAuthMode('forgotPassword');
+                        setError(null);
+                        setMessage(null);
+                      }}
+                      className="text-xs text-amber-500/80 hover:text-amber-400 transition-colors font-medium"
+                    >
+                      Forgot Password?
+                    </button>
+                  )}
+                </div>
+                <input
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-sm focus:ring-1 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all duration-200"
+                  placeholder="••••••••"
+                  disabled={isLoading}
+                />
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="flex items-center justify-center gap-2 w-full py-4 rounded-xl bg-gradient-to-b from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-bold shadow-[0_0_20px_rgba(245,158,11,0.2)] hover:shadow-[0_0_30px_rgba(245,158,11,0.3)] transition-all duration-300 disabled:opacity-50 active:scale-95"
+            >
+              {isLoading ? (
+                <Loader2 className="animate-spin" size={18} />
+              ) : authMode === 'signIn' ? (
+                'Sign In'
+              ) : authMode === 'signUp' ? (
+                'Create Account'
+              ) : (
+                'Send Reset Link'
+              )}
+            </button>
+          </form>
+
+          <div className="relative my-6 w-full flex items-center justify-center">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-white/10"></div>
+            </div>
+            <span className="relative px-3 bg-neutral-900 text-[11px] uppercase tracking-widest text-neutral-500 font-semibold">
+              or
+            </span>
+          </div>
 
           <button 
             onClick={handleGoogleSignIn}
@@ -128,6 +268,51 @@ export function Login() {
             )}
             Continue Using Google
           </button>
+
+          <div className="mt-8 pt-6 border-t border-white/5 flex flex-col items-center gap-3 text-sm">
+            {authMode === 'signIn' && (
+              <p className="text-neutral-400 text-xs">
+                Don't have an account?{' '}
+                <button
+                  onClick={() => {
+                    setAuthMode('signUp');
+                    setError(null);
+                    setMessage(null);
+                  }}
+                  className="text-white hover:text-amber-400 font-semibold underline transition-colors"
+                >
+                  Sign Up
+                </button>
+              </p>
+            )}
+            {authMode === 'signUp' && (
+              <p className="text-neutral-400 text-xs">
+                Already have an account?{' '}
+                <button
+                  onClick={() => {
+                    setAuthMode('signIn');
+                    setError(null);
+                    setMessage(null);
+                  }}
+                  className="text-white hover:text-amber-400 font-semibold underline transition-colors"
+                >
+                  Sign In
+                </button>
+              </p>
+            )}
+            {authMode === 'forgotPassword' && (
+              <button
+                onClick={() => {
+                  setAuthMode('signIn');
+                  setError(null);
+                  setMessage(null);
+                }}
+                className="text-white hover:text-amber-400 font-semibold underline text-xs transition-colors"
+              >
+                Back to Sign In
+              </button>
+            )}
+          </div>
         </div>
       </div>
       
