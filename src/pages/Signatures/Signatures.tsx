@@ -18,6 +18,7 @@ export function Signatures() {
   const [savingPersonal, setSavingPersonal] = useState(false);
   const [compositeUrl, setCompositeUrl] = useState<string | null>(null);
   const [generatingComposite, setGeneratingComposite] = useState(false);
+  const [sigTargetPlatform, setSigTargetPlatform] = useState<'pc' | 'mac'>('pc');
   
   // Multiple profiles state
   const [savedSignatures, setSavedSignatures] = useState<any[]>([]);
@@ -594,14 +595,38 @@ export function Signatures() {
                 <h2 className="font-medium text-brand-primary">Live Preview</h2>
                 <p className="text-xs text-brand-secondary">What you see is what gets copied.</p>
               </div>
-              <button 
-                onClick={generateCompositeAndCopy}
-                disabled={generatingComposite}
-                className="flex items-center justify-center gap-2 px-6 py-2 bg-black text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors shadow-sm disabled:opacity-50"
-              >
-                {generatingComposite ? <Loader2 size={16} className="animate-spin" /> : copied ? <CheckCircle size={16} className="text-green-400" /> : <Copy size={16} />}
-                {generatingComposite ? 'Generating...' : copied ? 'Copied HTML!' : 'Copy Signature'}
-              </button>
+              <div className="flex flex-col sm:items-end gap-2">
+                <button 
+                  onClick={generateCompositeAndCopy}
+                  disabled={generatingComposite}
+                  className="flex items-center justify-center gap-2 px-6 py-2 bg-black text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors shadow-sm disabled:opacity-50 w-full sm:w-auto"
+                >
+                  {generatingComposite ? <Loader2 size={16} className="animate-spin" /> : copied ? <CheckCircle size={16} className="text-green-400" /> : <Copy size={16} />}
+                  {generatingComposite ? 'Generating...' : copied ? 'Copied HTML!' : 'Copy Signature'}
+                </button>
+                <div className="flex bg-gray-100 p-1 rounded-lg text-xs font-semibold self-start sm:self-auto">
+                  <button 
+                    onClick={() => setSigTargetPlatform('pc')} 
+                    className={`px-3 py-1 rounded-md transition-all ${
+                      sigTargetPlatform === 'pc' 
+                        ? 'bg-white text-black shadow-sm' 
+                        : 'text-gray-500 hover:text-gray-900'
+                    }`}
+                  >
+                    100% Fluid (PC/Gmail)
+                  </button>
+                  <button 
+                    onClick={() => setSigTargetPlatform('mac')} 
+                    className={`px-3 py-1 rounded-md transition-all ${
+                      sigTargetPlatform === 'mac' 
+                        ? 'bg-white text-black shadow-sm' 
+                        : 'text-gray-500 hover:text-gray-900'
+                    }`}
+                  >
+                    Apple Mail (100% Width Fix)
+                  </button>
+                </div>
+              </div>
             </div>
             
             <div className="p-8 lg:p-12 flex-1 overflow-x-auto bg-gray-50 flex items-start justify-center min-h-[500px]">
@@ -631,18 +656,34 @@ export function Signatures() {
                     {compositeUrl ? (
                       <tr>
                         <td colSpan={2}>
-                          <img 
-                            src={compositeUrl}
-                            alt="Signature Header"
-                            width="100%"
-                            style={{ 
-                              display: 'block', 
-                              width: '100%', 
-                              height: 'auto',
-                              borderTopLeftRadius: '24px',
-                              borderTopRightRadius: '24px'
-                            }}
-                          />
+                          {sigTargetPlatform === 'mac' ? (
+                            <div 
+                              style={{ 
+                                backgroundImage: `url('${compositeUrl}')`, 
+                                backgroundSize: 'cover', 
+                                backgroundPosition: 'left top', 
+                                backgroundRepeat: 'no-repeat', 
+                                width: '100%', 
+                                paddingBottom: '21.25%', // 170 / 800 = 21.25%
+                                borderTopLeftRadius: '24px',
+                                borderTopRightRadius: '24px',
+                                display: 'block'
+                              }}
+                            />
+                          ) : (
+                            <img 
+                              src={compositeUrl}
+                              alt="Signature Header"
+                              width="100%"
+                              style={{ 
+                                display: 'block', 
+                                width: '100%', 
+                                height: 'auto',
+                                borderTopLeftRadius: '24px',
+                                borderTopRightRadius: '24px'
+                              }}
+                            />
+                          )}
                         </td>
                       </tr>
                     ) : (
