@@ -732,7 +732,7 @@ export function Signatures() {
                                             <tbody>
                                               <tr>
                                                 <td align="center" valign="middle">
-                                                  <img src="https://img.icons8.com/ios-filled/50/ffffff/iphone-x.png" width="18" height="18" style={{ display: 'block', marginTop: '2px' }} alt="Phone" />
+                                                  <img src="https://img.icons8.com/ios-filled/50/ffffff/phone.png" width="18" height="18" style={{ display: 'block', marginTop: '2px' }} alt="Phone" />
                                                 </td>
                                               </tr>
                                             </tbody>
@@ -747,7 +747,7 @@ export function Signatures() {
                                             <tbody>
                                               <tr>
                                                 <td align="center" valign="middle">
-                                                  <img src="https://img.icons8.com/ios-filled/50/ffffff/speech-bubble-with-dots.png" width="18" height="18" style={{ display: 'block', marginTop: '2px' }} alt="Email" />
+                                                  <img src="https://img.icons8.com/ios-filled/50/ffffff/mail.png" width="18" height="18" style={{ display: 'block', marginTop: '2px' }} alt="Email" />
                                                 </td>
                                               </tr>
                                             </tbody>
