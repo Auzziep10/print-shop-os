@@ -234,8 +234,12 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
             })),
           }),
         });
+        if (!response.ok) {
+          const text = await response.text();
+          throw new Error(`HTTP ${response.status}: ${text}`);
+        }
         const data = await response.json();
-        if (response.ok && data.taxAmount !== undefined) {
+        if (data.taxAmount !== undefined) {
           setCalculatedTax(data.taxAmount);
         }
       } catch (err) {
