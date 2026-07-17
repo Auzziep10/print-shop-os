@@ -266,10 +266,21 @@ export function Signatures() {
       
       const downloadURL = await getDownloadURL(fileRef);
       
+      // Preload the image in browser cache to ensure it is loaded before copy is executed
+      const imgPreload = new Image();
+      imgPreload.src = downloadURL;
+      await new Promise((resolve) => {
+        imgPreload.onload = resolve;
+        imgPreload.onerror = resolve;
+      });
+
       // Force React to synchronously update the DOM with the new composite URL
       flushSync(() => {
         setCompositeUrl(downloadURL);
       });
+
+      // Wait 150ms for browser layout and rendering
+      await new Promise(resolve => setTimeout(resolve, 150));
       
       // Copy raw HTML string to completely bypass Chrome's visual layout engine converting % to fixed px
       if (!signatureRef.current) return;
