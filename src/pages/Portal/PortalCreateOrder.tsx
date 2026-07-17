@@ -153,7 +153,7 @@ export function PortalCreateOrder() {
   const navigate = useNavigate();
   const { customerId } = useParams();
   const location = useLocation();
-  const { user, userData } = useAuth();
+  const { user, userData, hasPermission } = useAuth();
   
   // Saved Carts States
   const [savedCarts, setSavedCarts] = useState<any[]>([]);
@@ -269,7 +269,7 @@ export function PortalCreateOrder() {
         <div className="w-full flex flex-col mt-2">
           <div className="flex items-baseline justify-between w-full">
             <h4 className="font-serif font-normal text-neutral-800 text-[17px] leading-tight tracking-wide truncate max-w-[75%]">{style}</h4>
-            {price > 0 && (
+            {price > 0 && hasPermission('viewPricing') && (
               <span className="font-serif font-normal text-neutral-800 text-[17px] shrink-0 ml-2">${price}</span>
             )}
           </div>

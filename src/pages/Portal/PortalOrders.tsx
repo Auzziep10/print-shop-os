@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ChevronRight, Loader2, PackageOpen, Building2, X, Trash2, ChevronDown, Box, Printer, ExternalLink, Truck, Download, Check, RotateCcw } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
 import { useOrders } from '../../hooks/useOrders';
 import { db } from '../../lib/firebase';
 import QRCode from 'react-qr-code';
@@ -74,6 +75,7 @@ const DataPill = ({ label, value }: { label: string, value: string }) => (
 export function PortalOrders({ overrideCustomerId, hideHeader = false, filterType = 'all' }: { overrideCustomerId?: string, hideHeader?: boolean, filterType?: 'quotes' | 'orders' | 'all' }) {
   const { customerId } = useParams();
   const navigate = useNavigate();
+  const { hasPermission } = useAuth();
   const currentCustomerId = overrideCustomerId || customerId || 'CUS-001';
   
   // If no customerId is in the URL, fallback to Wayne Enterprises 'CUS-001' to demo it!
@@ -879,7 +881,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                                 safeTotalStr = `$${(safeQty * safePriceNum).toFixed(2)}`;
                             }
 
-                            const showPricing = order.statusIndex >= 2;
+                            const showPricing = order.statusIndex >= 2 && hasPermission('viewPricing');
 
                             return (
                               <>

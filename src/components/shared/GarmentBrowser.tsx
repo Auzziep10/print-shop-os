@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { X, Search, Check, DollarSign, Shirt } from 'lucide-react';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
 import colorHexMapJson from '../../data/color-hex-map.json';
+import { useAuth } from '../../contexts/AuthContext';
 
 const colorHexMap = colorHexMapJson as Record<string, string>;
 
@@ -201,6 +202,7 @@ export function getSwatchColor(colorName: string, returnGradient = false): strin
 }
 
 export function GarmentBrowser({ isOpen, onClose, onSelect, allowedStyleCodes }: GarmentBrowserProps) {
+  const { hasPermission } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedBrand, setSelectedBrand] = useState('All');
   const [visibleCount, setVisibleCount] = useState(24);
@@ -336,9 +338,11 @@ export function GarmentBrowser({ isOpen, onClose, onSelect, allowedStyleCodes }:
                     {/* Visual Preview */}
                     <div className="aspect-[4/5] bg-white border-b border-brand-border flex items-center justify-center p-6 relative overflow-hidden shrink-0 transition-colors">
                       {/* Price Badge */}
-                      <div className="absolute top-4 left-4 z-10 bg-white/95 backdrop-blur-xs border border-brand-border text-brand-primary text-xs font-bold px-3 py-1 rounded-full flex items-center gap-0.5 shadow-sm">
-                        <DollarSign size={11} />{product.price.toFixed(2)}
-                      </div>
+                      {hasPermission('viewPricing') && (
+                        <div className="absolute top-4 left-4 z-10 bg-white/95 backdrop-blur-xs border border-brand-border text-brand-primary text-xs font-bold px-3 py-1 rounded-full flex items-center gap-0.5 shadow-sm">
+                          <DollarSign size={11} />{product.price.toFixed(2)}
+                        </div>
+                      )}
 
                       {/* Category Badge */}
                       <div className="absolute top-4 right-4 bg-white/85 backdrop-blur-xs border border-brand-border text-brand-secondary text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md">

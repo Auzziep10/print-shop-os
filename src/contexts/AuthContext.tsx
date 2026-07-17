@@ -76,7 +76,7 @@ export const DEFAULT_PERMISSIONS: PermissionsData = {
     manageInventory: false,
     manageTeam: false,
     manageSettings: false,
-    viewPricing: true,
+    viewPricing: false,
   },
   Pending: {
     viewDashboard: false,
