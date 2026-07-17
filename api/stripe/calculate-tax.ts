@@ -47,8 +47,10 @@ export default async function handler(req: Request) {
       },
     });
 
+    const taxTotal = (calculation.tax_amount_exclusive || 0) + (calculation.tax_amount_inclusive || 0);
+
     return new Response(JSON.stringify({ 
-      taxAmount: calculation.tax_amount_details.tax_amount / 100, // Return in dollars
+      taxAmount: taxTotal / 100, // Return in dollars
       totalAmount: calculation.amount_total / 100,
       calculationId: calculation.id
     }), {
