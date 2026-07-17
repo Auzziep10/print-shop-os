@@ -265,6 +265,30 @@ export function Signatures() {
       
       // Copy raw HTML string to completely bypass Chrome's visual layout engine converting % to fixed px
       if (!signatureRef.current) return;
+      
+      if (sigTargetPlatform === 'mac') {
+        // Selection-based copy for Mac/Apple Mail to ensure images and rich formatting are preserved on paste
+        try {
+          const selection = window.getSelection();
+          const range = document.createRange();
+          range.selectNodeContents(signatureRef.current);
+          selection?.removeAllRanges();
+          selection?.addRange(range);
+          
+          const success = document.execCommand('copy');
+          selection?.removeAllRanges();
+          
+          if (success) {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+            setGeneratingComposite(false);
+            return;
+          }
+        } catch (err) {
+          console.warn('Selection-based copy failed, falling back to Clipboard API', err);
+        }
+      }
+
       // aggressively minify HTML output footprint to bypass Gmail signature 10000 char limit string rejections
       const htmlContent = signatureRef.current.outerHTML.replace(/\n/g, '').replace(/\s+/g, ' ').replace(/>\s+</g, '><').trim();
       const htmlBlob = new Blob([htmlContent], { type: 'text/html' });
