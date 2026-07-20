@@ -24,6 +24,7 @@ interface GarmentBrowserProps {
   onClose: () => void;
   onSelect: (product: SanMarProduct, initialColor: string) => void;
   allowedStyleCodes?: string[];
+  hidePricing?: boolean;
 }
 
 const baseColors: Record<string, string> = {
@@ -201,7 +202,7 @@ export function getSwatchColor(colorName: string, returnGradient = false): strin
   return colors[0];
 }
 
-export function GarmentBrowser({ isOpen, onClose, onSelect, allowedStyleCodes }: GarmentBrowserProps) {
+export function GarmentBrowser({ isOpen, onClose, onSelect, allowedStyleCodes, hidePricing = false }: GarmentBrowserProps) {
   const { hasPermission, userData } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedBrand, setSelectedBrand] = useState('All');
@@ -338,7 +339,7 @@ export function GarmentBrowser({ isOpen, onClose, onSelect, allowedStyleCodes }:
                     {/* Visual Preview */}
                     <div className="aspect-[4/5] bg-white border-b border-brand-border flex items-center justify-center p-6 relative overflow-hidden shrink-0 transition-colors">
                       {/* Price Badge */}
-                      {hasPermission('viewPricing') && userData?.role !== 'Client' && (
+                      {!hidePricing && hasPermission('viewPricing') && userData?.role !== 'Client' && (
                         <div className="absolute top-4 left-4 z-10 bg-white/95 backdrop-blur-xs border border-brand-border text-brand-primary text-xs font-bold px-3 py-1 rounded-full flex items-center gap-0.5 shadow-sm">
                           <DollarSign size={11} />{product.price.toFixed(2)}
                         </div>

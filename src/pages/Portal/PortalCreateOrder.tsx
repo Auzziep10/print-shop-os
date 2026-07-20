@@ -153,7 +153,7 @@ export function PortalCreateOrder() {
   const navigate = useNavigate();
   const { customerId } = useParams();
   const location = useLocation();
-  const { user, userData, hasPermission } = useAuth();
+  const { user, userData } = useAuth();
   
   // Saved Carts States
   const [savedCarts, setSavedCarts] = useState<any[]>([]);
@@ -269,9 +269,6 @@ export function PortalCreateOrder() {
         <div className="w-full flex flex-col mt-2">
           <div className="flex items-baseline justify-between w-full">
             <h4 className="font-serif font-normal text-neutral-800 text-[17px] leading-tight tracking-wide truncate max-w-[75%]">{style}</h4>
-            {price > 0 && userData?.role !== 'Client' && hasPermission('viewPricing') && (
-              <span className="font-serif font-normal text-neutral-800 text-[17px] shrink-0 ml-2">${price}</span>
-            )}
           </div>
           <div className="relative h-6 mt-1 flex items-center justify-start w-full">
             {/* Gender tag - visible when not hovered */}
@@ -2284,7 +2281,13 @@ export function PortalCreateOrder() {
       {customizingItem && (
         <GarmentCustomizerModal
           isOpen={!!customizingItem}
-          onClose={() => setCustomizingItem(null)}
+          onClose={() => {
+            const hasQuantities = Object.values(customizingItem.quantities || {}).some((q: any) => parseFloat(q || 0) > 0);
+            if (!customizingItem.customized && !hasQuantities) {
+              setOrderItems(prev => prev.filter(item => item.instanceId !== customizingItem.instanceId));
+            }
+            setCustomizingItem(null);
+          }}
           garment={{
             id: customizingItem.instanceId,
             style: customizingItem.style,
@@ -2620,6 +2623,7 @@ export function PortalCreateOrder() {
         onClose={() => setIsGarmentBrowserOpen(false)}
         onSelect={handleSelectSanMarGarment}
         allowedStyleCodes={allowedStyleCodes}
+        hidePricing={true}
       />
 
       {/* Incomplete Profile Modal */}

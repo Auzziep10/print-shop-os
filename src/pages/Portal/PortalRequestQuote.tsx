@@ -6,8 +6,6 @@ import { doc, getDoc, setDoc, query, collection, where, getDocs, updateDoc } fro
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { GarmentCustomizerModal } from '../../components/Portal/GarmentCustomizerModal';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
-import { useAuth } from '../../contexts/AuthContext';
-
 const sanmarCatalog = sanmarCatalogJson as any[];
 
 import { getSwatchColor } from '../../components/shared/GarmentBrowser';
@@ -141,7 +139,6 @@ const parseSizesFromItem = (item: any, style = ''): string[] => {
 export function PortalRequestQuote() {
   const navigate = useNavigate();
   const { customerId } = useParams();
-  const { hasPermission, userData } = useAuth();
   
   const [products, setProducts] = useState<any[]>([
     { id: 1, artworkUrl: null, artworkName: null, isUploading: false }
@@ -197,7 +194,6 @@ export function PortalRequestQuote() {
     const colors = findColorsInObj({ ...item }) || item.colors || ['Custom Color'];
     const formattedColors = colors.length === 0 ? ['Custom Color'] : colors;
     const image = getGarmentImage(item);
-    const price = parseFloat(item.price || item.msrp || item.unit_cost || 0);
 
     return (
       <div 
@@ -233,9 +229,6 @@ export function PortalRequestQuote() {
         <div className="w-full flex flex-col mt-2">
           <div className="flex items-baseline justify-between w-full">
             <h4 className="font-serif font-normal text-neutral-800 text-[17px] leading-tight tracking-wide truncate max-w-[75%]">{style}</h4>
-            {price > 0 && userData?.role !== 'Client' && hasPermission('viewPricing') && (
-              <span className="font-serif font-normal text-neutral-800 text-[17px] shrink-0 ml-2">${price}</span>
-            )}
           </div>
           <div className="relative h-6 mt-1 flex items-center justify-start w-full">
             {/* Gender tag - visible when not hovered */}
