@@ -3055,7 +3055,7 @@ export function OrderDetail() {
                <div>
                   <span className="text-xs text-brand-secondary font-medium uppercase tracking-wider block mb-1">Delivery</span>
                   {!order.trackingCarrier ? (
-                    <span className="font-serif text-lg">Pickup</span>
+                    <span className="font-serif text-lg">{order.deliveryOption || 'Pickup'}</span>
                   ) : (
                     <div>
                       <span className="font-serif text-lg block">{order.trackingCarrier}</span>

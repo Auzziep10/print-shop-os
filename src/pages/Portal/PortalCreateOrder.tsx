@@ -176,7 +176,7 @@ export function PortalCreateOrder() {
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
   // Selected Packaging preference
-  const selectedPackaging = 'Retail (single folded)';
+  const [selectedPackaging, setSelectedPackaging] = useState('Retail (single folded)');
 
   // Selected Delivery option
   const [deliveryOption, setDeliveryOption] = useState('Shipping');
@@ -2019,6 +2019,23 @@ export function PortalCreateOrder() {
                             {opt}
                           </button>
                         ))}
+                      </div>
+                    </div>
+
+                    {/* Packaging Options */}
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider pl-1">Packaging Option</label>
+                      <div className="relative">
+                        <select 
+                          value={selectedPackaging} 
+                          onChange={e => setSelectedPackaging(e.target.value)} 
+                          className="w-full appearance-none bg-neutral-50 border border-neutral-200 focus:bg-white focus:border-black rounded-xl px-4 py-2.5 text-xs text-neutral-900 focus:outline-none cursor-pointer font-bold"
+                        >
+                          <option value="Factory Folded (10 garments per stack)">Factory Folded (10 garments per stack)</option>
+                          <option value="Retail (single folded)">Retail (single folded)</option>
+                          <option value="Individually Bagged and Labeled">Individually Bagged and Labeled</option>
+                        </select>
+                        <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" size={14} />
                       </div>
                     </div>
 
