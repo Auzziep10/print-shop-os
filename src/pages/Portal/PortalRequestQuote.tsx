@@ -743,25 +743,25 @@ export function PortalRequestQuote() {
          const artworks = [];
          if (p.logoUrl) {
            const aspect = await getImageAspectRatio(p.logoUrl);
-           const w = p.logoWidthFront || 3.5;
+           const w = (p.logoWidthFront && !isNaN(parseFloat(p.logoWidthFront))) ? parseFloat(p.logoWidthFront) : 0;
            const h = parseFloat((w * aspect).toFixed(2));
            artworks.push({ url: p.logoUrl, originalUrl: p.logoUrl, name: p.logoName || 'Front Logo', width: w, height: h, aspectRatio: aspect, quantity: totalQty });
          }
          if (p.logoUrlBack) {
            const aspect = await getImageAspectRatio(p.logoUrlBack);
-           const w = p.logoWidthBack || 3.5;
+           const w = (p.logoWidthBack && !isNaN(parseFloat(p.logoWidthBack))) ? parseFloat(p.logoWidthBack) : 0;
            const h = parseFloat((w * aspect).toFixed(2));
            artworks.push({ url: p.logoUrlBack, originalUrl: p.logoUrlBack, name: p.logoNameBack || 'Back Logo', width: w, height: h, aspectRatio: aspect, quantity: totalQty });
          }
          if (p.logoUrlLeftSleeve) {
            const aspect = await getImageAspectRatio(p.logoUrlLeftSleeve);
-           const w = p.logoWidthLeftSleeve || 3.5;
+           const w = (p.logoWidthLeftSleeve && !isNaN(parseFloat(p.logoWidthLeftSleeve))) ? parseFloat(p.logoWidthLeftSleeve) : 0;
            const h = parseFloat((w * aspect).toFixed(2));
            artworks.push({ url: p.logoUrlLeftSleeve, originalUrl: p.logoUrlLeftSleeve, name: p.logoNameLeftSleeve || 'Left Sleeve Logo', width: w, height: h, aspectRatio: aspect, quantity: totalQty });
          }
          if (p.logoUrlRightSleeve) {
            const aspect = await getImageAspectRatio(p.logoUrlRightSleeve);
-           const w = p.logoWidthRightSleeve || 3.5;
+           const w = (p.logoWidthRightSleeve && !isNaN(parseFloat(p.logoWidthRightSleeve))) ? parseFloat(p.logoWidthRightSleeve) : 0;
            const h = parseFloat((w * aspect).toFixed(2));
            artworks.push({ url: p.logoUrlRightSleeve, originalUrl: p.logoUrlRightSleeve, name: p.logoNameRightSleeve || 'Right Sleeve Logo', width: w, height: h, aspectRatio: aspect, quantity: totalQty });
          }

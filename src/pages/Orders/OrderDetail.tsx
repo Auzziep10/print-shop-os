@@ -1222,6 +1222,7 @@ export function OrderDetail() {
   const [isZipping, setIsZipping] = useState(false);
   const [generatingItemId, setGeneratingItemId] = useState<string | null>(null);
   const [generatingTagItemId, setGeneratingTagItemId] = useState<string | null>(null);
+  const [tagColorOverrides, setTagColorOverrides] = useState<Record<string, string>>({});
   const [previewMode, setPreviewMode] = useState<Record<string, 'print' | 'cut'>>({});
   const [editingSpecsCardId, setEditingSpecsCardId] = useState<string | null>(null);
   const [editingArtworks, setEditingArtworks] = useState<any[]>([]);
@@ -2107,6 +2108,23 @@ export function OrderDetail() {
         img.onerror = () => reject(new Error("Failed to load base tag image"));
       });
 
+      const overrideColor = tagColorOverrides[item.id];
+      let processedTagImg: HTMLCanvasElement | HTMLImageElement = tagBaseImg;
+
+      if (overrideColor) {
+        const tempRecolorCanvas = document.createElement('canvas');
+        tempRecolorCanvas.width = tagBaseImg.naturalWidth || 750;
+        tempRecolorCanvas.height = tagBaseImg.naturalHeight || 750;
+        const tempRecolorCtx = tempRecolorCanvas.getContext('2d');
+        if (tempRecolorCtx) {
+          tempRecolorCtx.drawImage(tagBaseImg, 0, 0, tempRecolorCanvas.width, tempRecolorCanvas.height);
+          tempRecolorCtx.globalCompositeOperation = 'source-in';
+          tempRecolorCtx.fillStyle = overrideColor;
+          tempRecolorCtx.fillRect(0, 0, tempRecolorCanvas.width, tempRecolorCanvas.height);
+          processedTagImg = tempRecolorCanvas;
+        }
+      }
+
       // Wait for the custom size font to load in the browser to prevent fallback to standard serif
       const fontName = item.tagSizeFont || 'Graduate';
       const isBold = item.tagSizeBold !== false;
@@ -2145,9 +2163,9 @@ export function OrderDetail() {
         const singleCtx = singleCanvas.getContext('2d');
         if (!singleCtx) continue;
 
-        singleCtx.drawImage(tagBaseImg, 0, 0, tagDim, tagDim);
+        singleCtx.drawImage(processedTagImg, 0, 0, tagDim, tagDim);
 
-        const fontColor = item.tagSizeColor || '#111111';
+        const fontColor = overrideColor || item.tagSizeColor || '#111111';
         const tagSizeScale = item.tagSizeScale || 35;
         const fontPx = tagSizeScale * 1.40625 * (750 / 600); 
 
@@ -4098,6 +4116,24 @@ export function OrderDetail() {
                                 </button>
                               </div>
                             )}
+                          </div>
+                        )}
+
+                        {/* Recolor options for tags */}
+                        {card.type === 'tag' && (
+                          <div className="flex items-center justify-between gap-3 border-t border-neutral-805 pt-3 text-xs">
+                            <span className="text-neutral-400 font-bold uppercase tracking-wider text-[10px]">Print Color Override:</span>
+                            <select
+                              value={tagColorOverrides[card.item.id] || ''}
+                              onChange={(e) => setTagColorOverrides(prev => ({ ...prev, [card.item.id]: e.target.value }))}
+                              className="bg-neutral-950 border border-neutral-800 hover:border-neutral-700 text-white rounded-lg px-2.5 py-1 text-xs focus:outline-none font-bold cursor-pointer"
+                            >
+                              <option value="">Keep Original (Designed)</option>
+                              <option value="#ffffff">Solid White</option>
+                              <option value="#111111">Solid Black</option>
+                              <option value="#a1a1a1">Solid Cool Grey</option>
+                              <option value="#d4af37">Solid Gold</option>
+                            </select>
                           </div>
                         )}
 

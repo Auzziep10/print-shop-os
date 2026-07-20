@@ -1025,25 +1025,25 @@ export function PortalCreateOrder() {
          const artworks = [];
          if (item.logoUrl) {
            const aspect = await getImageAspectRatio(item.logoUrl);
-           const w = item.logoWidthFront || 3.5;
+           const w = (item.logoWidthFront && !isNaN(parseFloat(item.logoWidthFront))) ? parseFloat(item.logoWidthFront) : 0;
            const h = parseFloat((w * aspect).toFixed(2));
            artworks.push({ url: item.logoUrl, originalUrl: item.logoUrl, name: item.logoName || 'Front Logo', width: w, height: h, aspectRatio: aspect, quantity: totalQty });
          }
          if (item.logoUrlBack) {
            const aspect = await getImageAspectRatio(item.logoUrlBack);
-           const w = item.logoWidthBack || 3.5;
+           const w = (item.logoWidthBack && !isNaN(parseFloat(item.logoWidthBack))) ? parseFloat(item.logoWidthBack) : 0;
            const h = parseFloat((w * aspect).toFixed(2));
            artworks.push({ url: item.logoUrlBack, originalUrl: item.logoUrlBack, name: item.logoNameBack || 'Back Logo', width: w, height: h, aspectRatio: aspect, quantity: totalQty });
          }
          if (item.logoUrlLeftSleeve) {
            const aspect = await getImageAspectRatio(item.logoUrlLeftSleeve);
-           const w = item.logoWidthLeftSleeve || 3.5;
+           const w = (item.logoWidthLeftSleeve && !isNaN(parseFloat(item.logoWidthLeftSleeve))) ? parseFloat(item.logoWidthLeftSleeve) : 0;
            const h = parseFloat((w * aspect).toFixed(2));
            artworks.push({ url: item.logoUrlLeftSleeve, originalUrl: item.logoUrlLeftSleeve, name: item.logoNameLeftSleeve || 'Left Sleeve Logo', width: w, height: h, aspectRatio: aspect, quantity: totalQty });
          }
          if (item.logoUrlRightSleeve) {
            const aspect = await getImageAspectRatio(item.logoUrlRightSleeve);
-           const w = item.logoWidthRightSleeve || 3.5;
+           const w = (item.logoWidthRightSleeve && !isNaN(parseFloat(item.logoWidthRightSleeve))) ? parseFloat(item.logoWidthRightSleeve) : 0;
            const h = parseFloat((w * aspect).toFixed(2));
            artworks.push({ url: item.logoUrlRightSleeve, originalUrl: item.logoUrlRightSleeve, name: item.logoNameRightSleeve || 'Right Sleeve Logo', width: w, height: h, aspectRatio: aspect, quantity: totalQty });
          }
