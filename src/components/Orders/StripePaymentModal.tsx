@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
-import { X, CreditCard, ShoppingCart, Package, MapPin, Building2 } from 'lucide-react';
+import { X, CreditCard, ShoppingCart, Package, MapPin, Building2, ChevronDown } from 'lucide-react';
 import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -65,9 +65,35 @@ const CheckoutForm = ({ order, onSuccess, onCancel }: { order: any, onSuccess: (
         // 3. Update Firestore
         const orderRef = doc(db, 'orders', order.id);
         
-        // Remove existing tax items and append the new calculated tax item if tax > 0
+        const selectedShipping = order.selectedShippingOption;
         const finalTaxAmount = order.calculatedTax || 0;
-        const cleanItems = (order.items || []).filter((item: any) => !(item.style || '').toLowerCase().includes('tax'));
+        
+        let cleanItems = (order.items || []).filter((item: any) => {
+          const styleLower = (item.style || '').toLowerCase();
+          const isShipping = styleLower.includes('shipping') || styleLower.includes('delivery') || (item.id && item.id.toString().startsWith('ship-')) || item.itemType === 'shipping';
+          const isTax = styleLower.includes('tax');
+          return !isShipping && !isTax;
+        });
+
+        if (selectedShipping) {
+          const formattedCost = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(selectedShipping.rate);
+          cleanItems.push({
+            id: `ship-${Date.now()}`,
+            style: `${selectedShipping.carrier} ${selectedShipping.service} Shipping`,
+            itemType: 'shipping',
+            qty: 1,
+            price: formattedCost,
+            total: formattedCost
+          });
+        } else {
+          const origShipping = (order.items || []).find((item: any) => {
+            const styleLower = (item.style || '').toLowerCase();
+            return styleLower.includes('shipping') || styleLower.includes('delivery') || (item.id && item.id.toString().startsWith('ship-')) || item.itemType === 'shipping';
+          });
+          if (origShipping) {
+            cleanItems.push(origShipping);
+          }
+        }
         
         if (finalTaxAmount > 0) {
           cleanItems.push({
@@ -80,7 +106,7 @@ const CheckoutForm = ({ order, onSuccess, onCancel }: { order: any, onSuccess: (
           });
         }
 
-        await updateDoc(orderRef, {
+        const updatePayload: any = {
           statusIndex: 4, // Move to Sourcing
           paymentStatus: 'paid',
           paymentDate: new Date().toISOString(),
@@ -91,11 +117,17 @@ const CheckoutForm = ({ order, onSuccess, onCancel }: { order: any, onSuccess: (
           activities: arrayUnion({
             id: `act-${Date.now()}`,
             type: 'system',
-            message: `Payment of ${order.totalFormatted || 'balance'} processed successfully via Stripe.`,
+            message: `Payment of ${order.totalFormatted || 'balance'} processed successfully via Stripe (Shipping: ${selectedShipping ? `${selectedShipping.carrier} ${selectedShipping.service}` : 'Original'}).`,
             user: order.customerId || 'Customer',
             timestamp: new Date().toISOString()
           })
-        });
+        };
+
+        if (selectedShipping) {
+          updatePayload.shipping = selectedShipping.rate;
+        }
+
+        await updateDoc(orderRef, updatePayload);
 
         setIsProcessing(false);
         onSuccess();
@@ -170,6 +202,34 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
   const [calculatedTax, setCalculatedTax] = useState<number | null>(null);
   const [isCalculatingTax, setIsCalculatingTax] = useState<boolean>(false);
   const [taxError, setTaxError] = useState<string | null>(null);
+  const [selectedShippingOption, setSelectedShippingOption] = useState<any>(null);
+
+  useEffect(() => {
+    if (order.shippingOptions && order.shippingOptions.length > 0) {
+      let parsedShipping = 0;
+      order.items?.forEach((item: any) => {
+        const styleLower = (item.style || '').toLowerCase();
+        if (styleLower.includes('shipping') || styleLower.includes('delivery') || (item.id && item.id.toString().startsWith('ship-')) || item.itemType === 'shipping') {
+          parsedShipping += parseFloat((item.total || '$0').toString().replace(/[^0-9.]/g, '')) || 0;
+        }
+      });
+      if (parsedShipping === 0 && order.shipping) {
+        parsedShipping = parseFloat(String(order.shipping).replace(/[^0-9.]/g, '')) || 0;
+      }
+      if (parsedShipping === 0 && order.shippingCost) {
+        parsedShipping = parseFloat(String(order.shippingCost).replace(/[^0-9.]/g, '')) || 0;
+      }
+
+      const match = order.shippingOptions.find((opt: any) => Math.abs(opt.rate - parsedShipping) < 0.05);
+      if (match) {
+        setSelectedShippingOption(match);
+      } else {
+        setSelectedShippingOption(order.shippingOptions[0]);
+      }
+    } else {
+      setSelectedShippingOption(null);
+    }
+  }, [order.id, order.shippingOptions]);
 
   const handleApproveQuote = async () => {
     setIsApproving(true);
@@ -235,6 +295,8 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
     shippingAmount = parseFloat(String(order.shippingCost).replace(/[^0-9.]/g, '')) || 0;
   }
 
+  const currentShippingAmount = selectedShippingOption ? selectedShippingOption.rate : shippingAmount;
+
   const hasShippingAddress = !!(order.shippingAddress && 
     (order.shippingAddress.street1 || order.shippingAddress.street || order.shippingAddress.city));
 
@@ -253,7 +315,7 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
               id: item.id || item.style || 'item',
               amount: item.total,
             })),
-            shippingAmount: shippingAmount,
+            shippingAmount: currentShippingAmount,
           }),
         });
         if (!response.ok) {
@@ -273,21 +335,22 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
     };
 
     calculateStripeTax();
-  }, [order.id, hasShippingAddress, order.items, shippingAmount]);
+  }, [order.id, hasShippingAddress, order.items, currentShippingAmount]);
 
   const finalTaxAmount = calculatedTax !== null ? calculatedTax : taxAmount;
-  const finalTotal = itemsSubtotal + finalTaxAmount + shippingAmount;
+  const finalTotal = itemsSubtotal + finalTaxAmount + currentShippingAmount;
 
   const formattedSubtotal = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(itemsSubtotal);
   const formattedTax = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(finalTaxAmount);
-  const formattedShipping = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(shippingAmount);
+  const formattedShipping = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(currentShippingAmount);
   const formattedTotal = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(finalTotal);
 
   const orderWithTotal = { 
     ...order, 
     totalFormatted: formattedTotal,
     calculatedTax: finalTaxAmount,
-    calculatedTotal: finalTotal
+    calculatedTotal: finalTotal,
+    selectedShippingOption: selectedShippingOption
   };
 
   return (
@@ -410,6 +473,34 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
                 </>
               )}
             </div>
+            {order.shippingOptions && order.shippingOptions.length > 0 && (
+              <div className="bg-white rounded-2xl p-4 border border-neutral-200/50 shadow-2xs flex flex-col gap-2 animate-in slide-in-from-bottom duration-250" style={{ animationDelay: '120ms' }}>
+                <label className="block text-[10px] font-extrabold uppercase tracking-widest text-neutral-450">
+                  Select Shipping Speed
+                </label>
+                <div className="relative">
+                  <select
+                    value={selectedShippingOption ? selectedShippingOption.id : ''}
+                    onChange={(e) => {
+                      const opt = order.shippingOptions.find((o: any) => o.id === e.target.value);
+                      if (opt) {
+                        setSelectedShippingOption(opt);
+                      }
+                    }}
+                    className="w-full bg-neutral-50 border border-neutral-250 hover:border-neutral-400 rounded-xl px-4 py-3 pr-10 text-xs font-bold text-neutral-800 focus:outline-none focus:ring-1 focus:ring-black transition-all cursor-pointer appearance-none"
+                  >
+                    {order.shippingOptions.map((opt: any) => (
+                      <option key={opt.id} value={opt.id}>
+                        {opt.carrier} - {opt.service} ({opt.deliveryDays ? `${opt.deliveryDays}-Day Delivery` : 'Standard'}): {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(opt.rate)}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-neutral-500">
+                    <ChevronDown size={14} />
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Pricing Breakdown Section */}
@@ -424,7 +515,7 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
               <div className="flex justify-between items-center text-xs font-semibold text-neutral-500 uppercase tracking-wider">
                 <span>Shipping & Handling</span>
                 <span className="font-bold text-neutral-800">
-                  {shippingAmount > 0 ? formattedShipping : 'Free'}
+                  {currentShippingAmount > 0 ? formattedShipping : 'Free'}
                 </span>
               </div>
 
