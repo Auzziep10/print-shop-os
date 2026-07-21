@@ -727,6 +727,9 @@ export function PortalCreateOrder() {
         ordersList.forEach((orderData) => {
           if (orderData.items && Array.isArray(orderData.items)) {
             orderData.items.forEach((item: any) => {
+              const styleLower = (item.style || '').toLowerCase();
+              if (styleLower.includes('tax') || styleLower.includes('shipping')) return;
+              
               const styleKey = item.style || item.itemNum;
               if (styleKey && !uniqueGarmentsMap[styleKey]) {
                 uniqueGarmentsMap[styleKey] = {

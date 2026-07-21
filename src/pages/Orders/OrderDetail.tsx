@@ -2958,7 +2958,12 @@ export function OrderDetail() {
   const customer = currentCustomer;
   
   // Calculate dynamic sums from the line items array
-  const totalItems = order.items?.reduce((acc: number, i: any) => acc + (i.qty || 0), 0) || 0;
+  const garmentItems = (order.items || []).filter((item: any) => {
+    const styleLower = (item.style || '').toLowerCase();
+    return !styleLower.includes('tax') && !styleLower.includes('shipping');
+  });
+
+  const totalItems = garmentItems.reduce((acc: number, i: any) => acc + (i.qty || 0), 0) || 0;
   const totalPriceRaw = order.items?.reduce((acc: number, i: any) => {
     const priceMatch = (i.total || '$0').toString().replace(/[^0-9.]/g, '');
     return acc + (parseFloat(priceMatch) || 0);
@@ -3274,7 +3279,7 @@ export function OrderDetail() {
                </div>
             </div>
             <div className="bg-white rounded-card border border-brand-border overflow-hidden">
-               {order.items?.length > 0 ? order.items.map((item: any) => (
+               {garmentItems.length > 0 ? garmentItems.map((item: any) => (
                  <div 
                    key={item.id} 
                    draggable={draggableItemId === item.id}
@@ -3874,6 +3879,53 @@ export function OrderDetail() {
                )) : (
                  <div className="p-6 text-center text-brand-secondary">No items found in this order.</div>
                )}
+               
+               {/* Shipping & Tax Pricing Summary Note */}
+               {(() => {
+                 const shippingItem = (order.items || []).find((i: any) => (i.style || '').toLowerCase().includes('shipping'));
+                 const taxItem = (order.items || []).find((i: any) => (i.style || '').toLowerCase().includes('tax'));
+                 
+                 if (!shippingItem && !taxItem) return null;
+                 
+                 return (
+                   <div className="bg-brand-bg/60 px-6 py-4 border-t border-brand-border/60 flex flex-wrap justify-between items-center gap-4 text-xs font-semibold">
+                     <div className="flex items-center gap-2 text-brand-secondary">
+                       <span>💡</span>
+                       <span>Shipping & Sales Tax (kept separate from physical garments):</span>
+                     </div>
+                     <div className="flex gap-4 text-brand-primary">
+                       {shippingItem && (
+                         <div className="flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-lg border border-brand-border/60 shadow-3xs">
+                           <span className="text-brand-secondary font-bold">{shippingItem.style}:</span>
+                           <span className="font-extrabold text-neutral-800">{shippingItem.total}</span>
+                           <button 
+                             type="button"
+                             onClick={handleRemoveShippingItem} 
+                             className="text-red-500 hover:text-red-700 ml-1 font-bold text-sm leading-none cursor-pointer p-0.5 hover:bg-red-50 rounded"
+                             title="Remove Shipping"
+                           >
+                             ×
+                           </button>
+                         </div>
+                       )}
+                       {taxItem && (
+                         <div className="flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-lg border border-brand-border/60 shadow-3xs">
+                           <span className="text-brand-secondary font-bold">{taxItem.style}:</span>
+                           <span className="font-extrabold text-neutral-800">{taxItem.total}</span>
+                           <button 
+                             type="button"
+                             onClick={handleRemoveTaxItem} 
+                             className="text-red-500 hover:text-red-700 ml-1 font-bold text-sm leading-none cursor-pointer p-0.5 hover:bg-red-50 rounded"
+                             title="Remove Tax"
+                           >
+                             ×
+                           </button>
+                         </div>
+                       )}
+                     </div>
+                   </div>
+                 );
+               })()}
             </div>
           </div>
 

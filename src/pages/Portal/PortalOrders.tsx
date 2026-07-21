@@ -743,17 +743,23 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
               </div>
 
             {/* Expanded Items Section */}
-            {order.items && order.items.length > 0 && (
+            {order.items && order.items.length > 0 && (() => {
+              const filteredItems = order.items.filter((item: any) => {
+                const styleLower = (item.style || '').toLowerCase();
+                return !styleLower.includes('tax') && !styleLower.includes('shipping');
+              });
+              if (filteredItems.length === 0) return null;
+              return (
                 <div className={`grid transition-all duration-500 ease-in-out ${isExpanded ? 'grid-rows-[1fr] opacity-100 mt-14' : 'grid-rows-[0fr] opacity-0 mt-0 pointer-events-none'}`}>
                   <div className="overflow-hidden space-y-4">
                     {/* Header bar */}
                     <div className="flex items-center justify-between pb-4 border-b border-brand-border/40">
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-bold text-neutral-400 uppercase tracking-widest">Items in this order</span>
-                        <span className="bg-neutral-100 text-neutral-600 text-[10px] font-bold px-2 py-0.5 rounded-full">{order.items.length}</span>
+                        <span className="bg-neutral-100 text-neutral-600 text-[10px] font-bold px-2 py-0.5 rounded-full">{filteredItems.length}</span>
                       </div>
                     </div>
-                    {order.items.map((item: any) => (
+                    {filteredItems.map((item: any) => (
                     <div key={item.id} className="flex flex-col gap-0 border-b border-brand-border/40 last:border-b-0 pb-6 mb-4">
                       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
                        {/* Left Side: Visual & Specs */}
@@ -1087,7 +1093,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                   )}
                   </div>
                 </div>
-              )}
+              })()}
             </div>
 
              </div>
