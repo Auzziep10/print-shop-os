@@ -64,11 +64,30 @@ const CheckoutForm = ({ order, onSuccess, onCancel }: { order: any, onSuccess: (
       if (paymentIntent && paymentIntent.status === 'succeeded') {
         // 3. Update Firestore
         const orderRef = doc(db, 'orders', order.id);
+        
+        // Remove existing tax items and append the new calculated tax item if tax > 0
+        const finalTaxAmount = order.calculatedTax || 0;
+        const cleanItems = (order.items || []).filter((item: any) => !(item.style || '').toLowerCase().includes('tax'));
+        
+        if (finalTaxAmount > 0) {
+          cleanItems.push({
+            id: `tax-${Date.now()}`,
+            style: 'Sales Tax (Stripe Calculated)',
+            itemType: 'service',
+            qty: 1,
+            price: finalTaxAmount,
+            total: finalTaxAmount
+          });
+        }
+
         await updateDoc(orderRef, {
           statusIndex: 4, // Move to Sourcing
           paymentStatus: 'paid',
           paymentDate: new Date().toISOString(),
           paymentRead: false,
+          items: cleanItems,
+          tax: finalTaxAmount,
+          total: order.calculatedTotal || 0,
           activities: arrayUnion({
             id: `act-${Date.now()}`,
             type: 'system',
@@ -260,7 +279,12 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
   const formattedShipping = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(shippingAmount);
   const formattedTotal = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(finalTotal);
 
-  const orderWithTotal = { ...order, totalFormatted: formattedTotal };
+  const orderWithTotal = { 
+    ...order, 
+    totalFormatted: formattedTotal,
+    calculatedTax: finalTaxAmount,
+    calculatedTotal: finalTotal
+  };
 
   return (
     <div 
