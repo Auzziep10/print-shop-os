@@ -11,7 +11,7 @@ export default async function handler(req: Request) {
 
   try {
     const body = await req.json();
-    const { shippingAddress, items } = body;
+    const { shippingAddress, items, shippingAmount } = body;
 
     const secretKey = process.env.STRIPE_SECRET_KEY?.trim();
     if (!secretKey) {
@@ -26,8 +26,7 @@ export default async function handler(req: Request) {
       return new Response(JSON.stringify({ error: 'Incomplete shipping address for tax calculation.' }), { status: 400 });
     }
 
-    // Call Stripe Tax calculation API
-    const calculation = await stripe.tax.calculations.create({
+    const calculationParams: any = {
       currency: 'usd',
       line_items: items.map((item: any, idx: number) => ({
         amount: Math.round(item.amount * 100), // Stripe expects cents
@@ -45,7 +44,17 @@ export default async function handler(req: Request) {
         },
         address_source: 'shipping',
       },
-    });
+    };
+
+    if (typeof shippingAmount === 'number' && shippingAmount > 0) {
+      calculationParams.shipping_cost = {
+        amount: Math.round(shippingAmount * 100),
+        tax_code: 'txcd_92010001', // Shipping tax code
+      };
+    }
+
+    // Call Stripe Tax calculation API
+    const calculation = await stripe.tax.calculations.create(calculationParams);
 
     const taxTotal = (calculation.tax_amount_exclusive || 0) + (calculation.tax_amount_inclusive || 0);
 

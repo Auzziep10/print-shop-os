@@ -251,6 +251,7 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
               id: item.id || item.style || 'item',
               amount: item.total,
             })),
+            shippingAmount: shippingAmount,
           }),
         });
         if (!response.ok) {
