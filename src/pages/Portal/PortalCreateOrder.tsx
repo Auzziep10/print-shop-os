@@ -2282,10 +2282,15 @@ export function PortalCreateOrder() {
         <GarmentCustomizerModal
           isOpen={!!customizingItem}
           onClose={() => {
-            const hasQuantities = Object.values(customizingItem.quantities || {}).some((q: any) => parseFloat(q || 0) > 0);
-            if (!customizingItem.customized && !hasQuantities) {
-              setOrderItems(prev => prev.filter(item => item.instanceId !== customizingItem.instanceId));
-            }
+            setOrderItems(prev => {
+              const currentItem = prev.find(item => item.instanceId === customizingItem.instanceId);
+              const hasQuantities = currentItem && Object.values(currentItem.quantities || {}).some((q: any) => parseFloat(q || 0) > 0);
+              const isCustomized = currentItem && currentItem.customized;
+              if (!isCustomized && !hasQuantities) {
+                return prev.filter(item => item.instanceId !== customizingItem.instanceId);
+              }
+              return prev;
+            });
             setCustomizingItem(null);
           }}
           garment={{
