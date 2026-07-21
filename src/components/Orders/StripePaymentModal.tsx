@@ -203,9 +203,86 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
   const [isCalculatingTax, setIsCalculatingTax] = useState<boolean>(false);
   const [taxError, setTaxError] = useState<string | null>(null);
   const [selectedShippingOption, setSelectedShippingOption] = useState<any>(null);
+  const [localShippingOptions, setLocalShippingOptions] = useState<any[]>(order.shippingOptions || []);
+  const [isFetchingRates, setIsFetchingRates] = useState<boolean>(false);
+  const [ratesError, setRatesError] = useState<string | null>(null);
 
+  // Dynamic fetcher if shippingOptions is missing/empty on order document in Firestore
   useEffect(() => {
     if (order.shippingOptions && order.shippingOptions.length > 0) {
+      setLocalShippingOptions(order.shippingOptions);
+      return;
+    }
+
+    const hasZip = order.shippingAddress?.zip || order.shippingAddress?.postalCode;
+    const hasCity = order.shippingAddress?.city;
+    if (order.deliveryOption !== 'Shipping' || !hasZip || !hasCity) {
+      setLocalShippingOptions([]);
+      return;
+    }
+
+    const fetchRates = async () => {
+      setIsFetchingRates(true);
+      setRatesError(null);
+      try {
+        let totalItems = 0;
+        order.items?.forEach((item: any) => {
+          const styleLower = (item.style || '').toLowerCase();
+          const isShipping = styleLower.includes('shipping') || styleLower.includes('delivery') || (item.id && item.id.toString().startsWith('ship-')) || item.itemType === 'shipping';
+          const isTax = styleLower.includes('tax');
+          if (!isShipping && !isTax) {
+            let qty = 0;
+            if (item.itemType === 'service' || !item.sizes || Object.keys(item.sizes).length === 0) {
+              qty = parseInt(item.qty || 1);
+            } else {
+              qty = Object.values(item.sizes || {}).reduce((a: any, b: any) => a + (parseInt(b) || 0), 0) as number;
+            }
+            totalItems += qty;
+          }
+        });
+
+        if (totalItems === 0) totalItems = 1;
+
+        const response = await fetch('/api/easypost/rates', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            to_address: order.shippingAddress,
+            totalQty: totalItems,
+            isTest: true
+          })
+        });
+
+        if (!response.ok) {
+          const text = await response.text();
+          throw new Error(`HTTP ${response.status}: ${text}`);
+        }
+
+        const data = await response.json();
+        if (data.error) {
+          throw new Error(data.error);
+        }
+
+        const rates = data.rates || [];
+        setLocalShippingOptions(rates);
+        
+        // Save to Firestore so it is stored persistently
+        const orderRef = doc(db, 'orders', order.id);
+        await updateDoc(orderRef, { shippingOptions: rates });
+      } catch (err: any) {
+        console.error("Failed to fetch dynamic shipping rates for checkout:", err);
+        setRatesError("Failed to fetch shipping rates.");
+      } finally {
+        setIsFetchingRates(false);
+      }
+    };
+
+    fetchRates();
+  }, [order.id, order.shippingOptions, order.deliveryOption, order.shippingAddress, order.items]);
+
+  // Handle selectedShippingOption initialization
+  useEffect(() => {
+    if (localShippingOptions && localShippingOptions.length > 0) {
       let parsedShipping = 0;
       order.items?.forEach((item: any) => {
         const styleLower = (item.style || '').toLowerCase();
@@ -220,16 +297,16 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
         parsedShipping = parseFloat(String(order.shippingCost).replace(/[^0-9.]/g, '')) || 0;
       }
 
-      const match = order.shippingOptions.find((opt: any) => Math.abs(opt.rate - parsedShipping) < 0.05);
+      const match = localShippingOptions.find((opt: any) => Math.abs(opt.rate - parsedShipping) < 0.05);
       if (match) {
         setSelectedShippingOption(match);
       } else {
-        setSelectedShippingOption(order.shippingOptions[0]);
+        setSelectedShippingOption(localShippingOptions[0]);
       }
     } else {
       setSelectedShippingOption(null);
     }
-  }, [order.id, order.shippingOptions]);
+  }, [order.id, localShippingOptions]);
 
   const handleApproveQuote = async () => {
     setIsApproving(true);
@@ -473,7 +550,18 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
                 </>
               )}
             </div>
-            {order.shippingOptions && order.shippingOptions.length > 0 && (
+            {isFetchingRates && (
+              <div className="bg-neutral-50 rounded-2xl p-4 border border-neutral-200/50 flex items-center justify-center gap-2">
+                <span className="text-[10px] text-neutral-400 italic font-medium animate-pulse">Calculating shipping options...</span>
+              </div>
+            )}
+            {ratesError && (
+              <div className="bg-red-50 rounded-2xl p-4 border border-red-100/50 text-[10px] text-red-500 font-extrabold flex flex-col gap-1 p-3">
+                <span>⚠️ Shipping Rate Error: {ratesError}</span>
+                <span className="font-medium text-neutral-500">Make sure the delivery details are correct or contact support.</span>
+              </div>
+            )}
+            {localShippingOptions && localShippingOptions.length > 0 && (
               <div className="bg-white rounded-2xl p-4 border border-neutral-200/50 shadow-2xs flex flex-col gap-2 animate-in slide-in-from-bottom duration-250" style={{ animationDelay: '120ms' }}>
                 <label className="block text-[10px] font-extrabold uppercase tracking-widest text-neutral-450">
                   Select Shipping Speed
@@ -482,14 +570,14 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
                   <select
                     value={selectedShippingOption ? selectedShippingOption.id : ''}
                     onChange={(e) => {
-                      const opt = order.shippingOptions.find((o: any) => o.id === e.target.value);
+                      const opt = localShippingOptions.find((o: any) => o.id === e.target.value);
                       if (opt) {
                         setSelectedShippingOption(opt);
                       }
                     }}
                     className="w-full bg-neutral-50 border border-neutral-250 hover:border-neutral-400 rounded-xl px-4 py-3 pr-10 text-xs font-bold text-neutral-800 focus:outline-none focus:ring-1 focus:ring-black transition-all cursor-pointer appearance-none"
                   >
-                    {order.shippingOptions.map((opt: any) => (
+                    {localShippingOptions.map((opt: any) => (
                       <option key={opt.id} value={opt.id}>
                         {opt.carrier} - {opt.service} ({opt.deliveryDays ? `${opt.deliveryDays}-Day Delivery` : 'Standard'}): {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(opt.rate)}
                       </option>

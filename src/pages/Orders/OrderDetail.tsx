@@ -1044,6 +1044,9 @@ export function OrderDetail() {
       
       setShippingRates(data.rates || []);
       setEstimatedParcel(data.parcel);
+      if (id && data.rates && data.rates.length > 0) {
+        await updateDoc(doc(db, 'orders', id), { shippingOptions: data.rates });
+      }
     } catch (err: any) {
       console.error("Error fetching shipping rates:", err);
       setRatesError(err.message || "Failed to calculate shipping rates.");
