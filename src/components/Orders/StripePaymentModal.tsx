@@ -169,6 +169,7 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
   const [isApproving, setIsApproving] = useState<boolean>(false);
   const [calculatedTax, setCalculatedTax] = useState<number | null>(null);
   const [isCalculatingTax, setIsCalculatingTax] = useState<boolean>(false);
+  const [taxError, setTaxError] = useState<string | null>(null);
 
   const handleApproveQuote = async () => {
     setIsApproving(true);
@@ -241,6 +242,7 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
     const calculateStripeTax = async () => {
       if (!hasShippingAddress || regularItems.length === 0) return;
       setIsCalculatingTax(true);
+      setTaxError(null);
       try {
         const response = await fetch('/api/stripe/calculate-tax', {
           method: 'POST',
@@ -262,15 +264,16 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
         if (data.taxAmount !== undefined) {
           setCalculatedTax(data.taxAmount);
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error('Failed to calculate Stripe tax:', err);
+        setTaxError(err.message || 'Unknown error');
       } finally {
         setIsCalculatingTax(false);
       }
     };
 
     calculateStripeTax();
-  }, [order.id, hasShippingAddress]);
+  }, [order.id, hasShippingAddress, order.items, shippingAmount]);
 
   const finalTaxAmount = calculatedTax !== null ? calculatedTax : taxAmount;
   const finalTotal = itemsSubtotal + finalTaxAmount + shippingAmount;
@@ -435,6 +438,11 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
                   )}
                 </span>
               </div>
+              {taxError && (
+                <div className="text-[10px] text-red-500 font-bold text-right mt-1 p-2 bg-red-50 rounded-lg border border-red-100/50">
+                  ⚠️ Tax API Error: {taxError}
+                </div>
+              )}
 
               <div className="flex justify-between items-center pt-3.5 border-t border-neutral-100 mt-1">
                 <span className="text-xs font-bold uppercase tracking-widest text-neutral-900">Total Price</span>
