@@ -20,15 +20,26 @@ function estimateParcelFromItems(items: any[], totalQty: number) {
         qty = Object.values(item.sizes || {}).reduce((a: any, b: any) => a + (parseInt(b) || 0), 0) as number;
       }
 
+      const itemNumLower = (item.itemNum || '').toLowerCase();
+
       // Weight classification in ounces (T-shirt = ~6oz, Hoodie/Sweatshirt = ~18oz, Jacket = ~22oz)
       let itemWeightOz = 6;
-      if (styleLower.includes('hoodie') || styleLower.includes('sweatshirt') || styleLower.includes('fleece') || styleLower.includes('sweater')) {
+      if (
+        styleLower.includes('hoodie') || styleLower.includes('sweatshirt') || styleLower.includes('fleece') || styleLower.includes('sweater') ||
+        itemNumLower.includes('3719') || itemNumLower.includes('18500') || itemNumLower.includes('18000') || itemNumLower.includes('996') || itemNumLower.includes('90h') || itemNumLower.includes('78h') || itemNumLower.includes('150h')
+      ) {
         itemWeightOz = 18;
-      } else if (styleLower.includes('jacket') || styleLower.includes('outerwear') || styleLower.includes('windbreaker')) {
+      } else if (
+        styleLower.includes('jacket') || styleLower.includes('outerwear') || styleLower.includes('windbreaker') ||
+        itemNumLower.startsWith('j') || itemNumLower.includes('j790') || itemNumLower.includes('j317') || itemNumLower.includes('j333')
+      ) {
         itemWeightOz = 22;
       } else if (styleLower.includes('tote') || styleLower.includes('bag') || styleLower.includes('apron')) {
         itemWeightOz = 8;
-      } else if (styleLower.includes('cap') || styleLower.includes('hat') || styleLower.includes('beanie')) {
+      } else if (
+        styleLower.includes('cap') || styleLower.includes('hat') || styleLower.includes('beanie') ||
+        itemNumLower.includes('112') || itemNumLower.includes('115') || itemNumLower.includes('104')
+      ) {
         itemWeightOz = 3;
       }
       
