@@ -7,7 +7,8 @@ const csvPath = 'e:\\Apps\\Team Dashboard\\scratch\\SanMar_SDL_N.csv';
 const targetBrands = [
   "BELLA+CANVAS", "Comfort Colors", "District", "Sport-Tek",
   "Port & Company", "Port & Co", "Port Authority", "Gildan", "Carhartt",
-  "Richardson", "Hanes", "Jerzees", "Alternative", "Champion", "Eddie Bauer"
+  "Richardson", "Hanes", "Jerzees", "Alternative", "Champion", "Eddie Bauer",
+  "Next Level Apparel", "Next Level"
 ];
 
 // Normalize color helper

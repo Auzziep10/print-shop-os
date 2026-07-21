@@ -35,7 +35,7 @@ const conn = new Client();
 const popularBrands = [
   'gildan', 'bella', 'canvas', 'port & company', 'port and company', 'district', 'sport-tek', 
   'sport tek', 'hanes', 'jerzees', 'anvil', 'fruit of the loom', 'champion', 'port authority',
-  'new era', 'newera'
+  'new era', 'newera', 'next level', 'next level apparel'
 ];
 
 const popularCategories = ['t-shirt', 'shirt', 'hoodie', 'sweatshirt', 'polo', 'fleece', 'outerwear', 'hat', 'cap', 'headwear', 'tank'];
