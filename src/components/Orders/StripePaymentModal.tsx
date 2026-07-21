@@ -248,6 +248,7 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             to_address: order.shippingAddress,
+            items: order.items || [],
             totalQty: totalItems,
             isTest: true
           })

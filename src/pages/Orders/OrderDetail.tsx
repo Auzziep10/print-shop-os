@@ -1027,6 +1027,7 @@ export function OrderDetail() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           to_address: editForm.shippingAddress,
+          items: order.items || [],
           totalQty: totalItems,
           isTest: true
         })

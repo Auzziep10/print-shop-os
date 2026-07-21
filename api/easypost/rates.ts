@@ -2,18 +2,77 @@ export const config = {
   runtime: 'edge',
 };
 
-function estimateParcel(totalQty: number) {
-  // Garment weight: ~6 oz per garment. Box weight adds 6-24 oz.
-  const qty = Math.max(1, totalQty);
-  if (qty <= 15) {
-    return { length: 12, width: 9, height: 4, weight: qty * 6 + 6 };
-  } else if (qty <= 40) {
-    return { length: 15, width: 12, height: 8, weight: qty * 6 + 12 };
-  } else if (qty <= 80) {
-    return { length: 18, width: 14, height: 12, weight: qty * 6 + 18 };
-  } else {
-    return { length: 24, width: 16, height: 12, weight: qty * 6 + 24 };
+function estimateParcelFromItems(items: any[], totalQty: number) {
+  let totalWeightOz = 0;
+  
+  if (items && items.length > 0) {
+    items.forEach((item: any) => {
+      const styleLower = (item.style || '').toLowerCase();
+      
+      const isShipping = styleLower.includes('shipping') || styleLower.includes('delivery') || (item.id && item.id.toString().startsWith('ship-')) || item.itemType === 'shipping';
+      const isTax = styleLower.includes('tax');
+      if (isShipping || isTax) return;
+
+      let qty = 0;
+      if (item.itemType === 'service' || !item.sizes || Object.keys(item.sizes).length === 0) {
+        qty = parseInt(item.qty || 1);
+      } else {
+        qty = Object.values(item.sizes || {}).reduce((a: any, b: any) => a + (parseInt(b) || 0), 0) as number;
+      }
+
+      // Weight classification in ounces (T-shirt = ~6oz, Hoodie/Sweatshirt = ~18oz, Jacket = ~22oz)
+      let itemWeightOz = 6;
+      if (styleLower.includes('hoodie') || styleLower.includes('sweatshirt') || styleLower.includes('fleece') || styleLower.includes('sweater')) {
+        itemWeightOz = 18;
+      } else if (styleLower.includes('jacket') || styleLower.includes('outerwear') || styleLower.includes('windbreaker')) {
+        itemWeightOz = 22;
+      } else if (styleLower.includes('tote') || styleLower.includes('bag') || styleLower.includes('apron')) {
+        itemWeightOz = 8;
+      } else if (styleLower.includes('cap') || styleLower.includes('hat') || styleLower.includes('beanie')) {
+        itemWeightOz = 3;
+      }
+      
+      totalWeightOz += qty * itemWeightOz;
+    });
   }
+
+  if (totalWeightOz === 0) {
+    totalWeightOz = Math.max(1, totalQty) * 6;
+  }
+
+  const totalGarments = items.reduce((acc, item) => {
+    const styleLower = (item.style || '').toLowerCase();
+    const isShipping = styleLower.includes('shipping') || styleLower.includes('delivery') || (item.id && item.id.toString().startsWith('ship-')) || item.itemType === 'shipping';
+    const isTax = styleLower.includes('tax');
+    if (isShipping || isTax) return acc;
+    
+    let qty = 0;
+    if (item.itemType === 'service' || !item.sizes || Object.keys(item.sizes).length === 0) {
+      qty = parseInt(item.qty || 1);
+    } else {
+      qty = Object.values(item.sizes || {}).reduce((a: any, b: any) => a + (parseInt(b) || 0), 0) as number;
+    }
+    return acc + qty;
+  }, 0) || totalQty;
+
+  let length = 12, width = 9, height = 4, boxWeightOz = 6;
+  
+  if (totalGarments <= 15) {
+    length = 12; width = 9; height = 4; boxWeightOz = 6;
+  } else if (totalGarments <= 40) {
+    length = 15; width = 12; height = 8; boxWeightOz = 12;
+  } else if (totalGarments <= 80) {
+    length = 18; width = 14; height = 12; boxWeightOz = 18;
+  } else {
+    length = 24; width = 16; height = 12; boxWeightOz = 24;
+  }
+
+  return {
+    length,
+    width,
+    height,
+    weight: totalWeightOz + boxWeightOz
+  };
 }
 
 export default async function handler(req: Request) {
@@ -23,7 +82,7 @@ export default async function handler(req: Request) {
 
   try {
     const body = await req.json();
-    const { to_address, from_address: fromAddressOverride, totalQty = 1, isTest = true } = body;
+    const { to_address, from_address: fromAddressOverride, items = [], totalQty = 1, isTest = true } = body;
 
     let apiKey = (isTest ? process.env.EASYPOST_TEST_KEY : process.env.EASYPOST_PROD_KEY)?.trim() || '';
     if (!apiKey) {
@@ -59,7 +118,7 @@ export default async function handler(req: Request) {
       phone: fromAddressOverride.phone || default_from_address.phone
     } : default_from_address;
 
-    const parcel = estimateParcel(totalQty);
+    const parcel = estimateParcelFromItems(items, totalQty);
 
     const shipmentPayload: any = {
       to_address: {
