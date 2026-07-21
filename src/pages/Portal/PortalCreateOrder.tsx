@@ -1569,7 +1569,7 @@ export function PortalCreateOrder() {
         )}
 
         {/* Library Grid Content */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-10 gap-y-14">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-10 gap-y-14">
           {activeLibraryTab === 'rack' && !customer?.disableRack && (
             activeRackItems.length === 0 ? (
               <div className="col-span-full flex flex-col items-center justify-center p-8 text-center text-neutral-500 min-h-[200px]">
