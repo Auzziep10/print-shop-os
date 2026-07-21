@@ -743,7 +743,8 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
               </div>
 
             {/* Expanded Items Section */}
-            {order.items && order.items.length > 0 && (() => {
+            {(() => {
+              if (!order.items || order.items.length === 0) return null;
               const filteredItems = order.items.filter((item: any) => {
                 const styleLower = (item.style || '').toLowerCase();
                 return !styleLower.includes('tax') && !styleLower.includes('shipping');
@@ -1093,7 +1094,8 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                   )}
                   </div>
                 </div>
-              })()}
+              );
+            })()}
             </div>
 
              </div>

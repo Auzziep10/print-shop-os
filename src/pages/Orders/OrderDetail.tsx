@@ -1103,6 +1103,54 @@ export function OrderDetail() {
     }
   };
 
+  const handleRemoveShippingItem = async () => {
+    if (!id || !order) return;
+    try {
+      const newItems = (order.items || []).filter((i: any) => !(i.style || '').toLowerCase().includes('shipping'));
+      await updateDoc(doc(db, 'orders', id), { items: newItems });
+      
+      const activity = {
+        id: `act-${Date.now()}`,
+        type: 'system',
+        message: `Removed shipping charges from quote`,
+        user: user?.displayName || user?.email?.split('@')[0] || 'Team Member',
+        timestamp: new Date().toISOString()
+      };
+      await updateDoc(doc(db, 'orders', id), {
+        activities: [activity, ...(order.activities || [])]
+      });
+
+      alert("Shipping charges removed successfully!");
+    } catch (err: any) {
+      console.error(err);
+      alert("Failed to remove shipping item: " + err.message);
+    }
+  };
+
+  const handleRemoveTaxItem = async () => {
+    if (!id || !order) return;
+    try {
+      const newItems = (order.items || []).filter((i: any) => !(i.style || '').toLowerCase().includes('tax'));
+      await updateDoc(doc(db, 'orders', id), { items: newItems });
+
+      const activity = {
+        id: `act-${Date.now()}`,
+        type: 'system',
+        message: `Removed sales tax from quote`,
+        user: user?.displayName || user?.email?.split('@')[0] || 'Team Member',
+        timestamp: new Date().toISOString()
+      };
+      await updateDoc(doc(db, 'orders', id), {
+        activities: [activity, ...(order.activities || [])]
+      });
+
+      alert("Sales tax removed successfully!");
+    } catch (err: any) {
+      console.error(err);
+      alert("Failed to remove tax item: " + err.message);
+    }
+  };
+
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
   const [activityLimit, setActivityLimit] = useState(3);
