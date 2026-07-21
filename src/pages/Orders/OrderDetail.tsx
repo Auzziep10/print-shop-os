@@ -1060,14 +1060,17 @@ export function OrderDetail() {
       const serviceName = rateObj.service;
       
       const newItems = [...(order.items || [])];
-      const shippingItemIdx = newItems.findIndex((i: any) => (i.style || '').toLowerCase().includes('shipping'));
+      const shippingItemIdx = newItems.findIndex((i: any) => {
+        const styleLower = (i.style || '').toLowerCase();
+        return styleLower.includes('shipping') || styleLower.includes('delivery') || (i.id && i.id.toString().startsWith('ship-')) || i.itemType === 'shipping';
+      });
       
       const formattedRateStr = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(selectedCost);
       
       if (shippingItemIdx !== -1) {
         newItems[shippingItemIdx] = {
           ...newItems[shippingItemIdx],
-          style: `${carrierName} ${serviceName}`,
+          style: `${carrierName} ${serviceName} Shipping`,
           price: formattedRateStr,
           total: formattedRateStr,
           qty: 1
@@ -1075,8 +1078,8 @@ export function OrderDetail() {
       } else {
         newItems.push({
           id: `ship-${Date.now()}`,
-          style: `${carrierName} ${serviceName}`,
-          itemType: 'service',
+          style: `${carrierName} ${serviceName} Shipping`,
+          itemType: 'shipping',
           qty: 1,
           price: formattedRateStr,
           total: formattedRateStr
@@ -3008,7 +3011,9 @@ export function OrderDetail() {
   // Calculate dynamic sums from the line items array
   const garmentItems = (order.items || []).filter((item: any) => {
     const styleLower = (item.style || '').toLowerCase();
-    return !styleLower.includes('tax') && !styleLower.includes('shipping');
+    const isShipping = styleLower.includes('shipping') || styleLower.includes('delivery') || (item.id && item.id.toString().startsWith('ship-')) || item.itemType === 'shipping';
+    const isTax = styleLower.includes('tax');
+    return !isShipping && !isTax;
   });
 
   const totalItems = garmentItems.reduce((acc: number, i: any) => acc + (i.qty || 0), 0) || 0;
@@ -3930,7 +3935,10 @@ export function OrderDetail() {
                
                {/* Shipping & Tax Pricing Summary Note */}
                {(() => {
-                 const shippingItem = (order.items || []).find((i: any) => (i.style || '').toLowerCase().includes('shipping'));
+                 const shippingItem = (order.items || []).find((i: any) => {
+                    const styleLower = (i.style || '').toLowerCase();
+                    return styleLower.includes('shipping') || styleLower.includes('delivery') || (i.id && i.id.toString().startsWith('ship-')) || i.itemType === 'shipping';
+                 });
                  const taxItem = (order.items || []).find((i: any) => (i.style || '').toLowerCase().includes('tax'));
                  
                  if (!shippingItem && !taxItem) return null;

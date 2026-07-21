@@ -747,7 +747,9 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
               if (!order.items || order.items.length === 0) return null;
               const filteredItems = order.items.filter((item: any) => {
                 const styleLower = (item.style || '').toLowerCase();
-                return !styleLower.includes('tax') && !styleLower.includes('shipping');
+                const isShipping = styleLower.includes('shipping') || styleLower.includes('delivery') || (item.id && item.id.toString().startsWith('ship-')) || item.itemType === 'shipping';
+                const isTax = styleLower.includes('tax');
+                return !isShipping && !isTax;
               });
               if (filteredItems.length === 0) return null;
               return (

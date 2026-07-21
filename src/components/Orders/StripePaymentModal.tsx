@@ -216,7 +216,7 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
     
     if (styleLower.includes('tax')) {
       taxAmount += total;
-    } else if (styleLower.includes('shipping')) {
+    } else if (styleLower.includes('shipping') || styleLower.includes('delivery') || (item.id && item.id.toString().startsWith('ship-')) || item.itemType === 'shipping') {
       shippingAmount += total;
     } else {
       itemsSubtotal += total;
