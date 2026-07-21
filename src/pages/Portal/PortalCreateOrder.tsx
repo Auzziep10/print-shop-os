@@ -2150,6 +2150,11 @@ export function PortalCreateOrder() {
                           ) : (
                             <span className="text-[9px] text-neutral-400 italic leading-snug">Upload resale certificate to waive sales tax.</span>
                           )}
+                          
+                          <div className="border-t border-neutral-200/60 pt-2.5 mt-0.5 flex items-center justify-between text-[9px] text-neutral-500 font-semibold select-none">
+                            <span>Our CRS Number</span>
+                            <span className="text-black font-extrabold select-all">03682512003</span>
+                          </div>
                         </div>
                       )}
                     </div>
