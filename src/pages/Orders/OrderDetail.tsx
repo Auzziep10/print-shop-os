@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { PillButton } from '../../components/ui/PillButton';
 import { PackingSlipsManager } from '../../components/Orders/PackingSlipsManager';
 import { TrackingModal } from '../../components/Orders/TrackingModal';
-import { ArrowLeft, MessageSquare, QrCode, Clock, Users, Download, Loader2, X, Edit3, Upload, Trash2, Plus, ChevronDown, Image as ImageIcon, Box, Printer, ExternalLink, ShoppingBag, Search, Check, Truck, GripVertical, Pause, Play, DollarSign, PackagePlus, Layers, CreditCard, Copy, RotateCcw, Sparkles, FileText } from 'lucide-react';
+import { ArrowLeft, MessageSquare, QrCode, Clock, Users, Download, Loader2, X, Edit3, Upload, Trash2, Plus, ChevronDown, Image as ImageIcon, Box, Printer, ExternalLink, ShoppingBag, Search, Check, Truck, Calculator, GripVertical, Pause, Play, DollarSign, PackagePlus, Layers, CreditCard, Copy, RotateCcw, Sparkles, FileText } from 'lucide-react';
 import ReactQRCode from 'react-qr-code';
 import QRCodeLib from 'qrcode';
 import JSZip from 'jszip';
@@ -997,6 +997,111 @@ export function OrderDetail() {
     shippingAddress: { name: '', company: '', street1: '', street2: '', city: '', state: '', zip: '', country: 'US' },
     thirdPartyBilling: { account: '', zip: '' }
   });
+
+  const [isCalculatingRates, setIsCalculatingRates] = useState(false);
+  const [shippingRates, setShippingRates] = useState<any[]>([]);
+  const [ratesError, setRatesError] = useState<string | null>(null);
+  const [estimatedParcel, setEstimatedParcel] = useState<any>(null);
+
+  useEffect(() => {
+    if (!isEditDialogOpen) {
+      setShippingRates([]);
+      setRatesError(null);
+      setEstimatedParcel(null);
+    }
+  }, [isEditDialogOpen]);
+
+  const handleFetchShippingRates = async () => {
+    if (!editForm.shippingAddress.street1 || !editForm.shippingAddress.city || !editForm.shippingAddress.state || !editForm.shippingAddress.zip) {
+      setRatesError("Please enter a complete shipping address (street, city, state, zip) to calculate rates.");
+      return;
+    }
+    
+    setIsCalculatingRates(true);
+    setRatesError(null);
+    setShippingRates([]);
+    
+    try {
+      const response = await fetch('/api/easypost/rates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to_address: editForm.shippingAddress,
+          totalQty: totalItems,
+          isTest: true
+        })
+      });
+      
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`HTTP ${response.status}: ${text}`);
+      }
+      
+      const data = await response.json();
+      if (data.error) {
+        throw new Error(data.error);
+      }
+      
+      setShippingRates(data.rates || []);
+      setEstimatedParcel(data.parcel);
+    } catch (err: any) {
+      console.error("Error fetching shipping rates:", err);
+      setRatesError(err.message || "Failed to calculate shipping rates.");
+    } finally {
+      setIsCalculatingRates(false);
+    }
+  };
+
+  const handleApplyShippingRate = async (rateObj: any) => {
+    if (!id || !order) return;
+    try {
+      const selectedCost = rateObj.rate;
+      const carrierName = rateObj.carrier;
+      const serviceName = rateObj.service;
+      
+      const newItems = [...(order.items || [])];
+      const shippingItemIdx = newItems.findIndex((i: any) => (i.style || '').toLowerCase().includes('shipping'));
+      
+      const formattedRateStr = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(selectedCost);
+      
+      if (shippingItemIdx !== -1) {
+        newItems[shippingItemIdx] = {
+          ...newItems[shippingItemIdx],
+          style: `${carrierName} ${serviceName}`,
+          price: formattedRateStr,
+          total: formattedRateStr,
+          qty: 1
+        };
+      } else {
+        newItems.push({
+          id: `ship-${Date.now()}`,
+          style: `${carrierName} ${serviceName}`,
+          itemType: 'service',
+          qty: 1,
+          price: formattedRateStr,
+          total: formattedRateStr
+        });
+      }
+      
+      await updateDoc(doc(db, 'orders', id), { items: newItems });
+      
+      const activity = {
+        id: `act-${Date.now()}`,
+        type: 'system',
+        message: `Calculated and applied shipping cost: ${formattedRateStr} (${carrierName} ${serviceName})`,
+        user: user?.displayName || user?.email?.split('@')[0] || 'Team Member',
+        timestamp: new Date().toISOString()
+      };
+      await updateDoc(doc(db, 'orders', id), {
+        activities: [activity, ...(order.activities || [])]
+      });
+
+      alert(`Applied ${formattedRateStr} (${carrierName} ${serviceName}) to the quote successfully!`);
+    } catch (err: any) {
+      console.error("Failed to apply shipping rate:", err);
+      alert("Failed to apply shipping rate: " + err.message);
+    }
+  };
 
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
@@ -5399,6 +5504,72 @@ export function OrderDetail() {
                           onChange={e => setEditForm(prev => ({...prev, shippingAddress: {...prev.shippingAddress, zip: e.target.value}}))}
                           className="w-[35%] bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2.5 text-sm focus:border-brand-primary outline-none" 
                         />
+                      </div>
+                    </div>
+
+                    {/* EasyPost Automated Shipping Estimation */}
+                    <div className="mt-6 pt-6 border-t border-brand-border">
+                      <h5 className="text-[11px] font-bold uppercase tracking-widest text-brand-secondary mb-3 flex items-center gap-1.5">
+                        <Truck size={14} className="text-indigo-500" /> EasyPost Rate Calculator
+                      </h5>
+                      <div className="bg-indigo-50/30 p-4 rounded-xl border border-indigo-100 flex flex-col gap-3">
+                        <div className="flex justify-between items-center gap-2">
+                          <div className="text-[11px] font-semibold text-brand-secondary">
+                            Parcel Estimate: <span className="font-bold text-brand-primary">{totalItems} Garments</span>
+                            {estimatedParcel && (
+                              <span className="block text-[10px] text-brand-secondary/80 font-normal">
+                                Size: {estimatedParcel.length}"x{estimatedParcel.width}"x{estimatedParcel.height}" | Weight: {(estimatedParcel.weight / 16).toFixed(2)} lbs ({estimatedParcel.weight} oz)
+                              </span>
+                            )}
+                          </div>
+                          <PillButton
+                            type="button"
+                            variant="filled"
+                            onClick={handleFetchShippingRates}
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white border-transparent px-3 py-1.5 text-[10px] font-bold h-auto shrink-0 flex items-center gap-1.5 shadow-sm"
+                            disabled={isCalculatingRates}
+                          >
+                            {isCalculatingRates ? (
+                              <Loader2 className="animate-spin" size={12} />
+                            ) : (
+                              <Calculator size={12} />
+                            )}
+                            Calculate Rates
+                          </PillButton>
+                        </div>
+
+                        {ratesError && (
+                          <div className="text-xs font-semibold text-red-600 bg-red-50 p-2 rounded-lg border border-red-100">
+                            ⚠️ {ratesError}
+                          </div>
+                        )}
+
+                        {shippingRates.length > 0 && (
+                          <div className="mt-2 space-y-2 max-h-[160px] overflow-y-auto pr-1 scrollbar-thin">
+                            {shippingRates.map((r, idx) => (
+                              <div key={idx} className="flex justify-between items-center bg-white p-2.5 rounded-lg border border-brand-border/60 hover:border-indigo-200 transition-colors shadow-2xs">
+                                <div>
+                                  <span className="text-xs font-bold text-brand-primary block">{r.carrier} - {r.service}</span>
+                                  <span className="text-[9px] font-bold text-brand-secondary uppercase tracking-wider">
+                                    {r.deliveryDays ? `Est. Delivery: ${r.deliveryDays} Days` : 'Standard Delivery'}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs font-extrabold text-neutral-800">
+                                    {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(r.rate)}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleApplyShippingRate(r)}
+                                    className="bg-brand-bg hover:bg-indigo-50 border border-brand-border hover:border-indigo-300 text-indigo-600 px-2 py-1 rounded text-[10px] font-bold transition-all cursor-pointer"
+                                  >
+                                    Apply
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
                     
