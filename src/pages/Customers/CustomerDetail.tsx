@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
-import { ArrowLeft, Mail, Phone, MapPin, Building2, ExternalLink, Plus, Loader2, Upload, X, Check, Edit3, ChevronRight, Trash2, FileText, Crop, Eye, EyeOff } from 'lucide-react';
+import { ArrowLeft, Mail, Phone, MapPin, Building2, ExternalLink, Plus, Loader2, Upload, X, Check, Edit3, ChevronRight, Trash2, FileText, Crop, Eye, EyeOff, Search } from 'lucide-react';
 
 import { storage, db } from '../../lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -162,6 +162,54 @@ export function CustomerDetail() {
   const [selectedColors, setSelectedColors] = useState<Record<string, boolean>>({});
   const [selectedInitialColor, setSelectedInitialColor] = useState<string>('');
 
+  const [allOtherSuggestions, setAllOtherSuggestions] = useState<any[]>([]);
+  const [suggestionsSearchQuery, setSuggestionsSearchQuery] = useState('');
+  const [templateImages, setTemplateImages] = useState<Record<string, string>>({});
+  const [templateBackImages, setTemplateBackImages] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (!isAddingSuggestedModalOpen) return;
+    
+    const fetchOtherSuggestions = async () => {
+      try {
+        const querySnapshot = await getDocs(collection(db, 'customers'));
+        const suggestions: any[] = [];
+        const seenKeys = new Set<string>();
+        
+        querySnapshot.forEach((docSnap) => {
+          if (docSnap.id === id) return;
+          const data = docSnap.data();
+          const items = [
+            ...(data.suggestedItems || []),
+            ...(data.sampleItems || [])
+          ];
+          
+          items.forEach((item: any) => {
+            const style = item.style || item.name || '';
+            const itemNum = item.itemNum || '';
+            const image = item.image || '';
+            const key = `${style.trim()}_${itemNum.trim()}_${image.trim()}`;
+            
+            if (style && !seenKeys.has(key)) {
+              seenKeys.add(key);
+              suggestions.push({
+                ...item,
+                fromCustomer: data.company || data.contactName || 'Other Customer'
+              });
+            }
+          });
+        });
+        
+        suggestions.sort((a, b) => (a.style || '').localeCompare(b.style || ''));
+        setAllOtherSuggestions(suggestions);
+      } catch (err) {
+        console.error("Failed to fetch other customer suggestions:", err);
+      }
+    };
+    
+    fetchOtherSuggestions();
+  }, [isAddingSuggestedModalOpen, id]);
+
   const handleMockupUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !id) return;
@@ -252,6 +300,9 @@ export function CustomerDetail() {
             mainImage = imagesMap[defaultColor];
           }
         }
+      } else {
+        imagesMap = templateImages;
+        backImagesMap = templateBackImages;
       }
 
       itemObj = {
@@ -292,6 +343,9 @@ export function CustomerDetail() {
       setSelectedSanMarProduct(null);
       setSelectedColors({});
       setSelectedInitialColor('');
+      setTemplateImages({});
+      setTemplateBackImages({});
+      setSuggestionsSearchQuery('');
     } catch (err) {
       console.error(`Error saving ${isSample ? 'sample' : 'suggested'} item:`, err);
       alert(`Failed to save ${isSample ? 'sample' : 'suggested'} garment.`);
@@ -1935,6 +1989,9 @@ export function CustomerDetail() {
                   setSelectedSanMarProduct(null);
                   setSelectedColors({});
                   setSelectedInitialColor('');
+                  setTemplateImages({});
+                  setTemplateBackImages({});
+                  setSuggestionsSearchQuery('');
                 }} 
                 className="text-brand-secondary hover:text-brand-primary transition-colors bg-brand-bg border border-brand-border rounded-md p-1"
               >
@@ -1979,14 +2036,90 @@ export function CustomerDetail() {
                 </div>
               )}
 
+              {/* Copy from Previous Suggestions (Other Customers) */}
+              {!editingSuggestedItem && allOtherSuggestions.length > 0 && (
+                <div className="flex flex-col gap-2.5 bg-neutral-50/50 p-4 border border-brand-border/60 rounded-2xl">
+                  <div className="flex justify-between items-center">
+                    <h4 className="text-xs font-bold uppercase tracking-widest text-neutral-500">
+                      Copy from Previous Suggestions
+                    </h4>
+                    <span className="text-[9px] bg-neutral-200 text-neutral-600 px-2 py-0.5 rounded font-bold">
+                      {allOtherSuggestions.length} items
+                    </span>
+                  </div>
+                  
+                  {/* Search inside previous suggestions */}
+                  <div className="relative mt-1">
+                    <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400" />
+                    <input 
+                      type="text"
+                      placeholder="Search previous suggestions by name or SKU..."
+                      value={suggestionsSearchQuery}
+                      onChange={e => setSuggestionsSearchQuery(e.target.value)}
+                      className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-neutral-200 bg-white text-xs font-medium focus:outline-none focus:ring-1 focus:ring-brand-primary"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-2 max-h-[180px] overflow-y-auto pr-1 mt-1 custom-scrollbar">
+                    {allOtherSuggestions
+                      .filter(item => {
+                        const term = suggestionsSearchQuery.toLowerCase();
+                        return (
+                          (item.style || '').toLowerCase().includes(term) ||
+                          (item.itemNum && item.itemNum.toLowerCase().includes(term)) ||
+                          (item.fromCustomer && item.fromCustomer.toLowerCase().includes(term))
+                        );
+                      })
+                      .map((item, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => {
+                            setCustomSuggestedItem({
+                              style: item.style || '',
+                              itemNum: item.itemNum || '',
+                              description: item.description || '',
+                              image: item.image || '',
+                              colors: Array.isArray(item.colors) ? item.colors.join(', ') : (item.colors || ''),
+                              price: item.price?.toString() || '',
+                              gender: item.gender || 'Unisex',
+                              visible: item.visible ?? true
+                            });
+                            setTemplateImages(item.images || {});
+                            setTemplateBackImages(item.backImages || {});
+                            setSelectedSanMarProduct(null);
+                          }}
+                          className="flex items-center gap-3 w-full p-2 bg-white border border-neutral-200 hover:border-brand-primary/40 rounded-xl hover:bg-neutral-50 text-left transition-colors cursor-pointer group"
+                        >
+                          <div className="w-10 h-10 bg-white border rounded overflow-hidden flex items-center justify-center p-0.5 shrink-0">
+                            <img src={item.image} className="max-w-full max-h-full object-contain mix-blend-multiply" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex justify-between items-start gap-1">
+                              <p className="text-xs font-bold text-neutral-900 truncate flex-1">{item.style}</p>
+                              <span className="text-[8px] bg-brand-bg text-neutral-400 border px-1 rounded truncate shrink-0 max-w-[100px]" title={`Suggested for ${item.fromCustomer}`}>
+                                {item.fromCustomer}
+                              </span>
+                            </div>
+                            <p className="text-[10px] text-neutral-500 font-semibold mt-0.5">
+                              SKU: {item.itemNum || 'N/A'} • ${item.price || 0}
+                            </p>
+                          </div>
+                          <span className="text-[10px] text-brand-primary font-bold pr-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            Use
+                          </span>
+                        </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Option B: Add completely custom suggested item */}
               <div className="flex flex-col gap-4 border-t border-neutral-100 pt-6">
                 <h4 className="text-xs font-bold uppercase tracking-widest text-neutral-500">
                   {editingSuggestedItem 
                     ? "Garment Details" 
-                    : (suggestedModalType === 'sample' 
-                      ? "B. Add custom or blanks catalog sample" 
-                      : "B. Add custom or blanks catalog recommendation")}
+                    : "Create Custom Recommendation"}
                 </h4>
                 
                 {!editingSuggestedItem && (
