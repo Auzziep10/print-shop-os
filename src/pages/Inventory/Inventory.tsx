@@ -14,6 +14,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { ProductsTab } from './ProductsTab';
 import { PalletsTab } from './PalletsTab';
 import { DTFTab } from './DTFTab';
+import { SuppliersTab } from './SuppliersTab';
 import { PalletPickOptimizerModal } from '../../components/Inventory/PalletPickOptimizerModal';
 
 const PALLET_SWATCHES = [
@@ -863,7 +864,7 @@ export function Inventory() {
   const isAdmin = userData?.role === 'Admin';
 
   const [searchParams, setSearchParams] = useSearchParams();
-  const mainTab = (searchParams.get('tab') as 'Warehouse' | 'Pallets' | 'Products' | 'DTF') || 'Products';
+  const mainTab = (searchParams.get('tab') as 'Warehouse' | 'Pallets' | 'Products' | 'DTF' | 'Suppliers') || 'Products';
   
   const subParam = searchParams.get('sub') || 'Map';
   const activeTab = (!isAdmin && subParam === 'Builder') ? 'Map' : subParam;
@@ -878,7 +879,7 @@ export function Inventory() {
     }
   }, [isAdmin, searchParams, setSearchParams]);
 
-  const setMainTab = (newMainTab: 'Warehouse' | 'Pallets' | 'Products' | 'DTF') => {
+  const setMainTab = (newMainTab: 'Warehouse' | 'Pallets' | 'Products' | 'DTF' | 'Suppliers') => {
     setSearchParams(prev => {
       const next = new URLSearchParams(prev);
       next.set('tab', newMainTab);
@@ -1516,6 +1517,8 @@ export function Inventory() {
                     ? 'Pallet Inventory' 
                     : mainTab === 'DTF'
                     ? 'DTF Supplies'
+                    : mainTab === 'Suppliers'
+                    ? 'Supplier Directory'
                     : 'Product Catalog'}
                </h1>
                
@@ -2237,6 +2240,12 @@ export function Inventory() {
         {mainTab === 'DTF' && (
            <div className="w-full h-full pb-8 animate-in fade-in">
               <DTFTab />
+           </div>
+        )}
+
+        {mainTab === 'Suppliers' && (
+           <div className="w-full h-full pb-8 animate-in fade-in">
+              <SuppliersTab />
            </div>
         )}
 
