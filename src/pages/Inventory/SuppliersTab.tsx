@@ -47,8 +47,8 @@ const SEED_SUPPLIERS: Supplier[] = [
     contactName: 'Sarah Jenkins',
     contactEmail: 'sarah.jenkins@sanmar.com',
     contactPhone: '(800) 426-3708',
-    loginUsername: 'printshop_sanmar',
-    loginPassword: 'SanMarPass2026!',
+    loginUsername: '',
+    loginPassword: '',
     notes: 'Primary distributor for Port & Company, District, and Sport-Tek. Free shipping on orders over $200.',
     lastUpdated: Date.now()
   },
@@ -60,8 +60,8 @@ const SEED_SUPPLIERS: Supplier[] = [
     contactName: 'Marcus Vance',
     contactEmail: 'mvance@ssactivewear.com',
     contactPhone: '(800) 523-2155',
-    loginUsername: 'printshop_ss',
-    loginPassword: 'SSActivePass99!',
+    loginUsername: '',
+    loginPassword: '',
     notes: 'Fast shipping from regional warehouses. Best inventory for Gildan and Bella+Canvas.',
     lastUpdated: Date.now()
   },
@@ -73,8 +73,8 @@ const SEED_SUPPLIERS: Supplier[] = [
     contactName: 'Customer Support',
     contactEmail: 'hello@wovnsupply.com',
     contactPhone: '(888) 555-0199',
-    loginUsername: 'wovn_dealer_os',
-    loginPassword: 'WovnSupplies77!',
+    loginUsername: '',
+    loginPassword: '',
     notes: 'Premium high-density inks and transfer film rolls. Quality is consistent.',
     lastUpdated: Date.now()
   },
@@ -86,8 +86,8 @@ const SEED_SUPPLIERS: Supplier[] = [
     contactName: 'Corporate Accounts',
     contactEmail: 'corporate@uline.com',
     contactPhone: '(800) 295-5510',
-    loginUsername: 'printshop_packaging',
-    loginPassword: 'UlinePacking2026#',
+    loginUsername: '',
+    loginPassword: '',
     notes: 'Next-day delivery on packaging materials, tape, boxes, and warehouse safety equipment.',
     lastUpdated: Date.now()
   }
