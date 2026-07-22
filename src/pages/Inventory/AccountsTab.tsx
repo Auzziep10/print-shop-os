@@ -24,7 +24,7 @@ import {
   X
 } from 'lucide-react';
 
-interface Supplier {
+interface Account {
   id: string;
   name: string;
   website: string;
@@ -38,9 +38,9 @@ interface Supplier {
   lastUpdated?: number;
 }
 
-const SEED_SUPPLIERS: Supplier[] = [
+const SEED_ACCOUNTS: Account[] = [
   {
-    id: 'sup_sanmar',
+    id: 'acc_sanmar',
     name: 'SanMar',
     website: 'https://www.sanmar.com',
     purchases: 'Garments, Blank T-Shirts, Hoodies, Polos',
@@ -53,7 +53,7 @@ const SEED_SUPPLIERS: Supplier[] = [
     lastUpdated: Date.now()
   },
   {
-    id: 'sup_ssactivewear',
+    id: 'acc_ssactivewear',
     name: 'S&S Activewear',
     website: 'https://www.ssactivewear.com',
     purchases: 'Garments, Jackets, Caps, Fleeces',
@@ -66,7 +66,7 @@ const SEED_SUPPLIERS: Supplier[] = [
     lastUpdated: Date.now()
   },
   {
-    id: 'sup_wovn',
+    id: 'acc_wovn',
     name: 'Wovn Supply',
     website: 'https://wovnsupply.com',
     purchases: 'DTF Supplies, Inks, TPU Powder, Transfer Film',
@@ -79,7 +79,7 @@ const SEED_SUPPLIERS: Supplier[] = [
     lastUpdated: Date.now()
   },
   {
-    id: 'sup_uline',
+    id: 'acc_uline',
     name: 'Uline',
     website: 'https://www.uline.com',
     purchases: 'Shipping Boxes, Pallet Wrap, Packing Tape, Poly Bags',
@@ -93,14 +93,14 @@ const SEED_SUPPLIERS: Supplier[] = [
   }
 ];
 
-export function SuppliersTab() {
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+export function AccountsTab() {
+  const [accounts, setAccounts] = useState<Account[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
+  const [editingAccount, setEditingAccount] = useState<Account | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     website: '',
@@ -115,32 +115,32 @@ export function SuppliersTab() {
 
   // Credential Visibility Map
   const [showCredsMap, setShowCredsMap] = useState<Record<string, boolean>>({});
-  // Copy Actions Feedback Map (supplierId_field -> boolean)
+  // Copy Actions Feedback Map (accountId_field -> boolean)
   const [copiedMap, setCopiedMap] = useState<Record<string, boolean>>({});
 
-  // Fetch from Firestore
+  // Fetch from Firestore (collection name 'accounts')
   useEffect(() => {
-    const q = query(collection(db, 'suppliers'));
+    const q = query(collection(db, 'accounts'));
     const unsubscribe = onSnapshot(q, async (snapshot) => {
       if (snapshot.empty) {
-        // Seed standard suppliers if database empty
+        // Seed standard accounts if database empty
         try {
-          for (const sup of SEED_SUPPLIERS) {
-            await setDoc(doc(db, 'suppliers', sup.id), sup);
+          for (const acc of SEED_ACCOUNTS) {
+            await setDoc(doc(db, 'accounts', acc.id), acc);
           }
         } catch (err) {
-          console.error("Failed to seed suppliers:", err);
+          console.error("Failed to seed accounts:", err);
         }
       } else {
-        const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Supplier));
-        setSuppliers(data);
+        const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Account));
+        setAccounts(data);
       }
     });
     return () => unsubscribe();
   }, []);
 
   const handleOpenCreateModal = () => {
-    setEditingSupplier(null);
+    setEditingAccount(null);
     setFormData({
       name: '',
       website: '',
@@ -155,27 +155,27 @@ export function SuppliersTab() {
     setIsModalOpen(true);
   };
 
-  const handleOpenEditModal = (sup: Supplier) => {
-    setEditingSupplier(sup);
+  const handleOpenEditModal = (acc: Account) => {
+    setEditingAccount(acc);
     setFormData({
-      name: sup.name,
-      website: sup.website,
-      purchases: sup.purchases,
-      contactName: sup.contactName,
-      contactEmail: sup.contactEmail,
-      contactPhone: sup.contactPhone,
-      loginUsername: sup.loginUsername || '',
-      loginPassword: sup.loginPassword || '',
-      notes: sup.notes || ''
+      name: acc.name,
+      website: acc.website,
+      purchases: acc.purchases,
+      contactName: acc.contactName,
+      contactEmail: acc.contactEmail,
+      contactPhone: acc.contactPhone,
+      loginUsername: acc.loginUsername || '',
+      loginPassword: acc.loginPassword || '',
+      notes: acc.notes || ''
     });
     setIsModalOpen(true);
   };
 
-  const handleSaveSupplier = async (e: React.FormEvent) => {
+  const handleSaveAccount = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name.trim()) return alert('Supplier Name is required');
+    if (!formData.name.trim()) return alert('Account Name is required');
 
-    const id = editingSupplier ? editingSupplier.id : `sup_${Date.now()}`;
+    const id = editingAccount ? editingAccount.id : `acc_${Date.now()}`;
     
     // Add https:// to website if not present
     let formattedWebsite = formData.website.trim();
@@ -183,7 +183,7 @@ export function SuppliersTab() {
       formattedWebsite = `https://${formattedWebsite}`;
     }
 
-    const payload: Partial<Supplier> = {
+    const payload: Partial<Account> = {
       name: formData.name.trim(),
       website: formattedWebsite,
       purchases: formData.purchases.trim(),
@@ -197,21 +197,21 @@ export function SuppliersTab() {
     };
 
     try {
-      await setDoc(doc(db, 'suppliers', id), payload, { merge: true });
+      await setDoc(doc(db, 'accounts', id), payload, { merge: true });
       setIsModalOpen(false);
     } catch (err) {
-      console.error("Error saving supplier:", err);
-      alert("Failed to save supplier.");
+      console.error("Error saving account:", err);
+      alert("Failed to save account.");
     }
   };
 
-  const handleDeleteSupplier = async (id: string, name: string) => {
-    if (!window.confirm(`Are you sure you want to permanently delete supplier "${name}"?`)) return;
+  const handleDeleteAccount = async (id: string, name: string) => {
+    if (!window.confirm(`Are you sure you want to permanently delete account "${name}"?`)) return;
     try {
-      await deleteDoc(doc(db, 'suppliers', id));
+      await deleteDoc(doc(db, 'accounts', id));
     } catch (err) {
-      console.error("Error deleting supplier:", err);
-      alert("Failed to delete supplier.");
+      console.error("Error deleting account:", err);
+      alert("Failed to delete account.");
     }
   };
 
@@ -230,7 +230,7 @@ export function SuppliersTab() {
   // Compile Dynamic Categories / Purchase keywords for filter pills
   const allPurchaseCategories = Array.from(
     new Set(
-      suppliers
+      accounts
         .map(s => s.purchases.split(','))
         .flat()
         .map(p => p.trim())
@@ -239,26 +239,26 @@ export function SuppliersTab() {
   );
 
   // Filtering Logic
-  const filteredSuppliers = suppliers.filter(sup => {
+  const filteredAccounts = accounts.filter(acc => {
     const term = searchQuery.toLowerCase();
     const matchesSearch = 
-      sup.name.toLowerCase().includes(term) ||
-      sup.contactName.toLowerCase().includes(term) ||
-      sup.contactEmail.toLowerCase().includes(term) ||
-      sup.website.toLowerCase().includes(term) ||
-      sup.purchases.toLowerCase().includes(term) ||
-      (sup.notes && sup.notes.toLowerCase().includes(term));
+      acc.name.toLowerCase().includes(term) ||
+      acc.contactName.toLowerCase().includes(term) ||
+      acc.contactEmail.toLowerCase().includes(term) ||
+      acc.website.toLowerCase().includes(term) ||
+      acc.purchases.toLowerCase().includes(term) ||
+      (acc.notes && acc.notes.toLowerCase().includes(term));
 
     const matchesCategory = 
       selectedCategory === 'All' || 
-      sup.purchases.toLowerCase().includes(selectedCategory.toLowerCase());
+      acc.purchases.toLowerCase().includes(selectedCategory.toLowerCase());
 
     return matchesSearch && matchesCategory;
   });
 
   // Stats calculation
-  const totalSuppliersCount = suppliers.length;
-  const suppliersWithLogins = suppliers.filter(s => s.loginUsername || s.loginPassword).length;
+  const totalAccountsCount = accounts.length;
+  const accountsWithLogins = accounts.filter(s => s.loginUsername || s.loginPassword).length;
   
   // Extract major groupings for cards
   const categoriesCount = allPurchaseCategories.length;
@@ -270,9 +270,9 @@ export function SuppliersTab() {
         {/* Metric 1 */}
         <div className="bg-white rounded-card border border-brand-border p-6 relative overflow-hidden shadow-sm flex items-center justify-between group hover:border-brand-primary/40 transition-colors">
           <div className="space-y-1">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary">Total Suppliers</span>
-            <h3 className="font-serif text-3xl text-brand-primary font-bold">{totalSuppliersCount}</h3>
-            <p className="text-xs text-brand-secondary">Active supply-chain accounts</p>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary">Total Accounts</span>
+            <h3 className="font-serif text-3xl text-brand-primary font-bold">{totalAccountsCount}</h3>
+            <p className="text-xs text-brand-secondary">Active supplier & vendor accounts</p>
           </div>
           <div className="p-4 bg-brand-bg rounded-2xl text-brand-primary group-hover:scale-110 transition-transform">
             <Truck size={24} className="stroke-1.5" />
@@ -297,7 +297,7 @@ export function SuppliersTab() {
         <div className="bg-white rounded-card border border-brand-border p-6 relative overflow-hidden shadow-sm flex items-center justify-between group hover:border-emerald-500/40 transition-colors">
           <div className="space-y-1">
             <span className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary">Portal Access</span>
-            <h3 className="font-serif text-3xl text-brand-primary font-bold">{suppliersWithLogins}</h3>
+            <h3 className="font-serif text-3xl text-brand-primary font-bold">{accountsWithLogins}</h3>
             <p className="text-xs text-brand-secondary">Accounts with credential records</p>
           </div>
           <div className="p-4 bg-brand-bg rounded-2xl text-brand-primary group-hover:scale-110 transition-transform">
@@ -313,7 +313,7 @@ export function SuppliersTab() {
           <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-brand-secondary" />
           <input 
             type="text" 
-            placeholder="Search suppliers, contacts, web, items..." 
+            placeholder="Search accounts, contacts, web, items..." 
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-brand-border bg-brand-bg text-sm font-medium focus:outline-none focus:ring-1 focus:ring-brand-primary/30 focus:border-brand-primary transition-all text-brand-primary placeholder:text-brand-secondary"
@@ -336,33 +336,33 @@ export function SuppliersTab() {
             onClick={handleOpenCreateModal}
             className="flex items-center gap-2 px-5 py-2.5 bg-brand-primary text-white hover:bg-black rounded-lg text-xs font-bold uppercase tracking-widest shadow-sm transition-all duration-200"
           >
-            <Plus size={14} /> Add Supplier
+            <Plus size={14} /> Add Account
           </button>
         </div>
       </div>
 
-      {/* Grid of Supplier Cards */}
-      {filteredSuppliers.length === 0 ? (
+      {/* Grid of Account Cards */}
+      {filteredAccounts.length === 0 ? (
         <div className="bg-white rounded-card border border-brand-border/60 py-16 px-4 text-center">
           <Building size={48} className="mx-auto mb-4 text-brand-secondary opacity-40 stroke-1" />
-          <h4 className="font-serif text-xl font-bold text-brand-primary">No Suppliers Found</h4>
+          <h4 className="font-serif text-xl font-bold text-brand-primary">No Accounts Found</h4>
           <p className="text-sm text-brand-secondary mt-2 max-w-md mx-auto">
-            Try adjusting your search query, selecting another category, or add a brand-new supplier to the system.
+            Try adjusting your search query, selecting another category, or add a brand-new account to the system.
           </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredSuppliers.map(sup => {
-            const isVisible = showCredsMap[sup.id] || false;
+          {filteredAccounts.map(acc => {
+            const isVisible = showCredsMap[acc.id] || false;
             
             // Split tags
-            const purchaseTags = sup.purchases
-              ? sup.purchases.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0)
+            const purchaseTags = acc.purchases
+              ? acc.purchases.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0)
               : [];
 
             return (
               <div 
-                key={sup.id} 
+                key={acc.id} 
                 className="bg-white rounded-card border border-brand-border/80 shadow-sm flex flex-col justify-between overflow-hidden group hover:shadow-md hover:border-brand-primary/25 transition-all duration-300 relative"
               >
                 <div>
@@ -370,15 +370,15 @@ export function SuppliersTab() {
                   <div className="p-5 border-b border-brand-border/40 bg-brand-bg/10 flex justify-between items-start">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-xl bg-brand-primary/5 border border-brand-primary/10 flex items-center justify-center text-brand-primary font-serif font-bold text-lg shadow-inner">
-                        {sup.name.charAt(0)}
+                        {acc.name.charAt(0)}
                       </div>
                       <div>
                         <h4 className="font-serif text-lg font-bold text-brand-primary leading-tight group-hover:text-brand-primary/95 transition-colors">
-                          {sup.name}
+                          {acc.name}
                         </h4>
-                        {sup.website && (
+                        {acc.website && (
                           <a 
-                            href={sup.website} 
+                            href={acc.website} 
                             target="_blank" 
                             rel="noopener noreferrer"
                             className="inline-flex items-center gap-1 text-[10px] text-brand-secondary font-semibold hover:text-brand-primary underline tracking-wide mt-0.5"
@@ -413,26 +413,26 @@ export function SuppliersTab() {
                     
                     <div className="flex items-center gap-2.5 text-xs text-brand-primary">
                       <User size={13} className="text-brand-secondary shrink-0" />
-                      <span className="font-semibold">{sup.contactName || 'N/A'}</span>
+                      <span className="font-semibold">{acc.contactName || 'N/A'}</span>
                     </div>
 
-                    {sup.contactEmail && (
+                    {acc.contactEmail && (
                       <a 
-                        href={`mailto:${sup.contactEmail}`}
+                        href={`mailto:${acc.contactEmail}`}
                         className="flex items-center gap-2.5 text-xs text-brand-primary hover:text-brand-primary/80 hover:underline"
                       >
                         <Mail size={13} className="text-brand-secondary shrink-0" />
-                        <span className="font-medium truncate">{sup.contactEmail}</span>
+                        <span className="font-medium truncate">{acc.contactEmail}</span>
                       </a>
                     )}
 
-                    {sup.contactPhone && (
+                    {acc.contactPhone && (
                       <a 
-                        href={`tel:${sup.contactPhone}`}
+                        href={`tel:${acc.contactPhone}`}
                         className="flex items-center gap-2.5 text-xs text-brand-primary hover:text-brand-primary/80 hover:underline"
                       >
                         <Phone size={13} className="text-brand-secondary shrink-0" />
-                        <span className="font-medium">{sup.contactPhone}</span>
+                        <span className="font-medium">{acc.contactPhone}</span>
                       </a>
                     )}
                   </div>
@@ -444,9 +444,9 @@ export function SuppliersTab() {
                         <Lock size={10} /> Portal Credentials
                       </span>
                       
-                      {(sup.loginUsername || sup.loginPassword) && (
+                      {(acc.loginUsername || acc.loginPassword) && (
                         <button 
-                          onClick={() => toggleCredentials(sup.id)}
+                          onClick={() => toggleCredentials(acc.id)}
                           className="text-[9px] font-bold uppercase tracking-widest text-brand-secondary hover:text-brand-primary flex items-center gap-1 transition-colors"
                         >
                           {isVisible ? <><EyeOff size={11} /> Hide</> : <><Eye size={11} /> Show</>}
@@ -454,7 +454,7 @@ export function SuppliersTab() {
                       )}
                     </div>
 
-                    {!sup.loginUsername && !sup.loginPassword ? (
+                    {!acc.loginUsername && !acc.loginPassword ? (
                       <span className="text-xs italic text-brand-secondary opacity-65 block">No login recorded</span>
                     ) : (
                       <div className="space-y-2 bg-white/70 p-2.5 rounded-lg border border-brand-border/50 text-xs">
@@ -463,15 +463,15 @@ export function SuppliersTab() {
                           <span className="text-brand-secondary font-medium">User:</span>
                           <div className="flex items-center gap-1.5 min-w-0">
                             <span className="font-mono text-brand-primary truncate max-w-[130px]">
-                              {isVisible ? sup.loginUsername : '••••••••'}
+                              {isVisible ? acc.loginUsername : '••••••••'}
                             </span>
-                            {sup.loginUsername && (
+                            {acc.loginUsername && (
                               <button 
-                                onClick={() => copyToClipboard(sup.loginUsername || '', `${sup.id}_usr`)}
+                                onClick={() => copyToClipboard(acc.loginUsername || '', `${acc.id}_usr`)}
                                 className="text-brand-secondary hover:text-brand-primary transition-colors p-1"
                                 title="Copy username"
                               >
-                                {copiedMap[`${sup.id}_usr`] ? <Check size={11} className="text-emerald-600" /> : <Copy size={11} />}
+                                {copiedMap[`${acc.id}_usr`] ? <Check size={11} className="text-emerald-600" /> : <Copy size={11} />}
                               </button>
                             )}
                           </div>
@@ -482,15 +482,15 @@ export function SuppliersTab() {
                           <span className="text-brand-secondary font-medium">Pass:</span>
                           <div className="flex items-center gap-1.5 min-w-0">
                             <span className="font-mono text-brand-primary truncate max-w-[130px]">
-                              {isVisible ? sup.loginPassword : '••••••••'}
+                              {isVisible ? acc.loginPassword : '••••••••'}
                             </span>
-                            {sup.loginPassword && (
+                            {acc.loginPassword && (
                               <button 
-                                onClick={() => copyToClipboard(sup.loginPassword || '', `${sup.id}_pwd`)}
+                                onClick={() => copyToClipboard(acc.loginPassword || '', `${acc.id}_pwd`)}
                                 className="text-brand-secondary hover:text-brand-primary transition-colors p-1"
                                 title="Copy password"
                               >
-                                {copiedMap[`${sup.id}_pwd`] ? <Check size={11} className="text-emerald-600" /> : <Copy size={11} />}
+                                {copiedMap[`${acc.id}_pwd`] ? <Check size={11} className="text-emerald-600" /> : <Copy size={11} />}
                               </button>
                             )}
                           </div>
@@ -500,11 +500,11 @@ export function SuppliersTab() {
                   </div>
 
                   {/* Notes Section */}
-                  {sup.notes && (
+                  {acc.notes && (
                     <div className="p-5 border-b border-brand-border/20 flex gap-2">
                       <FileText size={14} className="text-brand-secondary shrink-0 mt-0.5" />
                       <p className="text-xs text-brand-secondary leading-normal italic font-medium">
-                        "{sup.notes}"
+                        "{acc.notes}"
                       </p>
                     </div>
                   )}
@@ -513,16 +513,16 @@ export function SuppliersTab() {
                 {/* Footer Edit/Delete Bar */}
                 <div className="p-3 bg-brand-bg/5 flex justify-end gap-1 shrink-0 border-t border-brand-border/30">
                   <button 
-                    onClick={() => handleOpenEditModal(sup)}
+                    onClick={() => handleOpenEditModal(acc)}
                     className="p-2 text-brand-secondary hover:text-brand-primary hover:bg-white rounded-lg transition-all"
-                    title="Edit supplier"
+                    title="Edit account"
                   >
                     <Edit2 size={13} />
                   </button>
                   <button 
-                    onClick={() => handleDeleteSupplier(sup.id, sup.name)}
+                    onClick={() => handleDeleteAccount(acc.id, acc.name)}
                     className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all"
-                    title="Delete supplier"
+                    title="Delete account"
                   >
                     <Trash2 size={13} />
                   </button>
@@ -540,7 +540,7 @@ export function SuppliersTab() {
             {/* Modal Header */}
             <div className="p-5 border-b border-brand-border/60 bg-brand-bg flex justify-between items-center">
               <h3 className="font-serif text-lg font-bold text-brand-primary flex items-center gap-2">
-                <Truck size={18} /> {editingSupplier ? 'Modify Supplier Profile' : 'Register New Supplier'}
+                <Truck size={18} /> {editingAccount ? 'Modify Account Profile' : 'Register New Account'}
               </h3>
               <button 
                 onClick={() => setIsModalOpen(false)} 
@@ -551,8 +551,8 @@ export function SuppliersTab() {
             </div>
 
             {/* Modal Form */}
-            <form onSubmit={handleSaveSupplier} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto custom-scrollbar">
-              {/* Supplier Basic info */}
+            <form onSubmit={handleSaveAccount} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto custom-scrollbar">
+              {/* Account Basic info */}
               <div className="space-y-3">
                 <h4 className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/80 border-b border-brand-border/30 pb-1">Company Details</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -592,7 +592,7 @@ export function SuppliersTab() {
                 </div>
               </div>
 
-              {/* Supplier Representative info */}
+              {/* Account Representative info */}
               <div className="space-y-3 pt-2">
                 <h4 className="text-[10px] font-bold uppercase tracking-widest text-brand-primary/80 border-b border-brand-border/30 pb-1">Primary Representative</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -683,7 +683,7 @@ export function SuppliersTab() {
                   type="submit" 
                   className="flex-1 bg-brand-primary text-white py-3 rounded-lg font-bold uppercase tracking-widest text-xs hover:bg-black transition-all shadow-sm"
                 >
-                  Save Supplier
+                  Save Account
                 </button>
               </div>
             </form>
