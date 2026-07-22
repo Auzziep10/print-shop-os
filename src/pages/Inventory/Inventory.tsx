@@ -864,12 +864,22 @@ export function Inventory() {
   const isAdmin = userData?.role === 'Admin';
 
   const [searchParams, setSearchParams] = useSearchParams();
-  const mainTab = (searchParams.get('tab') as 'Warehouse' | 'Pallets' | 'Products' | 'DTF' | 'Accounts') || 'Products';
+  const rawTab = searchParams.get('tab');
+  const mainTab = (rawTab === 'Accounts' && !isAdmin)
+    ? 'Products'
+    : (rawTab as 'Warehouse' | 'Pallets' | 'Products' | 'DTF' | 'Accounts') || 'Products';
   
   const subParam = searchParams.get('sub') || 'Map';
   const activeTab = (!isAdmin && subParam === 'Builder') ? 'Map' : subParam;
 
   useEffect(() => {
+    if (!isAdmin && searchParams.get('tab') === 'Accounts') {
+      setSearchParams(prev => {
+        const next = new URLSearchParams(prev);
+        next.set('tab', 'Products');
+        return next;
+      }, { replace: true });
+    }
     if (!isAdmin && searchParams.get('sub') === 'Builder') {
       setSearchParams(prev => {
         const next = new URLSearchParams(prev);
