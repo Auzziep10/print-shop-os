@@ -21,7 +21,9 @@ import {
   Truck,
   Building,
   Lock,
-  X
+  X,
+  LayoutGrid,
+  List
 } from 'lucide-react';
 
 interface Account {
@@ -117,6 +119,7 @@ export function AccountsTab() {
   const [showCredsMap, setShowCredsMap] = useState<Record<string, boolean>>({});
   // Copy Actions Feedback Map (accountId_field -> boolean)
   const [copiedMap, setCopiedMap] = useState<Record<string, boolean>>({});
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   // Fetch from Firestore (collection name 'accounts')
   useEffect(() => {
@@ -321,6 +324,25 @@ export function AccountsTab() {
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
+          <div className="flex bg-neutral-100 p-1 rounded-lg border border-brand-border/60">
+            <button
+              type="button"
+              onClick={() => setViewMode('grid')}
+              className={`p-1.5 rounded transition-all duration-150 cursor-pointer ${viewMode === 'grid' ? 'bg-white text-brand-primary shadow-sm font-bold' : 'text-brand-secondary hover:text-brand-primary'}`}
+              title="Grid View"
+            >
+              <LayoutGrid size={15} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('list')}
+              className={`p-1.5 rounded transition-all duration-150 cursor-pointer ${viewMode === 'list' ? 'bg-white text-brand-primary shadow-sm font-bold' : 'text-brand-secondary hover:text-brand-primary'}`}
+              title="List View"
+            >
+              <List size={15} />
+            </button>
+          </div>
+
           <select 
             value={selectedCategory} 
             onChange={e => setSelectedCategory(e.target.value)}
@@ -334,7 +356,7 @@ export function AccountsTab() {
 
           <button 
             onClick={handleOpenCreateModal}
-            className="flex items-center gap-2 px-5 py-2.5 bg-brand-primary text-white hover:bg-black rounded-lg text-xs font-bold uppercase tracking-widest shadow-sm transition-all duration-200"
+            className="flex items-center gap-2 px-5 py-2.5 bg-brand-primary text-white hover:bg-black rounded-lg text-xs font-bold uppercase tracking-widest shadow-sm transition-all duration-200 cursor-pointer"
           >
             <Plus size={14} /> Add Account
           </button>
@@ -350,7 +372,7 @@ export function AccountsTab() {
             Try adjusting your search query, selecting another category, or add a brand-new account to the system.
           </p>
         </div>
-      ) : (
+      ) : viewMode === 'grid' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredAccounts.map(acc => {
             const isVisible = showCredsMap[acc.id] || false;
@@ -526,6 +548,155 @@ export function AccountsTab() {
                   >
                     <Trash2 size={13} />
                   </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {filteredAccounts.map(acc => {
+            const isVisible = showCredsMap[acc.id] || false;
+            const purchaseTags = acc.purchases
+              ? acc.purchases.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0)
+              : [];
+
+            return (
+              <div 
+                key={acc.id} 
+                className="bg-white rounded-xl border border-brand-border/80 p-4 shadow-sm hover:shadow-md hover:border-brand-primary/25 transition-all duration-200 flex flex-col lg:flex-row lg:items-center justify-between gap-4 relative group"
+              >
+                {/* Section 1: Brand & Website */}
+                <div className="flex items-center gap-3 min-w-[200px] lg:max-w-[250px]">
+                  <div className="w-9 h-9 rounded-lg bg-brand-primary/5 border border-brand-primary/10 flex items-center justify-center text-brand-primary font-serif font-bold text-base shrink-0 shadow-inner">
+                    {acc.name.charAt(0)}
+                  </div>
+                  <div className="min-w-0">
+                    <h4 className="font-serif text-base font-bold text-brand-primary leading-tight truncate">
+                      {acc.name}
+                    </h4>
+                    {acc.website && (
+                      <a 
+                        href={acc.website} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-[10px] text-brand-secondary font-semibold hover:text-brand-primary underline tracking-wide mt-0.5"
+                      >
+                        <Globe size={10} /> Website <ExternalLink size={8} />
+                      </a>
+                    )}
+                  </div>
+                </div>
+
+                {/* Section 2: Items Purchased (Tags) */}
+                <div className="flex flex-wrap gap-1 max-w-[250px] lg:flex-1">
+                  {purchaseTags.map((tag, idx) => (
+                    <span 
+                      key={idx} 
+                      className="text-[8px] font-bold uppercase tracking-widest bg-brand-bg/70 border border-brand-border/40 text-brand-secondary px-2 py-0.5 rounded"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                  {purchaseTags.length === 0 && (
+                    <span className="text-[10px] italic text-brand-secondary opacity-60">No items specified</span>
+                  )}
+                </div>
+
+                {/* Section 3: Contact Representative */}
+                <div className="text-xs space-y-1 min-w-[180px]">
+                  <div className="flex items-center gap-1.5 text-brand-primary font-semibold">
+                    <User size={12} className="text-brand-secondary shrink-0" />
+                    <span>{acc.contactName || 'N/A'}</span>
+                  </div>
+                  <div className="flex flex-col gap-0.5 pl-4.5">
+                    {acc.contactEmail && (
+                      <a href={`mailto:${acc.contactEmail}`} className="text-[10px] text-brand-secondary hover:text-brand-primary truncate hover:underline">
+                        {acc.contactEmail}
+                      </a>
+                    )}
+                    {acc.contactPhone && (
+                      <a href={`tel:${acc.contactPhone}`} className="text-[10px] text-brand-secondary hover:text-brand-primary hover:underline">
+                        {acc.contactPhone}
+                      </a>
+                    )}
+                  </div>
+                </div>
+
+                {/* Section 4: Credentials */}
+                <div className="bg-brand-bg/10 border border-brand-border/40 p-2 rounded-lg flex items-center justify-between gap-4 min-w-[240px]">
+                  <div className="text-[10px] space-y-1 flex-1">
+                    <div className="flex justify-between items-center gap-2">
+                      <span className="text-brand-secondary font-medium">User:</span>
+                      <div className="flex items-center gap-1">
+                        <span className="font-mono text-brand-primary font-bold">
+                          {isVisible ? acc.loginUsername : '••••••••'}
+                        </span>
+                        {acc.loginUsername && isVisible && (
+                          <button 
+                            onClick={() => copyToClipboard(acc.loginUsername || '', `${acc.id}_usr`)}
+                            className="text-brand-secondary hover:text-brand-primary p-0.5"
+                            title="Copy username"
+                          >
+                            {copiedMap[`${acc.id}_usr`] ? <Check size={10} className="text-emerald-600" /> : <Copy size={10} />}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-center gap-2 border-t border-brand-border/10 pt-1">
+                      <span className="text-brand-secondary font-medium">Pass:</span>
+                      <div className="flex items-center gap-1">
+                        <span className="font-mono text-brand-primary font-bold">
+                          {isVisible ? acc.loginPassword : '••••••••'}
+                        </span>
+                        {acc.loginPassword && isVisible && (
+                          <button 
+                            onClick={() => copyToClipboard(acc.loginPassword || '', `${acc.id}_pwd`)}
+                            className="text-brand-secondary hover:text-brand-primary p-0.5"
+                            title="Copy password"
+                          >
+                            {copiedMap[`${acc.id}_pwd`] ? <Check size={10} className="text-emerald-600" /> : <Copy size={10} />}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {(acc.loginUsername || acc.loginPassword) ? (
+                    <button 
+                      onClick={() => toggleCredentials(acc.id)}
+                      className="text-[9px] font-bold uppercase tracking-widest text-brand-secondary hover:text-brand-primary p-1 bg-white border border-brand-border rounded flex items-center gap-1 shadow-sm shrink-0 flex items-center justify-center"
+                    >
+                      {isVisible ? <EyeOff size={11} /> : <Eye size={11} />}
+                    </button>
+                  ) : (
+                    <span className="text-[10px] italic text-brand-secondary opacity-60">No login</span>
+                  )}
+                </div>
+
+                {/* Section 5: Notes & Actions */}
+                <div className="flex items-center gap-3 justify-end shrink-0 pl-2 border-t lg:border-t-0 border-brand-border/20 pt-2 lg:pt-0">
+                  {acc.notes && (
+                    <span className="text-[10px] text-brand-secondary italic truncate max-w-[120px] cursor-help" title={acc.notes}>
+                      "{acc.notes}"
+                    </span>
+                  )}
+                  <div className="flex gap-0.5 bg-brand-bg/5 p-1 rounded-lg border border-brand-border/40">
+                    <button 
+                      onClick={() => handleOpenEditModal(acc)}
+                      className="p-1.5 text-brand-secondary hover:text-brand-primary hover:bg-white rounded transition-all"
+                      title="Edit account"
+                    >
+                      <Edit2 size={12} />
+                    </button>
+                    <button 
+                      onClick={() => handleDeleteAccount(acc.id, acc.name)}
+                      className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-all"
+                      title="Delete account"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
                 </div>
               </div>
             );
