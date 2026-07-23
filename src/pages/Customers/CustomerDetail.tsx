@@ -1648,7 +1648,16 @@ export function CustomerDetail() {
                         <div className="text-xs text-green-700 font-semibold bg-green-50 border border-green-200/50 rounded-xl p-3 flex items-center justify-between gap-4">
                           <div className="flex items-center gap-2 truncate">
                             <FileText size={16} className="text-green-600 shrink-0" />
-                            <span className="truncate">{editCompanyForm.resaleCertificateName}</span>
+                            <a 
+                              href={editCompanyForm.resaleCertificateUrl} 
+                              target="_blank" 
+                              rel="noopener noreferrer" 
+                              className="truncate hover:underline flex items-center gap-1 cursor-pointer"
+                              title="Click to view document"
+                            >
+                              <span className="truncate">{editCompanyForm.resaleCertificateName}</span>
+                              <ExternalLink size={12} className="shrink-0 opacity-70" />
+                            </a>
                           </div>
                           <button 
                             type="button" 

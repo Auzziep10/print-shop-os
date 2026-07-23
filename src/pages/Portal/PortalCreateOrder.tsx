@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { ArrowLeft, PackagePlus, X, Trash2, ChevronDown, RotateCcw, Calendar, Loader2, Sparkles, Save, User, Copy, Upload, ShoppingCart, Users, Info, Plus } from 'lucide-react';
+import { ArrowLeft, PackagePlus, X, Trash2, ChevronDown, RotateCcw, Calendar, Loader2, Sparkles, Save, User, Copy, Upload, ShoppingCart, Users, Info, Plus, ExternalLink } from 'lucide-react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { db, storage } from '../../lib/firebase';
 import { doc, getDoc, collection, query, where, getDocs, setDoc, deleteDoc } from 'firebase/firestore';
@@ -2148,7 +2148,16 @@ export function PortalCreateOrder() {
                             </div>
                           ) : resaleCertificateUrl ? (
                             <div className="text-[9px] text-emerald-600 font-bold bg-white border border-emerald-100 rounded-lg p-1.5 flex items-center justify-between">
-                              <span className="truncate max-w-[120px]">{resaleCertificateName}</span>
+                              <a 
+                                href={resaleCertificateUrl} 
+                                target="_blank" 
+                                rel="noopener noreferrer" 
+                                className="truncate max-w-[150px] hover:underline flex items-center gap-1 cursor-pointer"
+                                title="Click to view document"
+                              >
+                                <span className="truncate">{resaleCertificateName}</span>
+                                <ExternalLink size={8} className="shrink-0 opacity-70" />
+                              </a>
                               <button 
                                 type="button" 
                                 onClick={async () => {
