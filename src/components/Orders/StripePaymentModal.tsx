@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { X, CreditCard, ShoppingCart, Package, MapPin, Building2, ChevronDown } from 'lucide-react';
-import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion, getDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -206,6 +206,23 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
   const [localShippingOptions, setLocalShippingOptions] = useState<any[]>(order.shippingOptions || []);
   const [isFetchingRates, setIsFetchingRates] = useState<boolean>(false);
   const [ratesError, setRatesError] = useState<string | null>(null);
+  const [isCustomerTaxExempt, setIsCustomerTaxExempt] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (!order.customerId) return;
+    const fetchCustomerTaxStatus = async () => {
+      try {
+        const customerSnap = await getDoc(doc(db, 'customers', order.customerId));
+        if (customerSnap.exists()) {
+          const custData = customerSnap.data();
+          setIsCustomerTaxExempt(!!custData.taxExempt);
+        }
+      } catch (err) {
+        console.error("Error fetching customer tax status:", err);
+      }
+    };
+    fetchCustomerTaxStatus();
+  }, [order.customerId]);
 
   // Dynamic fetcher if shippingOptions is missing/empty on order document in Firestore
   useEffect(() => {
@@ -380,6 +397,10 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
 
   useEffect(() => {
     const calculateStripeTax = async () => {
+      if (isCustomerTaxExempt) {
+        setCalculatedTax(0);
+        return;
+      }
       if (!hasShippingAddress || regularItems.length === 0) return;
       setIsCalculatingTax(true);
       setTaxError(null);
@@ -413,9 +434,9 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
     };
 
     calculateStripeTax();
-  }, [order.id, hasShippingAddress, order.items, currentShippingAmount]);
+  }, [order.id, hasShippingAddress, order.items, currentShippingAmount, isCustomerTaxExempt]);
 
-  const finalTaxAmount = calculatedTax !== null ? calculatedTax : taxAmount;
+  const finalTaxAmount = isCustomerTaxExempt ? 0 : (calculatedTax !== null ? calculatedTax : taxAmount);
   const finalTotal = itemsSubtotal + finalTaxAmount + currentShippingAmount;
 
   const formattedSubtotal = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(itemsSubtotal);
@@ -611,7 +632,9 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
               <div className="flex justify-between items-center text-xs font-semibold text-neutral-500 uppercase tracking-wider">
                 <span>Estimated Sales Tax</span>
                 <span className="font-bold text-neutral-800">
-                  {isCalculatingTax ? (
+                  {isCustomerTaxExempt ? (
+                    <span className="text-[10px] text-purple-650 font-bold bg-purple-50 px-2 py-0.5 rounded-md border border-purple-100/50">Waived (Exempt)</span>
+                  ) : isCalculatingTax ? (
                     <span className="text-[10px] text-neutral-400 italic font-medium animate-pulse">Calculating...</span>
                   ) : (
                     finalTaxAmount > 0 ? formattedTax : '$0.00'

@@ -193,7 +193,6 @@ export function PortalCreateOrder() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [optInEmail, setOptInEmail] = useState(true);
   const [optInText, setOptInText] = useState(true);
-
   useEffect(() => {
     if (customer) {
       setProfileContactName(customer.contactName || '');
@@ -206,10 +205,13 @@ export function PortalCreateOrder() {
       setProfileZip(customer.shippingZip || '');
       setOptInEmail(customer.emailOptIn !== false);
       setOptInText(customer.textOptIn !== false);
+      setResaleCertificateUrl(customer.resaleCertificateUrl || null);
+      setResaleCertificateName(customer.resaleCertificateName || null);
+      if (customer.taxExempt) {
+        setOrderType('Wholesale');
+      }
     }
-  }, [customer]);
-
-  const [isCartOpen, setIsCartOpen] = useState(false);
+  }, [customer]);  const [isCartOpen, setIsCartOpen] = useState(false);
   const [isGarmentBrowserOpen, setIsGarmentBrowserOpen] = useState(false);
   const [orderItems, setOrderItems] = useState<any[]>([]);
 
@@ -2123,6 +2125,10 @@ export function PortalCreateOrder() {
                                     const downloadUrl = await getDownloadURL(storageRef);
                                     setResaleCertificateUrl(downloadUrl);
                                     setResaleCertificateName(file.name);
+                                    await setDoc(doc(db, 'customers', customerId), {
+                                      resaleCertificateUrl: downloadUrl,
+                                      resaleCertificateName: file.name
+                                    }, { merge: true });
                                   } catch (err) {
                                     console.error("Resale certificate upload failed:", err);
                                     alert("Failed to upload resale certificate.");
@@ -2143,9 +2149,14 @@ export function PortalCreateOrder() {
                               <span className="truncate max-w-[120px]">{resaleCertificateName}</span>
                               <button 
                                 type="button" 
-                                onClick={() => {
+                                onClick={async () => {
+                                  if (!customerId) return;
                                   setResaleCertificateUrl(null);
                                   setResaleCertificateName(null);
+                                  await setDoc(doc(db, 'customers', customerId), {
+                                    resaleCertificateUrl: '',
+                                    resaleCertificateName: ''
+                                  }, { merge: true });
                                 }}
                                 className="text-neutral-400 hover:text-red-500"
                               >

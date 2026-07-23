@@ -97,11 +97,15 @@ export function CustomerDetail() {
     type: 'B2C',
     net30Terms: true,
     fulfillmentType: 'Standard',
-    disableRack: false
+    disableRack: false,
+    taxExempt: false,
+    resaleCertificateUrl: '',
+    resaleCertificateName: ''
   });
   
   const [contacts, setContacts] = useState<any[]>([]);
   const [isAddingContact, setIsAddingContact] = useState(false);
+  const [isUploadingResaleCert, setIsUploadingResaleCert] = useState(false);
   const [newContact, setNewContact] = useState({ name: '', role: '', email: '', viewAll: false });
 
   const handleAddContact = async () => {
@@ -594,7 +598,10 @@ export function CustomerDetail() {
             type: data.type || 'B2C',
             net30Terms: data.net30Terms ?? true,
             fulfillmentType: data.fulfillmentType ?? 'Standard',
-            disableRack: data.disableRack ?? false
+            disableRack: data.disableRack ?? false,
+            taxExempt: data.taxExempt ?? false,
+            resaleCertificateUrl: data.resaleCertificateUrl || '',
+            resaleCertificateName: data.resaleCertificateName || ''
           });
 
            // Fetch the names for the linked catalogs immediately so they don't say "Linked WOVN Deck"
@@ -675,7 +682,10 @@ export function CustomerDetail() {
         type: editCompanyForm.type,
         net30Terms: editCompanyForm.net30Terms,
         fulfillmentType: editCompanyForm.fulfillmentType,
-        disableRack: editCompanyForm.disableRack
+        disableRack: editCompanyForm.disableRack,
+        taxExempt: editCompanyForm.taxExempt,
+        resaleCertificateUrl: editCompanyForm.resaleCertificateUrl,
+        resaleCertificateName: editCompanyForm.resaleCertificateName
       }, { merge: true });
       
       setLiveCustomerData({
@@ -687,7 +697,10 @@ export function CustomerDetail() {
         type: editCompanyForm.type,
         net30Terms: editCompanyForm.net30Terms,
         fulfillmentType: editCompanyForm.fulfillmentType,
-        disableRack: editCompanyForm.disableRack
+        disableRack: editCompanyForm.disableRack,
+        taxExempt: editCompanyForm.taxExempt,
+        resaleCertificateUrl: editCompanyForm.resaleCertificateUrl,
+        resaleCertificateName: editCompanyForm.resaleCertificateName
       });
       setIsEditDialogOpen(false);
     } catch (e) {
@@ -924,12 +937,25 @@ export function CustomerDetail() {
                   <span className="flex items-center gap-1.5"><Phone size={14} /> {editCompanyForm.phone}</span>
                   <span className="flex items-center gap-1.5"><Mail size={14} /> {editCompanyForm.email}</span>
                </div>
-               <div className="flex gap-2">
-                 <span className="text-[10px] bg-brand-bg border border-brand-border px-2.5 py-1 rounded-md text-brand-secondary font-semibold uppercase tracking-wider">{customer?.type || 'B2C'}</span>
-                 {hasNet30 && (
-                   <span className="text-[10px] bg-blue-50 border border-blue-200 text-blue-700 px-2.5 py-1 rounded-md font-semibold uppercase tracking-wider">Net 30 Terms</span>
-                 )}
-               </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[10px] bg-brand-bg border border-brand-border px-2.5 py-1 rounded-md text-brand-secondary font-semibold uppercase tracking-wider">{customer?.type || 'B2C'}</span>
+                  {hasNet30 && (
+                    <span className="text-[10px] bg-blue-50 border border-blue-200 text-blue-700 px-2.5 py-1 rounded-md font-semibold uppercase tracking-wider">Net 30 Terms</span>
+                  )}
+                  {customer?.taxExempt && (
+                    <span className="text-[10px] bg-purple-50 border border-purple-200 text-purple-700 px-2.5 py-1 rounded-md font-semibold uppercase tracking-wider">Tax Exempt</span>
+                  )}
+                  {customer?.resaleCertificateUrl && (
+                    <a 
+                      href={customer.resaleCertificateUrl} 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className="text-[10px] bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 px-2.5 py-1 rounded-md font-semibold uppercase tracking-wider flex items-center gap-1 transition-colors"
+                    >
+                      <FileText size={10} /> Resale Cert
+                    </a>
+                  )}
+                </div>
             </div>
           </div>
          <div className="flex gap-8 text-right bg-brand-bg/50 p-6 rounded-2xl border border-brand-border border-dashed">
@@ -1564,7 +1590,7 @@ export function CustomerDetail() {
                       <option value="Kitting">Inventory & Kitting</option>
                     </select>
                  </div>
-                  <div className="col-span-2 flex flex-col gap-2 pt-2 pl-2 mb-2">
+                  <div className="col-span-2 flex flex-col gap-2.5 pt-2 pl-2 mb-2">
                     <div className="flex items-center gap-3">
                       <input type="checkbox" id="net30" checked={editCompanyForm.net30Terms} onChange={e => setEditCompanyForm({...editCompanyForm, net30Terms: e.target.checked})} className="w-4 h-4 accent-brand-primary cursor-pointer" />
                       <label htmlFor="net30" className="text-xs font-bold text-brand-primary uppercase tracking-widest cursor-pointer mt-0.5">ALLOW NET 30 TERMS</label>
@@ -1572,6 +1598,73 @@ export function CustomerDetail() {
                     <div className="flex items-center gap-3">
                       <input type="checkbox" id="disableRack" checked={editCompanyForm.disableRack} onChange={e => setEditCompanyForm({...editCompanyForm, disableRack: e.target.checked})} className="w-4 h-4 accent-brand-primary cursor-pointer" />
                       <label htmlFor="disableRack" className="text-xs font-bold text-brand-primary uppercase tracking-widest cursor-pointer mt-0.5">DISABLE "YOUR RACK" TAB IN CLIENT PORTAL</label>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <input type="checkbox" id="taxExempt" checked={editCompanyForm.taxExempt} onChange={e => setEditCompanyForm({...editCompanyForm, taxExempt: e.target.checked})} className="w-4 h-4 accent-brand-primary cursor-pointer" />
+                      <label htmlFor="taxExempt" className="text-xs font-bold text-brand-primary uppercase tracking-widest cursor-pointer mt-0.5">TAX EXEMPT STATUS (WAIVE SALES TAX)</label>
+                    </div>
+
+                    {/* Resale Certificate uploader */}
+                    <div className="mt-3 bg-brand-bg/50 border border-brand-border/60 rounded-2xl p-4 flex flex-col gap-3 max-w-md">
+                      <div className="flex items-center justify-between gap-4">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary">Resale Certificate (Tax Exemption)</span>
+                        <label className="bg-brand-primary hover:bg-brand-primary/90 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg cursor-pointer transition-colors flex items-center gap-1.5 shadow-sm">
+                          <input 
+                            type="file" 
+                            className="hidden" 
+                            accept=".pdf,.png,.jpg,.jpeg,.svg"
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (!file || !id) return;
+                              setIsUploadingResaleCert(true);
+                              try {
+                                const storageRef = ref(storage, `customers/${id}/resale_certificates/${Date.now()}_${file.name}`);
+                                await uploadBytes(storageRef, file);
+                                const downloadUrl = await getDownloadURL(storageRef);
+                                setEditCompanyForm(prev => ({
+                                  ...prev,
+                                  resaleCertificateUrl: downloadUrl,
+                                  resaleCertificateName: file.name
+                                }));
+                              } catch (err) {
+                                console.error("Resale certificate upload failed:", err);
+                                alert("Failed to upload resale certificate.");
+                              } finally {
+                                setIsUploadingResaleCert(false);
+                              }
+                            }} 
+                          />
+                          <Upload size={12} /> Upload File
+                        </label>
+                      </div>
+
+                      {isUploadingResaleCert ? (
+                        <div className="flex items-center gap-1.5 text-xs text-brand-secondary font-semibold">
+                          <Loader2 className="animate-spin text-brand-primary" size={12} /> Uploading certificate...
+                        </div>
+                      ) : editCompanyForm.resaleCertificateUrl ? (
+                        <div className="text-xs text-green-700 font-semibold bg-green-50 border border-green-200/50 rounded-xl p-3 flex items-center justify-between gap-4">
+                          <div className="flex items-center gap-2 truncate">
+                            <FileText size={16} className="text-green-600 shrink-0" />
+                            <span className="truncate">{editCompanyForm.resaleCertificateName}</span>
+                          </div>
+                          <button 
+                            type="button" 
+                            onClick={() => {
+                              setEditCompanyForm(prev => ({
+                                ...prev,
+                                resaleCertificateUrl: '',
+                                resaleCertificateName: ''
+                              }));
+                            }}
+                            className="text-gray-400 hover:text-red-500 transition-colors p-1"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-brand-secondary italic">No resale certificate uploaded yet.</span>
+                      )}
                     </div>
                   </div>
                </div>
