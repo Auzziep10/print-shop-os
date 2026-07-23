@@ -110,10 +110,10 @@ const QUOTE_VECTORS =
     ],
     "quantity": 50,
     "tierIndex": 2,
-    "decorationCost": 1.875,
+    "decorationCost": 1.6,
     "margin": 0.516854,
-    "pricePerPiece": 3.880814,
-    "orderTotal": 194.040698
+    "pricePerPiece": 3.311628,
+    "orderTotal": 165.581395
   },
   {
     "garmentId": "tee",
