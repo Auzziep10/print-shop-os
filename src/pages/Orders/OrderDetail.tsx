@@ -7977,6 +7977,7 @@ function DtfQuotingModal({
                           {[
                             { name: "Neck tag relabel only", ids: ["tag"] },
                             { name: "Left chest only", ids: ["lc"] },
+                            { name: "Small back only", ids: ["sb"] },
                             { name: "Full front only", ids: ["ff"] },
                             { name: "Full back only", ids: ["fb"] },
                             { name: "Left chest + full back", ids: ["lc", "fb"] },

@@ -107,11 +107,11 @@ const REFERENCE_PRODUCT = { garmentId: "tee", placementIds: ["ff"] };
  * `allows` lists which placement ids are valid for that garment.
  */
 const GARMENTS = [
-  { id: "tee",    label: "T-shirt",             handlingMultiplier: 1.00, allows: ["ff","fb","lc","sl","sr","tag"] },
-  { id: "hoodie", label: "Hoodie",              handlingMultiplier: 1.55, allows: ["ff","fb","lc","sl","sr","tag"] },
-  { id: "crew",   label: "Crewneck sweatshirt", handlingMultiplier: 1.40, allows: ["ff","fb","lc","sl","sr","tag"] },
-  { id: "ls",     label: "Long-sleeve tee",     handlingMultiplier: 1.18, allows: ["ff","fb","lc","sl","sr","tag"] },
-  { id: "youth",  label: "Youth tee",           handlingMultiplier: 0.90, allows: ["ff","fb","lc","sl","sr","tag"] },
+  { id: "tee",    label: "T-shirt",             handlingMultiplier: 1.00, allows: ["ff","fb","lc","sl","sr","tag","sb"] },
+  { id: "hoodie", label: "Hoodie",              handlingMultiplier: 1.55, allows: ["ff","fb","lc","sl","sr","tag","sb"] },
+  { id: "crew",   label: "Crewneck sweatshirt", handlingMultiplier: 1.40, allows: ["ff","fb","lc","sl","sr","tag","sb"] },
+  { id: "ls",     label: "Long-sleeve tee",     handlingMultiplier: 1.18, allows: ["ff","fb","lc","sl","sr","tag","sb"] },
+  { id: "youth",  label: "Youth tee",           handlingMultiplier: 0.90, allows: ["ff","fb","lc","sl","sr","tag","sb"] },
   { id: "tote",   label: "Tote bag",            handlingMultiplier: 0.82, allows: ["ff","fb"] },
   { id: "hat",    label: "Hat / cap",           handlingMultiplier: 1.05, allows: ["patch"] },
 ];
@@ -125,6 +125,7 @@ const PLACEMENTS = [
   { id: "ff",    label: "Full front (11×14)",         costKey: "transferLarge" },
   { id: "fb",    label: "Full back (11×14)",          costKey: "transferLarge" },
   { id: "lc",    label: "Left chest (≈4\")",          costKey: "transferSmall" },
+  { id: "sb",    label: "Small back (≈4\")",          costKey: "transferSmall" },
   { id: "sl",    label: "Left sleeve",                costKey: "transferSmall" },
   { id: "sr",    label: "Right sleeve",               costKey: "transferSmall" },
   { id: "tag",   label: "Neck tag relabel (tag removed)", costKey: "transferTag", addsTearOut: true },
