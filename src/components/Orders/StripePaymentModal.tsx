@@ -111,20 +111,25 @@ const CheckoutForm = ({ order, onSuccess, onCancel }: { order: any, onSuccess: (
           paymentStatus: 'paid',
           paymentDate: new Date().toISOString(),
           paymentRead: false,
+          deliveryOption: order.deliveryOption,
           items: cleanItems,
           tax: finalTaxAmount,
           total: order.calculatedTotal || 0,
           activities: arrayUnion({
             id: `act-${Date.now()}`,
             type: 'system',
-            message: `Payment of ${order.totalFormatted || 'balance'} processed successfully via Stripe (Shipping: ${selectedShipping ? `${selectedShipping.carrier} ${selectedShipping.service}` : 'Original'}).`,
+            message: `Payment of ${order.totalFormatted || 'balance'} processed successfully via Stripe (Method: ${order.deliveryOption}${selectedShipping ? `, Shipping: ${selectedShipping.carrier} ${selectedShipping.service}` : ''}).`,
             user: order.customerId || 'Customer',
             timestamp: new Date().toISOString()
           })
         };
 
-        if (selectedShipping) {
+        if (order.deliveryOption === 'Local Delivery') {
+          updatePayload.shipping = 0;
+          updatePayload.shippingCost = 0;
+        } else if (selectedShipping) {
           updatePayload.shipping = selectedShipping.rate;
+          updatePayload.shippingCost = selectedShipping.rate;
         }
 
         await updateDoc(orderRef, updatePayload);
@@ -207,6 +212,7 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
   const [isFetchingRates, setIsFetchingRates] = useState<boolean>(false);
   const [ratesError, setRatesError] = useState<string | null>(null);
   const [isCustomerTaxExempt, setIsCustomerTaxExempt] = useState<boolean>(false);
+  const [selectedDeliveryOption, setSelectedDeliveryOption] = useState<string>(order.deliveryOption || 'Shipping');
 
   useEffect(() => {
     if (!order.customerId) return;
@@ -226,15 +232,15 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
 
   // Dynamic fetcher if shippingOptions is missing/empty on order document in Firestore
   useEffect(() => {
-    if (order.shippingOptions && order.shippingOptions.length > 0) {
-      setLocalShippingOptions(order.shippingOptions);
+    const hasZip = order.shippingAddress?.zip || order.shippingAddress?.postalCode;
+    const hasCity = order.shippingAddress?.city;
+    if (selectedDeliveryOption !== 'Shipping' || !hasZip || !hasCity) {
+      setLocalShippingOptions([]);
       return;
     }
 
-    const hasZip = order.shippingAddress?.zip || order.shippingAddress?.postalCode;
-    const hasCity = order.shippingAddress?.city;
-    if (order.deliveryOption !== 'Shipping' || !hasZip || !hasCity) {
-      setLocalShippingOptions([]);
+    if (order.shippingOptions && order.shippingOptions.length > 0) {
+      setLocalShippingOptions(order.shippingOptions);
       return;
     }
 
@@ -296,7 +302,7 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
     };
 
     fetchRates();
-  }, [order.id, order.shippingOptions, order.deliveryOption, order.shippingAddress, order.items]);
+  }, [order.id, order.shippingOptions, selectedDeliveryOption, order.shippingAddress, order.items]);
 
   // Handle selectedShippingOption initialization
   useEffect(() => {
@@ -332,10 +338,13 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
       const orderRef = doc(db, 'orders', order.id);
       await updateDoc(orderRef, {
         statusIndex: 3, // Move to pending payment
+        deliveryOption: selectedDeliveryOption,
+        shippingCost: currentShippingAmount,
+        shipping: currentShippingAmount,
         activities: arrayUnion({
           id: `act-${Date.now()}`,
           type: 'system',
-          message: 'Quote approved by customer.',
+          message: `Quote approved by customer. Selected delivery method: ${selectedDeliveryOption}.`,
           user: 'Customer',
           timestamp: new Date().toISOString()
         })
@@ -390,7 +399,9 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
     shippingAmount = parseFloat(String(order.shippingCost).replace(/[^0-9.]/g, '')) || 0;
   }
 
-  const currentShippingAmount = selectedShippingOption ? selectedShippingOption.rate : shippingAmount;
+  const currentShippingAmount = selectedDeliveryOption === 'Local Delivery'
+    ? 0
+    : (selectedShippingOption ? selectedShippingOption.rate : shippingAmount);
 
   const hasShippingAddress = !!(order.shippingAddress && 
     (order.shippingAddress.street1 || order.shippingAddress.street || order.shippingAddress.city));
@@ -446,6 +457,7 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
 
   const orderWithTotal = { 
     ...order, 
+    deliveryOption: selectedDeliveryOption,
     totalFormatted: formattedTotal,
     calculatedTax: finalTaxAmount,
     calculatedTotal: finalTotal,
@@ -539,8 +551,45 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
           {/* Delivery Details Section */}
           <div className="flex flex-col gap-3">
             <h3 className="text-[10px] font-bold tracking-widest text-neutral-450 uppercase mb-1">Delivery Details</h3>
+            
+            {/* Delivery Option Toggle Grid */}
+            <div className="grid grid-cols-2 gap-2 bg-neutral-100 p-1 rounded-xl border border-neutral-200/50">
+              {['Local Delivery', 'Shipping'].map((opt) => (
+                <button
+                  key={opt}
+                  type="button"
+                  onClick={() => setSelectedDeliveryOption(opt)}
+                  className={`py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    selectedDeliveryOption === opt
+                      ? 'bg-white text-black shadow-xs'
+                      : 'text-neutral-450 hover:text-black'
+                  }`}
+                >
+                  {opt}
+                </button>
+              ))}
+            </div>
+
             <div className="bg-white rounded-2xl p-4 border border-neutral-200/50 shadow-2xs flex gap-3 items-start animate-in slide-in-from-bottom duration-250" style={{ animationDelay: '100ms' }}>
-              {hasShippingAddress ? (
+              {selectedDeliveryOption === 'Local Delivery' ? (
+                <>
+                  <div className="w-8 h-8 rounded-full bg-neutral-100 flex items-center justify-center text-neutral-600 shrink-0 mt-0.5 animate-in zoom-in duration-200">
+                    <MapPin size={16} className="text-brand-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold text-neutral-900 uppercase tracking-wide">Deliver To</p>
+                    <div className="text-xs text-neutral-600 leading-relaxed font-semibold mt-1">
+                      {order.shippingAddress?.name && <span className="block text-neutral-800 font-bold">{order.shippingAddress.name}</span>}
+                      {order.shippingAddress?.company && <span className="block text-neutral-400 text-[10px] uppercase tracking-wider">{order.shippingAddress.company}</span>}
+                      <span className="block">{order.shippingAddress?.street1 || order.shippingAddress?.street}</span>
+                      {order.shippingAddress?.street2 && <span className="block">{order.shippingAddress.street2}</span>}
+                      <span className="block">
+                        {order.shippingAddress?.city}, {order.shippingAddress?.state} {order.shippingAddress?.zip}
+                      </span>
+                    </div>
+                  </div>
+                </>
+              ) : hasShippingAddress ? (
                 <>
                   <div className="w-8 h-8 rounded-full bg-neutral-100 flex items-center justify-center text-neutral-600 shrink-0 mt-0.5 animate-in zoom-in duration-200">
                     <MapPin size={16} />
@@ -548,12 +597,12 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-bold text-neutral-900 uppercase tracking-wide">Ship To</p>
                     <div className="text-xs text-neutral-600 leading-relaxed font-semibold mt-1">
-                      {order.shippingAddress.name && <span className="block text-neutral-800 font-bold">{order.shippingAddress.name}</span>}
-                      {order.shippingAddress.company && <span className="block text-neutral-400 text-[10px] uppercase tracking-wider">{order.shippingAddress.company}</span>}
-                      <span className="block">{order.shippingAddress.street1 || order.shippingAddress.street}</span>
-                      {order.shippingAddress.street2 && <span className="block">{order.shippingAddress.street2}</span>}
+                      {order.shippingAddress?.name && <span className="block text-neutral-800 font-bold">{order.shippingAddress.name}</span>}
+                      {order.shippingAddress?.company && <span className="block text-neutral-400 text-[10px] uppercase tracking-wider">{order.shippingAddress.company}</span>}
+                      <span className="block">{order.shippingAddress?.street1 || order.shippingAddress?.street}</span>
+                      {order.shippingAddress?.street2 && <span className="block">{order.shippingAddress.street2}</span>}
                       <span className="block">
-                        {order.shippingAddress.city}, {order.shippingAddress.state} {order.shippingAddress.zip}
+                        {order.shippingAddress?.city}, {order.shippingAddress?.state} {order.shippingAddress?.zip}
                       </span>
                     </div>
                   </div>
@@ -572,18 +621,18 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
                 </>
               )}
             </div>
-            {isFetchingRates && (
+            {selectedDeliveryOption === 'Shipping' && isFetchingRates && (
               <div className="bg-neutral-50 rounded-2xl p-4 border border-neutral-200/50 flex items-center justify-center gap-2">
                 <span className="text-[10px] text-neutral-400 italic font-medium animate-pulse">Calculating shipping options...</span>
               </div>
             )}
-            {ratesError && (
+            {selectedDeliveryOption === 'Shipping' && ratesError && (
               <div className="bg-red-50 rounded-2xl p-4 border border-red-100/50 text-[10px] text-red-500 font-extrabold flex flex-col gap-1 p-3">
                 <span>⚠️ Shipping Rate Error: {ratesError}</span>
                 <span className="font-medium text-neutral-500">Make sure the delivery details are correct or contact support.</span>
               </div>
             )}
-            {localShippingOptions && localShippingOptions.length > 0 && (
+            {selectedDeliveryOption === 'Shipping' && localShippingOptions && localShippingOptions.length > 0 && (
               <div className="bg-white rounded-2xl p-4 border border-neutral-200/50 shadow-2xs flex flex-col gap-2 animate-in slide-in-from-bottom duration-250" style={{ animationDelay: '120ms' }}>
                 <label className="block text-[10px] font-extrabold uppercase tracking-widest text-neutral-450">
                   Select Shipping Speed
