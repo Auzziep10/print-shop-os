@@ -175,6 +175,7 @@ const isVinylItem = (item: any): boolean => {
     return name.includes('(vinyl)') || name.includes('elevated flex');
 };
 
+/*
 // Helper function to trace contour paths from a canvas image (e.g. for vinyl vector outlines)
 const findContourPaths = (canvas: HTMLCanvasElement): string[] => {
     const ctx = canvas.getContext('2d');
@@ -249,7 +250,7 @@ const findContourPaths = (canvas: HTMLCanvasElement): string[] => {
                         }
 
                         if (!foundNext || (nextX === startX && nextY === startY)) {
-                            break;
+                             break;
                         }
 
                         prevX = currX;
@@ -273,6 +274,7 @@ const findContourPaths = (canvas: HTMLCanvasElement): string[] => {
     }
     return paths;
 };
+*/
 
 // Injects standard PNG physical resolution (pHYs) metadata chunk to set print DPI
 const injectDpiInPngDataUrl = (dataUrl: string, dpi: number): string => {
@@ -868,80 +870,35 @@ const generateFinalSheetsForPrintAndCut = async (
 
     svgContent += `  <!-- Cut Paths -->\n`;
     if (!isVinyl) {
-        const uniqueContourPaths: Record<string, { paths: string[]; width: number; height: number }> = {};
-        
-        for (const url of Array.from(urlsToLoad)) {
-            const img = loadedImages[url];
-            if (!img) continue;
-
-            let traceWidth = 400;
-            let traceHeight = 400;
-            const imgW = img.naturalWidth || img.width || 400;
-            const imgH = img.naturalHeight || img.height || 400;
-            
-            const maxDim = 400;
-            if (imgW > imgH) {
-                traceWidth = maxDim;
-                traceHeight = Math.round(maxDim * imgH / imgW);
-            } else {
-                traceHeight = maxDim;
-                traceWidth = Math.round(maxDim * imgW / imgH);
-            }
-
-            const traceCanvas = document.createElement('canvas');
-            traceCanvas.width = traceWidth;
-            traceCanvas.height = traceHeight;
-            const traceCtx = traceCanvas.getContext('2d');
-            let contourPaths: string[] = [];
-            if (traceCtx) {
-                traceCtx.drawImage(img, 0, 0, traceWidth, traceHeight);
-                contourPaths = findContourPaths(traceCanvas);
-            }
-            uniqueContourPaths[url] = { paths: contourPaths, width: traceWidth, height: traceHeight };
-        }
-
         if (isSingleTransferLayout) {
             placements.forEach(p => {
                 const artW = p.wPx;
                 const artH = p.hPx;
-                const centerX = p.x + MARGIN_PX + artW / 2;
-                const centerY = p.y + yOffset + artH / 2;
-
-                const trace = uniqueContourPaths[p.url];
-                if (trace && trace.paths.length > 0) {
-                    const scaleX = artW / trace.width;
-                    const scaleY = artH / trace.height;
-
-                    svgContent += `  <g transform="translate(${centerX}, ${centerY}) scale(${scaleX}, ${scaleY}) translate(${-trace.width / 2}, ${-trace.height / 2})">\n`;
-                    trace.paths.forEach(d => {
-                        svgContent += `    <path d="${d}" fill="black" stroke="black" stroke-width="${6 / Math.max(scaleX, scaleY)}" stroke-linejoin="round" />\n`;
-                    });
-                    svgContent += `  </g>\n`;
-                }
+                const printX = p.x + MARGIN_PX;
+                const printY = p.y + yOffset;
+                const paddingPx = 0.08 * BASE_DPI; // 24px (~2mm) margin
+                
+                svgContent += `  <rect x="${printX - paddingPx}" y="${printY - paddingPx}" width="${artW + (2 * paddingPx)}" height="${artH + (2 * paddingPx)}" fill="none" stroke="black" stroke-width="6" />\n`;
             });
         } else {
             // --- Standard Gang Sheet ---
             const artworks = (orderItem.artworks || []).filter(
                 (art: any) => art.name !== 'Size Tag Print' && !art.name?.toLowerCase().includes('tag')
             );
-            const sourceUrl = orderItem.originalSheetUrl || orderItem.image || '';
-            const trace = uniqueContourPaths[sourceUrl];
 
-            if (artworks.length > 0 && isAutoLayout && trace && trace.paths.length > 0) {
+            if (artworks.length > 0 && isAutoLayout) {
                 artworks.forEach((art: any) => {
                     const centerX = (art.x + art.width / 2) * BASE_DPI + MARGIN_PX;
                     const centerY = (art.y + art.height / 2) * BASE_DPI + yOffset;
-                    const artW = art.width * BASE_DPI;
-                    const artH = art.height * BASE_DPI;
 
-                    const scaleX = artW / trace.width;
-                    const scaleY = artH / trace.height;
-                    const rotation = art.rotation || 0;
+                    const targetPadding = 0.08 * BASE_DPI;
+                    const safePadding = calculateSafePadding(art, artworks, targetPadding);
 
-                    svgContent += `  <g transform="translate(${centerX}, ${centerY}) rotate(${rotation}) scale(${scaleX}, ${scaleY}) translate(${-trace.width / 2}, ${-trace.height / 2})">\n`;
-                    trace.paths.forEach(d => {
-                        svgContent += `    <path d="${d}" fill="black" stroke="black" stroke-width="${6 / Math.max(scaleX, scaleY)}" stroke-linejoin="round" />\n`;
-                    });
+                    const wPx = art.width * BASE_DPI + (2 * safePadding);
+                    const hPx = art.height * BASE_DPI + (2 * safePadding);
+
+                    svgContent += `  <g transform="translate(${centerX}, ${centerY}) rotate(${art.rotation || 0})">\n`;
+                    svgContent += `    <rect x="${-wPx / 2}" y="${-hPx / 2}" width="${wPx}" height="${hPx}" fill="none" stroke="black" stroke-width="6" />\n`;
                     svgContent += `  </g>\n`;
                 });
             } else {
