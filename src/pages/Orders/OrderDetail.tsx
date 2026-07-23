@@ -7190,6 +7190,8 @@ export function OrderDetail() {
           initialGarment={editItemObj?.style}
           costs={dtfCosts || DTFPricing.DEFAULT_COSTS}
           ladder={dtfLadder || DEFAULT_LADDER_FALLBACK}
+          liveCustomer={liveCustomer}
+          editItemObj={editItemObj}
           onSaveConfig={async (newCosts: any, newLadder: any) => {
             try {
               await setDoc(doc(db, 'settings', 'dtf_pricing'), {
@@ -7230,6 +7232,8 @@ interface DtfQuotingModalProps {
   initialGarment?: string;
   costs: any;
   ladder: any;
+  liveCustomer: any;
+  editItemObj: any;
   onSaveConfig: (newCosts: any, newLadder: any) => Promise<void>;
   onApplyPrice: (price: number) => void;
 }
@@ -7242,6 +7246,8 @@ function DtfQuotingModal({
   initialGarment,
   costs,
   ladder,
+  liveCustomer,
+  editItemObj,
   onSaveConfig,
   onApplyPrice
 }: DtfQuotingModalProps) {
@@ -7251,7 +7257,37 @@ function DtfQuotingModal({
   const [selectedGarment, setSelectedGarment] = useState<string>('tee');
   const [qty, setQty] = useState<number>(initialQty || 50);
   const [placements, setPlacements] = useState<Record<string, boolean>>({ ff: true });
-  const [blankCost, setBlankCost] = useState<number>(0);
+  
+  // Initialize blankCost dynamically using customer profile suggestedItems / sampleItems
+  const [blankCost, setBlankCost] = useState<number>(() => {
+    if (!liveCustomer || !editItemObj?.style) return 0;
+    
+    const searchStyle = editItemObj.style.trim().toLowerCase();
+    const searchItemNum = (editItemObj.itemNum || '').trim().toLowerCase();
+    
+    const items = [
+      ...(liveCustomer.suggestedItems || []),
+      ...(liveCustomer.sampleItems || [])
+    ];
+    
+    const match = items.find((item: any) => {
+      const itemStyle = (item.style || '').trim().toLowerCase();
+      const itemNum = (item.itemNum || '').trim().toLowerCase();
+      return (
+        (searchStyle && itemStyle && (itemStyle.includes(searchStyle) || searchStyle.includes(itemStyle))) ||
+        (searchStyle && itemNum && (itemNum.includes(searchStyle) || searchStyle.includes(itemNum))) ||
+        (searchItemNum && itemStyle && (itemStyle.includes(searchItemNum) || searchItemNum.includes(itemStyle))) ||
+        (searchItemNum && itemNum && (itemNum.includes(searchItemNum) || searchItemNum.includes(itemNum)))
+      );
+    });
+    
+    if (match && match.price) {
+      const parsed = parseFloat(match.price);
+      return isNaN(parsed) ? 0 : parsed;
+    }
+    return 0;
+  });
+
   const [showBreakdown, setShowBreakdown] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
 
