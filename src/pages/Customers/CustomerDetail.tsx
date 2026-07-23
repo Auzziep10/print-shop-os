@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
-import { ArrowLeft, Mail, Phone, MapPin, Building2, ExternalLink, Plus, Loader2, Upload, X, Check, Edit3, ChevronRight, Trash2, FileText, Crop, Eye, EyeOff, Search, Send, MessageSquare } from 'lucide-react';
+import { ArrowLeft, Mail, Phone, MapPin, Building2, ExternalLink, Plus, Loader2, Upload, X, Check, Edit3, ChevronRight, Trash2, FileText, Crop, Eye, EyeOff, Search, Send, MessageSquare, Image } from 'lucide-react';
 
 import { storage, db } from '../../lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -556,6 +556,17 @@ export function CustomerDetail() {
   
   // Right Column Tab (Asset Vault vs Chat)
   const [activeRightTab, setActiveRightTab] = useState<'vault' | 'chat'>('vault');
+  const location = useLocation();
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tabParam = params.get('tab');
+    if (tabParam === 'chat') {
+      setActiveRightTab('chat');
+    } else if (tabParam === 'vault') {
+      setActiveRightTab('vault');
+    }
+  }, [location.search]);
   const [adminChatMessages, setAdminChatMessages] = useState<any[]>([]);
   const [adminNewMessageText, setAdminNewMessageText] = useState('');
   const [adminUnreadChatCount, setAdminUnreadChatCount] = useState(0);
@@ -611,6 +622,53 @@ export function CustomerDetail() {
       adminMessagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [adminChatMessages, activeRightTab]);
+
+  const [isAdminUploadingChatImage, setIsAdminUploadingChatImage] = useState(false);
+
+  const uploadAndSendAdminImage = async (file: File) => {
+    setIsAdminUploadingChatImage(true);
+    try {
+      const storageRef = ref(storage, `customers/${id}/chat_attachments/${Date.now()}_${file.name}`);
+      await uploadBytes(storageRef, file);
+      const downloadUrl = await getDownloadURL(storageRef);
+
+      const msgsRef = collection(db, 'customers', id || '', 'chat_messages');
+      await addDoc(msgsRef, {
+        text: '',
+        imageUrl: downloadUrl,
+        senderId: 'admin',
+        senderName: 'Shop Staff',
+        senderRole: 'Admin',
+        timestamp: new Date().toISOString(),
+        read: false
+      });
+    } catch (err) {
+      console.error("Failed to upload/send admin chat image:", err);
+      alert("Failed to send image attachment.");
+    } finally {
+      setIsAdminUploadingChatImage(false);
+    }
+  };
+
+  const handleAdminChatImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !id) return;
+    await uploadAndSendAdminImage(file);
+  };
+
+  const handleAdminChatPaste = async (e: React.ClipboardEvent<HTMLInputElement>) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        const file = items[i].getAsFile();
+        if (file) {
+          e.preventDefault();
+          await uploadAndSendAdminImage(file);
+        }
+      }
+    }
+  };
 
   const handleSendAdminChatMessage = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -1521,21 +1579,66 @@ export function CustomerDetail() {
                         return (
                           <div
                             key={msg.id}
-                            className={`flex flex-col max-w-[80%] ${isMe ? 'self-end items-end' : 'self-start items-start'}`}
+                            className={`flex flex-col max-w-[80%] relative group/msg ${isMe ? 'self-end items-end' : 'self-start items-start'}`}
                           >
                             {!isMe && (
                               <span className="text-[9px] text-neutral-450 font-bold uppercase tracking-wider mb-1 ml-1">
                                 {msg.senderName} ({msg.senderRole})
                               </span>
                             )}
-                            <div
-                              className={`p-3 rounded-2xl text-xs font-semibold leading-relaxed shadow-3xs break-words w-full ${
-                                isMe
-                                  ? 'bg-black text-white rounded-br-none'
-                                  : 'bg-white border border-neutral-200 text-neutral-800 rounded-bl-none'
-                              }`}
-                            >
-                              {msg.text}
+                            <div className="flex items-center gap-2 w-full">
+                              {!isMe && (
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    if (confirm("Delete this message?")) {
+                                      try {
+                                        await deleteDoc(doc(db, 'customers', id || '', 'chat_messages', msg.id));
+                                      } catch (err) {
+                                        console.error("Failed to delete message:", err);
+                                      }
+                                    }
+                                  }}
+                                  className="opacity-0 group-hover/msg:opacity-100 transition-opacity text-neutral-400 hover:text-red-500 p-1 rounded shrink-0 cursor-pointer"
+                                  title="Delete Message"
+                                >
+                                  <Trash2 size={12} />
+                                </button>
+                              )}
+
+                              <div
+                                className={`p-3 rounded-2xl text-xs font-semibold leading-relaxed shadow-3xs break-words flex-1 ${
+                                  isMe
+                                    ? 'bg-neutral-900 text-white rounded-br-none'
+                                    : 'bg-neutral-100 text-neutral-800 rounded-bl-none'
+                                }`}
+                              >
+                                {msg.imageUrl ? (
+                                  <a href={msg.imageUrl} target="_blank" rel="noopener noreferrer" className="block max-w-full overflow-hidden rounded-xl mt-1 border border-neutral-200 cursor-zoom-in">
+                                    <img src={msg.imageUrl} alt="Chat Attachment" className="max-w-full max-h-[220px] object-contain mx-auto" />
+                                  </a>
+                                ) : null}
+                                {msg.text && <p className={msg.imageUrl ? 'mt-2' : ''}>{msg.text}</p>}
+                              </div>
+
+                              {isMe && (
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    if (confirm("Delete this message?")) {
+                                      try {
+                                        await deleteDoc(doc(db, 'customers', id || '', 'chat_messages', msg.id));
+                                      } catch (err) {
+                                        console.error("Failed to delete message:", err);
+                                      }
+                                    }
+                                  }}
+                                  className="opacity-0 group-hover/msg:opacity-100 transition-opacity text-neutral-400 hover:text-red-500 p-1 rounded shrink-0 cursor-pointer"
+                                  title="Delete Message"
+                                >
+                                  <Trash2 size={12} />
+                                </button>
+                              )}
                             </div>
                             <span className="text-[8px] text-neutral-400 mt-1 font-semibold">
                               {msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
@@ -1552,11 +1655,26 @@ export function CustomerDetail() {
                     onSubmit={handleSendAdminChatMessage}
                     className="flex gap-2 items-center shrink-0 border-t border-neutral-100 pt-3 bg-white"
                   >
+                    <label className="w-9 h-9 rounded-xl border border-neutral-200 hover:bg-neutral-50 flex items-center justify-center text-neutral-500 cursor-pointer shrink-0 transition-colors relative">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleAdminChatImageUpload}
+                        disabled={isAdminUploadingChatImage}
+                      />
+                      {isAdminUploadingChatImage ? (
+                        <Loader2 className="animate-spin text-brand-primary" size={14} />
+                      ) : (
+                        <Image size={14} />
+                      )}
+                    </label>
                     <input
                       type="text"
-                      placeholder="Reply to customer..."
+                      placeholder="Reply to customer or paste image..."
                       value={adminNewMessageText}
                       onChange={(e) => setAdminNewMessageText(e.target.value)}
+                      onPaste={handleAdminChatPaste}
                       className="flex-1 bg-neutral-50 border border-neutral-200 focus:bg-white focus:border-black rounded-xl px-4 py-2.5 text-xs text-neutral-900 focus:outline-none font-semibold transition-all"
                     />
                     <button

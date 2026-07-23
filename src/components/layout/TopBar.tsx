@@ -3,7 +3,7 @@ import { PillButton } from '../ui/PillButton';
 import { useAuth } from '../../contexts/AuthContext';
 import { useOrders } from '../../hooks/useOrders';
 import { useState, useEffect } from 'react';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, collectionGroup, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useNavigate } from 'react-router-dom';
 import { CommandPalette } from './CommandPalette';
@@ -18,8 +18,35 @@ export function TopBar({ onOpenSidebar }: TopBarProps) {
   const navigate = useNavigate();
   const [showNotifications, setShowNotifications] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [unreadMessages, setUnreadMessages] = useState<any[]>([]);
 
   const unreadPayments = orders.filter(o => o.paymentStatus === 'paid' && o.paymentRead === false);
+  const totalUnreadCount = unreadPayments.length + unreadMessages.length;
+
+  useEffect(() => {
+    const q = query(
+      collectionGroup(db, 'chat_messages'),
+      where('senderRole', '==', 'Client'),
+      where('read', '==', false)
+    );
+
+    const unsub = onSnapshot(q, (snapshot) => {
+      const msgs = snapshot.docs.map(doc => {
+        const parentPath = doc.ref.parent.parent;
+        const customerId = parentPath ? parentPath.id : 'unknown';
+        return {
+          id: doc.id,
+          customerId,
+          ...doc.data()
+        };
+      });
+      setUnreadMessages(msgs);
+    }, (err) => {
+      console.error("Error fetching unread chat messages in TopBar:", err);
+    });
+
+    return () => unsub();
+  }, []);
 
   const handleMarkAsRead = async (orderId: string) => {
     try {
@@ -80,7 +107,7 @@ export function TopBar({ onOpenSidebar }: TopBarProps) {
           className="relative p-2 text-brand-secondary hover:text-brand-primary transition-colors"
         >
           <Bell size={20} strokeWidth={1.5} />
-          {unreadPayments.length > 0 && (
+          {totalUnreadCount > 0 && (
             <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border border-white"></span>
           )}
         </button>
@@ -89,18 +116,46 @@ export function TopBar({ onOpenSidebar }: TopBarProps) {
           <div className="absolute top-full right-0 mt-2 w-72 bg-white rounded-xl shadow-xl border border-brand-border overflow-hidden z-50 animate-in slide-in-from-top-2 duration-200">
             <div className="p-3 border-b border-brand-border bg-neutral-50 flex items-center justify-between">
               <h3 className="text-xs font-bold uppercase tracking-widest text-brand-secondary">Notifications</h3>
-              <span className="bg-black text-white text-[10px] px-2 py-0.5 rounded-full font-bold">{unreadPayments.length}</span>
+              <span className="bg-black text-white text-[10px] px-2 py-0.5 rounded-full font-bold">{totalUnreadCount}</span>
             </div>
-            <div className="max-h-64 overflow-y-auto">
-              {unreadPayments.length === 0 ? (
+            <div className="max-h-64 overflow-y-auto divide-y divide-brand-border/30">
+              {totalUnreadCount === 0 ? (
                 <div className="p-6 text-center text-xs text-brand-secondary">No new notifications.</div>
               ) : (
-                unreadPayments.map(order => (
-                  <div key={order.id} className="p-3 border-b border-brand-border/50 hover:bg-neutral-50 transition-colors cursor-pointer" onClick={() => handleMarkAsRead(order.id)}>
-                    <p className="text-xs font-medium text-brand-primary mb-1">Payment Received! <span className="text-emerald-500"><Check size={12} className="inline" /></span></p>
-                    <p className="text-xs text-brand-secondary line-clamp-1">{order.title}</p>
-                  </div>
-                ))
+                <>
+                  {/* Order Payments */}
+                  {unreadPayments.map(order => (
+                    <div key={order.id} className="p-3 hover:bg-neutral-50 transition-colors cursor-pointer" onClick={() => handleMarkAsRead(order.id)}>
+                      <p className="text-xs font-medium text-brand-primary mb-1">Payment Received! <span className="text-emerald-500"><Check size={12} className="inline animate-in zoom-in duration-200" /></span></p>
+                      <p className="text-[11px] text-brand-secondary line-clamp-1">{order.title}</p>
+                    </div>
+                  ))}
+
+                  {/* Chat Messages */}
+                  {unreadMessages.map(msg => (
+                    <div 
+                      key={msg.id} 
+                      className="p-3 hover:bg-neutral-50 transition-colors cursor-pointer" 
+                      onClick={async () => {
+                        navigate(`/customers/${msg.customerId}?tab=chat`);
+                        setShowNotifications(false);
+                        try {
+                          const msgRef = doc(db, 'customers', msg.customerId, 'chat_messages', msg.id);
+                          await updateDoc(msgRef, { read: true });
+                        } catch (err) {
+                          console.error("Failed to mark message as read from notification bar:", err);
+                        }
+                      }}
+                    >
+                      <p className="text-[11px] font-bold text-brand-primary mb-1 flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full shrink-0 animate-pulse" />
+                        <span>New Support Chat</span>
+                      </p>
+                      <p className="text-[11px] text-neutral-800 line-clamp-1 font-semibold">{msg.text || '📷 Sent an image attachment'}</p>
+                      <p className="text-[9px] text-brand-secondary mt-1">From {msg.senderName}</p>
+                    </div>
+                  ))}
+                </>
               )}
             </div>
           </div>

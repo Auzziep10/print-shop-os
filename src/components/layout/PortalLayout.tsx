@@ -1,5 +1,5 @@
 import { Outlet, useParams, useNavigate, useLocation } from 'react-router-dom';
-import { Search, Info, HelpCircle, User, Settings, LogOut, X, ShoppingBag, MapPin, Upload, Trash2, Image, Check, MessageSquare, Send } from 'lucide-react';
+import { Search, Info, HelpCircle, User, Settings, LogOut, X, ShoppingBag, MapPin, Upload, Trash2, Image, Check, MessageSquare, Send, Loader2 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useState, useEffect, useRef } from 'react';
 import { PortalHelpDrawer } from '../Portal/PortalHelpDrawer';
@@ -115,7 +115,7 @@ export function PortalLayout() {
   useEffect(() => {
     if (!customerId) return;
 
-    const msgsRef = collection(db, 'customers', customerId, 'chat_messages');
+    const msgsRef = collection(db, 'customers', customerId || '', 'chat_messages');
     const q = query(msgsRef, orderBy('timestamp', 'asc'));
 
     const unsub = onSnapshot(q, (snapshot) => {
@@ -162,6 +162,53 @@ export function PortalLayout() {
     }
   }, [chatMessages, isChatOpen]);
 
+  const [isUploadingChatImage, setIsUploadingChatImage] = useState(false);
+
+  const uploadAndSendImage = async (file: File) => {
+    setIsUploadingChatImage(true);
+    try {
+      const storageRef = ref(storage, `customers/${customerId}/chat_attachments/${Date.now()}_${file.name}`);
+      await uploadBytes(storageRef, file);
+      const downloadUrl = await getDownloadURL(storageRef);
+
+      const msgsRef = collection(db, 'customers', customerId || '', 'chat_messages');
+      await addDoc(msgsRef, {
+        text: '',
+        imageUrl: downloadUrl,
+        senderId: customerId,
+        senderName: customer?.contactName || customer?.company || 'Client',
+        senderRole: 'Client',
+        timestamp: new Date().toISOString(),
+        read: false
+      });
+    } catch (err) {
+      console.error("Failed to upload/send chat image:", err);
+      alert("Failed to send image attachment.");
+    } finally {
+      setIsUploadingChatImage(false);
+    }
+  };
+
+  const handleChatImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !customerId) return;
+    await uploadAndSendImage(file);
+  };
+
+  const handleChatPaste = async (e: React.ClipboardEvent<HTMLInputElement>) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        const file = items[i].getAsFile();
+        if (file) {
+          e.preventDefault();
+          await uploadAndSendImage(file);
+        }
+      }
+    }
+  };
+
   const handleSendChatMessage = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!newMessageText.trim() || !customerId) return;
@@ -170,7 +217,7 @@ export function PortalLayout() {
     setNewMessageText('');
 
     try {
-      const msgsRef = collection(db, 'customers', customerId, 'chat_messages');
+      const msgsRef = collection(db, 'customers', customerId || '', 'chat_messages');
       await addDoc(msgsRef, {
         text: textToSend,
         senderId: customerId,
@@ -968,6 +1015,19 @@ export function PortalLayout() {
       {/* Floating Chat Bubble Button */}
       {customerId && (
         <>
+          {/* Unread Message Alert speech bubble floating next to chat button */}
+          {!isChatOpen && unreadChatCount > 0 && (
+            <div 
+              onClick={() => setIsChatOpen(true)}
+              className="fixed bottom-7 right-24 z-[120] bg-neutral-900 hover:bg-neutral-800 text-white text-[11px] font-bold px-4 py-2.5 rounded-2xl shadow-2xl flex items-center gap-2 cursor-pointer transition-all hover:scale-105 active:scale-95 border border-neutral-800 animate-bounce group"
+              title="Click to view new messages"
+            >
+              <span className="w-2 h-2 bg-emerald-400 rounded-full animate-ping shrink-0" />
+              <span className="whitespace-nowrap">New message from team!</span>
+              <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1.5 w-3 h-3 bg-neutral-900 border-t border-r border-neutral-800 rotate-45 pointer-events-none group-hover:bg-neutral-800 transition-colors" />
+            </div>
+          )}
+
           <button
             onClick={() => setIsChatOpen(!isChatOpen)}
             className="fixed bottom-6 right-6 z-[120] w-14 h-14 rounded-full bg-black text-white flex items-center justify-center shadow-2xl hover:scale-105 active:scale-95 transition-all cursor-pointer group"
@@ -991,22 +1051,22 @@ export function PortalLayout() {
           {isChatOpen && (
             <div className="fixed bottom-24 right-6 z-[120] w-80 sm:w-96 h-[480px] bg-white rounded-3xl border border-neutral-200 shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-bottom duration-300">
               {/* Header */}
-              <div className="bg-black text-white p-5 flex items-center justify-between shrink-0">
+              <div className="bg-white border-b border-neutral-100 p-5 flex items-center justify-between shrink-0">
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-neutral-800 flex items-center justify-center font-bold text-sm text-neutral-300 relative border border-white/10">
+                  <div className="w-9 h-9 rounded-full bg-neutral-100 flex items-center justify-center font-bold text-sm text-neutral-700 relative border border-neutral-200">
                     W
-                    <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-black" />
+                    <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-white" />
                   </div>
                   <div>
-                    <h3 className="text-xs font-black tracking-wide uppercase">WOVN Support</h3>
-                    <p className="text-[10px] text-green-400 font-semibold mt-0.5">Admins & Managers online</p>
+                    <h3 className="text-xs font-bold text-neutral-900 tracking-wide uppercase">WOVN Support</h3>
+                    <p className="text-[10px] text-emerald-600 font-bold mt-0.5">Admins & Managers online</p>
                   </div>
                 </div>
                 <button
                   onClick={() => setIsChatOpen(false)}
-                  className="text-neutral-400 hover:text-white transition-colors"
+                  className="text-neutral-400 hover:text-neutral-700 hover:bg-neutral-50 p-1.5 rounded-full transition-colors"
                 >
-                  <X size={18} />
+                  <X size={16} />
                 </button>
               </div>
 
@@ -1034,11 +1094,16 @@ export function PortalLayout() {
                         <div
                           className={`p-3 rounded-2xl text-xs font-semibold leading-relaxed shadow-3xs break-words w-full ${
                             isMe
-                              ? 'bg-black text-white rounded-br-none'
-                              : 'bg-white border border-neutral-200 text-neutral-800 rounded-bl-none'
+                              ? 'bg-neutral-900 text-white rounded-br-none'
+                              : 'bg-neutral-100 text-neutral-800 rounded-bl-none'
                           }`}
                         >
-                          {msg.text}
+                          {msg.imageUrl ? (
+                            <a href={msg.imageUrl} target="_blank" rel="noopener noreferrer" className="block max-w-full overflow-hidden rounded-xl mt-1 border border-neutral-200 cursor-zoom-in">
+                              <img src={msg.imageUrl} alt="Chat Attachment" className="max-w-full max-h-[220px] object-contain mx-auto" />
+                            </a>
+                          ) : null}
+                          {msg.text && <p className={msg.imageUrl ? 'mt-2' : ''}>{msg.text}</p>}
                         </div>
                         <span className="text-[8px] text-neutral-400 mt-1 font-semibold">
                           {msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
@@ -1055,11 +1120,26 @@ export function PortalLayout() {
                 onSubmit={handleSendChatMessage}
                 className="p-3 border-t border-neutral-100 flex gap-2 items-center bg-white shrink-0"
               >
+                <label className="w-9 h-9 rounded-xl border border-neutral-200 hover:bg-neutral-50 flex items-center justify-center text-neutral-500 cursor-pointer shrink-0 transition-colors relative">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleChatImageUpload}
+                    disabled={isUploadingChatImage}
+                  />
+                  {isUploadingChatImage ? (
+                    <Loader2 className="animate-spin text-brand-primary" size={14} />
+                  ) : (
+                    <Image size={14} />
+                  )}
+                </label>
                 <input
                   type="text"
-                  placeholder="Type a message..."
+                  placeholder="Type a message or paste image..."
                   value={newMessageText}
                   onChange={(e) => setNewMessageText(e.target.value)}
+                  onPaste={handleChatPaste}
                   className="flex-1 bg-neutral-50 border border-neutral-200 focus:bg-white focus:border-black rounded-xl px-4 py-2.5 text-xs text-neutral-900 focus:outline-none font-semibold transition-all"
                 />
                 <button
