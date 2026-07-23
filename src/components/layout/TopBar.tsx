@@ -26,20 +26,21 @@ export function TopBar({ onOpenSidebar }: TopBarProps) {
   useEffect(() => {
     const q = query(
       collectionGroup(db, 'chat_messages'),
-      where('senderRole', '==', 'Client'),
       where('read', '==', false)
     );
 
     const unsub = onSnapshot(q, (snapshot) => {
-      const msgs = snapshot.docs.map(doc => {
-        const parentPath = doc.ref.parent.parent;
-        const customerId = parentPath ? parentPath.id : 'unknown';
-        return {
-          id: doc.id,
-          customerId,
-          ...doc.data()
-        };
-      });
+      const msgs = snapshot.docs
+        .map(doc => {
+          const parentPath = doc.ref.parent.parent;
+          const customerId = parentPath ? parentPath.id : 'unknown';
+          return {
+            id: doc.id,
+            customerId,
+            ...doc.data()
+          };
+        })
+        .filter((msg: any) => msg.senderRole === 'Client');
       setUnreadMessages(msgs);
     }, (err) => {
       console.error("Error fetching unread chat messages in TopBar:", err);
