@@ -2110,35 +2110,37 @@ export function PortalCreateOrder() {
                         <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-4 flex flex-col gap-2.5 animate-in fade-in slide-in-from-top-2 duration-300">
                           <div className="flex items-center justify-between">
                             <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Resale Certificate (Tax Exemption)</span>
-                            <label className="bg-black hover:bg-neutral-800 text-white text-[9px] font-bold px-2 py-1 rounded-lg cursor-pointer transition-colors flex items-center gap-1">
-                              <input 
-                                type="file" 
-                                className="hidden" 
-                                accept=".pdf,.png,.jpg,.jpeg,.svg"
-                                onChange={async (e) => {
-                                  const file = e.target.files?.[0];
-                                  if (!file || !customerId) return;
-                                  setIsUploadingResaleCert(true);
-                                  try {
-                                    const storageRef = ref(storage, `customers/${customerId}/resale_certificates/${Date.now()}_${file.name}`);
-                                    await uploadBytes(storageRef, file);
-                                    const downloadUrl = await getDownloadURL(storageRef);
-                                    setResaleCertificateUrl(downloadUrl);
-                                    setResaleCertificateName(file.name);
-                                    await setDoc(doc(db, 'customers', customerId), {
-                                      resaleCertificateUrl: downloadUrl,
-                                      resaleCertificateName: file.name
-                                    }, { merge: true });
-                                  } catch (err) {
-                                    console.error("Resale certificate upload failed:", err);
-                                    alert("Failed to upload resale certificate.");
-                                  } finally {
-                                    setIsUploadingResaleCert(false);
-                                  }
-                                }} 
-                              />
-                              <Upload size={8} /> Upload File
-                            </label>
+                            {!resaleCertificateUrl && (
+                              <label className="bg-black hover:bg-neutral-800 text-white text-[9px] font-bold px-2 py-1 rounded-lg cursor-pointer transition-colors flex items-center gap-1">
+                                <input 
+                                  type="file" 
+                                  className="hidden" 
+                                  accept=".pdf,.png,.jpg,.jpeg,.svg"
+                                  onChange={async (e) => {
+                                    const file = e.target.files?.[0];
+                                    if (!file || !customerId) return;
+                                    setIsUploadingResaleCert(true);
+                                    try {
+                                      const storageRef = ref(storage, `customers/${customerId}/resale_certificates/${Date.now()}_${file.name}`);
+                                      await uploadBytes(storageRef, file);
+                                      const downloadUrl = await getDownloadURL(storageRef);
+                                      setResaleCertificateUrl(downloadUrl);
+                                      setResaleCertificateName(file.name);
+                                      await setDoc(doc(db, 'customers', customerId), {
+                                        resaleCertificateUrl: downloadUrl,
+                                        resaleCertificateName: file.name
+                                      }, { merge: true });
+                                    } catch (err) {
+                                      console.error("Resale certificate upload failed:", err);
+                                      alert("Failed to upload resale certificate.");
+                                    } finally {
+                                      setIsUploadingResaleCert(false);
+                                    }
+                                  }} 
+                                />
+                                <Upload size={8} /> Upload File
+                              </label>
+                            )}
                           </div>
                           {isUploadingResaleCert ? (
                             <div className="flex items-center gap-1 text-[9px] text-neutral-550 font-semibold">

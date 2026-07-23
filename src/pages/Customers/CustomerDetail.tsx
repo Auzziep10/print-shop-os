@@ -1608,34 +1608,36 @@ export function CustomerDetail() {
                     <div className="mt-3 bg-brand-bg/50 border border-brand-border/60 rounded-2xl p-4 flex flex-col gap-3 max-w-md">
                       <div className="flex items-center justify-between gap-4">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary">Resale Certificate (Tax Exemption)</span>
-                        <label className="bg-brand-primary hover:bg-brand-primary/90 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg cursor-pointer transition-colors flex items-center gap-1.5 shadow-sm">
-                          <input 
-                            type="file" 
-                            className="hidden" 
-                            accept=".pdf,.png,.jpg,.jpeg,.svg"
-                            onChange={async (e) => {
-                              const file = e.target.files?.[0];
-                              if (!file || !id) return;
-                              setIsUploadingResaleCert(true);
-                              try {
-                                const storageRef = ref(storage, `customers/${id}/resale_certificates/${Date.now()}_${file.name}`);
-                                await uploadBytes(storageRef, file);
-                                const downloadUrl = await getDownloadURL(storageRef);
-                                setEditCompanyForm(prev => ({
-                                  ...prev,
-                                  resaleCertificateUrl: downloadUrl,
-                                  resaleCertificateName: file.name
-                                }));
-                              } catch (err) {
-                                console.error("Resale certificate upload failed:", err);
-                                alert("Failed to upload resale certificate.");
-                              } finally {
-                                setIsUploadingResaleCert(false);
-                              }
-                            }} 
-                          />
-                          <Upload size={12} /> Upload File
-                        </label>
+                        {!editCompanyForm.resaleCertificateUrl && (
+                          <label className="bg-brand-primary hover:bg-brand-primary/90 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg cursor-pointer transition-colors flex items-center gap-1.5 shadow-sm">
+                            <input 
+                              type="file" 
+                              className="hidden" 
+                              accept=".pdf,.png,.jpg,.jpeg,.svg"
+                              onChange={async (e) => {
+                                const file = e.target.files?.[0];
+                                if (!file || !id) return;
+                                setIsUploadingResaleCert(true);
+                                try {
+                                  const storageRef = ref(storage, `customers/${id}/resale_certificates/${Date.now()}_${file.name}`);
+                                  await uploadBytes(storageRef, file);
+                                  const downloadUrl = await getDownloadURL(storageRef);
+                                  setEditCompanyForm(prev => ({
+                                    ...prev,
+                                    resaleCertificateUrl: downloadUrl,
+                                    resaleCertificateName: file.name
+                                  }));
+                                } catch (err) {
+                                  console.error("Resale certificate upload failed:", err);
+                                  alert("Failed to upload resale certificate.");
+                                } finally {
+                                  setIsUploadingResaleCert(false);
+                                }
+                              }} 
+                            />
+                            <Upload size={12} /> Upload File
+                          </label>
+                        )}
                       </div>
 
                       {isUploadingResaleCert ? (
