@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { PillButton } from '../../components/ui/PillButton';
 import { PackingSlipsManager } from '../../components/Orders/PackingSlipsManager';
 import { TrackingModal } from '../../components/Orders/TrackingModal';
-import { ArrowLeft, MessageSquare, QrCode, Clock, Users, Download, Loader2, X, Edit3, Upload, Trash2, Plus, ChevronDown, Image as ImageIcon, Box, Printer, ExternalLink, ShoppingBag, Search, Check, Truck, Calculator, GripVertical, Pause, Play, DollarSign, PackagePlus, Layers, CreditCard, Copy, RotateCcw, Sparkles, FileText } from 'lucide-react';
+import { ArrowLeft, MessageSquare, QrCode, Clock, Users, Download, Loader2, X, Edit3, Upload, Trash2, Plus, ChevronDown, Image as ImageIcon, Box, Printer, ExternalLink, ShoppingBag, Search, Check, Truck, Calculator, GripVertical, Pause, Play, DollarSign, PackagePlus, Layers, CreditCard, Copy, RotateCcw, Sparkles, FileText, TriangleAlert } from 'lucide-react';
 import ReactQRCode from 'react-qr-code';
 import QRCodeLib from 'qrcode';
 import JSZip from 'jszip';
@@ -21,6 +21,8 @@ import { GarmentCustomizerModal } from '../../components/Portal/GarmentCustomize
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
 import { sendOrderStatusSMS } from '../../lib/smsService';
 import { sendOrderStatusEmail } from '../../lib/emailService';
+// @ts-ignore
+import DTFPricing from '../../../dtf-pricing-engine.js';
 const sanmarCatalog = sanmarCatalogJson as any[];
 
 const SIZE_ORDER = ['XXS', 'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL', 'OSFA'];
@@ -1324,6 +1326,42 @@ export function OrderDetail() {
   }, []);
 
   useEffect(() => {
+    const fetchDtfSettings = async () => {
+      try {
+        const docRef = doc(db, 'settings', 'dtf_pricing');
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (data.costs) {
+            setDtfCosts({
+              ...DTFPricing.DEFAULT_COSTS,
+              ...data.costs
+            });
+          } else {
+            setDtfCosts(DTFPricing.DEFAULT_COSTS);
+          }
+          if (data.ladder) {
+            setDtfLadder({
+              ...DTFPricing.DEFAULT_LADDER,
+              ...data.ladder
+            });
+          } else {
+            setDtfLadder(DTFPricing.DEFAULT_LADDER);
+          }
+        } else {
+          setDtfCosts(DTFPricing.DEFAULT_COSTS);
+          setDtfLadder(DTFPricing.DEFAULT_LADDER);
+        }
+      } catch (err) {
+        console.error("Error fetching DTF pricing settings:", err);
+        setDtfCosts(DTFPricing.DEFAULT_COSTS);
+        setDtfLadder(DTFPricing.DEFAULT_LADDER);
+      }
+    };
+    fetchDtfSettings();
+  }, []);
+
+  useEffect(() => {
      if (!id || allUsers.length === 0) return;
      const qTasks = query(collection(db, 'timelineTasks'), where('orderId', '==', id));
      const unsub = onSnapshot(qTasks, (snap) => {
@@ -1370,6 +1408,9 @@ export function OrderDetail() {
   };
 
   const [editItemObj, setEditItemObj] = useState<any>(null);
+  const [isDtfToolOpen, setIsDtfToolOpen] = useState(false);
+  const [dtfCosts, setDtfCosts] = useState<any>(null);
+  const [dtfLadder, setDtfLadder] = useState<any>(null);
   const [quickShipItem, setQuickShipItem] = useState<any>(null);
   const [quickShipSizes, setQuickShipSizes] = useState<Record<string, number>>({});
   const [expandedImage, setExpandedImage] = useState<{src: string, alt: string} | null>(null);
@@ -6410,6 +6451,13 @@ export function OrderDetail() {
                                   />
                               </div>
                           </div>
+                          <button
+                            type="button"
+                            onClick={() => setIsDtfToolOpen(true)}
+                            className="w-full bg-brand-bg hover:bg-neutral-100 text-brand-primary border border-brand-border rounded-lg py-2 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                          >
+                            <Calculator size={14} className="text-brand-secondary" /> DTF Quoting Tool
+                          </button>
                           <div className="bg-brand-bg rounded-lg p-3 border border-brand-border flex items-start gap-3 mt-auto">
                               <Clock size={16} className="text-brand-secondary shrink-0 mt-0.5" />
                               <p className="text-xs font-medium text-brand-secondary leading-relaxed">Ensure prices are accurate and reflect final agreed-upon rates for complete decoration and fulfillment packages per unit.</p>
@@ -7127,6 +7175,903 @@ export function OrderDetail() {
         />
       )}
 
+      {isDtfToolOpen && (
+        <DtfQuotingModal
+          isOpen={isDtfToolOpen}
+          onClose={() => setIsDtfToolOpen(false)}
+          initialQty={Number(Object.values(editItemObj?.sizes || {}).reduce((a: any, b: any) => a + (parseInt(b) || 0), 0)) || 1}
+          isAdmin={userData?.role === 'Admin'}
+          initialGarment={editItemObj?.style}
+          costs={dtfCosts || DTFPricing.DEFAULT_COSTS}
+          ladder={dtfLadder || DTFPricing.DEFAULT_LADDER}
+          onSaveConfig={async (newCosts: any, newLadder: any) => {
+            try {
+              await setDoc(doc(db, 'settings', 'dtf_pricing'), {
+                costs: newCosts,
+                ladder: newLadder,
+                updatedAt: new Date().toISOString()
+              }, { merge: true });
+              setDtfCosts(newCosts);
+              setDtfLadder(newLadder);
+            } catch (err) {
+              console.error("Error saving DTF pricing settings:", err);
+              throw err;
+            }
+          }}
+          onApplyPrice={(price: number) => {
+            setEditItemObj((prev: any) => ({
+              ...prev,
+              price: price.toFixed(2)
+            }));
+            setIsDtfToolOpen(false);
+          }}
+        />
+      )}
+
     </div>
   );
 }
+
+// ============================================================================
+// DTF Quoting Modal Component
+// ============================================================================
+
+interface DtfQuotingModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  initialQty: number;
+  isAdmin: boolean;
+  initialGarment?: string;
+  costs: any;
+  ladder: any;
+  onSaveConfig: (newCosts: any, newLadder: any) => Promise<void>;
+  onApplyPrice: (price: number) => void;
+}
+
+function DtfQuotingModal({
+  isOpen,
+  onClose,
+  initialQty,
+  isAdmin,
+  initialGarment,
+  costs,
+  ladder,
+  onSaveConfig,
+  onApplyPrice
+}: DtfQuotingModalProps) {
+  const [mode, setMode] = useState<'quote' | 'settings'>('quote');
+  
+  // Quote Mode state
+  const [selectedGarment, setSelectedGarment] = useState<string>('tee');
+  const [qty, setQty] = useState<number>(initialQty || 50);
+  const [placements, setPlacements] = useState<Record<string, boolean>>({ ff: true });
+  const [blankCost, setBlankCost] = useState<number>(0);
+  const [showBreakdown, setShowBreakdown] = useState<boolean>(false);
+  const [copied, setCopied] = useState<boolean>(false);
+
+  // Settings Mode state
+  const [activeSettingsTab, setActiveSettingsTab] = useState<'ladder' | 'costs' | 'rateCard' | 'transfers'>('ladder');
+  const [tempCosts, setTempCosts] = useState<any>({ ...costs });
+  const [tempLadder, setTempLadder] = useState<any>({ ...ladder });
+  const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [saveStatus, setSaveStatus] = useState<{ success: boolean; message: string } | null>(null);
+
+  // Sync temp settings when props change
+  useEffect(() => {
+    setTempCosts({ ...costs });
+    setTempLadder({ ...ladder });
+  }, [costs, ladder]);
+
+  // Try to match initialGarment string to dtf garment id
+  useEffect(() => {
+    if (initialGarment) {
+      const lower = initialGarment.toLowerCase();
+      let matched = 'tee';
+      if (lower.includes('hoodie')) matched = 'hoodie';
+      else if (lower.includes('crew') || lower.includes('sweatshirt')) matched = 'crew';
+      else if (lower.includes('long-sleeve') || lower.includes('long sleeve') || lower.includes('ls')) matched = 'ls';
+      else if (lower.includes('youth')) matched = 'youth';
+      else if (lower.includes('tote')) matched = 'tote';
+      else if (lower.includes('hat') || lower.includes('cap')) matched = 'hat';
+      setSelectedGarment(matched);
+
+      // Pre-select first allowed placement
+      const g = DTFPricing.findGarment(matched);
+      if (g && g.allows.length > 0) {
+        setPlacements({ [g.allows[0]]: true });
+      }
+    }
+  }, [initialGarment]);
+
+  if (!isOpen) return null;
+
+  // Quoting math
+  const placementIds = Object.keys(placements);
+  const result = DTFPricing.quote({
+    garmentId: selectedGarment,
+    placementIds,
+    quantity: qty,
+    blankCost,
+    costs: tempCosts,
+    ladder: tempLadder
+  });
+
+  const quoteText = () => {
+    if (!result.ok) return "Pick at least one print location to see a price.";
+    const garmentObj = DTFPricing.findGarment(selectedGarment);
+    const placementLabels = placementIds
+      .map(pId => DTFPricing.findPlacement(pId)?.label)
+      .filter(Boolean);
+    
+    return [
+      "QUOTE",
+      "",
+      `${garmentObj?.label || 'Garment'} x ${qty}`,
+      ...placementLabels.map(label => `  - ${label}`),
+      "",
+      `Price each:  $${result.pricePerPiece.toFixed(2)}`,
+      `Order total: $${(result.pricePerPiece * qty).toFixed(2)}`,
+      "",
+      blankCost > 0 
+        ? `Includes garment at $${blankCost.toFixed(2)} each.` 
+        : "Decoration only - garments supplied by customer."
+    ].join("\n");
+  };
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(quoteText());
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2200);
+  };
+
+  const handleSaveSettings = async () => {
+    setIsSaving(true);
+    setSaveStatus(null);
+    try {
+      await onSaveConfig(tempCosts, tempLadder);
+      setSaveStatus({ success: true, message: 'DTF pricing configuration saved successfully!' });
+      setTimeout(() => setSaveStatus(null), 3000);
+    } catch (err: any) {
+      setSaveStatus({ success: false, message: `Failed to save: ${err.message || 'Unknown error'}` });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleResetCosts = () => {
+    setTempCosts(DTFPricing.DEFAULT_COSTS);
+  };
+
+  // Color mapping helper for breakdown display
+  const breakdownColors = ["bg-sky-500", "bg-amber-500", "bg-emerald-500", "bg-neutral-400", "bg-rose-500"];
+
+  return (
+    <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto" onClick={onClose}>
+      <div className="bg-white rounded-[2rem] border border-brand-border shadow-2xl max-w-5xl w-full flex flex-col max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        
+        {/* Modal Header */}
+        <div className="px-6 py-4 bg-white border-b border-brand-border flex justify-between items-center shrink-0">
+          <div className="flex items-center gap-4">
+            <h3 className="font-serif text-xl text-brand-primary flex items-center gap-2">
+              <Calculator className="text-brand-secondary" size={20} />
+              DTF Apparel Pricing Tool
+            </h3>
+            {isAdmin && (
+              <div className="flex bg-neutral-100 p-1 rounded-lg">
+                <button
+                  onClick={() => setMode('quote')}
+                  className={`px-3 py-1.5 text-xs font-bold uppercase tracking-wider rounded-md transition-all cursor-pointer ${
+                    mode === 'quote' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'
+                  }`}
+                >
+                  Quote View
+                </button>
+                <button
+                  onClick={() => setMode('settings')}
+                  className={`px-3 py-1.5 text-xs font-bold uppercase tracking-wider rounded-md transition-all cursor-pointer ${
+                    mode === 'settings' ? 'bg-white shadow-sm text-brand-primary' : 'text-brand-secondary hover:text-brand-primary'
+                  }`}
+                >
+                  Settings Setup
+                </button>
+              </div>
+            )}
+          </div>
+          <button className="p-2 bg-neutral-100 hover:bg-neutral-200 rounded-full transition-colors cursor-pointer" onClick={onClose}>
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Modal Body */}
+        <div className="p-6 overflow-y-auto custom-scrollbar flex-1 bg-brand-bg/25">
+          
+          {mode === 'quote' ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+              
+              {/* Inputs Form */}
+              <div className="bg-white p-6 rounded-2xl border border-brand-border shadow-sm flex flex-col gap-5">
+                
+                {/* Garment type */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Garment Type</label>
+                  <select
+                    value={selectedGarment}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setSelectedGarment(val);
+                      const g = DTFPricing.findGarment(val);
+                      if (g) {
+                        setPlacements(prev => {
+                          const next: any = {};
+                          g.allows.forEach((pId: string) => {
+                            if (prev[pId]) next[pId] = true;
+                          });
+                          if (Object.keys(next).length === 0 && g.allows.length > 0) {
+                            next[g.allows[0]] = true;
+                          }
+                          return next;
+                        });
+                      }
+                    }}
+                    className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-2.5 text-sm focus:border-brand-primary focus:bg-white focus:outline-none transition-all outline-none cursor-pointer text-brand-primary font-bold"
+                  >
+                    {DTFPricing.GARMENTS.map((g: any) => (
+                      <option key={g.id} value={g.id}>{g.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Quantity */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Quantity (Piece Count)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={qty}
+                    onChange={(e) => setQty(Math.max(1, parseInt(e.target.value) || 1))}
+                    className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-2.5 text-sm focus:border-brand-primary focus:bg-white focus:outline-none transition-all font-bold text-brand-primary"
+                  />
+                  <div className="text-[11px] text-brand-secondary pl-1 font-medium">
+                    Priced at the <strong className="text-brand-primary">{DTFPricing.TIERS[DTFPricing.tierIndexFor(qty)]}</strong> rate.
+                  </div>
+                </div>
+
+                {/* Placements */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Where it prints (Placements)</label>
+                  <div className="flex flex-col gap-2">
+                    {DTFPricing.PLACEMENTS.map((p: any) => {
+                      const garmentObj = DTFPricing.findGarment(selectedGarment);
+                      const isAllowed = garmentObj?.allows.includes(p.id);
+                      const isChecked = isAllowed && !!placements[p.id];
+                      return (
+                        <label
+                          key={p.id}
+                          className={`flex items-center gap-3 p-3 rounded-xl border text-sm transition-all select-none ${
+                            isChecked 
+                              ? 'bg-brand-primary/5 border-brand-primary/30 text-brand-primary font-semibold' 
+                              : isAllowed 
+                                ? 'bg-white border-brand-border text-brand-secondary hover:bg-neutral-50 hover:border-brand-border/80 cursor-pointer' 
+                                : 'bg-neutral-50 border-brand-border/40 text-gray-300 cursor-not-allowed opacity-40'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            disabled={!isAllowed}
+                            checked={!!isChecked}
+                            onChange={(e) => {
+                              setPlacements(prev => {
+                                const next = { ...prev };
+                                if (e.target.checked) {
+                                  next[p.id] = true;
+                                } else {
+                                  delete next[p.id];
+                                }
+                                return next;
+                              });
+                            }}
+                            className="accent-brand-primary w-4 h-4 cursor-pointer disabled:cursor-not-allowed"
+                          />
+                          <span className="flex-1">{p.label}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Garment Blank Cost */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Garment Cost Each — Optional</label>
+                  <div className="relative">
+                    <DollarSign size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.1"
+                      placeholder="leave blank if customer supplies"
+                      value={blankCost || ''}
+                      onChange={(e) => setBlankCost(Math.max(0, parseFloat(e.target.value) || 0))}
+                      className="w-full bg-brand-bg/50 border border-brand-border rounded-lg pl-8 pr-4 py-2 text-sm focus:border-brand-primary focus:bg-white focus:outline-none transition-all font-bold text-brand-primary"
+                    />
+                  </div>
+                  <div className="text-[10px] text-brand-secondary pl-1">Fill this in only if you are supplying the blank garments.</div>
+                </div>
+
+              </div>
+
+              {/* Pricing Output */}
+              <div className="flex flex-col gap-6">
+                
+                {result.ok ? (
+                  <div className="bg-white p-6 rounded-2xl border border-brand-border shadow-sm flex flex-col gap-5">
+                    
+                    <div className="flex justify-between items-baseline gap-4 border-b border-brand-border/40 pb-4">
+                      <span className="text-sm font-semibold text-brand-secondary">Price each</span>
+                      <span className="text-4xl font-serif font-black text-brand-primary">${result.pricePerPiece.toFixed(2)}</span>
+                    </div>
+
+                    <div className="flex justify-between items-baseline gap-4">
+                      <span className="text-sm font-semibold text-brand-secondary">Order total · {qty} pcs</span>
+                      <span className="text-2xl font-bold text-brand-primary">${(result.pricePerPiece * qty).toFixed(2)}</span>
+                    </div>
+
+                    {/* Specifications List */}
+                    <div className="bg-brand-bg/40 p-4 rounded-xl border border-brand-border/60 text-xs text-brand-secondary flex flex-col gap-2 font-medium">
+                      <div className="flex gap-2">
+                        <span className="text-brand-primary font-black">•</span>
+                        <span><strong>{DTFPricing.findGarment(selectedGarment)?.label}</strong> × {qty}</span>
+                      </div>
+                      {placementIds.map(pId => (
+                        <div key={pId} className="flex gap-2 pl-3">
+                          <span className="text-brand-primary font-black">•</span>
+                          <span>{DTFPricing.findPlacement(pId)?.label}</span>
+                        </div>
+                      ))}
+                      <div className="border-t border-brand-border/40 mt-2 pt-2 text-[11px] font-bold text-brand-primary">
+                        {blankCost > 0 
+                          ? `Includes garment at $${blankCost.toFixed(2)} each.` 
+                          : "Decoration only — garments supplied by customer."}
+                      </div>
+                    </div>
+
+                    {/* Breakdown section (opt-in, collapsed by default, never shows in plain quote) */}
+                    {showBreakdown && (
+                      <div className="border-t border-brand-border/40 pt-4 mt-1 flex flex-col gap-3">
+                        <div className="text-[10px] uppercase font-bold text-gray-400 flex justify-between tracking-wider">
+                          <span>Cost breakdown</span>
+                          <span>% of price</span>
+                        </div>
+                        
+                        <div className="flex flex-col gap-2 text-xs">
+                          {/* We render the breakdown items */}
+                          {result.breakdown.map((item: any, idx: number) => {
+                            const isMarg = item.id === 'margin';
+                            const col = isMarg ? 'bg-brand-primary' : breakdownColors[idx % breakdownColors.length];
+                            return (
+                              <div key={idx} className={`flex items-center gap-2.5 py-0.5 ${isMarg ? 'border-t border-brand-border/40 mt-1 pt-2 font-bold text-brand-primary' : 'text-brand-secondary'}`}>
+                                <span className={`w-2.5 h-2.5 rounded-sm shrink-0 ${col}`} />
+                                <span className="flex-1 truncate">{item.label}</span>
+                                <span className="font-mono font-semibold">${item.amount.toFixed(2)}</span>
+                                <span className="font-mono text-gray-400 w-12 text-right">{item.percentOfPrice.toFixed(1)}%</span>
+                              </div>
+                            );
+                          })}
+                          
+                          {/* Order total margin */}
+                          <div className="flex justify-between items-baseline border-t border-brand-border/40 pt-2 mt-1 text-[11px] font-bold text-brand-secondary">
+                            <span>Total margin on order</span>
+                            <span className="font-mono text-brand-primary font-black">${(result.marginPerPiece * qty).toFixed(2)}</span>
+                          </div>
+                        </div>
+
+                        {/* Visual stacked percentage bar */}
+                        <div className="flex h-2 rounded-full overflow-hidden bg-neutral-100 mt-2">
+                          {result.breakdown.map((item: any, idx: number) => {
+                            const isMarg = item.id === 'margin';
+                            const col = isMarg ? 'bg-brand-primary' : breakdownColors[idx % breakdownColors.length];
+                            return (
+                              <div 
+                                key={idx} 
+                                style={{ width: `${item.percentOfPrice}%` }} 
+                                className={`${col} h-full`}
+                                title={`${item.label}: ${item.percentOfPrice.toFixed(1)}%`}
+                              />
+                            );
+                          })}
+                        </div>
+                        
+                        <div className="text-[10px] text-gray-400 leading-relaxed font-medium mt-1">
+                          This is contribution margin — it covers art prep, quoting, machinery overhead, and profit.
+                        </div>
+                        <div className="text-[10px] text-amber-600 bg-amber-50 p-2.5 rounded-lg border border-amber-200/50 flex gap-2 font-semibold">
+                          <TriangleAlert size={14} className="shrink-0" />
+                          <span>Customer-facing warning: Do not show this breakdown screen to customers.</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Action buttons */}
+                    <div className="flex flex-col gap-2 mt-2">
+                      <button
+                        onClick={() => setShowBreakdown(!showBreakdown)}
+                        className="w-full bg-brand-bg hover:bg-neutral-100 text-brand-primary border border-brand-border rounded-xl py-2.5 text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer"
+                      >
+                        {showBreakdown ? "Hide breakdown" : "Show breakdown"}
+                      </button>
+                      <button
+                        onClick={handleCopy}
+                        className={`w-full border rounded-xl py-2.5 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer flex justify-center items-center gap-2 ${
+                          copied 
+                            ? 'bg-green-50 border-green-200 text-green-700 font-bold' 
+                            : 'bg-brand-bg hover:bg-neutral-100 text-brand-primary border-brand-border'
+                        }`}
+                      >
+                        <Copy size={13} /> {copied ? "Quote Copied!" : "Copy Quote"}
+                      </button>
+                      <button
+                        onClick={() => onApplyPrice(result.pricePerPiece)}
+                        className="w-full bg-brand-primary hover:bg-brand-primary/95 text-white font-bold text-xs uppercase tracking-wider py-3 rounded-xl transition-all shadow-md mt-1 cursor-pointer"
+                      >
+                        Apply Price to Item Specs
+                      </button>
+                    </div>
+
+                  </div>
+                ) : (
+                  <div className="bg-white p-12 rounded-2xl border border-brand-border text-center text-brand-secondary shadow-sm">
+                    Pick at least one print location to see a price.
+                  </div>
+                )}
+
+              </div>
+
+            </div>
+          ) : (
+            <div className="flex flex-col gap-6">
+              
+              {/* Settings navigation */}
+              <div className="flex flex-wrap gap-2 border-b border-brand-border pb-3 shrink-0">
+                {[
+                  { id: 'ladder', label: 'Price Ladder' },
+                  { id: 'costs', label: 'Your Costs' },
+                  { id: 'rateCard', label: 'Rate Card' },
+                  { id: 'transfers', label: 'Transfers' }
+                ].map(tab => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveSettingsTab(tab.id as any)}
+                    className={`px-3.5 py-2 text-xs font-bold uppercase tracking-wider rounded-lg transition-all cursor-pointer ${
+                      activeSettingsTab === tab.id 
+                        ? 'bg-brand-primary text-white shadow-sm' 
+                        : 'bg-brand-bg text-brand-secondary hover:bg-neutral-100 hover:text-brand-primary border border-brand-border/60'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Settings Tab panels */}
+              {activeSettingsTab === 'ladder' && (
+                <div className="bg-white p-6 rounded-2xl border border-brand-border shadow-sm flex flex-col gap-6">
+                  
+                  <div className="flex flex-col gap-4 border-b border-brand-border/40 pb-5">
+                    <span className="text-xs font-bold uppercase tracking-wider text-brand-secondary">Reference Pricing Anchors (Full-Front Tee)</span>
+                    
+                    <div className="flex items-center gap-4 flex-wrap">
+                      <div className="flex items-center gap-2 bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-1.5">
+                        <span className="text-[10px] font-bold text-gray-400 uppercase">1-24 Tier</span>
+                        <div className="relative w-24">
+                          <DollarSign size={14} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" />
+                          <input
+                            type="number"
+                            step="0.25"
+                            value={tempLadder.priceAtLowTier || ''}
+                            onChange={(e) => setTempLadder({...tempLadder, priceAtLowTier: Math.max(0, parseFloat(e.target.value) || 0)})}
+                            className="w-full pl-5 pr-2 py-1 text-sm bg-transparent border-0 font-bold focus:outline-none focus:ring-0 text-right text-brand-primary"
+                          />
+                        </div>
+                      </div>
+                      <span className="text-gray-300 font-bold">→</span>
+                      <div className="flex items-center gap-2 bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-1.5">
+                        <span className="text-[10px] font-bold text-gray-400 uppercase">500+ Tier</span>
+                        <div className="relative w-24">
+                          <DollarSign size={14} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" />
+                          <input
+                            type="number"
+                            step="0.25"
+                            value={tempLadder.priceAtHighTier || ''}
+                            onChange={(e) => setTempLadder({...tempLadder, priceAtHighTier: Math.max(0, parseFloat(e.target.value) || 0)})}
+                            className="w-full pl-5 pr-2 py-1 text-sm bg-transparent border-0 font-bold focus:outline-none focus:ring-0 text-right text-brand-primary"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2 ml-auto">
+                        <button
+                          onClick={() => {
+                            const marketVal = DTFPricing.MARKET_RATES["ff"];
+                            setTempLadder({ ...tempLadder, priceAtLowTier: marketVal, priceAtHighTier: marketVal });
+                          }}
+                          className="bg-brand-bg hover:bg-neutral-100 text-brand-primary border border-brand-border px-3 py-1.5 rounded-lg text-xs font-bold uppercase transition-colors cursor-pointer"
+                        >
+                          Match Market ($5.00)
+                        </button>
+                        <button
+                          onClick={() => {
+                            setTempLadder({ ...tempLadder, priceAtHighTier: tempLadder.priceAtLowTier });
+                          }}
+                          className="bg-brand-bg hover:bg-neutral-100 text-brand-primary border border-brand-border px-3 py-1.5 rounded-lg text-xs font-bold uppercase transition-colors cursor-pointer"
+                        >
+                          Flat Rate
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Margin floor */}
+                  <div className="flex flex-col gap-3 border-b border-brand-border/40 pb-5">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-bold uppercase tracking-wider text-brand-secondary">Margin Floor (Clamps Ladder Profitability)</span>
+                      <span className="text-sm font-black text-brand-primary bg-brand-primary/5 px-2.5 py-0.5 rounded-md">
+                        {Math.round(tempLadder.marginFloor * 100)}%
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <input
+                        type="range"
+                        min="0"
+                        max="60"
+                        step="1"
+                        value={Math.round(tempLadder.marginFloor * 100)}
+                        onChange={(e) => setTempLadder({...tempLadder, marginFloor: parseInt(e.target.value) / 100})}
+                        className="flex-1 accent-brand-primary h-1 rounded-full bg-neutral-200 cursor-pointer"
+                      />
+                      <span className="text-xs text-brand-secondary font-mono w-24 text-right">
+                        {Math.round(DTFPricing.effectiveMargin(0, tempCosts, tempLadder)*100)}% → {Math.round(DTFPricing.effectiveMargin(5, tempCosts, tempLadder)*100)}%
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Reference Ladder table */}
+                  <div className="flex flex-col gap-3">
+                    <span className="text-xs font-bold uppercase tracking-wider text-brand-secondary">Live Price Ladder & Implied Margins</span>
+                    <div className="border border-brand-border/60 rounded-xl overflow-hidden shadow-sm">
+                      <table className="w-full border-collapse text-left text-xs">
+                        <thead>
+                          <tr className="bg-brand-bg text-brand-secondary border-b border-brand-border">
+                            <th className="p-3 font-bold uppercase tracking-wider">Tier</th>
+                            <th className="p-3 font-bold uppercase tracking-wider text-center">Cost</th>
+                            <th className="p-3 font-bold uppercase tracking-wider text-center">Margin</th>
+                            <th className="p-3 font-bold uppercase tracking-wider text-center">Reference Sell Price</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-brand-border/40 font-medium">
+                          {DTFPricing.TIERS.map((tierLabel: string, idx: number) => {
+                             const cost = DTFPricing.decorationCost("tee", ["ff"], idx, tempCosts);
+                             const isClamped = DTFPricing.isBelowFloor(idx, tempCosts, tempLadder);
+                             const margin = DTFPricing.effectiveMargin(idx, tempCosts, tempLadder);
+                             const price = DTFPricing.referencePrice(idx, tempCosts, tempLadder);
+                             return (
+                               <tr key={idx} className={isClamped ? 'bg-amber-50/40' : ''}>
+                                 <td className="p-3 font-semibold text-brand-primary">{tierLabel}</td>
+                                 <td className="p-3 text-center font-mono text-brand-secondary">${cost.toFixed(2)}</td>
+                                 <td className={`p-3 text-center font-bold ${isClamped ? 'text-amber-600' : 'text-green-600'}`}>
+                                   {Math.round(margin * 100)}% {isClamped && '⚠️'}
+                                 </td>
+                                 <td className="p-3 text-center font-bold text-brand-primary">${price.toFixed(2)}</td>
+                                </tr>
+                             );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                    {/* Floor warn message */}
+                    {DTFPricing.TIERS.some((_: string, idx: number) => DTFPricing.isBelowFloor(idx, tempCosts, tempLadder)) && (
+                      <div className="bg-amber-50 text-amber-800 p-4 rounded-xl text-xs flex gap-2 border border-amber-200/50 leading-relaxed font-semibold">
+                        <TriangleAlert size={14} className="shrink-0 mt-0.5" />
+                        <span>Warning: At least one quantity tier falls below your {Math.round(tempLadder.marginFloor * 100)}% margin floor and is held at the floor limit. Raise the 500+ reference price or lower the floor.</span>
+                      </div>
+                    )}
+                  </div>
+
+                </div>
+              )}
+
+              {activeSettingsTab === 'costs' && (
+                <div className="bg-white p-6 rounded-2xl border border-brand-border shadow-sm flex flex-col gap-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
+                    
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Labor Rate ($/hr)</label>
+                      <input
+                        type="number"
+                        step="0.5"
+                        value={tempCosts.laborRate || ''}
+                        onChange={(e) => setTempCosts({...tempCosts, laborRate: Math.max(0, parseFloat(e.target.value) || 0)})}
+                        className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary focus:bg-white focus:outline-none transition-all font-bold text-brand-primary text-right"
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Press Capacity (Garments/hr)</label>
+                      <input
+                        type="number"
+                        step="5"
+                        value={tempCosts.pressPerHour || ''}
+                        onChange={(e) => setTempCosts({...tempCosts, pressPerHour: Math.max(1, parseFloat(e.target.value) || 1)})}
+                        className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary focus:bg-white focus:outline-none transition-all font-bold text-brand-primary text-right"
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Overhead Per Piece ($)</label>
+                      <input
+                        type="number"
+                        step="0.05"
+                        value={tempCosts.overheadPerGarment || ''}
+                        onChange={(e) => setTempCosts({...tempCosts, overheadPerGarment: Math.max(0, parseFloat(e.target.value) || 0)})}
+                        className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary focus:bg-white focus:outline-none transition-all font-bold text-brand-primary text-right"
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Transfer cost: Large 11x14 ($)</label>
+                      <input
+                        type="number"
+                        step="0.05"
+                        value={tempCosts.transferLarge || ''}
+                        onChange={(e) => setTempCosts({...tempCosts, transferLarge: Math.max(0, parseFloat(e.target.value) || 0)})}
+                        className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary focus:bg-white focus:outline-none transition-all font-bold text-brand-primary text-right"
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Transfer cost: Small ~4" ($)</label>
+                      <input
+                        type="number"
+                        step="0.05"
+                        value={tempCosts.transferSmall || ''}
+                        onChange={(e) => setTempCosts({...tempCosts, transferSmall: Math.max(0, parseFloat(e.target.value) || 0)})}
+                        className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary focus:bg-white focus:outline-none transition-all font-bold text-brand-primary text-right"
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Transfer cost: Tag ~2x3 ($)</label>
+                      <input
+                        type="number"
+                        step="0.05"
+                        value={tempCosts.transferTag || ''}
+                        onChange={(e) => setTempCosts({...tempCosts, transferTag: Math.max(0, parseFloat(e.target.value) || 0)})}
+                        className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary focus:bg-white focus:outline-none transition-all font-bold text-brand-primary text-right"
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Transfer cost: Cap Patch ($)</label>
+                      <input
+                        type="number"
+                        step="0.05"
+                        value={tempCosts.transferPatch || ''}
+                        onChange={(e) => setTempCosts({...tempCosts, transferPatch: Math.max(0, parseFloat(e.target.value) || 0)})}
+                        className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary focus:bg-white focus:outline-none transition-all font-bold text-brand-primary text-right"
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Tag Tear Out Labor ($)</label>
+                      <input
+                        type="number"
+                        step="0.05"
+                        value={tempCosts.tagTearOut || ''}
+                        onChange={(e) => setTempCosts({...tempCosts, tagTearOut: Math.max(0, parseFloat(e.target.value) || 0)})}
+                        className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary focus:bg-white focus:outline-none transition-all font-bold text-brand-primary text-right"
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">Extra placement labor factor</label>
+                      <input
+                        type="number"
+                        step="0.05"
+                        value={tempCosts.extraPlacementLaborFactor || ''}
+                        onChange={(e) => setTempCosts({...tempCosts, extraPlacementLaborFactor: Math.max(0, parseFloat(e.target.value) || 0)})}
+                        className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-3 py-2 text-sm focus:border-brand-primary focus:bg-white focus:outline-none transition-all font-bold text-brand-primary text-right"
+                      />
+                    </div>
+
+                  </div>
+
+                  <div className="flex justify-between items-center border-t border-brand-border/40 pt-4 mt-2">
+                    <button
+                      onClick={handleResetCosts}
+                      className="bg-brand-bg hover:bg-neutral-100 text-brand-primary border border-brand-border px-4 py-2 rounded-lg text-xs font-bold uppercase transition-colors cursor-pointer flex items-center gap-1.5"
+                    >
+                      <RotateCcw size={13} /> Reset default costs
+                    </button>
+                  </div>
+
+                  {/* Derived metrics */}
+                  <div className="bg-brand-bg/40 p-5 rounded-2xl border border-brand-border text-xs flex flex-col gap-2">
+                    <span className="font-bold uppercase tracking-wider text-brand-secondary mb-1">Derived Pricing Stats</span>
+                    <div className="flex justify-between border-b border-brand-border/40 pb-1.5">
+                      <span className="text-brand-secondary">Press labor per placement</span>
+                      <span className="font-semibold text-brand-primary">${(tempCosts.laborRate / tempCosts.pressPerHour).toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between border-b border-brand-border/40 pb-1.5">
+                      <span className="text-brand-secondary">Press labor per extra placement</span>
+                      <span className="font-semibold text-brand-primary">${((tempCosts.laborRate / tempCosts.pressPerHour) * tempCosts.extraPlacementLaborFactor).toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between border-b border-brand-border/40 pb-1.5">
+                      <span className="text-brand-secondary">Full-front tee cost, 50–99 (Tier 2)</span>
+                      <span className="font-semibold text-brand-primary">${DTFPricing.decorationCost("tee", ["ff"], 2, tempCosts).toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-brand-secondary">Front + back cost, 50–99 (Tier 2)</span>
+                      <span className="font-semibold text-brand-primary">${DTFPricing.decorationCost("tee", ["ff", "fb"], 2, tempCosts).toFixed(2)}</span>
+                    </div>
+                  </div>
+
+                </div>
+              )}
+
+              {activeSettingsTab === 'rateCard' && (
+                <div className="bg-white p-6 rounded-2xl border border-brand-border shadow-sm flex flex-col gap-6 overflow-x-auto">
+                  <div className="flex flex-col gap-4">
+                    <span className="text-xs font-bold uppercase tracking-wider text-brand-secondary">Tee Placements Rate Card (Decoration Only)</span>
+                    <div className="border border-brand-border rounded-xl overflow-hidden">
+                      <table className="w-full border-collapse text-left text-xs min-w-[700px]">
+                        <thead>
+                          <tr className="bg-brand-bg text-brand-secondary border-b border-brand-border font-bold">
+                            <th className="p-3">What gets printed</th>
+                            {DTFPricing.TIERS.map((t: string) => <th key={t} className="p-3 text-center">{t}</th>)}
+                            <th className="p-3 text-center bg-brand-primary/5 text-brand-primary">Competitor List</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-brand-border/40 font-medium">
+                          {/* We recreate the reference TEE_ROWS */}
+                          {[
+                            { name: "Neck tag relabel only", ids: ["tag"] },
+                            { name: "Left chest only", ids: ["lc"] },
+                            { name: "Full front only", ids: ["ff"] },
+                            { name: "Full back only", ids: ["fb"] },
+                            { name: "Left chest + full back", ids: ["lc", "fb"] },
+                            { name: "Full front + full back", ids: ["ff", "fb"] },
+                            { name: "Full front + one sleeve", ids: ["ff", "sl"] },
+                            { name: "Full front + full back + one sleeve", ids: ["ff", "fb", "sl"] },
+                            { name: "Left chest + full back + one sleeve", ids: ["lc", "fb", "sl"] },
+                            { name: "Full front + full back + both sleeves", ids: ["ff", "fb", "sl", "sr"] }
+                          ].map((row, idx) => {
+                            const competitor = DTFPricing.marketRateFor(row.ids);
+                            return (
+                              <tr key={idx}>
+                                <td className="p-3 font-semibold text-brand-primary">{row.name}</td>
+                                {DTFPricing.TIERS.map((_: string, tIdx: number) => {
+                                  const cost = DTFPricing.decorationCost("tee", row.ids, tIdx, tempCosts);
+                                  const price = DTFPricing.priceFromCost(cost, tIdx, tempCosts, tempLadder);
+                                  return (
+                                    <td key={tIdx} className="p-3 text-center font-mono text-brand-primary font-bold">
+                                      ${price.toFixed(2)}
+                                    </td>
+                                  );
+                                })}
+                                <td className="p-3 text-center font-mono text-brand-secondary bg-brand-primary/5 font-semibold">
+                                  {competitor !== null ? `$${competitor.toFixed(2)}` : "—"}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-4 mt-4">
+                    <span className="text-xs font-bold uppercase tracking-wider text-brand-secondary">Garments Base Rate Card (1 placement)</span>
+                    <div className="border border-brand-border rounded-xl overflow-hidden">
+                      <table className="w-full border-collapse text-left text-xs min-w-[700px]">
+                        <thead>
+                          <tr className="bg-brand-bg text-brand-secondary border-b border-brand-border font-bold">
+                            <th className="p-3">Garment</th>
+                            {DTFPricing.TIERS.map((t: string) => <th key={t} className="p-3 text-center">{t}</th>)}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-brand-border/40 font-medium">
+                          {DTFPricing.GARMENTS.map((g: any) => {
+                            const ids = g.id === "hat" ? ["patch"] : ["ff"];
+                            return (
+                              <tr key={g.id}>
+                                <td className="p-3 font-semibold text-brand-primary">{g.label}</td>
+                                {DTFPricing.TIERS.map((_: string, tIdx: number) => {
+                                  const cost = DTFPricing.decorationCost(g.id, ids, tIdx, tempCosts);
+                                  const price = DTFPricing.priceFromCost(cost, tIdx, tempCosts, tempLadder);
+                                  return (
+                                    <td key={tIdx} className="p-3 text-center font-mono text-brand-primary font-bold">
+                                      ${price.toFixed(2)}
+                                    </td>
+                                  );
+                                })}
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeSettingsTab === 'transfers' && (
+                <div className="bg-white p-6 rounded-2xl border border-brand-border shadow-sm flex flex-col gap-6 overflow-x-auto">
+                  <span className="text-xs font-bold uppercase tracking-wider text-brand-secondary">Transfer-Only Tier Pricing (Film Shipped Ready to Press)</span>
+                  <div className="border border-brand-border rounded-xl overflow-hidden">
+                    <table className="w-full border-collapse text-left text-xs min-w-[700px]">
+                      <thead>
+                        <tr className="bg-brand-bg text-brand-secondary border-b border-brand-border font-bold">
+                          <th className="p-3">Transfer Size</th>
+                          {DTFPricing.TIERS.map((t: string) => <th key={t} className="p-3 text-center">{t}</th>)}
+                          <th className="p-3 text-center bg-brand-primary/5 text-brand-primary">Market Rate</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-brand-border/40 font-medium">
+                        {DTFPricing.TRANSFER_PRODUCTS.map((T: any) => (
+                          <tr key={T.id}>
+                            <td className="p-3 font-semibold text-brand-primary">{T.label}</td>
+                            {DTFPricing.TIERS.map((_: string, tIdx: number) => {
+                              const price = DTFPricing.transferPrice(T.id, tIdx, tempCosts, tempLadder);
+                              return (
+                                <td key={tIdx} className="p-3 text-center font-mono text-brand-primary font-bold">
+                                  ${price.toFixed(2)}
+                                </td>
+                              );
+                            })}
+                            <td className="p-3 text-center font-mono text-brand-secondary bg-brand-primary/5 font-semibold">
+                              {T.isGangSheet ? "$10.00–20.00" : "—"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+            </div>
+          )}
+
+        </div>
+
+        {/* Modal Footer */}
+        <div className="px-6 py-4 bg-white border-t border-brand-border flex justify-between items-center shrink-0 gap-4">
+          {saveStatus && (
+            <span className={`text-xs font-semibold ${saveStatus.success ? 'text-green-600' : 'text-rose-600'}`}>
+              {saveStatus.message}
+            </span>
+          )}
+          <div className="flex gap-3 ml-auto">
+            {mode === 'settings' && (
+              <button
+                onClick={handleSaveSettings}
+                disabled={isSaving}
+                className="bg-brand-primary hover:bg-brand-primary/95 text-white font-bold text-xs uppercase tracking-wider py-2.5 px-6 rounded-xl transition-all shadow-md cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+              >
+                {isSaving ? <Loader2 size={13} className="animate-spin" /> : null}
+                Save Configuration
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="bg-brand-bg hover:bg-neutral-100 text-brand-primary border border-brand-border font-bold text-xs uppercase tracking-wider py-2.5 px-6 rounded-xl transition-colors cursor-pointer"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
