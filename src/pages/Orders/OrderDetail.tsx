@@ -1325,6 +1325,12 @@ export function OrderDetail() {
     }).catch(e => console.error(e));
   }, []);
 
+  const DEFAULT_LADDER_FALLBACK = {
+    ...DTFPricing.DEFAULT_LADDER,
+    priceAtLowTier: 5.00,
+    priceAtHighTier: 3.00
+  };
+
   useEffect(() => {
     const fetchDtfSettings = async () => {
       try {
@@ -1342,20 +1348,20 @@ export function OrderDetail() {
           }
           if (data.ladder) {
             setDtfLadder({
-              ...DTFPricing.DEFAULT_LADDER,
+              ...DEFAULT_LADDER_FALLBACK,
               ...data.ladder
             });
           } else {
-            setDtfLadder(DTFPricing.DEFAULT_LADDER);
+            setDtfLadder(DEFAULT_LADDER_FALLBACK);
           }
         } else {
           setDtfCosts(DTFPricing.DEFAULT_COSTS);
-          setDtfLadder(DTFPricing.DEFAULT_LADDER);
+          setDtfLadder(DEFAULT_LADDER_FALLBACK);
         }
       } catch (err) {
         console.error("Error fetching DTF pricing settings:", err);
         setDtfCosts(DTFPricing.DEFAULT_COSTS);
-        setDtfLadder(DTFPricing.DEFAULT_LADDER);
+        setDtfLadder(DEFAULT_LADDER_FALLBACK);
       }
     };
     fetchDtfSettings();
@@ -7183,7 +7189,7 @@ export function OrderDetail() {
           isAdmin={userData?.role === 'Admin'}
           initialGarment={editItemObj?.style}
           costs={dtfCosts || DTFPricing.DEFAULT_COSTS}
-          ladder={dtfLadder || DTFPricing.DEFAULT_LADDER}
+          ladder={dtfLadder || DEFAULT_LADDER_FALLBACK}
           onSaveConfig={async (newCosts: any, newLadder: any) => {
             try {
               await setDoc(doc(db, 'settings', 'dtf_pricing'), {
@@ -7752,7 +7758,7 @@ function DtfQuotingModal({
                              const cost = DTFPricing.decorationCost("tee", ["ff"], idx, tempCosts);
                              const isClamped = DTFPricing.isBelowFloor(idx, tempCosts, tempLadder);
                              const margin = DTFPricing.effectiveMargin(idx, tempCosts, tempLadder);
-                             const price = DTFPricing.referencePrice(idx, tempCosts, tempLadder);
+                             const price = DTFPricing.referencePrice(idx, tempLadder);
                              return (
                                <tr key={idx} className={isClamped ? 'bg-amber-50/40' : ''}>
                                  <td className="p-3 font-semibold text-brand-primary">{tierLabel}</td>
