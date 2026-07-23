@@ -982,6 +982,11 @@ const isPrintableItem = (item: any) => {
   );
 };
 
+const DEFAULT_LADDER_FALLBACK = {
+  ...DTFPricing.DEFAULT_LADDER,
+  priceAtLowTier: 5.00,
+  priceAtHighTier: 3.00
+};
 
 export function OrderDetail() {
   const { id } = useParams();
@@ -1324,12 +1329,6 @@ export function OrderDetail() {
       setAllUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     }).catch(e => console.error(e));
   }, []);
-
-  const DEFAULT_LADDER_FALLBACK = {
-    ...DTFPricing.DEFAULT_LADDER,
-    priceAtLowTier: 5.00,
-    priceAtHighTier: 3.00
-  };
 
   useEffect(() => {
     const fetchDtfSettings = async () => {
