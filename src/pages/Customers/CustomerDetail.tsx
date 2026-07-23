@@ -1,12 +1,12 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
-import { ArrowLeft, Mail, Phone, MapPin, Building2, ExternalLink, Plus, Loader2, Upload, X, Check, Edit3, ChevronRight, Trash2, FileText, Crop, Eye, EyeOff, Search } from 'lucide-react';
+import { ArrowLeft, Mail, Phone, MapPin, Building2, ExternalLink, Plus, Loader2, Upload, X, Check, Edit3, ChevronRight, Trash2, FileText, Crop, Eye, EyeOff, Search, Send, MessageSquare } from 'lucide-react';
 
 import { storage, db } from '../../lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { doc, getDoc, setDoc, addDoc, collection, query, where, getDocs, updateDoc, deleteDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, addDoc, collection, query, where, getDocs, updateDoc, deleteDoc, onSnapshot, orderBy } from 'firebase/firestore';
 import Cropper from 'react-easy-crop';
 import { getCroppedImg } from '../../lib/cropUtils';
 import { ShoppingBag } from 'lucide-react';
@@ -553,6 +553,87 @@ export function CustomerDetail() {
   // Cropper State
   const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
   const [expandedImage, setExpandedImage] = useState<{src: string, alt: string} | null>(null);
+  
+  // Right Column Tab (Asset Vault vs Chat)
+  const [activeRightTab, setActiveRightTab] = useState<'vault' | 'chat'>('vault');
+  const [adminChatMessages, setAdminChatMessages] = useState<any[]>([]);
+  const [adminNewMessageText, setAdminNewMessageText] = useState('');
+  const [adminUnreadChatCount, setAdminUnreadChatCount] = useState(0);
+  const adminMessagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Real-time chat message listener
+  useEffect(() => {
+    if (!id) return;
+
+    const msgsRef = collection(db, 'customers', id, 'chat_messages');
+    const q = query(msgsRef, orderBy('timestamp', 'asc'));
+
+    const unsub = onSnapshot(q, (snapshot) => {
+      const msgs = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setAdminChatMessages(msgs);
+
+      // Count unread client messages
+      const unread = msgs.filter((m: any) => m.senderRole === 'Client' && !m.read).length;
+      setAdminUnreadChatCount(unread);
+    }, (err) => {
+      console.error("Error listening to admin chat messages:", err);
+    });
+
+    return () => unsub();
+  }, [id]);
+
+  // Mark customer messages as read when the admin views the chat tab
+  useEffect(() => {
+    if (activeRightTab === 'chat' && id && adminChatMessages.length > 0) {
+      const unreadMsgs = adminChatMessages.filter(
+        (m: any) => m.senderRole === 'Client' && !m.read
+      );
+
+      if (unreadMsgs.length > 0) {
+        unreadMsgs.forEach(async (m) => {
+          try {
+            const msgRef = doc(db, id ? 'customers' : 'customers', id || '', 'chat_messages', m.id);
+            await updateDoc(msgRef, { read: true });
+          } catch (err) {
+            console.error("Failed to mark admin message as read:", err);
+          }
+        });
+      }
+    }
+  }, [activeRightTab, adminChatMessages, id]);
+
+  // Auto-scroll on new messages
+  useEffect(() => {
+    if (activeRightTab === 'chat') {
+      adminMessagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [adminChatMessages, activeRightTab]);
+
+  const handleSendAdminChatMessage = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!adminNewMessageText.trim() || !id) return;
+
+    const textToSend = adminNewMessageText.trim();
+    setAdminNewMessageText('');
+
+    try {
+      const msgsRef = collection(db, 'customers', id, 'chat_messages');
+      await addDoc(msgsRef, {
+        text: textToSend,
+        senderId: 'admin',
+        senderName: 'Shop Staff',
+        senderRole: 'Admin',
+        timestamp: new Date().toISOString(),
+        read: false
+      });
+    } catch (err) {
+      console.error("Failed to send admin chat message:", err);
+      alert("Failed to send message. Please try again.");
+    }
+  };
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
@@ -1343,51 +1424,149 @@ export function CustomerDetail() {
             </div>
           </div>
 
-          {/* Customer Asset Vault */}
-          <div className="bg-white rounded-card border border-brand-border shadow-sm p-6 flex flex-col justify-between">
+          {/* Customer Asset Vault & Chat Card */}
+          <div className="bg-white rounded-card border border-brand-border shadow-sm p-6 flex flex-col justify-between min-h-[450px]">
             <div>
+              {/* Header Tabs */}
               <div className="flex items-center justify-between border-b border-brand-border/60 pb-4 mb-4">
-                <div>
-                  <h2 className="font-serif text-2xl text-brand-primary">Customer Asset Vault</h2>
-                  <p className="text-xs text-brand-secondary mt-1">Saved logos and brand files for print layout.</p>
+                <div className="flex gap-6 items-center">
+                  <button
+                    type="button"
+                    onClick={() => setActiveRightTab('vault')}
+                    className={`flex items-center pb-2 text-sm font-bold transition-all border-b-2 cursor-pointer ${
+                      activeRightTab === 'vault'
+                        ? 'text-neutral-900 border-neutral-900'
+                        : 'text-neutral-400 border-transparent hover:text-neutral-700 hover:border-neutral-200'
+                    }`}
+                  >
+                    Asset Vault
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveRightTab('chat')}
+                    className={`flex items-center pb-2 text-sm font-bold transition-all border-b-2 cursor-pointer relative ${
+                      activeRightTab === 'chat'
+                        ? 'text-neutral-900 border-neutral-900'
+                        : 'text-neutral-400 border-transparent hover:text-neutral-700 hover:border-neutral-200'
+                    }`}
+                  >
+                    <span>Customer Chat</span>
+                    {adminUnreadChatCount > 0 && (
+                      <span className="absolute -top-1.5 -right-3.5 bg-red-500 text-white text-[9px] font-extrabold w-4 h-4 rounded-full flex items-center justify-center border border-white">
+                        {adminUnreadChatCount}
+                      </span>
+                    )}
+                  </button>
                 </div>
-                <label className="bg-white border border-brand-border hover:bg-neutral-50 px-4 py-2 rounded-xl text-xs font-bold text-neutral-900 shadow-sm transition-all flex items-center gap-1.5 cursor-pointer">
-                  <input type="file" className="hidden" onChange={handleUploadLogoVault} accept="image/*,application/pdf,.ai,.eps,.svg" />
-                  {isUploadingLogoVault ? (
-                    <Loader2 className="animate-spin" size={14} />
-                  ) : (
-                    <Upload size={14} />
-                  )}
-                  {isUploadingLogoVault ? "Uploading..." : "Upload Logo"}
-                </label>
+
+                {activeRightTab === 'vault' && (
+                  <label className="bg-white border border-brand-border hover:bg-neutral-50 px-4 py-2 rounded-xl text-xs font-bold text-neutral-900 shadow-sm transition-all flex items-center gap-1.5 cursor-pointer">
+                    <input type="file" className="hidden" onChange={handleUploadLogoVault} accept="image/*,application/pdf,.ai,.eps,.svg" />
+                    {isUploadingLogoVault ? (
+                      <Loader2 className="animate-spin" size={14} />
+                    ) : (
+                      <Upload size={14} />
+                    )}
+                    {isUploadingLogoVault ? "Uploading..." : "Upload Logo"}
+                  </label>
+                )}
               </div>
 
-              {assets.length === 0 ? (
-                <div className="bg-brand-bg/50 rounded-xl p-8 text-center text-sm font-medium text-brand-secondary border border-dashed border-brand-border/60 my-4">
-                  No logos in vault yet. Upload files to save them for the customer.
-                </div>
-              ) : (
-                <div className="grid grid-cols-4 gap-3 max-h-[350px] overflow-y-auto pr-1">
-                  {assets.map((asset) => (
-                    <div key={asset.id} className="aspect-square rounded-xl border border-brand-border/60 p-1 bg-checkerboard relative group flex items-center justify-center">
-                      {asset.name.match(/\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i) ? (
-                        <img src={asset.url} alt={asset.name} className="max-w-full max-h-full object-contain cursor-pointer" onClick={() => window.open(asset.url, '_blank')} title={asset.name} />
-                      ) : (
-                        <div className="flex flex-col items-center gap-0.5 cursor-pointer text-center" onClick={() => window.open(asset.url, '_blank')} title={asset.name}>
-                          <FileText size={18} className="text-neutral-500" />
-                          <span className="text-[8px] font-black uppercase text-neutral-500 truncate max-w-[45px]">{asset.name.split('.').pop() || 'FILE'}</span>
-                        </div>
-                      )}
-                      
-                      <button 
-                        onClick={() => handleDeleteVaultLogo(asset.id)}
-                        className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full bg-white border border-neutral-200 shadow-sm text-neutral-400 hover:text-red-500 hover:border-red-500 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                        title="Delete Logo"
-                      >
-                        <X size={12} strokeWidth={2.5} />
-                      </button>
+              {activeRightTab === 'vault' ? (
+                /* Asset Vault Content */
+                <>
+                  {assets.length === 0 ? (
+                    <div className="bg-brand-bg/50 rounded-xl p-8 text-center text-sm font-medium text-brand-secondary border border-dashed border-brand-border/60 my-4">
+                      No logos in vault yet. Upload files to save them for the customer.
                     </div>
-                  ))}
+                  ) : (
+                    <div className="grid grid-cols-4 gap-3 max-h-[350px] overflow-y-auto pr-1">
+                      {assets.map((asset) => (
+                        <div key={asset.id} className="aspect-square rounded-xl border border-brand-border/60 p-1 bg-checkerboard relative group flex items-center justify-center">
+                          {asset.name.match(/\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i) ? (
+                            <img src={asset.url} alt={asset.name} className="max-w-full max-h-full object-contain cursor-pointer" onClick={() => window.open(asset.url, '_blank')} title={asset.name} />
+                          ) : (
+                            <div className="flex flex-col items-center gap-0.5 cursor-pointer text-center" onClick={() => window.open(asset.url, '_blank')} title={asset.name}>
+                              <FileText size={18} className="text-neutral-500" />
+                              <span className="text-[8px] font-black uppercase text-neutral-500 truncate max-w-[45px]">{asset.name.split('.').pop() || 'FILE'}</span>
+                            </div>
+                          )}
+                          
+                          <button 
+                            onClick={() => handleDeleteVaultLogo(asset.id)}
+                            className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full bg-white border border-neutral-200 shadow-sm text-neutral-400 hover:text-red-500 hover:border-red-500 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                            title="Delete Logo"
+                          >
+                            <X size={12} strokeWidth={2.5} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              ) : (
+                /* Customer Chat Content */
+                <div className="flex flex-col h-[350px] justify-between">
+                  {/* Messages Area */}
+                  <div className="flex-1 overflow-y-auto pr-1 mb-4 flex flex-col gap-3 custom-scrollbar">
+                    {adminChatMessages.length === 0 ? (
+                      <div className="my-auto text-center flex flex-col items-center justify-center p-6 gap-2 text-neutral-400">
+                        <MessageSquare size={32} className="stroke-[1.5] text-neutral-300" />
+                        <p className="text-xs font-semibold">No messages yet</p>
+                        <p className="text-[10px] leading-relaxed max-w-[220px]">Send a message to start chatting with the customer on their portal.</p>
+                      </div>
+                    ) : (
+                      adminChatMessages.map((msg: any) => {
+                        const isMe = msg.senderRole !== 'Client';
+                        return (
+                          <div
+                            key={msg.id}
+                            className={`flex flex-col max-w-[80%] ${isMe ? 'self-end items-end' : 'self-start items-start'}`}
+                          >
+                            {!isMe && (
+                              <span className="text-[9px] text-neutral-450 font-bold uppercase tracking-wider mb-1 ml-1">
+                                {msg.senderName} ({msg.senderRole})
+                              </span>
+                            )}
+                            <div
+                              className={`p-3 rounded-2xl text-xs font-semibold leading-relaxed shadow-3xs break-words w-full ${
+                                isMe
+                                  ? 'bg-black text-white rounded-br-none'
+                                  : 'bg-white border border-neutral-200 text-neutral-800 rounded-bl-none'
+                              }`}
+                            >
+                              {msg.text}
+                            </div>
+                            <span className="text-[8px] text-neutral-400 mt-1 font-semibold">
+                              {msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                            </span>
+                          </div>
+                        );
+                      })
+                    )}
+                    <div ref={adminMessagesEndRef} />
+                  </div>
+
+                  {/* Input Form */}
+                  <form
+                    onSubmit={handleSendAdminChatMessage}
+                    className="flex gap-2 items-center shrink-0 border-t border-neutral-100 pt-3 bg-white"
+                  >
+                    <input
+                      type="text"
+                      placeholder="Reply to customer..."
+                      value={adminNewMessageText}
+                      onChange={(e) => setAdminNewMessageText(e.target.value)}
+                      className="flex-1 bg-neutral-50 border border-neutral-200 focus:bg-white focus:border-black rounded-xl px-4 py-2.5 text-xs text-neutral-900 focus:outline-none font-semibold transition-all"
+                    />
+                    <button
+                      type="submit"
+                      disabled={!adminNewMessageText.trim()}
+                      className="w-9 h-9 rounded-xl bg-black hover:bg-neutral-800 text-white flex items-center justify-center transition-colors disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer shrink-0"
+                    >
+                      <Send size={14} />
+                    </button>
+                  </form>
                 </div>
               )}
             </div>

@@ -1,11 +1,11 @@
 import { Outlet, useParams, useNavigate, useLocation } from 'react-router-dom';
-import { Search, Info, HelpCircle, User, Settings, LogOut, X, ShoppingBag, MapPin, Upload, Trash2, Image, Check } from 'lucide-react';
+import { Search, Info, HelpCircle, User, Settings, LogOut, X, ShoppingBag, MapPin, Upload, Trash2, Image, Check, MessageSquare, Send } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { PortalHelpDrawer } from '../Portal/PortalHelpDrawer';
 import { PortalTourOverlay } from '../Portal/PortalTourOverlay';
 import { db, storage } from '../../lib/firebase';
-import { doc, updateDoc, onSnapshot } from 'firebase/firestore';
+import { doc, updateDoc, onSnapshot, collection, addDoc, query, orderBy } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 export function PortalLayout() {
@@ -103,6 +103,87 @@ export function PortalLayout() {
   const [promptZip, setPromptZip] = useState('');
   const [isSavingPromptAddress, setIsSavingPromptAddress] = useState(false);
   const [isSavedPromptAddress, setIsSavedPromptAddress] = useState(false);
+
+  // Support Chat states
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState<any[]>([]);
+  const [newMessageText, setNewMessageText] = useState('');
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Listen to support chat messages in real time
+  useEffect(() => {
+    if (!customerId) return;
+
+    const msgsRef = collection(db, 'customers', customerId, 'chat_messages');
+    const q = query(msgsRef, orderBy('timestamp', 'asc'));
+
+    const unsub = onSnapshot(q, (snapshot) => {
+      const msgs = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setChatMessages(msgs);
+
+      // Count unread messages from admins/staff
+      const unread = msgs.filter((m: any) => m.senderRole !== 'Client' && !m.read).length;
+      setUnreadChatCount(unread);
+    }, (err) => {
+      console.error("Error listening to support chat messages:", err);
+    });
+
+    return () => unsub();
+  }, [customerId]);
+
+  // Mark admin/staff messages as read when the chat panel is open
+  useEffect(() => {
+    if (isChatOpen && customerId && chatMessages.length > 0) {
+      const unreadMsgs = chatMessages.filter(
+        (m: any) => m.senderRole !== 'Client' && !m.read
+      );
+
+      if (unreadMsgs.length > 0) {
+        unreadMsgs.forEach(async (m) => {
+          try {
+            const msgRef = doc(db, 'customers', customerId, 'chat_messages', m.id);
+            await updateDoc(msgRef, { read: true });
+          } catch (err) {
+            console.error("Failed to mark message as read:", err);
+          }
+        });
+      }
+    }
+  }, [isChatOpen, chatMessages, customerId]);
+
+  // Scroll to bottom on new messages
+  useEffect(() => {
+    if (isChatOpen) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [chatMessages, isChatOpen]);
+
+  const handleSendChatMessage = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!newMessageText.trim() || !customerId) return;
+
+    const textToSend = newMessageText.trim();
+    setNewMessageText('');
+
+    try {
+      const msgsRef = collection(db, 'customers', customerId, 'chat_messages');
+      await addDoc(msgsRef, {
+        text: textToSend,
+        senderId: customerId,
+        senderName: customer?.contactName || customer?.company || 'Client',
+        senderRole: 'Client',
+        timestamp: new Date().toISOString(),
+        read: false
+      });
+    } catch (err) {
+      console.error("Failed to send support chat message:", err);
+      alert("Failed to send message. Please try again.");
+    }
+  };
 
   useEffect(() => {
     if (!customerId) return;
@@ -883,6 +964,115 @@ export function PortalLayout() {
             </div>
           </div>
         </div>
+      )}
+      {/* Floating Chat Bubble Button */}
+      {customerId && (
+        <>
+          <button
+            onClick={() => setIsChatOpen(!isChatOpen)}
+            className="fixed bottom-6 right-6 z-[120] w-14 h-14 rounded-full bg-black text-white flex items-center justify-center shadow-2xl hover:scale-105 active:scale-95 transition-all cursor-pointer group"
+            title="Chat with Support"
+          >
+            {isChatOpen ? (
+              <X size={22} className="animate-in spin-in-90 duration-200" />
+            ) : (
+              <MessageSquare size={22} className="animate-in zoom-in duration-200" />
+            )}
+            
+            {/* Unread Count Badge */}
+            {!isChatOpen && unreadChatCount > 0 && (
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-extrabold w-5 h-5 rounded-full flex items-center justify-center border-2 border-white animate-bounce">
+                {unreadChatCount}
+              </span>
+            )}
+          </button>
+
+          {/* Slide-Up Support Chat Panel */}
+          {isChatOpen && (
+            <div className="fixed bottom-24 right-6 z-[120] w-80 sm:w-96 h-[480px] bg-white rounded-3xl border border-neutral-200 shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-bottom duration-300">
+              {/* Header */}
+              <div className="bg-black text-white p-5 flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-neutral-800 flex items-center justify-center font-bold text-sm text-neutral-300 relative border border-white/10">
+                    W
+                    <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-black" />
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-black tracking-wide uppercase">WOVN Support</h3>
+                    <p className="text-[10px] text-green-400 font-semibold mt-0.5">Admins & Managers online</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsChatOpen(false)}
+                  className="text-neutral-400 hover:text-white transition-colors"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Messages List */}
+              <div className="flex-1 overflow-y-auto p-4 bg-neutral-50/50 flex flex-col gap-3 custom-scrollbar">
+                {chatMessages.length === 0 ? (
+                  <div className="my-auto text-center flex flex-col items-center justify-center p-6 gap-2 text-neutral-400">
+                    <MessageSquare size={32} className="stroke-[1.5] text-neutral-300" />
+                    <p className="text-xs font-semibold">Start a conversation!</p>
+                    <p className="text-[10px] leading-relaxed max-w-[200px]">Send a message to our shop admins and managers. We usually reply within minutes.</p>
+                  </div>
+                ) : (
+                  chatMessages.map((msg: any) => {
+                    const isMe = msg.senderRole === 'Client';
+                    return (
+                      <div
+                        key={msg.id}
+                        className={`flex flex-col max-w-[75%] ${isMe ? 'self-end items-end' : 'self-start items-start'}`}
+                      >
+                        {!isMe && (
+                          <span className="text-[9px] text-neutral-450 font-bold uppercase tracking-wider mb-1 ml-1">
+                            {msg.senderName} ({msg.senderRole})
+                          </span>
+                        )}
+                        <div
+                          className={`p-3 rounded-2xl text-xs font-semibold leading-relaxed shadow-3xs break-words w-full ${
+                            isMe
+                              ? 'bg-black text-white rounded-br-none'
+                              : 'bg-white border border-neutral-200 text-neutral-800 rounded-bl-none'
+                          }`}
+                        >
+                          {msg.text}
+                        </div>
+                        <span className="text-[8px] text-neutral-400 mt-1 font-semibold">
+                          {msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                        </span>
+                      </div>
+                    );
+                  })
+                )}
+                <div ref={messagesEndRef} />
+              </div>
+
+              {/* Input Form */}
+              <form
+                onSubmit={handleSendChatMessage}
+                className="p-3 border-t border-neutral-100 flex gap-2 items-center bg-white shrink-0"
+              >
+                <input
+                  type="text"
+                  placeholder="Type a message..."
+                  value={newMessageText}
+                  onChange={(e) => setNewMessageText(e.target.value)}
+                  className="flex-1 bg-neutral-50 border border-neutral-200 focus:bg-white focus:border-black rounded-xl px-4 py-2.5 text-xs text-neutral-900 focus:outline-none font-semibold transition-all"
+                />
+                <button
+                  type="submit"
+                  disabled={!newMessageText.trim()}
+                  className="w-9 h-9 rounded-xl bg-black hover:bg-neutral-800 text-white flex items-center justify-center transition-colors disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer shrink-0"
+                >
+                  <Send size={14} />
+                </button>
+              </form>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
