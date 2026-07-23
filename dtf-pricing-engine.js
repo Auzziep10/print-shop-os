@@ -229,6 +229,11 @@ function pressLaborPerCycle(costs) {
  * @returns {number} USD
  */
 function placementCost(placementId, tierIndex, isFirst, costs) {
+  if (placementId === "tag") {
+    const lcCost = placementCost("lc", tierIndex, isFirst, costs);
+    const ffCost = placementCost("ff", tierIndex, isFirst, costs);
+    return (lcCost + ffCost) / 2;
+  }
   const p = findPlacement(placementId);
   if (!p) return 0;
   const t = clampTier(tierIndex);
