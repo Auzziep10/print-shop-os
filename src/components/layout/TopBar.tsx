@@ -1,5 +1,4 @@
-import { Search, Bell, Plus, LogOut, Menu, Check, Rocket } from 'lucide-react';
-import { PillButton } from '../ui/PillButton';
+import { Search, Bell, LogOut, Menu, Check, Rocket } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useOrders } from '../../hooks/useOrders';
 import { useState, useEffect, useRef } from 'react';
@@ -176,15 +175,7 @@ export function TopBar({ onOpenSidebar }: TopBarProps) {
           )}
         </div>
         
-        <div className="hidden sm:block h-8 w-px bg-brand-border mx-2"></div>
 
-        <PillButton variant="filled" className="hidden sm:flex h-8 py-0 px-4 text-xs gap-1.5">
-          <Plus size={14} />
-          New Order
-        </PillButton>
-        <button className="sm:hidden w-8 h-8 bg-black text-white rounded-full flex items-center justify-center shrink-0">
-          <Plus size={16} />
-        </button>
 
         <button 
           onClick={() => signOut()}
