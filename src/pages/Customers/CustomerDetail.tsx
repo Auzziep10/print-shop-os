@@ -567,6 +567,14 @@ export function CustomerDetail() {
       setActiveRightTab('vault');
     }
   }, [location.search]);
+  const isOnline = () => {
+    if (!customer?.isOnline) return false;
+    if (!customer?.lastActiveAt) return false;
+    const lastActive = new Date(customer.lastActiveAt).getTime();
+    const now = new Date().getTime();
+    return now - lastActive < 60000;
+  };
+
   const [adminChatMessages, setAdminChatMessages] = useState<any[]>([]);
   const [adminNewMessageText, setAdminNewMessageText] = useState('');
   const [adminUnreadChatCount, setAdminUnreadChatCount] = useState(0);
@@ -1085,6 +1093,16 @@ export function CustomerDetail() {
                </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-[10px] bg-brand-bg border border-brand-border px-2.5 py-1 rounded-md text-brand-secondary font-semibold uppercase tracking-wider">{customer?.type || 'B2C'}</span>
+                  {isOnline() ? (
+                    <span className="text-[10px] bg-emerald-50 border border-emerald-200 text-emerald-700 px-2.5 py-1 rounded-md font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-sm">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      Active Portal Session
+                    </span>
+                  ) : (
+                    <span className="text-[10px] bg-neutral-50 border border-neutral-200 text-neutral-500 px-2.5 py-1 rounded-md font-semibold uppercase tracking-wider">
+                      {customer?.lastActiveAt ? `Last active: ${new Date(customer.lastActiveAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}` : 'Portal Offline'}
+                    </span>
+                  )}
                   {hasNet30 && (
                     <span className="text-[10px] bg-blue-50 border border-blue-200 text-blue-700 px-2.5 py-1 rounded-md font-semibold uppercase tracking-wider">Net 30 Terms</span>
                   )}
@@ -1509,13 +1527,16 @@ export function CustomerDetail() {
                   <button
                     type="button"
                     onClick={() => setActiveRightTab('chat')}
-                    className={`flex items-center pb-2 text-sm font-bold transition-all border-b-2 cursor-pointer relative ${
+                    className={`flex items-center pb-2 text-sm font-bold transition-all border-b-2 cursor-pointer relative gap-1.5 ${
                       activeRightTab === 'chat'
                         ? 'text-neutral-900 border-neutral-900'
                         : 'text-neutral-400 border-transparent hover:text-neutral-700 hover:border-neutral-200'
                     }`}
                   >
                     <span>Customer Chat</span>
+                    {isOnline() && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.7)] animate-pulse shrink-0" />
+                    )}
                     {adminUnreadChatCount > 0 && (
                       <span className="absolute -top-1.5 -right-3.5 bg-red-500 text-white text-[9px] font-extrabold w-4 h-4 rounded-full flex items-center justify-center border border-white">
                         {adminUnreadChatCount}

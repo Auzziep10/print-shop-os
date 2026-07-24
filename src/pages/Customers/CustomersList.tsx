@@ -64,12 +64,22 @@ export function CustomersList() {
         lastOrder: lastOrderStr,
         logo: liveData.logo !== undefined ? liveData.logo : null,
         croppedLogo: liveData.croppedLogo !== undefined ? liveData.croppedLogo : null,
+        isOnline: liveData.isOnline || false,
+        lastActiveAt: liveData.lastActiveAt || null,
       };
     }).filter(c => c.company.toLowerCase().includes(search.toLowerCase()) || 
                    c.contact.toLowerCase().includes(search.toLowerCase()) ||
                    c.id.toLowerCase().includes(search.toLowerCase()))
       .sort((a, b) => a.company.localeCompare(b.company));
   }, [liveCustomers, orders, search]);
+
+  const isOnline = (cust: any) => {
+    if (!cust.isOnline) return false;
+    if (!cust.lastActiveAt) return false;
+    const lastActive = new Date(cust.lastActiveAt).getTime();
+    const now = new Date().getTime();
+    return now - lastActive < 60000;
+  };
 
   return (
     <div className={tokens.layout.container}>
@@ -166,11 +176,16 @@ export function CustomersList() {
                       <User size={18} />
                     </div>
                   )}
-                  {customer.company !== '-' ? (
-                    <span>{customer.company}</span>
-                  ) : (
-                    <span className="text-brand-secondary italic text-sm">Individual</span>
-                  )}
+                  <div className="flex items-center gap-2 min-w-0">
+                    {customer.company !== '-' ? (
+                      <span className="truncate">{customer.company}</span>
+                    ) : (
+                      <span className="text-brand-secondary italic text-sm">Individual</span>
+                    )}
+                    {isOnline(customer) && (
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.7)] shrink-0 animate-pulse" title="Online now" />
+                    )}
+                  </div>
                 </div>
                 <div className="text-sm font-medium text-brand-primary truncate pr-4">{customer.contact}</div>
                 <div>

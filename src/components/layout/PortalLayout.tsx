@@ -166,6 +166,66 @@ export function PortalLayout() {
     }
   }, [chatMessages, isChatOpen]);
 
+  // Presence system to track online status
+  useEffect(() => {
+    if (!customerId) return;
+
+    const docRef = doc(db, 'customers', customerId);
+
+    const setOnline = async () => {
+      try {
+        await updateDoc(docRef, {
+          isOnline: true,
+          lastActiveAt: new Date().toISOString()
+        });
+      } catch (err) {
+        console.error("Failed to update presence to online:", err);
+      }
+    };
+
+    const setOffline = async () => {
+      try {
+        await updateDoc(docRef, {
+          isOnline: false,
+          lastActiveAt: new Date().toISOString()
+        });
+      } catch (err) {
+        console.error("Failed to update presence to offline:", err);
+      }
+    };
+
+    // Initialize online status
+    setOnline();
+
+    // Heartbeat to keep status active (every 30 seconds)
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        setOnline();
+      }
+    }, 30000);
+
+    // Track tab visibility changes
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        setOnline();
+      } else {
+        setOffline();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Track tab closes/navigation
+    window.addEventListener('beforeunload', setOffline);
+
+    // Cleanup on unmount
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('beforeunload', setOffline);
+      setOffline();
+    };
+  }, [customerId]);
+
   const [isUploadingChatImage, setIsUploadingChatImage] = useState(false);
 
   const uploadAndSendImage = async (file: File) => {
