@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { X, Building2, Mail, Phone, MapPin, Loader2, User, Briefcase } from 'lucide-react';
-import { db } from '../../lib/firebase';
+import { X, Building2, Mail, Phone, MapPin, Loader2, User, Briefcase, Eye, EyeOff } from 'lucide-react';
+import { db, firebaseConfig } from '../../lib/firebase';
 import { collection, addDoc, doc, setDoc } from 'firebase/firestore';
 import { sendCustomerWelcomeSMS } from '../../lib/smsService';
 import { sendCustomerWelcomeEmail } from '../../lib/emailService';
 import { tokens } from '../../lib/tokens';
+import { initializeApp, deleteApp } from 'firebase/app';
+import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
 
 interface NewCustomerModalProps {
   isOpen: boolean;
@@ -23,6 +25,8 @@ export function NewCustomerModal({ isOpen, onClose, onSuccess }: NewCustomerModa
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   if (!isOpen) return null;
 
@@ -33,10 +37,34 @@ export function NewCustomerModal({ isOpen, onClose, onSuccess }: NewCustomerModa
       return;
     }
 
+    if (password.trim() && password.trim().length < 6) {
+      setError('Password must be at least 6 characters long.');
+      return;
+    }
+
     setIsSubmitting(true);
     setError('');
 
     try {
+      let customerUid = '';
+      if (formData.email.trim() && password.trim()) {
+        const tempApp = initializeApp(firebaseConfig, `temp-auth-create-${Date.now()}`);
+        const tempAuth = getAuth(tempApp);
+        try {
+          const userCredential = await createUserWithEmailAndPassword(
+            tempAuth,
+            formData.email.trim().toLowerCase(),
+            password.trim()
+          );
+          customerUid = userCredential.user.uid;
+        } catch (authErr: any) {
+          console.error("Auth creation failed:", authErr);
+          throw new Error(`Authentication account creation failed: ${authErr.message}`);
+        } finally {
+          await deleteApp(tempApp);
+        }
+      }
+
       const docRef = await addDoc(collection(db, 'customers'), {
         ...formData,
         createdAt: new Date().toISOString(),
@@ -48,6 +76,7 @@ export function NewCustomerModal({ isOpen, onClose, onSuccess }: NewCustomerModa
         const userRef = doc(collection(db, 'users'));
         await setDoc(userRef, {
           id: userRef.id,
+          uid: customerUid || '',
           email: formData.email.trim().toLowerCase(),
           name: formData.contactName.trim() || formData.company.trim() || 'Client',
           role: 'Client',
@@ -68,6 +97,7 @@ export function NewCustomerModal({ isOpen, onClose, onSuccess }: NewCustomerModa
         sendCustomerWelcomeSMS(docRef.id);
       }
 
+      setPassword('');
       onSuccess(docRef.id);
       onClose();
     } catch (err: any) {
@@ -204,6 +234,31 @@ export function NewCustomerModal({ isOpen, onClose, onSuccess }: NewCustomerModa
                   />
                 </div>
               </div>
+
+              {formData.email.trim() && (
+                <div className="space-y-2 animate-in slide-in-from-top-1 duration-200">
+                  <label htmlFor="password" className={tokens.typography.label}>Portal Login Password (Optional)</label>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      id="password"
+                      name="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Assign a login password (min 6 chars)"
+                      className={`${tokens.components.input} pr-10`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-brand-secondary hover:text-brand-primary cursor-pointer"
+                    >
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-neutral-400 font-semibold">Assign a password to pre-create credentials for their client portal immediately.</p>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
