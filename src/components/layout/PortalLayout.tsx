@@ -109,7 +109,7 @@ export function PortalLayout() {
   const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [newMessageText, setNewMessageText] = useState('');
   const [unreadChatCount, setUnreadChatCount] = useState(0);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
 
   // Listen to support chat messages in real time
   useEffect(() => {
@@ -157,8 +157,8 @@ export function PortalLayout() {
 
   // Scroll to bottom on new messages
   useEffect(() => {
-    if (isChatOpen) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (isChatOpen && chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
   }, [chatMessages, isChatOpen]);
 
@@ -1089,7 +1089,7 @@ export function PortalLayout() {
               </div>
 
               {/* Messages List */}
-              <div className="flex-1 overflow-y-auto p-4 bg-neutral-50/50 flex flex-col gap-3 custom-scrollbar">
+              <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-4 bg-neutral-50/50 flex flex-col gap-3 custom-scrollbar">
                 {chatMessages.length === 0 ? (
                   <div className="my-auto text-center flex flex-col items-center justify-center p-6 gap-2 text-neutral-400">
                     <MessageSquare size={32} className="stroke-[1.5] text-neutral-300" />
@@ -1130,7 +1130,7 @@ export function PortalLayout() {
                     );
                   })
                 )}
-                <div ref={messagesEndRef} />
+
               </div>
 
               {/* Input Form */}

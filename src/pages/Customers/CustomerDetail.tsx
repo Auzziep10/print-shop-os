@@ -570,7 +570,7 @@ export function CustomerDetail() {
   const [adminChatMessages, setAdminChatMessages] = useState<any[]>([]);
   const [adminNewMessageText, setAdminNewMessageText] = useState('');
   const [adminUnreadChatCount, setAdminUnreadChatCount] = useState(0);
-  const adminMessagesEndRef = useRef<HTMLDivElement>(null);
+  const adminChatContainerRef = useRef<HTMLDivElement>(null);
 
   // Real-time chat message listener
   useEffect(() => {
@@ -625,8 +625,8 @@ export function CustomerDetail() {
 
   // Auto-scroll on new messages
   useEffect(() => {
-    if (activeRightTab === 'chat') {
-      adminMessagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (activeRightTab === 'chat' && adminChatContainerRef.current) {
+      adminChatContainerRef.current.scrollTop = adminChatContainerRef.current.scrollHeight;
     }
   }, [adminChatMessages, activeRightTab]);
 
@@ -1573,7 +1573,7 @@ export function CustomerDetail() {
                 /* Customer Chat Content */
                 <div className="flex flex-col h-[350px] justify-between">
                   {/* Messages Area */}
-                  <div className="flex-1 overflow-y-auto pr-1 mb-4 flex flex-col gap-3 custom-scrollbar">
+                  <div ref={adminChatContainerRef} className="flex-1 overflow-y-auto pr-1 mb-4 flex flex-col gap-3 custom-scrollbar">
                     {adminChatMessages.length === 0 ? (
                       <div className="my-auto text-center flex flex-col items-center justify-center p-6 gap-2 text-neutral-400">
                         <MessageSquare size={32} className="stroke-[1.5] text-neutral-300" />
@@ -1654,7 +1654,7 @@ export function CustomerDetail() {
                         );
                       })
                     )}
-                    <div ref={adminMessagesEndRef} />
+
                   </div>
 
                   {/* Input Form */}
