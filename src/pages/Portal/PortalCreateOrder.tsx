@@ -518,14 +518,16 @@ export function PortalCreateOrder() {
     }
 
     // Check localStorage cart items
-    const cartKey = `wovn_reorder_cart_${customerId || 'CUS-001'}`;
-    try {
-      const savedCart = JSON.parse(localStorage.getItem(cartKey) || '[]');
-      if (savedCart && savedCart.length > 0) {
-        preselected = [...preselected, ...savedCart];
+    if (customerId) {
+      const cartKey = `wovn_reorder_cart_${customerId}`;
+      try {
+        const savedCart = JSON.parse(localStorage.getItem(cartKey) || '[]');
+        if (savedCart && savedCart.length > 0) {
+          preselected = [...preselected, ...savedCart];
+        }
+      } catch (e) {
+        console.error(e);
       }
-    } catch (e) {
-      console.error(e);
     }
 
     if (preselected.length > 0) {
@@ -1151,8 +1153,10 @@ export function PortalCreateOrder() {
 
       await setDoc(doc(db, 'orders', orderId), payload);
 
-      const cartKey = `wovn_reorder_cart_${customerId || 'CUS-001'}`;
-      localStorage.removeItem(cartKey);
+      if (customerId) {
+        const cartKey = `wovn_reorder_cart_${customerId}`;
+        localStorage.removeItem(cartKey);
+      }
       window.dispatchEvent(new Event('wovn_cart_updated'));
 
       setShowSuccessModal(true);
@@ -1354,14 +1358,16 @@ export function PortalCreateOrder() {
     setOrderItems(prev => prev.filter(item => item.instanceId !== instanceId));
 
     if (itemToRemove) {
-      const cartKey = `wovn_reorder_cart_${customerId || 'CUS-001'}`;
-      try {
-        const savedCart = JSON.parse(localStorage.getItem(cartKey) || '[]');
-        const updatedCart = savedCart.filter((ci: any) => ci.id !== itemToRemove.id && ci.style !== itemToRemove.style);
-        localStorage.setItem(cartKey, JSON.stringify(updatedCart));
-        window.dispatchEvent(new Event('wovn_cart_updated'));
-      } catch (e) {
-        console.error(e);
+      if (customerId) {
+        const cartKey = `wovn_reorder_cart_${customerId}`;
+        try {
+          const savedCart = JSON.parse(localStorage.getItem(cartKey) || '[]');
+          const updatedCart = savedCart.filter((ci: any) => ci.id !== itemToRemove.id && ci.style !== itemToRemove.style);
+          localStorage.setItem(cartKey, JSON.stringify(updatedCart));
+          window.dispatchEvent(new Event('wovn_cart_updated'));
+        } catch (e) {
+          console.error(e);
+        }
       }
     }
   };

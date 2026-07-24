@@ -61,8 +61,12 @@ export function PortalLayout() {
   const [isJiggling, setIsJiggling] = useState(false);
 
   useEffect(() => {
+    if (!customerId) {
+      setCartCount(0);
+      return;
+    }
     const updateCount = () => {
-      const cartKey = `wovn_reorder_cart_${customerId || 'CUS-001'}`;
+      const cartKey = `wovn_reorder_cart_${customerId}`;
       try {
         const cart = JSON.parse(localStorage.getItem(cartKey) || '[]');
         setCartCount(cart.length);
