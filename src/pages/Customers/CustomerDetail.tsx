@@ -598,20 +598,27 @@ export function CustomerDetail() {
 
   // Mark customer messages as read when the admin views the chat tab
   useEffect(() => {
-    if (activeRightTab === 'chat' && id && adminChatMessages.length > 0) {
-      const unreadMsgs = adminChatMessages.filter(
-        (m: any) => m.senderRole === 'Client' && !m.read
-      );
+    if (activeRightTab === 'chat' && id) {
+      const customerDocRef = doc(db, 'customers', id);
+      updateDoc(customerDocRef, { hasUnreadSupport: false }).catch(err => {
+        console.error("Failed to clear customer unread support flag:", err);
+      });
 
-      if (unreadMsgs.length > 0) {
-        unreadMsgs.forEach(async (m) => {
-          try {
-            const msgRef = doc(db, id ? 'customers' : 'customers', id || '', 'chat_messages', m.id);
-            await updateDoc(msgRef, { read: true });
-          } catch (err) {
-            console.error("Failed to mark admin message as read:", err);
-          }
-        });
+      if (adminChatMessages.length > 0) {
+        const unreadMsgs = adminChatMessages.filter(
+          (m: any) => m.senderRole === 'Client' && !m.read
+        );
+
+        if (unreadMsgs.length > 0) {
+          unreadMsgs.forEach(async (m) => {
+            try {
+              const msgRef = doc(db, 'customers', id, 'chat_messages', m.id);
+              await updateDoc(msgRef, { read: true });
+            } catch (err) {
+              console.error("Failed to mark admin message as read:", err);
+            }
+          });
+        }
       }
     }
   }, [activeRightTab, adminChatMessages, id]);

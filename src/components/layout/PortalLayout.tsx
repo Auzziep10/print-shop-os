@@ -181,6 +181,15 @@ export function PortalLayout() {
         timestamp: new Date().toISOString(),
         read: false
       });
+
+      // Update parent customer document to trigger admin notification
+      const customerDocRef = doc(db, 'customers', customerId || '');
+      await updateDoc(customerDocRef, {
+        hasUnreadSupport: true,
+        lastSupportMessageText: '📷 Sent an image attachment',
+        lastSupportMessageSenderName: customer?.contactName || customer?.company || 'Client',
+        lastSupportMessageTimestamp: new Date().toISOString()
+      });
     } catch (err) {
       console.error("Failed to upload/send chat image:", err);
       alert("Failed to send image attachment.");
@@ -225,6 +234,15 @@ export function PortalLayout() {
         senderRole: 'Client',
         timestamp: new Date().toISOString(),
         read: false
+      });
+
+      // Update parent customer document to trigger admin notification
+      const customerDocRef = doc(db, 'customers', customerId || '');
+      await updateDoc(customerDocRef, {
+        hasUnreadSupport: true,
+        lastSupportMessageText: textToSend,
+        lastSupportMessageSenderName: customer?.contactName || customer?.company || 'Client',
+        lastSupportMessageTimestamp: new Date().toISOString()
       });
     } catch (err) {
       console.error("Failed to send support chat message:", err);
