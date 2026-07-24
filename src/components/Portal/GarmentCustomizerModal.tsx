@@ -143,6 +143,35 @@ export function GarmentCustomizerModal({
   const lastGarmentIdRef = useRef<string | null>(null);
 
   const [recolorColor, setRecolorColor] = useState('#000000');
+
+  // Find product in catalog as fallback for images and descriptions
+  const catalogProduct = useMemo(() => {
+    const styleName = (activeGarment?.style || '').trim().toLowerCase();
+    const itemNum = (activeGarment?.itemNum || '').trim().toLowerCase();
+    if (!styleName && !itemNum) return null;
+
+    const findMatch = (query: string) => {
+      if (!query) return null;
+      // 1. Exact match
+      let found = sanmarCatalog.find(
+        (p) => p.style.toLowerCase() === query
+      );
+      if (found) return found;
+
+      // 2. Contains match
+      const sortedCatalog = [...sanmarCatalog].sort((a, b) => b.style.length - a.style.length);
+      found = sortedCatalog.find(
+        (p) => {
+          const pStyle = p.style.toLowerCase();
+          return query.includes(pStyle) || pStyle.includes(query);
+        }
+      );
+      return found || null;
+    };
+
+    // Try matching by itemNum (SKU style code) first as it is more specific, then styleName
+    return findMatch(itemNum) || findMatch(styleName) || null;
+  }, [activeGarment?.style, activeGarment?.itemNum]);
   const [isRecoloring, setIsRecoloring] = useState(false);
 
   // Lock body scroll when customizer modal is open
@@ -300,7 +329,7 @@ export function GarmentCustomizerModal({
 
   const getGarmentBlend = (garmentObj: any, color: string): string => {
     if (!garmentObj) return '100% Cotton';
-    const desc = (garmentObj.description || garmentObj.desc || '').toLowerCase();
+    const desc = (garmentObj.description || garmentObj.desc || catalogProduct?.description || '').toLowerCase();
     if (!desc) return '100% Cotton';
 
     const col = (color || '').toLowerCase();
@@ -637,34 +666,7 @@ export function GarmentCustomizerModal({
     { name: 'Clean Sans-Serif', value: 'Inter' }
   ];
 
-  // Find product in catalog as fallback for images
-  const catalogProduct = useMemo(() => {
-    const styleName = (activeGarment?.style || '').trim().toLowerCase();
-    const itemNum = (activeGarment?.itemNum || '').trim().toLowerCase();
-    if (!styleName && !itemNum) return null;
 
-    const findMatch = (query: string) => {
-      if (!query) return null;
-      // 1. Exact match
-      let found = sanmarCatalog.find(
-        (p) => p.style.toLowerCase() === query
-      );
-      if (found) return found;
-
-      // 2. Contains match
-      const sortedCatalog = [...sanmarCatalog].sort((a, b) => b.style.length - a.style.length);
-      found = sortedCatalog.find(
-        (p) => {
-          const pStyle = p.style.toLowerCase();
-          return query.includes(pStyle) || pStyle.includes(query);
-        }
-      );
-      return found || null;
-    };
-
-    // Try matching by itemNum (SKU style code) first as it is more specific, then styleName
-    return findMatch(itemNum) || findMatch(styleName) || null;
-  }, [activeGarment?.style, activeGarment?.itemNum]);
 
   // Case-insensitive image resolver
   const { frontImage, backImage, sleeveImage } = useMemo(() => {
