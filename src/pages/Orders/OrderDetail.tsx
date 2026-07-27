@@ -2305,7 +2305,7 @@ export function OrderDetail() {
       const yOffset = 750; // (1.0 margin + 1.0 header + 0.5 gap) * 300
       
       const tagDim = 750;
-      const padding = 50;
+      const padding = 100; // Increased from 50 to give plotter cutter more margin
       const finalCanvasWidth = 6600; // 22 inches * 300 DPI
       const tagsPerRow = Math.floor((6000 + padding) / (tagDim + padding)); // 7 tags per row (6000px printable width)
 
