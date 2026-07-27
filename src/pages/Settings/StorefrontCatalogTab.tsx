@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db, storage } from '../../lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { Loader2, Save, Search, Check, Info, Crosshair, X, Trash2, Plus, Edit2, ImageIcon } from 'lucide-react';
+import { Loader2, Save, Search, Check, Info, Crosshair, X, Trash2, Plus, Edit2, ImageIcon, ArrowLeft, ArrowRight } from 'lucide-react';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
@@ -727,6 +727,34 @@ export function StorefrontCatalogTab() {
     });
   };
 
+  const handleMoveSlot = (slot: string, direction: 'left' | 'right') => {
+    const categoryRacks = racks[activeRackCategory];
+    if (!categoryRacks) return;
+
+    const keys = Object.keys(categoryRacks);
+    const index = keys.indexOf(slot);
+    if (index === -1) return;
+
+    const targetIndex = direction === 'left' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= keys.length) return; // out of bounds
+
+    // Swap keys
+    const newKeys = [...keys];
+    newKeys[index] = keys[targetIndex];
+    newKeys[targetIndex] = keys[index];
+
+    // Reconstruct object
+    const newCategoryRacks: Record<string, string> = {};
+    newKeys.forEach(k => {
+      newCategoryRacks[k] = categoryRacks[k];
+    });
+
+    setRacks(prev => ({
+      ...prev,
+      [activeRackCategory]: newCategoryRacks
+    }));
+  };
+
   const handleApplyPlacement = (box: LogoBox) => {
     if (!placementTarget) return;
     const { mode, category, slot } = placementTarget;
@@ -918,28 +946,51 @@ export function StorefrontCatalogTab() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {Object.keys(racks[activeRackCategory] || {}).map(slot => {
-              const style = racks[activeRackCategory]?.[slot] || '';
-              const p = getProductDetails(style) as any;
-              const customName = customNames.racks?.[activeRackCategory]?.[slot] || '';
-              
-              return (
-                <div key={slot} className="border border-brand-border rounded-2xl p-5 bg-neutral-50/50 flex flex-col justify-between gap-4">
-                  <div className="space-y-3">
-                    <div>
-                      <div className="flex items-center justify-between gap-2 mb-2">
-                        <span className="text-[10px] font-extrabold uppercase tracking-widest text-brand-secondary block">
-                          {slot.replace(/_/g, ' ').replace('longsleeve', 'long sleeve')} Slot
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteSlot(slot)}
-                          className="text-red-550 hover:text-red-700 hover:bg-red-50 rounded p-1 transition-colors cursor-pointer"
-                          title={`Delete slot "${slot}"`}
-                        >
-                          <Trash2 size={12} />
-                        </button>
-                      </div>
+            {(() => {
+              const slots = Object.keys(racks[activeRackCategory] || {});
+              const totalSlots = slots.length;
+              return slots.map((slot, slotIndex) => {
+                const style = racks[activeRackCategory]?.[slot] || '';
+                const p = getProductDetails(style) as any;
+                const customName = customNames.racks?.[activeRackCategory]?.[slot] || '';
+                
+                return (
+                  <div key={slot} className="border border-brand-border rounded-2xl p-5 bg-neutral-50/50 flex flex-col justify-between gap-4">
+                    <div className="space-y-3">
+                      <div>
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <span className="text-[10px] font-extrabold uppercase tracking-widest text-brand-secondary block">
+                            {slot.replace(/_/g, ' ').replace('longsleeve', 'long sleeve')} Slot
+                          </span>
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => handleMoveSlot(slot, 'left')}
+                              disabled={slotIndex === 0}
+                              className="text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100 disabled:opacity-30 disabled:pointer-events-none rounded p-1 transition-colors cursor-pointer flex items-center justify-center"
+                              title="Move Left"
+                            >
+                              <ArrowLeft size={12} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleMoveSlot(slot, 'right')}
+                              disabled={slotIndex === totalSlots - 1}
+                              className="text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100 disabled:opacity-30 disabled:pointer-events-none rounded p-1 transition-colors cursor-pointer flex items-center justify-center"
+                              title="Move Right"
+                            >
+                              <ArrowRight size={12} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteSlot(slot)}
+                              className="text-red-550 hover:text-red-700 hover:bg-red-50 rounded p-1 transition-colors cursor-pointer flex items-center justify-center"
+                              title={`Delete slot "${slot}"`}
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                        </div>
 
                       {/* Image Preview */}
                       {p.style ? (
@@ -1113,7 +1164,8 @@ export function StorefrontCatalogTab() {
                   </div>
                 </div>
               );
-            })}
+            });
+          })()}
           </div>
         </div>
       )}
