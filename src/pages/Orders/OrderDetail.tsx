@@ -6961,7 +6961,9 @@ export function OrderDetail() {
                         else if (Array.isArray(item.availableColors)) colors = item.availableColors;
                         else if (Array.isArray(item.variations) && item.variations.length > 0) colors = item.variations.map((v:any) => v.color).filter(Boolean);
                         
-                        const image = item.mockup_image || item.mock_image || item.original_image || item.image || item.imageUrl || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
+                        const itemKey = item.itemNum || item.garment_id || item.sku || item.style || item.id || '';
+                        const overriddenImage = liveCustomer?.deckMockupOverrides?.[itemKey];
+                        const image = overriddenImage || item.mockup_image || item.mock_image || item.original_image || item.image || item.imageUrl || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
                         
                         const deckStr = JSON.stringify(deck).toLowerCase();
                         const itemStr = JSON.stringify(item).toLowerCase();

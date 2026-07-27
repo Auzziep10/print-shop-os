@@ -1635,7 +1635,9 @@ export function PortalCreateOrder() {
                   let colors = findColorsInObj({ ...item }) || ['Custom Color'];
                   if (colors.length === 0) colors = ['Custom Color'];
                   let sizes = parseSizesFromItem(item, style);
-                  const image = item.mockup_image || item.mock_image || item.original_image || item.image || item.imageUrl || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
+                  const itemKey = item.itemNum || item.garment_id || item.sku || item.style || item.id || '';
+                  const overriddenImage = customer?.deckMockupOverrides?.[itemKey];
+                  const image = overriddenImage || item.mockup_image || item.mock_image || item.original_image || item.image || item.imageUrl || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
                   const price = parseFloat(item.msrp || item.price || item.unit_cost || 0);
 
                   return renderGarmentCard(item, style, gender, itemNum, colors, sizes, image, price, item.id || idx);

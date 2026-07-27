@@ -161,6 +161,7 @@ export function CustomerDetail() {
   });
   const [isUploadingLogoVault, setIsUploadingLogoVault] = useState(false);
   const [isUploadingMockup, setIsUploadingMockup] = useState(false);
+  const [uploadingDeckItemKey, setUploadingDeckItemKey] = useState<string | null>(null);
   const [isGarmentBrowserOpen, setIsGarmentBrowserOpen] = useState(false);
   const [selectedSanMarProduct, setSelectedSanMarProduct] = useState<any | null>(null);
   const [selectedColors, setSelectedColors] = useState<Record<string, boolean>>({});
@@ -229,6 +230,71 @@ export function CustomerDetail() {
       alert("Failed to upload mockup image.");
     } finally {
       setIsUploadingMockup(false);
+    }
+  };
+
+  const handleDeckItemMockupUpload = async (item: any, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !id) return;
+    const itemKey = item.itemNum || item.garment_id || item.sku || item.style || item.id || '';
+    if (!itemKey) {
+      alert("Cannot identify item unique key.");
+      return;
+    }
+    setUploadingDeckItemKey(itemKey);
+    try {
+      const storageRef = ref(storage, `deck_mockups/${id}/${itemKey}/${Date.now()}_${file.name}`);
+      await uploadBytes(storageRef, file);
+      const downloadUrl = await getDownloadURL(storageRef);
+      
+      const updatedOverrides = {
+        ...(liveCustomerData?.deckMockupOverrides || {}),
+        [itemKey]: downloadUrl
+      };
+
+      await updateDoc(doc(db, 'customers', id), {
+        deckMockupOverrides: updatedOverrides
+      });
+
+      setLiveCustomerData((prev: any) => ({
+        ...prev,
+        deckMockupOverrides: updatedOverrides
+      }));
+
+      alert("Deck item mockup updated successfully!");
+    } catch (err) {
+      console.error("Upload deck mockup failed:", err);
+      alert("Failed to upload mockup image.");
+    } finally {
+      setUploadingDeckItemKey(null);
+    }
+  };
+
+  const handleRemoveDeckItemMockupOverride = async (item: any) => {
+    if (!id || !window.confirm("Restore original catalog mockup image for this item?")) return;
+    const itemKey = item.itemNum || item.garment_id || item.sku || item.style || item.id || '';
+    if (!itemKey) return;
+    
+    setUploadingDeckItemKey(itemKey);
+    try {
+      const updatedOverrides = { ...(liveCustomerData?.deckMockupOverrides || {}) };
+      delete updatedOverrides[itemKey];
+
+      await updateDoc(doc(db, 'customers', id), {
+        deckMockupOverrides: updatedOverrides
+      });
+
+      setLiveCustomerData((prev: any) => ({
+        ...prev,
+        deckMockupOverrides: updatedOverrides
+      }));
+
+      alert("Restored original mockup.");
+    } catch (err) {
+      console.error("Remove deck mockup override failed:", err);
+      alert("Failed to remove mockup override.");
+    } finally {
+      setUploadingDeckItemKey(null);
     }
   };
 
@@ -1216,15 +1282,52 @@ export function CustomerDetail() {
                    <div className="flex items-center gap-3 overflow-x-auto custom-scrollbar pb-2 relative">
                       {(deck.items || deck.garments || []).map((item: any, idx: number) => {
                         const style = item.garment_name || item.name || item.style || item.title || 'Unknown Style';
-                        const image = item.mockup_image || item.mock_image || item.original_image || item.image || item.imageUrl || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
+                        const itemKey = item.itemNum || item.garment_id || item.sku || item.style || item.id || '';
+                        const overriddenImage = liveCustomerData?.deckMockupOverrides?.[itemKey];
+                        const image = overriddenImage || item.mockup_image || item.mock_image || item.original_image || item.image || item.imageUrl || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
                         return (
                            <div 
                              key={idx} 
-                             onClick={() => setExpandedImage({src: image, alt: style})}
                              className="w-16 h-16 rounded-xl overflow-hidden bg-transparent shrink-0 hover:scale-[1.05] transition-transform tooltip relative group/deckitem cursor-pointer"
                            >
-                             <img src={image} alt={style} className="w-full h-full object-contain mix-blend-multiply" />
+                             <img 
+                               src={image} 
+                               alt={style} 
+                               className="w-full h-full object-contain mix-blend-multiply" 
+                               onClick={() => setExpandedImage({src: image, alt: style})}
+                             />
                              <span className="tooltiptext whitespace-nowrap z-[110]">{style}</span>
+                             
+                             {uploadingDeckItemKey === itemKey ? (
+                                <div className="absolute inset-0 bg-black/55 flex items-center justify-center rounded-xl">
+                                  <Loader2 size={14} className="animate-spin text-white" />
+                                </div>
+                              ) : (
+                                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover/deckitem:opacity-100 flex items-center justify-center gap-1.5 transition-opacity rounded-xl">
+                                  <label className="p-1 hover:bg-neutral-800 rounded transition-colors cursor-pointer" title="Upload custom mockup">
+                                    <input 
+                                      type="file" 
+                                      className="hidden" 
+                                      accept="image/*" 
+                                      onChange={(e) => handleDeckItemMockupUpload(item, e)} 
+                                    />
+                                    <Edit3 size={12} className="text-white" />
+                                  </label>
+                                  {overriddenImage && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleRemoveDeckItemMockupOverride(item);
+                                      }}
+                                      className="p-1 hover:bg-neutral-800 rounded transition-colors"
+                                      title="Remove mockup override"
+                                    >
+                                      <Trash2 size={12} className="text-white hover:text-red-400" />
+                                    </button>
+                                  )}
+                                </div>
+                              )}
                            </div>
                         );
                       })}
@@ -2440,7 +2543,9 @@ export function CustomerDetail() {
                     {customerDecks.map((deck) => 
                       (deck.items || deck.garments || []).map((item: any, idx: number) => {
                         const style = item.garment_name || item.name || item.style || item.title || 'Unknown Style';
-                        const image = item.mockup_image || item.mock_image || item.original_image || item.image || item.imageUrl || '';
+                        const itemKey = item.itemNum || item.garment_id || item.sku || item.style || item.id || '';
+                        const overriddenImage = liveCustomerData?.deckMockupOverrides?.[itemKey];
+                        const image = overriddenImage || item.mockup_image || item.mock_image || item.original_image || item.image || item.imageUrl || '';
                         return (
                           <button
                             key={idx}

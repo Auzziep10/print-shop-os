@@ -448,8 +448,11 @@ export function PortalRequestQuote() {
     };
     fetchCustomer();
   }, [customerId]);
-
   const getGarmentImage = (item: any) => {
+    const itemKey = item.itemNum || item.garment_id || item.sku || item.style || item.id || '';
+    if (customer?.deckMockupOverrides?.[itemKey]) {
+      return customer.deckMockupOverrides[itemKey];
+    }
     if (item.image) return item.image;
     if (item.images) {
       const chosenColor = (item.defaultColor && item.images[item.defaultColor])
@@ -461,7 +464,6 @@ export function PortalRequestQuote() {
     }
     return 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
   };
-
   const activeRackItems = useMemo(() => {
     const categoryRacks = customerRacks[activeRackCategory] || DEFAULT_RACKS.Athleisure;
     return Object.entries(categoryRacks).map(([slot, styleId]) => {
