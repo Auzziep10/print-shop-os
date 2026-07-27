@@ -2306,10 +2306,10 @@ export function OrderDetail() {
       
       const tagDim = 750;
       const finalCanvasWidth = 6600; // 22 inches * 300 DPI
-      const tagsPerRow = 7;
+      const tagsPerRow = Math.floor((6000 - tagDim) / 610) + 1; // 9 columns
 
-      // Optimized staggered packing: 7 columns, horizontally spaced by 610px, vertically by 1210px with a 605px shift on odd columns
-      const startX = 1095; // Centered: 300 + (6000 - (6 * 610 + 750)) / 2
+      // Optimized staggered packing: horizontally spaced by 610px, vertically by 1210px with a 605px shift on odd columns
+      const startX = 300 + (6000 - ((tagsPerRow - 1) * 610 + tagDim)) / 2; // 485px
 
       // Place all tags
       const placements: Array<{ x: number; y: number; canvas: HTMLCanvasElement; size: string }> = [];
