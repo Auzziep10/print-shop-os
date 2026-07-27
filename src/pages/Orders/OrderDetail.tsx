@@ -2308,8 +2308,8 @@ export function OrderDetail() {
       const finalCanvasWidth = 6600; // 22 inches * 300 DPI
       const tagsPerRow = 7;
 
-      // Optimized staggered packing: 7 columns, horizontally spaced by 780px, vertically by 1210px with a 605px shift on odd columns
-      const startX = 585; // Centered: 300 + (6000 - (6 * 780 + 750)) / 2
+      // Optimized staggered packing: 7 columns, horizontally spaced by 820px, vertically by 1415px with a 707px shift on odd columns
+      const startX = 465; // Centered: 300 + (6000 - (6 * 820 + 750)) / 2
 
       // Place all tags
       const placements: Array<{ x: number; y: number; canvas: HTMLCanvasElement; size: string }> = [];
@@ -2348,8 +2348,8 @@ export function OrderDetail() {
         singleCtx.restore();
 
         for (let q = 0; q < qty; q++) {
-          const posX = startX + currentCol * 780;
-          const posY = yOffset + currentRow * 1210 + (currentCol % 2) * 605;
+          const posX = startX + currentCol * 820;
+          const posY = yOffset + currentRow * 1415 + (currentCol % 2) * 707;
 
           placements.push({ x: posX, y: posY, canvas: singleCanvas, size });
 
@@ -2362,7 +2362,7 @@ export function OrderDetail() {
       }
 
       const totalRows = Math.ceil(placements.length / tagsPerRow);
-      const sheetContentHeight = totalRows > 0 ? (totalRows * 1210 + 605) : 0;
+      const sheetContentHeight = totalRows > 0 ? (totalRows * 1415 + 707) : 0;
       const finalCanvasHeight = yOffset + sheetContentHeight + MARGIN_PX;
 
       // Create print and cut canvases
@@ -2473,7 +2473,7 @@ export function OrderDetail() {
       placements.forEach(p => {
         const cx = p.x + tagDim / 2;
         const cy = p.y + tagDim / 2;
-        svgContent += `  <rect x="${p.x}" y="${p.y}" width="${tagDim}" height="${tagDim}" fill="none" stroke="black" stroke-width="4" transform="rotate(45, ${cx}, ${cy})" />\n`;
+        svgContent += `  <rect x="${p.x}" y="${p.y}" width="${tagDim}" height="${tagDim}" rx="30" ry="30" fill="none" stroke="black" stroke-width="4" transform="rotate(45, ${cx}, ${cy})" />\n`;
       });
       svgContent += `</svg>`;
 
