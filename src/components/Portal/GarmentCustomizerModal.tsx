@@ -315,6 +315,7 @@ export function GarmentCustomizerModal({
   // Helper to extract fabric blend description dynamically from the garment catalog text
   const cleanBlendText = (text: string): string => {
     let t = text.trim();
+    t = t.replace(/\b\d+(\.\d+)?\s*-?\s*ounce(s)?\s*(\(\d+\s*gsm\))?\s*/gi, '');
     t = t.replace(/\b\d+\s+singles\b.*/gi, '');
     t = t.replace(/retail fit.*/gi, '');
     t = t.replace(/tear-away.*/gi, '');
