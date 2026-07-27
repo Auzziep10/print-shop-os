@@ -319,11 +319,23 @@ export function GarmentCustomizerModal({
     t = t.replace(/retail fit.*/gi, '');
     t = t.replace(/tear-away.*/gi, '');
     
+    // Simplify long fabric names to make it "less words"
+    t = t.replace(/airlume combed and ring spun cotton/gi, 'Cotton');
+    t = t.replace(/combed ring spun cotton/gi, 'Cotton');
+    t = t.replace(/ring spun cotton/gi, 'Cotton');
+    t = t.replace(/combed cotton/gi, 'Cotton');
+    t = t.replace(/polyester/gi, 'Poly');
+    t = t.replace(/rayon/gi, 'Rayon');
+    t = t.replace(/cotton/gi, 'Cotton');
+    
+    // Remove extra spaces around slashes
+    t = t.replace(/\s*\/\s*/g, '/');
+
     return t
       .replace(/\b[a-z]/g, (char) => char.toUpperCase())
-      .replace(/\bPoly\b/g, 'Polyester')
-      .replace(/\bCotton\/poly\b/g, 'Cotton / Polyester')
-      .replace(/\bCotton\/polyester\b/g, 'Cotton / Polyester')
+      .replace(/\bPoly\b/g, 'Poly')
+      .replace(/\bCotton\/poly\b/g, 'Cotton/Poly')
+      .replace(/\bCotton\/polyester\b/g, 'Cotton/Poly')
       .trim();
   };
 
@@ -356,7 +368,7 @@ export function GarmentCustomizerModal({
       return cleanBlendText(solidMatch[2]);
     }
 
-    const generalMatch = desc.match(/\b(\d+%\s+[a-zA-Z\s]+|\d+\/\d+\s+[a-zA-Z\s/]+)/);
+    const generalMatch = desc.match(/\b(\d+%\s+[a-zA-Z\s]+|\d+(?:\/\d+)*\s+[a-zA-Z\s/]+)/);
     if (generalMatch) {
       return cleanBlendText(generalMatch[0]);
     }
