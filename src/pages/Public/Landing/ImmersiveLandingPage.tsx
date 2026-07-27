@@ -6,7 +6,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { ImmersiveLanding, type StorefrontSettingsShape } from './ImmersiveLanding';
 
 const DEFAULT_SETTINGS: StorefrontSettingsShape = {
-  logoText: 'Custom Apparel',
+  logoText: 'INKTHEORY',
   announcement: '🔥 Free Standard Shipping on all orders above 50 units!',
   heroTitle: 'Better Apparel',
   heroSubtitle:
@@ -32,8 +32,8 @@ export function ImmersiveLandingPage() {
         const snap = await getDoc(doc(db, 'settings', 'storefront'));
         if (snap.exists()) {
           const data = snap.data() as Partial<StorefrontSettingsShape>;
-          if (data.logoText === 'PRINT SHOP OS' || data.logoText === 'INK THEORY') {
-            data.logoText = 'Custom Apparel';
+          if (!data.logoText || data.logoText === 'PRINT SHOP OS' || data.logoText === 'INK THEORY' || data.logoText === 'Custom Apparel') {
+            data.logoText = 'INKTHEORY';
           }
           data.heroTitle = 'Better Apparel';
           setSettings((prev) => ({ ...prev, ...data }));

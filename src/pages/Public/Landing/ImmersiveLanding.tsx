@@ -100,9 +100,15 @@ function Preloader({ brand, onDone }: { brand: string; onDone: () => void }) {
       className="fixed inset-0 z-[100] flex flex-col justify-between bg-zinc-950 p-6 text-[#faf9f5] md:p-12"
     >
       <div className="overflow-hidden">
-        <span ref={brandRef} className="font-serif block text-4xl tracking-tight md:text-6xl">
-          {brand}
-        </span>
+        {brand === 'INKTHEORY' ? (
+          <span ref={brandRef} className="font-sans block text-5xl font-black tracking-tighter uppercase md:text-7xl">
+            INKTHEORY
+          </span>
+        ) : (
+          <span ref={brandRef} className="font-serif block text-4xl tracking-tight md:text-6xl">
+            {brand}
+          </span>
+        )}
       </div>
       <div className="flex items-end justify-between">
         <span className="font-inter text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-500">
@@ -214,13 +220,23 @@ function LandingNav({
     >
       <div className="flex items-center justify-between px-6 py-4 md:px-12">
         <div className="flex items-center gap-4">
-          <span
-            className={`font-serif text-lg font-bold tracking-tight ${
-              dark ? 'text-white' : 'text-zinc-950'
-            }`}
-          >
-            {settings.logoText}
-          </span>
+          {settings.logoText === 'INKTHEORY' ? (
+            <span
+              className={`font-sans text-xl font-black tracking-tighter uppercase ${
+                dark ? 'text-white' : 'text-zinc-950'
+              }`}
+            >
+              INKTHEORY
+            </span>
+          ) : (
+            <span
+              className={`font-serif text-lg font-bold tracking-tight ${
+                dark ? 'text-white' : 'text-zinc-950'
+              }`}
+            >
+              {settings.logoText}
+            </span>
+          )}
           <span className={`hidden h-4 w-px md:block ${dark ? 'bg-white/25' : 'bg-zinc-300'}`} />
           <span
             className={`font-inter hidden items-center gap-2 text-[9px] font-bold uppercase tracking-[0.25em] md:flex ${

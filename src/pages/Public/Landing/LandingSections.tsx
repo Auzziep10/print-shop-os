@@ -621,9 +621,15 @@ export function LandingFooter({
     <footer className="bg-zinc-950 px-6 pt-24 pb-10 text-[#faf9f5] md:px-12">
       <div className="mx-auto max-w-7xl">
         <div className="flex flex-col gap-12 border-b border-white/10 pb-16 md:flex-row md:items-end md:justify-between">
-          <h2 className="footer-brand font-serif text-[clamp(3rem,11vw,11rem)] font-normal tracking-tight">
-            {settings.logoText}
-          </h2>
+          {settings.logoText === 'INKTHEORY' ? (
+            <h2 className="footer-brand font-sans text-[clamp(3rem,11vw,11rem)] font-black tracking-tighter uppercase">
+              INKTHEORY
+            </h2>
+          ) : (
+            <h2 className="footer-brand font-serif text-[clamp(3rem,11vw,11rem)] font-normal tracking-tight">
+              {settings.logoText}
+            </h2>
+          )}
           <div className="font-inter flex flex-col gap-3 text-sm font-light text-zinc-400">
             {settings.email && (
               <a
