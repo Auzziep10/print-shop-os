@@ -2305,12 +2305,11 @@ export function OrderDetail() {
       const yOffset = 750; // (1.0 margin + 1.0 header + 0.5 gap) * 300
       
       const tagDim = 750;
-      const padding = 320; // Increased to prevent overlap of 45-degree rotated tags
       const finalCanvasWidth = 6600; // 22 inches * 300 DPI
-      const tagsPerRow = Math.floor((6000 + padding) / (tagDim + padding)); // 5 tags per row (6000px printable width)
+      const tagsPerRow = 7;
 
-      // Center tags horizontally
-      const startX = 300 + (6000 - (tagsPerRow * tagDim + (tagsPerRow - 1) * padding)) / 2; // 525px
+      // Optimized staggered packing: 7 columns, horizontally spaced by 780px, vertically by 1210px with a 605px shift on odd columns
+      const startX = 585; // Centered: 300 + (6000 - (6 * 780 + 750)) / 2
 
       // Place all tags
       const placements: Array<{ x: number; y: number; canvas: HTMLCanvasElement; size: string }> = [];
@@ -2349,8 +2348,8 @@ export function OrderDetail() {
         singleCtx.restore();
 
         for (let q = 0; q < qty; q++) {
-          const posX = startX + currentCol * (tagDim + padding);
-          const posY = yOffset + currentRow * (tagDim + padding);
+          const posX = startX + currentCol * 780;
+          const posY = yOffset + currentRow * 1210 + (currentCol % 2) * 605;
 
           placements.push({ x: posX, y: posY, canvas: singleCanvas, size });
 
@@ -2363,7 +2362,7 @@ export function OrderDetail() {
       }
 
       const totalRows = Math.ceil(placements.length / tagsPerRow);
-      const sheetContentHeight = totalRows * (tagDim + padding) + padding;
+      const sheetContentHeight = totalRows > 0 ? (totalRows * 1210 + 605) : 0;
       const finalCanvasHeight = yOffset + sheetContentHeight + MARGIN_PX;
 
       // Create print and cut canvases
