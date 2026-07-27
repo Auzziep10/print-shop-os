@@ -236,6 +236,22 @@ export function PortalCreateOrder() {
   const [activeRackCategory, setActiveRackCategory] = useState('Athleisure');
   const [activeLibraryTab, setActiveLibraryTab] = useState('rack');
   const [globalCustomMockups, setGlobalCustomMockups] = useState<any>({ racks: {}, basics: {} });
+  const [globalRacksOrder, setGlobalRacksOrder] = useState<any>({});
+
+  const getOrderedKeys = (categoryRacks: any, category: string, orderMap: Record<string, string[]>) => {
+    const allKeys = Object.keys(categoryRacks || {});
+    const order = orderMap?.[category];
+    if (!order) return allKeys;
+    
+    return [...allKeys].sort((a, b) => {
+      const idxA = order.indexOf(a);
+      const idxB = order.indexOf(b);
+      if (idxA === -1 && idxB === -1) return 0;
+      if (idxA === -1) return 1;
+      if (idxB === -1) return -1;
+      return idxA - idxB;
+    });
+  };
 
   const renderGarmentCard = (item: any, style: string, gender: string, itemNum: string, colors: string[], sizes: any, image: string, price: number, key: string | number) => {
     return (
@@ -479,7 +495,9 @@ export function PortalCreateOrder() {
 
   const activeRackItems = useMemo(() => {
     const categoryRacks = customerRacks[activeRackCategory] || DEFAULT_RACKS.Athleisure;
-    return Object.entries(categoryRacks).map(([slot, styleId]) => {
+    const orderedKeys = getOrderedKeys(categoryRacks, activeRackCategory, customer?.racksOrder || globalRacksOrder);
+    return orderedKeys.map((slot) => {
+      const styleId = categoryRacks[slot];
       const prod = sanmarCatalog.find(p => p.style.toLowerCase() === String(styleId).toLowerCase());
       if (prod) {
         const customName = customNames.racks?.[activeRackCategory]?.[slot] || '';
@@ -487,7 +505,7 @@ export function PortalCreateOrder() {
         const customSpec = customSpecs?.racks?.[activeRackCategory]?.[slot] || null;
         return {
           ...prod,
-          id: `${slot}-${Date.now()}-${Math.random()}`,
+          id: `${slot}-${activeRackCategory}-${styleId}`,
           slot,
           category: activeRackCategory,
           mode: 'racks',
@@ -498,7 +516,7 @@ export function PortalCreateOrder() {
       }
       return null;
     }).filter(Boolean);
-  }, [customerRacks, activeRackCategory, customNames, defaultColors, customSpecs]);
+  }, [customerRacks, activeRackCategory, customNames, defaultColors, customSpecs, globalRacksOrder, customer]);
 
   const allowedStyleCodes = useMemo(() => {
     if (!customerRacks) return [];
@@ -849,6 +867,9 @@ export function PortalCreateOrder() {
             }
              if (globalData.customMockups) {
                setGlobalCustomMockups(globalData.customMockups);
+             }
+             if (globalData.racksOrder) {
+               setGlobalRacksOrder(globalData.racksOrder);
              }
           }
         } catch (globalErr) {

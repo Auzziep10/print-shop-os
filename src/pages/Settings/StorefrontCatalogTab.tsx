@@ -335,7 +335,23 @@ export function StorefrontCatalogTab() {
   const [defaultColors, setDefaultColors] = useState<Record<string, any>>({ racks: {}, basics: {} });
   const [logoPlacements, setLogoPlacements] = useState<Record<string, any>>({ racks: {}, basics: {} });
   const [customMockups, setCustomMockups] = useState<Record<string, any>>({ racks: {}, basics: {} });
+  const [racksOrder, setRacksOrder] = useState<Record<string, string[]>>({});
   const [uploadingSlotKey, setUploadingSlotKey] = useState<string | null>(null);
+
+  const getOrderedKeys = (categoryRacks: any, category: string, orderMap: Record<string, string[]>) => {
+    const allKeys = Object.keys(categoryRacks || {});
+    const order = orderMap?.[category];
+    if (!order) return allKeys;
+    
+    return [...allKeys].sort((a, b) => {
+      const idxA = order.indexOf(a);
+      const idxB = order.indexOf(b);
+      if (idxA === -1 && idxB === -1) return 0;
+      if (idxA === -1) return 1;
+      if (idxB === -1) return -1;
+      return idxA - idxB;
+    });
+  };
 
   // Logo placement editor modal state
   const [placementTarget, setPlacementTarget] = useState<{
@@ -391,6 +407,17 @@ export function StorefrontCatalogTab() {
           } else {
             setCustomMockups({ racks: {}, basics: {} });
           }
+          if (data.racksOrder) {
+            setRacksOrder(data.racksOrder);
+          } else {
+            const defaultOrder: Record<string, string[]> = {};
+            if (data.racks) {
+              Object.entries(data.racks).forEach(([cat, catObj]) => {
+                defaultOrder[cat] = Object.keys(catObj || {});
+              });
+            }
+            setRacksOrder(defaultOrder);
+          }
         }
       } catch (err) {
         console.error("Error fetching storefront catalog settings:", err);
@@ -412,6 +439,7 @@ export function StorefrontCatalogTab() {
         defaultColors,
         logoPlacements,
         customMockups,
+        racksOrder,
         updatedAt: new Date().toISOString()
       });
       alert('Storefront catalog settings saved successfully!');
@@ -559,6 +587,10 @@ export function StorefrontCatalogTab() {
       ...prev,
       [cleanName]: { ...currentSlots }
     }));
+    setRacksOrder(prev => ({
+      ...prev,
+      [cleanName]: racksOrder[activeRackCategory] || Object.keys(currentSlots)
+    }));
     setActiveRackCategory(cleanName);
   };
 
@@ -604,7 +636,14 @@ export function StorefrontCatalogTab() {
       delete newLogoPlacements.racks[activeRackCategory];
     }
 
+    const newRacksOrder = { ...racksOrder };
+    if (newRacksOrder[activeRackCategory]) {
+      newRacksOrder[cleanNewName] = newRacksOrder[activeRackCategory];
+      delete newRacksOrder[activeRackCategory];
+    }
+
     setRacks(newRacks);
+    setRacksOrder(newRacksOrder);
     setCustomNames(newCustomNames);
     setCustomSpecs(newCustomSpecs);
     setDefaultColors(newDefaultColors);
@@ -625,12 +664,15 @@ export function StorefrontCatalogTab() {
 
     const newRacks = { ...racks };
     delete newRacks[activeRackCategory];
+    const newRacksOrder = { ...racksOrder };
+    delete newRacksOrder[activeRackCategory];
 
     // Find new active category
     const remainingKeys = Object.keys(newRacks);
     const newActive = remainingKeys[0];
 
     setRacks(newRacks);
+    setRacksOrder(newRacksOrder);
     setActiveRackCategory(newActive);
   };
 
@@ -657,6 +699,13 @@ export function StorefrontCatalogTab() {
         [slotKey]: ''
       }
     }));
+    setRacksOrder(prev => {
+      const currentOrder = prev[activeRackCategory] || Object.keys(racks[activeRackCategory] || {});
+      return {
+        ...prev,
+        [activeRackCategory]: [...currentOrder.filter(k => k !== slotKey), slotKey]
+      };
+    });
 
     setCustomNames(prev => {
       const racks = prev.racks || {};
@@ -684,6 +733,13 @@ export function StorefrontCatalogTab() {
         updated[activeRackCategory] = catObj;
       }
       return updated;
+    });
+    setRacksOrder(prev => {
+      const currentOrder = prev[activeRackCategory] || [];
+      return {
+        ...prev,
+        [activeRackCategory]: currentOrder.filter(k => k !== slotKey)
+      };
     });
 
     setCustomNames(prev => {
@@ -947,7 +1003,7 @@ export function StorefrontCatalogTab() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {(() => {
-              const slots = Object.keys(racks[activeRackCategory] || {});
+              const slots = getOrderedKeys(racks[activeRackCategory], activeRackCategory, racksOrder);
               const totalSlots = slots.length;
               return slots.map((slot, slotIndex) => {
                 const style = racks[activeRackCategory]?.[slot] || '';

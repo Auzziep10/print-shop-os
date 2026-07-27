@@ -266,6 +266,22 @@ export function PortalRequestQuote() {
   // Customer Profile & Completeness States
   const [customer, setCustomer] = useState<any>(null);
   const [globalCustomMockups, setGlobalCustomMockups] = useState<any>({ racks: {}, basics: {} });
+  const [globalRacksOrder, setGlobalRacksOrder] = useState<any>({});
+
+  const getOrderedKeys = (categoryRacks: any, category: string, orderMap: Record<string, string[]>) => {
+    const allKeys = Object.keys(categoryRacks || {});
+    const order = orderMap?.[category];
+    if (!order) return allKeys;
+    
+    return [...allKeys].sort((a, b) => {
+      const idxA = order.indexOf(a);
+      const idxB = order.indexOf(b);
+      if (idxA === -1 && idxB === -1) return 0;
+      if (idxA === -1) return 1;
+      if (idxB === -1) return -1;
+      return idxA - idxB;
+    });
+  };
   const [showIncompleteProfileModal, setShowIncompleteProfileModal] = useState(false);
   const [profileContactName, setProfileContactName] = useState('');
   const [profileCompany, setProfileCompany] = useState('');
@@ -321,6 +337,9 @@ export function PortalRequestQuote() {
             }
             if (globalData.customMockups) {
               setGlobalCustomMockups(globalData.customMockups);
+            }
+            if (globalData.racksOrder) {
+              setGlobalRacksOrder(globalData.racksOrder);
             }
           }
         } catch (globalErr) {
@@ -473,7 +492,9 @@ export function PortalRequestQuote() {
   };
   const activeRackItems = useMemo(() => {
     const categoryRacks = customerRacks[activeRackCategory] || DEFAULT_RACKS.Athleisure;
-    return Object.entries(categoryRacks).map(([slot, styleId]) => {
+    const orderedKeys = getOrderedKeys(categoryRacks, activeRackCategory, customer?.racksOrder || globalRacksOrder);
+    return orderedKeys.map((slot: any) => {
+      const styleId = categoryRacks[slot];
       const prod = sanmarCatalog.find(p => p.style.toLowerCase() === String(styleId).toLowerCase());
       if (prod) {
         const customName = customNames.racks?.[activeRackCategory]?.[slot] || '';
@@ -481,7 +502,7 @@ export function PortalRequestQuote() {
         const customSpec = customSpecs?.racks?.[activeRackCategory]?.[slot] || null;
         return {
           ...prod,
-          id: `${slot}-${Date.now()}-${Math.random()}`,
+          id: `${slot}-${activeRackCategory}-${styleId}`,
           title: customName || prod.title || prod.style,
           defaultColor,
           slot,
@@ -493,7 +514,7 @@ export function PortalRequestQuote() {
       }
       return null;
     }).filter(Boolean) as any[];
-  }, [customerRacks, activeRackCategory, customNames, defaultColors, customSpecs]);
+  }, [activeRackCategory, customerRacks, customNames, customSpecs, defaultColors, globalRacksOrder, customer]);
 
   const handleBack = () => {
     navigate(customerId ? `/portal/${customerId}` : '/portal');
