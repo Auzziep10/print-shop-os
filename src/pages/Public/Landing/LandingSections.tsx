@@ -12,7 +12,6 @@ gsap.registerPlugin(ScrollTrigger);
 
 const HERO_SLIDES = [
   { src: '/images/apparel_rack_hero.png', alt: 'Custom apparel rack' },
-  { src: '/images/custom-apparel-hero.png', alt: 'Custom apparel detail' },
   { src: '/images/blank_basics_hero.png', alt: 'Premium blank garments' },
 ];
 
