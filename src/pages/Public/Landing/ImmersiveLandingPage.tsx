@@ -8,7 +8,7 @@ import { ImmersiveLanding, type StorefrontSettingsShape } from './ImmersiveLandi
 const DEFAULT_SETTINGS: StorefrontSettingsShape = {
   logoText: 'Custom Apparel',
   announcement: '🔥 Free Standard Shipping on all orders above 50 units!',
-  heroTitle: 'Custom Apparel Lookbook',
+  heroTitle: 'Better Apparel',
   heroSubtitle:
     'Choose a themed collection to design a cohesive line, or start from our curated basics.',
   contactPhone: '(888) 896-8607',
@@ -35,6 +35,7 @@ export function ImmersiveLandingPage() {
           if (data.logoText === 'PRINT SHOP OS' || data.logoText === 'INK THEORY') {
             data.logoText = 'Custom Apparel';
           }
+          data.heroTitle = 'Better Apparel';
           setSettings((prev) => ({ ...prev, ...data }));
         }
       } catch (e) {
