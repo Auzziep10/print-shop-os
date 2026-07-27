@@ -2305,9 +2305,9 @@ export function OrderDetail() {
       const yOffset = 750; // (1.0 margin + 1.0 header + 0.5 gap) * 300
       
       const tagDim = 750;
-      const padding = 100; // Increased from 50 to give plotter cutter more margin
+      const padding = 320; // Increased to prevent overlap of 45-degree rotated tags
       const finalCanvasWidth = 6600; // 22 inches * 300 DPI
-      const tagsPerRow = Math.floor((6000 + padding) / (tagDim + padding)); // 7 tags per row (6000px printable width)
+      const tagsPerRow = Math.floor((6000 + padding) / (tagDim + padding)); // 5 tags per row (6000px printable width)
 
       // Center tags horizontally
       const startX = 300 + (6000 - (tagsPerRow * tagDim + (tagsPerRow - 1) * padding)) / 2; // 525px
@@ -2383,9 +2383,13 @@ export function OrderDetail() {
       cutCtx.fillStyle = 'white';
       cutCtx.fillRect(0, 0, finalCanvasWidth, finalCanvasHeight);
 
-      // Draw all tag placements onto print canvas
+      // Draw all tag placements onto print canvas rotated by 45 degrees around their center
       placements.forEach(p => {
-        printCtx.drawImage(p.canvas, p.x, p.y, tagDim, tagDim);
+        printCtx.save();
+        printCtx.translate(p.x + tagDim / 2, p.y + tagDim / 2);
+        printCtx.rotate((45 * Math.PI) / 180);
+        printCtx.drawImage(p.canvas, -tagDim / 2, -tagDim / 2, tagDim, tagDim);
+        printCtx.restore();
       });
 
       // --- Draw Headers and QR Codes ---
@@ -2468,7 +2472,9 @@ export function OrderDetail() {
 
       svgContent += `  <!-- Cut Paths (Tag Rectangles) -->\n`;
       placements.forEach(p => {
-        svgContent += `  <rect x="${p.x}" y="${p.y}" width="${tagDim}" height="${tagDim}" fill="none" stroke="black" stroke-width="4" />\n`;
+        const cx = p.x + tagDim / 2;
+        const cy = p.y + tagDim / 2;
+        svgContent += `  <rect x="${p.x}" y="${p.y}" width="${tagDim}" height="${tagDim}" fill="none" stroke="black" stroke-width="4" transform="rotate(45, ${cx}, ${cy})" />\n`;
       });
       svgContent += `</svg>`;
 
