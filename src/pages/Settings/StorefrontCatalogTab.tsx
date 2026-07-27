@@ -787,21 +787,24 @@ export function StorefrontCatalogTab() {
     const categoryRacks = racks[activeRackCategory];
     if (!categoryRacks) return;
 
-    const keys = Object.keys(categoryRacks);
-    const index = keys.indexOf(slot);
+    const currentOrder = racksOrder[activeRackCategory] || Object.keys(categoryRacks);
+    const index = currentOrder.indexOf(slot);
     if (index === -1) return;
 
     const targetIndex = direction === 'left' ? index - 1 : index + 1;
-    if (targetIndex < 0 || targetIndex >= keys.length) return; // out of bounds
+    if (targetIndex < 0 || targetIndex >= currentOrder.length) return; // out of bounds
 
-    // Swap keys
-    const newKeys = [...keys];
-    newKeys[index] = keys[targetIndex];
-    newKeys[targetIndex] = keys[index];
+    const newOrder = [...currentOrder];
+    newOrder[index] = currentOrder[targetIndex];
+    newOrder[targetIndex] = currentOrder[index];
 
-    // Reconstruct object
+    setRacksOrder(prev => ({
+      ...prev,
+      [activeRackCategory]: newOrder
+    }));
+
     const newCategoryRacks: Record<string, string> = {};
-    newKeys.forEach(k => {
+    newOrder.forEach(k => {
       newCategoryRacks[k] = categoryRacks[k];
     });
 
