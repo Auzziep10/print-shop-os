@@ -106,12 +106,12 @@ export function HeroSection({
             <img
               src={slide.src}
               alt={slide.alt}
-              className="h-full w-full object-cover"
+              className="h-full w-full object-cover brightness-[1.12] contrast-[0.98]"
               loading={i === 0 ? 'eager' : 'lazy'}
             />
           </div>
         ))}
-        <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/95 via-zinc-950/35 to-zinc-950/45" />
+        <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/75 via-zinc-950/20 to-zinc-950/25" />
       </div>
 
       {/* Content */}
