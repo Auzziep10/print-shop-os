@@ -5,6 +5,7 @@ const csvPath = 'e:\\Apps\\Team Dashboard\\scratch\\SanMar_SDL_N.csv';
 
 // Major brands we want to include
 const targetBrands = [
+  "Stanley/Stella", "Stanley & Stella", "Mercer+Mettle", "Mercer & Mettle",
   "BELLA+CANVAS", "Comfort Colors", "District", "Sport-Tek",
   "Port & Company", "Port & Co", "Port Authority", "Gildan", "Carhartt",
   "Richardson", "Hanes", "Jerzees", "Alternative", "Champion", "Eddie Bauer",
@@ -44,6 +45,10 @@ rl.on('line', (line) => {
   if (!matchedBrand) return;
   if (matchedBrand === "Port & Co") {
     matchedBrand = "Port & Company";
+  } else if (matchedBrand === "Stanley & Stella") {
+    matchedBrand = "Stanley/Stella";
+  } else if (matchedBrand === "Mercer & Mettle") {
+    matchedBrand = "Mercer+Mettle";
   }
 
   const title = cols[1]?.trim().replace(/^"|"$/g, '');
