@@ -235,6 +235,7 @@ export function PortalCreateOrder() {
   const [defaultColors, setDefaultColors] = useState<any>({ racks: {}, basics: {} });
   const [activeRackCategory, setActiveRackCategory] = useState('Athleisure');
   const [activeLibraryTab, setActiveLibraryTab] = useState('rack');
+  const [globalCustomMockups, setGlobalCustomMockups] = useState<any>({ racks: {}, basics: {} });
 
   const renderGarmentCard = (item: any, style: string, gender: string, itemNum: string, colors: string[], sizes: any, image: string, price: number, key: string | number) => {
     return (
@@ -460,6 +461,9 @@ export function PortalCreateOrder() {
   }, [location.search]);
 
   const getGarmentImage = (item: any) => {
+    if (item.mode && item.category && item.slot && globalCustomMockups?.[item.mode]?.[item.category]?.[item.slot]) {
+      return globalCustomMockups[item.mode][item.category][item.slot];
+    }
     if (item.images) {
       const chosenColor = (item.defaultColor && item.images[item.defaultColor])
         ? item.defaultColor
@@ -484,6 +488,9 @@ export function PortalCreateOrder() {
         return {
           ...prod,
           id: `${slot}-${Date.now()}-${Math.random()}`,
+          slot,
+          category: activeRackCategory,
+          mode: 'racks',
           customName,
           defaultColor,
           customSpecs: customSpec
@@ -840,6 +847,9 @@ export function PortalCreateOrder() {
             if (globalData.defaultColors) {
               globalDefaultColors = globalData.defaultColors;
             }
+             if (globalData.customMockups) {
+               setGlobalCustomMockups(globalData.customMockups);
+             }
           }
         } catch (globalErr) {
           console.error("Error fetching global catalog settings:", globalErr);

@@ -265,6 +265,7 @@ export function PortalRequestQuote() {
 
   // Customer Profile & Completeness States
   const [customer, setCustomer] = useState<any>(null);
+  const [globalCustomMockups, setGlobalCustomMockups] = useState<any>({ racks: {}, basics: {} });
   const [showIncompleteProfileModal, setShowIncompleteProfileModal] = useState(false);
   const [profileContactName, setProfileContactName] = useState('');
   const [profileCompany, setProfileCompany] = useState('');
@@ -317,6 +318,9 @@ export function PortalRequestQuote() {
             }
             if (globalData.defaultColors) {
               globalDefaultColors = globalData.defaultColors;
+            }
+            if (globalData.customMockups) {
+              setGlobalCustomMockups(globalData.customMockups);
             }
           }
         } catch (globalErr) {
@@ -449,6 +453,9 @@ export function PortalRequestQuote() {
     fetchCustomer();
   }, [customerId]);
   const getGarmentImage = (item: any) => {
+    if (item.mode && item.category && item.slot && globalCustomMockups?.[item.mode]?.[item.category]?.[item.slot]) {
+      return globalCustomMockups[item.mode][item.category][item.slot];
+    }
     const itemKey = item.itemNum || item.garment_id || item.sku || item.style || item.id || '';
     if (customer?.deckMockupOverrides?.[itemKey]) {
       return customer.deckMockupOverrides[itemKey];
@@ -479,7 +486,9 @@ export function PortalRequestQuote() {
           defaultColor,
           slot,
           slotLabel: slot.charAt(0).toUpperCase() + slot.slice(1),
-          customSpecs: customSpec
+          customSpecs: customSpec,
+          category: activeRackCategory,
+          mode: 'racks'
         };
       }
       return null;

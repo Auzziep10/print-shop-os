@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { db } from '../../lib/firebase';
+import { db, storage } from '../../lib/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Loader2, Save, Search, Check, Info, Crosshair, X, Trash2, Plus, Edit2, ImageIcon } from 'lucide-react';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
@@ -333,6 +334,8 @@ export function StorefrontCatalogTab() {
   const [customSpecs, setCustomSpecs] = useState<Record<string, any>>({ racks: {}, basics: {} });
   const [defaultColors, setDefaultColors] = useState<Record<string, any>>({ racks: {}, basics: {} });
   const [logoPlacements, setLogoPlacements] = useState<Record<string, any>>({ racks: {}, basics: {} });
+  const [customMockups, setCustomMockups] = useState<Record<string, any>>({ racks: {}, basics: {} });
+  const [uploadingSlotKey, setUploadingSlotKey] = useState<string | null>(null);
 
   // Logo placement editor modal state
   const [placementTarget, setPlacementTarget] = useState<{
@@ -383,6 +386,11 @@ export function StorefrontCatalogTab() {
           } else {
             setLogoPlacements({ racks: {}, basics: {} });
           }
+          if (data.customMockups) {
+            setCustomMockups(data.customMockups);
+          } else {
+            setCustomMockups({ racks: {}, basics: {} });
+          }
         }
       } catch (err) {
         console.error("Error fetching storefront catalog settings:", err);
@@ -403,6 +411,7 @@ export function StorefrontCatalogTab() {
         customSpecs,
         defaultColors,
         logoPlacements,
+        customMockups,
         updatedAt: new Date().toISOString()
       });
       alert('Storefront catalog settings saved successfully!');
@@ -411,6 +420,79 @@ export function StorefrontCatalogTab() {
       alert('Failed to save settings.');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleMockupUpload = async (e: React.ChangeEvent<HTMLInputElement>, mode: 'racks' | 'basics', category: string, slot: string) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const slotKey = `${mode}_${category}_${slot}`;
+    setUploadingSlotKey(slotKey);
+    try {
+      const storageRef = ref(storage, `storefront_mockups/${mode}/${category}/${slot}/${Date.now()}_${file.name}`);
+      await uploadBytes(storageRef, file);
+      const downloadUrl = await getDownloadURL(storageRef);
+      
+      const updatedMockups = {
+        ...customMockups,
+        [mode]: {
+          ...(customMockups[mode] || {}),
+          [category]: {
+            ...(customMockups[mode]?.[category] || {}),
+            [slot]: downloadUrl
+          }
+        }
+      };
+
+      await setDoc(doc(db, 'settings', 'storefront-catalog'), {
+        racks,
+        basics,
+        customNames,
+        customSpecs,
+        defaultColors,
+        logoPlacements,
+        customMockups: updatedMockups,
+        updatedAt: new Date().toISOString()
+      });
+
+      setCustomMockups(updatedMockups);
+      alert("Mockup uploaded and saved successfully!");
+    } catch (err) {
+      console.error("Failed to upload storefront mockup", err);
+      alert("Failed to upload mockup image.");
+    } finally {
+      setUploadingSlotKey(null);
+    }
+  };
+
+  const handleRemoveMockup = async (mode: 'racks' | 'basics', category: string, slot: string) => {
+    if (!window.confirm("Restore original catalog image for this slot?")) return;
+    const slotKey = `${mode}_${category}_${slot}`;
+    setUploadingSlotKey(slotKey);
+    try {
+      const updatedMockups = { ...customMockups };
+      if (updatedMockups[mode]?.[category]) {
+        delete updatedMockups[mode][category][slot];
+      }
+
+      await setDoc(doc(db, 'settings', 'storefront-catalog'), {
+        racks,
+        basics,
+        customNames,
+        customSpecs,
+        defaultColors,
+        logoPlacements,
+        customMockups: updatedMockups,
+        updatedAt: new Date().toISOString()
+      });
+
+      setCustomMockups(updatedMockups);
+      alert("Mockup override removed successfully!");
+    } catch (err) {
+      console.error("Failed to remove storefront mockup", err);
+      alert("Failed to remove mockup image override.");
+    } finally {
+      setUploadingSlotKey(null);
     }
   };
 
@@ -690,7 +772,10 @@ export function StorefrontCatalogTab() {
     p.brand.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const getGarmentImage = (p: any, chosenColor?: string) => {
+  const getGarmentImage = (p: any, chosenColor?: string, mode?: 'racks' | 'basics', category?: string, slot?: string) => {
+    if (mode && category && slot && customMockups?.[mode]?.[category]?.[slot]) {
+      return customMockups[mode][category][slot];
+    }
     if (p.image) return p.image;
     if (p.images) {
       const colorKey = (chosenColor && p.images[chosenColor]) 
@@ -858,12 +943,40 @@ export function StorefrontCatalogTab() {
 
                       {/* Image Preview */}
                       {p.style ? (
-                        <div className="w-full h-36 bg-white border border-brand-border/60 rounded-xl flex items-center justify-center p-2 mb-3 relative overflow-hidden bg-checkerboard">
+                        <div className="w-full h-36 bg-white border border-brand-border/60 rounded-xl flex items-center justify-center p-2 mb-3 relative overflow-hidden bg-checkerboard group/mockup cursor-pointer">
                           <img 
-                            src={getGarmentImage(p, defaultColors.racks?.[activeRackCategory]?.[slot])} 
+                            src={getGarmentImage(p, defaultColors.racks?.[activeRackCategory]?.[slot], 'racks', activeRackCategory, slot)} 
                             alt={p.title} 
                             className="max-w-full max-h-full object-contain mix-blend-multiply" 
                           />
+                          {uploadingSlotKey === `racks_${activeRackCategory}_${slot}` ? (
+                            <div className="absolute inset-0 bg-black/55 flex items-center justify-center rounded-xl">
+                              <Loader2 size={16} className="animate-spin text-white" />
+                            </div>
+                          ) : (
+                            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover/mockup:opacity-100 flex items-center justify-center gap-2 transition-opacity rounded-xl">
+                              <label className="p-2 hover:bg-neutral-800 rounded-lg transition-colors cursor-pointer text-white flex items-center gap-1.5 text-xs font-bold" title="Upload custom mockup">
+                                <input 
+                                  type="file" 
+                                  className="hidden" 
+                                  accept="image/*" 
+                                  onChange={(e) => handleMockupUpload(e, 'racks', activeRackCategory, slot)} 
+                                />
+                                <Edit2 size={14} />
+                                <span>Change Mockup</span>
+                              </label>
+                              {customMockups?.racks?.[activeRackCategory]?.[slot] && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveMockup('racks', activeRackCategory, slot)}
+                                  className="p-2 hover:bg-neutral-800 text-white rounded-lg transition-colors"
+                                  title="Remove mockup override"
+                                >
+                                  <Trash2 size={14} className="hover:text-red-400" />
+                                </button>
+                              )}
+                            </div>
+                          )}
                         </div>
                       ) : (
                         <div className="w-full h-36 bg-white border border-dashed border-neutral-300 rounded-xl flex flex-col items-center justify-center gap-1.5 p-4 mb-3">
@@ -1046,12 +1159,40 @@ export function StorefrontCatalogTab() {
 
                       {/* Image Preview */}
                       {p.style && (
-                        <div className="w-full h-36 bg-white border border-brand-border/60 rounded-xl flex items-center justify-center p-2 mb-3 relative overflow-hidden bg-checkerboard">
+                        <div className="w-full h-36 bg-white border border-brand-border/60 rounded-xl flex items-center justify-center p-2 mb-3 relative overflow-hidden bg-checkerboard group/mockup cursor-pointer">
                           <img 
-                            src={getGarmentImage(p, defaultColors.basics?.[activeBasicsCategory]?.[slot])} 
+                            src={getGarmentImage(p, defaultColors.basics?.[activeBasicsCategory]?.[slot], 'basics', activeBasicsCategory, slot)} 
                             alt={p.title} 
                             className="max-w-full max-h-full object-contain mix-blend-multiply" 
                           />
+                          {uploadingSlotKey === `basics_${activeBasicsCategory}_${slot}` ? (
+                            <div className="absolute inset-0 bg-black/55 flex items-center justify-center rounded-xl">
+                              <Loader2 size={16} className="animate-spin text-white" />
+                            </div>
+                          ) : (
+                            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover/mockup:opacity-100 flex items-center justify-center gap-2 transition-opacity rounded-xl">
+                              <label className="p-2 hover:bg-neutral-800 rounded-lg transition-colors cursor-pointer text-white flex items-center gap-1.5 text-xs font-bold" title="Upload custom mockup">
+                                <input 
+                                  type="file" 
+                                  className="hidden" 
+                                  accept="image/*" 
+                                  onChange={(e) => handleMockupUpload(e, 'basics', activeBasicsCategory, slot)} 
+                                />
+                                <Edit2 size={14} />
+                                <span>Change Mockup</span>
+                              </label>
+                              {customMockups?.basics?.[activeBasicsCategory]?.[slot] && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveMockup('basics', activeBasicsCategory, slot)}
+                                  className="p-2 hover:bg-neutral-800 text-white rounded-lg transition-colors"
+                                  title="Remove mockup override"
+                                >
+                                  <Trash2 size={14} className="hover:text-red-400" />
+                                </button>
+                              )}
+                            </div>
+                          )}
                         </div>
                       )}
 
@@ -1211,8 +1352,8 @@ export function StorefrontCatalogTab() {
         const existing = logoPlacements[mode]?.[category]?.[slot] as LogoBox | undefined;
         return (
           <LogoPlacementModal
-            title={`${category} — ${slot.replace('longsleeve', 'long sleeve').toUpperCase()} (${p.brand} ${p.style})`}
-            imageUrl={getGarmentImage(p, (mode === 'racks' ? defaultColors.racks : defaultColors.basics)?.[category]?.[slot])}
+             title={`${category} — ${slot.replace('longsleeve', 'long sleeve').toUpperCase()} (${p.brand} ${p.style})`}
+             imageUrl={getGarmentImage(p, (mode === 'racks' ? defaultColors.racks : defaultColors.basics)?.[category]?.[slot], mode, category, slot)}
             initialBox={existing || slotDefaultBox(slot)}
             hasExisting={!!existing}
             onApply={handleApplyPlacement}
