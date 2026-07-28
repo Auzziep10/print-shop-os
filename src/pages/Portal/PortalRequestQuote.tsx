@@ -9,7 +9,7 @@ import sanmarCatalogJson from '../../data/sanmar-catalog.json';
 const sanmarCatalog = sanmarCatalogJson as any[];
 
 import { getSwatchColor } from '../../components/shared/GarmentBrowser';
-import { getGarmentWeightAndFabric } from '../../lib/garmentUtils';
+import { getGarmentWeightAndFabric, getOrderedKeys } from '../../lib/garmentUtils';
 
 const findColorsInObj = (obj: any, maxDepth = 4): string[] | null => {
   if (!obj || typeof obj !== 'object' || maxDepth === 0) return null;
@@ -273,21 +273,6 @@ export function PortalRequestQuote() {
   const [customer, setCustomer] = useState<any>(null);
   const [globalCustomMockups, setGlobalCustomMockups] = useState<any>({ racks: {}, basics: {} });
   const [globalRacksOrder, setGlobalRacksOrder] = useState<any>({});
-
-  const getOrderedKeys = (categoryRacks: any, category: string, orderMap: Record<string, string[]>) => {
-    const allKeys = Object.keys(categoryRacks || {});
-    const order = orderMap?.[category];
-    if (!order) return allKeys;
-    
-    return [...allKeys].sort((a, b) => {
-      const idxA = order.indexOf(a);
-      const idxB = order.indexOf(b);
-      if (idxA === -1 && idxB === -1) return 0;
-      if (idxA === -1) return 1;
-      if (idxB === -1) return -1;
-      return idxA - idxB;
-    });
-  };
   const [showIncompleteProfileModal, setShowIncompleteProfileModal] = useState(false);
   const [profileContactName, setProfileContactName] = useState('');
   const [profileCompany, setProfileCompany] = useState('');

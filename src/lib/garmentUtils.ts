@@ -8,6 +8,39 @@ export interface WeightAndFabric {
   formatted: string;
 }
 
+export const DEFAULT_SLOT_ORDER = ['hat', 'shirt', 'polo', 'crewneck', 'hoodie', 'longsleeve'];
+
+export const getOrderedKeys = (
+  categoryRacks: Record<string, any> | undefined | null,
+  category: string,
+  orderMap?: Record<string, string[]> | null
+): string[] => {
+  if (!categoryRacks) return [];
+  const allKeys = Object.keys(categoryRacks);
+  const order = orderMap?.[category];
+
+  return [...allKeys].sort((a, b) => {
+    // 1. Check custom user order map first
+    if (order && Array.isArray(order)) {
+      const idxA = order.indexOf(a);
+      const idxB = order.indexOf(b);
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      if (idxA !== -1) return -1;
+      if (idxB !== -1) return 1;
+    }
+
+    // 2. Check standard default slot order (hat, shirt, polo, crewneck, hoodie, longsleeve)
+    const defIdxA = DEFAULT_SLOT_ORDER.indexOf(a);
+    const defIdxB = DEFAULT_SLOT_ORDER.indexOf(b);
+    if (defIdxA !== -1 && defIdxB !== -1) return defIdxA - defIdxB;
+    if (defIdxA !== -1) return -1;
+    if (defIdxB !== -1) return 1;
+
+    // 3. Stable alphabetical fallback for any remaining custom slots
+    return a.localeCompare(b);
+  });
+};
+
 export const cleanFabricText = (text: string): string => {
   if (!text) return '';
   let t = text.trim();

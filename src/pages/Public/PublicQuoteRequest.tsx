@@ -24,6 +24,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { PillButton } from '../../components/ui/PillButton';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
+import { getOrderedKeys } from '../../lib/garmentUtils';
 import colorHexMapJson from '../../data/color-hex-map.json';
 
 const colorHexMap = colorHexMapJson as Record<string, string>;
@@ -365,13 +366,15 @@ export function PublicQuoteRequest() {
       racks?: Record<string, Record<string, LogoBox>>;
       basics?: Record<string, Record<string, LogoBox>>;
     };
+    racksOrder?: Record<string, string[]>;
   }>({
     racks: DEFAULT_RACKS,
     basics: DEFAULT_BASICS,
     customNames: { racks: {}, basics: {} },
     customSpecs: { racks: {}, basics: {} },
     defaultColors: { racks: {}, basics: {} },
-    logoPlacements: { racks: {}, basics: {} }
+    logoPlacements: { racks: {}, basics: {} },
+    racksOrder: {}
   });
 
   const [cart, setCart] = useState<any[]>([]);
@@ -517,7 +520,8 @@ export function PublicQuoteRequest() {
             customNames: cData.customNames || { racks: {}, basics: {} },
             customSpecs: cData.customSpecs || { racks: {}, basics: {} },
             defaultColors: cData.defaultColors || { racks: {}, basics: {} },
-            logoPlacements: cData.logoPlacements || { racks: {}, basics: {} }
+            logoPlacements: cData.logoPlacements || { racks: {}, basics: {} },
+            racksOrder: cData.racksOrder || {}
           });
         }
       } catch (err) {
@@ -598,7 +602,7 @@ export function PublicQuoteRequest() {
     const stylesMap = catalogSettings.racks[themeName] || DEFAULT_RACKS.Athleisure;
     const items: DesignRackItem[] = [];
 
-    const slots = Object.keys(stylesMap);
+    const slots = getOrderedKeys(stylesMap, themeName, catalogSettings.racksOrder);
 
     slots.forEach(slot => {
       const styleId = (stylesMap as any)[slot];

@@ -6,6 +6,7 @@ import { Loader2, Save, Search, Check, Info, Crosshair, X, Trash2, Plus, Edit2, 
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
+import { getOrderedKeys } from '../../lib/garmentUtils';
 
 interface SanMarProduct {
   style: string;
@@ -338,21 +339,6 @@ export function StorefrontCatalogTab() {
   const [racksOrder, setRacksOrder] = useState<Record<string, string[]>>({});
   const [uploadingSlotKey, setUploadingSlotKey] = useState<string | null>(null);
 
-  const getOrderedKeys = (categoryRacks: any, category: string, orderMap: Record<string, string[]>) => {
-    const allKeys = Object.keys(categoryRacks || {});
-    const order = orderMap?.[category];
-    if (!order) return allKeys;
-    
-    return [...allKeys].sort((a, b) => {
-      const idxA = order.indexOf(a);
-      const idxB = order.indexOf(b);
-      if (idxA === -1 && idxB === -1) return 0;
-      if (idxA === -1) return 1;
-      if (idxB === -1) return -1;
-      return idxA - idxB;
-    });
-  };
-
   // Logo placement editor modal state
   const [placementTarget, setPlacementTarget] = useState<{
     mode: 'racks' | 'basics';
@@ -480,6 +466,7 @@ export function StorefrontCatalogTab() {
         defaultColors,
         logoPlacements,
         customMockups: updatedMockups,
+        racksOrder,
         updatedAt: new Date().toISOString()
       });
 
@@ -511,6 +498,7 @@ export function StorefrontCatalogTab() {
         defaultColors,
         logoPlacements,
         customMockups: updatedMockups,
+        racksOrder,
         updatedAt: new Date().toISOString()
       });
 
