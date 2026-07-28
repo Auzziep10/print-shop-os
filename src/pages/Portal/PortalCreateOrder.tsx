@@ -2033,19 +2033,25 @@ export function PortalCreateOrder() {
                               <h4 className="font-bold text-neutral-900 text-sm truncate">{item.style}</h4>
                               <div className="flex items-center gap-2 mt-1.5">
                                 <span className="text-[10px] uppercase font-bold text-neutral-450">Color</span>
-                                <div className="relative min-w-[140px]">
-                                  <select 
-                                    value={item.selectedColor || ''}
-                                    onChange={(e) => {
-                                      const newCol = e.target.value;
-                                      setOrderItems(prev => prev.map(o => o.instanceId === item.instanceId ? { ...o, selectedColor: newCol } : o));
-                                    }}
-                                    className="w-full appearance-none bg-neutral-50 border border-neutral-200 rounded-lg px-2 py-0.5 text-xs font-semibold text-neutral-800 focus:outline-none focus:border-neutral-450 cursor-pointer pr-6"
-                                  >
-                                    {item.colors?.map((c: string) => <option key={c} value={c}>{c}</option>)}
-                                  </select>
-                                  <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" size={10} />
-                                </div>
+                                {item.customized ? (
+                                  <span className="bg-neutral-100 border border-neutral-200 text-neutral-800 rounded-lg px-2.5 py-0.5 text-xs font-semibold">
+                                    {item.selectedColor || 'Custom'}
+                                  </span>
+                                ) : (
+                                  <div className="relative min-w-[140px]">
+                                    <select 
+                                      value={item.selectedColor || ''}
+                                      onChange={(e) => {
+                                        const newCol = e.target.value;
+                                        setOrderItems(prev => prev.map(o => o.instanceId === item.instanceId ? { ...o, selectedColor: newCol } : o));
+                                      }}
+                                      className="w-full appearance-none bg-neutral-50 border border-neutral-200 rounded-lg px-2 py-0.5 text-xs font-semibold text-neutral-800 focus:outline-none focus:border-neutral-450 cursor-pointer pr-6"
+                                    >
+                                      {item.colors?.map((c: string) => <option key={c} value={c}>{c}</option>)}
+                                    </select>
+                                    <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" size={10} />
+                                  </div>
+                                )}
                               </div>
                               {(() => {
                                 const activePlacements = [];
