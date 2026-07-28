@@ -6,6 +6,7 @@ import { X, Upload, Loader2, Check, FileText, Sparkles, RefreshCw, Type, Image a
 import { generateRotatedGarment } from '../../lib/geminiService';
 import { getSwatchColor } from '../shared/GarmentBrowser';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
+import { saveDesignToLibrary } from '../../lib/savedDesignsUtils';
 
 const sanmarCatalog = sanmarCatalogJson as any[];
 
@@ -141,6 +142,11 @@ export function GarmentCustomizerModal({
   
   // Guard against resetting selected color on same-garment prop updates
   const lastGarmentIdRef = useRef<string | null>(null);
+
+  // Saved Designs library state
+  const [isSaveToLibraryOpen, setIsSaveToLibraryOpen] = useState(false);
+  const [libraryDesignName, setLibraryDesignName] = useState('');
+  const [isSavingToLibrary, setIsSavingToLibrary] = useState(false);
 
   const [recolorColor, setRecolorColor] = useState('#000000');
 
@@ -1587,9 +1593,13 @@ export function GarmentCustomizerModal({
     }
   };
 
-  const handleSave = async () => {
-    if (isSaving) return;
-    setIsSaving(true);
+  const handleSave = async (saveToLibraryName?: string) => {
+    if (isSaving || isSavingToLibrary) return;
+    if (saveToLibraryName) {
+      setIsSavingToLibrary(true);
+    } else {
+      setIsSaving(true);
+    }
 
     try {
       const hasFront = !!selectedLogoFront;
@@ -1818,7 +1828,7 @@ export function GarmentCustomizerModal({
       if (hasRightSleeve) placementParts.push(`Right Sleeve: ${placementRightSleeve}`);
       if (isTagCustomized) placementParts.push('Tag: Custom Tag');
 
-      onSave({
+      const finalCustomizedGarment = {
         ...activeGarment,
         selectedColor,
         image: downloadUrl,
@@ -1875,8 +1885,14 @@ export function GarmentCustomizerModal({
         tagSizeBold: tagSize.bold,
         tagSizeItalic: tagSize.italic,
         tagSizeSpelledOut: tagSize.spelledOut || false
-      });
+      };
 
+      if (saveToLibraryName && saveToLibraryName.trim()) {
+        await saveDesignToLibrary(customerId || 'CUS-001', saveToLibraryName.trim(), finalCustomizedGarment);
+        alert(`Successfully saved "${saveToLibraryName.trim()}" to your Saved Designs library!`);
+      }
+
+      onSave(finalCustomizedGarment);
       onClose();
     } catch (err) {
       console.error("Failed to generate and save mockup:", err);
@@ -3310,28 +3326,109 @@ export function GarmentCustomizerModal({
             </div>
           );
         })()}
-        <div className="flex gap-3">
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            disabled={isSaving || isUploading || isSavingToLibrary}
+            onClick={() => {
+              setLibraryDesignName(`${activeGarment.brand || ''} ${activeGarment.style || ''} ${selectedColor !== 'Custom Color' ? selectedColor : ''}`.trim() || 'My Custom Design');
+              setIsSaveToLibraryOpen(true);
+            }}
+            className="bg-amber-50 border border-amber-300 hover:bg-amber-100 text-amber-900 px-4 py-3 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+          >
+            <Sparkles size={14} className="text-amber-600" />
+            <span>Save to My Saved Designs</span>
+          </button>
+
           <button 
             onClick={onClose}
-            className="bg-white border border-neutral-200 text-neutral-900 px-6 py-3 rounded-xl text-xs font-bold hover:bg-neutral-100 transition-all shadow-sm cursor-pointer"
+            className="bg-white border border-neutral-200 text-neutral-900 px-5 py-3 rounded-xl text-xs font-bold hover:bg-neutral-100 transition-all shadow-xs cursor-pointer"
           >
             Cancel
           </button>
-        <button 
-          data-tour="save-customization-btn"
-          disabled={isSaving || isUploading}
-          onClick={handleSave}
-          className="bg-black text-white px-6 py-3 rounded-xl text-xs font-bold hover:bg-neutral-800 transition-all shadow-md flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isSaving ? (
-            <Loader2 className="animate-spin" size={14} />
-          ) : (
-            <Check size={14} strokeWidth={3} />
-          )}
-          {isSaving ? "Saving Mockup..." : "Save Customization"}
-        </button>
+
+          <button 
+            data-tour="save-customization-btn"
+            disabled={isSaving || isUploading || isSavingToLibrary}
+            onClick={() => handleSave()}
+            className="bg-black text-white px-6 py-3 rounded-xl text-xs font-bold hover:bg-neutral-800 transition-all shadow-md flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isSaving ? (
+              <Loader2 className="animate-spin" size={14} />
+            ) : (
+              <Check size={14} strokeWidth={3} />
+            )}
+            {isSaving ? "Saving Mockup..." : "Save & Add to Cart"}
+          </button>
         </div>
       </div>
+
+      {/* Save to Saved Designs Naming Dialog Overlay */}
+      {isSaveToLibraryOpen && (
+        <div className="fixed inset-0 z-[150] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-neutral-200 space-y-4 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
+              <div className="flex items-center gap-2">
+                <Sparkles size={18} className="text-amber-500" />
+                <h3 className="font-serif font-bold text-base text-neutral-900">Save Design to Library</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsSaveToLibraryOpen(false)}
+                className="p-1 rounded-full hover:bg-neutral-100 text-neutral-400"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <p className="text-xs text-neutral-500">
+              Save this customized garment design to your personal library so you can re-order it anytime with 1 click.
+            </p>
+
+            <div>
+              <label className="text-[10px] font-extrabold uppercase tracking-wider text-neutral-400 block mb-1">
+                Design Name / Label *
+              </label>
+              <input
+                type="text"
+                value={libraryDesignName}
+                onChange={e => setLibraryDesignName(e.target.value)}
+                placeholder="e.g. Summer Staff Hoodie 2026"
+                className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-neutral-900 focus:outline-none focus:ring-1 focus:ring-black"
+                autoFocus
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-neutral-100">
+              <button
+                type="button"
+                onClick={() => setIsSaveToLibraryOpen(false)}
+                className="px-4 py-2 text-xs font-bold text-neutral-600 bg-neutral-100 hover:bg-neutral-200 rounded-xl"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isSavingToLibrary || !libraryDesignName.trim()}
+                onClick={() => handleSave(libraryDesignName)}
+                className="px-5 py-2 text-xs font-bold text-white bg-black hover:bg-neutral-800 rounded-xl flex items-center gap-1.5 disabled:opacity-50"
+              >
+                {isSavingToLibrary ? (
+                  <>
+                    <Loader2 size={13} className="animate-spin" />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check size={13} />
+                    <span>Save to Library</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Invisible font prefetch helper */}
       <div style={{ opacity: 0, position: 'absolute', pointerEvents: 'none', height: 0, overflow: 'hidden' }}>

@@ -3,9 +3,10 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { db, storage } from '../../lib/firebase';
-import { Upload, Trash2, Loader2, FileText, Image as ImageIcon, ArrowLeft, Plus, X, Edit2, Check, Eraser, Undo, ZoomIn, ZoomOut, RotateCw, Palette, Crop, GripVertical, Folder, FolderPlus } from 'lucide-react';
+import { Upload, Trash2, Loader2, FileText, Image as ImageIcon, ArrowLeft, Plus, X, Edit2, Check, Eraser, Undo, ZoomIn, ZoomOut, RotateCw, Palette, Crop, GripVertical, Folder, FolderPlus, Sparkles } from 'lucide-react';
 import Cropper from 'react-easy-crop';
 import { getCroppedImg } from '../../lib/cropUtils';
+import { SavedDesignsModal } from '../../components/Portal/SavedDesignsModal';
 
 export function PortalAssetVault() {
   const { customerId } = useParams();
@@ -20,6 +21,13 @@ export function PortalAssetVault() {
   const [lightboxBg, setLightboxBg] = useState<'checkerboard' | 'dark' | 'light'>('checkerboard');
   const [editingAssetId, setEditingAssetId] = useState<string | null>(null);
   const [editingAssetName, setEditingAssetName] = useState('');
+  const [isSavedDesignsModalOpen, setIsSavedDesignsModalOpen] = useState(false);
+
+  const handleSelectSavedDesign = (savedDesignItem: any) => {
+    navigate(`/portal/${currentCustomerId}/create-order`, {
+      state: { preselectedDesign: savedDesignItem }
+    });
+  };
 
   // Background removal / Paste States
   const [pendingAssetImage, setPendingAssetImage] = useState<string | null>(null);
@@ -534,6 +542,14 @@ export function PortalAssetVault() {
         </div>
         
         <div className="flex items-center gap-3 shrink-0">
+          <button
+            type="button"
+            onClick={() => setIsSavedDesignsModalOpen(true)}
+            className="flex items-center gap-1.5 text-xs font-bold text-amber-900 bg-amber-50 hover:bg-amber-100 border border-amber-250 px-4 py-2.5 rounded-full transition-all cursor-pointer shadow-2xs"
+          >
+            <Sparkles size={14} className="text-amber-600" />
+            <span>My Saved Designs</span>
+          </button>
           {isCreatingFolder ? (
             <div className="flex items-center gap-2 bg-white border border-neutral-300 rounded-full pl-4 pr-1 py-1.5 shadow-sm">
               <input
@@ -1602,6 +1618,12 @@ function CropAssetModal({ currentUrl, onClose, onSave }: {
           </div>
         </div>
       </div>
+      <SavedDesignsModal
+        isOpen={isSavedDesignsModalOpen}
+        onClose={() => setIsSavedDesignsModalOpen(false)}
+        customerId={currentCustomerId}
+        onSelectDesign={handleSelectSavedDesign}
+      />
     </div>
   );
 }

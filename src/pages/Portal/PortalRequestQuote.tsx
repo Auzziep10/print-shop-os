@@ -10,6 +10,7 @@ const sanmarCatalog = sanmarCatalogJson as any[];
 
 import { getSwatchColor } from '../../components/shared/GarmentBrowser';
 import { getGarmentWeightAndFabric, getOrderedKeys } from '../../lib/garmentUtils';
+import { SavedDesignsModal } from '../../components/Portal/SavedDesignsModal';
 
 const findColorsInObj = (obj: any, maxDepth = 4): string[] | null => {
   if (!obj || typeof obj !== 'object' || maxDepth === 0) return null;
@@ -271,8 +272,27 @@ export function PortalRequestQuote() {
 
   // Customer Profile & Completeness States
   const [customer, setCustomer] = useState<any>(null);
-  const [globalCustomMockups, setGlobalCustomMockups] = useState<any>({ racks: {}, basics: {} });
   const [globalRacksOrder, setGlobalRacksOrder] = useState<any>({});
+  const [isSavedDesignsModalOpen, setIsSavedDesignsModalOpen] = useState(false);
+
+  const handleSelectSavedDesign = (savedDesignItem: any) => {
+    const g = savedDesignItem.garment;
+    if (!g) return;
+
+    const newItem = {
+      ...g,
+      id: Date.now(),
+      style: g.title || `${g.brand || ''} ${g.style || ''}`.trim(),
+      itemNum: g.style || g.itemNum,
+      selectedColor: g.selectedColor || 'Black',
+      image: g.image || g.customizedFrontImage || g.originalFrontImage,
+      customized: true,
+      quantities: g.sizeQuantities || { S: 0, M: 0, L: 0, XL: 0, '2XL': 0 },
+      sizes: ['S', 'M', 'L', 'XL', '2XL']
+    };
+
+    setItems(prev => [...prev, newItem]);
+  };
   const [showIncompleteProfileModal, setShowIncompleteProfileModal] = useState(false);
   const [profileContactName, setProfileContactName] = useState('');
   const [profileCompany, setProfileCompany] = useState('');
@@ -908,6 +928,15 @@ export function PortalRequestQuote() {
         >
           <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
           Back to Dashboard
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setIsSavedDesignsModalOpen(true)}
+          className="flex items-center gap-1.5 text-xs font-bold text-amber-900 bg-amber-50 hover:bg-amber-100 border border-amber-250 px-3.5 py-2 rounded-xl transition-all cursor-pointer shadow-2xs"
+        >
+          <Sparkles size={14} className="text-amber-600" />
+          <span>My Saved Designs</span>
         </button>
       </div>
 
@@ -1808,6 +1837,13 @@ export function PortalRequestQuote() {
           </div>
         </div>
       )}
+
+      <SavedDesignsModal
+        isOpen={isSavedDesignsModalOpen}
+        onClose={() => setIsSavedDesignsModalOpen(false)}
+        customerId={customerId || 'CUS-001'}
+        onSelectDesign={handleSelectSavedDesign}
+      />
     </div>
   );
 }

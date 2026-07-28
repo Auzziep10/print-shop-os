@@ -8,6 +8,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { GarmentCustomizerModal } from '../../components/Portal/GarmentCustomizerModal';
 import { GarmentBrowser, getSwatchColor } from '../../components/shared/GarmentBrowser';
 import { getGarmentWeightAndFabric, getOrderedKeys } from '../../lib/garmentUtils';
+import { SavedDesignsModal } from '../../components/Portal/SavedDesignsModal';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
 
 const sanmarCatalog = sanmarCatalogJson as any[];
@@ -236,8 +237,28 @@ export function PortalCreateOrder() {
   const [defaultColors, setDefaultColors] = useState<any>({ racks: {}, basics: {} });
   const [activeRackCategory, setActiveRackCategory] = useState('Athleisure');
   const [activeLibraryTab, setActiveLibraryTab] = useState('rack');
-  const [globalCustomMockups, setGlobalCustomMockups] = useState<any>({ racks: {}, basics: {} });
   const [globalRacksOrder, setGlobalRacksOrder] = useState<any>({});
+  const [isSavedDesignsModalOpen, setIsSavedDesignsModalOpen] = useState(false);
+
+  const handleSelectSavedDesign = (savedDesignItem: any) => {
+    const g = savedDesignItem.garment;
+    if (!g) return;
+
+    const newItem = {
+      ...g,
+      style: g.title || `${g.brand || ''} ${g.style || ''}`.trim(),
+      itemNum: g.style || g.itemNum,
+      instanceId: `item-${Date.now()}-${Math.random().toString(36).substring(7)}`,
+      selectedColor: g.selectedColor || 'Black',
+      image: g.image || g.customizedFrontImage || g.originalFrontImage,
+      customized: true,
+      quantities: g.sizeQuantities || { S: 0, M: 0, L: 0, XL: 0, '2XL': 0 },
+      sizes: ['S', 'M', 'L', 'XL', '2XL']
+    };
+
+    setOrderItems(prev => [...prev, newItem]);
+    setIsCartOpen(true);
+  };
 
   const renderGarmentCard = (item: any, style: string, gender: string, itemNum: string, colors: string[], sizes: any, image: string, price: number, key: string | number) => {
     const catalogProd = sanmarCatalog.find(p => p.style.toLowerCase() === String(itemNum || item?.style || '').toLowerCase());
@@ -1469,7 +1490,16 @@ export function PortalCreateOrder() {
           Back to Dashboard
         </button>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
+          <button 
+            type="button"
+            onClick={() => setIsSavedDesignsModalOpen(true)}
+            className="flex items-center gap-1.5 text-xs font-bold text-amber-900 bg-amber-50 hover:bg-amber-100 border border-amber-250 px-3.5 py-2 rounded-xl transition-all cursor-pointer shadow-2xs"
+          >
+            <Sparkles size={14} className="text-amber-600" />
+            <span>My Saved Designs</span>
+          </button>
+
           {previousOrders.length > 0 && (
             <button 
               onClick={() => setIsRepeatModalOpen(true)}
@@ -2975,6 +3005,12 @@ export function PortalCreateOrder() {
         }
       `}</style>
 
+      <SavedDesignsModal
+        isOpen={isSavedDesignsModalOpen}
+        onClose={() => setIsSavedDesignsModalOpen(false)}
+        customerId={customerId || 'CUS-001'}
+        onSelectDesign={handleSelectSavedDesign}
+      />
     </div>
   );
 }
