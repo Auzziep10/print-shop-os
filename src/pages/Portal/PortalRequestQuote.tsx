@@ -230,14 +230,12 @@ export function PortalRequestQuote() {
           </button>
         </div>
         <div className="w-full flex flex-col mt-2">
-          <div className="flex items-baseline justify-between gap-2 w-full">
-            <h4 className="font-serif font-normal text-neutral-800 text-[17px] leading-tight tracking-wide truncate flex-1 min-w-0" title={style}>{style}</h4>
-            {weightAndFabric.formatted && (
-              <span className="text-[11px] font-medium text-neutral-500 font-inter whitespace-nowrap shrink-0 tracking-tight" title={weightAndFabric.formatted}>
-                {weightAndFabric.formatted}
-              </span>
-            )}
-          </div>
+          <h4 className="font-serif font-normal text-neutral-800 text-[17px] leading-tight tracking-wide w-full" title={style}>{style}</h4>
+          {weightAndFabric.formatted && (
+            <p className="text-[11.5px] font-medium text-neutral-500 font-inter leading-snug mt-0.5 w-full break-words" title={weightAndFabric.formatted}>
+              {weightAndFabric.formatted}
+            </p>
+          )}
           <div className="relative h-6 mt-1 flex items-center justify-start w-full">
             {/* Gender tag - visible when not hovered */}
             <div className="absolute inset-y-0 left-0 flex items-center transition-all duration-250 opacity-100 group-hover:opacity-0 group-hover:pointer-events-none">
