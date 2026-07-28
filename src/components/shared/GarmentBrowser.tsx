@@ -1,8 +1,11 @@
 import { useState, useMemo, useEffect } from 'react';
-import { X, Search, Check, DollarSign, Shirt } from 'lucide-react';
+import { X, Search, Check, DollarSign, Shirt, Plus } from 'lucide-react';
+import { db } from '../../lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
 import colorHexMapJson from '../../data/color-hex-map.json';
 import { useAuth } from '../../contexts/AuthContext';
+import { ImportGarmentModal } from './ImportGarmentModal';
 
 const colorHexMap = colorHexMapJson as Record<string, string>;
 
@@ -211,6 +214,32 @@ export function GarmentBrowser({ isOpen, onClose, onSelect, allowedStyleCodes, h
   // Track the active preview color for each product style code
   const [productPreviewColors, setProductPreviewColors] = useState<Record<string, string>>({});
   const [expandedProducts, setExpandedProducts] = useState<Record<string, boolean>>({});
+  const [customProducts, setCustomProducts] = useState<any[]>([]);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+
+  // Fetch custom imported products from Firestore
+  useEffect(() => {
+    if (!isOpen) return;
+    const fetchCustomItems = async () => {
+      try {
+        const catalogRef = doc(db, 'settings', 'storefront-catalog');
+        const snap = await getDoc(catalogRef);
+        if (snap.exists() && snap.data().customCatalogItems) {
+          setCustomProducts(snap.data().customCatalogItems);
+        }
+      } catch (err) {
+        console.error("Error loading custom catalog items in GarmentBrowser:", err);
+      }
+    };
+    fetchCustomItems();
+  }, [isOpen]);
+
+  const allCatalog = useMemo(() => {
+    const map = new Map<string, any>();
+    sanmarCatalog.forEach(p => map.set(p.style.toLowerCase(), p));
+    customProducts.forEach(p => map.set(p.style.toLowerCase(), p));
+    return Array.from(map.values()) as SanMarProduct[];
+  }, [customProducts]);
 
   // Reset visibleCount when queries or filters change
   useEffect(() => {
@@ -220,18 +249,18 @@ export function GarmentBrowser({ isOpen, onClose, onSelect, allowedStyleCodes, h
   // Get list of unique brands for filters
   const brands = useMemo(() => {
     const sourceList = (allowedStyleCodes && allowedStyleCodes.length > 0)
-      ? sanmarCatalog.filter(p => allowedStyleCodes.map(s => s.toLowerCase()).includes(p.style.toLowerCase()))
-      : sanmarCatalog;
+      ? allCatalog.filter(p => allowedStyleCodes.map(s => s.toLowerCase()).includes(p.style.toLowerCase()))
+      : allCatalog;
     const unique = new Set(sourceList.map(p => p.brand));
     return ['All', ...Array.from(unique)];
-  }, [allowedStyleCodes]);
+  }, [allowedStyleCodes, allCatalog]);
 
   // Filtered products list
   const filteredProducts = useMemo(() => {
-    let list = sanmarCatalog;
+    let list = allCatalog;
     if (allowedStyleCodes && allowedStyleCodes.length > 0) {
       const lowerCodes = allowedStyleCodes.map(s => s.toLowerCase());
-      list = sanmarCatalog.filter(p => lowerCodes.includes(p.style.toLowerCase()));
+      list = allCatalog.filter(p => lowerCodes.includes(p.style.toLowerCase()));
     }
     
     return list.filter(p => {
@@ -239,13 +268,13 @@ export function GarmentBrowser({ isOpen, onClose, onSelect, allowedStyleCodes, h
         p.style.toLowerCase().includes(searchQuery.toLowerCase()) ||
         p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         p.brand.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.description.toLowerCase().includes(searchQuery.toLowerCase());
+        (p.description || '').toLowerCase().includes(searchQuery.toLowerCase());
       
       const matchesBrand = selectedBrand === 'All' || p.brand === selectedBrand;
 
       return matchesSearch && matchesBrand;
     });
-  }, [searchQuery, selectedBrand, allowedStyleCodes]);
+  }, [searchQuery, selectedBrand, allowedStyleCodes, allCatalog]);
 
   if (!isOpen) return null;
 
@@ -271,12 +300,22 @@ export function GarmentBrowser({ isOpen, onClose, onSelect, allowedStyleCodes, h
               Explore premium apparel blanks, swap colors in real-time, and choose the perfect item.
             </p>
           </div>
-          <button 
-            onClick={onClose}
-            className="p-2.5 rounded-full hover:bg-brand-bg text-brand-secondary hover:text-brand-primary transition-all focus:outline-none border border-transparent hover:border-brand-border"
-          >
-            <X size={20} />
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setIsImportModalOpen(true)}
+              className="px-3.5 py-2 text-xs font-bold text-black bg-neutral-100 hover:bg-neutral-200 border border-neutral-300 rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <Plus size={14} />
+              <span>+ Import Non-SanMar Item</span>
+            </button>
+            <button 
+              onClick={onClose}
+              className="p-2.5 rounded-full hover:bg-brand-bg text-brand-secondary hover:text-brand-primary transition-all focus:outline-none border border-transparent hover:border-brand-border"
+            >
+              <X size={20} />
+            </button>
+          </div>
         </div>
 
         {/* Filters Panel */}
@@ -484,6 +523,16 @@ export function GarmentBrowser({ isOpen, onClose, onSelect, allowedStyleCodes, h
           )}
         </div>
       </div>
+
+      <ImportGarmentModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onSuccess={(createdProduct) => {
+          setCustomProducts(prev => [createdProduct, ...prev.filter(p => p.style !== createdProduct.style)]);
+          const firstColor = createdProduct.colors?.[0] || 'Black';
+          onSelect(createdProduct, firstColor);
+        }}
+      />
     </div>
   );
 }

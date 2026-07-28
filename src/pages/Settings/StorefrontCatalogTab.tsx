@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db, storage } from '../../lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -7,6 +7,7 @@ import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
 import { getOrderedKeys } from '../../lib/garmentUtils';
+import { ImportGarmentModal } from '../../components/shared/ImportGarmentModal';
 
 interface SanMarProduct {
   style: string;
@@ -337,6 +338,8 @@ export function StorefrontCatalogTab() {
   const [logoPlacements, setLogoPlacements] = useState<Record<string, any>>({ racks: {}, basics: {} });
   const [customMockups, setCustomMockups] = useState<Record<string, any>>({ racks: {}, basics: {} });
   const [racksOrder, setRacksOrder] = useState<Record<string, string[]>>({});
+  const [customProducts, setCustomProducts] = useState<any[]>([]);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [uploadingSlotKey, setUploadingSlotKey] = useState<string | null>(null);
 
   // Logo placement editor modal state
@@ -392,6 +395,9 @@ export function StorefrontCatalogTab() {
             setCustomMockups(data.customMockups);
           } else {
             setCustomMockups({ racks: {}, basics: {} });
+          }
+          if (data.customCatalogItems && Array.isArray(data.customCatalogItems)) {
+            setCustomProducts(data.customCatalogItems);
           }
           if (data.racksOrder) {
             setRacksOrder(data.racksOrder);
@@ -840,8 +846,16 @@ export function StorefrontCatalogTab() {
     setPlacementTarget(null);
   };
 
+  // Merge built-in catalog with imported custom non-SanMar items
+  const allCatalogProducts = useMemo(() => {
+    const map = new Map<string, any>();
+    sanmarCatalog.forEach(p => map.set(p.style.toLowerCase(), p));
+    customProducts.forEach(p => map.set(p.style.toLowerCase(), p));
+    return Array.from(map.values());
+  }, [customProducts]);
+
   // Filter products by search query
-  const filteredProducts = sanmarCatalog.filter(p => 
+  const filteredProducts = allCatalogProducts.filter(p => 
     p.style.toLowerCase().includes(searchQuery.toLowerCase()) ||
     p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     p.brand.toLowerCase().includes(searchQuery.toLowerCase())
@@ -857,14 +871,16 @@ export function StorefrontCatalogTab() {
         ? chosenColor 
         : (p.colors?.[0] || Object.keys(p.images)[0]);
       if (colorKey && p.images[colorKey]) {
-        return p.images[colorKey].front || p.images[colorKey].swatch || '';
+        const val = p.images[colorKey];
+        if (typeof val === 'string') return val;
+        return val.front || val.swatch || '';
       }
     }
     return 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
   };
 
   const getProductDetails = (style: string) => {
-    return sanmarCatalog.find(p => p.style === style) || {
+    return allCatalogProducts.find(p => p.style.toLowerCase() === style.toLowerCase()) || {
       style,
       title: 'Unknown Garment',
       brand: 'N/A',
@@ -1466,13 +1482,23 @@ export function StorefrontCatalogTab() {
       {isModalOpen && activeSelectTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
           <div className="bg-white border border-brand-border rounded-2xl shadow-2xl max-w-2xl w-full p-6 space-y-6 overflow-hidden max-h-[85vh] flex flex-col">
-            <div>
-              <h3 className="text-lg font-serif text-brand-primary">
-                Select Garment for {activeSelectTarget.category} ({activeSelectTarget.slot.toUpperCase()})
-              </h3>
-              <p className="text-xs text-brand-secondary mt-1">
-                Select one of the 185 premium products from the catalog database.
-              </p>
+            <div className="flex items-start justify-between gap-4 border-b border-neutral-100 pb-4">
+              <div>
+                <h3 className="text-lg font-serif text-brand-primary">
+                  Select Garment for {activeSelectTarget.category} ({activeSelectTarget.slot.toUpperCase()})
+                </h3>
+                <p className="text-xs text-brand-secondary mt-1">
+                  Select one of the {allCatalogProducts.length} premium products or import a non-SanMar item.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsImportModalOpen(true)}
+                className="px-3.5 py-2 text-xs font-bold text-black bg-neutral-100 hover:bg-neutral-200 border border-neutral-250 rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer shrink-0"
+              >
+                <Plus size={13} />
+                <span>+ Import Non-SanMar Item</span>
+              </button>
             </div>
 
             {/* Search */}
@@ -1490,7 +1516,17 @@ export function StorefrontCatalogTab() {
             {/* Product List */}
             <div className="flex-1 overflow-y-auto divide-y divide-brand-border/40 pr-1 max-h-[45vh] custom-scrollbar">
               {filteredProducts.length === 0 ? (
-                <p className="text-xs text-brand-secondary text-center py-8">No matching garments found.</p>
+                <div className="text-center py-8 space-y-3">
+                  <p className="text-xs text-brand-secondary">No matching garments found for "{searchQuery}".</p>
+                  <button
+                    type="button"
+                    onClick={() => setIsImportModalOpen(true)}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-black bg-neutral-100 hover:bg-neutral-200 rounded-xl cursor-pointer"
+                  >
+                    <Plus size={13} />
+                    <span>Import "{searchQuery}" as Custom Item</span>
+                  </button>
+                </div>
               ) : (
                 filteredProducts.map(p => (
                   <div
@@ -1502,6 +1538,9 @@ export function StorefrontCatalogTab() {
                       <div className="flex items-center gap-2">
                         <span className="text-xs bg-neutral-100 px-2 py-0.5 rounded font-bold uppercase">{p.style}</span>
                         <span className="text-xs font-bold text-brand-primary">{p.brand}</span>
+                        {(p as any).isCustom && (
+                          <span className="text-[9px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Custom</span>
+                        )}
                       </div>
                       <p className="text-[11px] text-brand-secondary mt-1 truncate max-w-lg">{p.title} - {p.category}</p>
                     </div>
@@ -1524,6 +1563,19 @@ export function StorefrontCatalogTab() {
           </div>
         </div>
       )}
+
+      {/* Import Custom Item Modal */}
+      <ImportGarmentModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        initialCategory={activeSelectTarget?.category}
+        onSuccess={(newProduct) => {
+          setCustomProducts(prev => [newProduct, ...prev.filter(p => p.style !== newProduct.style)]);
+          if (activeSelectTarget) {
+            handleSelectProduct(newProduct.style);
+          }
+        }}
+      />
     </div>
   );
 }
