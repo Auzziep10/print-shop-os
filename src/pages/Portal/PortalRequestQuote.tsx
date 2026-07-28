@@ -184,6 +184,8 @@ export function PortalRequestQuote() {
   const [customerRacks, setCustomerRacks] = useState<Record<string, any>>(DEFAULT_RACKS);
   const [customNames, setCustomNames] = useState<any>({ racks: {}, basics: {} });
   const [customSpecs, setCustomSpecs] = useState<any>({ racks: {}, basics: {} });
+  const [customPrices, setCustomPrices] = useState<any>({ racks: {}, basics: {} });
+  const [hiddenCollections, setHiddenCollections] = useState<Record<string, boolean>>({});
   const [defaultColors, setDefaultColors] = useState<any>({ racks: {}, basics: {} });
   const [pastGarments, setPastGarments] = useState<any[]>([]);
   const [activeRackCategory, setActiveRackCategory] = useState('Athleisure');
@@ -349,6 +351,12 @@ export function PortalRequestQuote() {
             if (globalData.defaultColors) {
               globalDefaultColors = globalData.defaultColors;
             }
+            if (globalData.customPrices) {
+              setCustomPrices(globalData.customPrices);
+            }
+            if (globalData.hiddenCollections) {
+              setHiddenCollections(globalData.hiddenCollections);
+            }
             if (globalData.customMockups) {
               setGlobalCustomMockups(globalData.customMockups);
             }
@@ -504,6 +512,16 @@ export function PortalRequestQuote() {
     }
     return 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
   };
+  const visibleCustomerRackKeys = useMemo(() => {
+    return Object.keys(customerRacks).filter(cat => !hiddenCollections[cat]);
+  }, [customerRacks, hiddenCollections]);
+
+  useEffect(() => {
+    if (visibleCustomerRackKeys.length > 0 && !visibleCustomerRackKeys.includes(activeRackCategory)) {
+      setActiveRackCategory(visibleCustomerRackKeys[0]);
+    }
+  }, [visibleCustomerRackKeys, activeRackCategory]);
+
   const activeRackItems = useMemo(() => {
     const categoryRacks = customerRacks[activeRackCategory] || DEFAULT_RACKS.Athleisure;
     const orderedKeys = getOrderedKeys(categoryRacks, activeRackCategory, customer?.racksOrder || globalRacksOrder);
@@ -514,8 +532,12 @@ export function PortalRequestQuote() {
         const customName = customNames.racks?.[activeRackCategory]?.[slot] || '';
         const defaultColor = defaultColors.racks?.[activeRackCategory]?.[slot] || '';
         const customSpec = customSpecs?.racks?.[activeRackCategory]?.[slot] || null;
+        const customPrice = customPrices.racks?.[activeRackCategory]?.[slot];
+        const price = (customPrice !== undefined && customPrice !== null && !isNaN(customPrice)) ? customPrice : prod.price;
+
         return {
           ...prod,
+          price,
           id: `${slot}-${activeRackCategory}-${styleId}`,
           title: customName || prod.title || prod.style,
           defaultColor,
@@ -528,7 +550,7 @@ export function PortalRequestQuote() {
       }
       return null;
     }).filter(Boolean) as any[];
-  }, [activeRackCategory, customerRacks, customNames, customSpecs, defaultColors, globalRacksOrder, customer]);
+  }, [activeRackCategory, customerRacks, customNames, customSpecs, customPrices, defaultColors, globalRacksOrder, customer]);
 
   const handleBack = () => {
     navigate(customerId ? `/portal/${customerId}` : '/portal');
@@ -1151,7 +1173,7 @@ export function PortalRequestQuote() {
 
           {activeLibraryTab === 'rack' && (
             <div className="flex flex-wrap gap-2 pb-2 border-b border-neutral-100">
-              {Object.keys(customerRacks).map((catName) => (
+              {visibleCustomerRackKeys.map((catName) => (
                 <button
                   key={catName}
                   type="button"

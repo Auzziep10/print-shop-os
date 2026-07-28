@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db, storage } from '../../lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { Loader2, Save, Search, Check, Info, Crosshair, X, Trash2, Plus, Edit2, ImageIcon, ArrowLeft, ArrowRight } from 'lucide-react';
+import { Loader2, Save, Search, Check, Info, Crosshair, X, Trash2, Plus, Edit2, ImageIcon, ArrowLeft, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
@@ -334,6 +334,8 @@ export function StorefrontCatalogTab() {
   const [basics, setBasics] = useState<Record<string, any>>(DEFAULT_BASICS);
   const [customNames, setCustomNames] = useState<Record<string, any>>({ racks: {}, basics: {} });
   const [customSpecs, setCustomSpecs] = useState<Record<string, any>>({ racks: {}, basics: {} });
+  const [customPrices, setCustomPrices] = useState<Record<string, any>>({ racks: {}, basics: {} });
+  const [hiddenCollections, setHiddenCollections] = useState<Record<string, boolean>>({});
   const [defaultColors, setDefaultColors] = useState<Record<string, any>>({ racks: {}, basics: {} });
   const [logoPlacements, setLogoPlacements] = useState<Record<string, any>>({ racks: {}, basics: {} });
   const [customMockups, setCustomMockups] = useState<Record<string, any>>({ racks: {}, basics: {} });
@@ -380,6 +382,16 @@ export function StorefrontCatalogTab() {
             setCustomSpecs(data.customSpecs);
           } else {
             setCustomSpecs({ racks: {}, basics: {} });
+          }
+          if (data.customPrices) {
+            setCustomPrices(data.customPrices);
+          } else {
+            setCustomPrices({ racks: {}, basics: {} });
+          }
+          if (data.hiddenCollections) {
+            setHiddenCollections(data.hiddenCollections);
+          } else {
+            setHiddenCollections({});
           }
           if (data.defaultColors) {
             setDefaultColors(data.defaultColors);
@@ -428,6 +440,8 @@ export function StorefrontCatalogTab() {
         basics,
         customNames,
         customSpecs,
+        customPrices,
+        hiddenCollections,
         defaultColors,
         logoPlacements,
         customMockups,
@@ -469,6 +483,8 @@ export function StorefrontCatalogTab() {
         basics,
         customNames,
         customSpecs,
+        customPrices,
+        hiddenCollections,
         defaultColors,
         logoPlacements,
         customMockups: updatedMockups,
@@ -501,6 +517,8 @@ export function StorefrontCatalogTab() {
         basics,
         customNames,
         customSpecs,
+        customPrices,
+        hiddenCollections,
         defaultColors,
         logoPlacements,
         customMockups: updatedMockups,
@@ -618,6 +636,18 @@ export function StorefrontCatalogTab() {
       delete newCustomSpecs.racks[activeRackCategory];
     }
 
+    const newCustomPrices = { ...customPrices };
+    if (newCustomPrices.racks?.[activeRackCategory]) {
+      newCustomPrices.racks[cleanNewName] = newCustomPrices.racks[activeRackCategory];
+      delete newCustomPrices.racks[activeRackCategory];
+    }
+
+    const newHiddenCollections = { ...hiddenCollections };
+    if (newHiddenCollections[activeRackCategory] !== undefined) {
+      newHiddenCollections[cleanNewName] = newHiddenCollections[activeRackCategory];
+      delete newHiddenCollections[activeRackCategory];
+    }
+
     const newDefaultColors = { ...defaultColors };
     if (newDefaultColors.racks?.[activeRackCategory]) {
       newDefaultColors.racks[cleanNewName] = newDefaultColors.racks[activeRackCategory];
@@ -640,6 +670,8 @@ export function StorefrontCatalogTab() {
     setRacksOrder(newRacksOrder);
     setCustomNames(newCustomNames);
     setCustomSpecs(newCustomSpecs);
+    setCustomPrices(newCustomPrices);
+    setHiddenCollections(newHiddenCollections);
     setDefaultColors(newDefaultColors);
     setLogoPlacements(newLogoPlacements);
     setActiveRackCategory(cleanNewName);
@@ -661,12 +693,22 @@ export function StorefrontCatalogTab() {
     const newRacksOrder = { ...racksOrder };
     delete newRacksOrder[activeRackCategory];
 
+    const newHiddenCollections = { ...hiddenCollections };
+    delete newHiddenCollections[activeRackCategory];
+
+    const newCustomPrices = { ...customPrices };
+    if (newCustomPrices.racks) {
+      delete newCustomPrices.racks[activeRackCategory];
+    }
+
     // Find new active category
     const remainingKeys = Object.keys(newRacks);
     const newActive = remainingKeys[0];
 
     setRacks(newRacks);
     setRacksOrder(newRacksOrder);
+    setHiddenCollections(newHiddenCollections);
+    setCustomPrices(newCustomPrices);
     setActiveRackCategory(newActive);
   };
 
@@ -947,7 +989,7 @@ export function StorefrontCatalogTab() {
       {activeSubMode === 'racks' && (
         <div className="space-y-6 animate-in fade-in duration-200">
           <div className="flex items-center gap-4 flex-wrap">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs font-bold text-neutral-500 uppercase tracking-widest">Select Collection:</span>
               <select
                 value={activeRackCategory}
@@ -955,9 +997,41 @@ export function StorefrontCatalogTab() {
                 className="bg-white border border-brand-border rounded-xl px-3 py-2 text-xs font-bold text-brand-primary focus:outline-none cursor-pointer"
               >
                 {Object.keys(racks).map(cat => (
-                  <option key={cat} value={cat}>{cat}</option>
+                  <option key={cat} value={cat}>
+                    {cat}{hiddenCollections[cat] ? ' (Hidden)' : ''}
+                  </option>
                 ))}
               </select>
+
+              {/* Visibility Toggle Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  const isHidden = !!hiddenCollections[activeRackCategory];
+                  setHiddenCollections(prev => ({
+                    ...prev,
+                    [activeRackCategory]: !isHidden
+                  }));
+                }}
+                className={`flex items-center gap-1.5 px-3 py-2 border rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs ${
+                  hiddenCollections[activeRackCategory]
+                    ? 'bg-amber-50 hover:bg-amber-100 border-amber-300 text-amber-900'
+                    : 'bg-emerald-50 hover:bg-emerald-100 border-emerald-300 text-emerald-900'
+                }`}
+                title={hiddenCollections[activeRackCategory] ? "Collection is hidden from public storefront and customer portals. Click to publish/unhide." : "Collection is visible to public and customer portals. Click to hide while making edits."}
+              >
+                {hiddenCollections[activeRackCategory] ? (
+                  <>
+                    <EyeOff size={14} className="text-amber-600 shrink-0" />
+                    <span>Hidden from Public</span>
+                  </>
+                ) : (
+                  <>
+                    <Eye size={14} className="text-emerald-600 shrink-0" />
+                    <span>Live (Public)</span>
+                  </>
+                )}
+              </button>
             </div>
 
             <div className="flex items-center gap-2">
@@ -1105,9 +1179,51 @@ export function StorefrontCatalogTab() {
                       <p className="text-xs text-brand-secondary mt-1 font-medium truncate" title={customName || p.title}>
                         {customName || p.title}
                       </p>
-                      <span className="text-xs text-brand-primary font-bold mt-2 inline-block">
-                        ${p.price.toFixed(2)}
-                      </span>
+                      <div className="flex items-center gap-2 mt-2">
+                        <span className="text-xs text-brand-primary font-bold">
+                          ${(customPrices.racks?.[activeRackCategory]?.[slot] !== undefined ? customPrices.racks[activeRackCategory][slot] : p.price).toFixed(2)}
+                        </span>
+                        {customPrices.racks?.[activeRackCategory]?.[slot] !== undefined && (
+                          <span className="text-[9px] font-extrabold uppercase text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">Custom Price</span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-[9px] font-extrabold uppercase tracking-wider text-neutral-400 block mb-1">
+                        Garment Price ($)
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1.5 text-xs text-neutral-400 font-bold">$</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={customPrices.racks?.[activeRackCategory]?.[slot] !== undefined ? customPrices.racks[activeRackCategory][slot] : ''}
+                          placeholder={`Default catalog: $${p.price.toFixed(2)}`}
+                          onChange={(e) => {
+                            const val = e.target.value === '' ? undefined : parseFloat(e.target.value);
+                            setCustomPrices(prev => {
+                              const racksMap = prev.racks || {};
+                              const catMap = racksMap[activeRackCategory] || {};
+                              const updatedCat = { ...catMap };
+                              if (val === undefined || isNaN(val)) {
+                                delete updatedCat[slot];
+                              } else {
+                                updatedCat[slot] = val;
+                              }
+                              return {
+                                ...prev,
+                                racks: {
+                                  ...racksMap,
+                                  [activeRackCategory]: updatedCat
+                                }
+                              };
+                            });
+                          }}
+                          className="w-full bg-white border border-brand-border rounded-xl pl-7 pr-3 py-1.5 text-xs font-bold text-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary transition-all placeholder:text-neutral-400 placeholder:font-normal"
+                        />
+                      </div>
                     </div>
 
                     <div>
@@ -1317,9 +1433,51 @@ export function StorefrontCatalogTab() {
                       <p className="text-xs text-brand-secondary mt-1 font-medium truncate" title={customName || p.title}>
                         {customName || p.title}
                       </p>
-                      <span className="text-xs text-brand-primary font-bold mt-2 inline-block">
-                        ${p.price.toFixed(2)}
-                      </span>
+                      <div className="flex items-center gap-2 mt-2">
+                        <span className="text-xs text-brand-primary font-bold">
+                          ${(customPrices.basics?.[activeBasicsCategory]?.[slot] !== undefined ? customPrices.basics[activeBasicsCategory][slot] : p.price).toFixed(2)}
+                        </span>
+                        {customPrices.basics?.[activeBasicsCategory]?.[slot] !== undefined && (
+                          <span className="text-[9px] font-extrabold uppercase text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">Custom Price</span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-[9px] font-extrabold uppercase tracking-wider text-neutral-400 block mb-1">
+                        Garment Price ($)
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1.5 text-xs text-neutral-400 font-bold">$</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={customPrices.basics?.[activeBasicsCategory]?.[slot] !== undefined ? customPrices.basics[activeBasicsCategory][slot] : ''}
+                          placeholder={`Default catalog: $${p.price.toFixed(2)}`}
+                          onChange={(e) => {
+                            const val = e.target.value === '' ? undefined : parseFloat(e.target.value);
+                            setCustomPrices(prev => {
+                              const basicsMap = prev.basics || {};
+                              const catMap = basicsMap[activeBasicsCategory] || {};
+                              const updatedCat = { ...catMap };
+                              if (val === undefined || isNaN(val)) {
+                                delete updatedCat[slot];
+                              } else {
+                                updatedCat[slot] = val;
+                              }
+                              return {
+                                ...prev,
+                                basics: {
+                                  ...basicsMap,
+                                  [activeBasicsCategory]: updatedCat
+                                }
+                              };
+                            });
+                          }}
+                          className="w-full bg-white border border-brand-border rounded-xl pl-7 pr-3 py-1.5 text-xs font-bold text-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary transition-all placeholder:text-neutral-400 placeholder:font-normal"
+                        />
+                      </div>
                     </div>
 
                     <div>

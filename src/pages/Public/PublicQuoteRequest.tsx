@@ -358,6 +358,11 @@ export function PublicQuoteRequest() {
       racks?: Record<string, Record<string, { description?: string }>>;
       basics?: Record<string, Record<string, { description?: string }>>;
     };
+    customPrices?: {
+      racks?: Record<string, Record<string, number>>;
+      basics?: Record<string, Record<string, number>>;
+    };
+    hiddenCollections?: Record<string, boolean>;
     defaultColors?: {
       racks?: Record<string, Record<string, string>>;
       basics?: Record<string, Record<string, string>>;
@@ -372,6 +377,8 @@ export function PublicQuoteRequest() {
     basics: DEFAULT_BASICS,
     customNames: { racks: {}, basics: {} },
     customSpecs: { racks: {}, basics: {} },
+    customPrices: { racks: {}, basics: {} },
+    hiddenCollections: {},
     defaultColors: { racks: {}, basics: {} },
     logoPlacements: { racks: {}, basics: {} },
     racksOrder: {}
@@ -519,6 +526,8 @@ export function PublicQuoteRequest() {
             basics: cData.basics || DEFAULT_BASICS,
             customNames: cData.customNames || { racks: {}, basics: {} },
             customSpecs: cData.customSpecs || { racks: {}, basics: {} },
+            customPrices: cData.customPrices || { racks: {}, basics: {} },
+            hiddenCollections: cData.hiddenCollections || {},
             defaultColors: cData.defaultColors || { racks: {}, basics: {} },
             logoPlacements: cData.logoPlacements || { racks: {}, basics: {} },
             racksOrder: cData.racksOrder || {}
@@ -608,9 +617,14 @@ export function PublicQuoteRequest() {
       const styleId = (stylesMap as any)[slot];
       const prod = sanmarCatalog.find(p => p.style === styleId);
       if (prod) {
-        // Check for custom name override
+        // Check for custom name and price overrides
         const customTitle = catalogSettings.customNames?.racks?.[themeName]?.[slot];
-        const displayProduct = customTitle ? { ...prod, title: customTitle } : prod;
+        const customPrice = catalogSettings.customPrices?.racks?.[themeName]?.[slot];
+        const displayProduct = {
+          ...prod,
+          ...(customTitle ? { title: customTitle } : {}),
+          ...(customPrice !== undefined && customPrice !== null && !isNaN(customPrice) ? { price: customPrice } : {})
+        };
 
         // Smart defaults for placements
         const isHat = slot === 'hat';
@@ -641,6 +655,19 @@ export function PublicQuoteRequest() {
     setRackItems(items);
   };
 
+  // Visible theme categories (excluding hidden collections)
+  const visibleRackCategories = useMemo(() => {
+    const allRacks = Object.keys(catalogSettings.racks || DEFAULT_RACKS);
+    return allRacks.filter(cat => !catalogSettings.hiddenCollections?.[cat]);
+  }, [catalogSettings.racks, catalogSettings.hiddenCollections]);
+
+  // Ensure active theme is visible
+  useEffect(() => {
+    if (visibleRackCategories.length > 0 && !visibleRackCategories.includes(selectedThemeCategory)) {
+      setSelectedThemeCategory(visibleRackCategories[0]);
+    }
+  }, [visibleRackCategories, selectedThemeCategory]);
+
   // Populate rack when theme or mode changes, and re-fit when a new logo lands
   useEffect(() => {
     if (flowMode === 'racks' && selectedThemeCategory) {
@@ -665,13 +692,33 @@ export function PublicQuoteRequest() {
     const bestProd = sanmarCatalog.find(p => p.style === styles.best);
 
     const goodCustom = catalogSettings.customNames?.basics?.[selectedBasicsCategory]?.good;
+    const goodPrice = catalogSettings.customPrices?.basics?.[selectedBasicsCategory]?.good;
+    const goodProduct = goodProd ? {
+      ...goodProd,
+      ...(goodCustom ? { title: goodCustom } : {}),
+      ...(goodPrice !== undefined && goodPrice !== null && !isNaN(goodPrice) ? { price: goodPrice } : {})
+    } : null;
+
     const betterCustom = catalogSettings.customNames?.basics?.[selectedBasicsCategory]?.better;
+    const betterPrice = catalogSettings.customPrices?.basics?.[selectedBasicsCategory]?.better;
+    const betterProduct = betterProd ? {
+      ...betterProd,
+      ...(betterCustom ? { title: betterCustom } : {}),
+      ...(betterPrice !== undefined && betterPrice !== null && !isNaN(betterPrice) ? { price: betterPrice } : {})
+    } : null;
+
     const bestCustom = catalogSettings.customNames?.basics?.[selectedBasicsCategory]?.best;
+    const bestPrice = catalogSettings.customPrices?.basics?.[selectedBasicsCategory]?.best;
+    const bestProduct = bestProd ? {
+      ...bestProd,
+      ...(bestCustom ? { title: bestCustom } : {}),
+      ...(bestPrice !== undefined && bestPrice !== null && !isNaN(bestPrice) ? { price: bestPrice } : {})
+    } : null;
 
     return {
-      good: goodProd && goodCustom ? { ...goodProd, title: goodCustom } : goodProd,
-      better: betterProd && betterCustom ? { ...betterProd, title: betterCustom } : betterProd,
-      best: bestProd && bestCustom ? { ...bestProd, title: bestCustom } : bestProd
+      good: goodProduct,
+      better: betterProduct,
+      best: bestProduct
     };
   }, [selectedBasicsCategory, catalogSettings]);
 
@@ -1891,7 +1938,7 @@ export function PublicQuoteRequest() {
                 </div>
 
                 <div className="flex flex-wrap items-center justify-center gap-2 pb-4 border-b border-neutral-100">
-                  {Object.keys(catalogSettings.racks || DEFAULT_RACKS).map(catName => {
+                  {visibleRackCategories.map(catName => {
                     const isSelected = selectedThemeCategory === catName;
                     return (
                       <button
