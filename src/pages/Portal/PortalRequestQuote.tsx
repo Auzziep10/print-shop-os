@@ -9,6 +9,7 @@ import sanmarCatalogJson from '../../data/sanmar-catalog.json';
 const sanmarCatalog = sanmarCatalogJson as any[];
 
 import { getSwatchColor } from '../../components/shared/GarmentBrowser';
+import { getGarmentWeightAndFabric } from '../../lib/garmentUtils';
 
 const findColorsInObj = (obj: any, maxDepth = 4): string[] | null => {
   if (!obj || typeof obj !== 'object' || maxDepth === 0) return null;
@@ -194,6 +195,8 @@ export function PortalRequestQuote() {
     const colors = findColorsInObj({ ...item }) || item.colors || ['Custom Color'];
     const formattedColors = colors.length === 0 ? ['Custom Color'] : colors;
     const image = getGarmentImage(item);
+    const catalogProd = sanmarCatalog.find(p => p.style.toLowerCase() === String(item.style || item.itemNum || '').toLowerCase());
+    const weightAndFabric = getGarmentWeightAndFabric(item, catalogProd);
 
     return (
       <div 
@@ -227,8 +230,13 @@ export function PortalRequestQuote() {
           </button>
         </div>
         <div className="w-full flex flex-col mt-2">
-          <div className="flex items-baseline justify-between w-full">
-            <h4 className="font-serif font-normal text-neutral-800 text-[17px] leading-tight tracking-wide truncate max-w-[75%]">{style}</h4>
+          <div className="flex items-baseline justify-between gap-2 w-full">
+            <h4 className="font-serif font-normal text-neutral-800 text-[17px] leading-tight tracking-wide truncate flex-1 min-w-0" title={style}>{style}</h4>
+            {weightAndFabric.formatted && (
+              <span className="text-[11px] font-medium text-neutral-500 font-inter whitespace-nowrap shrink-0 tracking-tight" title={weightAndFabric.formatted}>
+                {weightAndFabric.formatted}
+              </span>
+            )}
           </div>
           <div className="relative h-6 mt-1 flex items-center justify-start w-full">
             {/* Gender tag - visible when not hovered */}

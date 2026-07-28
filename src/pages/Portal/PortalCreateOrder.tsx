@@ -7,6 +7,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useAuth } from '../../contexts/AuthContext';
 import { GarmentCustomizerModal } from '../../components/Portal/GarmentCustomizerModal';
 import { GarmentBrowser, getSwatchColor } from '../../components/shared/GarmentBrowser';
+import { getGarmentWeightAndFabric } from '../../lib/garmentUtils';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
 
 const sanmarCatalog = sanmarCatalogJson as any[];
@@ -254,6 +255,9 @@ export function PortalCreateOrder() {
   };
 
   const renderGarmentCard = (item: any, style: string, gender: string, itemNum: string, colors: string[], sizes: any, image: string, price: number, key: string | number) => {
+    const catalogProd = sanmarCatalog.find(p => p.style.toLowerCase() === String(itemNum || item?.style || '').toLowerCase());
+    const weightAndFabric = getGarmentWeightAndFabric(item, catalogProd);
+
     return (
       <div 
         key={key} 
@@ -286,8 +290,13 @@ export function PortalCreateOrder() {
           </button>
         </div>
         <div className="w-full flex flex-col mt-2">
-          <div className="flex items-baseline justify-between w-full">
-            <h4 className="font-serif font-normal text-neutral-800 text-[17px] leading-tight tracking-wide truncate max-w-[75%]">{style}</h4>
+          <div className="flex items-baseline justify-between gap-2 w-full">
+            <h4 className="font-serif font-normal text-neutral-800 text-[17px] leading-tight tracking-wide truncate flex-1 min-w-0" title={style}>{style}</h4>
+            {weightAndFabric.formatted && (
+              <span className="text-[11px] font-medium text-neutral-500 font-inter whitespace-nowrap shrink-0 tracking-tight" title={weightAndFabric.formatted}>
+                {weightAndFabric.formatted}
+              </span>
+            )}
           </div>
           <div className="relative h-6 mt-1 flex items-center justify-start w-full">
             {/* Gender tag - visible when not hovered */}
