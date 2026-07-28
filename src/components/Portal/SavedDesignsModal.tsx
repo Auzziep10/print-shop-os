@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
-import { X, Search, Trash2, Check, Shirt, Calendar, Sparkles, Loader2, Plus, ArrowRight } from 'lucide-react';
-import { getSavedDesigns, deleteSavedDesign, SavedDesignItem } from '../../lib/savedDesignsUtils';
+import { X, Search, Trash2, Shirt, Calendar, Sparkles, Loader2, Plus } from 'lucide-react';
+import { getSavedDesigns, deleteSavedDesign, type SavedDesignItem } from '../../lib/savedDesignsUtils';
 import { PillButton } from '../ui/PillButton';
 
 interface SavedDesignsModalProps {

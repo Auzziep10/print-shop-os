@@ -272,6 +272,7 @@ export function PortalRequestQuote() {
 
   // Customer Profile & Completeness States
   const [customer, setCustomer] = useState<any>(null);
+  const [globalCustomMockups, setGlobalCustomMockups] = useState<any>({ racks: {}, basics: {} });
   const [globalRacksOrder, setGlobalRacksOrder] = useState<any>({});
   const [isSavedDesignsModalOpen, setIsSavedDesignsModalOpen] = useState(false);
 
@@ -282,16 +283,18 @@ export function PortalRequestQuote() {
     const newItem = {
       ...g,
       id: Date.now(),
-      style: g.title || `${g.brand || ''} ${g.style || ''}`.trim(),
+      garmentName: g.title || `${g.brand || ''} ${g.style || ''}`.trim(),
+      style: g.style || g.itemNum,
       itemNum: g.style || g.itemNum,
       selectedColor: g.selectedColor || 'Black',
+      color: g.selectedColor || 'Black',
       image: g.image || g.customizedFrontImage || g.originalFrontImage,
       customized: true,
-      quantities: g.sizeQuantities || { S: 0, M: 0, L: 0, XL: 0, '2XL': 0 },
-      sizes: ['S', 'M', 'L', 'XL', '2XL']
+      sizes: g.sizeQuantities || { S: 0, M: 0, L: 0, XL: 0, '2XL': 0 },
+      qty: Object.values(g.sizeQuantities || {}).reduce((a: number, b: any) => a + (parseInt(b) || 0), 0) || 20
     };
 
-    setItems(prev => [...prev, newItem]);
+    setProducts((prev: any[]) => [...prev, newItem]);
   };
   const [showIncompleteProfileModal, setShowIncompleteProfileModal] = useState(false);
   const [profileContactName, setProfileContactName] = useState('');

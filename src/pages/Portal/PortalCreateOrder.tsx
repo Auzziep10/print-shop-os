@@ -237,6 +237,7 @@ export function PortalCreateOrder() {
   const [defaultColors, setDefaultColors] = useState<any>({ racks: {}, basics: {} });
   const [activeRackCategory, setActiveRackCategory] = useState('Athleisure');
   const [activeLibraryTab, setActiveLibraryTab] = useState('rack');
+  const [globalCustomMockups, setGlobalCustomMockups] = useState<any>({ racks: {}, basics: {} });
   const [globalRacksOrder, setGlobalRacksOrder] = useState<any>({});
   const [isSavedDesignsModalOpen, setIsSavedDesignsModalOpen] = useState(false);
 

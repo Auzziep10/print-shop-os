@@ -845,6 +845,13 @@ export function PortalAssetVault() {
         </div>
       )}
 
+      <SavedDesignsModal
+        isOpen={isSavedDesignsModalOpen}
+        onClose={() => setIsSavedDesignsModalOpen(false)}
+        customerId={currentCustomerId}
+        onSelectDesign={handleSelectSavedDesign}
+      />
+
       {/* Lightbox Modal */}
       {selectedAsset && (
         <div 
@@ -1618,12 +1625,6 @@ function CropAssetModal({ currentUrl, onClose, onSave }: {
           </div>
         </div>
       </div>
-      <SavedDesignsModal
-        isOpen={isSavedDesignsModalOpen}
-        onClose={() => setIsSavedDesignsModalOpen(false)}
-        customerId={currentCustomerId}
-        onSelectDesign={handleSelectSavedDesign}
-      />
     </div>
   );
 }
