@@ -1505,16 +1505,7 @@ export function PortalCreateOrder() {
           Back to Dashboard
         </button>
 
-        <div className="flex items-center gap-3">
-          <button 
-            type="button"
-            onClick={() => setIsSavedDesignsModalOpen(true)}
-            className="flex items-center gap-1.5 text-xs font-bold text-amber-900 bg-amber-50 hover:bg-amber-100 border border-amber-250 px-3.5 py-2 rounded-xl transition-all cursor-pointer shadow-2xs"
-          >
-            <Sparkles size={14} className="text-amber-600" />
-            <span>My Saved Designs</span>
-          </button>
-
+        <div className="flex items-center gap-4">
           {previousOrders.length > 0 && (
             <button 
               onClick={() => setIsRepeatModalOpen(true)}
