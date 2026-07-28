@@ -9,6 +9,7 @@ import { GarmentCustomizerModal } from '../../components/Portal/GarmentCustomize
 import { GarmentBrowser, getSwatchColor } from '../../components/shared/GarmentBrowser';
 import { getGarmentWeightAndFabric, getOrderedKeys } from '../../lib/garmentUtils';
 import { SavedDesignsModal } from '../../components/Portal/SavedDesignsModal';
+import { getSavedDesigns } from '../../lib/savedDesignsUtils';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
 
 const sanmarCatalog = sanmarCatalogJson as any[];
@@ -240,6 +241,19 @@ export function PortalCreateOrder() {
   const [globalCustomMockups, setGlobalCustomMockups] = useState<any>({ racks: {}, basics: {} });
   const [globalRacksOrder, setGlobalRacksOrder] = useState<any>({});
   const [isSavedDesignsModalOpen, setIsSavedDesignsModalOpen] = useState(false);
+  const [savedDesignsList, setSavedDesignsList] = useState<any[]>([]);
+  const [isLoadingSavedDesigns, setIsLoadingSavedDesigns] = useState(false);
+
+  useEffect(() => {
+    if (!customerId) return;
+    const loadSavedDesigns = async () => {
+      setIsLoadingSavedDesigns(true);
+      const list = await getSavedDesigns(customerId);
+      setSavedDesignsList(list);
+      setIsLoadingSavedDesigns(false);
+    };
+    loadSavedDesigns();
+  }, [customerId]);
 
   const handleSelectSavedDesign = (savedDesignItem: any) => {
     const g = savedDesignItem.garment;
@@ -1605,6 +1619,17 @@ export function PortalCreateOrder() {
           </button>
           <button
             type="button"
+            onClick={() => setActiveLibraryTab('saved_designs')}
+            className={`text-sm font-bold pb-1.5 border-b-2 whitespace-nowrap transition-all cursor-pointer ${
+              activeLibraryTab === 'saved_designs' 
+                ? 'text-black border-black' 
+                : 'text-neutral-400 border-transparent hover:text-black hover:border-black'
+            }`}
+          >
+            Saved Designs ({savedDesignsList.length})
+          </button>
+          <button
+            type="button"
             onClick={() => setActiveLibraryTab('saved')}
             className={`text-sm font-bold pb-1.5 border-b-2 whitespace-nowrap transition-all cursor-pointer ${
               activeLibraryTab === 'saved' 
@@ -1759,6 +1784,61 @@ export function PortalCreateOrder() {
                 const price = parseFloat(item.price || 0);
 
                 return renderGarmentCard(item, style, gender, itemNum, colors, sizes, image, price, item.id || idx);
+              })
+            )
+          )}
+
+          {activeLibraryTab === 'saved_designs' && (
+            isLoadingSavedDesigns ? (
+              <div className="col-span-full flex items-center justify-center p-12">
+                <Loader2 className="animate-spin text-neutral-400" size={28} />
+              </div>
+            ) : savedDesignsList.length === 0 ? (
+              <div className="col-span-full flex flex-col items-center justify-center p-12 text-center text-neutral-500 bg-neutral-50/50 border border-neutral-200 border-dashed rounded-3xl min-h-[220px] w-full">
+                <Sparkles size={36} className="mb-3 text-amber-400" />
+                <p className="font-bold text-base text-neutral-800">No saved designs yet.</p>
+                <p className="text-xs text-neutral-400 mt-1 max-w-md">
+                  Customize any garment and click <strong>"Save to My Saved Designs"</strong> to save it here for instant 1-click re-ordering anytime!
+                </p>
+              </div>
+            ) : (
+              savedDesignsList.map((item: any) => {
+                const g = item.garment || {};
+                const style = item.designName || g.title || `${g.brand || ''} ${g.style || ''}`;
+                const image = g.image || g.customizedFrontImage || g.originalFrontImage || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
+                const price = parseFloat(g.price || 0);
+
+                return (
+                  <div
+                    key={item.id}
+                    className="group relative bg-white hover:bg-neutral-50/80 border border-neutral-200 hover:border-black rounded-2xl p-4 flex flex-col justify-between transition-all hover:shadow-lg cursor-pointer"
+                    onClick={() => handleSelectSavedDesign(item)}
+                  >
+                    <div>
+                      <div className="w-full h-44 bg-neutral-100/60 rounded-xl overflow-hidden mb-3 relative flex items-center justify-center p-2">
+                        <img
+                          src={image}
+                          alt={style}
+                          className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-300"
+                        />
+                        <span className="absolute top-2 left-2 bg-black/80 backdrop-blur-xs text-white text-[9px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                          {g.selectedColor || 'Custom'}
+                        </span>
+                      </div>
+                      <h4 className="font-bold text-sm text-neutral-900 line-clamp-1">{item.designName || style}</h4>
+                      <p className="text-[11px] text-neutral-500 font-medium mt-0.5 truncate">
+                        {g.brand} {g.style} {price > 0 ? `• $${price.toFixed(2)}` : ''}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      className="mt-4 w-full py-2 bg-neutral-900 group-hover:bg-black text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-xs"
+                    >
+                      <Plus size={13} />
+                      <span>Add to Order</span>
+                    </button>
+                  </div>
+                );
               })
             )
           )}
