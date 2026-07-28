@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { ArrowLeft, PackagePlus, X, Trash2, ChevronDown, RotateCcw, Calendar, Loader2, Sparkles, Save, User, Copy, Upload, ShoppingCart, Users, Info, Plus, ExternalLink } from 'lucide-react';
+import { ArrowLeft, PackagePlus, X, Trash2, ChevronDown, RotateCcw, Calendar, Loader2, Sparkles, Save, User, Copy, Upload, ShoppingCart, Users, Info, Plus, ExternalLink, ZoomIn } from 'lucide-react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { db, storage } from '../../lib/firebase';
 import { doc, getDoc, collection, query, where, getDocs, setDoc, deleteDoc } from 'firebase/firestore';
@@ -1811,19 +1811,30 @@ export function PortalCreateOrder() {
                 return (
                   <div
                     key={item.id}
-                    className="group relative bg-white hover:bg-neutral-50/80 border border-neutral-200 hover:border-black rounded-2xl p-4 flex flex-col justify-between transition-all hover:shadow-lg cursor-pointer"
-                    onClick={() => handleSelectSavedDesign(item)}
+                    className="group relative bg-white hover:bg-neutral-50/80 border border-neutral-200 hover:border-black rounded-2xl p-4 flex flex-col justify-between transition-all hover:shadow-lg"
                   >
                     <div>
-                      <div className="w-full h-44 bg-neutral-100/60 rounded-xl overflow-hidden mb-3 relative flex items-center justify-center p-2">
+                      <div 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setExpandedImage({ src: image, alt: style });
+                        }}
+                        className="w-full h-48 bg-neutral-100/60 rounded-xl overflow-hidden mb-3 relative flex items-center justify-center p-2 cursor-zoom-in group/img"
+                        title="Click to enlarge design mockup"
+                      >
                         <img
                           src={image}
                           alt={style}
-                          className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-300"
+                          className="max-h-full max-w-full object-contain group-hover/img:scale-105 transition-transform duration-300"
                         />
-                        <span className="absolute top-2 left-2 bg-black/80 backdrop-blur-xs text-white text-[9px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                        <span className="absolute top-2 left-2 bg-black/80 backdrop-blur-xs text-white text-[9px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider z-10">
                           {g.selectedColor || 'Custom'}
                         </span>
+                        <div className="absolute inset-0 bg-black/10 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                          <span className="bg-white/95 text-neutral-900 p-2 rounded-full shadow-md">
+                            <ZoomIn size={16} />
+                          </span>
+                        </div>
                       </div>
                       <h4 className="font-bold text-sm text-neutral-900 line-clamp-1">{item.designName || style}</h4>
                       <p className="text-[11px] text-neutral-500 font-medium mt-0.5 truncate">
@@ -1832,9 +1843,10 @@ export function PortalCreateOrder() {
                     </div>
                     <button
                       type="button"
-                      className="mt-4 w-full py-2 bg-neutral-900 group-hover:bg-black text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-xs"
+                      onClick={() => handleSelectSavedDesign(item)}
+                      className="mt-4 w-full py-2.5 bg-neutral-900 hover:bg-black text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer"
                     >
-                      <Plus size={13} />
+                      <Plus size={14} />
                       <span>Add to Order</span>
                     </button>
                   </div>

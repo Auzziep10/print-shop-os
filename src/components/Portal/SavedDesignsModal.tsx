@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { X, Search, Trash2, Shirt, Calendar, Sparkles, Loader2, Plus } from 'lucide-react';
+import { X, Search, Trash2, Shirt, Calendar, Sparkles, Loader2, Plus, ZoomIn } from 'lucide-react';
 import { getSavedDesigns, deleteSavedDesign, type SavedDesignItem } from '../../lib/savedDesignsUtils';
 import { PillButton } from '../ui/PillButton';
 
@@ -20,6 +20,7 @@ export function SavedDesignsModal({
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [expandedImage, setExpandedImage] = useState<{ src: string; alt: string } | null>(null);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -131,20 +132,32 @@ export function SavedDesignsModal({
                   >
                     <div>
                       {/* Image Preview */}
-                      <div className="w-full h-44 bg-neutral-50 rounded-xl overflow-hidden mb-3 relative flex items-center justify-center p-2">
+                      <div 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setExpandedImage({ src: mockupImg, alt: item.designName });
+                        }}
+                        className="w-full h-44 bg-neutral-50 rounded-xl overflow-hidden mb-3 relative flex items-center justify-center p-2 cursor-zoom-in group/img"
+                        title="Click to enlarge design mockup"
+                      >
                         <img
                           src={mockupImg}
                           alt={item.designName}
-                          className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-300"
+                          className="max-h-full max-w-full object-contain group-hover/img:scale-105 transition-transform duration-300"
                         />
-                        <span className="absolute top-2 left-2 bg-black/80 backdrop-blur-xs text-white text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                        <span className="absolute top-2 left-2 bg-black/80 backdrop-blur-xs text-white text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider z-10">
                           {g.selectedColor || 'Custom'}
                         </span>
+                        <div className="absolute inset-0 bg-black/10 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                          <span className="bg-white/95 text-neutral-900 p-2 rounded-full shadow-md">
+                            <ZoomIn size={16} />
+                          </span>
+                        </div>
                         <button
                           type="button"
                           onClick={(e) => handleDelete(e, item.id)}
                           disabled={deletingId === item.id}
-                          className="absolute top-2 right-2 p-1.5 bg-white/90 hover:bg-red-50 text-neutral-400 hover:text-red-600 rounded-full shadow-sm transition-colors"
+                          className="absolute top-2 right-2 p-1.5 bg-white/90 hover:bg-red-50 text-neutral-400 hover:text-red-600 rounded-full shadow-sm transition-colors z-20"
                           title="Delete saved design"
                         >
                           {deletingId === item.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
@@ -168,7 +181,11 @@ export function SavedDesignsModal({
                     {/* Action Button */}
                     <button
                       type="button"
-                      className="mt-4 w-full py-2 bg-neutral-900 group-hover:bg-black text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-xs"
+                      onClick={() => {
+                        onSelectDesign(item);
+                        onClose();
+                      }}
+                      className="mt-4 w-full py-2 bg-neutral-900 hover:bg-black text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer"
                     >
                       <Plus size={13} />
                       <span>Use This Design</span>
@@ -190,6 +207,39 @@ export function SavedDesignsModal({
           </PillButton>
         </div>
       </div>
+
+      {expandedImage && (
+        <div 
+          className="fixed inset-0 bg-black/85 backdrop-blur-sm z-[99999] flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => setExpandedImage(null)}
+        >
+          <div 
+            className="relative max-w-3xl max-h-[85vh] w-full bg-white rounded-[2rem] p-6 md:p-10 shadow-2xl overflow-hidden flex items-center justify-center border border-neutral-200/50 cursor-crosshair"
+            onClick={(e) => e.stopPropagation()}
+            onMouseMove={(e) => {
+              const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
+              const x = (e.clientX - left) / width;
+              const y = (e.clientY - top) / height;
+              const img = e.currentTarget.querySelector('img');
+              if (img) img.style.transformOrigin = `${x * 100}% ${y * 100}%`;
+            }}
+            title="Hover to zoom"
+          >
+            <button 
+              onClick={() => setExpandedImage(null)}
+              className="absolute top-6 right-6 w-10 h-10 rounded-full bg-white/90 hover:bg-white text-neutral-800 hover:text-black flex items-center justify-center shadow-lg transition-all z-50 cursor-pointer border border-neutral-100 hover:scale-105"
+            >
+              <X size={20} />
+            </button>
+            <img 
+              src={expandedImage.src} 
+              alt={expandedImage.alt} 
+              style={{ width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: '70vh' }}
+              className="rounded-2xl select-none transition-transform duration-200 ease-out hover:scale-[2]" 
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
