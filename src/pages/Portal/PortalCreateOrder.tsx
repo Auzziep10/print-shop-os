@@ -2251,79 +2251,78 @@ export function PortalCreateOrder() {
                           const hasRightSleeve = !!(item.logoUrlRightSleeve || lp.includes('right sleeve'));
 
                           return (
-                            <div className="w-full bg-neutral-900 text-white rounded-2xl p-4 flex flex-col gap-3 shadow-md animate-in fade-in duration-200">
-                              <div className="flex items-center justify-between border-b border-neutral-800 pb-2.5">
+                            <div className="w-full bg-white text-neutral-900 rounded-2xl p-4 flex flex-col gap-3.5 border border-neutral-200 shadow-sm animate-in fade-in duration-200">
+                              <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
                                 <div className="flex flex-col gap-0.5">
-                                  <span className="text-[9px] uppercase font-bold tracking-widest text-neutral-400 flex items-center gap-1.5">
-                                    <Zap size={12} className="text-amber-400 fill-amber-400" />
+                                  <span className="text-[9px] uppercase font-bold tracking-widest text-neutral-500 flex items-center gap-1.5">
+                                    <Zap size={12} className="text-amber-500 fill-amber-500" />
                                     <span>Auto-Quote ({q.totalQty} pcs)</span>
                                   </span>
-                                  <span className="text-sm font-black text-white">
-                                    ${q.priceEach.toFixed(2)} <span className="text-xs font-normal text-neutral-400">/ piece</span>
+                                  <span className="text-sm font-black text-neutral-900">
+                                    ${q.priceEach.toFixed(2)} <span className="text-xs font-normal text-neutral-500">/ piece</span>
                                   </span>
                                 </div>
                                 <div className="flex flex-col items-end gap-0.5">
-                                  <span className="text-[9px] uppercase font-bold tracking-widest text-neutral-400">
+                                  <span className="text-[9px] uppercase font-bold tracking-widest text-neutral-500">
                                     Item Subtotal
                                   </span>
-                                  <span className="text-base font-black text-amber-400 font-mono">
+                                  <span className="text-base font-black text-neutral-900 font-mono">
                                     ${q.lineTotal.toFixed(2)}
                                   </span>
                                 </div>
                               </div>
 
                               {/* Included Print Placements Badges */}
-                              <div className="flex flex-col gap-1.5 pt-0.5 text-xs text-neutral-300">
-                                <span className="text-[9px] uppercase font-bold tracking-widest text-neutral-400">
+                              <div className="flex flex-col gap-1.5 pt-0.5 text-xs text-neutral-700">
+                                <span className="text-[9px] uppercase font-bold tracking-widest text-neutral-500">
                                   Included Print Placements
                                 </span>
                                 <div className="flex flex-wrap gap-1.5">
                                   {(q.autoQuote?.placementIds || []).length > 0 ? (
                                     (q.autoQuote?.placementIds || []).map((pid, idx) => (
-                                      <span key={idx} className="inline-flex items-center gap-1.5 bg-neutral-950/80 text-neutral-200 text-xs font-semibold px-2.5 py-1 rounded-xl border border-neutral-800">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                                      <span key={idx} className="inline-flex items-center gap-1.5 bg-neutral-100 text-neutral-800 text-xs font-semibold px-2.5 py-1 rounded-xl border border-neutral-200">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-neutral-800 shrink-0" />
                                         <span>{PLACEMENT_LABELS[pid] || pid}</span>
                                       </span>
                                     ))
                                   ) : (
-                                    <span className="text-neutral-400 text-xs italic pl-0.5">Blank Garment (No Artwork)</span>
+                                    <span className="text-neutral-500 text-xs italic pl-0.5">Blank Garment (No Artwork)</span>
                                   )}
                                 </div>
                               </div>
 
                               {/* Interactive Print Size Adjustments */}
                               {(hasFront || hasBack || hasLeftSleeve || hasRightSleeve) && (
-                                <div className="flex flex-col gap-2 pt-2 border-t border-neutral-800/80">
+                                <div className="flex flex-col gap-2 pt-2.5 border-t border-neutral-100">
                                   <div className="flex items-center justify-between">
-                                    <span className="text-[9px] uppercase font-bold tracking-widest text-neutral-400">
+                                    <span className="text-[9px] uppercase font-bold tracking-widest text-neutral-500">
                                       Print Widths (Inches)
                                     </span>
                                     <span className="text-[9.5px] text-neutral-400 font-normal">
-                                      Edit width to update live quote
+                                      Click to type number
                                     </span>
                                   </div>
 
                                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                     {/* Front Width */}
                                     {hasFront && (
-                                      <div className="flex items-center justify-between bg-neutral-950/90 p-2 rounded-xl border border-neutral-800">
-                                        <span className="text-xs font-semibold text-neutral-200 flex items-center gap-1.5 pl-1">
-                                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                                      <div className="flex items-center justify-between bg-neutral-50/80 p-2 rounded-xl border border-neutral-200">
+                                        <span className="text-xs font-semibold text-neutral-800 flex items-center gap-1.5 pl-1">
+                                          <span className="w-1.5 h-1.5 rounded-full bg-neutral-700 shrink-0" />
                                           <span>Front Width</span>
                                         </span>
-                                        <div className="flex items-center gap-1 bg-neutral-900 px-2 py-1 rounded-lg border border-neutral-700/80 focus-within:border-amber-400 transition-colors">
+                                        <div className="flex items-center gap-1.5 bg-white px-2 py-1 rounded-lg border border-neutral-300 focus-within:border-neutral-900 focus-within:ring-2 focus-within:ring-neutral-900/10 transition-all">
                                           <input
-                                            type="number"
-                                            min="1"
-                                            max="18"
-                                            step="0.25"
+                                            type="text"
+                                            inputMode="decimal"
                                             value={item.logoWidthFront ?? ''}
                                             placeholder="11"
+                                            onFocus={(e) => e.target.select()}
                                             onChange={(e) => {
                                               const val = e.target.value;
                                               setOrderItems(prev => prev.map(o => o.instanceId === item.instanceId ? { ...o, logoWidthFront: val } : o));
                                             }}
-                                            className="w-11 bg-transparent text-right font-mono text-xs font-bold text-amber-400 focus:outline-none"
+                                            className="w-12 bg-transparent text-center font-mono text-xs font-bold text-neutral-900 focus:outline-none"
                                           />
                                           <span className="text-[10px] font-bold text-neutral-400">in</span>
                                         </div>
@@ -2332,24 +2331,23 @@ export function PortalCreateOrder() {
 
                                     {/* Back Width */}
                                     {hasBack && (
-                                      <div className="flex items-center justify-between bg-neutral-950/90 p-2 rounded-xl border border-neutral-800">
-                                        <span className="text-xs font-semibold text-neutral-200 flex items-center gap-1.5 pl-1">
-                                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                                      <div className="flex items-center justify-between bg-neutral-50/80 p-2 rounded-xl border border-neutral-200">
+                                        <span className="text-xs font-semibold text-neutral-800 flex items-center gap-1.5 pl-1">
+                                          <span className="w-1.5 h-1.5 rounded-full bg-neutral-700 shrink-0" />
                                           <span>Back Width</span>
                                         </span>
-                                        <div className="flex items-center gap-1 bg-neutral-900 px-2 py-1 rounded-lg border border-neutral-700/80 focus-within:border-amber-400 transition-colors">
+                                        <div className="flex items-center gap-1.5 bg-white px-2 py-1 rounded-lg border border-neutral-300 focus-within:border-neutral-900 focus-within:ring-2 focus-within:ring-neutral-900/10 transition-all">
                                           <input
-                                            type="number"
-                                            min="1"
-                                            max="18"
-                                            step="0.25"
+                                            type="text"
+                                            inputMode="decimal"
                                             value={item.logoWidthBack ?? ''}
                                             placeholder="11"
+                                            onFocus={(e) => e.target.select()}
                                             onChange={(e) => {
                                               const val = e.target.value;
                                               setOrderItems(prev => prev.map(o => o.instanceId === item.instanceId ? { ...o, logoWidthBack: val } : o));
                                             }}
-                                            className="w-11 bg-transparent text-right font-mono text-xs font-bold text-amber-400 focus:outline-none"
+                                            className="w-12 bg-transparent text-center font-mono text-xs font-bold text-neutral-900 focus:outline-none"
                                           />
                                           <span className="text-[10px] font-bold text-neutral-400">in</span>
                                         </div>
@@ -2358,24 +2356,23 @@ export function PortalCreateOrder() {
 
                                     {/* Left Sleeve Width */}
                                     {hasLeftSleeve && (
-                                      <div className="flex items-center justify-between bg-neutral-950/90 p-2 rounded-xl border border-neutral-800">
-                                        <span className="text-xs font-semibold text-neutral-200 flex items-center gap-1.5 pl-1">
-                                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                                      <div className="flex items-center justify-between bg-neutral-50/80 p-2 rounded-xl border border-neutral-200">
+                                        <span className="text-xs font-semibold text-neutral-800 flex items-center gap-1.5 pl-1">
+                                          <span className="w-1.5 h-1.5 rounded-full bg-neutral-700 shrink-0" />
                                           <span>L. Sleeve</span>
                                         </span>
-                                        <div className="flex items-center gap-1 bg-neutral-900 px-2 py-1 rounded-lg border border-neutral-700/80 focus-within:border-amber-400 transition-colors">
+                                        <div className="flex items-center gap-1.5 bg-white px-2 py-1 rounded-lg border border-neutral-300 focus-within:border-neutral-900 focus-within:ring-2 focus-within:ring-neutral-900/10 transition-all">
                                           <input
-                                            type="number"
-                                            min="1"
-                                            max="8"
-                                            step="0.25"
+                                            type="text"
+                                            inputMode="decimal"
                                             value={item.logoWidthLeftSleeve ?? ''}
                                             placeholder="3.5"
+                                            onFocus={(e) => e.target.select()}
                                             onChange={(e) => {
                                               const val = e.target.value;
                                               setOrderItems(prev => prev.map(o => o.instanceId === item.instanceId ? { ...o, logoWidthLeftSleeve: val } : o));
                                             }}
-                                            className="w-11 bg-transparent text-right font-mono text-xs font-bold text-amber-400 focus:outline-none"
+                                            className="w-12 bg-transparent text-center font-mono text-xs font-bold text-neutral-900 focus:outline-none"
                                           />
                                           <span className="text-[10px] font-bold text-neutral-400">in</span>
                                         </div>
@@ -2384,24 +2381,23 @@ export function PortalCreateOrder() {
 
                                     {/* Right Sleeve Width */}
                                     {hasRightSleeve && (
-                                      <div className="flex items-center justify-between bg-neutral-950/90 p-2 rounded-xl border border-neutral-800">
-                                        <span className="text-xs font-semibold text-neutral-200 flex items-center gap-1.5 pl-1">
-                                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                                      <div className="flex items-center justify-between bg-neutral-50/80 p-2 rounded-xl border border-neutral-200">
+                                        <span className="text-xs font-semibold text-neutral-800 flex items-center gap-1.5 pl-1">
+                                          <span className="w-1.5 h-1.5 rounded-full bg-neutral-700 shrink-0" />
                                           <span>R. Sleeve</span>
                                         </span>
-                                        <div className="flex items-center gap-1 bg-neutral-900 px-2 py-1 rounded-lg border border-neutral-700/80 focus-within:border-amber-400 transition-colors">
+                                        <div className="flex items-center gap-1.5 bg-white px-2 py-1 rounded-lg border border-neutral-300 focus-within:border-neutral-900 focus-within:ring-2 focus-within:ring-neutral-900/10 transition-all">
                                           <input
-                                            type="number"
-                                            min="1"
-                                            max="8"
-                                            step="0.25"
+                                            type="text"
+                                            inputMode="decimal"
                                             value={item.logoWidthRightSleeve ?? ''}
                                             placeholder="3.5"
+                                            onFocus={(e) => e.target.select()}
                                             onChange={(e) => {
                                               const val = e.target.value;
                                               setOrderItems(prev => prev.map(o => o.instanceId === item.instanceId ? { ...o, logoWidthRightSleeve: val } : o));
                                             }}
-                                            className="w-11 bg-transparent text-right font-mono text-xs font-bold text-amber-400 focus:outline-none"
+                                            className="w-12 bg-transparent text-center font-mono text-xs font-bold text-neutral-900 focus:outline-none"
                                           />
                                           <span className="text-[10px] font-bold text-neutral-400">in</span>
                                         </div>
