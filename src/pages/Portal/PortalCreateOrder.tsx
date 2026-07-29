@@ -2243,6 +2243,13 @@ export function PortalCreateOrder() {
                         {dtfCartSummary && (() => {
                           const q = dtfCartSummary.itemQuotes.find(iq => iq.instanceId === item.instanceId);
                           if (!q || q.totalQty === 0) return null;
+
+                          const lp = (item.logoPlacement || '').toLowerCase();
+                          const hasFront = !!(item.logoUrlFront || item.logoUrl || item.customizedFrontImage || lp.includes('front'));
+                          const hasBack = !!(item.logoUrlBack || item.customizedBackImage || lp.includes('back'));
+                          const hasLeftSleeve = !!(item.logoUrlLeftSleeve || item.customizedSleeveImage || lp.includes('left sleeve'));
+                          const hasRightSleeve = !!(item.logoUrlRightSleeve || lp.includes('right sleeve'));
+
                           return (
                             <div className="w-full bg-neutral-900 text-white rounded-2xl p-4 flex flex-col gap-3 shadow-md animate-in fade-in duration-200">
                               <div className="flex items-center justify-between border-b border-neutral-800 pb-2.5">
@@ -2265,7 +2272,7 @@ export function PortalCreateOrder() {
                                 </div>
                               </div>
 
-                              {/* Print Placements List */}
+                              {/* Included Print Placements Badges */}
                               <div className="flex flex-col gap-1.5 pt-0.5 text-xs text-neutral-300">
                                 <span className="text-[9px] uppercase font-bold tracking-widest text-neutral-400">
                                   Included Print Placements
@@ -2283,6 +2290,126 @@ export function PortalCreateOrder() {
                                   )}
                                 </div>
                               </div>
+
+                              {/* Interactive Print Size Adjustments */}
+                              {(hasFront || hasBack || hasLeftSleeve || hasRightSleeve) && (
+                                <div className="flex flex-col gap-2 pt-2 border-t border-neutral-800/80">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-[9px] uppercase font-bold tracking-widest text-neutral-400">
+                                      Print Widths (Inches)
+                                    </span>
+                                    <span className="text-[9.5px] text-neutral-400 font-normal">
+                                      Edit width to update live quote
+                                    </span>
+                                  </div>
+
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    {/* Front Width */}
+                                    {hasFront && (
+                                      <div className="flex items-center justify-between bg-neutral-950/90 p-2 rounded-xl border border-neutral-800">
+                                        <span className="text-xs font-semibold text-neutral-200 flex items-center gap-1.5 pl-1">
+                                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                                          <span>Front Width</span>
+                                        </span>
+                                        <div className="flex items-center gap-1 bg-neutral-900 px-2 py-1 rounded-lg border border-neutral-700/80 focus-within:border-amber-400 transition-colors">
+                                          <input
+                                            type="number"
+                                            min="1"
+                                            max="18"
+                                            step="0.25"
+                                            value={item.logoWidthFront ?? ''}
+                                            placeholder="11"
+                                            onChange={(e) => {
+                                              const val = e.target.value;
+                                              setOrderItems(prev => prev.map(o => o.instanceId === item.instanceId ? { ...o, logoWidthFront: val } : o));
+                                            }}
+                                            className="w-11 bg-transparent text-right font-mono text-xs font-bold text-amber-400 focus:outline-none"
+                                          />
+                                          <span className="text-[10px] font-bold text-neutral-400">in</span>
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {/* Back Width */}
+                                    {hasBack && (
+                                      <div className="flex items-center justify-between bg-neutral-950/90 p-2 rounded-xl border border-neutral-800">
+                                        <span className="text-xs font-semibold text-neutral-200 flex items-center gap-1.5 pl-1">
+                                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                                          <span>Back Width</span>
+                                        </span>
+                                        <div className="flex items-center gap-1 bg-neutral-900 px-2 py-1 rounded-lg border border-neutral-700/80 focus-within:border-amber-400 transition-colors">
+                                          <input
+                                            type="number"
+                                            min="1"
+                                            max="18"
+                                            step="0.25"
+                                            value={item.logoWidthBack ?? ''}
+                                            placeholder="11"
+                                            onChange={(e) => {
+                                              const val = e.target.value;
+                                              setOrderItems(prev => prev.map(o => o.instanceId === item.instanceId ? { ...o, logoWidthBack: val } : o));
+                                            }}
+                                            className="w-11 bg-transparent text-right font-mono text-xs font-bold text-amber-400 focus:outline-none"
+                                          />
+                                          <span className="text-[10px] font-bold text-neutral-400">in</span>
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {/* Left Sleeve Width */}
+                                    {hasLeftSleeve && (
+                                      <div className="flex items-center justify-between bg-neutral-950/90 p-2 rounded-xl border border-neutral-800">
+                                        <span className="text-xs font-semibold text-neutral-200 flex items-center gap-1.5 pl-1">
+                                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                                          <span>L. Sleeve</span>
+                                        </span>
+                                        <div className="flex items-center gap-1 bg-neutral-900 px-2 py-1 rounded-lg border border-neutral-700/80 focus-within:border-amber-400 transition-colors">
+                                          <input
+                                            type="number"
+                                            min="1"
+                                            max="8"
+                                            step="0.25"
+                                            value={item.logoWidthLeftSleeve ?? ''}
+                                            placeholder="3.5"
+                                            onChange={(e) => {
+                                              const val = e.target.value;
+                                              setOrderItems(prev => prev.map(o => o.instanceId === item.instanceId ? { ...o, logoWidthLeftSleeve: val } : o));
+                                            }}
+                                            className="w-11 bg-transparent text-right font-mono text-xs font-bold text-amber-400 focus:outline-none"
+                                          />
+                                          <span className="text-[10px] font-bold text-neutral-400">in</span>
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {/* Right Sleeve Width */}
+                                    {hasRightSleeve && (
+                                      <div className="flex items-center justify-between bg-neutral-950/90 p-2 rounded-xl border border-neutral-800">
+                                        <span className="text-xs font-semibold text-neutral-200 flex items-center gap-1.5 pl-1">
+                                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                                          <span>R. Sleeve</span>
+                                        </span>
+                                        <div className="flex items-center gap-1 bg-neutral-900 px-2 py-1 rounded-lg border border-neutral-700/80 focus-within:border-amber-400 transition-colors">
+                                          <input
+                                            type="number"
+                                            min="1"
+                                            max="8"
+                                            step="0.25"
+                                            value={item.logoWidthRightSleeve ?? ''}
+                                            placeholder="3.5"
+                                            onChange={(e) => {
+                                              const val = e.target.value;
+                                              setOrderItems(prev => prev.map(o => o.instanceId === item.instanceId ? { ...o, logoWidthRightSleeve: val } : o));
+                                            }}
+                                            className="w-11 bg-transparent text-right font-mono text-xs font-bold text-amber-400 focus:outline-none"
+                                          />
+                                          <span className="text-[10px] font-bold text-neutral-400">in</span>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           );
                         })()}
