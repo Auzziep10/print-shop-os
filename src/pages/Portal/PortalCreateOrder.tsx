@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { ArrowLeft, PackagePlus, X, Trash2, ChevronDown, RotateCcw, Calendar, Loader2, Sparkles, Save, User, Copy, Upload, ShoppingCart, Users, Info, Plus, ExternalLink, ZoomIn } from 'lucide-react';
+import { ArrowLeft, PackagePlus, X, Trash2, ChevronDown, RotateCcw, Calendar, Loader2, Sparkles, Save, User, Copy, Upload, ShoppingCart, Users, Info, Plus, ExternalLink, ZoomIn, Zap } from 'lucide-react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { db, storage } from '../../lib/firebase';
 import { doc, getDoc, collection, query, where, getDocs, setDoc, deleteDoc } from 'firebase/firestore';
@@ -246,6 +246,40 @@ export function PortalCreateOrder() {
   const [isSavedDesignsModalOpen, setIsSavedDesignsModalOpen] = useState(false);
   const [savedDesignsList, setSavedDesignsList] = useState<any[]>([]);
   const [isLoadingSavedDesigns, setIsLoadingSavedDesigns] = useState(false);
+
+  // Auto-quoting settings & cart summary calculation
+  const [dtfSettings, setDtfSettings] = useState<{ costs: any; ladder: any; autoQuotingEnabled: boolean } | null>(null);
+
+  useEffect(() => {
+    fetchDtfPricingSettings().then(setDtfSettings).catch(console.error);
+  }, []);
+
+  const dtfCartSummary = useMemo(() => {
+    if (!dtfSettings || !dtfSettings.autoQuotingEnabled || orderItems.length === 0) {
+      return null;
+    }
+
+    let overallTotal = 0;
+    const itemQuotes = orderItems.map(item => {
+      const totalQty = Object.values(item.quantities as Record<string, number> || {}).reduce((q, val) => q + (parseInt((val || 0).toString()) || 0), 0);
+      const autoQuote = autoQuoteItem({ ...item, qty: totalQty }, dtfSettings.costs, dtfSettings.ladder);
+      const priceEach = autoQuote.pricePerPiece;
+      const lineTotal = priceEach * totalQty;
+      overallTotal += lineTotal;
+      return {
+        instanceId: item.instanceId,
+        totalQty,
+        priceEach,
+        lineTotal,
+        autoQuote
+      };
+    });
+
+    return {
+      overallTotal,
+      itemQuotes
+    };
+  }, [dtfSettings, orderItems]);
 
   useEffect(() => {
     if (!customerId) return;
@@ -2205,6 +2239,32 @@ export function PortalCreateOrder() {
                             ))}
                           </div>
                         </div>
+                        {/* Live Auto-Quote Breakdown per Item */}
+                        {dtfCartSummary && (() => {
+                          const q = dtfCartSummary.itemQuotes.find(iq => iq.instanceId === item.instanceId);
+                          if (!q || q.totalQty === 0) return null;
+                          return (
+                            <div className="w-full bg-neutral-900 text-white rounded-xl p-3 flex items-center justify-between shadow-xs animate-in fade-in duration-200">
+                              <div className="flex flex-col gap-0.5">
+                                <span className="text-[9px] uppercase font-bold tracking-widest text-neutral-400 flex items-center gap-1">
+                                  <Zap size={11} className="text-amber-400 fill-amber-400" />
+                                  <span>Auto-Quote ({q.totalQty} pcs)</span>
+                                </span>
+                                <span className="text-xs font-semibold text-neutral-300">
+                                  ${q.priceEach.toFixed(2)} / piece
+                                </span>
+                              </div>
+                              <div className="flex flex-col items-end gap-0.5">
+                                <span className="text-[9px] uppercase font-bold tracking-widest text-neutral-400">
+                                  Item Subtotal
+                                </span>
+                                <span className="text-sm font-black text-amber-400 font-mono">
+                                  ${q.lineTotal.toFixed(2)}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
                     ))}
                   </div>
@@ -2258,12 +2318,11 @@ export function PortalCreateOrder() {
                       </span>
                       <div className="flex flex-col gap-2.5">
                         <input
-                          ref={addressInputRef}
                           type="text"
                           placeholder="Street Address"
                           value={profileStreet}
                           onChange={(e) => setProfileStreet(e.target.value)}
-                          className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:border-black transition-all"
+                          className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-2 text-xs font-semibold text-neutral-800 focus:outline-none focus:border-black transition-all"
                         />
                         <div className="grid grid-cols-3 gap-2">
                           <input
@@ -2271,21 +2330,21 @@ export function PortalCreateOrder() {
                             placeholder="City"
                             value={profileCity}
                             onChange={(e) => setProfileCity(e.target.value)}
-                            className="col-span-1 w-full bg-white border border-neutral-200 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:border-black transition-all"
+                            className="bg-white border border-neutral-200 rounded-xl px-3 py-2 text-xs font-semibold text-neutral-800 focus:outline-none focus:border-black transition-all"
                           />
                           <input
                             type="text"
                             placeholder="State"
                             value={profileState}
                             onChange={(e) => setProfileState(e.target.value)}
-                            className="col-span-1 w-full bg-white border border-neutral-200 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:border-black transition-all"
+                            className="bg-white border border-neutral-200 rounded-xl px-3 py-2 text-xs font-semibold text-neutral-800 focus:outline-none focus:border-black transition-all"
                           />
                           <input
                             type="text"
-                            placeholder="ZIP"
+                            placeholder="Zip"
                             value={profileZip}
                             onChange={(e) => setProfileZip(e.target.value)}
-                            className="col-span-1 w-full bg-white border border-neutral-200 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:border-black transition-all"
+                            className="bg-white border border-neutral-200 rounded-xl px-3 py-2 text-xs font-semibold text-neutral-800 focus:outline-none focus:border-black transition-all"
                           />
                         </div>
                       </div>
@@ -2413,6 +2472,21 @@ export function PortalCreateOrder() {
                       <span>{orderItems.length} styles</span>
                     </div>
 
+                    {dtfCartSummary && (
+                      <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3.5 flex justify-between items-center text-xs font-bold text-neutral-900 shadow-xs animate-in fade-in duration-200">
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-[10px] uppercase font-extrabold text-amber-800 tracking-wider flex items-center gap-1.5">
+                            <Zap size={13} className="fill-amber-500 text-amber-600" />
+                            Auto-Quoted Order Total
+                          </span>
+                          <span className="text-[10px] font-medium text-neutral-600">Priced live based on tier quantities & dimensions</span>
+                        </div>
+                        <span className="text-xl font-black text-neutral-900 font-mono">
+                          ${dtfCartSummary.overallTotal.toFixed(2)}
+                        </span>
+                      </div>
+                    )}
+
                     {hasLowQuantityItems && (
                       <div className="text-[9px] text-red-655 bg-red-50/55 border border-red-100 rounded-xl p-3 flex flex-col gap-0.5 leading-snug animate-in fade-in duration-300">
                         <span className="font-extrabold">⚠️ Order Minimum Requirement</span>
@@ -2431,7 +2505,11 @@ export function PortalCreateOrder() {
                             : 'bg-black text-white hover:bg-neutral-900 hover:scale-[1.01] active:scale-[0.99] cursor-pointer'
                         }`}
                       >
-                        {isSubmitting ? 'Submitting...' : 'Submit Quote Request'}
+                        {isSubmitting
+                          ? 'Submitting...'
+                          : dtfCartSummary
+                          ? `Submit Order & Pay Now ($${dtfCartSummary.overallTotal.toFixed(2)})`
+                          : 'Submit Quote Request'}
                       </button>
                       <button
                         type="button"

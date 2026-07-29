@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../../lib/firebase';
-import { X, Upload, Loader2, Check, FileText, Sparkles, RefreshCw, Type, Image as ImageIcon, Sliders, Trash2, Bold, Italic, Search, Shirt, Plus, Palette, AlertCircle, Calculator } from 'lucide-react';
+import { X, Upload, Loader2, Check, FileText, Sparkles, RefreshCw, Type, Image as ImageIcon, Sliders, Trash2, Bold, Italic, Search, Shirt, Plus, Palette, AlertCircle } from 'lucide-react';
 import { generateRotatedGarment } from '../../lib/geminiService';
 import { getSwatchColor } from '../shared/GarmentBrowser';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
@@ -319,43 +319,12 @@ export function GarmentCustomizerModal({
   const [tagDesignName, setTagDesignName] = useState<string>('My Custom Tag');
   const [activeElementDrag, setActiveElementDrag] = useState<{ id: string; type: 'logo' | 'text' | 'size' | 'care_symbols' | 'blend' } | null>(null);
 
-  // Auto-Quoting settings & live quote calculation state
+  // Auto-Quoting settings state
   const [dtfSettings, setDtfSettings] = useState<{ costs: any; ladder: any; autoQuotingEnabled: boolean } | null>(null);
 
   useEffect(() => {
     fetchDtfPricingSettings().then(setDtfSettings).catch(console.error);
   }, []);
-
-  const liveAutoQuote = useMemo(() => {
-    if (!dtfSettings || !dtfSettings.autoQuotingEnabled) return null;
-
-    const tempItem = {
-      style: activeGarment.style || activeGarment.title || 'T-shirt',
-      category: activeGarment.category,
-      logoUrlFront: selectedLogoFront?.url || (selectedLogoFront ? 'yes' : null),
-      logoWidthFront: widthFront.trim(),
-      customScaleFront: scaleFront,
-      customOffsetXFront: offsetXFront,
-      logoUrlBack: selectedLogoBack?.url || (selectedLogoBack ? 'yes' : null),
-      logoWidthBack: widthBack.trim(),
-      customScaleBack: scaleBack,
-      customOffsetXBack: offsetXBack,
-      logoUrlLeftSleeve: selectedLogoLeftSleeve?.url || (selectedLogoLeftSleeve ? 'yes' : null),
-      logoWidthLeftSleeve: widthLeftSleeve.trim(),
-      logoUrlRightSleeve: selectedLogoRightSleeve?.url || (selectedLogoRightSleeve ? 'yes' : null),
-      logoWidthRightSleeve: widthRightSleeve.trim(),
-      logoUrlTag: tagLogos.length > 0 || tagTexts.length > 0 ? 'yes' : null,
-      customized: true
-    };
-
-    return autoQuoteItem(tempItem, dtfSettings.costs, dtfSettings.ladder);
-  }, [
-    dtfSettings, activeGarment, selectedLogoFront, widthFront, scaleFront, offsetXFront,
-    selectedLogoBack, widthBack, scaleBack, offsetXBack,
-    selectedLogoLeftSleeve, widthLeftSleeve,
-    selectedLogoRightSleeve, widthRightSleeve,
-    tagLogos, tagTexts
-  ]);
   const [activeElementResize, setActiveElementResize] = useState<{ id: string; type: 'logo' | 'text' | 'size' | 'care_symbols' | 'blend' } | null>(null);
   const [isSavingTagAsset, setIsSavingTagAsset] = useState(false);
 
@@ -3227,24 +3196,16 @@ export function GarmentCustomizerModal({
             (activeTab === 'sleeve' && !isSleeveMirrored && selectedLogoLeftSleeve) ||
             (activeTab === 'sleeve' && isSleeveMirrored && selectedLogoRightSleeve)) && (
             <div className="flex flex-col gap-2 border-t border-neutral-100 pt-6 animate-in fade-in duration-200">
-              <div className="flex justify-between items-center">
-                <label className="text-xs font-bold uppercase tracking-widest text-neutral-600 flex items-center gap-1.5">
-                  <Calculator size={14} className="text-amber-600" />
-                  <span>Print Width (Inches)</span>
-                </label>
-                {dtfSettings?.autoQuotingEnabled && (
-                  <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
-                    Auto-Quoting Active
-                  </span>
-                )}
-              </div>
+              <label className="text-xs font-bold uppercase tracking-widest text-neutral-600">
+                Print Width (Inches)
+              </label>
 
               <input
                 type="number"
                 step="0.1"
                 min="0.5"
                 max="22"
-                placeholder="e.g. 10.5 for Full Front, 3.5 for Left Chest"
+                placeholder="e.g. 10.5 for Full Front, 3.5 for Left Chest (leave blank for standard)"
                 value={
                   activeTab === 'front'
                     ? widthFront
@@ -3264,32 +3225,10 @@ export function GarmentCustomizerModal({
                 className="w-full bg-white border border-neutral-300 hover:border-black focus:border-black focus:ring-1 focus:ring-black rounded-xl px-4 py-2.5 text-sm font-bold transition-all outline-none shadow-xs text-neutral-900"
               />
 
-              {/* Live Auto-Quote Breakdown Badge */}
-              {liveAutoQuote && liveAutoQuote.ok && (
-                <div className="bg-neutral-900 text-white rounded-2xl p-3.5 shadow-md flex items-center justify-between mt-1 animate-in fade-in duration-200">
-                  <div className="flex flex-col gap-0.5">
-                    <span className="text-[9px] uppercase font-bold tracking-widest text-neutral-400">
-                      Detected Print Placement
-                    </span>
-                    <span className="text-xs font-bold text-amber-400">
-                      {liveAutoQuote.placementIds.map(pId => DTFPricing.findPlacement(pId)?.label).filter(Boolean).join(', ')}
-                    </span>
-                  </div>
-                  <div className="flex flex-col items-end gap-0.5">
-                    <span className="text-[9px] uppercase font-bold tracking-widest text-neutral-400">
-                      Est. Price / Piece
-                    </span>
-                    <span className="text-base font-black text-white font-mono">
-                      ${liveAutoQuote.pricePerPiece.toFixed(2)}
-                    </span>
-                  </div>
-                </div>
-              )}
-
               <div className="bg-amber-50/70 border border-amber-250/70 text-amber-900 rounded-2xl p-3 flex gap-2 mt-1">
                 <AlertCircle size={16} className="text-amber-600 shrink-0 mt-0.5" />
                 <span className="text-[10.5px] leading-relaxed font-medium">
-                  <strong>Print Dimensions:</strong> Type your exact width in inches above for instant, accurate auto-quoting based on print size. Standard dimensions apply if left blank.
+                  <strong>Print Dimensions:</strong> Type your desired print width in inches above. When you set your order quantities in the cart, your auto-quote will be calculated automatically based on your dimensions and tier quantity!
                 </span>
               </div>
             </div>
