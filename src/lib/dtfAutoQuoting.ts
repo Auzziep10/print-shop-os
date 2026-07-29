@@ -131,26 +131,48 @@ export function autoQuoteItem(item: any, costs?: any, ladder?: any): {
 }
 
 /**
- * Fetch DTF pricing settings from Firestore.
+ * Fetch DTF pricing settings from Firestore with optional customer override.
  */
-export async function fetchDtfPricingSettings(): Promise<{ costs: any; ladder: any; autoQuotingEnabled: boolean }> {
+export async function fetchDtfPricingSettings(customerId?: string): Promise<{ costs: any; ladder: any; autoQuotingEnabled: boolean }> {
+  let costs = DTFPricing.DEFAULT_COSTS;
+  let ladder = DTFPricing.DEFAULT_LADDER;
+  let autoQuotingEnabled = true;
+
   try {
     const docRef = doc(db, 'settings', 'dtf_pricing');
     const docSnap = await getDoc(docRef);
     if (docSnap.exists()) {
       const data = docSnap.data();
-      return {
-        costs: data.costs ? { ...DTFPricing.DEFAULT_COSTS, ...data.costs } : DTFPricing.DEFAULT_COSTS,
-        ladder: data.ladder ? { ...DTFPricing.DEFAULT_LADDER, ...data.ladder } : DTFPricing.DEFAULT_LADDER,
-        autoQuotingEnabled: data.autoQuotingEnabled !== undefined ? !!data.autoQuotingEnabled : true
-      };
+      costs = data.costs ? { ...DTFPricing.DEFAULT_COSTS, ...data.costs } : DTFPricing.DEFAULT_COSTS;
+      ladder = data.ladder ? { ...DTFPricing.DEFAULT_LADDER, ...data.ladder } : DTFPricing.DEFAULT_LADDER;
+      if (data.autoQuotingEnabled !== undefined) {
+        autoQuotingEnabled = !!data.autoQuotingEnabled;
+      }
     }
   } catch (err) {
     console.error("Error fetching dtf pricing settings:", err);
   }
+
+  // Check customer-specific override if customerId is passed
+  if (customerId) {
+    try {
+      const custSnap = await getDoc(doc(db, 'customers', customerId));
+      if (custSnap.exists()) {
+        const custData = custSnap.data();
+        if (custData.autoQuotingEnabled === 'enabled' || custData.autoQuotingEnabled === true) {
+          autoQuotingEnabled = true;
+        } else if (custData.autoQuotingEnabled === 'disabled' || custData.autoQuotingEnabled === false) {
+          autoQuotingEnabled = false;
+        }
+      }
+    } catch (err) {
+      console.error("Error checking customer auto-quoting override:", err);
+    }
+  }
+
   return {
-    costs: DTFPricing.DEFAULT_COSTS,
-    ladder: DTFPricing.DEFAULT_LADDER,
-    autoQuotingEnabled: true
+    costs,
+    ladder,
+    autoQuotingEnabled
   };
 }

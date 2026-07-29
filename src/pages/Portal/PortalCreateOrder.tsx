@@ -251,8 +251,8 @@ export function PortalCreateOrder() {
   const [dtfSettings, setDtfSettings] = useState<{ costs: any; ladder: any; autoQuotingEnabled: boolean } | null>(null);
 
   useEffect(() => {
-    fetchDtfPricingSettings().then(setDtfSettings).catch(console.error);
-  }, []);
+    fetchDtfPricingSettings(customerId).then(setDtfSettings).catch(console.error);
+  }, [customerId]);
 
   const dtfCartSummary = useMemo(() => {
     if (!dtfSettings || !dtfSettings.autoQuotingEnabled || orderItems.length === 0) {
@@ -1235,7 +1235,7 @@ export function PortalCreateOrder() {
          };
       }));
 
-       const dtfSettings = await fetchDtfPricingSettings();
+       const dtfSettings = await fetchDtfPricingSettings(customerId);
        let finalStatusIndex = 0;
        let finalItems = resolvedItems;
        let calculatedTotal = 0;

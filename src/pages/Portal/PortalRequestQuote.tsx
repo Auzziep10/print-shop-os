@@ -899,7 +899,7 @@ export function PortalRequestQuote() {
          };
       }));
 
-       const dtfSettings = await fetchDtfPricingSettings();
+       const dtfSettings = await fetchDtfPricingSettings(customerId);
        let finalStatusIndex = 0;
        let finalItems = resolvedItems;
        let calculatedTotal = 0;

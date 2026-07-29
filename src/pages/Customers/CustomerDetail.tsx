@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
-import { ArrowLeft, Mail, Phone, MapPin, Building2, ExternalLink, Plus, Loader2, Upload, X, Check, Edit3, ChevronRight, Trash2, FileText, Crop, Eye, EyeOff, Search, Send, MessageSquare, Image } from 'lucide-react';
+import { ArrowLeft, Mail, Phone, MapPin, Building2, ExternalLink, Plus, Loader2, Upload, X, Check, Edit3, ChevronRight, Trash2, FileText, Crop, Eye, EyeOff, Search, Send, MessageSquare, Image, Zap } from 'lucide-react';
 
 import { storage, db } from '../../lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -99,6 +99,7 @@ export function CustomerDetail() {
     fulfillmentType: 'Standard',
     disableRack: false,
     taxExempt: false,
+    autoQuotingEnabled: 'inherit' as 'inherit' | 'enabled' | 'disabled',
     resaleCertificateUrl: '',
     resaleCertificateName: ''
   });
@@ -820,6 +821,7 @@ export function CustomerDetail() {
             fulfillmentType: data.fulfillmentType ?? 'Standard',
             disableRack: data.disableRack ?? false,
             taxExempt: data.taxExempt ?? false,
+            autoQuotingEnabled: data.autoQuotingEnabled || 'inherit',
             resaleCertificateUrl: data.resaleCertificateUrl || '',
             resaleCertificateName: data.resaleCertificateName || ''
           });
@@ -904,6 +906,7 @@ export function CustomerDetail() {
         fulfillmentType: editCompanyForm.fulfillmentType,
         disableRack: editCompanyForm.disableRack,
         taxExempt: editCompanyForm.taxExempt,
+        autoQuotingEnabled: editCompanyForm.autoQuotingEnabled,
         resaleCertificateUrl: editCompanyForm.resaleCertificateUrl,
         resaleCertificateName: editCompanyForm.resaleCertificateName
       }, { merge: true });
@@ -919,6 +922,7 @@ export function CustomerDetail() {
         fulfillmentType: editCompanyForm.fulfillmentType,
         disableRack: editCompanyForm.disableRack,
         taxExempt: editCompanyForm.taxExempt,
+        autoQuotingEnabled: editCompanyForm.autoQuotingEnabled,
         resaleCertificateUrl: editCompanyForm.resaleCertificateUrl,
         resaleCertificateName: editCompanyForm.resaleCertificateName
       });
@@ -1174,6 +1178,16 @@ export function CustomerDetail() {
                   )}
                   {customer?.taxExempt && (
                     <span className="text-[10px] bg-purple-50 border border-purple-200 text-purple-700 px-2.5 py-1 rounded-md font-semibold uppercase tracking-wider">Tax Exempt</span>
+                  )}
+                  {customer?.autoQuotingEnabled === 'enabled' && (
+                    <span className="text-[10px] bg-amber-50 border border-amber-250 text-amber-800 px-2.5 py-1 rounded-md font-semibold uppercase tracking-wider flex items-center gap-1">
+                      <Zap size={10} className="fill-amber-500 text-amber-600" /> Auto-Quote: Forced ON
+                    </span>
+                  )}
+                  {customer?.autoQuotingEnabled === 'disabled' && (
+                    <span className="text-[10px] bg-red-50 border border-red-200 text-red-700 px-2.5 py-1 rounded-md font-semibold uppercase tracking-wider flex items-center gap-1">
+                      <Zap size={10} className="text-red-500" /> Auto-Quote: Forced OFF
+                    </span>
                   )}
                   {customer?.resaleCertificateUrl && (
                     <a 
@@ -2030,6 +2044,25 @@ export function CustomerDetail() {
                     <div className="flex items-center gap-3">
                       <input type="checkbox" id="taxExempt" checked={editCompanyForm.taxExempt} onChange={e => setEditCompanyForm({...editCompanyForm, taxExempt: e.target.checked})} className="w-4 h-4 accent-brand-primary cursor-pointer" />
                       <label htmlFor="taxExempt" className="text-xs font-bold text-brand-primary uppercase tracking-widest cursor-pointer mt-0.5">TAX EXEMPT STATUS (WAIVE SALES TAX)</label>
+                    </div>
+
+                    <div className="flex flex-col gap-1.5 pt-3 border-t border-brand-border/40 mt-1">
+                      <label className="text-xs font-bold text-brand-primary uppercase tracking-widest flex items-center gap-1.5">
+                        <Zap size={13} className="text-amber-500" />
+                        <span>Client Portal Auto-Quoting Override</span>
+                      </label>
+                      <select 
+                        className="w-full bg-brand-bg border border-brand-border/60 rounded-xl px-4 py-2 text-sm font-semibold text-brand-primary focus:outline-none focus:border-brand-primary/30 transition-colors cursor-pointer"
+                        value={editCompanyForm.autoQuotingEnabled || 'inherit'} 
+                        onChange={e => setEditCompanyForm({...editCompanyForm, autoQuotingEnabled: e.target.value as any})}
+                      >
+                        <option value="inherit">⚡ Shop Default (Inherit Global Settings)</option>
+                        <option value="enabled">✅ Always Auto-Quote Portal Orders (Forced ON)</option>
+                        <option value="disabled">❌ Require Manual Quoting (Forced OFF)</option>
+                      </select>
+                      <span className="text-[11px] text-brand-secondary/70 italic pl-1">
+                        Override whether quote requests & orders submitted by this customer in their portal are automatically priced or held for manual shop review.
+                      </span>
                     </div>
 
                     {/* Resale Certificate uploader */}
