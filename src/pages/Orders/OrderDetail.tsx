@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { PillButton } from '../../components/ui/PillButton';
 import { PackingSlipsManager } from '../../components/Orders/PackingSlipsManager';
 import { TrackingModal } from '../../components/Orders/TrackingModal';
-import { ArrowLeft, MessageSquare, QrCode, Clock, Users, Download, Loader2, X, Edit3, Upload, Trash2, Plus, ChevronDown, Image as ImageIcon, Box, Printer, ExternalLink, ShoppingBag, Search, Check, Truck, Calculator, GripVertical, Pause, Play, DollarSign, PackagePlus, Layers, CreditCard, Copy, RotateCcw, Sparkles, FileText, TriangleAlert } from 'lucide-react';
+import { ArrowLeft, MessageSquare, QrCode, Clock, Users, Download, Loader2, X, Edit3, Upload, Trash2, Plus, ChevronDown, Image as ImageIcon, Box, Printer, ExternalLink, ShoppingBag, Search, Check, Truck, Calculator, GripVertical, Pause, Play, DollarSign, PackagePlus, Layers, CreditCard, Copy, RotateCcw, Sparkles, FileText, TriangleAlert, Zap } from 'lucide-react';
 import ReactQRCode from 'react-qr-code';
 import QRCodeLib from 'qrcode';
 import JSZip from 'jszip';
@@ -1310,6 +1310,9 @@ export function OrderDetail() {
           } else {
             setDtfLadder(DEFAULT_LADDER_FALLBACK);
           }
+          if (data.autoQuotingEnabled !== undefined) {
+            setAutoQuotingEnabled(!!data.autoQuotingEnabled);
+          }
         } else {
           setDtfCosts(DTFPricing.DEFAULT_COSTS);
           setDtfLadder(DEFAULT_LADDER_FALLBACK);
@@ -1373,6 +1376,7 @@ export function OrderDetail() {
   const [isDtfToolOpen, setIsDtfToolOpen] = useState(false);
   const [dtfCosts, setDtfCosts] = useState<any>(null);
   const [dtfLadder, setDtfLadder] = useState<any>(null);
+  const [autoQuotingEnabled, setAutoQuotingEnabled] = useState<boolean>(true);
   const [quickShipItem, setQuickShipItem] = useState<any>(null);
   const [quickShipSizes, setQuickShipSizes] = useState<Record<string, number>>({});
   const [expandedImage, setExpandedImage] = useState<{src: string, alt: string} | null>(null);
@@ -7153,17 +7157,21 @@ export function OrderDetail() {
           initialGarment={editItemObj?.style}
           costs={dtfCosts || DTFPricing.DEFAULT_COSTS}
           ladder={dtfLadder || DEFAULT_LADDER_FALLBACK}
+          autoQuotingEnabled={autoQuotingEnabled}
           liveCustomer={liveCustomer}
           editItemObj={editItemObj}
-          onSaveConfig={async (newCosts: any, newLadder: any) => {
+          onSaveConfig={async (newCosts: any, newLadder: any, newAutoQuoting?: boolean) => {
             try {
+              const isAuto = newAutoQuoting !== undefined ? newAutoQuoting : autoQuotingEnabled;
               await setDoc(doc(db, 'settings', 'dtf_pricing'), {
                 costs: newCosts,
                 ladder: newLadder,
+                autoQuotingEnabled: isAuto,
                 updatedAt: new Date().toISOString()
               }, { merge: true });
               setDtfCosts(newCosts);
               setDtfLadder(newLadder);
+              if (newAutoQuoting !== undefined) setAutoQuotingEnabled(newAutoQuoting);
             } catch (err) {
               console.error("Error saving DTF pricing settings:", err);
               throw err;
@@ -7195,9 +7203,10 @@ interface DtfQuotingModalProps {
   initialGarment?: string;
   costs: any;
   ladder: any;
+  autoQuotingEnabled?: boolean;
   liveCustomer: any;
   editItemObj: any;
-  onSaveConfig: (newCosts: any, newLadder: any) => Promise<void>;
+  onSaveConfig: (newCosts: any, newLadder: any, newAutoQuoting?: boolean) => Promise<void>;
   onApplyPrice: (price: number) => void;
 }
 
@@ -7209,6 +7218,7 @@ function DtfQuotingModal({
   initialGarment,
   costs,
   ladder,
+  autoQuotingEnabled,
   liveCustomer,
   editItemObj,
   onSaveConfig,
@@ -7258,6 +7268,7 @@ function DtfQuotingModal({
   const [activeSettingsTab, setActiveSettingsTab] = useState<'ladder' | 'costs' | 'rateCard' | 'transfers'>('ladder');
   const [tempCosts, setTempCosts] = useState<any>({ ...costs });
   const [tempLadder, setTempLadder] = useState<any>({ ...ladder });
+  const [tempAutoQuoting, setTempAutoQuoting] = useState<boolean>(autoQuotingEnabled ?? true);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [saveStatus, setSaveStatus] = useState<{ success: boolean; message: string } | null>(null);
 
@@ -7265,7 +7276,8 @@ function DtfQuotingModal({
   useEffect(() => {
     setTempCosts({ ...costs });
     setTempLadder({ ...ladder });
-  }, [costs, ladder]);
+    setTempAutoQuoting(autoQuotingEnabled ?? true);
+  }, [costs, ladder, autoQuotingEnabled]);
 
   // Try to match initialGarment string to dtf garment id
   useEffect(() => {
@@ -7333,8 +7345,8 @@ function DtfQuotingModal({
     setIsSaving(true);
     setSaveStatus(null);
     try {
-      await onSaveConfig(tempCosts, tempLadder);
-      setSaveStatus({ success: true, message: 'DTF pricing configuration saved successfully!' });
+      await onSaveConfig(tempCosts, tempLadder, tempAutoQuoting);
+      setSaveStatus({ success: true, message: 'DTF pricing & auto-quoting configuration saved successfully!' });
       setTimeout(() => setSaveStatus(null), 3000);
     } catch (err: any) {
       setSaveStatus({ success: false, message: `Failed to save: ${err.message || 'Unknown error'}` });
@@ -7634,6 +7646,42 @@ function DtfQuotingModal({
             </div>
           ) : (
             <div className="flex flex-col gap-6">
+
+              {/* Customer Portal Auto-Quoting Toggle Card */}
+              <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-5 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div className="flex items-start gap-3">
+                  <div className="p-2.5 bg-amber-500/10 text-amber-600 rounded-xl shrink-0 mt-0.5">
+                    <Zap size={20} />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-neutral-900 flex items-center gap-2">
+                      Customer Portal Auto-Quoting
+                      <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-extrabold uppercase tracking-wider ${
+                        tempAutoQuoting ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-neutral-200 text-neutral-700'
+                      }`}>
+                        {tempAutoQuoting ? 'ENABLED' : 'DISABLED'}
+                      </span>
+                    </h4>
+                    <p className="text-xs text-neutral-600 font-medium mt-0.5 max-w-xl">
+                      Automatically calculate quotes & skip manual review for customer portal orders using print dimensions & artwork placement. Customers can pay immediately!
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setTempAutoQuoting(!tempAutoQuoting)}
+                  className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                    tempAutoQuoting ? 'bg-emerald-500' : 'bg-neutral-300'
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                      tempAutoQuoting ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
               
               {/* Settings navigation */}
               <div className="flex flex-wrap gap-2 border-b border-brand-border pb-3 shrink-0">

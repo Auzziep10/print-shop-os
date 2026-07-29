@@ -11,6 +11,7 @@ const sanmarCatalog = sanmarCatalogJson as any[];
 import { getSwatchColor } from '../../components/shared/GarmentBrowser';
 import { getGarmentWeightAndFabric, getOrderedKeys } from '../../lib/garmentUtils';
 import { SavedDesignsModal } from '../../components/Portal/SavedDesignsModal';
+import { fetchDtfPricingSettings, autoQuoteItem } from '../../lib/dtfAutoQuoting';
 
 const findColorsInObj = (obj: any, maxDepth = 4): string[] | null => {
   if (!obj || typeof obj !== 'object' || maxDepth === 0) return null;
@@ -898,40 +899,66 @@ export function PortalRequestQuote() {
          };
       }));
 
-      const payload = {
-        id: `quote-${Date.now()}`,
-        portalId: portalId,
-        customerId: customerId,
-        title: `Quote Request from ${contactName}`,
-        statusIndex: 0, 
-        date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric'}),
-        createdAt: new Date().toISOString(),
-        packaging: selectedPackaging,
-        items: resolvedItems,
-        shippingAddress: {
-           street1: shippingAddress.line1,
-           city: shippingAddress.city,
-           state: shippingAddress.state,
-           zip: shippingAddress.zip,
-           country: shippingAddress.country,
-           name: orderOnBehalf.contactPerson || contactName
-        },
-        contactDetails: {
-           name: contactName,
-           email: emailAddress,
-           phone: phone
-        },
-        inHandsDate: inHandsDate,
-        notes: notes,
-        budgetTier: budgetTier,
-        activities: [{
-          id: `act-${Date.now()}`,
-          type: 'system',
-          message: `Quote request submitted by ${contactName}`,
-          user: emailAddress,
-          timestamp: new Date().toISOString()
-        }]
-      };
+       const dtfSettings = await fetchDtfPricingSettings();
+       let finalStatusIndex = 0;
+       let finalItems = resolvedItems;
+       let calculatedTotal = 0;
+
+       if (dtfSettings.autoQuotingEnabled) {
+         finalStatusIndex = 2; // Auto-Quoted -> Ready for Payment
+         finalItems = resolvedItems.map(item => {
+           const autoQuote = autoQuoteItem(item, dtfSettings.costs, dtfSettings.ladder);
+           const priceEach = autoQuote.pricePerPiece;
+           const totalQty = Object.values(item.sizes || {}).reduce((q: number, val: any) => q + (parseInt(val.toString()) || 0), 0) || item.qty || 1;
+           calculatedTotal += priceEach * totalQty;
+           return {
+             ...item,
+             price: priceEach.toFixed(2),
+             total: (priceEach * totalQty).toFixed(2),
+             dtfAutoQuoted: true,
+             dtfGarmentId: autoQuote.garmentId,
+             dtfPlacements: autoQuote.placementIds
+           };
+         });
+       }
+
+       const payload = {
+         id: `quote-${Date.now()}`,
+         portalId: portalId,
+         customerId: customerId,
+         title: `Quote Request from ${contactName}`,
+         statusIndex: finalStatusIndex, 
+         date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric'}),
+         createdAt: new Date().toISOString(),
+         packaging: selectedPackaging,
+         totalAmount: Math.round(calculatedTotal * 100) / 100,
+         items: finalItems,
+         shippingAddress: {
+            street1: shippingAddress.line1,
+            city: shippingAddress.city,
+            state: shippingAddress.state,
+            zip: shippingAddress.zip,
+            country: shippingAddress.country,
+            name: orderOnBehalf.contactPerson || contactName
+         },
+         contactDetails: {
+            name: contactName,
+            email: emailAddress,
+            phone: phone
+         },
+         inHandsDate: inHandsDate,
+         notes: notes,
+         budgetTier: budgetTier,
+         activities: [{
+           id: `act-${Date.now()}`,
+           type: 'system',
+           message: dtfSettings.autoQuotingEnabled 
+             ? `Quote automatically calculated ($${calculatedTotal.toFixed(2)}) based on print dimensions & DTF pricing rules. Ready for customer payment.`
+             : `Quote request submitted by ${contactName}. Awaiting shop review.`,
+           user: emailAddress,
+           timestamp: new Date().toISOString()
+         }]
+       };
 
       await setDoc(doc(db, 'orders', payload.id), payload);
       navigate(`/portal/${customerId}`);

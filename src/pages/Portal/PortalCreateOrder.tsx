@@ -11,6 +11,7 @@ import { getGarmentWeightAndFabric, getOrderedKeys } from '../../lib/garmentUtil
 import { SavedDesignsModal } from '../../components/Portal/SavedDesignsModal';
 import { getSavedDesigns } from '../../lib/savedDesignsUtils';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
+import { fetchDtfPricingSettings, autoQuoteItem } from '../../lib/dtfAutoQuoting';
 
 const sanmarCatalog = sanmarCatalogJson as any[];
 
@@ -1200,37 +1201,71 @@ export function PortalCreateOrder() {
          };
       }));
 
-      const payload = {
-        id: orderId,
-        portalId: portalId,
-        customerId: customerId,
-        title: `${profileCompany ? profileCompany.trim() : 'Portal'} Order - ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric'})}`,
-        statusIndex: 0, 
-        date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric'}),
-        createdAt: new Date().toISOString(),
-        packaging: selectedPackaging,
-        deliveryOption: deliveryOption,
-        neededByDate: neededByDate,
-        orderType: orderType,
-        resaleCertificateUrl: resaleCertificateUrl,
-        resaleCertificateName: resaleCertificateName,
-        specialRequests: specialRequests,
-        shippingAddress: {
-          name: profileContactName.trim(),
-          company: profileCompany.trim(),
-          street1: profileStreet.trim(),
-          street2: '',
-          city: profileCity.trim(),
-          state: profileState.trim(),
-          zip: profileZip.trim(),
-          country: 'US'
-        },
-        totalAmount: Math.round(orderItems.reduce((sum, item) => {
+       const dtfSettings = await fetchDtfPricingSettings();
+       let finalStatusIndex = 0;
+       let finalItems = resolvedItems;
+       let calculatedTotal = 0;
+
+       if (dtfSettings.autoQuotingEnabled) {
+         finalStatusIndex = 2; // Auto-Quoted -> Ready for Payment
+         finalItems = resolvedItems.map(item => {
+           const autoQuote = autoQuoteItem(item, dtfSettings.costs, dtfSettings.ladder);
+           const priceEach = autoQuote.pricePerPiece;
+           const totalQty = Object.values(item.sizes as Record<string, number> || {}).reduce((q, val) => q + val, 0) || item.qty || 1;
+           calculatedTotal += priceEach * totalQty;
+           return {
+             ...item,
+             price: Math.round(priceEach * 100) / 100,
+             total: Math.round(priceEach * totalQty * 100) / 100,
+             dtfAutoQuoted: true,
+             dtfGarmentId: autoQuote.garmentId,
+             dtfPlacements: autoQuote.placementIds
+           };
+         });
+       } else {
+         calculatedTotal = orderItems.reduce((sum, item) => {
            const totalQty = Object.values(item.quantities as Record<string, number>).reduce((q, val) => q + val, 0);
            return sum + (totalQty * (parseFloat(item.price) || 0));
-        }, 0) * 100) / 100,
-        items: resolvedItems
-      };
+         }, 0);
+       }
+
+       const payload = {
+         id: orderId,
+         portalId: portalId,
+         customerId: customerId,
+         title: `${profileCompany ? profileCompany.trim() : 'Portal'} Order - ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric'})}`,
+         statusIndex: finalStatusIndex, 
+         date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric'}),
+         createdAt: new Date().toISOString(),
+         packaging: selectedPackaging,
+         deliveryOption: deliveryOption,
+         neededByDate: neededByDate,
+         orderType: orderType,
+         resaleCertificateUrl: resaleCertificateUrl,
+         resaleCertificateName: resaleCertificateName,
+         specialRequests: specialRequests,
+         shippingAddress: {
+           name: profileContactName.trim(),
+           company: profileCompany.trim(),
+           street1: profileStreet.trim(),
+           street2: '',
+           city: profileCity.trim(),
+           state: profileState.trim(),
+           zip: profileZip.trim(),
+           country: 'US'
+         },
+         totalAmount: Math.round(calculatedTotal * 100) / 100,
+         items: finalItems,
+         activities: [{
+           id: `act-${Date.now()}`,
+           type: 'system',
+           message: dtfSettings.autoQuotingEnabled 
+             ? `Order automatically quoted ($${calculatedTotal.toFixed(2)}) based on print dimensions & DTF pricing rules. Ready for customer payment.`
+             : `Order submitted by customer in portal. Awaiting shop quote approval.`,
+           user: profileContactName.trim() || customerId || 'Customer',
+           timestamp: new Date().toISOString()
+         }]
+       };
 
       await setDoc(doc(db, 'orders', orderId), payload);
 
