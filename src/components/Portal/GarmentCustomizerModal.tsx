@@ -3407,9 +3407,9 @@ export function GarmentCustomizerModal({
               setLibraryDesignName(`${activeGarment.brand || ''} ${activeGarment.style || ''} ${selectedColor !== 'Custom Color' ? selectedColor : ''}`.trim() || 'My Custom Design');
               setIsSaveToLibraryOpen(true);
             }}
-            className="bg-amber-50 border border-amber-300 hover:bg-amber-100 text-amber-900 px-4 py-3 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+            className="bg-white border border-neutral-200 hover:bg-neutral-50 text-neutral-800 px-4 py-3 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
           >
-            <Sparkles size={14} className="text-amber-600" />
+            <Sparkles size={14} className="text-amber-500" />
             <span>Save to My Saved Designs</span>
           </button>
 
