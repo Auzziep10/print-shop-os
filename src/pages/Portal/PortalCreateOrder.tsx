@@ -11,7 +11,7 @@ import { getGarmentWeightAndFabric, getOrderedKeys } from '../../lib/garmentUtil
 import { SavedDesignsModal } from '../../components/Portal/SavedDesignsModal';
 import { getSavedDesigns } from '../../lib/savedDesignsUtils';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
-import { fetchDtfPricingSettings, autoQuoteItem } from '../../lib/dtfAutoQuoting';
+import { fetchDtfPricingSettings, autoQuoteItem, PLACEMENT_LABELS } from '../../lib/dtfAutoQuoting';
 
 const sanmarCatalog = sanmarCatalogJson as any[];
 
@@ -2266,32 +2266,24 @@ export function PortalCreateOrder() {
                                 </div>
                               </div>
 
-                              {/* Itemized Pricing Breakdown */}
-                              {breakdownLines.length > 0 && (
-                                <div className="flex flex-col gap-1.5 pt-0.5 text-xs text-neutral-300">
-                                  <span className="text-[9px] uppercase font-bold tracking-widest text-neutral-400">
-                                    Per-Piece Price Breakdown
-                                  </span>
-                                  <div className="grid grid-cols-1 gap-1.5 bg-neutral-950/70 p-2.5 rounded-xl border border-neutral-800/80">
-                                    {breakdownLines.map((b, idx) => (
-                                      <div key={idx} className="flex justify-between items-center text-[11px] font-medium">
-                                        <span className="text-neutral-300 flex items-center gap-1.5">
-                                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
-                                          <span>{b.label}</span>
-                                          {b.isMarginal && (
-                                            <span className="text-[8.5px] font-bold uppercase tracking-wider text-amber-300 bg-amber-950/90 border border-amber-700/50 px-1.5 py-0.2 rounded-md">
-                                              Marginal Extra
-                                            </span>
-                                          )}
-                                        </span>
-                                        <span className="font-mono text-white font-bold">
-                                          ${b.price.toFixed(2)}
-                                        </span>
-                                      </div>
-                                    ))}
-                                  </div>
+                              {/* Print Placements List */}
+                              <div className="flex flex-col gap-1.5 pt-0.5 text-xs text-neutral-300">
+                                <span className="text-[9px] uppercase font-bold tracking-widest text-neutral-400">
+                                  Included Print Placements
+                                </span>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {(q.autoQuote?.placementIds || []).length > 0 ? (
+                                    (q.autoQuote?.placementIds || []).map((pid, idx) => (
+                                      <span key={idx} className="inline-flex items-center gap-1.5 bg-neutral-950/80 text-neutral-200 text-xs font-semibold px-2.5 py-1 rounded-xl border border-neutral-800">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                                        <span>{PLACEMENT_LABELS[pid] || pid}</span>
+                                      </span>
+                                    ))
+                                  ) : (
+                                    <span className="text-neutral-400 text-xs italic pl-0.5">Blank Garment (No Artwork)</span>
+                                  )}
                                 </div>
-                              )}
+                              </div>
                             </div>
                           );
                         })()}

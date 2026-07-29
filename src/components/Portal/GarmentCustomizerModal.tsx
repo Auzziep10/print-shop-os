@@ -1808,7 +1808,7 @@ export function GarmentCustomizerModal({
 
       // Generate size tag base image
       let logoUrlTag = null;
-      const isTagCustomized = tagLogos.length > 0 || tagTexts.length > 0 || tagCareSymbols.visible || tagBlend.visible;
+      const isTagCustomized = tagLogos.length > 0 || tagTexts.length > 0;
       if (isTagCustomized) {
         const tagBaseCanvas = await compileTagCanvas(false);
         if (tagBaseCanvas) {

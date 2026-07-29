@@ -17,6 +17,17 @@ export function detectGarmentId(styleStr?: string, categoryStr?: string): string
   return 'tee'; // Default T-shirt
 }
 
+export const PLACEMENT_LABELS: Record<string, string> = {
+  ff: 'Full Front (11" × 14")',
+  lc: 'Left Chest (~4")',
+  fb: 'Full Back (11" × 14")',
+  sb: 'Small Upper Back (~4")',
+  sl: 'Left Sleeve',
+  sr: 'Right Sleeve',
+  tag: 'Neck Tag Relabel',
+  patch: 'Custom Cap Patch'
+};
+
 /**
  * Detect print placement IDs & print sizes from customized garment item.
  * Distinguishes large prints (11x14 full front/back) vs small prints (~4" chest/back), sleeves, tags, and cap patches.
@@ -52,8 +63,13 @@ export function detectPlacementIds(item: any, garmentId: string): string[] {
   const hasRightSleeve = !!(item.logoUrlRightSleeve || lp.includes('right sleeve'));
   if (hasRightSleeve) placements.push('sr');
 
-  // 5. NECK TAG
-  const hasTag = !!(item.logoUrlTag || item.tagLayout || lp.includes('tag'));
+  // 5. NECK TAG (Only if explicitly customized with tag logo or text)
+  const hasTag = !!(
+    (item.logoUrlTag && item.logoUrlTag !== '') || 
+    (item.tagLayout && ((item.tagLayout.placedTagLogos && item.tagLayout.placedTagLogos.length > 0) || (item.tagLayout.placedTagTexts && item.tagLayout.placedTagTexts.length > 0))) ||
+    lp.includes('tag: custom tag') ||
+    lp.includes('neck tag')
+  );
   if (hasTag) placements.push('tag');
 
   // Fallback: if customized or placement specified but none matched above, default to 'ff'
