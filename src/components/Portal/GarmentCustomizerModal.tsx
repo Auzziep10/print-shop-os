@@ -7,9 +7,6 @@ import { generateRotatedGarment } from '../../lib/geminiService';
 import { getSwatchColor } from '../shared/GarmentBrowser';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
 import { saveDesignToLibrary } from '../../lib/savedDesignsUtils';
-// @ts-ignore
-import DTFPricing from '../../../dtf-pricing-engine.js';
-import { fetchDtfPricingSettings, autoQuoteItem } from '../../lib/dtfAutoQuoting';
 
 const sanmarCatalog = sanmarCatalogJson as any[];
 
@@ -318,13 +315,6 @@ export function GarmentCustomizerModal({
   const [selectedTagElementId, setSelectedTagElementId] = useState<string | null>(null);
   const [tagDesignName, setTagDesignName] = useState<string>('My Custom Tag');
   const [activeElementDrag, setActiveElementDrag] = useState<{ id: string; type: 'logo' | 'text' | 'size' | 'care_symbols' | 'blend' } | null>(null);
-
-  // Auto-Quoting settings state
-  const [dtfSettings, setDtfSettings] = useState<{ costs: any; ladder: any; autoQuotingEnabled: boolean } | null>(null);
-
-  useEffect(() => {
-    fetchDtfPricingSettings().then(setDtfSettings).catch(console.error);
-  }, []);
   const [activeElementResize, setActiveElementResize] = useState<{ id: string; type: 'logo' | 'text' | 'size' | 'care_symbols' | 'blend' } | null>(null);
   const [isSavingTagAsset, setIsSavingTagAsset] = useState(false);
 
