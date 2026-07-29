@@ -73,12 +73,16 @@ export function autoQuoteItem(item: any, costs?: any, ladder?: any): {
   quantity: number;
   placementIds: string[];
   garmentId: string;
+  blankCost: number;
+  breakdown: Array<{ id: string; label: string; amount: number; price: number; isMarginal: boolean }>;
   ok: boolean;
 } {
   const qty = Object.values(item.quantities || item.sizes || {}).reduce((sum: number, q: any) => sum + (parseFloat(q) || 0), 0) || parseFloat(item.qty) || 1;
   const garmentId = detectGarmentId(item.style || item.title || item.name, item.category);
   const placementIds = detectPlacementIds(item, garmentId);
-  const blankCost = parseFloat(item.blankCost) || 0;
+
+  // Check all possible garment price properties (blankCost, blankPrice, wholesalePrice, cost, price)
+  const blankCost = parseFloat(item.blankCost) || parseFloat(item.blankPrice) || parseFloat(item.wholesalePrice) || parseFloat(item.cost) || parseFloat(item.price) || 0;
 
   const result = DTFPricing.quote({
     garmentId,
@@ -90,12 +94,25 @@ export function autoQuoteItem(item: any, costs?: any, ladder?: any): {
   });
 
   if (result.ok) {
+    const margin = result.margin || 0;
+    const marginDivisor = (1 - margin) > 0 ? (1 - margin) : 1;
+
+    const breakdown = (result.breakdown || []).map((b: any) => ({
+      id: b.id,
+      label: b.label,
+      amount: b.amount,
+      price: Math.round((b.amount / marginDivisor) * 100) / 100,
+      isMarginal: !!b.isMarginal
+    }));
+
     return {
       pricePerPiece: result.pricePerPiece,
       orderTotal: result.orderTotal,
       quantity: qty,
       placementIds,
       garmentId,
+      blankCost,
+      breakdown,
       ok: true
     };
   }
@@ -107,6 +124,8 @@ export function autoQuoteItem(item: any, costs?: any, ladder?: any): {
     quantity: qty,
     placementIds,
     garmentId,
+    blankCost: 0,
+    breakdown: [],
     ok: false
   };
 }

@@ -2243,25 +2243,55 @@ export function PortalCreateOrder() {
                         {dtfCartSummary && (() => {
                           const q = dtfCartSummary.itemQuotes.find(iq => iq.instanceId === item.instanceId);
                           if (!q || q.totalQty === 0) return null;
+                          const breakdownLines = q.autoQuote?.breakdown || [];
                           return (
-                            <div className="w-full bg-neutral-900 text-white rounded-xl p-3 flex items-center justify-between shadow-xs animate-in fade-in duration-200">
-                              <div className="flex flex-col gap-0.5">
-                                <span className="text-[9px] uppercase font-bold tracking-widest text-neutral-400 flex items-center gap-1">
-                                  <Zap size={11} className="text-amber-400 fill-amber-400" />
-                                  <span>Auto-Quote ({q.totalQty} pcs)</span>
-                                </span>
-                                <span className="text-xs font-semibold text-neutral-300">
-                                  ${q.priceEach.toFixed(2)} / piece
-                                </span>
+                            <div className="w-full bg-neutral-900 text-white rounded-2xl p-4 flex flex-col gap-3 shadow-md animate-in fade-in duration-200">
+                              <div className="flex items-center justify-between border-b border-neutral-800 pb-2.5">
+                                <div className="flex flex-col gap-0.5">
+                                  <span className="text-[9px] uppercase font-bold tracking-widest text-neutral-400 flex items-center gap-1.5">
+                                    <Zap size={12} className="text-amber-400 fill-amber-400" />
+                                    <span>Auto-Quote ({q.totalQty} pcs)</span>
+                                  </span>
+                                  <span className="text-sm font-black text-white">
+                                    ${q.priceEach.toFixed(2)} <span className="text-xs font-normal text-neutral-400">/ piece</span>
+                                  </span>
+                                </div>
+                                <div className="flex flex-col items-end gap-0.5">
+                                  <span className="text-[9px] uppercase font-bold tracking-widest text-neutral-400">
+                                    Item Subtotal
+                                  </span>
+                                  <span className="text-base font-black text-amber-400 font-mono">
+                                    ${q.lineTotal.toFixed(2)}
+                                  </span>
+                                </div>
                               </div>
-                              <div className="flex flex-col items-end gap-0.5">
-                                <span className="text-[9px] uppercase font-bold tracking-widest text-neutral-400">
-                                  Item Subtotal
-                                </span>
-                                <span className="text-sm font-black text-amber-400 font-mono">
-                                  ${q.lineTotal.toFixed(2)}
-                                </span>
-                              </div>
+
+                              {/* Itemized Pricing Breakdown */}
+                              {breakdownLines.length > 0 && (
+                                <div className="flex flex-col gap-1.5 pt-0.5 text-xs text-neutral-300">
+                                  <span className="text-[9px] uppercase font-bold tracking-widest text-neutral-400">
+                                    Per-Piece Price Breakdown
+                                  </span>
+                                  <div className="grid grid-cols-1 gap-1.5 bg-neutral-950/70 p-2.5 rounded-xl border border-neutral-800/80">
+                                    {breakdownLines.map((b, idx) => (
+                                      <div key={idx} className="flex justify-between items-center text-[11px] font-medium">
+                                        <span className="text-neutral-300 flex items-center gap-1.5">
+                                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                                          <span>{b.label}</span>
+                                          {b.isMarginal && (
+                                            <span className="text-[8.5px] font-bold uppercase tracking-wider text-amber-300 bg-amber-950/90 border border-amber-700/50 px-1.5 py-0.2 rounded-md">
+                                              Marginal Extra
+                                            </span>
+                                          )}
+                                        </span>
+                                        <span className="font-mono text-white font-bold">
+                                          ${b.price.toFixed(2)}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           );
                         })()}
