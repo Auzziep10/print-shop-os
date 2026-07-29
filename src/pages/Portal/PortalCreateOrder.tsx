@@ -2243,7 +2243,6 @@ export function PortalCreateOrder() {
                         {dtfCartSummary && (() => {
                           const q = dtfCartSummary.itemQuotes.find(iq => iq.instanceId === item.instanceId);
                           if (!q || q.totalQty === 0) return null;
-                          const breakdownLines = q.autoQuote?.breakdown || [];
                           return (
                             <div className="w-full bg-neutral-900 text-white rounded-2xl p-4 flex flex-col gap-3 shadow-md animate-in fade-in duration-200">
                               <div className="flex items-center justify-between border-b border-neutral-800 pb-2.5">
