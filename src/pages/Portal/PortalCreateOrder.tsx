@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { ArrowLeft, PackagePlus, X, Trash2, ChevronDown, RotateCcw, Calendar, Loader2, Sparkles, Save, User, Copy, Upload, ShoppingCart, Users, Info, Plus, ExternalLink, ZoomIn, Zap } from 'lucide-react';
+import { ArrowLeft, PackagePlus, X, Trash2, ChevronDown, RotateCcw, Calendar, Loader2, Sparkles, Save, User, Copy, Upload, ShoppingCart, Users, Info, Plus, ExternalLink, Zap } from 'lucide-react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { db, storage } from '../../lib/firebase';
 import { doc, getDoc, collection, query, where, getDocs, setDoc, deleteDoc } from 'firebase/firestore';
