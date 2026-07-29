@@ -18,14 +18,14 @@ export function detectGarmentId(styleStr?: string, categoryStr?: string): string
 }
 
 export const PLACEMENT_LABELS: Record<string, string> = {
-  ff: 'Full Front (11" × 14")',
-  lc: 'Left Chest (~4")',
-  fb: 'Full Back (11" × 14")',
-  sb: 'Small Upper Back (~4")',
+  ff: 'Full Front',
+  lc: 'Left Chest',
+  fb: 'Full Back',
+  sb: 'Small Upper Back',
   sl: 'Left Sleeve',
   sr: 'Right Sleeve',
   tag: 'Neck Tag Relabel',
-  patch: 'Custom Cap Patch'
+  patch: 'Cap Patch'
 };
 
 /**
