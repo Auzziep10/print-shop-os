@@ -1889,48 +1889,63 @@ export function PortalCreateOrder() {
                 const style = item.designName || g.title || `${g.brand || ''} ${g.style || ''}`;
                 const image = g.image || g.customizedFrontImage || g.originalFrontImage || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
                 const price = parseFloat(g.price || 0);
+                const colorName = g.selectedColor || 'Custom Color';
 
                 return (
                   <div
                     key={item.id}
-                    className="group relative bg-white hover:bg-neutral-50/80 border border-neutral-200 hover:border-black rounded-2xl p-4 flex flex-col justify-between transition-all hover:shadow-lg"
+                    onClick={() => handleSelectSavedDesign(item)}
+                    className="group bg-transparent flex flex-col justify-between cursor-pointer transition-all relative w-full border border-transparent p-0"
                   >
-                    <div>
-                      <div 
+                    <div 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setExpandedImage({ src: image, alt: style });
+                      }}
+                      className="w-full h-64 flex items-center justify-center mb-3 relative cursor-zoom-in bg-transparent"
+                      title="Click to expand mockup"
+                    >
+                      <img
+                        src={image}
+                        alt={style}
+                        className="max-w-full max-h-full object-contain mix-blend-multiply group-hover:scale-[1.03] transition-transform duration-300"
+                      />
+                      <button
+                        type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setExpandedImage({ src: image, alt: style });
+                          handleSelectSavedDesign(item);
                         }}
-                        className="w-full h-48 bg-neutral-100/60 rounded-xl overflow-hidden mb-3 relative flex items-center justify-center p-2 cursor-zoom-in group/img"
-                        title="Click to enlarge design mockup"
+                        className="absolute top-2 right-2 w-8 h-8 rounded-full bg-white border border-neutral-200 text-neutral-800 flex items-center justify-center shadow-md hover:bg-black hover:text-white hover:border-black opacity-0 group-hover:opacity-100 transition-all duration-200 z-10"
+                        title="Add to Order"
                       >
-                        <img
-                          src={image}
-                          alt={style}
-                          className="max-h-full max-w-full object-contain group-hover/img:scale-105 transition-transform duration-300"
-                        />
-                        <span className="absolute top-2 left-2 bg-black/80 backdrop-blur-xs text-white text-[9px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider z-10">
-                          {g.selectedColor || 'Custom'}
-                        </span>
-                        <div className="absolute inset-0 bg-black/10 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
-                          <span className="bg-white/95 text-neutral-900 p-2 rounded-full shadow-md">
-                            <ZoomIn size={16} />
-                          </span>
-                        </div>
-                      </div>
-                      <h4 className="font-bold text-sm text-neutral-900 line-clamp-1">{item.designName || style}</h4>
-                      <p className="text-[11px] text-neutral-500 font-medium mt-0.5 truncate">
-                        {g.brand} {g.style} {price > 0 ? `• $${price.toFixed(2)}` : ''}
-                      </p>
+                        <Plus size={16} strokeWidth={2.5} />
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleSelectSavedDesign(item)}
-                      className="mt-4 w-full py-2.5 bg-neutral-900 hover:bg-black text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer"
-                    >
-                      <Plus size={14} />
-                      <span>Add to Order</span>
-                    </button>
+                    <div className="w-full flex flex-col mt-2">
+                      <h4 className="font-serif font-normal text-neutral-800 text-[17px] leading-tight tracking-wide w-full truncate" title={style}>
+                        {style}
+                      </h4>
+                      <p className="text-[11.5px] font-medium text-neutral-500 font-inter leading-snug mt-0.5 w-full break-words">
+                        {g.brand ? `${g.brand} ${g.style || ''}` : (g.title || 'Saved Design')} {price > 0 ? `• $${price.toFixed(2)}` : ''}
+                      </p>
+                      <div className="relative h-6 mt-1 flex items-center justify-start w-full">
+                        <span className="text-[10px] font-medium text-neutral-450 tracking-[0.18em] uppercase font-inter">
+                          {colorName}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSelectSavedDesign(item);
+                        }}
+                        className="mt-2 w-full py-2 bg-black hover:bg-neutral-800 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer select-none"
+                      >
+                        <Plus size={13} strokeWidth={2.5} />
+                        <span>Add to Order</span>
+                      </button>
+                    </div>
                   </div>
                 );
               })
