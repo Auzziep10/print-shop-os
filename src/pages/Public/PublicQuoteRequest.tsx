@@ -2179,7 +2179,7 @@ export function PublicQuoteRequest() {
                 {/* Pre-selected garments rack representation */}
                 <div className="space-y-4 pt-4 border-t border-neutral-200/50">
                   <span className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-400 block">Curated Standard {rackItems.length}-Item Rack</span>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-8 gap-y-12">
                     {rackItems.map(item => {
                       const customName = catalogSettings.customNames?.racks?.[selectedThemeCategory]?.[item.slot] || `${item.product.brand} ${item.product.style}`;
                       const weightAndFabric = getGarmentWeightAndFabric(item.product);
@@ -2195,19 +2195,19 @@ export function PublicQuoteRequest() {
                           onClick={() => {
                             setRackItems(prev => prev.map(ri => ri.id === item.id ? { ...ri, selected: !ri.selected } : ri));
                           }}
-                          className={`p-6 rounded-2xl transition-all duration-300 flex flex-col justify-between text-center cursor-pointer relative group border ${
+                          className={`group bg-transparent flex flex-col justify-between text-center cursor-pointer relative w-full p-0 transition-all duration-300 ${
                             item.selected 
-                              ? 'bg-neutral-50/80 border-neutral-300 shadow-2xs opacity-100' 
-                              : 'bg-transparent border-neutral-200/40 opacity-50 hover:opacity-100 hover:bg-neutral-50/40'
+                              ? 'opacity-100' 
+                              : 'opacity-40 hover:opacity-100'
                           }`}
                         >
-                          <div className="absolute top-4 right-4 z-10">
-                            <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-all duration-200 ${
+                          <div className="absolute top-0 right-0 z-10">
+                            <div className={`w-6 h-6 rounded-full border flex items-center justify-center transition-all duration-200 ${
                               item.selected 
-                                ? 'bg-neutral-900 border-neutral-900 text-white scale-100' 
-                                : 'border-neutral-200 text-transparent group-hover:border-neutral-350'
+                                ? 'bg-neutral-900 border-neutral-900 text-white shadow-sm' 
+                                : 'border-neutral-300 bg-white text-transparent group-hover:border-neutral-400'
                             }`}>
-                              <Check size={10} strokeWidth={3} />
+                              <Check size={12} strokeWidth={2.5} />
                             </div>
                           </div>
                           
@@ -2222,20 +2222,20 @@ export function PublicQuoteRequest() {
                               return (
                                 <img 
                                   src={imgSrc} 
-                                  className="max-h-full max-w-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-500 ease-out" 
+                                  className="max-h-full max-w-full object-contain mix-blend-multiply group-hover:scale-[1.03] transition-transform duration-300 ease-out" 
                                   alt={item.product.style} 
                                 />
                               );
                             })()}
                           </div>
 
-                          <div className="flex flex-col flex-1 justify-between gap-2 mt-auto">
-                            <h4 className="text-xl font-serif font-bold text-neutral-800 leading-snug truncate" title={customName}>
+                          <div className="flex flex-col flex-1 justify-between gap-1.5 mt-auto">
+                            <h4 className="text-lg font-serif font-bold text-neutral-800 leading-tight truncate" title={customName}>
                               {customName}
                             </h4>
 
                             {fabricText ? (
-                              <p className="text-xs text-neutral-500 font-medium font-inter leading-relaxed line-clamp-2 min-h-[2.25rem] flex items-center justify-center px-1" title={fabricText}>
+                              <p className="text-[11.5px] text-neutral-500 font-medium font-inter leading-relaxed line-clamp-2 min-h-[2.25rem] flex items-center justify-center px-1" title={fabricText}>
                                 {fabricText}
                               </p>
                             ) : (
@@ -2243,7 +2243,7 @@ export function PublicQuoteRequest() {
                             )}
 
                             {colors.length > 0 && (
-                              <div className="flex items-center justify-center gap-1.5 pt-2 border-t border-neutral-200/50 mt-1">
+                              <div className="flex items-center justify-center gap-1.5 pt-1 mt-0.5">
                                 <div className="flex items-center gap-1">
                                   {colors.slice(0, 5).map((col: string, cIdx: number) => {
                                     const hex = colorHexMap[col.toLowerCase().trim()] || '#a3a3a3';
