@@ -2556,6 +2556,22 @@ export function PublicQuoteRequest() {
                             const previewImg = resolveGarmentImage(item, colorKey);
                             const weightAndFabric = getGarmentWeightAndFabric(item);
                             const colors = item.colors || [];
+                            const customName = (() => {
+                              if (catalogSettings.customNames?.racks) {
+                                for (const catName of Object.keys(catalogSettings.customNames.racks)) {
+                                  const slots = catalogSettings.customNames.racks[catName];
+                                  const styles = (catalogSettings.racks as any)?.[catName];
+                                  if (styles) {
+                                    for (const slotKey of Object.keys(slots)) {
+                                      if (styles[slotKey] === item.style && slots[slotKey]?.trim()) {
+                                        return slots[slotKey].trim();
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                              return `${item.brand} ${item.style}`;
+                            })();
 
                             return (
                               <div
@@ -2594,13 +2610,13 @@ export function PublicQuoteRequest() {
                                   <img 
                                     src={previewImg} 
                                     className="max-h-full max-w-full object-contain mix-blend-multiply group-hover:scale-[1.03] transition-transform duration-300 ease-out" 
-                                    alt={item.title} 
+                                    alt={customName} 
                                   />
                                 </div>
 
                                 <div className="flex flex-col flex-1 justify-between gap-1.5 mt-auto">
-                                  <h4 className="text-lg font-serif font-bold text-neutral-800 leading-tight truncate" title={item.title}>
-                                    {item.title}
+                                  <h4 className="text-lg font-serif font-bold text-neutral-800 leading-tight truncate" title={customName}>
+                                    {customName}
                                   </h4>
 
                                   {weightAndFabric.formatted ? (
