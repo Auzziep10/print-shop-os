@@ -374,6 +374,7 @@ export function PublicQuoteRequest() {
       racks?: Record<string, Record<string, LogoBox>>;
       basics?: Record<string, Record<string, LogoBox>>;
     };
+    customMockups?: Record<string, any>;
     racksOrder?: Record<string, string[]>;
   }>({
     racks: DEFAULT_RACKS,
@@ -381,6 +382,7 @@ export function PublicQuoteRequest() {
     garmentTypeTags: {},
     removeNeckTag: {},
     colorMockups: {},
+    customMockups: { racks: {}, basics: {} },
     customNames: { racks: {}, basics: {} },
     customSpecs: { racks: {}, basics: {} },
     customPrices: { racks: {}, basics: {} },
@@ -564,6 +566,7 @@ export function PublicQuoteRequest() {
             garmentTypeTags: cData.garmentTypeTags || {},
             removeNeckTag: cData.removeNeckTag || {},
             colorMockups: cData.colorMockups || {},
+            customMockups: cData.customMockups || { racks: {}, basics: {} },
             customNames: cData.customNames || { racks: {}, basics: {} },
             customSpecs: cData.customSpecs || { racks: {}, basics: {} },
             customPrices: cData.customPrices || { racks: {}, basics: {} },
@@ -1079,6 +1082,48 @@ export function PublicQuoteRequest() {
     }, 'image/png');
   };
 
+  const resolveGarmentImage = (item: SanMarProduct, colorKey?: string, side: 'front' | 'back' = 'front') => {
+    const styleKey = item.style?.toLowerCase() || '';
+
+    // 1. Color-specific custom mockup override
+    if (styleKey && colorKey && catalogSettings.colorMockups?.[styleKey]?.[colorKey]) {
+      return catalogSettings.colorMockups[styleKey][colorKey];
+    }
+
+    // 2. Custom slot mockup lookup across racks / basics
+    if (styleKey) {
+      if (catalogSettings.racks) {
+        for (const cat of Object.keys(catalogSettings.racks)) {
+          const catObj = catalogSettings.racks[cat];
+          if (catObj && typeof catObj === 'object') {
+            for (const sKey of Object.keys(catObj)) {
+              if (catObj[sKey]?.toLowerCase() === styleKey && catalogSettings.customMockups?.racks?.[cat]?.[sKey]) {
+                return catalogSettings.customMockups.racks[cat][sKey];
+              }
+            }
+          }
+        }
+      }
+      if (catalogSettings.basics) {
+        for (const cat of Object.keys(catalogSettings.basics)) {
+          const catObj = catalogSettings.basics[cat];
+          if (catObj && typeof catObj === 'object') {
+            for (const sKey of Object.keys(catObj)) {
+              if (catObj[sKey]?.toLowerCase() === styleKey && catalogSettings.customMockups?.basics?.[cat]?.[sKey]) {
+                return catalogSettings.customMockups.basics[cat][sKey];
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // 3. Fall back to standard SanMar catalog image set
+    const cKey = colorKey || item.colors[0];
+    const imgSet = item.images[cKey] || Object.values(item.images)[0];
+    return imgSet ? (typeof imgSet === 'string' ? imgSet : (imgSet as any)[side] || (imgSet as any).front || '') : '';
+  };
+
   // Compile Canvas Mockup per item
   const compileGarmentMockup = (product: SanMarProduct, color: string, itemLogoUrl: string | null, logoPos: { x: number; y: number }, logoScale: number, logoRotation: number, side: 'front' | 'back', decoration: 'Print' | 'Embroidery'): Promise<string | null> => {
     return new Promise(async (resolve, reject) => {
@@ -1087,9 +1132,7 @@ export function PublicQuoteRequest() {
         return;
       }
       const styleKey = product.style?.toLowerCase() || '';
-      const customColorMock = catalogSettings.colorMockups?.[styleKey]?.[color];
-      const imageSet = product.images[color] || Object.values(product.images)[0];
-      const garmentImgUrl = customColorMock || (imageSet ? (typeof imageSet === 'string' ? imageSet : imageSet[side]) : '');
+      const garmentImgUrl = resolveGarmentImage(product, color, side);
       if (!itemLogoUrl) {
         resolve(garmentImgUrl);
         return;
@@ -2360,8 +2403,7 @@ export function PublicQuoteRequest() {
                           {matching.slice(0, 32).map(item => {
                             const isSelected = selectedGarmentTypeItem?.style === item.style;
                             const colorKey = selectedGarmentTypeColor && item.colors.includes(selectedGarmentTypeColor) ? selectedGarmentTypeColor : item.colors[0];
-                            const imgSet = item.images[colorKey] || Object.values(item.images)[0];
-                            const previewImg = imgSet ? (typeof imgSet === 'string' ? imgSet : (imgSet as any).front) : '';
+                            const previewImg = resolveGarmentImage(item, colorKey);
 
                             return (
                               <div

@@ -949,11 +949,49 @@ export function StorefrontCatalogTab() {
   );
 
   const getGarmentImage = (p: any, chosenColor?: string, mode?: 'racks' | 'basics', category?: string, slot?: string) => {
+    // 1. Explicit slot mockup override
     if (mode && category && slot && customMockups?.[mode]?.[category]?.[slot]) {
       return customMockups[mode][category][slot];
     }
-    if (p.image) return p.image;
-    if (p.images) {
+
+    const styleKey = (p?.style || p?.itemNum || '').toLowerCase();
+
+    // 2. Color-specific custom mockup override
+    if (styleKey && chosenColor && colorMockups?.[styleKey]?.[chosenColor]) {
+      return colorMockups[styleKey][chosenColor];
+    }
+
+    // 3. Search customMockups for any rack/basics slot assigned to this garment style
+    if (styleKey) {
+      if (racks) {
+        for (const cat of Object.keys(racks)) {
+          const catObj = racks[cat];
+          if (catObj && typeof catObj === 'object') {
+            for (const sKey of Object.keys(catObj)) {
+              if (catObj[sKey]?.toLowerCase() === styleKey && customMockups?.racks?.[cat]?.[sKey]) {
+                return customMockups.racks[cat][sKey];
+              }
+            }
+          }
+        }
+      }
+      if (basics) {
+        for (const cat of Object.keys(basics)) {
+          const catObj = basics[cat];
+          if (catObj && typeof catObj === 'object') {
+            for (const sKey of Object.keys(catObj)) {
+              if (catObj[sKey]?.toLowerCase() === styleKey && customMockups?.basics?.[cat]?.[sKey]) {
+                return customMockups.basics[cat][sKey];
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // 4. Default SanMar catalog image fallback
+    if (p?.image) return p.image;
+    if (p?.images) {
       const colorKey = (chosenColor && p.images[chosenColor]) 
         ? chosenColor 
         : (p.colors?.[0] || Object.keys(p.images)[0]);

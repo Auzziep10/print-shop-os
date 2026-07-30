@@ -542,9 +542,28 @@ export function PortalCreateOrder() {
   }, [location.search]);
 
   const getGarmentImage = (item: any) => {
+    // 1. Direct slot lookup if available
     if (item.mode && item.category && item.slot && globalCustomMockups?.[item.mode]?.[item.category]?.[item.slot]) {
       return globalCustomMockups[item.mode][item.category][item.slot];
     }
+
+    const styleKey = (item?.style || item?.itemNum || '').toLowerCase();
+
+    // 2. Search globalCustomMockups for any rack slot assigned to this garment style
+    if (styleKey && customerRacks) {
+      for (const cat of Object.keys(customerRacks)) {
+        const catObj = customerRacks[cat];
+        if (catObj && typeof catObj === 'object') {
+          for (const sKey of Object.keys(catObj)) {
+            if (catObj[sKey]?.toLowerCase() === styleKey && globalCustomMockups?.racks?.[cat]?.[sKey]) {
+              return globalCustomMockups.racks[cat][sKey];
+            }
+          }
+        }
+      }
+    }
+
+    // 3. Fall back to standard catalog image set
     if (item.images) {
       const chosenColor = (item.defaultColor && item.images[item.defaultColor])
         ? item.defaultColor
