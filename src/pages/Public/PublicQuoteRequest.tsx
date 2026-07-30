@@ -2667,16 +2667,15 @@ export function PublicQuoteRequest() {
         {step === 2 && (
           <div className="space-y-8 max-w-7xl mx-auto animate-in fade-in duration-300">
             <div className="space-y-6 bg-white py-2">
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => setStep(1)}
-                  className="p-2 border border-neutral-200 hover:border-neutral-450 text-neutral-500 hover:text-neutral-900 bg-neutral-50 rounded-xl transition-all shadow-3xs cursor-pointer"
-                >
-                  <ChevronLeft size={16} />
-                </button>
-                <div>
-                  <span className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-400">Custom Brand Identity</span>
-                  <h3 className="text-2xl font-sans font-bold text-neutral-900 mt-0.5">Upload or Generate Logo</h3>
+              <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-neutral-200/50">
+                <div className="space-y-2">
+                  <h1 className="text-5xl md:text-6xl lg:text-7xl font-serif font-normal text-neutral-950 tracking-tight leading-[0.92]">
+                    Build<br />
+                    <span className="italic font-light">Better.</span>
+                  </h1>
+                  <p className="text-[10px] font-sans font-extrabold uppercase tracking-[0.2em] text-neutral-400 pt-1">
+                    Upload or Generate Logo
+                  </p>
                 </div>
               </div>
 
