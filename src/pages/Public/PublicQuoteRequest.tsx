@@ -2231,27 +2231,30 @@ export function PublicQuoteRequest() {
                         Garment Types
                       </button>
                     </div>
-
-                    {/* Theme categories switcher */}
-                    <div className="flex flex-wrap items-center gap-2">
-                      {visibleRackCategories.map(catName => {
-                        const isSelected = selectedThemeCategory === catName;
-                        return (
-                          <button
-                            key={catName}
-                            onClick={() => setSelectedThemeCategory(catName)}
-                            className={`px-4.5 py-2 rounded-full border text-[10px] font-sans font-bold uppercase tracking-[0.2em] transition-all duration-200 cursor-pointer ${
-                              isSelected 
-                                ? 'bg-black border-black text-white shadow-xs' 
-                                : 'bg-transparent border-neutral-200/80 text-neutral-600 hover:text-neutral-950 hover:border-neutral-950 hover:bg-neutral-950/5'
-                            }`}
-                          >
-                            {catName}
-                          </button>
-                        );
-                      })}
-                    </div>
                   </div>
+                </div>
+
+                {/* Quince-Style Centered Categories Navigation Row */}
+                <div className="flex flex-wrap items-center justify-center gap-6 sm:gap-8 md:gap-10 py-3 border-b border-neutral-200/60 font-sans">
+                  {visibleRackCategories.map(catName => {
+                    const isSelected = selectedThemeCategory === catName;
+                    return (
+                      <button
+                        key={catName}
+                        onClick={() => setSelectedThemeCategory(catName)}
+                        className={`relative py-1.5 text-xs font-sans uppercase tracking-[0.18em] transition-colors duration-200 cursor-pointer group ${
+                          isSelected 
+                            ? 'text-neutral-950 font-extrabold' 
+                            : 'text-neutral-500 hover:text-neutral-950 font-semibold'
+                        }`}
+                      >
+                        <span>{catName}</span>
+                        <span className={`absolute bottom-0 left-0 right-0 h-[2px] bg-neutral-950 transition-all duration-300 origin-center ${
+                          isSelected ? 'scale-x-100 opacity-100' : 'scale-x-0 opacity-0 group-hover:scale-x-100 group-hover:opacity-100'
+                        }`} />
+                      </button>
+                    );
+                  })}
                 </div>
 
                 {/* Pre-selected garments rack representation */}
@@ -2502,36 +2505,35 @@ export function PublicQuoteRequest() {
                         Garment Types
                       </button>
                     </div>
-
-                    {/* Navigation Pills for Garment Types */}
-                    <div className="flex flex-wrap items-center gap-2">
-                      {GARMENT_TYPES.map(gt => {
-                        const isSelected = selectedGarmentType === gt.id;
-                        const count = curatedStorefrontProducts.filter(p => detectGarmentTypeTag(p, catalogSettings.garmentTypeTags) === gt.id).length;
-                        return (
-                          <button
-                            key={gt.id}
-                            onClick={() => {
-                              setSelectedGarmentType(gt.id);
-                              setSelectedGarmentTypeItem(null);
-                            }}
-                            className={`px-4.5 py-2 rounded-full border text-[10px] font-sans font-bold uppercase tracking-[0.2em] transition-all duration-200 cursor-pointer flex items-center gap-1.5 ${
-                              isSelected 
-                                ? 'bg-black border-black text-white shadow-xs' 
-                                : 'bg-transparent border-neutral-200/80 text-neutral-600 hover:text-neutral-950 hover:border-neutral-950 hover:bg-neutral-950/5'
-                            }`}
-                          >
-                            <span>{gt.label}</span>
-                            <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-mono ${
-                              isSelected ? 'bg-white/20 text-white' : 'bg-neutral-100 text-neutral-600'
-                            }`}>
-                              {count}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
                   </div>
+                </div>
+
+                {/* Quince-Style Centered Navigation for Garment Types */}
+                <div className="flex flex-wrap items-center justify-center gap-6 sm:gap-8 md:gap-10 py-3 border-b border-neutral-200/60 font-sans">
+                  {GARMENT_TYPES.map(gt => {
+                    const isSelected = selectedGarmentType === gt.id;
+                    const count = curatedStorefrontProducts.filter(p => detectGarmentTypeTag(p, catalogSettings.garmentTypeTags) === gt.id).length;
+                    return (
+                      <button
+                        key={gt.id}
+                        onClick={() => {
+                          setSelectedGarmentType(gt.id);
+                          setSelectedGarmentTypeItem(null);
+                        }}
+                        className={`relative py-1.5 text-xs font-sans uppercase tracking-[0.18em] transition-colors duration-200 cursor-pointer group flex items-center gap-1 ${
+                          isSelected 
+                            ? 'text-neutral-950 font-extrabold' 
+                            : 'text-neutral-500 hover:text-neutral-950 font-semibold'
+                        }`}
+                      >
+                        <span>{gt.label}</span>
+                        <span className="text-[9px] font-normal opacity-60 font-mono">({count})</span>
+                        <span className={`absolute bottom-0 left-0 right-0 h-[2px] bg-neutral-950 transition-all duration-300 origin-center ${
+                          isSelected ? 'scale-x-100 opacity-100' : 'scale-x-0 opacity-0 group-hover:scale-x-100 group-hover:opacity-100'
+                        }`} />
+                      </button>
+                    );
+                  })}
                 </div>
 
                 {/* Garment Grid matching selected Garment Type */}
