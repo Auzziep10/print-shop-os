@@ -2076,7 +2076,7 @@ export function PublicQuoteRequest() {
 
           {/* customizable store navbar */}
           <header className="bg-white/95 backdrop-blur-md border-b border-neutral-200/60 py-4 px-6 sticky top-0 z-50">
-            <div className="max-w-[1200px] mx-auto flex items-center justify-between gap-6">
+            <div className="max-w-7xl mx-auto flex items-center justify-between gap-6">
               <div 
                 onClick={() => navigate('/start2')}
                 className="flex items-center gap-2 cursor-pointer group"
