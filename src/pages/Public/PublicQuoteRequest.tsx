@@ -2270,7 +2270,7 @@ export function PublicQuoteRequest() {
                           className={`group bg-transparent flex flex-col justify-between text-center cursor-pointer relative w-full p-0 transition-all duration-300 ${
                             item.selected 
                               ? 'opacity-100' 
-                              : 'opacity-40 hover:opacity-100'
+                              : 'opacity-90 hover:opacity-100'
                           }`}
                         >
                           <div className="absolute top-0 right-0 z-10">
