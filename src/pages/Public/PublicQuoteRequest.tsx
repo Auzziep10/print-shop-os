@@ -2932,11 +2932,6 @@ export function PublicQuoteRequest() {
 
             {/* Standard Rack visual lookbook */}
             <div className="space-y-6">
-              {/* Rack Hanger graphic line */}
-              <div className="relative w-full h-[6px] bg-neutral-900/10 border-y border-neutral-900/15 rounded-full flex items-center justify-center">
-                <div className="absolute top-1/2 left-4 w-4 h-8 bg-neutral-900/35 rounded-md -translate-y-1/2 border border-neutral-900/40"></div>
-                <div className="absolute top-1/2 right-4 w-4 h-8 bg-neutral-900/35 rounded-md -translate-y-1/2 border border-neutral-900/40"></div>
-              </div>
 
               {flowMode === 'racks' ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
