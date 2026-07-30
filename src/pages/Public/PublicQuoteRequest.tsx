@@ -2042,7 +2042,7 @@ export function PublicQuoteRequest() {
           </footer>
         </div>
       ) : (
-        <div className="min-h-screen bg-gradient-to-tr from-[#EAE6DF] via-[#F6F4EE] to-[#FDFDFB] font-sans pb-32 text-neutral-900 selection:bg-neutral-900 selection:text-white">
+        <div className="min-h-screen bg-white font-sans pb-32 text-neutral-900 selection:bg-neutral-900 selection:text-white">
           {/* Announcement Bar */}
           {storefrontSettings.announcement && (
             <div className="bg-neutral-900 text-white text-center py-2 px-4 text-xs font-bold tracking-wide shadow-sm flex items-center justify-center gap-2">
@@ -2051,7 +2051,7 @@ export function PublicQuoteRequest() {
           )}
 
           {/* customizable store navbar */}
-          <header className="bg-[#FAF9F5]/90 backdrop-blur-md border-b border-zinc-200/40 py-4 px-6 sticky top-0 z-50 shadow-xs">
+          <header className="bg-white/95 backdrop-blur-md border-b border-neutral-200/60 py-4 px-6 sticky top-0 z-50">
             <div className="max-w-[1200px] mx-auto flex items-center justify-between gap-6">
               <div className="flex items-center gap-3">
                 <span className="font-serif text-lg font-bold tracking-tight text-zinc-950">
@@ -2144,7 +2144,7 @@ export function PublicQuoteRequest() {
             
             {/* Design Your Rack Path Step 1 */}
             {flowMode === 'racks' && (
-              <div className="bg-white/40 backdrop-blur-xl rounded-3xl p-8 md:p-12 border border-zinc-200/40 shadow-xs max-w-7xl mx-auto space-y-8">
+              <div className="max-w-7xl mx-auto space-y-8 bg-white py-2">
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-neutral-200/50">
                   <div className="space-y-2">
                     <div className="flex items-center gap-3">
@@ -2565,7 +2565,7 @@ export function PublicQuoteRequest() {
         {/* STEP 2: LOGO DESIGN & UPLOAD */}
         {step === 2 && (
           <div className="space-y-8 max-w-7xl mx-auto animate-in fade-in duration-300">
-            <div className="bg-white/40 backdrop-blur-xl rounded-3xl p-8 md:p-12 border border-zinc-200/40 shadow-xs space-y-6">
+            <div className="space-y-6 bg-white py-2">
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => setStep(1)}
