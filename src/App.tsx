@@ -194,6 +194,11 @@ function App() {
                 <Dashboard />
               </PermissionGuard>
             } />
+            <Route path="dashboard" element={
+              <PermissionGuard permission="viewDashboard">
+                <Dashboard />
+              </PermissionGuard>
+            } />
 
 
           

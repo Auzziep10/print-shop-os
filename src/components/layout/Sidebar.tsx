@@ -165,7 +165,7 @@ export function Sidebar({ onClose }: SidebarProps) {
   };
 
   const navItems = [
-    ...(hasPermission('viewDashboard') ? [{ label: 'Dashboard', icon: LayoutDashboard, path: '/' }] : []),
+    ...(hasPermission('viewDashboard') ? [{ label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' }] : []),
     ...(hasPermission('manageOrders') ? [{ label: 'Orders/Quotes', icon: Layers, path: '/orders' }] : []),
     ...(hasPermission('manageCustomers') ? [{ label: 'Customers', icon: Users, path: '/customers' }] : []),
     ...(hasPermission('manageInventory') ? [{ label: 'Inventory', icon: Package, path: '/inventory' }] : []),
@@ -175,9 +175,9 @@ export function Sidebar({ onClose }: SidebarProps) {
   return (
     <aside className="w-[280px] lg:w-64 border-r border-brand-border bg-brand-bg flex flex-col h-[100dvh] lg:sticky top-0 bg-white shadow-2xl lg:shadow-none overflow-hidden">
       <div className="p-6 flex justify-between items-start">
-        <div className="flex-1 mr-4">
+        <Link to="/dashboard" className="flex-1 mr-4 hover:opacity-80 transition-opacity">
           <img src="/inktheory-wovn-logo.png" alt="WOVN Logo" className="w-full h-auto" />
-        </div>
+        </Link>
         {onClose && (
           <button onClick={onClose} className="lg:hidden p-1 -mr-2 -mt-2 text-brand-secondary hover:text-brand-primary transition-colors hover:bg-black/5 rounded-lg">
             <X size={20} />
@@ -187,7 +187,7 @@ export function Sidebar({ onClose }: SidebarProps) {
 
       <nav className="flex-1 min-h-0 px-4 space-y-1 overflow-y-auto">
         {navItems.map((item) => {
-          const isActive = location.pathname === item.path || (item.path !== '/' && location.pathname.startsWith(item.path));
+          const isActive = location.pathname === item.path || (item.path === '/dashboard' && location.pathname === '/') || (item.path !== '/' && item.path !== '/dashboard' && location.pathname.startsWith(item.path));
           
 
 
