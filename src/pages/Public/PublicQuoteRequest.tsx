@@ -2184,29 +2184,30 @@ export function PublicQuoteRequest() {
             
             {/* Design Your Rack Path Step 1 */}
             {flowMode === 'racks' && (
-              <div className="max-w-7xl mx-auto space-y-6 bg-white py-1">
-                <div className="space-y-4">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-neutral-200/50">
-                    <div className="flex items-center gap-2 sm:gap-3">
+              <div className="max-w-7xl mx-auto space-y-8 bg-white py-2">
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-neutral-200/50">
+                  <div className="space-y-2">
+                    <div>
                       <button
                         onClick={() => navigate('/start2')}
                         className="p-1 -ml-1 text-neutral-400 hover:text-neutral-900 transition-colors cursor-pointer block"
                         title="Back to Landing Page"
                       >
-                        <ChevronLeft size={22} />
+                        <ChevronLeft size={20} />
                       </button>
-                      <div>
-                        <h1 className="text-3xl sm:text-4xl md:text-5xl font-serif font-normal text-neutral-950 tracking-tight leading-none">
-                          Build <span className="italic font-light">Better.</span>
-                        </h1>
-                        <p className="text-[10px] font-sans font-extrabold uppercase tracking-[0.2em] text-neutral-400 pt-1">
-                          Select your items into your custom rack below
-                        </p>
-                      </div>
                     </div>
+                    <h1 className="text-5xl md:text-6xl lg:text-7xl font-serif font-normal text-neutral-950 tracking-tight leading-[0.92] pt-2">
+                      Build<br />
+                      <span className="italic font-light">Better.</span>
+                    </h1>
+                    <p className="text-[10px] font-sans font-extrabold uppercase tracking-[0.2em] text-neutral-400 pt-1">
+                      Select your items into your custom rack below
+                    </p>
+                  </div>
 
+                  <div className="flex flex-col items-end gap-3 font-sans">
                     {/* Mode switcher: Occasion vs Garment Types */}
-                    <div className="flex items-center gap-1.5 bg-neutral-100/80 p-1 rounded-full border border-neutral-200/60 shrink-0 self-start md:self-auto font-sans">
+                    <div className="flex items-center gap-1.5 bg-neutral-100/80 p-1 rounded-full border border-neutral-200/60">
                       <button
                         type="button"
                         onClick={() => setFlowMode('racks')}
@@ -2230,26 +2231,26 @@ export function PublicQuoteRequest() {
                         Garment Types
                       </button>
                     </div>
-                  </div>
 
-                  {/* Theme categories switcher */}
-                  <div className="flex flex-wrap items-center gap-2 pb-2 border-b border-neutral-200/50 font-sans">
-                    {visibleRackCategories.map(catName => {
-                      const isSelected = selectedThemeCategory === catName;
-                      return (
-                        <button
-                          key={catName}
-                          onClick={() => setSelectedThemeCategory(catName)}
-                          className={`px-4 py-1.5 rounded-full border text-[10px] font-sans font-bold uppercase tracking-[0.2em] transition-all duration-200 cursor-pointer ${
-                            isSelected 
-                              ? 'bg-black border-black text-white shadow-xs' 
-                              : 'bg-transparent border-neutral-200/80 text-neutral-600 hover:text-neutral-950 hover:border-neutral-950 hover:bg-neutral-950/5'
-                          }`}
-                        >
-                          {catName}
-                        </button>
-                      );
-                    })}
+                    {/* Theme categories switcher */}
+                    <div className="flex flex-wrap items-center gap-2">
+                      {visibleRackCategories.map(catName => {
+                        const isSelected = selectedThemeCategory === catName;
+                        return (
+                          <button
+                            key={catName}
+                            onClick={() => setSelectedThemeCategory(catName)}
+                            className={`px-4.5 py-2 rounded-full border text-[10px] font-sans font-bold uppercase tracking-[0.2em] transition-all duration-200 cursor-pointer ${
+                              isSelected 
+                                ? 'bg-black border-black text-white shadow-xs' 
+                                : 'bg-transparent border-neutral-200/80 text-neutral-600 hover:text-neutral-950 hover:border-neutral-950 hover:bg-neutral-950/5'
+                            }`}
+                          >
+                            {catName}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
 
@@ -2454,29 +2455,30 @@ export function PublicQuoteRequest() {
 
             {/* Browse By Garment Type Step 1 */}
             {flowMode === 'types' && (
-              <div className="max-w-7xl mx-auto space-y-6 bg-white py-1">
-                <div className="space-y-4">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-neutral-200/50">
-                    <div className="flex items-center gap-2 sm:gap-3">
+              <div className="max-w-7xl mx-auto space-y-8 bg-white py-2">
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-neutral-200/50">
+                  <div className="space-y-2">
+                    <div>
                       <button
                         onClick={() => navigate('/start2')}
                         className="p-1 -ml-1 text-neutral-400 hover:text-neutral-900 transition-colors cursor-pointer block"
                         title="Back to Landing Page"
                       >
-                        <ChevronLeft size={22} />
+                        <ChevronLeft size={20} />
                       </button>
-                      <div>
-                        <h1 className="text-3xl sm:text-4xl md:text-5xl font-serif font-normal text-neutral-950 tracking-tight leading-none">
-                          Build <span className="italic font-light">Better.</span>
-                        </h1>
-                        <p className="text-[10px] font-sans font-extrabold uppercase tracking-[0.2em] text-neutral-400 pt-1">
-                          Select your items into your custom rack below
-                        </p>
-                      </div>
                     </div>
+                    <h1 className="text-5xl md:text-6xl lg:text-7xl font-serif font-normal text-neutral-950 tracking-tight leading-[0.92] pt-2">
+                      Build<br />
+                      <span className="italic font-light">Better.</span>
+                    </h1>
+                    <p className="text-[10px] font-sans font-extrabold uppercase tracking-[0.2em] text-neutral-400 pt-1">
+                      Select your items into your custom rack below
+                    </p>
+                  </div>
 
+                  <div className="flex flex-col items-end gap-3 font-sans">
                     {/* Mode switcher: Occasion vs Garment Types */}
-                    <div className="flex items-center gap-1.5 bg-neutral-100/80 p-1 rounded-full border border-neutral-200/60 shrink-0 self-start md:self-auto font-sans">
+                    <div className="flex items-center gap-1.5 bg-neutral-100/80 p-1 rounded-full border border-neutral-200/60">
                       <button
                         type="button"
                         onClick={() => setFlowMode('racks')}
@@ -2500,35 +2502,35 @@ export function PublicQuoteRequest() {
                         Garment Types
                       </button>
                     </div>
-                  </div>
 
-                  {/* Navigation Pills for Garment Types */}
-                  <div className="flex flex-wrap items-center gap-2 pb-2 border-b border-neutral-200/50 font-sans">
-                    {GARMENT_TYPES.map(gt => {
-                      const isSelected = selectedGarmentType === gt.id;
-                      const count = curatedStorefrontProducts.filter(p => detectGarmentTypeTag(p, catalogSettings.garmentTypeTags) === gt.id).length;
-                      return (
-                        <button
-                          key={gt.id}
-                          onClick={() => {
-                            setSelectedGarmentType(gt.id);
-                            setSelectedGarmentTypeItem(null);
-                          }}
-                          className={`px-4 py-1.5 rounded-full border text-[10px] font-sans font-bold uppercase tracking-[0.2em] transition-all duration-200 cursor-pointer flex items-center gap-1.5 ${
-                            isSelected 
-                              ? 'bg-black border-black text-white shadow-xs' 
-                              : 'bg-transparent border-neutral-200/80 text-neutral-600 hover:text-neutral-950 hover:border-neutral-950 hover:bg-neutral-950/5'
-                          }`}
-                        >
-                          <span>{gt.label}</span>
-                          <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-mono ${
-                            isSelected ? 'bg-white/20 text-white' : 'bg-neutral-100 text-neutral-600'
-                          }`}>
-                            {count}
-                          </span>
-                        </button>
-                      );
-                    })}
+                    {/* Navigation Pills for Garment Types */}
+                    <div className="flex flex-wrap items-center gap-2">
+                      {GARMENT_TYPES.map(gt => {
+                        const isSelected = selectedGarmentType === gt.id;
+                        const count = curatedStorefrontProducts.filter(p => detectGarmentTypeTag(p, catalogSettings.garmentTypeTags) === gt.id).length;
+                        return (
+                          <button
+                            key={gt.id}
+                            onClick={() => {
+                              setSelectedGarmentType(gt.id);
+                              setSelectedGarmentTypeItem(null);
+                            }}
+                            className={`px-4.5 py-2 rounded-full border text-[10px] font-sans font-bold uppercase tracking-[0.2em] transition-all duration-200 cursor-pointer flex items-center gap-1.5 ${
+                              isSelected 
+                                ? 'bg-black border-black text-white shadow-xs' 
+                                : 'bg-transparent border-neutral-200/80 text-neutral-600 hover:text-neutral-950 hover:border-neutral-950 hover:bg-neutral-950/5'
+                            }`}
+                          >
+                            <span>{gt.label}</span>
+                            <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-mono ${
+                              isSelected ? 'bg-white/20 text-white' : 'bg-neutral-100 text-neutral-600'
+                            }`}>
+                              {count}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
 
