@@ -2144,36 +2144,44 @@ export function PublicQuoteRequest() {
             {/* Design Your Rack Path Step 1 */}
             {flowMode === 'racks' && (
               <div className="bg-white/40 backdrop-blur-xl rounded-3xl p-8 md:p-12 border border-zinc-200/40 shadow-xs max-w-7xl mx-auto space-y-8">
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => setStep(0)}
-                    className="p-2 border border-neutral-200 hover:border-neutral-450 text-neutral-500 hover:text-neutral-900 bg-neutral-50 rounded-xl transition-all shadow-3xs cursor-pointer"
-                  >
-                    <ChevronLeft size={16} />
-                  </button>
-                  <div>
-                    <span className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-400">Design your rack</span>
-                    <h3 className="text-2xl font-serif text-neutral-900 mt-0.5">Select a Theme Collection</h3>
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap items-center justify-center gap-2 pb-4 border-b border-neutral-100">
-                  {visibleRackCategories.map(catName => {
-                    const isSelected = selectedThemeCategory === catName;
-                    return (
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-neutral-200/50">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-3">
                       <button
-                        key={catName}
-                        onClick={() => setSelectedThemeCategory(catName)}
-                        className={`px-4.5 py-2 rounded-full border text-[10px] font-bold uppercase tracking-[0.2em] transition-all duration-200 cursor-pointer ${
-                          isSelected 
-                            ? 'bg-zinc-955 border-zinc-955 text-white shadow-sm' 
-                            : 'bg-transparent border-zinc-200/80 text-zinc-650 hover:text-zinc-950 hover:border-zinc-950 hover:bg-zinc-950/5'
-                        }`}
+                        onClick={() => setStep(0)}
+                        className="p-2 border border-neutral-200 hover:border-neutral-450 text-neutral-500 hover:text-neutral-900 bg-neutral-50 rounded-xl transition-all shadow-3xs cursor-pointer"
+                        title="Back to Landing Page"
                       >
-                        {catName}
+                        <ChevronLeft size={16} />
                       </button>
-                    );
-                  })}
+                      <span className="text-[10px] font-extrabold uppercase tracking-[0.25em] text-neutral-400">Design your rack</span>
+                    </div>
+                    <h1 className="text-4xl md:text-5xl font-serif font-bold text-neutral-950 tracking-tight leading-[0.95] pt-1">
+                      Build<br />Better.
+                    </h1>
+                    <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-400 pt-1">
+                      Select your items into your custom rack below
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    {visibleRackCategories.map(catName => {
+                      const isSelected = selectedThemeCategory === catName;
+                      return (
+                        <button
+                          key={catName}
+                          onClick={() => setSelectedThemeCategory(catName)}
+                          className={`px-4.5 py-2 rounded-full border text-[10px] font-bold uppercase tracking-[0.2em] transition-all duration-200 cursor-pointer ${
+                            isSelected 
+                              ? 'bg-zinc-955 border-zinc-955 text-white shadow-sm' 
+                              : 'bg-transparent border-zinc-200/80 text-zinc-650 hover:text-zinc-950 hover:border-zinc-950 hover:bg-zinc-950/5'
+                          }`}
+                        >
+                          {catName}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 {/* Pre-selected garments rack representation */}
