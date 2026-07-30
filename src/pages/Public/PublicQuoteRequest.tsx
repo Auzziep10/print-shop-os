@@ -2200,7 +2200,7 @@ export function PublicQuoteRequest() {
                   </div>
 
                   <div className="flex flex-col items-end gap-3">
-                    {/* Mode switcher: Theme Collections vs Garment Types */}
+                    {/* Mode switcher: Occasion vs Garment Types */}
                     <div className="flex items-center gap-1.5 bg-neutral-100/80 p-1 rounded-full border border-neutral-200/60">
                       <button
                         type="button"
@@ -2211,7 +2211,7 @@ export function PublicQuoteRequest() {
                             : 'text-neutral-600 hover:text-neutral-900'
                         }`}
                       >
-                        Theme Racks
+                        Occasion
                       </button>
                       <button
                         type="button"
@@ -2236,8 +2236,8 @@ export function PublicQuoteRequest() {
                             onClick={() => setSelectedThemeCategory(catName)}
                             className={`px-4.5 py-2 rounded-full border text-[10px] font-bold uppercase tracking-[0.2em] transition-all duration-200 cursor-pointer ${
                               isSelected 
-                                ? 'bg-zinc-955 border-zinc-955 text-white shadow-sm' 
-                                : 'bg-transparent border-zinc-200/80 text-zinc-650 hover:text-zinc-950 hover:border-zinc-950 hover:bg-zinc-950/5'
+                                ? 'bg-black border-black text-white shadow-xs' 
+                                : 'bg-transparent border-neutral-200/80 text-neutral-600 hover:text-neutral-950 hover:border-neutral-950 hover:bg-neutral-950/5'
                             }`}
                           >
                             {catName}
@@ -2479,8 +2479,8 @@ export function PublicQuoteRequest() {
                         }}
                         className={`px-4 py-2 rounded-full border text-[10px] font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer flex items-center gap-2 ${
                           isSelected 
-                            ? 'bg-zinc-955 border-zinc-955 text-white shadow-sm' 
-                            : 'bg-transparent border-zinc-200/80 text-zinc-650 hover:text-zinc-950 hover:border-zinc-950 hover:bg-zinc-950/5'
+                            ? 'bg-black border-black text-white shadow-xs' 
+                            : 'bg-transparent border-neutral-200/80 text-neutral-600 hover:text-neutral-950 hover:border-neutral-950 hover:bg-neutral-950/5'
                         }`}
                       >
                         <span>{gt.label}</span>
