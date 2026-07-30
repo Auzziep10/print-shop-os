@@ -2204,8 +2204,8 @@ export function PublicQuoteRequest() {
                         <span className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-400">{item.slot}</span>
                         <div className="h-72 flex items-center justify-center p-2 overflow-hidden">
                           {(() => {
-                            const imgSet = item.product.images[item.color] || Object.values(item.product.images)[0];
-                            const imgSrc = imgSet ? (typeof imgSet === 'string' ? imgSet : (imgSet as any).front) : '';
+                            const customSlotMockup = catalogSettings.customMockups?.racks?.[selectedThemeCategory]?.[item.slot];
+                            const imgSrc = customSlotMockup || resolveGarmentImage(item.product, item.color);
                             return (
                               <img 
                                 src={imgSrc} 
@@ -2279,8 +2279,8 @@ export function PublicQuoteRequest() {
                     if (!item) return null;
                     const isSelected = selectedBasicsItem?.style === item.style;
                     const defaultColor = catalogSettings.defaultColors?.basics?.[selectedBasicsCategory]?.[slot] || item.colors[0];
-                    const imgSet = item.images[defaultColor] || Object.values(item.images)[0];
-                    const previewImg = imgSet ? (typeof imgSet === 'string' ? imgSet : (imgSet as any).front) : '';
+                    const customBasicsMockup = catalogSettings.customMockups?.basics?.[selectedBasicsCategory]?.[slot];
+                    const previewImg = customBasicsMockup || resolveGarmentImage(item, defaultColor);
 
                     return (
                       <div
@@ -2753,8 +2753,8 @@ export function PublicQuoteRequest() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
                   {rackItems.filter(i => i.selected).map((item, itemIdx) => {
                     const previewColor = item.color;
-                    const imageSet = item.product.images[previewColor] || Object.values(item.product.images)[0];
-                    const previewImg = imageSet ? (typeof imageSet === 'string' ? imageSet : imageSet.front) : '';
+                    const customSlotMockup = catalogSettings.customMockups?.racks?.[selectedThemeCategory]?.[item.slot];
+                    const previewImg = customSlotMockup || resolveGarmentImage(item.product, previewColor);
 
                     return (
                       <div 
