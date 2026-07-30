@@ -1808,12 +1808,12 @@ export function PublicQuoteRequest() {
                   {(isAdmin || import.meta.env.DEV || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && (
                     <button
                       onClick={() => {
-                        setEditSettings({ ...storefrontSettings });
-                        setIsEditingStorefront(true);
+                        navigate('/settings?tab=storefront-catalog');
                       }}
                       className="px-3.5 py-1.5 border border-zinc-200 rounded-lg text-xs font-bold text-zinc-500 hover:border-zinc-955 hover:text-zinc-955 transition-all bg-white shadow-3xs cursor-pointer"
+                      title="Edit Rack Collections & Storefront Catalog"
                     >
-                      Customize Store
+                      Customize Racks
                     </button>
                   )}
 
@@ -2073,13 +2073,13 @@ export function PublicQuoteRequest() {
                 {(isAdmin || import.meta.env.DEV || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && (
                   <button
                     onClick={() => {
-                      setEditSettings({ ...storefrontSettings });
-                      setIsEditingStorefront(true);
+                      navigate('/settings?tab=storefront-catalog');
                     }}
                     className="flex items-center justify-center gap-1.5 px-4 h-9 border border-zinc-300 rounded-full text-[10px] font-bold text-zinc-700 hover:border-zinc-950 hover:text-zinc-955 hover:bg-zinc-950/5 transition-all bg-transparent cursor-pointer"
+                    title="Edit Rack Collections & Storefront Catalog"
                   >
                     <Settings size={13} />
-                    <span>Customize Store</span>
+                    <span>Customize Racks</span>
                   </button>
                 )}
 
