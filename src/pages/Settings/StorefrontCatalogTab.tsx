@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db, storage } from '../../lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { Loader2, Save, Search, Check, Info, Crosshair, X, Trash2, Plus, Edit2, ImageIcon, ArrowLeft, ArrowRight, Eye, EyeOff } from 'lucide-react';
+import { Loader2, Save, Search, Check, Info, Crosshair, X, Trash2, Plus, Edit2, ImageIcon, ArrowLeft, ArrowRight, Eye, EyeOff, Scissors } from 'lucide-react';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
@@ -342,9 +342,12 @@ export function StorefrontCatalogTab() {
   const [racksOrder, setRacksOrder] = useState<Record<string, string[]>>({});
   const [customProducts, setCustomProducts] = useState<any[]>([]);
   const [garmentTypeTags, setGarmentTypeTags] = useState<Record<string, string>>({});
+  const [removeNeckTag, setRemoveNeckTag] = useState<Record<string, boolean>>({});
+  const [colorMockups, setColorMockups] = useState<Record<string, Record<string, string>>>({});
   const [activeGarmentType, setActiveGarmentType] = useState<GarmentTypeId>('t-shirt');
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [uploadingSlotKey, setUploadingSlotKey] = useState<string | null>(null);
+  const [activeColorModalItem, setActiveColorModalItem] = useState<any | null>(null);
 
   // Logo placement editor modal state
   const [placementTarget, setPlacementTarget] = useState<{
@@ -376,6 +379,8 @@ export function StorefrontCatalogTab() {
           if (data.racks) setRacks(data.racks);
           if (data.basics) setBasics(data.basics);
           if (data.garmentTypeTags) setGarmentTypeTags(data.garmentTypeTags);
+          if (data.removeNeckTag) setRemoveNeckTag(data.removeNeckTag);
+          if (data.colorMockups) setColorMockups(data.colorMockups);
           if (data.customNames) {
             setCustomNames(data.customNames);
           } else {
@@ -450,6 +455,8 @@ export function StorefrontCatalogTab() {
         customMockups,
         racksOrder,
         garmentTypeTags,
+        removeNeckTag,
+        colorMockups,
         updatedAt: new Date().toISOString()
       }, { merge: true });
       alert('Storefront catalog settings saved successfully!');
@@ -955,14 +962,33 @@ export function StorefrontCatalogTab() {
             Configure curated garments available for Design Your Rack and Build From Basics.
           </p>
         </div>
-        <PillButton 
-          variant="filled" 
-          onClick={handleSaveSettings} 
-          disabled={saving}
-          className="gap-2 shrink-0 self-start sm:self-center min-w-[140px]"
-        >
-          {saving ? <Loader2 className="animate-spin" size={16} /> : <><Save size={16} /> Save Catalog</>}
-        </PillButton>
+        <div className="flex items-center gap-2 shrink-0 self-start sm:self-center">
+          <button
+            type="button"
+            onClick={() => {
+              const updated: Record<string, boolean> = {};
+              allCatalogProducts.forEach(p => {
+                if (p.style) updated[p.style.toLowerCase()] = true;
+              });
+              setRemoveNeckTag(updated);
+              alert("Tagless neck tag removal activated for all storefront catalog products!");
+            }}
+            className="flex items-center gap-1.5 px-3 py-2 bg-neutral-100 hover:bg-neutral-200 border border-brand-border rounded-xl text-xs font-bold text-brand-primary transition-all cursor-pointer shadow-2xs"
+            title="Automatically erase manufacturer neck tags from all color variation mockup images"
+          >
+            <Scissors size={14} />
+            <span>Tagless All Mockups</span>
+          </button>
+
+          <PillButton 
+            variant="filled" 
+            onClick={handleSaveSettings} 
+            disabled={saving}
+            className="gap-2 shrink-0 min-w-[140px]"
+          >
+            {saving ? <Loader2 className="animate-spin" size={16} /> : <><Save size={16} /> Save Catalog</>}
+          </PillButton>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -1362,6 +1388,39 @@ export function StorefrontCatalogTab() {
                   </div>
 
                   <div className="space-y-2">
+                    {p.style && (
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const key = p.style.toLowerCase();
+                            setRemoveNeckTag(prev => ({
+                              ...prev,
+                              [key]: !(prev[key] ?? true)
+                            }));
+                          }}
+                          className={`flex-1 py-2 px-3 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 border ${
+                            (removeNeckTag[p.style.toLowerCase()] ?? true)
+                              ? 'bg-emerald-50 text-emerald-900 border-emerald-300'
+                              : 'bg-neutral-100 text-neutral-600 border-neutral-200'
+                          }`}
+                          title="Toggle tagless collar (erases manufacturer neck tag on canvas mockups for all color variations)"
+                        >
+                          <Scissors size={12} />
+                          <span>{(removeNeckTag[p.style.toLowerCase()] ?? true) ? 'Tagless Active' : 'Original Tag'}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setActiveColorModalItem(p)}
+                          className="flex-1 py-2 px-3 bg-white border border-brand-border text-brand-primary rounded-xl text-[10px] font-bold uppercase tracking-wider hover:bg-neutral-50 transition-all flex items-center justify-center gap-1.5"
+                          title="Manage custom mockups and image overrides per color variation"
+                        >
+                          <ImageIcon size={12} />
+                          <span>Colors ({p.colors?.length || 0})</span>
+                        </button>
+                      </div>
+                    )}
                     <button
                       onClick={() => setPlacementTarget({ mode: 'racks', category: activeRackCategory, slot })}
                       className="w-full py-2 bg-white border border-brand-border text-brand-primary rounded-xl text-xs font-bold transition-all shadow-2xs hover:bg-neutral-50 flex items-center justify-center gap-1.5"
@@ -1765,6 +1824,37 @@ export function StorefrontCatalogTab() {
                                 ))}
                               </select>
                             </div>
+
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setRemoveNeckTag(prev => ({
+                                    ...prev,
+                                    [styleKey]: !(prev[styleKey] ?? true)
+                                  }));
+                                }}
+                                className={`flex-1 py-1.5 px-3 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 border ${
+                                  (removeNeckTag[styleKey] ?? true)
+                                    ? 'bg-emerald-50 text-emerald-900 border-emerald-300'
+                                    : 'bg-neutral-100 text-neutral-600 border-neutral-200'
+                                }`}
+                                title="Toggle tagless collar (erases manufacturer neck tag on canvas mockups)"
+                              >
+                                <Scissors size={12} />
+                                <span>{(removeNeckTag[styleKey] ?? true) ? 'Tagless' : 'Original Tag'}</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => setActiveColorModalItem(p)}
+                                className="flex-1 py-1.5 px-3 bg-white border border-brand-border text-brand-primary rounded-xl text-[10px] font-bold uppercase tracking-wider hover:bg-neutral-50 transition-all flex items-center justify-center gap-1.5"
+                                title="Manage custom mockups and image overrides per color variation"
+                              >
+                                <ImageIcon size={12} />
+                                <span>Colors ({p.colors?.length || 0})</span>
+                              </button>
+                            </div>
                           </div>
                         </div>
                       );
@@ -1896,6 +1986,143 @@ export function StorefrontCatalogTab() {
       )}
 
       {/* Import Custom Item Modal */}
+      {/* Color Variations & Mockups Modal */}
+      {activeColorModalItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
+          <div className="bg-white border border-brand-border rounded-2xl shadow-2xl max-w-3xl w-full p-6 space-y-6 overflow-hidden max-h-[85vh] flex flex-col">
+            <div className="flex items-start justify-between gap-4 border-b border-neutral-100 pb-4">
+              <div>
+                <h3 className="text-lg font-serif text-brand-primary font-bold flex items-center gap-2">
+                  <ImageIcon size={20} className="text-brand-primary" />
+                  Color Variations & Mockups for {activeColorModalItem.brand} {activeColorModalItem.style}
+                </h3>
+                <p className="text-xs text-brand-secondary">
+                  Manage custom mockup image overrides and tagless neck tag removal for every color variation.
+                </p>
+              </div>
+              <button 
+                onClick={() => setActiveColorModalItem(null)}
+                className="p-1 text-neutral-400 hover:text-brand-primary rounded-lg transition-all"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between bg-neutral-50 p-3 rounded-xl border border-brand-border">
+              <div className="flex items-center gap-2">
+                <Scissors size={16} className="text-emerald-700" />
+                <span className="text-xs font-bold text-brand-primary">Tagless Collar (Manufacturer Tag Removal):</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const key = activeColorModalItem.style.toLowerCase();
+                  setRemoveNeckTag(prev => ({
+                    ...prev,
+                    [key]: !(prev[key] ?? true)
+                  }));
+                }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
+                  (removeNeckTag[activeColorModalItem.style.toLowerCase()] ?? true)
+                    ? 'bg-emerald-600 text-white border-emerald-600'
+                    : 'bg-white text-neutral-600 border-neutral-300'
+                }`}
+              >
+                {(removeNeckTag[activeColorModalItem.style.toLowerCase()] ?? true) ? 'Enabled (Tag Removed)' : 'Disabled (Original Tag)'}
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto pr-1 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                {(activeColorModalItem.colors || []).map((color: string) => {
+                  const styleKey = activeColorModalItem.style.toLowerCase();
+                  const customColorImg = colorMockups[styleKey]?.[color];
+                  const origImgSet = activeColorModalItem.images?.[color] || Object.values(activeColorModalItem.images || {})[0];
+                  const origImgUrl = typeof origImgSet === 'string' ? origImgSet : (origImgSet?.front || '');
+                  const currentImg = customColorImg || origImgUrl;
+
+                  return (
+                    <div key={color} className="border border-brand-border rounded-xl p-3 bg-white space-y-2 flex flex-col justify-between">
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-brand-primary truncate" title={color}>{color}</span>
+                          {customColorImg && (
+                            <span className="text-[9px] font-extrabold uppercase text-amber-700 bg-amber-100 px-1 rounded">Custom</span>
+                          )}
+                        </div>
+
+                        <div className="w-full h-32 bg-neutral-50 rounded-lg border border-neutral-200 flex items-center justify-center p-2 relative overflow-hidden bg-checkerboard">
+                          <img 
+                            src={currentImg} 
+                            alt={color} 
+                            className="max-w-full max-h-full object-contain mix-blend-multiply" 
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5 pt-2 border-t border-neutral-100">
+                        <label className="w-full py-1 px-2 bg-neutral-100 hover:bg-neutral-200 text-brand-primary rounded-lg text-[11px] font-bold transition-all text-center cursor-pointer block">
+                          <span>{customColorImg ? 'Change Mockup' : 'Upload Mockup'}</span>
+                          <input 
+                            type="file" 
+                            accept="image/*" 
+                            className="hidden" 
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              try {
+                                const storageRef = ref(storage, `storefront_color_mockups/${styleKey}/${color}_${Date.now()}_${file.name}`);
+                                await uploadBytes(storageRef, file);
+                                const url = await getDownloadURL(storageRef);
+                                setColorMockups(prev => ({
+                                  ...prev,
+                                  [styleKey]: {
+                                    ...(prev[styleKey] || {}),
+                                    [color]: url
+                                  }
+                                }));
+                              } catch (err) {
+                                console.error("Failed to upload color mockup:", err);
+                                alert("Failed to upload image.");
+                              }
+                            }}
+                          />
+                        </label>
+
+                        {customColorImg && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setColorMockups(prev => {
+                                const styleMap = { ...(prev[styleKey] || {}) };
+                                delete styleMap[color];
+                                return {
+                                  ...prev,
+                                  [styleKey]: styleMap
+                                };
+                              });
+                            }}
+                            className="w-full py-1 px-2 text-rose-600 hover:bg-rose-50 rounded-lg text-[10px] font-bold transition-all text-center"
+                          >
+                            Restore Original Mockup
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-4 border-t border-neutral-100">
+              <PillButton variant="filled" onClick={() => setActiveColorModalItem(null)}>
+                Done
+              </PillButton>
+            </div>
+          </div>
+        </div>
+      )}
+
       <ImportGarmentModal
         isOpen={isImportModalOpen}
         onClose={() => setIsImportModalOpen(false)}

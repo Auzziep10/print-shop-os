@@ -351,6 +351,8 @@ export function PublicQuoteRequest() {
     racks: Record<string, any>;
     basics: Record<string, any>;
     garmentTypeTags?: Record<string, string>;
+    removeNeckTag?: Record<string, boolean>;
+    colorMockups?: Record<string, Record<string, string>>;
     customNames?: {
       racks?: Record<string, Record<string, string>>;
       basics?: Record<string, Record<string, string>>;
@@ -377,6 +379,8 @@ export function PublicQuoteRequest() {
     racks: DEFAULT_RACKS,
     basics: DEFAULT_BASICS,
     garmentTypeTags: {},
+    removeNeckTag: {},
+    colorMockups: {},
     customNames: { racks: {}, basics: {} },
     customSpecs: { racks: {}, basics: {} },
     customPrices: { racks: {}, basics: {} },
@@ -533,6 +537,9 @@ export function PublicQuoteRequest() {
           setCatalogSettings({
             racks: cData.racks || DEFAULT_RACKS,
             basics: cData.basics || DEFAULT_BASICS,
+            garmentTypeTags: cData.garmentTypeTags || {},
+            removeNeckTag: cData.removeNeckTag || {},
+            colorMockups: cData.colorMockups || {},
             customNames: cData.customNames || { racks: {}, basics: {} },
             customSpecs: cData.customSpecs || { racks: {}, basics: {} },
             customPrices: cData.customPrices || { racks: {}, basics: {} },
@@ -1055,8 +1062,10 @@ export function PublicQuoteRequest() {
         resolve(null);
         return;
       }
+      const styleKey = product.style?.toLowerCase() || '';
+      const customColorMock = catalogSettings.colorMockups?.[styleKey]?.[color];
       const imageSet = product.images[color] || Object.values(product.images)[0];
-      const garmentImgUrl = imageSet ? (typeof imageSet === 'string' ? imageSet : imageSet[side]) : '';
+      const garmentImgUrl = customColorMock || (imageSet ? (typeof imageSet === 'string' ? imageSet : imageSet[side]) : '');
       if (!itemLogoUrl) {
         resolve(garmentImgUrl);
         return;
@@ -1090,6 +1099,42 @@ export function PublicQuoteRequest() {
         }
 
         ctx.drawImage(gImg, 0, 0);
+
+        // Smart Tagless Neck Tag Removal Mask
+        const isTagless = catalogSettings.removeNeckTag?.[styleKey] ?? true;
+        if (isTagless && side === 'front') {
+          try {
+            const neckCenterX = canvas.width * 0.5;
+            const neckCenterY = canvas.height * 0.19;
+            const radiusX = canvas.width * 0.085;
+            const radiusY = canvas.height * 0.06;
+
+            const sampleX = Math.min(canvas.width - 1, Math.max(0, Math.round(canvas.width * 0.38)));
+            const sampleY = Math.min(canvas.height - 1, Math.max(0, Math.round(canvas.height * 0.18)));
+            const samplePixel = ctx.getImageData(sampleX, sampleY, 1, 1).data;
+            const r = samplePixel[0];
+            const g = samplePixel[1];
+            const b = samplePixel[2];
+
+            ctx.save();
+            ctx.globalCompositeOperation = 'source-over';
+            const grad = ctx.createRadialGradient(
+              neckCenterX, neckCenterY, 0,
+              neckCenterX, neckCenterY, radiusX
+            );
+            grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0.96)`);
+            grad.addColorStop(0.65, `rgba(${r}, ${g}, ${b}, 0.88)`);
+            grad.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.ellipse(neckCenterX, neckCenterY, radiusX, radiusY, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+          } catch (e) {
+            console.warn("Tagless neck mask render warning:", e);
+          }
+        }
 
         // Constants map position
         const containerW = 480;
