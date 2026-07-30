@@ -343,6 +343,8 @@ export function PublicQuoteRequest() {
     if (modeParam === 'racks' || modeParam === 'basics' || modeParam === 'types') {
       setFlowMode(modeParam);
       setStep(1);
+    } else {
+      navigate('/start2', { replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -2075,7 +2077,11 @@ export function PublicQuoteRequest() {
           {/* customizable store navbar */}
           <header className="bg-white/95 backdrop-blur-md border-b border-neutral-200/60 py-4 px-6 sticky top-0 z-50">
             <div className="max-w-[1200px] mx-auto flex items-center justify-between gap-6">
-              <div className="flex items-center gap-3">
+              <div 
+                onClick={() => navigate('/start2')}
+                className="flex items-center gap-3 cursor-pointer"
+                title="Back to Main Page"
+              >
                 {storefrontSettings.logoImageUrl ? (
                   <img 
                     src={storefrontSettings.logoImageUrl} 
@@ -2183,7 +2189,7 @@ export function PublicQuoteRequest() {
                   <div className="space-y-2">
                     <div>
                       <button
-                        onClick={() => setStep(0)}
+                        onClick={() => navigate('/start2')}
                         className="p-1 -ml-1 text-neutral-400 hover:text-neutral-900 transition-colors cursor-pointer block"
                         title="Back to Landing Page"
                       >
@@ -2359,7 +2365,7 @@ export function PublicQuoteRequest() {
                 <div className="flex items-center justify-between border-b border-neutral-200/60 pb-5 gap-4">
                   <div className="flex items-center gap-3">
                     <button
-                      onClick={() => setStep(0)}
+                      onClick={() => navigate('/start2')}
                       className="p-2 border border-neutral-200 hover:border-neutral-450 text-neutral-500 hover:text-neutral-900 bg-neutral-50 rounded-xl transition-all shadow-3xs cursor-pointer"
                     >
                       <ChevronLeft size={16} />
@@ -2454,7 +2460,7 @@ export function PublicQuoteRequest() {
                   <div className="space-y-2">
                     <div>
                       <button
-                        onClick={() => setStep(0)}
+                        onClick={() => navigate('/start2')}
                         className="p-1 -ml-1 text-neutral-400 hover:text-neutral-900 transition-colors cursor-pointer block"
                         title="Back to Landing Page"
                       >
