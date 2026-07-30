@@ -1797,7 +1797,7 @@ export function PublicQuoteRequest() {
                   <img 
                     src={storefrontSettings.logoImageUrl} 
                     alt={storefrontSettings.logoText || 'Logo'} 
-                    className="h-8 max-w-[180px] object-contain" 
+                    className="h-8 max-w-[180px] object-contain brightness-0" 
                   />
                 ) : storefrontSettings.logoText === 'INKTHEORY' ? (
                   <span className="font-sans text-xl font-black tracking-tighter uppercase text-zinc-950">
@@ -2094,7 +2094,7 @@ export function PublicQuoteRequest() {
                   <img 
                     src={storefrontSettings.logoImageUrl} 
                     alt={storefrontSettings.logoText || 'Logo'} 
-                    className="h-8 max-w-[180px] object-contain" 
+                    className="h-8 max-w-[180px] object-contain brightness-0" 
                   />
                 ) : storefrontSettings.logoText === 'INKTHEORY' ? (
                   <span className="font-sans text-xl font-black tracking-tighter uppercase text-zinc-950">
