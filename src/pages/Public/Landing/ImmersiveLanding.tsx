@@ -16,13 +16,52 @@ import './landing.css';
 gsap.registerPlugin(ScrollTrigger);
 
 export interface StorefrontSettingsShape {
+  // Logo & Branding
   logoText: string;
+  logoImageUrl?: string;
   announcement?: string;
+  contactPhone?: string;
+  email?: string;
+
+  // Hero Section
   heroTitle?: string;
   heroSubtitle?: string;
   heroVideoUrl?: string;
-  contactPhone?: string;
-  email?: string;
+  heroImageUrl?: string;
+  heroBadge?: string;
+  heroPrimaryCta?: string;
+  heroSecondaryCta?: string;
+
+  // Manifesto
+  manifestoLabel?: string;
+  manifestoText?: string;
+
+  // Showcase
+  showcaseLabel?: string;
+  showcaseTitle?: string;
+  showcaseSubtitle?: string;
+  showcaseImages?: Record<string, string>;
+
+  // Process
+  processLabel?: string;
+  processTitle?: string;
+  processSubtitle?: string;
+  processStep1Title?: string;
+  processStep1Body?: string;
+  processStep2Title?: string;
+  processStep2Body?: string;
+  processStep3Title?: string;
+  processStep3Body?: string;
+  processStep4Title?: string;
+  processStep4Body?: string;
+
+  // CTA Section
+  ctaSectionLabel?: string;
+  ctaSectionTitle?: string;
+  ctaCardTitle?: string;
+  ctaCardBody?: string;
+  ctaCardBtnText?: string;
+  ctaCardImageUrl?: string;
 }
 
 export interface ImmersiveLandingProps {
@@ -221,7 +260,13 @@ function LandingNav({
     >
       <div className="flex items-center justify-between px-6 py-4 md:px-12">
         <div className="flex items-center gap-4">
-          {settings.logoText === 'INKTHEORY' ? (
+          {settings.logoImageUrl ? (
+            <img
+              src={settings.logoImageUrl}
+              alt={settings.logoText || 'Logo'}
+              className="h-8 max-w-[180px] object-contain"
+            />
+          ) : settings.logoText === 'INKTHEORY' ? (
             <span
               className={`font-sans text-xl font-black tracking-tighter uppercase ${
                 dark ? 'text-white' : 'text-zinc-950'
@@ -385,10 +430,10 @@ export function ImmersiveLanding(props: ImmersiveLandingProps) {
       <main>
         <HeroSection settings={settings} introPlay={introDone} onScrollTo={scrollToId} />
         {settings.announcement && <AnnouncementMarquee text={settings.announcement} />}
-        <ManifestoSection />
-        <ShowcaseSection onStart={onStart} />
-        <ProcessSection />
-        <StartCTASection onStart={onStart} />
+        <ManifestoSection settings={settings} />
+        <ShowcaseSection settings={settings} onStart={onStart} />
+        <ProcessSection settings={settings} />
+        <StartCTASection settings={settings} onStart={onStart} />
       </main>
 
       <LandingFooter

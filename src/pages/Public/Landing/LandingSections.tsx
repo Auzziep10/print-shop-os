@@ -159,7 +159,7 @@ export function HeroSection({
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
             <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
           </span>
-          Design portals open — custom merch, made properly
+          {settings.heroBadge || 'Design portals open — custom merch, made properly'}
         </div>
 
         <h1 className="font-serif font-normal leading-[0.98] tracking-tight text-[clamp(3rem,9.5vw,9rem)]">
@@ -184,7 +184,7 @@ export function HeroSection({
               onClick={() => onScrollTo('#start-cta')}
               className="font-inter group flex cursor-pointer items-center gap-3 rounded-full bg-white px-7 py-3.5 text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-950 transition-colors hover:bg-zinc-200"
             >
-              Start your project
+              {settings.heroPrimaryCta || 'Start your project'}
               <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
             </button>
             <button
@@ -192,7 +192,7 @@ export function HeroSection({
               onClick={() => onScrollTo('#process')}
               className="font-inter cursor-pointer rounded-full border border-white/30 px-7 py-3.5 text-[11px] font-bold uppercase tracking-[0.2em] text-white transition-colors hover:border-white hover:bg-white/10"
             >
-              How it works
+              {settings.heroSecondaryCta || 'How it works'}
             </button>
           </div>
         </div>
@@ -246,9 +246,10 @@ export function AnnouncementMarquee({ text }: { text: string }) {
 const MANIFESTO =
   'Your brand deserves better than clip-art on a blank. We turn logos into lookbooks — cohesive collections built on premium garments, designed by you in minutes and produced by people who print every day.';
 
-export function ManifestoSection() {
+export function ManifestoSection({ settings }: { settings?: StorefrontSettingsShape }) {
   const sectionRef = useRef<HTMLElement>(null);
-  const words = MANIFESTO.split(' ');
+  const manifestoText = settings?.manifestoText || MANIFESTO;
+  const words = manifestoText.split(' ');
 
   useLayoutEffect(() => {
     const ctx = gsap.context(() => {
@@ -274,13 +275,13 @@ export function ManifestoSection() {
       });
     }, sectionRef);
     return () => ctx.revert();
-  }, []);
+  }, [manifestoText]);
 
   return (
     <section ref={sectionRef} className="bg-[#faf9f5] px-6 py-28 md:px-12 md:py-44">
       <div className="mx-auto max-w-5xl">
         <p className="manifesto-label font-inter mb-10 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400">
-          ( Our promise )
+          {settings?.manifestoLabel || '( Our promise )'}
         </p>
         <p className="font-serif text-[clamp(1.6rem,3.6vw,3.4rem)] leading-[1.25] tracking-tight text-zinc-950">
           {words.map((word, i) => (
@@ -307,7 +308,13 @@ const SHOWCASE_ITEMS = [
   { label: 'Bags', src: '/images/categories/bags.png' },
 ];
 
-export function ShowcaseSection({ onStart }: { onStart: (mode: 'racks' | 'basics') => void }) {
+export function ShowcaseSection({
+  settings,
+  onStart,
+}: {
+  settings?: StorefrontSettingsShape;
+  onStart: (mode: 'racks' | 'basics') => void;
+}) {
   const sectionRef = useRef<HTMLElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
 
@@ -347,15 +354,17 @@ export function ShowcaseSection({ onStart }: { onStart: (mode: 'racks' | 'basics
       <div className="flex items-end justify-between px-6 pt-20 pb-10 md:px-12 md:pt-28">
         <div>
           <p className="font-inter mb-4 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-500">
-            ( The catalog )
+            {settings?.showcaseLabel || '( The catalog )'}
           </p>
           <h2 className="font-serif text-[clamp(2.2rem,5vw,4.5rem)] leading-none tracking-tight">
-            Built on <span className="italic font-light">premium</span> blanks
+            {settings?.showcaseTitle || (
+              <>Built on <span className="italic font-light">premium</span> blanks</>
+            )}
           </h2>
         </div>
         <p className="font-inter hidden max-w-xs text-xs font-light leading-relaxed text-zinc-400 md:block">
-          Every category is curated Good / Better / Best — compare options side by side, then make
-          them yours.
+          {settings?.showcaseSubtitle ||
+            'Every category is curated Good / Better / Best — compare options side by side, then make them yours.'}
         </p>
       </div>
 
@@ -364,19 +373,21 @@ export function ShowcaseSection({ onStart }: { onStart: (mode: 'racks' | 'basics
         className="flex w-max gap-5 overflow-x-auto px-6 pb-20 md:px-12 md:pb-28 lg:overflow-visible"
         style={{ scrollbarWidth: 'none' }}
       >
-        {SHOWCASE_ITEMS.map((item, i) => (
-          <button
-            key={item.label}
-            data-cursor
-            onClick={() => onStart('racks')}
-            className="showcase-card group relative h-[52vh] w-[72vw] shrink-0 cursor-pointer overflow-hidden rounded-2xl bg-zinc-900 text-left sm:w-[44vw] lg:h-[58vh] lg:w-[30vw]"
-          >
-            <img
-              src={item.src}
-              alt={`Custom ${item.label.toLowerCase()}`}
-              className="h-full w-full object-cover opacity-90"
-              loading="lazy"
-            />
+        {SHOWCASE_ITEMS.map((item, i) => {
+          const cardImg = settings?.showcaseImages?.[item.label] || item.src;
+          return (
+            <button
+              key={item.label}
+              data-cursor
+              onClick={() => onStart('racks')}
+              className="showcase-card group relative h-[52vh] w-[72vw] shrink-0 cursor-pointer overflow-hidden rounded-2xl bg-zinc-900 text-left sm:w-[44vw] lg:h-[58vh] lg:w-[30vw]"
+            >
+              <img
+                src={cardImg}
+                alt={`Custom ${item.label.toLowerCase()}`}
+                className="h-full w-full object-cover opacity-90"
+                loading="lazy"
+              />
             <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/90 via-transparent to-zinc-950/20" />
             <div className="absolute inset-x-0 top-0 flex items-start justify-between p-5">
               <span className="font-mono text-[10px] font-semibold tracking-[0.3em] text-zinc-300">
@@ -393,7 +404,8 @@ export function ShowcaseSection({ onStart }: { onStart: (mode: 'racks' | 'basics
               </span>
             </div>
           </button>
-        ))}
+        );
+      })}
 
         {/* Terminal card — full rack CTA */}
         <button
@@ -426,27 +438,27 @@ export function ShowcaseSection({ onStart }: { onStart: (mode: 'racks' | 'basics
 /* Process — numbered editorial rows                                  */
 /* ------------------------------------------------------------------ */
 
-const PROCESS_STEPS = [
-  {
-    title: 'Design',
-    body: 'Pick a themed rack or start from premium blanks. Your logo is placed instantly — move it, scale it, see it live on every garment.',
-  },
-  {
-    title: 'Quote',
-    body: 'Submit your build with sizes and dates. Our team reviews every detail and returns a formal quote — no guesswork, no hidden fees.',
-  },
-  {
-    title: 'Approve',
-    body: 'Create your account, approve your proof, and follow every status change from your client portal — current and future orders in one place.',
-  },
-  {
-    title: 'Production',
-    body: 'Printed, pressed and embroidered in-house, quality-checked piece by piece, and tracked from press to porch.',
-  },
-];
-
-export function ProcessSection() {
+export function ProcessSection({ settings }: { settings?: StorefrontSettingsShape }) {
   const sectionRef = useRef<HTMLElement>(null);
+
+  const steps = [
+    {
+      title: settings?.processStep1Title || 'Design',
+      body: settings?.processStep1Body || 'Pick a themed rack or start from premium blanks. Your logo is placed instantly — move it, scale it, see it live on every garment.',
+    },
+    {
+      title: settings?.processStep2Title || 'Quote',
+      body: settings?.processStep2Body || 'Submit your build with sizes and dates. Our team reviews every detail and returns a formal quote — no guesswork, no hidden fees.',
+    },
+    {
+      title: settings?.processStep3Title || 'Approve',
+      body: settings?.processStep3Body || 'Create your account, approve your proof, and follow every status change from your client portal — current and future orders in one place.',
+    },
+    {
+      title: settings?.processStep4Title || 'Production',
+      body: settings?.processStep4Body || 'Printed, pressed and embroidered in-house, quality-checked piece by piece, and tracked from press to porch.',
+    },
+  ];
 
   useLayoutEffect(() => {
     const ctx = gsap.context(() => {
@@ -478,19 +490,21 @@ export function ProcessSection() {
         <div className="process-heading mb-16 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
             <p className="font-inter mb-4 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400">
-              ( The process )
+              {settings?.processLabel || '( The process )'}
             </p>
             <h2 className="font-serif text-[clamp(2.2rem,5vw,4.5rem)] leading-none tracking-tight text-zinc-950">
-              From logo to <span className="italic font-light">loading dock</span>
+              {settings?.processTitle || (
+                <>From logo to <span className="italic font-light">loading dock</span></>
+              )}
             </h2>
           </div>
           <p className="font-inter max-w-xs text-xs font-light leading-relaxed text-zinc-500">
-            Four steps. One portal. A human checks every order before it ever hits a press.
+            {settings?.processSubtitle || 'Four steps. One portal. A human checks every order before it ever hits a press.'}
           </p>
         </div>
 
         <div className="border-t border-zinc-200">
-          {PROCESS_STEPS.map((step, i) => (
+          {steps.map((step, i) => (
             <div
               key={step.title}
               className="process-row grid cursor-default grid-cols-[auto_1fr] items-baseline gap-x-6 gap-y-2 border-b border-zinc-200 px-2 py-8 md:grid-cols-[8rem_1fr_24rem] md:gap-x-12 md:px-6 md:py-10"
@@ -516,7 +530,13 @@ export function ProcessSection() {
 /* Start CTA — the two flow entrances                                 */
 /* ------------------------------------------------------------------ */
 
-export function StartCTASection({ onStart }: { onStart: (mode: 'racks' | 'basics') => void }) {
+export function StartCTASection({
+  settings,
+  onStart,
+}: {
+  settings?: StorefrontSettingsShape;
+  onStart: (mode: 'racks' | 'basics') => void;
+}) {
   const sectionRef = useRef<HTMLElement>(null);
 
   useLayoutEffect(() => {
@@ -540,10 +560,10 @@ export function StartCTASection({ onStart }: { onStart: (mode: 'racks' | 'basics
       mode: 'racks' as const,
       num: '01',
       badge: 'Cohesive collection',
-      title: 'Design Your Rack',
-      body: 'Configure a unified apparel collection with our standard 6-item rack — hat, tee, polo, crewneck, hoodie and long sleeve — all overlayed with your branding instantly.',
-      cta: 'Design a cohesive line',
-      img: '/images/apparel_rack_hero.png',
+      title: settings?.ctaCardTitle || 'Design Your Rack',
+      body: settings?.ctaCardBody || 'Configure a unified apparel collection with our standard 6-item rack — hat, tee, polo, crewneck, hoodie and long sleeve — all overlayed with your branding instantly.',
+      cta: settings?.ctaCardBtnText || 'Design a cohesive line',
+      img: settings?.ctaCardImageUrl || '/images/apparel_rack_hero.png',
       dark: true,
     },
   ];
@@ -552,10 +572,12 @@ export function StartCTASection({ onStart }: { onStart: (mode: 'racks' | 'basics
     <section id="start-cta" ref={sectionRef} className="bg-zinc-950">
       <div className="px-6 pt-20 pb-10 text-center md:px-12 md:pt-28">
         <p className="font-inter mb-4 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-500">
-          ( Choose your path )
+          {settings?.ctaSectionLabel || '( Choose your path )'}
         </p>
         <h2 className="font-serif text-[clamp(2.2rem,5vw,4.5rem)] leading-none tracking-tight text-[#faf9f5]">
-          Start <span className="italic font-light">designing</span>
+          {settings?.ctaSectionTitle || (
+            <>Start <span className="italic font-light">designing</span></>
+          )}
         </h2>
       </div>
 
@@ -659,7 +681,9 @@ export function LandingFooter({
     <footer className="bg-zinc-950 px-6 pt-24 pb-10 text-[#faf9f5] md:px-12">
       <div className="mx-auto max-w-7xl">
         <div className="flex flex-col gap-12 border-b border-white/10 pb-16 md:flex-row md:items-end md:justify-between">
-          {settings.logoText === 'INKTHEORY' ? (
+          {settings.logoImageUrl ? (
+            <img src={settings.logoImageUrl} alt={settings.logoText || 'Logo'} className="h-16 max-w-[280px] object-contain mb-4" />
+          ) : settings.logoText === 'INKTHEORY' ? (
             <h2 className="footer-brand font-sans text-[clamp(3rem,11vw,11rem)] font-black tracking-tighter uppercase">
               INKTHEORY
             </h2>
