@@ -434,28 +434,20 @@ export function PublicQuoteRequest() {
   const [selectedGarmentTypeItem, setSelectedGarmentTypeItem] = useState<SanMarProduct | null>(null);
   const [selectedGarmentTypeColor, setSelectedGarmentTypeColor] = useState<string>('');
 
-  // Curated products chosen across Rack collections & Basics
+  // Curated products chosen across LIVE Rack collections only
   const curatedStorefrontProducts = useMemo(() => {
     const stylesSet = new Set<string>();
     if (catalogSettings.racks) {
-      Object.values(catalogSettings.racks).forEach(catObj => {
-        if (catObj && typeof catObj === 'object') {
-          Object.values(catObj).forEach(style => {
-            if (typeof style === 'string' && style.trim()) {
-              stylesSet.add(style.trim().toLowerCase());
-            }
-          });
-        }
-      });
-    }
-    if (catalogSettings.basics) {
-      Object.values(catalogSettings.basics).forEach(catObj => {
-        if (catObj && typeof catObj === 'object') {
-          Object.values(catObj).forEach(style => {
-            if (typeof style === 'string' && style.trim()) {
-              stylesSet.add(style.trim().toLowerCase());
-            }
-          });
+      Object.keys(catalogSettings.racks).forEach(cat => {
+        if (!catalogSettings.hiddenCollections?.[cat]) {
+          const catObj = catalogSettings.racks[cat];
+          if (catObj && typeof catObj === 'object') {
+            Object.values(catObj).forEach(style => {
+              if (typeof style === 'string' && style.trim()) {
+                stylesSet.add(style.trim().toLowerCase());
+              }
+            });
+          }
         }
       });
     }
@@ -464,7 +456,7 @@ export function PublicQuoteRequest() {
     return Array.from(stylesSet)
       .map(style => allProds.find(p => p.style.toLowerCase() === style))
       .filter(Boolean) as SanMarProduct[];
-  }, [catalogSettings.racks, catalogSettings.basics]);
+  }, [catalogSettings.racks, catalogSettings.hiddenCollections]);
 
   // Checkout inputs
   const [customerInfo, setCustomerInfo] = useState({

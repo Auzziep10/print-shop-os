@@ -918,28 +918,20 @@ export function StorefrontCatalogTab() {
     };
   };
 
-  // Curated products chosen across Rack collections & Basics
+  // Curated products chosen across LIVE Rack collections only
   const storefrontCuratedProducts = useMemo(() => {
     const stylesSet = new Set<string>();
     if (racks) {
-      Object.values(racks).forEach(catObj => {
-        if (catObj && typeof catObj === 'object') {
-          Object.values(catObj).forEach(style => {
-            if (typeof style === 'string' && style.trim()) {
-              stylesSet.add(style.trim().toLowerCase());
-            }
-          });
-        }
-      });
-    }
-    if (basics) {
-      Object.values(basics).forEach(catObj => {
-        if (catObj && typeof catObj === 'object') {
-          Object.values(catObj).forEach(style => {
-            if (typeof style === 'string' && style.trim()) {
-              stylesSet.add(style.trim().toLowerCase());
-            }
-          });
+      Object.keys(racks).forEach(cat => {
+        if (!hiddenCollections[cat]) {
+          const catObj = racks[cat];
+          if (catObj && typeof catObj === 'object') {
+            Object.values(catObj).forEach(style => {
+              if (typeof style === 'string' && style.trim()) {
+                stylesSet.add(style.trim().toLowerCase());
+              }
+            });
+          }
         }
       });
     }
@@ -947,7 +939,7 @@ export function StorefrontCatalogTab() {
     return Array.from(stylesSet)
       .map(style => getProductDetails(style))
       .filter(Boolean) as any[];
-  }, [racks, basics, allCatalogProducts]);
+  }, [racks, hiddenCollections, allCatalogProducts]);
 
   // Filter products by search query
   const filteredProducts = allCatalogProducts.filter(p => 

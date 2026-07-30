@@ -615,13 +615,16 @@ export function PortalCreateOrder() {
   const curatedPortalProducts = useMemo(() => {
     const stylesSet = new Set<string>();
     if (customerRacks) {
-      Object.values(customerRacks).forEach(rackObj => {
-        if (rackObj && typeof rackObj === 'object') {
-          Object.values(rackObj).forEach(val => {
-            if (val && typeof val === 'string' && val.trim()) {
-              stylesSet.add(val.trim().toLowerCase());
-            }
-          });
+      Object.keys(customerRacks).forEach(cat => {
+        if (!hiddenCollections[cat]) {
+          const rackObj = customerRacks[cat];
+          if (rackObj && typeof rackObj === 'object') {
+            Object.values(rackObj).forEach(val => {
+              if (val && typeof val === 'string' && val.trim()) {
+                stylesSet.add(val.trim().toLowerCase());
+              }
+            });
+          }
         }
       });
     }
@@ -631,7 +634,7 @@ export function PortalCreateOrder() {
       if (!prod) return null;
       return prod;
     }).filter(Boolean) as any[];
-  }, [customerRacks]);
+  }, [customerRacks, hiddenCollections]);
 
   useEffect(() => {
     if (isInitialLoadDone) return;
