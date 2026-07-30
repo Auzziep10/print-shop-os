@@ -517,8 +517,18 @@ export function PublicQuoteRequest() {
   };
 
   // Storefront Settings from DB
-  const [storefrontSettings, setStorefrontSettings] = useState({
+  const [storefrontSettings, setStorefrontSettings] = useState<{
+    logoText: string;
+    logoImageUrl?: string;
+    announcement: string;
+    heroTitle: string;
+    heroSubtitle: string;
+    heroVideoUrl: string;
+    contactPhone: string;
+    email: string;
+  }>({
     logoText: 'Custom Apparel',
+    logoImageUrl: '',
     announcement: '🔥 Free Standard Shipping on all orders above 50 units!',
     heroTitle: 'Custom Apparel Lookbook',
     heroSubtitle: 'Choose a themed collection to design a cohesive line, or start from our curated basics.',
@@ -1781,9 +1791,21 @@ export function PublicQuoteRequest() {
           <header className="border-b border-zinc-200/40 backdrop-blur-md z-40 bg-[#FAF9F5]/90 px-6 py-3.5 md:px-12 shrink-0">
             <div className="max-w-7xl mx-auto flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <span className="font-serif text-lg tracking-tight text-zinc-955 font-bold">
-                  {storefrontSettings.logoText}
-                </span>
+                {storefrontSettings.logoImageUrl ? (
+                  <img 
+                    src={storefrontSettings.logoImageUrl} 
+                    alt={storefrontSettings.logoText || 'Logo'} 
+                    className="h-8 max-w-[180px] object-contain" 
+                  />
+                ) : storefrontSettings.logoText === 'INKTHEORY' ? (
+                  <span className="font-sans text-xl font-black tracking-tighter uppercase text-zinc-950">
+                    INKTHEORY
+                  </span>
+                ) : (
+                  <span className="font-serif text-lg tracking-tight text-zinc-955 font-bold">
+                    {storefrontSettings.logoText}
+                  </span>
+                )}
                 <span className="h-4 w-px bg-zinc-200" />
                 <div className="flex items-center gap-1.5">
                   <span className="relative flex h-2 w-2">
@@ -2054,9 +2076,21 @@ export function PublicQuoteRequest() {
           <header className="bg-white/95 backdrop-blur-md border-b border-neutral-200/60 py-4 px-6 sticky top-0 z-50">
             <div className="max-w-[1200px] mx-auto flex items-center justify-between gap-6">
               <div className="flex items-center gap-3">
-                <span className="font-serif text-lg font-bold tracking-tight text-zinc-950">
-                  {storefrontSettings.logoText}
-                </span>
+                {storefrontSettings.logoImageUrl ? (
+                  <img 
+                    src={storefrontSettings.logoImageUrl} 
+                    alt={storefrontSettings.logoText || 'Logo'} 
+                    className="h-8 max-w-[180px] object-contain" 
+                  />
+                ) : storefrontSettings.logoText === 'INKTHEORY' ? (
+                  <span className="font-sans text-xl font-black tracking-tighter uppercase text-zinc-950">
+                    INKTHEORY
+                  </span>
+                ) : (
+                  <span className="font-serif text-lg font-bold tracking-tight text-zinc-950">
+                    {storefrontSettings.logoText}
+                  </span>
+                )}
               </div>
               
               <div className="flex items-center gap-4">
