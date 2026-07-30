@@ -2181,15 +2181,14 @@ export function PublicQuoteRequest() {
               <div className="max-w-7xl mx-auto space-y-8 bg-white py-2">
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-neutral-200/50">
                   <div className="space-y-2">
-                    <div className="flex items-center gap-3">
+                    <div>
                       <button
                         onClick={() => setStep(0)}
-                        className="p-2 border border-neutral-200 hover:border-neutral-450 text-neutral-500 hover:text-neutral-900 bg-neutral-50 rounded-xl transition-all shadow-3xs cursor-pointer"
+                        className="p-1 -ml-1 text-neutral-400 hover:text-neutral-900 transition-colors cursor-pointer block"
                         title="Back to Landing Page"
                       >
-                        <ChevronLeft size={16} />
+                        <ChevronLeft size={20} />
                       </button>
-                      <span className="text-[10px] font-extrabold uppercase tracking-[0.25em] text-neutral-400">Design your rack</span>
                     </div>
                     <h1 className="text-5xl md:text-6xl lg:text-7xl font-serif font-normal text-neutral-950 tracking-tight leading-[0.92] pt-2">
                       Build<br />
