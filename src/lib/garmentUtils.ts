@@ -47,6 +47,12 @@ export const detectGarmentTypeTag = (product: any, customTags?: Record<string, s
     if (GARMENT_TYPES.some(t => t.id === tag)) return tag as GarmentTypeId;
   }
 
+  if (product.slot) {
+    const s = String(product.slot).toLowerCase();
+    if (s === 'shirt') return 't-shirt';
+    if (GARMENT_TYPES.some(t => t.id === s)) return s as GarmentTypeId;
+  }
+
   const text = `${product.category || ''} ${product.slot || ''} ${product.style || ''} ${product.title || ''} ${product.description || ''} ${product.brand || ''}`.toLowerCase();
 
   if (/hat|cap|beanie|visor|headwear|headgear|trucker|snapback/i.test(text)) return 'hat';
