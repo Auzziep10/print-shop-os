@@ -2,12 +2,12 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { ArrowLeft, PackagePlus, X, Trash2, ChevronDown, RotateCcw, Calendar, Loader2, Sparkles, Save, User, Copy, Upload, ShoppingCart, Users, Info, Plus, ExternalLink, Zap } from 'lucide-react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { db, storage } from '../../lib/firebase';
-import { doc, getDoc, collection, query, where, getDocs, setDoc, deleteDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs, setDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useAuth } from '../../contexts/AuthContext';
 import { GarmentCustomizerModal } from '../../components/Portal/GarmentCustomizerModal';
 import { GarmentBrowser, getSwatchColor } from '../../components/shared/GarmentBrowser';
-import { getGarmentWeightAndFabric, getOrderedKeys } from '../../lib/garmentUtils';
+import { getGarmentWeightAndFabric, getOrderedKeys, GARMENT_TYPES, detectGarmentTypeTag, type GarmentTypeId } from '../../lib/garmentUtils';
 import { SavedDesignsModal } from '../../components/Portal/SavedDesignsModal';
 import { getSavedDesigns } from '../../lib/savedDesignsUtils';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
@@ -160,8 +160,6 @@ export function PortalCreateOrder() {
   const { user, userData } = useAuth();
   
   // Saved Carts States
-  const [savedCarts, setSavedCarts] = useState<any[]>([]);
-  const [isLoadingSavedCarts, setIsLoadingSavedCarts] = useState(false);
   const [isSavingCart, setIsSavingCart] = useState(false);
   const [showSaveCartModal, setShowSaveCartModal] = useState(false);
   const [savedCartName, setSavedCartName] = useState('');
@@ -241,6 +239,8 @@ export function PortalCreateOrder() {
   const [defaultColors, setDefaultColors] = useState<any>({ racks: {}, basics: {} });
   const [activeRackCategory, setActiveRackCategory] = useState('Athleisure');
   const [activeLibraryTab, setActiveLibraryTab] = useState('rack');
+  const [activeGarmentType, setActiveGarmentType] = useState<GarmentTypeId>('t-shirt');
+  const [garmentTypeTags, setGarmentTypeTags] = useState<Record<string, string>>({});
   const [globalCustomMockups, setGlobalCustomMockups] = useState<any>({ racks: {}, basics: {} });
   const [globalRacksOrder, setGlobalRacksOrder] = useState<any>({});
   const [isSavedDesignsModalOpen, setIsSavedDesignsModalOpen] = useState(false);
@@ -612,6 +612,27 @@ export function PortalCreateOrder() {
     return Array.from(codes);
   }, [customerRacks]);
 
+  const curatedPortalProducts = useMemo(() => {
+    const stylesSet = new Set<string>();
+    if (customerRacks) {
+      Object.values(customerRacks).forEach(rackObj => {
+        if (rackObj && typeof rackObj === 'object') {
+          Object.values(rackObj).forEach(val => {
+            if (val && typeof val === 'string' && val.trim()) {
+              stylesSet.add(val.trim().toLowerCase());
+            }
+          });
+        }
+      });
+    }
+
+    return Array.from(stylesSet).map(styleId => {
+      const prod = sanmarCatalog.find(p => p.style.toLowerCase() === styleId.toLowerCase());
+      if (!prod) return null;
+      return prod;
+    }).filter(Boolean) as any[];
+  }, [customerRacks]);
+
   useEffect(() => {
     if (isInitialLoadDone) return;
     let preselected: any[] = [];
@@ -737,32 +758,6 @@ export function PortalCreateOrder() {
     }
   }, [orderItems, customerId, isInitialLoadDone]);
 
-  // Fetch saved carts for this customer
-  useEffect(() => {
-    const fetchSavedCarts = async () => {
-      if (!customerId) return;
-      setIsLoadingSavedCarts(true);
-      try {
-        const q = query(
-          collection(db, 'saved_carts'),
-          where('customerId', '==', customerId)
-        );
-        const snapshot = await getDocs(q);
-        const list: any[] = [];
-        snapshot.forEach(doc => {
-          list.push({ id: doc.id, ...doc.data() });
-        });
-        list.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
-        setSavedCarts(list);
-      } catch (err) {
-        console.error("Failed to fetch saved carts:", err);
-      } finally {
-        setIsLoadingSavedCarts(false);
-      }
-    };
-    fetchSavedCarts();
-  }, [customerId]);
-
   const handleSaveCart = async () => {
     if (!customerId || orderItems.length === 0 || !savedCartName.trim()) return;
     setIsSavingCart(true);
@@ -778,34 +773,14 @@ export function PortalCreateOrder() {
       };
       await setDoc(doc(db, 'saved_carts', cartId), payload);
       
-      setSavedCarts(prev => [payload, ...prev]);
       setShowSaveCartModal(false);
       setSavedCartName('');
-      // Cart saved successfully
+      alert("Cart saved successfully!");
     } catch (err) {
       console.error("Failed to save cart:", err);
       alert("Failed to save cart. Please try again.");
     } finally {
       setIsSavingCart(false);
-    }
-  };
-
-  const handleLoadSavedCart = (savedCart: any) => {
-    if (window.confirm(`Are you sure you want to load the saved cart "${savedCart.name}"? This will replace your current cart.`)) {
-      setOrderItems(savedCart.items || []);
-      setIsCartOpen(true);
-    }
-  };
-
-  const handleDeleteSavedCart = async (cartId: string, name: string) => {
-    if (window.confirm(`Are you sure you want to delete the saved cart "${name}"?`)) {
-      try {
-        await deleteDoc(doc(db, 'saved_carts', cartId));
-        setSavedCarts(prev => prev.filter(c => c.id !== cartId));
-      } catch (err) {
-        console.error("Failed to delete saved cart:", err);
-        alert("Failed to delete saved cart.");
-      }
     }
   };
 
@@ -955,6 +930,9 @@ export function PortalCreateOrder() {
             }
              if (globalData.racksOrder) {
                setGlobalRacksOrder(globalData.racksOrder);
+             }
+             if (globalData.garmentTypeTags) {
+               setGarmentTypeTags(globalData.garmentTypeTags);
              }
           }
         } catch (globalErr) {
@@ -1714,14 +1692,14 @@ export function PortalCreateOrder() {
           </button>
           <button
             type="button"
-            onClick={() => setActiveLibraryTab('saved')}
+            onClick={() => setActiveLibraryTab('types')}
             className={`text-sm font-bold pb-1.5 border-b-2 whitespace-nowrap transition-all cursor-pointer ${
-              activeLibraryTab === 'saved' 
+              activeLibraryTab === 'types' 
                 ? 'text-black border-black' 
                 : 'text-neutral-400 border-transparent hover:text-black hover:border-black'
             }`}
           >
-            Saved Carts ({savedCarts.length})
+            Garment Types
           </button>
         </div>
 
@@ -1741,6 +1719,33 @@ export function PortalCreateOrder() {
                 {catName}
               </button>
             ))}
+          </div>
+        )}
+
+        {activeLibraryTab === 'types' && (
+          <div className="flex flex-wrap gap-2 pb-2 border-b border-neutral-100">
+            {GARMENT_TYPES.map((gt) => {
+              const count = curatedPortalProducts.filter(p => detectGarmentTypeTag(p, garmentTypeTags) === gt.id).length;
+              return (
+                <button
+                  key={gt.id}
+                  type="button"
+                  onClick={() => setActiveGarmentType(gt.id as GarmentTypeId)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    activeGarmentType === gt.id
+                      ? 'bg-black text-white'
+                      : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                  }`}
+                >
+                  <span>{gt.label}</span>
+                  <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-mono ${
+                    activeGarmentType === gt.id ? 'bg-white/20 text-white' : 'bg-neutral-200 text-neutral-700'
+                  }`}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         )}
 
@@ -1954,82 +1959,29 @@ export function PortalCreateOrder() {
             )
           )}
 
-          {activeLibraryTab === 'saved' && (
-            <div className="col-span-full flex flex-col gap-4">
-              {isLoadingSavedCarts ? (
-                <div className="flex items-center justify-center p-8">
-                  <Loader2 className="animate-spin text-neutral-400" size={24} />
-                </div>
-              ) : savedCarts.length === 0 ? (
-                <div className="flex flex-col items-center justify-center p-8 text-center text-neutral-500 bg-neutral-50/50 border border-neutral-200 border-dashed rounded-3xl min-h-[200px] w-full">
-                  <Save size={32} className="mb-4 text-neutral-300" />
-                  <p className="font-semibold text-sm text-neutral-600">No saved carts yet.</p>
-                  <p className="text-xs text-neutral-400 mt-1 max-w-sm">Add items to your cart, then click "Save Cart for Later" to preserve your potential order.</p>
-                </div>
-              ) : (
-                savedCarts.map((cartItem) => {
-                  const totalQuantity = (cartItem.items || []).reduce((acc: number, it: any) => {
-                    return acc + Object.values(it.quantities || {}).reduce((sum: number, q: any) => sum + (Number(q) || 0), 0);
-                  }, 0);
+          {activeLibraryTab === 'types' && (
+            (() => {
+              const matching = curatedPortalProducts.filter(p => detectGarmentTypeTag(p, garmentTypeTags) === activeGarmentType);
+              if (matching.length === 0) {
+                return (
+                  <div className="col-span-full flex flex-col items-center justify-center p-8 text-center text-neutral-500 min-h-[200px]">
+                    <PackagePlus size={32} className="mb-4 text-neutral-300" />
+                    <p>No garments configured for this garment type.</p>
+                  </div>
+                );
+              }
+              return matching.map((item: any, idx: number) => {
+                const style = item.customName || item.title || item.style || 'Custom Garment';
+                const gender = item.gender || 'Unisex';
+                const itemNum = item.style;
+                const colors = item.colors || ['Custom Color'];
+                const sizes = parseSizesFromItem(item, item.style || '');
+                const image = getGarmentImage(item);
+                const price = parseFloat(item.price || 0);
 
-                  return (
-                    <div key={cartItem.id} className="bg-neutral-50/50 border border-neutral-200 hover:border-neutral-300 transition-all rounded-2xl p-5 flex flex-col sm:flex-row sm:items-start justify-between gap-4 w-full animate-in fade-in duration-350">
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-bold text-neutral-900 text-sm truncate">{cartItem.name}</h4>
-                        <div className="flex items-center gap-3 text-[10px] text-neutral-400 font-medium mt-1">
-                          <span>{new Date(cartItem.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                          <span>•</span>
-                          <span>{cartItem.items?.length || 0} styles ({totalQuantity} garments total)</span>
-                          <span>•</span>
-                          <span>Saved by {cartItem.createdBy}</span>
-                        </div>
-                        
-                        <div className="mt-4 flex flex-col gap-2 max-w-xl">
-                          {(cartItem.items || []).map((it: any, idx: number) => {
-                            const qty = Object.values(it.quantities || {}).reduce((sum: number, q: any) => sum + (Number(q) || 0), 0);
-                            const itImage = it.image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
-                            return (
-                              <div key={idx} className="flex items-center gap-3 bg-white border border-neutral-100 rounded-xl p-2 shadow-sm">
-                                <div className="w-8 h-8 rounded-lg bg-neutral-50 border border-neutral-100 flex items-center justify-center p-0.5 shrink-0">
-                                  <img src={itImage} alt="" className="w-full h-full object-contain mix-blend-multiply" />
-                                </div>
-                                <div className="flex-1 min-w-0 flex items-center justify-between gap-4">
-                                  <div>
-                                    <p className="text-xs font-bold text-neutral-800 truncate">{it.style}</p>
-                                    <p className="text-[10px] text-neutral-500 font-semibold truncate">Color: {it.selectedColor || 'Default'}</p>
-                                  </div>
-                                  <span className="text-[11px] font-extrabold text-neutral-600 bg-neutral-50 px-2 py-0.5 rounded-md border border-neutral-100 shrink-0">
-                                    {qty} pcs
-                                  </span>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    
-                      <div className="flex items-center gap-2 shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => handleLoadSavedCart(cartItem)}
-                          className="bg-black hover:bg-neutral-800 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all shadow-sm cursor-pointer"
-                        >
-                          Load Cart
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteSavedCart(cartItem.id, cartItem.name)}
-                          className="p-2 text-neutral-450 hover:text-red-650 hover:bg-red-50 rounded-xl transition-all cursor-pointer border border-transparent hover:border-red-100"
-                          title="Delete saved cart"
-                        >
-                          <Trash2 size={15} />
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
+                return renderGarmentCard(item, style, gender, itemNum, colors, sizes, image, price, item.id || idx);
+              });
+            })()
           )}
         </div>
       </div>
