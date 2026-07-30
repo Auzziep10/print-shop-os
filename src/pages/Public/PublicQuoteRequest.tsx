@@ -2257,8 +2257,7 @@ export function PublicQuoteRequest() {
                 </div>
 
                 {/* Pre-selected garments rack representation */}
-                <div className="space-y-4 pt-2">
-                  <span className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-400 block font-inter">Curated Collection</span>
+                <div className="space-y-4 pt-4 border-t border-neutral-200/50">
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-8 gap-y-12">
                     {rackItems.map(item => {
                       const customName = catalogSettings.customNames?.racks?.[selectedThemeCategory]?.[item.slot] || `${item.product.brand} ${item.product.style}`;
@@ -2294,10 +2293,6 @@ export function PublicQuoteRequest() {
                               )}
                             </div>
                           </div>
-                          
-                          <span className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-400 block mb-1">
-                            {item.slot}
-                          </span>
 
                           <div className="h-64 flex items-center justify-center p-2 overflow-hidden mb-3">
                             {(() => {
@@ -2526,15 +2521,10 @@ export function PublicQuoteRequest() {
 
                 {/* Garment Grid matching selected Garment Type */}
                 {(() => {
-                  const typeConfig = GARMENT_TYPES.find(gt => gt.id === selectedGarmentType)!;
                   const matching = curatedStorefrontProducts.filter(p => detectGarmentTypeTag(p, catalogSettings.garmentTypeTags) === selectedGarmentType);
 
                   return (
                     <div className="space-y-4 pt-4 border-t border-neutral-200/50">
-                      <span className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-400 block font-inter">
-                        Curated {typeConfig.label} Collection
-                      </span>
-
                       {matching.length === 0 ? (
                         <div className="text-center py-12 bg-neutral-50 rounded-2xl border border-dashed border-neutral-300">
                           <p className="text-xs font-bold text-neutral-500">No products available in this category.</p>
@@ -2592,10 +2582,6 @@ export function PublicQuoteRequest() {
                                     )}
                                   </div>
                                 </div>
-
-                                <span className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-400 block mb-1">
-                                  {item.brand} • {item.style}
-                                </span>
 
                                 <div className="h-64 flex items-center justify-center p-2 overflow-hidden mb-3">
                                   <img 
