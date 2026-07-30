@@ -19,6 +19,7 @@ export interface GarmentTypeConfig {
 
 export const GARMENT_TYPES: GarmentTypeConfig[] = [
   { id: 't-shirt', label: 'T-Shirt', slotKey: 'shirt', description: 'Everyday tees, classic crewnecks, and performance tops' },
+  { id: 'polo', label: 'Polo', slotKey: 'polo', description: 'Classic collared polos, jersey polos, and performance golf shirts' },
   { id: 'hoodie', label: 'Hoodie', slotKey: 'hoodie', description: 'Pullover and full-zip fleece hoodies' },
   { id: 'longsleeve', label: 'Longsleeve', slotKey: 'longsleeve', description: 'Long sleeve tees and thermal shirts' },
   { id: 'crewneck', label: 'Crewneck', slotKey: 'crewneck', description: 'Cozy fleece crewneck sweatshirts' },
@@ -52,6 +53,7 @@ export const detectGarmentTypeTag = (product: any, customTags?: Record<string, s
   if (/pant|jogger|sweatpant|legging|trouser|bottom/i.test(text)) return 'pants';
   if (/jacket|coat|vest|windbreaker|parka|outerwear/i.test(text)) return 'jacket';
   if (/hoodi|hooded|hood/i.test(text)) return 'hoodie';
+  if (/polo|collared|pique/i.test(text)) return 'polo';
   if (/long\s*sleeve|longsleeve|\bls\b|\bl\/s\b/i.test(text)) return 'longsleeve';
   if (/crewneck|crew\s*neck|sweatshirt|fleece\s*crew/i.test(text)) return 'crewneck';
 

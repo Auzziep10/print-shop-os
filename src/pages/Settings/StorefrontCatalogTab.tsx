@@ -1766,7 +1766,7 @@ export function StorefrontCatalogTab() {
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex gap-3 text-amber-800 text-xs">
             <Info size={16} className="shrink-0 mt-0.5" />
             <p>
-              Tag and organize garments by type (<strong>T-Shirt, Hoodie, Longsleeve, Crewneck, Jacket, Hat, Pants, Shorts</strong>). Customers can browse your storefront using these garment categories to find exactly what they need.
+              Tag and organize garments by type (<strong>T-Shirt, Polo, Hoodie, Longsleeve, Crewneck, Jacket, Hat, Pants, Shorts</strong>). Customers can browse your storefront using these garment categories to find exactly what they need.
             </p>
           </div>
 
