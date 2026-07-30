@@ -24,7 +24,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { PillButton } from '../../components/ui/PillButton';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
-import { getOrderedKeys, GARMENT_TYPES, detectGarmentTypeTag, type GarmentTypeId } from '../../lib/garmentUtils';
+import { getGarmentWeightAndFabric, getOrderedKeys, GARMENT_TYPES, detectGarmentTypeTag, type GarmentTypeId } from '../../lib/garmentUtils';
 import colorHexMapJson from '../../data/color-hex-map.json';
 
 const colorHexMap = colorHexMapJson as Record<string, string>;
@@ -2180,56 +2180,92 @@ export function PublicQuoteRequest() {
                 <div className="space-y-4 pt-4 border-t border-neutral-200/50">
                   <span className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-400 block">Curated Standard {rackItems.length}-Item Rack</span>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {rackItems.map(item => (
-                      <div 
-                        key={item.id} 
-                        onClick={() => {
-                          setRackItems(prev => prev.map(ri => ri.id === item.id ? { ...ri, selected: !ri.selected } : ri));
-                        }}
-                        className={`p-6 rounded-2xl transition-all duration-300 flex flex-col justify-between gap-4 text-center cursor-pointer relative group ${
-                          item.selected 
-                            ? 'bg-neutral-50/80 shadow-2xs opacity-100' 
-                            : 'bg-transparent opacity-50 hover:opacity-100 hover:bg-neutral-50/40'
-                        }`}
-                      >
-                        <div className="absolute top-4 right-4 z-10">
-                          <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-all duration-200 ${
+                    {rackItems.map(item => {
+                      const customName = catalogSettings.customNames?.racks?.[selectedThemeCategory]?.[item.slot] || `${item.product.brand} ${item.product.style}`;
+                      const weightAndFabric = getGarmentWeightAndFabric(item.product);
+                      const specs = catalogSettings.customSpecs?.racks?.[selectedThemeCategory]?.[item.slot];
+                      const fabricText = (specs?.description !== undefined && specs.description.trim() !== '') 
+                        ? specs.description 
+                        : (weightAndFabric.formatted || item.product.description || '');
+                      const colors = item.product.colors || (item.color ? [item.color] : []);
+
+                      return (
+                        <div 
+                          key={item.id} 
+                          onClick={() => {
+                            setRackItems(prev => prev.map(ri => ri.id === item.id ? { ...ri, selected: !ri.selected } : ri));
+                          }}
+                          className={`p-6 rounded-2xl transition-all duration-300 flex flex-col justify-between text-center cursor-pointer relative group border ${
                             item.selected 
-                              ? 'bg-neutral-900 border-neutral-900 text-white scale-100' 
-                              : 'border-neutral-200 text-transparent group-hover:border-neutral-350'
-                          }`}>
-                            <Check size={10} strokeWidth={3} />
+                              ? 'bg-neutral-50/80 border-neutral-300 shadow-2xs opacity-100' 
+                              : 'bg-transparent border-neutral-200/40 opacity-50 hover:opacity-100 hover:bg-neutral-50/40'
+                          }`}
+                        >
+                          <div className="absolute top-4 right-4 z-10">
+                            <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-all duration-200 ${
+                              item.selected 
+                                ? 'bg-neutral-900 border-neutral-900 text-white scale-100' 
+                                : 'border-neutral-200 text-transparent group-hover:border-neutral-350'
+                            }`}>
+                              <Check size={10} strokeWidth={3} />
+                            </div>
+                          </div>
+                          
+                          <span className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-400 block mb-1">
+                            {item.slot}
+                          </span>
+
+                          <div className="h-64 flex items-center justify-center p-2 overflow-hidden mb-3">
+                            {(() => {
+                              const customSlotMockup = catalogSettings.customMockups?.racks?.[selectedThemeCategory]?.[item.slot];
+                              const imgSrc = customSlotMockup || resolveGarmentImage(item.product, item.color);
+                              return (
+                                <img 
+                                  src={imgSrc} 
+                                  className="max-h-full max-w-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-500 ease-out" 
+                                  alt={item.product.style} 
+                                />
+                              );
+                            })()}
+                          </div>
+
+                          <div className="flex flex-col flex-1 justify-between gap-2 mt-auto">
+                            <h4 className="text-xl font-serif font-bold text-neutral-800 leading-snug truncate" title={customName}>
+                              {customName}
+                            </h4>
+
+                            {fabricText ? (
+                              <p className="text-xs text-neutral-500 font-medium font-inter leading-relaxed line-clamp-2 min-h-[2.25rem] flex items-center justify-center px-1" title={fabricText}>
+                                {fabricText}
+                              </p>
+                            ) : (
+                              <div className="min-h-[2.25rem]" />
+                            )}
+
+                            {colors.length > 0 && (
+                              <div className="flex items-center justify-center gap-1.5 pt-2 border-t border-neutral-200/50 mt-1">
+                                <div className="flex items-center gap-1">
+                                  {colors.slice(0, 5).map((col: string, cIdx: number) => {
+                                    const hex = colorHexMap[col.toLowerCase().trim()] || '#a3a3a3';
+                                    return (
+                                      <span 
+                                        key={cIdx} 
+                                        className="w-3.5 h-3.5 rounded-full border border-neutral-300 shadow-3xs shrink-0" 
+                                        style={{ backgroundColor: hex }}
+                                        title={col}
+                                      />
+                                    );
+                                  })}
+                                </div>
+                                <span className="text-[10.5px] font-semibold text-neutral-500 font-inter ml-1">
+                                  {colors.length} {colors.length === 1 ? 'Color' : 'Colors'}
+                                </span>
+                              </div>
+                            )}
                           </div>
                         </div>
-                        <span className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-400">{item.slot}</span>
-                        <div className="h-72 flex items-center justify-center p-2 overflow-hidden">
-                          {(() => {
-                            const customSlotMockup = catalogSettings.customMockups?.racks?.[selectedThemeCategory]?.[item.slot];
-                            const imgSrc = customSlotMockup || resolveGarmentImage(item.product, item.color);
-                            return (
-                              <img 
-                                src={imgSrc} 
-                                className="max-h-full max-w-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-500 ease-out" 
-                                alt={item.product.style} 
-                              />
-                            );
-                          })()}
-                        </div>
-                        <span className="text-2xl font-serif font-bold text-neutral-800 truncate">
-                          {catalogSettings.customNames?.racks?.[selectedThemeCategory]?.[item.slot] || `${item.product.brand} ${item.product.style}`}
-                        </span>
-                        {(() => {
-                          const specs = catalogSettings.customSpecs?.racks?.[selectedThemeCategory]?.[item.slot];
-                          const desc = specs?.description !== undefined ? specs.description : item.product.description;
-                          if (!desc) return null;
-                          return (
-                            <span className="text-xs text-neutral-500 font-medium block mt-1 line-clamp-3" title={desc}>
-                              {desc}
-                            </span>
-                          );
-                        })()}
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
 
