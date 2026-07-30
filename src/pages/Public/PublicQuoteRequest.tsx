@@ -2079,9 +2079,17 @@ export function PublicQuoteRequest() {
             <div className="max-w-[1200px] mx-auto flex items-center justify-between gap-6">
               <div 
                 onClick={() => navigate('/start2')}
-                className="flex items-center gap-3 cursor-pointer"
+                className="flex items-center gap-2 cursor-pointer group"
                 title="Back to Main Page"
               >
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); navigate('/start2'); }}
+                  className="p-1 -ml-1.5 rounded-full text-zinc-400 group-hover:text-zinc-950 group-hover:bg-zinc-100 transition-colors cursor-pointer"
+                  title="Back to Main Page"
+                >
+                  <ChevronLeft size={20} />
+                </button>
                 {storefrontSettings.logoImageUrl ? (
                   <img 
                     src={storefrontSettings.logoImageUrl} 
@@ -2187,16 +2195,7 @@ export function PublicQuoteRequest() {
               <div className="max-w-7xl mx-auto space-y-8 bg-white py-2">
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-neutral-200/50">
                   <div className="space-y-2">
-                    <div>
-                      <button
-                        onClick={() => navigate('/start2')}
-                        className="p-1 -ml-1 text-neutral-400 hover:text-neutral-900 transition-colors cursor-pointer block"
-                        title="Back to Landing Page"
-                      >
-                        <ChevronLeft size={20} />
-                      </button>
-                    </div>
-                    <h1 className="text-5xl md:text-6xl lg:text-7xl font-serif font-normal text-neutral-950 tracking-tight leading-[0.92] pt-2">
+                    <h1 className="text-5xl md:text-6xl lg:text-7xl font-serif font-normal text-neutral-950 tracking-tight leading-[0.92]">
                       Build<br />
                       <span className="italic font-light">Better.</span>
                     </h1>
@@ -2461,16 +2460,7 @@ export function PublicQuoteRequest() {
               <div className="max-w-7xl mx-auto space-y-8 bg-white py-2">
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-neutral-200/50">
                   <div className="space-y-2">
-                    <div>
-                      <button
-                        onClick={() => navigate('/start2')}
-                        className="p-1 -ml-1 text-neutral-400 hover:text-neutral-900 transition-colors cursor-pointer block"
-                        title="Back to Landing Page"
-                      >
-                        <ChevronLeft size={20} />
-                      </button>
-                    </div>
-                    <h1 className="text-5xl md:text-6xl lg:text-7xl font-serif font-normal text-neutral-950 tracking-tight leading-[0.92] pt-2">
+                    <h1 className="text-5xl md:text-6xl lg:text-7xl font-serif font-normal text-neutral-950 tracking-tight leading-[0.92]">
                       Build<br />
                       <span className="italic font-light">Better.</span>
                     </h1>
