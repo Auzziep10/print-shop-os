@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { db } from '../../../lib/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { Upload, Loader2 } from 'lucide-react';
+import { db, storage } from '../../../lib/firebase';
 import { useAuth } from '../../../contexts/AuthContext';
 import { ImmersiveLanding, type StorefrontSettingsShape } from './ImmersiveLanding';
 
@@ -28,6 +30,7 @@ export function ImmersiveLandingPage() {
   const [isEditingStorefront, setIsEditingStorefront] = useState(false);
   const [editSettings, setEditSettings] = useState<StorefrontSettingsShape>(DEFAULT_SETTINGS);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [isUploadingVideo, setIsUploadingVideo] = useState(false);
 
   const isAdmin = true;
 
@@ -162,15 +165,64 @@ export function ImmersiveLandingPage() {
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-zinc-900">Hero Background Video URL (MP4 / WebM / YouTube)</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-zinc-900">Hero Background Video</label>
+                  <label className="text-xs font-bold text-zinc-900 bg-zinc-100 hover:bg-zinc-200 border border-zinc-300 px-3 py-1 rounded-lg cursor-pointer flex items-center gap-1.5 transition-all shadow-3xs">
+                    {isUploadingVideo ? (
+                      <>
+                        <Loader2 className="animate-spin" size={12} />
+                        <span>Uploading...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload size={12} />
+                        <span>Upload Video File</span>
+                      </>
+                    )}
+                    <input
+                      type="file"
+                      accept="video/mp4,video/webm,video/quicktime,video/*"
+                      className="hidden"
+                      disabled={isUploadingVideo}
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        setIsUploadingVideo(true);
+                        try {
+                          const storageRef = ref(storage, `storefront_videos/${Date.now()}_${file.name}`);
+                          await uploadBytes(storageRef, file);
+                          const url = await getDownloadURL(storageRef);
+                          setEditSettings(prev => ({ ...prev, heroVideoUrl: url }));
+                        } catch (err) {
+                          console.error("Failed to upload video file:", err);
+                          alert("Failed to upload video file. Please try again.");
+                        } finally {
+                          setIsUploadingVideo(false);
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+
                 <input
                   type="url"
-                  placeholder="e.g. https://domain.com/hero.mp4 or YouTube video link"
+                  placeholder="https://... or click Upload Video File"
                   value={editSettings.heroVideoUrl || ''}
                   onChange={e => setEditSettings({ ...editSettings, heroVideoUrl: e.target.value })}
                   className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2 text-sm font-medium"
                 />
-                <span className="text-[10px] text-neutral-400">Leave blank to use default hero slideshow images.</span>
+                <div className="flex justify-between items-center text-[10px] text-neutral-400">
+                  <span>Upload an MP4/WebM file or paste a direct video / YouTube URL.</span>
+                  {editSettings.heroVideoUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setEditSettings({ ...editSettings, heroVideoUrl: '' })}
+                      className="text-red-500 hover:underline font-semibold cursor-pointer"
+                    >
+                      Remove Video
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
 
