@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, onSnapshot } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Upload, Loader2, Sparkles } from 'lucide-react';
 import { db, storage } from '../../../lib/firebase';
@@ -43,33 +43,46 @@ const DEFAULT_SETTINGS: StorefrontSettingsShape = {
 export function ImmersiveLandingPage() {
   const navigate = useNavigate();
   const { user, userData, signInWithGoogle, signOut } = useAuth();
-  const [settings, setSettings] = useState<StorefrontSettingsShape>(DEFAULT_SETTINGS);
+  const [settings, setSettings] = useState<StorefrontSettingsShape>(() => {
+    try {
+      const cached = localStorage.getItem('inktheory_storefront_settings');
+      if (cached) {
+        return { ...DEFAULT_SETTINGS, ...JSON.parse(cached) };
+      }
+    } catch (e) {
+      // ignore
+    }
+    return DEFAULT_SETTINGS;
+  });
   const [currentTime, setCurrentTime] = useState('');
   const [isEditingStorefront, setIsEditingStorefront] = useState(false);
   const [activeTab, setActiveTab] = useState<'branding' | 'hero' | 'manifesto' | 'showcase' | 'process' | 'cta'>('branding');
-  const [editSettings, setEditSettings] = useState<StorefrontSettingsShape>(DEFAULT_SETTINGS);
+  const [editSettings, setEditSettings] = useState<StorefrontSettingsShape>(settings);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [uploadingField, setUploadingField] = useState<string | null>(null);
 
   const isAdmin = true;
 
   useEffect(() => {
-    const fetchSettings = async () => {
-      try {
-        const snap = await getDoc(doc(db, 'settings', 'storefront'));
+    const unsub = onSnapshot(
+      doc(db, 'settings', 'storefront'),
+      (snap) => {
         if (snap.exists()) {
           const data = snap.data() as Partial<StorefrontSettingsShape>;
-          setSettings((prev) => ({ ...DEFAULT_SETTINGS, ...prev, ...data }));
-          setEditSettings((prev) => ({ ...DEFAULT_SETTINGS, ...prev, ...data }));
-        } else {
-          setSettings(DEFAULT_SETTINGS);
-          setEditSettings(DEFAULT_SETTINGS);
+          const merged = { ...DEFAULT_SETTINGS, ...data };
+          setSettings(merged);
+          try {
+            localStorage.setItem('inktheory_storefront_settings', JSON.stringify(merged));
+          } catch (e) {
+            // ignore
+          }
         }
-      } catch (e) {
-        console.error('Failed to load storefront settings', e);
+      },
+      (err) => {
+        console.warn('Storefront settings realtime listener error:', err);
       }
-    };
-    fetchSettings();
+    );
+    return () => unsub();
   }, []);
 
   useEffect(() => {
@@ -119,6 +132,11 @@ export function ImmersiveLandingPage() {
     try {
       await setDoc(doc(db, 'settings', 'storefront'), editSettings, { merge: true });
       setSettings(editSettings);
+      try {
+        localStorage.setItem('inktheory_storefront_settings', JSON.stringify(editSettings));
+      } catch (e) {
+        // ignore
+      }
       setIsEditingStorefront(false);
     } catch (err) {
       console.error("Error saving storefront settings:", err);
