@@ -2880,7 +2880,7 @@ export function PublicQuoteRequest() {
                   disabled={!logoUrl || isUploadingLogo}
                   className="gap-2"
                 >
-                  Proceed to Lookbook Rack <ArrowRight size={14} />
+                  Proceed to Lookbook <ArrowRight size={14} />
                 </PillButton>
               </div>
             </div>
