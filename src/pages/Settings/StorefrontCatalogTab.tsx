@@ -907,6 +907,37 @@ export function StorefrontCatalogTab() {
     return Array.from(map.values());
   }, [customProducts]);
 
+  // Curated products chosen across Rack collections & Basics
+  const storefrontCuratedProducts = useMemo(() => {
+    const stylesSet = new Set<string>();
+    if (racks) {
+      Object.values(racks).forEach(catObj => {
+        if (catObj && typeof catObj === 'object') {
+          Object.values(catObj).forEach(style => {
+            if (typeof style === 'string' && style.trim()) {
+              stylesSet.add(style.trim().toLowerCase());
+            }
+          });
+        }
+      });
+    }
+    if (basics) {
+      Object.values(basics).forEach(catObj => {
+        if (catObj && typeof catObj === 'object') {
+          Object.values(catObj).forEach(style => {
+            if (typeof style === 'string' && style.trim()) {
+              stylesSet.add(style.trim().toLowerCase());
+            }
+          });
+        }
+      });
+    }
+
+    return Array.from(stylesSet)
+      .map(style => getProductDetails(style))
+      .filter(Boolean) as any[];
+  }, [racks, basics, customProducts]);
+
   // Filter products by search query
   const filteredProducts = allCatalogProducts.filter(p => 
     p.style.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -1712,7 +1743,7 @@ export function StorefrontCatalogTab() {
           {/* Garment Type Selector Pills */}
           <div className="flex flex-wrap items-center gap-2 pb-2">
             {GARMENT_TYPES.map(gt => {
-              const count = allCatalogProducts.filter(p => detectGarmentTypeTag(p, garmentTypeTags) === gt.id).length;
+              const count = storefrontCuratedProducts.filter(p => detectGarmentTypeTag(p, garmentTypeTags) === gt.id).length;
               const isActive = activeGarmentType === gt.id;
               return (
                 <button
@@ -1739,7 +1770,7 @@ export function StorefrontCatalogTab() {
           {/* Products Grid for Active Garment Type */}
           {(() => {
             const activeTypeConfig = GARMENT_TYPES.find(gt => gt.id === activeGarmentType)!;
-            const items = allCatalogProducts.filter(p => detectGarmentTypeTag(p, garmentTypeTags) === activeGarmentType);
+            const items = storefrontCuratedProducts.filter(p => detectGarmentTypeTag(p, garmentTypeTags) === activeGarmentType);
 
             return (
               <div className="space-y-4">

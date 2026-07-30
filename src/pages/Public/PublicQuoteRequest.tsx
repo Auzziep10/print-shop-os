@@ -434,6 +434,38 @@ export function PublicQuoteRequest() {
   const [selectedGarmentTypeItem, setSelectedGarmentTypeItem] = useState<SanMarProduct | null>(null);
   const [selectedGarmentTypeColor, setSelectedGarmentTypeColor] = useState<string>('');
 
+  // Curated products chosen across Rack collections & Basics
+  const curatedStorefrontProducts = useMemo(() => {
+    const stylesSet = new Set<string>();
+    if (catalogSettings.racks) {
+      Object.values(catalogSettings.racks).forEach(catObj => {
+        if (catObj && typeof catObj === 'object') {
+          Object.values(catObj).forEach(style => {
+            if (typeof style === 'string' && style.trim()) {
+              stylesSet.add(style.trim().toLowerCase());
+            }
+          });
+        }
+      });
+    }
+    if (catalogSettings.basics) {
+      Object.values(catalogSettings.basics).forEach(catObj => {
+        if (catObj && typeof catObj === 'object') {
+          Object.values(catObj).forEach(style => {
+            if (typeof style === 'string' && style.trim()) {
+              stylesSet.add(style.trim().toLowerCase());
+            }
+          });
+        }
+      });
+    }
+
+    const allProds = (sanmarCatalogJson as SanMarProduct[]);
+    return Array.from(stylesSet)
+      .map(style => allProds.find(p => p.style.toLowerCase() === style))
+      .filter(Boolean) as SanMarProduct[];
+  }, [catalogSettings.racks, catalogSettings.basics]);
+
   // Checkout inputs
   const [customerInfo, setCustomerInfo] = useState({
     companyName: '',
@@ -2290,6 +2322,7 @@ export function PublicQuoteRequest() {
                 <div className="flex flex-wrap items-center justify-center gap-2 pb-2 border-b border-neutral-100">
                   {GARMENT_TYPES.map(gt => {
                     const isSelected = selectedGarmentType === gt.id;
+                    const count = curatedStorefrontProducts.filter(p => detectGarmentTypeTag(p, catalogSettings.garmentTypeTags) === gt.id).length;
                     return (
                       <button
                         key={gt.id}
@@ -2297,13 +2330,18 @@ export function PublicQuoteRequest() {
                           setSelectedGarmentType(gt.id);
                           setSelectedGarmentTypeItem(null);
                         }}
-                        className={`px-4.5 py-2 rounded-full border text-[10px] font-bold uppercase tracking-[0.2em] transition-all duration-200 cursor-pointer ${
+                        className={`px-4 py-2 rounded-full border text-[10px] font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer flex items-center gap-2 ${
                           isSelected 
                             ? 'bg-zinc-955 border-zinc-955 text-white shadow-sm' 
                             : 'bg-transparent border-zinc-200/80 text-zinc-650 hover:text-zinc-950 hover:border-zinc-950 hover:bg-zinc-950/5'
                         }`}
                       >
-                        {gt.label}
+                        <span>{gt.label}</span>
+                        <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-mono ${
+                          isSelected ? 'bg-white/20 text-white' : 'bg-neutral-100 text-neutral-600'
+                        }`}>
+                          {count}
+                        </span>
                       </button>
                     );
                   })}
@@ -2312,8 +2350,7 @@ export function PublicQuoteRequest() {
                 {/* Garment Grid matching selected Garment Type */}
                 {(() => {
                   const typeConfig = GARMENT_TYPES.find(gt => gt.id === selectedGarmentType)!;
-                  const allProds = (sanmarCatalogJson as SanMarProduct[]);
-                  const matching = allProds.filter(p => detectGarmentTypeTag(p, catalogSettings.garmentTypeTags) === selectedGarmentType);
+                  const matching = curatedStorefrontProducts.filter(p => detectGarmentTypeTag(p, catalogSettings.garmentTypeTags) === selectedGarmentType);
 
                   return (
                     <div className="space-y-6">
