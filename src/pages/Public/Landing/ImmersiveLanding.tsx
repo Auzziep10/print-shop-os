@@ -20,6 +20,7 @@ export interface StorefrontSettingsShape {
   announcement?: string;
   heroTitle?: string;
   heroSubtitle?: string;
+  heroVideoUrl?: string;
   contactPhone?: string;
   email?: string;
 }

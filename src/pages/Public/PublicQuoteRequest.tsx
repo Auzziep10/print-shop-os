@@ -484,6 +484,7 @@ export function PublicQuoteRequest() {
     announcement: '🔥 Free Standard Shipping on all orders above 50 units!',
     heroTitle: 'Custom Apparel Lookbook',
     heroSubtitle: 'Choose a themed collection to design a cohesive line, or start from our curated basics.',
+    heroVideoUrl: '',
     contactPhone: '(888) 896-8607',
     email: 'hello@inktheory.studio'
   });
@@ -1739,15 +1740,53 @@ export function PublicQuoteRequest() {
                 setStep(1);
               }}
             >
-              {/* Background Image with overlays */}
+              {/* Background Video or Image with overlays */}
               <div className="absolute inset-0 pointer-events-none overflow-hidden">
-                <img 
-                  src="/images/apparel_rack_hero.png" 
-                  alt="Custom Apparel Rack" 
-                  className="w-full h-full object-cover transition-transform duration-[2000ms] ease-out group-hover:scale-105 opacity-[0.88]"
-                />
-                <div className="absolute bottom-0 inset-x-0 h-[280px] bg-gradient-to-t from-zinc-950 via-zinc-950/80 to-transparent" />
-                <div className="absolute top-0 inset-x-0 h-[120px] bg-gradient-to-b from-zinc-950/50 to-transparent" />
+                {storefrontSettings.heroVideoUrl && storefrontSettings.heroVideoUrl.trim() !== '' ? (
+                  (() => {
+                    const url = storefrontSettings.heroVideoUrl.trim();
+                    let ytEmbedUrl: string | null = null;
+                    if (url.includes('youtu.be/')) {
+                      const id = url.split('youtu.be/')[1]?.split('?')[0]?.split('&')[0];
+                      if (id) ytEmbedUrl = `https://www.youtube.com/embed/${id}?autoplay=1&mute=1&loop=1&playlist=${id}&controls=0&showinfo=0&modestbranding=1&playsinline=1`;
+                    } else if (url.includes('youtube.com/watch')) {
+                      const params = new URLSearchParams(url.split('?')[1]);
+                      const id = params.get('v');
+                      if (id) ytEmbedUrl = `https://www.youtube.com/embed/${id}?autoplay=1&mute=1&loop=1&playlist=${id}&controls=0&showinfo=0&modestbranding=1&playsinline=1`;
+                    } else if (url.includes('youtube.com/embed/')) {
+                      const id = url.split('youtube.com/embed/')[1]?.split('?')[0];
+                      if (id) ytEmbedUrl = `https://www.youtube.com/embed/${id}?autoplay=1&mute=1&loop=1&playlist=${id}&controls=0&showinfo=0&modestbranding=1&playsinline=1`;
+                    }
+                    if (ytEmbedUrl) {
+                      return (
+                        <iframe
+                          src={ytEmbedUrl}
+                          className="w-full h-full object-cover pointer-events-none scale-125 border-0 opacity-[0.88]"
+                          allow="autoplay; encrypted-media; picture-in-picture"
+                          title="Storefront Background Video"
+                        />
+                      );
+                    }
+                    return (
+                      <video
+                        src={url}
+                        autoPlay
+                        loop
+                        muted
+                        playsInline
+                        className="w-full h-full object-cover opacity-[0.88]"
+                      />
+                    );
+                  })()
+                ) : (
+                  <img 
+                    src="/images/apparel_rack_hero.png" 
+                    alt="Custom Apparel Rack" 
+                    className="w-full h-full object-cover transition-transform duration-[2000ms] ease-out group-hover:scale-105 opacity-[0.88]"
+                  />
+                )}
+                <div className="absolute bottom-0 inset-x-0 h-[280px] bg-gradient-to-t from-zinc-950 via-zinc-950/80 to-transparent pointer-events-none" />
+                <div className="absolute top-0 inset-x-0 h-[120px] bg-gradient-to-b from-zinc-950/50 to-transparent pointer-events-none" />
               </div>
               {/* Abstract CSS design element in background (glowing orb and blueprint lines) */}
               <div 
@@ -3224,6 +3263,18 @@ export function PublicQuoteRequest() {
                   onChange={e => setEditSettings({ ...editSettings, heroSubtitle: e.target.value })}
                   className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2 text-sm font-medium resize-none"
                 />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-brand-primary">Hero Background Video URL (MP4 / WebM / YouTube)</label>
+                <input
+                  type="url"
+                  placeholder="e.g. https://domain.com/hero.mp4 or YouTube video link"
+                  value={editSettings.heroVideoUrl || ''}
+                  onChange={e => setEditSettings({ ...editSettings, heroVideoUrl: e.target.value })}
+                  className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2 text-sm font-medium"
+                />
+                <span className="text-[10px] text-neutral-400">Leave blank to use the default main hero image.</span>
               </div>
             </div>
 

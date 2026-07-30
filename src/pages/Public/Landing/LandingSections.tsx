@@ -94,23 +94,61 @@ export function HeroSection({
       ref={sectionRef}
       className="relative h-[100svh] overflow-hidden bg-zinc-950 text-white"
     >
-      {/* Slideshow media */}
+      {/* Background Media */}
       <div className="hero-media absolute inset-0 will-change-transform">
-        {HERO_SLIDES.map((slide, i) => (
-          <div
-            key={slide.src}
-            className={`absolute inset-0 overflow-hidden transition-opacity duration-[1400ms] ease-in-out ${
-              i === slideIdx ? 'opacity-100 hero-slide-active' : 'opacity-0'
-            }`}
-          >
-            <img
-              src={slide.src}
-              alt={slide.alt}
-              className="h-full w-full object-cover brightness-[1.12] contrast-[0.98]"
-              loading={i === 0 ? 'eager' : 'lazy'}
-            />
-          </div>
-        ))}
+        {settings.heroVideoUrl && settings.heroVideoUrl.trim() !== '' ? (
+          (() => {
+            const url = settings.heroVideoUrl.trim();
+            let ytEmbedUrl: string | null = null;
+            if (url.includes('youtu.be/')) {
+              const id = url.split('youtu.be/')[1]?.split('?')[0]?.split('&')[0];
+              if (id) ytEmbedUrl = `https://www.youtube.com/embed/${id}?autoplay=1&mute=1&loop=1&playlist=${id}&controls=0&showinfo=0&modestbranding=1&playsinline=1`;
+            } else if (url.includes('youtube.com/watch')) {
+              const params = new URLSearchParams(url.split('?')[1]);
+              const id = params.get('v');
+              if (id) ytEmbedUrl = `https://www.youtube.com/embed/${id}?autoplay=1&mute=1&loop=1&playlist=${id}&controls=0&showinfo=0&modestbranding=1&playsinline=1`;
+            } else if (url.includes('youtube.com/embed/')) {
+              const id = url.split('youtube.com/embed/')[1]?.split('?')[0];
+              if (id) ytEmbedUrl = `https://www.youtube.com/embed/${id}?autoplay=1&mute=1&loop=1&playlist=${id}&controls=0&showinfo=0&modestbranding=1&playsinline=1`;
+            }
+            if (ytEmbedUrl) {
+              return (
+                <iframe
+                  src={ytEmbedUrl}
+                  className="w-full h-full object-cover pointer-events-none scale-125 border-0 opacity-[0.88]"
+                  allow="autoplay; encrypted-media; picture-in-picture"
+                  title="Hero Background Video"
+                />
+              );
+            }
+            return (
+              <video
+                src={url}
+                autoPlay
+                loop
+                muted
+                playsInline
+                className="w-full h-full object-cover opacity-[0.88]"
+              />
+            );
+          })()
+        ) : (
+          HERO_SLIDES.map((slide, i) => (
+            <div
+              key={slide.src}
+              className={`absolute inset-0 overflow-hidden transition-opacity duration-[1400ms] ease-in-out ${
+                i === slideIdx ? 'opacity-100 hero-slide-active' : 'opacity-0'
+              }`}
+            >
+              <img
+                src={slide.src}
+                alt={slide.alt}
+                className="h-full w-full object-cover brightness-[1.12] contrast-[0.98]"
+                loading={i === 0 ? 'eager' : 'lazy'}
+              />
+            </div>
+          ))
+        )}
         <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/75 via-zinc-950/20 to-zinc-950/25" />
       </div>
 
