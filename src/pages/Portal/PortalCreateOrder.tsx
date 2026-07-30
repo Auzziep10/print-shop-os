@@ -262,7 +262,7 @@ export function PortalCreateOrder() {
     let overallTotal = 0;
     const itemQuotes = orderItems.map(item => {
       const totalQty = Object.values(item.quantities as Record<string, number> || {}).reduce((q, val) => q + (parseInt((val || 0).toString()) || 0), 0);
-      const autoQuote = autoQuoteItem({ ...item, qty: totalQty }, dtfSettings.costs, dtfSettings.ladder);
+      const autoQuote = autoQuoteItem({ ...item, qty: totalQty, packaging: selectedPackaging }, dtfSettings.costs, dtfSettings.ladder, selectedPackaging);
       const priceEach = autoQuote.pricePerPiece;
       const lineTotal = priceEach * totalQty;
       overallTotal += lineTotal;
@@ -279,7 +279,7 @@ export function PortalCreateOrder() {
       overallTotal,
       itemQuotes
     };
-  }, [dtfSettings, orderItems]);
+  }, [dtfSettings, orderItems, selectedPackaging]);
 
   useEffect(() => {
     if (!customerId) return;
@@ -1243,7 +1243,7 @@ export function PortalCreateOrder() {
        if (dtfSettings.autoQuotingEnabled) {
          finalStatusIndex = 2; // Auto-Quoted -> Ready for Payment
          finalItems = resolvedItems.map(item => {
-           const autoQuote = autoQuoteItem(item, dtfSettings.costs, dtfSettings.ladder);
+           const autoQuote = autoQuoteItem({ ...item, packaging: selectedPackaging }, dtfSettings.costs, dtfSettings.ladder, selectedPackaging);
            const priceEach = autoQuote.pricePerPiece;
            const totalQty = Object.values(item.sizes as Record<string, number> || {}).reduce((q, val) => q + val, 0) || item.qty || 1;
            calculatedTotal += priceEach * totalQty;
@@ -1257,9 +1257,11 @@ export function PortalCreateOrder() {
            };
          });
        } else {
+         const extraPackagingPerPiece = selectedPackaging === 'Individually Bagged and Labeled' ? 0.20 : 0;
          calculatedTotal = orderItems.reduce((sum, item) => {
            const totalQty = Object.values(item.quantities as Record<string, number>).reduce((q, val) => q + val, 0);
-           return sum + (totalQty * (parseFloat(item.price) || 0));
+           const basePrice = (parseFloat(item.price) || 0) + extraPackagingPerPiece;
+           return sum + (totalQty * basePrice);
          }, 0);
        }
 
@@ -2464,7 +2466,7 @@ export function PortalCreateOrder() {
                         >
                           <option value="Factory Folded (10 garments per stack)">Factory Folded (10 garments per stack)</option>
                           <option value="Retail (single folded)">Retail (single folded)</option>
-                          <option value="Individually Bagged and Labeled">Individually Bagged and Labeled</option>
+                          <option value="Individually Bagged and Labeled">Individually Bagged and Labeled (+$0.20/shirt)</option>
                         </select>
                         <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" size={14} />
                       </div>

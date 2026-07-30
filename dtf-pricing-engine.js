@@ -71,6 +71,8 @@ const DEFAULT_COSTS = {
   transferPatch: 1.20,
   /** Extra labor to tear out a maker's tag before relabeling. */
   tagTearOut: 0.50,
+  /** Extra cost per shirt for individual bagging and labeling. */
+  packagingBaggedAndLabeled: 0.20,
   /**
    * Share of full press labor that an ADDITIONAL placement costs, 0..1.
    * 0.55 = an added placement costs 55% of the labor the first one did,
@@ -406,6 +408,7 @@ function quote(input) {
     placementIds,
     quantity,
     blankCost = 0,
+    packaging = null,
     costs = DEFAULT_COSTS,
     ladder = DEFAULT_LADDER,
   } = input || {};
@@ -429,14 +432,21 @@ function quote(input) {
   const blank = num(blankCost);
   const totalCost = deco + blank;
 
-  const margin = effectiveMargin(t, costs, ladder);
-  const pricePerPiece = priceFromCost(totalCost, t, costs, ladder);
-  const marginPerPiece = pricePerPiece - totalCost;
+  const isBaggedAndLabeled = packaging === "Individually Bagged and Labeled" || !!(input && input.packagingBaggedAndLabeled);
+  const packagingFee = isBaggedAndLabeled ? num(costs.packagingBaggedAndLabeled, 0.20) : 0;
 
-  // Breakdown: blank first (if present), then handling, then placements, then margin.
+  const margin = effectiveMargin(t, costs, ladder);
+  const basePricePerPiece = priceFromCost(totalCost, t, costs, ladder);
+  const pricePerPiece = basePricePerPiece + packagingFee;
+  const marginPerPiece = pricePerPiece - totalCost - packagingFee;
+
+  // Breakdown: blank first (if present), then handling, then placements, then packaging (if requested), then margin.
   const lines = [];
   if (blank > 0) lines.push({ id: "blank", label: "Garment", amount: blank, isMarginal: false });
   lines.push(...costBreakdown(garmentId, valid, t, costs));
+  if (packagingFee > 0) {
+    lines.push({ id: "packaging", label: "Individually Bagged & Labeled", amount: packagingFee, isMarginal: false });
+  }
   lines.push({ id: "margin", label: "Margin", amount: marginPerPiece, isMarginal: false });
   const breakdown = lines.map(l => ({
     ...l,

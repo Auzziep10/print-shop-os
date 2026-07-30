@@ -434,9 +434,15 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
         </div>
         <div>
           <h2 className="text-3xl font-serif text-gray-900 mb-2">No active orders yet.</h2>
-          <p className="text-gray-500 font-medium max-w-sm mx-auto leading-relaxed">
+          <p className="text-gray-500 font-medium max-w-sm mx-auto leading-relaxed mb-6">
             You don't currently have any orders in the pipeline. Once a new order is placed or quoted, you'll be able to track its progress here.
           </p>
+          <button
+            onClick={() => navigate(customerId ? `/portal/${customerId}/create` : '/portal/create')}
+            className="bg-black text-white px-6 py-3 rounded-full text-xs font-bold tracking-wide hover:bg-black/80 hover:scale-105 active:scale-95 transition-all shadow-[0_4px_14px_0_rgb(0,0,0,0.15)] inline-flex items-center gap-2 cursor-pointer"
+          >
+            Create Order +
+          </button>
         </div>
       </div>
     );

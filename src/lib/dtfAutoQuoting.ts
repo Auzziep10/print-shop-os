@@ -83,7 +83,7 @@ export function detectPlacementIds(item: any, garmentId: string): string[] {
 /**
  * Calculate deterministic auto-quote for a single line item without AI.
  */
-export function autoQuoteItem(item: any, costs?: any, ladder?: any): {
+export function autoQuoteItem(item: any, costs?: any, ladder?: any, packagingOverride?: string): {
   pricePerPiece: number;
   orderTotal: number;
   quantity: number;
@@ -96,6 +96,7 @@ export function autoQuoteItem(item: any, costs?: any, ladder?: any): {
   const qty = Object.values(item.quantities || item.sizes || {}).reduce((sum: number, q: any) => sum + (parseFloat(q) || 0), 0) || parseFloat(item.qty) || 1;
   const garmentId = detectGarmentId(item.style || item.title || item.name, item.category);
   const placementIds = detectPlacementIds(item, garmentId);
+  const packaging = packagingOverride || item.packaging;
 
   // Check all possible garment price properties (blankCost, blankPrice, wholesalePrice, cost, price)
   const blankCost = parseFloat(item.blankCost) || parseFloat(item.blankPrice) || parseFloat(item.wholesalePrice) || parseFloat(item.cost) || parseFloat(item.price) || 0;
@@ -105,6 +106,7 @@ export function autoQuoteItem(item: any, costs?: any, ladder?: any): {
     placementIds,
     quantity: qty,
     blankCost,
+    packaging,
     costs: costs || DTFPricing.DEFAULT_COSTS,
     ladder: ladder || DTFPricing.DEFAULT_LADDER
   });
@@ -117,7 +119,7 @@ export function autoQuoteItem(item: any, costs?: any, ladder?: any): {
       id: b.id,
       label: b.label,
       amount: b.amount,
-      price: Math.round((b.amount / marginDivisor) * 100) / 100,
+      price: b.id === 'packaging' ? b.amount : Math.round((b.amount / marginDivisor) * 100) / 100,
       isMarginal: !!b.isMarginal
     }));
 
@@ -133,7 +135,9 @@ export function autoQuoteItem(item: any, costs?: any, ladder?: any): {
     };
   }
 
-  const existingPrice = parseFloat(item.price) || 0;
+  const isBagged = packaging === 'Individually Bagged and Labeled';
+  const basePrice = parseFloat(item.price) || 0;
+  const existingPrice = basePrice + (isBagged ? 0.20 : 0);
   return {
     pricePerPiece: existingPrice,
     orderTotal: existingPrice * qty,
@@ -141,7 +145,7 @@ export function autoQuoteItem(item: any, costs?: any, ladder?: any): {
     placementIds,
     garmentId,
     blankCost: 0,
-    breakdown: [],
+    breakdown: isBagged ? [{ id: 'packaging', label: 'Individually Bagged & Labeled', amount: 0.20, price: 0.20, isMarginal: false }] : [],
     ok: false
   };
 }

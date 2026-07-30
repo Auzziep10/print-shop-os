@@ -907,7 +907,7 @@ export function PortalRequestQuote() {
        if (dtfSettings.autoQuotingEnabled) {
          finalStatusIndex = 2; // Auto-Quoted -> Ready for Payment
          finalItems = resolvedItems.map(item => {
-           const autoQuote = autoQuoteItem(item, dtfSettings.costs, dtfSettings.ladder);
+           const autoQuote = autoQuoteItem({ ...item, packaging: selectedPackaging }, dtfSettings.costs, dtfSettings.ladder, selectedPackaging);
            const priceEach = autoQuote.pricePerPiece;
            const totalQty = Object.values(item.sizes || {}).reduce((q: number, val: any) => q + (parseInt(val.toString()) || 0), 0) || item.qty || 1;
            calculatedTotal += priceEach * totalQty;
@@ -918,6 +918,18 @@ export function PortalRequestQuote() {
              dtfAutoQuoted: true,
              dtfGarmentId: autoQuote.garmentId,
              dtfPlacements: autoQuote.placementIds
+           };
+         });
+       } else {
+         const extraPackagingPerPiece = selectedPackaging === 'Individually Bagged and Labeled' ? 0.20 : 0;
+         finalItems = resolvedItems.map(item => {
+           const totalQty = Object.values(item.sizes || {}).reduce((q: number, val: any) => q + (parseInt(val.toString()) || 0), 0) || item.qty || 1;
+           const priceEach = (parseFloat((item as any).price) || 0) + extraPackagingPerPiece;
+           calculatedTotal += priceEach * totalQty;
+           return {
+             ...item,
+             price: priceEach.toFixed(2),
+             total: (priceEach * totalQty).toFixed(2)
            };
          });
        }
@@ -1060,7 +1072,7 @@ export function PortalRequestQuote() {
                           <select value={selectedPackaging} onChange={e => setSelectedPackaging(e.target.value)} className="w-full appearance-none bg-neutral-50 border border-neutral-200 focus:bg-white focus:border-black rounded-xl px-4 py-2.5 text-sm text-neutral-900 focus:outline-none cursor-pointer font-bold">
                               <option value="Factory Folded (10 garments per stack)">Factory Folded (10 garments per stack)</option>
                               <option value="Retail (single folded)">Retail (single folded)</option>
-                              <option value="Individually Bagged and Labeled">Individually Bagged and Labeled</option>
+                              <option value="Individually Bagged and Labeled">Individually Bagged and Labeled (+$0.20/shirt)</option>
                           </select>
                           <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" size={16} />
                       </div>
