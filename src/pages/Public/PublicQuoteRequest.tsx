@@ -2314,7 +2314,7 @@ export function PublicQuoteRequest() {
                           </div>
 
                           <div className="flex flex-col flex-1 justify-between gap-1.5 mt-auto">
-                            <h4 className="text-lg font-serif font-bold text-neutral-800 leading-tight truncate" title={customName}>
+                            <h4 className="text-base font-sans font-bold text-neutral-800 leading-tight truncate" title={customName}>
                               {customName}
                             </h4>
 
@@ -2374,7 +2374,7 @@ export function PublicQuoteRequest() {
                     </button>
                     <div>
                       <span className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-400">Build from basics</span>
-                      <h3 className="text-2xl font-serif text-neutral-900 mt-0.5">Select a Basic Canvas</h3>
+                      <h3 className="text-2xl font-sans font-bold text-neutral-900 mt-0.5">Select a Basic Canvas</h3>
                     </div>
                   </div>
 
@@ -2608,7 +2608,7 @@ export function PublicQuoteRequest() {
                                 </div>
 
                                 <div className="flex flex-col flex-1 justify-between gap-1.5 mt-auto">
-                                  <h4 className="text-lg font-serif font-bold text-neutral-800 leading-tight truncate" title={customName}>
+                                  <h4 className="text-base font-sans font-bold text-neutral-800 leading-tight truncate" title={customName}>
                                     {customName}
                                   </h4>
 
@@ -2678,7 +2678,7 @@ export function PublicQuoteRequest() {
                 </button>
                 <div>
                   <span className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-400">Custom Brand Identity</span>
-                  <h3 className="text-2xl font-serif text-neutral-900 mt-0.5">Upload or Generate Logo</h3>
+                  <h3 className="text-2xl font-sans font-bold text-neutral-900 mt-0.5">Upload or Generate Logo</h3>
                 </div>
               </div>
 
@@ -2910,7 +2910,7 @@ export function PublicQuoteRequest() {
                 </button>
                 <div>
                   <span className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-400">Step 3 of 5</span>
-                  <h3 className="text-2xl font-serif text-neutral-900 mt-0.5">Your Curated Collection Lookbook</h3>
+                  <h3 className="text-2xl font-sans font-bold text-neutral-900 mt-0.5">Your Curated Collection Lookbook</h3>
                 </div>
               </div>
 
@@ -3234,7 +3234,7 @@ export function PublicQuoteRequest() {
               </button>
               <div>
                 <span className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-400">Step 4 of 5</span>
-                <h3 className="text-2xl font-serif text-neutral-900 mt-0.5">Sizing Distribution & Quantities</h3>
+                <h3 className="text-2xl font-sans font-bold text-neutral-900 mt-0.5">Sizing Distribution & Quantities</h3>
               </div>
             </div>
 
@@ -3324,7 +3324,7 @@ export function PublicQuoteRequest() {
               </button>
               <div>
                 <span className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-400">Step 5 of 5</span>
-                <h3 className="text-2xl font-serif text-neutral-900 mt-0.5">Finalize Project & Submit Quote</h3>
+                <h3 className="text-2xl font-sans font-bold text-neutral-900 mt-0.5">Finalize Project & Submit Quote</h3>
               </div>
             </div>
 
@@ -3458,7 +3458,7 @@ export function PublicQuoteRequest() {
 
               {/* Summary panel */}
               <div className="lg:col-span-4 bg-white border border-neutral-200 rounded-3xl p-6 shadow-3xs space-y-6">
-                <h3 className="text-lg font-serif text-neutral-900 border-b border-neutral-150 pb-3">Collection Summary</h3>
+                <h3 className="text-lg font-sans font-bold text-neutral-900 border-b border-neutral-150 pb-3">Collection Summary</h3>
                 <div className="divide-y divide-neutral-100 text-xs">
                   <div className="py-2.5 flex justify-between">
                     <span className="text-neutral-500 font-semibold">Curated Styles</span>
@@ -3494,7 +3494,7 @@ export function PublicQuoteRequest() {
               <div className="flex justify-between items-start border-b border-neutral-100 pb-3">
                 <div>
                   <span className="text-[9px] font-extrabold uppercase tracking-widest text-neutral-400">Position & Alignment</span>
-                  <h3 className="text-lg font-serif text-neutral-900">
+                  <h3 className="text-lg font-sans font-bold text-neutral-900">
                     Tweak Customization for {catalogSettings.customNames?.racks?.[selectedThemeCategory]?.[editingProduct.slot] || `${editingProduct.product.brand} ${editingProduct.product.style}`}
                   </h3>
                 </div>
