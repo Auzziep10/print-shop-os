@@ -10,18 +10,36 @@ import { ImmersiveLanding, type StorefrontSettingsShape } from './ImmersiveLandi
 const DEFAULT_SETTINGS: StorefrontSettingsShape = {
   logoText: 'INKTHEORY',
   announcement: '🔥 Free Standard Shipping on all orders above 50 units!',
+  heroBadge: 'Design portals open — custom merch, made properly',
   heroTitle: 'Better Apparel',
-  heroSubtitle:
-    'Choose a themed collection to design a cohesive line, or start from our curated basics.',
+  heroSubtitle: 'Choose a themed collection to design a cohesive line, or start from our curated basics.',
+  heroPrimaryCta: 'Start your project',
+  heroSecondaryCta: 'How it works',
+  manifestoLabel: '( Our promise )',
+  manifestoText: 'Your brand deserves better than clip-art on a blank. We turn logos into lookbooks — cohesive collections built on premium garments, designed by you in minutes and produced by people who print every day.',
+  showcaseLabel: '( The catalog )',
+  showcaseTitle: 'Built on premium blanks',
+  showcaseSubtitle: 'Every category is curated Good / Better / Best — compare options side by side, then make them yours.',
+  processLabel: '( The process )',
+  processTitle: 'From logo to loading dock',
+  processSubtitle: 'Four steps. One portal. A human checks every order before it ever hits a press.',
+  processStep1Title: 'Design',
+  processStep1Body: 'Pick a themed rack or start from premium blanks. Your logo is placed instantly — move it, scale it, see it live on every garment.',
+  processStep2Title: 'Quote',
+  processStep2Body: 'Submit your build with sizes and dates. Our team reviews every detail and returns a formal quote — no guesswork, no hidden fees.',
+  processStep3Title: 'Approve',
+  processStep3Body: 'Create your account, approve your proof, and follow every status change from your client portal — current and future orders in one place.',
+  processStep4Title: 'Production',
+  processStep4Body: 'Printed, pressed and embroidered in-house, quality-checked piece by piece, and tracked from press to porch.',
+  ctaSectionLabel: '( Choose your path )',
+  ctaSectionTitle: 'Start designing',
+  ctaCardTitle: 'Design Your Rack',
+  ctaCardBody: 'Configure a unified apparel collection with our standard 6-item rack — hat, tee, polo, crewneck, hoodie and long sleeve — all overlayed with your branding instantly.',
+  ctaCardBtnText: 'Design a cohesive line',
   contactPhone: '(888) 896-8607',
   email: 'hello@inktheory.studio',
 };
 
-/**
- * Prototype route (/start2) for the immersive landing direction.
- * Standalone on purpose — the live /start flow is untouched. CTAs hand off
- * to the existing quote flow via /start?mode=racks|basics.
- */
 export function ImmersiveLandingPage() {
   const navigate = useNavigate();
   const { user, userData, signInWithGoogle, signOut } = useAuth();
@@ -41,8 +59,11 @@ export function ImmersiveLandingPage() {
         const snap = await getDoc(doc(db, 'settings', 'storefront'));
         if (snap.exists()) {
           const data = snap.data() as Partial<StorefrontSettingsShape>;
-          setSettings((prev) => ({ ...prev, ...data }));
-          setEditSettings((prev) => ({ ...prev, ...data }));
+          setSettings((prev) => ({ ...DEFAULT_SETTINGS, ...prev, ...data }));
+          setEditSettings((prev) => ({ ...DEFAULT_SETTINGS, ...prev, ...data }));
+        } else {
+          setSettings(DEFAULT_SETTINGS);
+          setEditSettings(DEFAULT_SETTINGS);
         }
       } catch (e) {
         console.error('Failed to load storefront settings', e);
@@ -124,7 +145,7 @@ export function ImmersiveLandingPage() {
         }}
         onSignOut={signOut}
         onCustomize={() => {
-          setEditSettings({ ...settings });
+          setEditSettings({ ...DEFAULT_SETTINGS, ...settings });
           setIsEditingStorefront(true);
         }}
         onPortal={() =>
@@ -285,7 +306,7 @@ export function ImmersiveLandingPage() {
                     <input
                       type="text"
                       placeholder="e.g. Design portals open — custom merch, made properly"
-                      value={editSettings.heroBadge || ''}
+                      value={editSettings.heroBadge || DEFAULT_SETTINGS.heroBadge || ''}
                       onChange={e => setEditSettings({ ...editSettings, heroBadge: e.target.value })}
                       className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2 text-sm font-medium"
                     />
@@ -296,7 +317,7 @@ export function ImmersiveLandingPage() {
                     <input
                       type="text"
                       placeholder="e.g. Better Apparel"
-                      value={editSettings.heroTitle || ''}
+                      value={editSettings.heroTitle || DEFAULT_SETTINGS.heroTitle || ''}
                       onChange={e => setEditSettings({ ...editSettings, heroTitle: e.target.value })}
                       className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2 text-sm font-medium"
                     />
@@ -306,7 +327,7 @@ export function ImmersiveLandingPage() {
                     <label className="text-xs font-bold text-zinc-900">Hero Subtitle</label>
                     <textarea
                       rows={2}
-                      value={editSettings.heroSubtitle || ''}
+                      value={editSettings.heroSubtitle || DEFAULT_SETTINGS.heroSubtitle || ''}
                       onChange={e => setEditSettings({ ...editSettings, heroSubtitle: e.target.value })}
                       className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2 text-sm font-medium resize-none"
                     />
@@ -405,7 +426,7 @@ export function ImmersiveLandingPage() {
                       <input
                         type="text"
                         placeholder="e.g. Start your project"
-                        value={editSettings.heroPrimaryCta || ''}
+                        value={editSettings.heroPrimaryCta || DEFAULT_SETTINGS.heroPrimaryCta || ''}
                         onChange={e => setEditSettings({ ...editSettings, heroPrimaryCta: e.target.value })}
                         className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2 text-sm font-medium"
                       />
@@ -415,7 +436,7 @@ export function ImmersiveLandingPage() {
                       <input
                         type="text"
                         placeholder="e.g. How it works"
-                        value={editSettings.heroSecondaryCta || ''}
+                        value={editSettings.heroSecondaryCta || DEFAULT_SETTINGS.heroSecondaryCta || ''}
                         onChange={e => setEditSettings({ ...editSettings, heroSecondaryCta: e.target.value })}
                         className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2 text-sm font-medium"
                       />
@@ -432,7 +453,7 @@ export function ImmersiveLandingPage() {
                     <input
                       type="text"
                       placeholder="e.g. ( Our promise )"
-                      value={editSettings.manifestoLabel || ''}
+                      value={editSettings.manifestoLabel || DEFAULT_SETTINGS.manifestoLabel || ''}
                       onChange={e => setEditSettings({ ...editSettings, manifestoLabel: e.target.value })}
                       className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2 text-sm font-medium"
                     />
@@ -443,7 +464,7 @@ export function ImmersiveLandingPage() {
                     <textarea
                       rows={4}
                       placeholder="e.g. Your brand deserves better than clip-art on a blank..."
-                      value={editSettings.manifestoText || ''}
+                      value={editSettings.manifestoText || DEFAULT_SETTINGS.manifestoText || ''}
                       onChange={e => setEditSettings({ ...editSettings, manifestoText: e.target.value })}
                       className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2 text-sm font-medium resize-none"
                     />
@@ -460,7 +481,7 @@ export function ImmersiveLandingPage() {
                       <input
                         type="text"
                         placeholder="e.g. ( The catalog )"
-                        value={editSettings.showcaseLabel || ''}
+                        value={editSettings.showcaseLabel || DEFAULT_SETTINGS.showcaseLabel || ''}
                         onChange={e => setEditSettings({ ...editSettings, showcaseLabel: e.target.value })}
                         className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2 text-sm font-medium"
                       />
@@ -470,7 +491,7 @@ export function ImmersiveLandingPage() {
                       <input
                         type="text"
                         placeholder="e.g. Built on premium blanks"
-                        value={editSettings.showcaseTitle || ''}
+                        value={editSettings.showcaseTitle || DEFAULT_SETTINGS.showcaseTitle || ''}
                         onChange={e => setEditSettings({ ...editSettings, showcaseTitle: e.target.value })}
                         className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2 text-sm font-medium"
                       />
@@ -482,7 +503,7 @@ export function ImmersiveLandingPage() {
                     <textarea
                       rows={2}
                       placeholder="e.g. Every category is curated Good / Better / Best..."
-                      value={editSettings.showcaseSubtitle || ''}
+                      value={editSettings.showcaseSubtitle || DEFAULT_SETTINGS.showcaseSubtitle || ''}
                       onChange={e => setEditSettings({ ...editSettings, showcaseSubtitle: e.target.value })}
                       className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2 text-sm font-medium resize-none"
                     />
@@ -538,7 +559,7 @@ export function ImmersiveLandingPage() {
                       <input
                         type="text"
                         placeholder="e.g. ( The process )"
-                        value={editSettings.processLabel || ''}
+                        value={editSettings.processLabel || DEFAULT_SETTINGS.processLabel || ''}
                         onChange={e => setEditSettings({ ...editSettings, processLabel: e.target.value })}
                         className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2 text-sm font-medium"
                       />
@@ -548,7 +569,7 @@ export function ImmersiveLandingPage() {
                       <input
                         type="text"
                         placeholder="e.g. From logo to loading dock"
-                        value={editSettings.processTitle || ''}
+                        value={editSettings.processTitle || DEFAULT_SETTINGS.processTitle || ''}
                         onChange={e => setEditSettings({ ...editSettings, processTitle: e.target.value })}
                         className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2 text-sm font-medium"
                       />
@@ -560,7 +581,7 @@ export function ImmersiveLandingPage() {
                     <input
                       type="text"
                       placeholder="e.g. Four steps. One portal. A human checks every order..."
-                      value={editSettings.processSubtitle || ''}
+                      value={editSettings.processSubtitle || DEFAULT_SETTINGS.processSubtitle || ''}
                       onChange={e => setEditSettings({ ...editSettings, processSubtitle: e.target.value })}
                       className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2 text-sm font-medium"
                     />
@@ -579,14 +600,14 @@ export function ImmersiveLandingPage() {
                           <input
                             type="text"
                             placeholder={step.defaultTitle}
-                            value={(editSettings as any)[step.titleKey] || ''}
+                            value={(editSettings as any)[step.titleKey] || (DEFAULT_SETTINGS as any)[step.titleKey] || ''}
                             onChange={e => setEditSettings({ ...editSettings, [step.titleKey]: e.target.value })}
                             className="bg-white border border-neutral-200 rounded-xl px-3 py-1.5 text-xs font-bold"
                           />
                           <input
                             type="text"
                             placeholder="Step description body..."
-                            value={(editSettings as any)[step.bodyKey] || ''}
+                            value={(editSettings as any)[step.bodyKey] || (DEFAULT_SETTINGS as any)[step.bodyKey] || ''}
                             onChange={e => setEditSettings({ ...editSettings, [step.bodyKey]: e.target.value })}
                             className="sm:col-span-2 bg-white border border-neutral-200 rounded-xl px-3 py-1.5 text-xs font-medium"
                           />
@@ -606,7 +627,7 @@ export function ImmersiveLandingPage() {
                       <input
                         type="text"
                         placeholder="e.g. ( Choose your path )"
-                        value={editSettings.ctaSectionLabel || ''}
+                        value={editSettings.ctaSectionLabel || DEFAULT_SETTINGS.ctaSectionLabel || ''}
                         onChange={e => setEditSettings({ ...editSettings, ctaSectionLabel: e.target.value })}
                         className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2 text-sm font-medium"
                       />
@@ -616,7 +637,7 @@ export function ImmersiveLandingPage() {
                       <input
                         type="text"
                         placeholder="e.g. Start designing"
-                        value={editSettings.ctaSectionTitle || ''}
+                        value={editSettings.ctaSectionTitle || DEFAULT_SETTINGS.ctaSectionTitle || ''}
                         onChange={e => setEditSettings({ ...editSettings, ctaSectionTitle: e.target.value })}
                         className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2 text-sm font-medium"
                       />
@@ -629,21 +650,21 @@ export function ImmersiveLandingPage() {
                       <input
                         type="text"
                         placeholder="Card Title (e.g. Design Your Rack)"
-                        value={editSettings.ctaCardTitle || ''}
+                        value={editSettings.ctaCardTitle || DEFAULT_SETTINGS.ctaCardTitle || ''}
                         onChange={e => setEditSettings({ ...editSettings, ctaCardTitle: e.target.value })}
                         className="bg-white border border-neutral-200 rounded-xl px-4 py-2 text-sm font-medium"
                       />
                       <textarea
                         rows={2}
                         placeholder="Card Description..."
-                        value={editSettings.ctaCardBody || ''}
+                        value={editSettings.ctaCardBody || DEFAULT_SETTINGS.ctaCardBody || ''}
                         onChange={e => setEditSettings({ ...editSettings, ctaCardBody: e.target.value })}
                         className="bg-white border border-neutral-200 rounded-xl px-4 py-2 text-sm font-medium resize-none"
                       />
                       <input
                         type="text"
                         placeholder="Card Button Text (e.g. Design a cohesive line)"
-                        value={editSettings.ctaCardBtnText || ''}
+                        value={editSettings.ctaCardBtnText || DEFAULT_SETTINGS.ctaCardBtnText || ''}
                         onChange={e => setEditSettings({ ...editSettings, ctaCardBtnText: e.target.value })}
                         className="bg-white border border-neutral-200 rounded-xl px-4 py-2 text-sm font-medium"
                       />
