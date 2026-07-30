@@ -2258,7 +2258,7 @@ export function PublicQuoteRequest() {
 
                 {/* Pre-selected garments rack representation */}
                 <div className="space-y-4 pt-2">
-                  <span className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-400 block">Curated Standard {rackItems.length}-Item Rack</span>
+                  <span className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-400 block font-inter">Curated Collection</span>
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-8 gap-y-12">
                     {rackItems.map(item => {
                       const customName = catalogSettings.customNames?.racks?.[selectedThemeCategory]?.[item.slot] || `${item.product.brand} ${item.product.style}`;
@@ -2502,7 +2502,6 @@ export function PublicQuoteRequest() {
                 <div className="flex flex-wrap items-center justify-center gap-6 sm:gap-8 md:gap-10 py-3 border-b border-neutral-200/60 font-sans">
                   {GARMENT_TYPES.map(gt => {
                     const isSelected = selectedGarmentType === gt.id;
-                    const count = curatedStorefrontProducts.filter(p => detectGarmentTypeTag(p, catalogSettings.garmentTypeTags) === gt.id).length;
                     return (
                       <button
                         key={gt.id}
@@ -2510,14 +2509,13 @@ export function PublicQuoteRequest() {
                           setSelectedGarmentType(gt.id);
                           setSelectedGarmentTypeItem(null);
                         }}
-                        className={`relative py-1.5 text-xs font-sans uppercase tracking-[0.18em] transition-colors duration-200 cursor-pointer group flex items-center gap-1 ${
+                        className={`relative py-1.5 text-xs font-sans uppercase tracking-[0.18em] transition-colors duration-200 cursor-pointer group ${
                           isSelected 
                             ? 'text-neutral-950 font-extrabold' 
                             : 'text-neutral-500 hover:text-neutral-950 font-semibold'
                         }`}
                       >
                         <span>{gt.label}</span>
-                        <span className="text-[9px] font-normal opacity-60 font-mono">({count})</span>
                         <span className={`absolute bottom-0 left-0 right-0 h-[2px] bg-neutral-950 transition-all duration-300 origin-center ${
                           isSelected ? 'scale-x-100 opacity-100' : 'scale-x-0 opacity-0 group-hover:scale-x-100 group-hover:opacity-100'
                         }`} />
@@ -2534,7 +2532,7 @@ export function PublicQuoteRequest() {
                   return (
                     <div className="space-y-4 pt-4 border-t border-neutral-200/50">
                       <span className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-400 block font-inter">
-                        Curated {typeConfig.label} Collection ({matching.length} Items)
+                        Curated {typeConfig.label} Collection
                       </span>
 
                       {matching.length === 0 ? (

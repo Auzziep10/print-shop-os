@@ -24,6 +24,7 @@ export const GARMENT_TYPES: GarmentTypeConfig[] = [
   { id: 'longsleeve', label: 'Longsleeve', slotKey: 'longsleeve', description: 'Long sleeve tees and thermal shirts' },
   { id: 'crewneck', label: 'Crewneck', slotKey: 'crewneck', description: 'Cozy fleece crewneck sweatshirts' },
   { id: 'jacket', label: 'Jacket', slotKey: 'jacket', description: 'Outerwear, vests, and windbreakers' },
+  { id: 'blazer', label: 'Blazer', slotKey: 'blazer', description: 'Tailored blazers, sport coats, and suit jackets' },
   { id: 'hat', label: 'Hat', slotKey: 'hat', description: 'Caps, beanies, and trucker hats' },
   { id: 'pants', label: 'Pants', slotKey: 'pants', description: 'Sweatpants, joggers, and trousers' },
   { id: 'shorts', label: 'Shorts', slotKey: 'shorts', description: 'Athletic and casual fleece shorts' },
@@ -51,6 +52,7 @@ export const detectGarmentTypeTag = (product: any, customTags?: Record<string, s
   if (/hat|cap|beanie|visor|headwear|headgear|trucker|snapback/i.test(text)) return 'hat';
   if (/short/i.test(text) && !/sleeve|short\s*sleeve/i.test(text)) return 'shorts';
   if (/pant|jogger|sweatpant|legging|trouser|bottom/i.test(text)) return 'pants';
+  if (/blazer|suit\s*coat|suit\s*jacket|sport\s*coat|blazers/i.test(text)) return 'blazer';
   if (/jacket|coat|vest|windbreaker|parka|outerwear/i.test(text)) return 'jacket';
   if (/hoodi|hooded|hood/i.test(text)) return 'hoodie';
   if (/polo|collared|pique/i.test(text)) return 'polo';
