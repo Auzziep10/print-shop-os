@@ -2449,49 +2449,83 @@ export function PublicQuoteRequest() {
 
             {/* Browse By Garment Type Step 1 */}
             {flowMode === 'types' && (
-              <div className="bg-white/80 backdrop-blur-md rounded-3xl p-8 border border-neutral-200 shadow-sm max-w-7xl mx-auto space-y-8">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-neutral-200/60 pb-5 gap-4">
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={() => setStep(0)}
-                      className="p-2 border border-neutral-200 hover:border-neutral-450 text-neutral-500 hover:text-neutral-900 bg-neutral-50 rounded-xl transition-all shadow-3xs cursor-pointer"
-                    >
-                      <ChevronLeft size={16} />
-                    </button>
+              <div className="max-w-7xl mx-auto space-y-8 bg-white py-2">
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-neutral-200/50">
+                  <div className="space-y-2">
                     <div>
-                      <span className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-400">Garment Catalog</span>
-                      <h3 className="text-2xl font-serif text-neutral-900 mt-0.5">Browse By Garment Type</h3>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Navigation Pills for Garment Types */}
-                <div className="flex flex-wrap items-center justify-center gap-2 pb-2 border-b border-neutral-100">
-                  {GARMENT_TYPES.map(gt => {
-                    const isSelected = selectedGarmentType === gt.id;
-                    const count = curatedStorefrontProducts.filter(p => detectGarmentTypeTag(p, catalogSettings.garmentTypeTags) === gt.id).length;
-                    return (
                       <button
-                        key={gt.id}
-                        onClick={() => {
-                          setSelectedGarmentType(gt.id);
-                          setSelectedGarmentTypeItem(null);
-                        }}
-                        className={`px-4 py-2 rounded-full border text-[10px] font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer flex items-center gap-2 ${
-                          isSelected 
-                            ? 'bg-black border-black text-white shadow-xs' 
-                            : 'bg-transparent border-neutral-200/80 text-neutral-600 hover:text-neutral-950 hover:border-neutral-950 hover:bg-neutral-950/5'
+                        onClick={() => setStep(0)}
+                        className="p-1 -ml-1 text-neutral-400 hover:text-neutral-900 transition-colors cursor-pointer block"
+                        title="Back to Landing Page"
+                      >
+                        <ChevronLeft size={20} />
+                      </button>
+                    </div>
+                    <h1 className="text-5xl md:text-6xl lg:text-7xl font-serif font-normal text-neutral-950 tracking-tight leading-[0.92] pt-2">
+                      Build<br />
+                      <span className="italic font-light">Better.</span>
+                    </h1>
+                    <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-400 pt-1">
+                      Select your items into your custom rack below
+                    </p>
+                  </div>
+
+                  <div className="flex flex-col items-end gap-3">
+                    {/* Mode switcher: Occasion vs Garment Types */}
+                    <div className="flex items-center gap-1.5 bg-neutral-100/80 p-1 rounded-full border border-neutral-200/60">
+                      <button
+                        type="button"
+                        onClick={() => setFlowMode('racks')}
+                        className={`px-3.5 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-[0.18em] transition-all cursor-pointer ${
+                          (flowMode as string) === 'racks' 
+                            ? 'bg-black text-white shadow-xs' 
+                            : 'text-neutral-600 hover:text-neutral-900'
                         }`}
                       >
-                        <span>{gt.label}</span>
-                        <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-mono ${
-                          isSelected ? 'bg-white/20 text-white' : 'bg-neutral-100 text-neutral-600'
-                        }`}>
-                          {count}
-                        </span>
+                        Occasion
                       </button>
-                    );
-                  })}
+                      <button
+                        type="button"
+                        onClick={() => setFlowMode('types')}
+                        className={`px-3.5 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-[0.18em] transition-all cursor-pointer ${
+                          (flowMode as string) === 'types' 
+                            ? 'bg-black text-white shadow-xs' 
+                            : 'text-neutral-600 hover:text-neutral-900'
+                        }`}
+                      >
+                        Garment Types
+                      </button>
+                    </div>
+
+                    {/* Navigation Pills for Garment Types */}
+                    <div className="flex flex-wrap items-center gap-2">
+                      {GARMENT_TYPES.map(gt => {
+                        const isSelected = selectedGarmentType === gt.id;
+                        const count = curatedStorefrontProducts.filter(p => detectGarmentTypeTag(p, catalogSettings.garmentTypeTags) === gt.id).length;
+                        return (
+                          <button
+                            key={gt.id}
+                            onClick={() => {
+                              setSelectedGarmentType(gt.id);
+                              setSelectedGarmentTypeItem(null);
+                            }}
+                            className={`px-4.5 py-2 rounded-full border text-[10px] font-bold uppercase tracking-[0.2em] transition-all duration-200 cursor-pointer flex items-center gap-1.5 ${
+                              isSelected 
+                                ? 'bg-black border-black text-white shadow-xs' 
+                                : 'bg-transparent border-neutral-200/80 text-neutral-600 hover:text-neutral-950 hover:border-neutral-950 hover:bg-neutral-950/5'
+                            }`}
+                          >
+                            <span>{gt.label}</span>
+                            <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-mono ${
+                              isSelected ? 'bg-white/20 text-white' : 'bg-neutral-100 text-neutral-600'
+                            }`}>
+                              {count}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
 
                 {/* Garment Grid matching selected Garment Type */}
@@ -2500,75 +2534,97 @@ export function PublicQuoteRequest() {
                   const matching = curatedStorefrontProducts.filter(p => detectGarmentTypeTag(p, catalogSettings.garmentTypeTags) === selectedGarmentType);
 
                   return (
-                    <div className="space-y-6">
-                      <div className="text-center max-w-lg mx-auto space-y-1">
-                        <h4 className="text-lg font-serif font-bold text-neutral-900">{typeConfig.label} Collection</h4>
-                        <p className="text-xs text-neutral-500">{typeConfig.description}</p>
-                      </div>
+                    <div className="space-y-4 pt-4 border-t border-neutral-200/50">
+                      <span className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-400 block font-inter">
+                        Curated {typeConfig.label} Collection ({matching.length} Items)
+                      </span>
 
                       {matching.length === 0 ? (
                         <div className="text-center py-12 bg-neutral-50 rounded-2xl border border-dashed border-neutral-300">
                           <p className="text-xs font-bold text-neutral-500">No products available in this category.</p>
                         </div>
                       ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-8 gap-y-12">
                           {matching.slice(0, 32).map(item => {
                             const isSelected = selectedGarmentTypeItem?.style === item.style;
                             const colorKey = selectedGarmentTypeColor && item.colors.includes(selectedGarmentTypeColor) ? selectedGarmentTypeColor : item.colors[0];
                             const previewImg = resolveGarmentImage(item, colorKey);
+                            const weightAndFabric = getGarmentWeightAndFabric(item);
+                            const colors = item.colors || [];
 
                             return (
                               <div
                                 key={item.style}
                                 onClick={() => {
-                                  setSelectedGarmentTypeItem(item);
-                                  setSelectedGarmentTypeColor(colorKey);
+                                  if (isSelected) {
+                                    setSelectedGarmentTypeItem(null);
+                                  } else {
+                                    setSelectedGarmentTypeItem(item);
+                                    setSelectedGarmentTypeColor(colorKey);
+                                  }
                                 }}
-                                className={`bg-white border rounded-2xl p-5 flex flex-col justify-between gap-4 cursor-pointer hover:shadow-md transition-all ${
-                                  isSelected 
-                                    ? 'border-neutral-900 ring-2 ring-neutral-900/5' 
-                                    : 'border-neutral-200'
+                                className={`group bg-transparent flex flex-col justify-between text-center cursor-pointer relative w-full p-0 transition-all duration-300 ${
+                                  isSelected ? 'opacity-100' : 'opacity-90 hover:opacity-100'
                                 }`}
                               >
-                                <div className="space-y-3">
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-[10px] font-bold text-neutral-400 uppercase">{item.brand} • {item.style}</span>
-                                    <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${
-                                      isSelected ? 'bg-neutral-900 border-neutral-900 text-white' : 'border-neutral-300 text-transparent'
-                                    }`}>
-                                      <Check size={10} />
-                                    </div>
-                                  </div>
-
-                                  <div className="aspect-[4/5] bg-neutral-50/50 rounded-xl flex items-center justify-center p-3 relative overflow-hidden">
-                                    <img src={previewImg} alt={item.title} className="max-h-full max-w-full object-contain mix-blend-multiply" />
-                                  </div>
-
-                                  <div>
-                                    <h4 className="text-sm font-bold text-neutral-800 truncate" title={item.title}>{item.title}</h4>
-                                    <p className="text-xs text-neutral-500 font-semibold mt-0.5">${item.price.toFixed(2)}</p>
+                                <div className="absolute top-0 right-0 z-10">
+                                  <div className={`w-7 h-7 rounded-full border flex items-center justify-center transition-all duration-200 shadow-3xs ${
+                                    isSelected 
+                                      ? 'bg-neutral-900 border-neutral-900 text-white scale-105 shadow-xs' 
+                                      : 'border-neutral-300 bg-white text-neutral-600 group-hover:border-neutral-900 group-hover:text-neutral-900'
+                                  }`}>
+                                    {isSelected ? (
+                                      <Check size={13} strokeWidth={2.5} />
+                                    ) : (
+                                      <Plus size={13} strokeWidth={2.5} />
+                                    )}
                                   </div>
                                 </div>
 
-                                {/* Swatches */}
-                                <div className="flex items-center gap-1.5 overflow-x-auto pt-2 border-t border-neutral-100">
-                                  {item.colors.slice(0, 6).map(c => (
-                                    <div
-                                      key={c}
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setSelectedGarmentTypeItem(item);
-                                        setSelectedGarmentTypeColor(c);
-                                      }}
-                                      className={`w-4 h-4 rounded-full border border-neutral-300 cursor-pointer shrink-0 transition-transform ${
-                                        colorKey === c ? 'scale-125 ring-2 ring-black/20' : 'hover:scale-110'
-                                      }`}
-                                      style={{ background: getSwatchColor(c, true) }}
-                                      title={c}
-                                    />
-                                  ))}
-                                  {item.colors.length > 6 && (
-                                    <span className="text-[9px] text-neutral-400 font-bold">+{item.colors.length - 6}</span>
+                                <span className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-400 block mb-1">
+                                  {item.brand} • {item.style}
+                                </span>
+
+                                <div className="h-64 flex items-center justify-center p-2 overflow-hidden mb-3">
+                                  <img 
+                                    src={previewImg} 
+                                    className="max-h-full max-w-full object-contain mix-blend-multiply group-hover:scale-[1.03] transition-transform duration-300 ease-out" 
+                                    alt={item.title} 
+                                  />
+                                </div>
+
+                                <div className="flex flex-col flex-1 justify-between gap-1.5 mt-auto">
+                                  <h4 className="text-lg font-serif font-bold text-neutral-800 leading-tight truncate" title={item.title}>
+                                    {item.title}
+                                  </h4>
+
+                                  {weightAndFabric.formatted ? (
+                                    <p className="text-[11.5px] text-neutral-500 font-medium font-inter leading-relaxed line-clamp-2 min-h-[2.25rem] flex items-center justify-center px-1" title={weightAndFabric.formatted}>
+                                      {weightAndFabric.formatted}
+                                    </p>
+                                  ) : (
+                                    <div className="min-h-[2.25rem]" />
+                                  )}
+
+                                  {colors.length > 0 && (
+                                    <div className="flex items-center justify-center gap-1.5 pt-1 mt-0.5">
+                                      <div className="flex items-center gap-1">
+                                        {colors.slice(0, 5).map((col: string, cIdx: number) => {
+                                          const hex = colorHexMap[col.toLowerCase().trim()] || '#a3a3a3';
+                                          return (
+                                            <span 
+                                              key={cIdx} 
+                                              className="w-3.5 h-3.5 rounded-full border border-neutral-300 shadow-3xs shrink-0" 
+                                              style={{ backgroundColor: hex }}
+                                              title={col}
+                                            />
+                                          );
+                                        })}
+                                      </div>
+                                      <span className="text-[10.5px] font-semibold text-neutral-500 font-inter ml-1">
+                                        {colors.length} {colors.length === 1 ? 'Color' : 'Colors'}
+                                      </span>
+                                    </div>
                                   )}
                                 </div>
                               </div>
