@@ -24,7 +24,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { PillButton } from '../../components/ui/PillButton';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
-import { getOrderedKeys } from '../../lib/garmentUtils';
+import { getOrderedKeys, GARMENT_TYPES, detectGarmentTypeTag, type GarmentTypeId } from '../../lib/garmentUtils';
 import colorHexMapJson from '../../data/color-hex-map.json';
 
 const colorHexMap = colorHexMapJson as Record<string, string>;
@@ -321,9 +321,9 @@ export function PublicQuoteRequest() {
   // 4: Size spreadsheets & details
   // 5: Contact Details & checkout/submit
   const [step, setStep] = useState(0);
-  const [flowMode, setFlowMode] = useState<'racks' | 'basics' | null>('racks');
+  const [flowMode, setFlowMode] = useState<'racks' | 'basics' | 'types' | null>('racks');
   const [currentTime, setCurrentTime] = useState('');
-  const [hoveredPlatform, setHoveredPlatform] = useState<'racks' | 'basics' | null>(null);
+  const [hoveredPlatform, setHoveredPlatform] = useState<'racks' | 'basics' | 'types' | null>(null);
 
   useEffect(() => {
     if (step !== 0) return;
@@ -336,11 +336,11 @@ export function PublicQuoteRequest() {
     return () => clearInterval(interval);
   }, [step]);
 
-  // Deep-link entry from the immersive landing prototype (/start2): ?mode=racks|basics
+  // Deep-link entry from the immersive landing prototype (/start2): ?mode=racks|basics|types
   useEffect(() => {
     const modeParam = searchParams.get('mode');
-    if (modeParam === 'racks' || modeParam === 'basics') {
-      setFlowMode('racks');
+    if (modeParam === 'racks' || modeParam === 'basics' || modeParam === 'types') {
+      setFlowMode(modeParam);
       setStep(1);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -350,6 +350,7 @@ export function PublicQuoteRequest() {
   const [catalogSettings, setCatalogSettings] = useState<{
     racks: Record<string, any>;
     basics: Record<string, any>;
+    garmentTypeTags?: Record<string, string>;
     customNames?: {
       racks?: Record<string, Record<string, string>>;
       basics?: Record<string, Record<string, string>>;
@@ -375,6 +376,7 @@ export function PublicQuoteRequest() {
   }>({
     racks: DEFAULT_RACKS,
     basics: DEFAULT_BASICS,
+    garmentTypeTags: {},
     customNames: { racks: {}, basics: {} },
     customSpecs: { racks: {}, basics: {} },
     customPrices: { racks: {}, basics: {} },
@@ -422,6 +424,11 @@ export function PublicQuoteRequest() {
   const [selectedBasicsCategory, setSelectedBasicsCategory] = useState<string>('T-Shirts');
   const [selectedBasicsItem, setSelectedBasicsItem] = useState<SanMarProduct | null>(null);
   const [selectedBasicsColor, setSelectedBasicsColor] = useState<string>('');
+
+  // Browse By Garment Type selections
+  const [selectedGarmentType, setSelectedGarmentType] = useState<GarmentTypeId>('t-shirt');
+  const [selectedGarmentTypeItem, setSelectedGarmentTypeItem] = useState<SanMarProduct | null>(null);
+  const [selectedGarmentTypeColor, setSelectedGarmentTypeColor] = useState<string>('');
 
   // Checkout inputs
   const [customerInfo, setCustomerInfo] = useState({
@@ -1171,10 +1178,11 @@ export function PublicQuoteRequest() {
     try {
       const itemsToCompile = flowMode === 'racks' 
         ? rackItems.filter(i => i.selected)
-        : [
+        : flowMode === 'basics'
+        ? [
             {
               product: selectedBasicsItem!,
-              color: selectedBasicsColor,
+              color: selectedBasicsColor || selectedBasicsItem?.colors[0] || 'Black',
               logoPos: getBasicsPlacement(selectedBasicsItem!).pos,
               logoScale: getBasicsPlacement(selectedBasicsItem!).scale,
               logoRotation: getBasicsPlacement(selectedBasicsItem!).rotation,
@@ -1183,6 +1191,20 @@ export function PublicQuoteRequest() {
               backLogoRotation: 0,
               printSize: 'Medium' as const,
               decoration: ['hat', 'cap', 'polo'].some(w => selectedBasicsItem!.category.toLowerCase().includes(w)) ? 'Embroidery' as const : 'Print' as const
+            }
+          ]
+        : [
+            {
+              product: selectedGarmentTypeItem!,
+              color: selectedGarmentTypeColor || selectedGarmentTypeItem?.colors[0] || 'Black',
+              logoPos: getBasicsPlacement(selectedGarmentTypeItem!).pos,
+              logoScale: getBasicsPlacement(selectedGarmentTypeItem!).scale,
+              logoRotation: getBasicsPlacement(selectedGarmentTypeItem!).rotation,
+              backLogoPos: { x: 50, y: 35 },
+              backLogoScale: 0,
+              backLogoRotation: 0,
+              printSize: 'Medium' as const,
+              decoration: ['hat', 'cap', 'polo'].some(w => selectedGarmentTypeItem!.category.toLowerCase().includes(w)) ? 'Embroidery' as const : 'Print' as const
             }
           ];
 
@@ -1730,10 +1752,10 @@ export function PublicQuoteRequest() {
             </div>
           </header>
 
-          <main className="flex-grow w-full flex flex-col min-h-0 lg:overflow-hidden relative">
+          <main className="flex-grow w-full flex flex-col lg:flex-row min-h-0 lg:overflow-hidden relative p-4 gap-4 max-w-[1400px] mx-auto">
             {/* LEFT SIDE: Design Your Rack Card */}
             <TiltCard 
-              className="flex-grow flex-1 flex flex-col justify-between p-8 relative overflow-hidden group min-h-[300px] lg:h-full border-none bg-gradient-to-br from-zinc-900 via-zinc-950 to-zinc-900 text-white"
+              className="flex-grow flex-1 flex flex-col justify-between p-8 relative overflow-hidden group min-h-[300px] lg:h-full rounded-3xl border-none bg-gradient-to-br from-zinc-900 via-zinc-950 to-zinc-900 text-white cursor-pointer"
               onMouseEnter={() => setHoveredPlatform('racks')}
               onMouseLeave={() => setHoveredPlatform(null)}
               onClick={() => {
@@ -1789,7 +1811,7 @@ export function PublicQuoteRequest() {
                 <div className="absolute bottom-0 inset-x-0 h-[280px] bg-gradient-to-t from-zinc-950 via-zinc-950/80 to-transparent pointer-events-none" />
                 <div className="absolute top-0 inset-x-0 h-[120px] bg-gradient-to-b from-zinc-950/50 to-transparent pointer-events-none" />
               </div>
-              {/* Abstract CSS design element in background (glowing orb and blueprint lines) */}
+              {/* Abstract CSS design element in background */}
               <div 
                 className="absolute inset-0 pointer-events-none opacity-20 transition-transform duration-[1200ms] scale-100 group-hover:scale-110"
                 style={{
@@ -1799,12 +1821,7 @@ export function PublicQuoteRequest() {
                   `,
                 }}
               />
-              {/* Subtle blueprint grid overlay for lookbook feeling */}
               <div className="absolute inset-0 opacity-[0.02] bg-checkerboard pointer-events-none" />
-              <div className="absolute inset-x-8 top-1/3 h-px bg-white/5 pointer-events-none" />
-              <div className="absolute inset-x-8 top-2/3 h-px bg-white/5 pointer-events-none" />
-              <div className="absolute inset-y-8 left-1/3 w-px bg-white/5 pointer-events-none" />
-              <div className="absolute inset-y-8 left-2/3 w-px bg-white/5 pointer-events-none" />
 
               {/* Top Badge */}
               <div style={{ transform: hoveredPlatform === 'racks' ? 'translateZ(12px)' : 'none' }} className="flex justify-between items-start z-10 shrink-0">
@@ -1829,6 +1846,57 @@ export function PublicQuoteRequest() {
                   className="w-full flex items-center justify-between px-5 py-3.5 bg-white text-zinc-950 rounded-xl font-bold uppercase tracking-wider text-[10px] transition-all hover:bg-zinc-100 shadow-md z-10 cursor-pointer"
                 >
                   <span className="text-zinc-955">Design a Cohesive Line</span>
+                  <ArrowRight className="w-4 h-4 text-zinc-955 group-hover:translate-x-1.5 transition-transform" />
+                </div>
+              </div>
+            </TiltCard>
+
+            {/* RIGHT SIDE: Browse By Garment Type Card */}
+            <TiltCard 
+              className="flex-grow flex-1 flex flex-col justify-between p-8 relative overflow-hidden group min-h-[300px] lg:h-full rounded-3xl border-none bg-gradient-to-br from-neutral-800 via-neutral-900 to-neutral-950 text-white cursor-pointer"
+              onMouseEnter={() => setHoveredPlatform('types')}
+              onMouseLeave={() => setHoveredPlatform(null)}
+              onClick={() => {
+                setFlowMode('types');
+                setStep(1);
+              }}
+            >
+              <div className="absolute inset-0 pointer-events-none opacity-20 bg-gradient-to-tr from-amber-500/20 via-transparent to-purple-500/10" />
+              <div className="absolute inset-0 opacity-[0.03] bg-checkerboard pointer-events-none" />
+
+              {/* Top Badge */}
+              <div style={{ transform: hoveredPlatform === 'types' ? 'translateZ(12px)' : 'none' }} className="flex justify-between items-start z-10 shrink-0">
+                <span className="text-[9px] tracking-widest font-mono text-zinc-400 uppercase font-semibold">02 / BY GARMENT TYPE</span>
+                <span className="text-[8px] border border-white/20 text-zinc-300 px-2 py-0.5 rounded font-mono uppercase tracking-wider bg-white/5 backdrop-blur-xs">
+                  8 Garment Categories
+                </span>
+              </div>
+
+              {/* Garment Type Icons Banner preview */}
+              <div className="z-10 my-auto py-6 grid grid-cols-4 gap-3 max-w-md">
+                {GARMENT_TYPES.map(gt => (
+                  <div key={gt.id} className="bg-white/5 border border-white/10 rounded-xl p-2.5 text-center flex flex-col items-center gap-1 group-hover:bg-white/10 transition-colors">
+                    <Shirt size={16} className="text-zinc-300" />
+                    <span className="text-[9px] font-bold tracking-wider text-zinc-300 uppercase truncate w-full">{gt.label}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Bottom Card Content */}
+              <div style={{ transform: hoveredPlatform === 'types' ? 'translateZ(18px)' : 'none' }} className="flex flex-col gap-4 z-10 text-white max-w-lg mt-auto">
+                <div className="flex flex-col gap-1.5">
+                  <h2 className="font-serif text-3xl lg:text-4xl font-normal tracking-tight text-white">
+                    Browse By Garment Type
+                  </h2>
+                  <p className="text-[11px] text-zinc-300 leading-relaxed font-light transition-opacity duration-300 opacity-80 group-hover:opacity-100 font-sans">
+                    Explore our garments organized by type: T-Shirt, Hoodie, Longsleeve, Crewneck, Jacket, Hat, Pants, and Shorts.
+                  </p>
+                </div>
+
+                <div 
+                  className="w-full flex items-center justify-between px-5 py-3.5 bg-white text-zinc-950 rounded-xl font-bold uppercase tracking-wider text-[10px] transition-all hover:bg-zinc-100 shadow-md z-10 cursor-pointer"
+                >
+                  <span className="text-zinc-955">Shop Garment Types</span>
                   <ArrowRight className="w-4 h-4 text-zinc-955 group-hover:translate-x-1.5 transition-transform" />
                 </div>
               </div>
@@ -2147,6 +2215,148 @@ export function PublicQuoteRequest() {
                     variant="filled" 
                     onClick={() => setStep(2)} 
                     disabled={!selectedBasicsItem}
+                    className="gap-2"
+                  >
+                    Proceed to Logo Upload <ArrowRight size={14} />
+                  </PillButton>
+                </div>
+              </div>
+            )}
+
+            {/* Browse By Garment Type Step 1 */}
+            {flowMode === 'types' && (
+              <div className="bg-white/80 backdrop-blur-md rounded-3xl p-8 border border-neutral-200 shadow-sm max-w-7xl mx-auto space-y-8">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-neutral-200/60 pb-5 gap-4">
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => setStep(0)}
+                      className="p-2 border border-neutral-200 hover:border-neutral-450 text-neutral-500 hover:text-neutral-900 bg-neutral-50 rounded-xl transition-all shadow-3xs cursor-pointer"
+                    >
+                      <ChevronLeft size={16} />
+                    </button>
+                    <div>
+                      <span className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-400">Garment Catalog</span>
+                      <h3 className="text-2xl font-serif text-neutral-900 mt-0.5">Browse By Garment Type</h3>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Navigation Pills for Garment Types */}
+                <div className="flex flex-wrap items-center justify-center gap-2 pb-2 border-b border-neutral-100">
+                  {GARMENT_TYPES.map(gt => {
+                    const isSelected = selectedGarmentType === gt.id;
+                    return (
+                      <button
+                        key={gt.id}
+                        onClick={() => {
+                          setSelectedGarmentType(gt.id);
+                          setSelectedGarmentTypeItem(null);
+                        }}
+                        className={`px-4.5 py-2 rounded-full border text-[10px] font-bold uppercase tracking-[0.2em] transition-all duration-200 cursor-pointer ${
+                          isSelected 
+                            ? 'bg-zinc-955 border-zinc-955 text-white shadow-sm' 
+                            : 'bg-transparent border-zinc-200/80 text-zinc-650 hover:text-zinc-950 hover:border-zinc-950 hover:bg-zinc-950/5'
+                        }`}
+                      >
+                        {gt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Garment Grid matching selected Garment Type */}
+                {(() => {
+                  const typeConfig = GARMENT_TYPES.find(gt => gt.id === selectedGarmentType)!;
+                  const allProds = (sanmarCatalogJson as SanMarProduct[]);
+                  const matching = allProds.filter(p => detectGarmentTypeTag(p, catalogSettings.garmentTypeTags) === selectedGarmentType);
+
+                  return (
+                    <div className="space-y-6">
+                      <div className="text-center max-w-lg mx-auto space-y-1">
+                        <h4 className="text-lg font-serif font-bold text-neutral-900">{typeConfig.label} Collection</h4>
+                        <p className="text-xs text-neutral-500">{typeConfig.description}</p>
+                      </div>
+
+                      {matching.length === 0 ? (
+                        <div className="text-center py-12 bg-neutral-50 rounded-2xl border border-dashed border-neutral-300">
+                          <p className="text-xs font-bold text-neutral-500">No products available in this category.</p>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                          {matching.slice(0, 32).map(item => {
+                            const isSelected = selectedGarmentTypeItem?.style === item.style;
+                            const colorKey = selectedGarmentTypeColor && item.colors.includes(selectedGarmentTypeColor) ? selectedGarmentTypeColor : item.colors[0];
+                            const imgSet = item.images[colorKey] || Object.values(item.images)[0];
+                            const previewImg = imgSet ? (typeof imgSet === 'string' ? imgSet : (imgSet as any).front) : '';
+
+                            return (
+                              <div
+                                key={item.style}
+                                onClick={() => {
+                                  setSelectedGarmentTypeItem(item);
+                                  setSelectedGarmentTypeColor(colorKey);
+                                }}
+                                className={`bg-white border rounded-2xl p-5 flex flex-col justify-between gap-4 cursor-pointer hover:shadow-md transition-all ${
+                                  isSelected 
+                                    ? 'border-neutral-900 ring-2 ring-neutral-900/5' 
+                                    : 'border-neutral-200'
+                                }`}
+                              >
+                                <div className="space-y-3">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-[10px] font-bold text-neutral-400 uppercase">{item.brand} • {item.style}</span>
+                                    <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${
+                                      isSelected ? 'bg-neutral-900 border-neutral-900 text-white' : 'border-neutral-300 text-transparent'
+                                    }`}>
+                                      <Check size={10} />
+                                    </div>
+                                  </div>
+
+                                  <div className="aspect-[4/5] bg-neutral-50/50 rounded-xl flex items-center justify-center p-3 relative overflow-hidden">
+                                    <img src={previewImg} alt={item.title} className="max-h-full max-w-full object-contain mix-blend-multiply" />
+                                  </div>
+
+                                  <div>
+                                    <h4 className="text-sm font-bold text-neutral-800 truncate" title={item.title}>{item.title}</h4>
+                                    <p className="text-xs text-neutral-500 font-semibold mt-0.5">${item.price.toFixed(2)}</p>
+                                  </div>
+                                </div>
+
+                                {/* Swatches */}
+                                <div className="flex items-center gap-1.5 overflow-x-auto pt-2 border-t border-neutral-100">
+                                  {item.colors.slice(0, 6).map(c => (
+                                    <div
+                                      key={c}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedGarmentTypeItem(item);
+                                        setSelectedGarmentTypeColor(c);
+                                      }}
+                                      className={`w-4 h-4 rounded-full border border-neutral-300 cursor-pointer shrink-0 transition-transform ${
+                                        colorKey === c ? 'scale-125 ring-2 ring-black/20' : 'hover:scale-110'
+                                      }`}
+                                      style={{ background: getSwatchColor(c, true) }}
+                                      title={c}
+                                    />
+                                  ))}
+                                  {item.colors.length > 6 && (
+                                    <span className="text-[9px] text-neutral-400 font-bold">+{item.colors.length - 6}</span>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                <div className="pt-6 border-t border-neutral-200/50 flex justify-end">
+                  <PillButton 
+                    variant="filled" 
+                    onClick={() => setStep(2)} 
+                    disabled={!selectedGarmentTypeItem}
                     className="gap-2"
                   >
                     Proceed to Logo Upload <ArrowRight size={14} />

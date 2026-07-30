@@ -6,7 +6,7 @@ import { Loader2, Save, Search, Check, Info, Crosshair, X, Trash2, Plus, Edit2, 
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
-import { getOrderedKeys } from '../../lib/garmentUtils';
+import { getOrderedKeys, GARMENT_TYPES, detectGarmentTypeTag, type GarmentTypeId } from '../../lib/garmentUtils';
 import { ImportGarmentModal } from '../../components/shared/ImportGarmentModal';
 
 interface SanMarProduct {
@@ -327,7 +327,7 @@ function LogoPlacementModal({
 export function StorefrontCatalogTab() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [activeSubMode, setActiveSubMode] = useState<'racks' | 'basics'>('racks');
+  const [activeSubMode, setActiveSubMode] = useState<'racks' | 'basics' | 'types'>('racks');
 
   // Firestore state
   const [racks, setRacks] = useState<Record<string, any>>(DEFAULT_RACKS);
@@ -341,6 +341,8 @@ export function StorefrontCatalogTab() {
   const [customMockups, setCustomMockups] = useState<Record<string, any>>({ racks: {}, basics: {} });
   const [racksOrder, setRacksOrder] = useState<Record<string, string[]>>({});
   const [customProducts, setCustomProducts] = useState<any[]>([]);
+  const [garmentTypeTags, setGarmentTypeTags] = useState<Record<string, string>>({});
+  const [activeGarmentType, setActiveGarmentType] = useState<GarmentTypeId>('t-shirt');
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [uploadingSlotKey, setUploadingSlotKey] = useState<string | null>(null);
 
@@ -373,6 +375,7 @@ export function StorefrontCatalogTab() {
           const data = docSnap.data();
           if (data.racks) setRacks(data.racks);
           if (data.basics) setBasics(data.basics);
+          if (data.garmentTypeTags) setGarmentTypeTags(data.garmentTypeTags);
           if (data.customNames) {
             setCustomNames(data.customNames);
           } else {
@@ -446,8 +449,9 @@ export function StorefrontCatalogTab() {
         logoPlacements,
         customMockups,
         racksOrder,
+        garmentTypeTags,
         updatedAt: new Date().toISOString()
-      });
+      }, { merge: true });
       alert('Storefront catalog settings saved successfully!');
     } catch (err) {
       console.error("Error saving storefront catalog settings:", err);
@@ -983,6 +987,16 @@ export function StorefrontCatalogTab() {
         >
           Build From Basics Good/Better/Best
         </button>
+        <button
+          onClick={() => setActiveSubMode('types')}
+          className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex-1 text-center ${
+            activeSubMode === 'types'
+              ? 'bg-white text-brand-primary shadow-xs font-extrabold'
+              : 'text-brand-secondary hover:text-brand-primary'
+          }`}
+        >
+          Browse By Garment Type
+        </button>
       </div>
 
       {/* Rack Collections Manager */}
@@ -1253,6 +1267,30 @@ export function StorefrontCatalogTab() {
                         }}
                         className="w-full bg-white border border-brand-border rounded-xl px-3 py-1.5 text-xs text-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary transition-all placeholder:text-neutral-400 placeholder:italic"
                       />
+                    </div>
+
+                    <div>
+                      <label className="text-[9px] font-extrabold uppercase tracking-wider text-neutral-400 block mb-1">
+                        Garment Type Tag
+                      </label>
+                      <select
+                        value={p.style ? detectGarmentTypeTag(p, garmentTypeTags) : 't-shirt'}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (p.style) {
+                            setGarmentTypeTags(prev => ({
+                              ...prev,
+                              [p.style.toLowerCase()]: val
+                            }));
+                          }
+                        }}
+                        disabled={!p.style}
+                        className="w-full bg-white border border-brand-border rounded-xl px-3 py-1.5 text-xs font-bold text-brand-primary focus:outline-none cursor-pointer disabled:opacity-50"
+                      >
+                        {GARMENT_TYPES.map(gt => (
+                          <option key={gt.id} value={gt.id}>{gt.label}</option>
+                        ))}
+                      </select>
                     </div>
 
                     <div>
@@ -1602,7 +1640,142 @@ export function StorefrontCatalogTab() {
         </div>
       )}
 
-      {/* Bottom Save Bar */}
+      {/* Garment Types Manager */}
+      {activeSubMode === 'types' && (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex gap-3 text-amber-800 text-xs">
+            <Info size={16} className="shrink-0 mt-0.5" />
+            <p>
+              Tag and organize garments by type (<strong>T-Shirt, Hoodie, Longsleeve, Crewneck, Jacket, Hat, Pants, Shorts</strong>). Customers can browse your storefront using these garment categories to find exactly what they need.
+            </p>
+          </div>
+
+          {/* Garment Type Selector Pills */}
+          <div className="flex flex-wrap items-center gap-2 pb-2">
+            {GARMENT_TYPES.map(gt => {
+              const count = allCatalogProducts.filter(p => detectGarmentTypeTag(p, garmentTypeTags) === gt.id).length;
+              const isActive = activeGarmentType === gt.id;
+              return (
+                <button
+                  key={gt.id}
+                  type="button"
+                  onClick={() => setActiveGarmentType(gt.id as GarmentTypeId)}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 border ${
+                    isActive
+                      ? 'bg-brand-primary text-white border-brand-primary shadow-xs'
+                      : 'bg-white text-brand-primary border-brand-border hover:bg-neutral-50'
+                  }`}
+                >
+                  <span>{gt.label}</span>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono ${
+                    isActive ? 'bg-white/20 text-white' : 'bg-neutral-100 text-neutral-600'
+                  }`}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Products Grid for Active Garment Type */}
+          {(() => {
+            const activeTypeConfig = GARMENT_TYPES.find(gt => gt.id === activeGarmentType)!;
+            const items = allCatalogProducts.filter(p => detectGarmentTypeTag(p, garmentTypeTags) === activeGarmentType);
+
+            return (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between border-b border-brand-border pb-3">
+                  <div>
+                    <h3 className="text-base font-serif text-brand-primary font-bold">
+                      {activeTypeConfig.label} Catalog ({items.length} garments)
+                    </h3>
+                    <p className="text-xs text-brand-secondary">{activeTypeConfig.description}</p>
+                  </div>
+                </div>
+
+                {items.length === 0 ? (
+                  <div className="text-center py-12 bg-neutral-50 rounded-2xl border border-dashed border-neutral-300 space-y-2">
+                    <p className="text-xs font-bold text-neutral-500">No garments currently tagged as {activeTypeConfig.label}.</p>
+                    <p className="text-[11px] text-neutral-400">Tag garments from your other catalog tabs or change tags below.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {items.map(p => {
+                      const styleKey = p.style.toLowerCase();
+                      const customTag = garmentTypeTags[styleKey];
+                      const detectedTag = detectGarmentTypeTag(p, garmentTypeTags);
+                      
+                      return (
+                        <div key={p.style} className="border border-brand-border rounded-2xl p-5 bg-white flex flex-col justify-between gap-4 shadow-2xs hover:shadow-xs transition-all">
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-[10px] font-extrabold uppercase tracking-widest bg-neutral-100 text-neutral-600 px-2 py-0.5 rounded">
+                                {p.style}
+                              </span>
+                              {customTag ? (
+                                <span className="text-[9px] font-extrabold uppercase text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">
+                                  Custom Tagged
+                                </span>
+                              ) : (
+                                <span className="text-[9px] font-extrabold uppercase text-neutral-400 bg-neutral-50 border border-neutral-200 px-1.5 py-0.5 rounded">
+                                  Auto Tagged
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="w-full h-36 bg-neutral-50 border border-brand-border/60 rounded-xl flex items-center justify-center p-2 relative overflow-hidden bg-checkerboard">
+                              <img
+                                src={getGarmentImage(p)}
+                                alt={p.title}
+                                className="max-w-full max-h-full object-contain mix-blend-multiply"
+                              />
+                            </div>
+
+                            <div>
+                              <h4 className="text-sm font-bold text-brand-primary leading-snug">
+                                {p.brand} {p.style}
+                              </h4>
+                              <p className="text-xs text-brand-secondary mt-1 font-medium truncate" title={p.title}>
+                                {p.title}
+                              </p>
+                              <span className="text-xs text-brand-primary font-bold block mt-1">
+                                Base Price: ${p.price.toFixed(2)}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="space-y-3 pt-3 border-t border-neutral-100">
+                            <div>
+                              <label className="text-[9px] font-extrabold uppercase tracking-wider text-neutral-400 block mb-1">
+                                Garment Type Tag
+                              </label>
+                              <select
+                                value={detectedTag}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setGarmentTypeTags(prev => ({
+                                    ...prev,
+                                    [styleKey]: val
+                                  }));
+                                }}
+                                className="w-full bg-neutral-50 border border-brand-border rounded-xl px-3 py-1.5 text-xs font-bold text-brand-primary focus:outline-none cursor-pointer"
+                              >
+                                {GARMENT_TYPES.map(gt => (
+                                  <option key={gt.id} value={gt.id}>{gt.label}</option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+        </div>
+      )}
       <div className="flex flex-col sm:flex-row justify-between sm:items-center pt-6 border-t border-brand-border/60 gap-4 mt-8">
         <p className="text-xs text-brand-secondary">
           Configure all slots and logo placements above, then click save to update the live storefront catalog.

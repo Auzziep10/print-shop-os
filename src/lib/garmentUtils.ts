@@ -10,6 +10,55 @@ export interface WeightAndFabric {
 
 export const DEFAULT_SLOT_ORDER = ['hat', 'shirt', 'polo', 'crewneck', 'hoodie', 'longsleeve'];
 
+export interface GarmentTypeConfig {
+  id: string;
+  label: string;
+  slotKey: string;
+  description: string;
+}
+
+export const GARMENT_TYPES: GarmentTypeConfig[] = [
+  { id: 't-shirt', label: 'T-Shirt', slotKey: 'shirt', description: 'Everyday tees, classic crewnecks, and performance tops' },
+  { id: 'hoodie', label: 'Hoodie', slotKey: 'hoodie', description: 'Pullover and full-zip fleece hoodies' },
+  { id: 'longsleeve', label: 'Longsleeve', slotKey: 'longsleeve', description: 'Long sleeve tees and thermal shirts' },
+  { id: 'crewneck', label: 'Crewneck', slotKey: 'crewneck', description: 'Cozy fleece crewneck sweatshirts' },
+  { id: 'jacket', label: 'Jacket', slotKey: 'jacket', description: 'Outerwear, vests, and windbreakers' },
+  { id: 'hat', label: 'Hat', slotKey: 'hat', description: 'Caps, beanies, and trucker hats' },
+  { id: 'pants', label: 'Pants', slotKey: 'pants', description: 'Sweatpants, joggers, and trousers' },
+  { id: 'shorts', label: 'Shorts', slotKey: 'shorts', description: 'Athletic and casual fleece shorts' },
+];
+
+export type GarmentTypeId = typeof GARMENT_TYPES[number]['id'];
+
+export const detectGarmentTypeTag = (product: any, customTags?: Record<string, string>): GarmentTypeId => {
+  if (!product) return 't-shirt';
+
+  const styleKey = String(product.style || product.id || product.itemNum || '').toLowerCase();
+  
+  if (customTags && customTags[styleKey]) {
+    const tag = customTags[styleKey].toLowerCase();
+    if (GARMENT_TYPES.some(t => t.id === tag)) return tag as GarmentTypeId;
+  }
+
+  if (product.garmentType) {
+    const tag = String(product.garmentType).toLowerCase();
+    if (GARMENT_TYPES.some(t => t.id === tag)) return tag as GarmentTypeId;
+  }
+
+  const text = `${product.category || ''} ${product.slot || ''} ${product.style || ''} ${product.title || ''} ${product.description || ''} ${product.brand || ''}`.toLowerCase();
+
+  if (/hat|cap|beanie|visor|headwear|headgear|trucker|snapback/i.test(text)) return 'hat';
+  if (/short/i.test(text) && !/sleeve|short\s*sleeve/i.test(text)) return 'shorts';
+  if (/pant|jogger|sweatpant|legging|trouser|bottom/i.test(text)) return 'pants';
+  if (/jacket|coat|vest|windbreaker|parka|outerwear/i.test(text)) return 'jacket';
+  if (/hoodi|hooded|hood/i.test(text)) return 'hoodie';
+  if (/long\s*sleeve|longsleeve|\bls\b|\bl\/s\b/i.test(text)) return 'longsleeve';
+  if (/crewneck|crew\s*neck|sweatshirt|fleece\s*crew/i.test(text)) return 'crewneck';
+
+  return 't-shirt';
+};
+
+
 export const getOrderedKeys = (
   categoryRacks: Record<string, any> | undefined | null,
   category: string,

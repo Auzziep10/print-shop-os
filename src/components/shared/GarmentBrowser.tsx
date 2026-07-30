@@ -6,6 +6,7 @@ import sanmarCatalogJson from '../../data/sanmar-catalog.json';
 import colorHexMapJson from '../../data/color-hex-map.json';
 import { useAuth } from '../../contexts/AuthContext';
 import { ImportGarmentModal } from './ImportGarmentModal';
+import { GARMENT_TYPES, detectGarmentTypeTag } from '../../lib/garmentUtils';
 
 const colorHexMap = colorHexMapJson as Record<string, string>;
 
@@ -209,26 +210,30 @@ export function GarmentBrowser({ isOpen, onClose, onSelect, allowedStyleCodes, h
   const { hasPermission, userData } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedBrand, setSelectedBrand] = useState('All');
+  const [selectedGarmentType, setSelectedGarmentType] = useState('All');
   const [visibleCount, setVisibleCount] = useState(24);
   
   // Track the active preview color for each product style code
   const [productPreviewColors, setProductPreviewColors] = useState<Record<string, string>>({});
   const [expandedProducts, setExpandedProducts] = useState<Record<string, boolean>>({});
   const [customProducts, setCustomProducts] = useState<any[]>([]);
+  const [garmentTypeTags, setGarmentTypeTags] = useState<Record<string, string>>({});
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
-  // Fetch custom imported products from Firestore
+  // Fetch custom imported products and garment tags from Firestore
   useEffect(() => {
     if (!isOpen) return;
     const fetchCustomItems = async () => {
       try {
         const catalogRef = doc(db, 'settings', 'storefront-catalog');
         const snap = await getDoc(catalogRef);
-        if (snap.exists() && snap.data().customCatalogItems) {
-          setCustomProducts(snap.data().customCatalogItems);
+        if (snap.exists()) {
+          const data = snap.data();
+          if (data.customCatalogItems) setCustomProducts(data.customCatalogItems);
+          if (data.garmentTypeTags) setGarmentTypeTags(data.garmentTypeTags);
         }
       } catch (err) {
-        console.error("Error loading custom catalog items in GarmentBrowser:", err);
+        console.error("Error loading catalog settings in GarmentBrowser:", err);
       }
     };
     fetchCustomItems();
@@ -244,7 +249,7 @@ export function GarmentBrowser({ isOpen, onClose, onSelect, allowedStyleCodes, h
   // Reset visibleCount when queries or filters change
   useEffect(() => {
     setVisibleCount(24);
-  }, [searchQuery, selectedBrand, isOpen]);
+  }, [searchQuery, selectedBrand, selectedGarmentType, isOpen]);
 
   // Get list of unique brands for filters
   const brands = useMemo(() => {
@@ -271,10 +276,11 @@ export function GarmentBrowser({ isOpen, onClose, onSelect, allowedStyleCodes, h
         (p.description || '').toLowerCase().includes(searchQuery.toLowerCase());
       
       const matchesBrand = selectedBrand === 'All' || p.brand === selectedBrand;
+      const matchesType = selectedGarmentType === 'All' || detectGarmentTypeTag(p, garmentTypeTags) === selectedGarmentType;
 
-      return matchesSearch && matchesBrand;
+      return matchesSearch && matchesBrand && matchesType;
     });
-  }, [searchQuery, selectedBrand, allowedStyleCodes, allCatalog]);
+  }, [searchQuery, selectedBrand, selectedGarmentType, allowedStyleCodes, allCatalog, garmentTypeTags]);
 
   if (!isOpen) return null;
 
@@ -319,32 +325,62 @@ export function GarmentBrowser({ isOpen, onClose, onSelect, allowedStyleCodes, h
         </div>
 
         {/* Filters Panel */}
-        <div className="px-6 py-4 md:px-8 bg-neutral-50 border-b border-brand-border flex flex-col md:flex-row gap-4 justify-between items-stretch md:items-center shrink-0">
-          {/* Search bar */}
-          <div className="relative w-full md:w-72 shrink-0">
-            <input 
-              type="text" 
-              placeholder="Search style numbers, brands..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="w-full bg-white border border-brand-border rounded-xl pl-10 pr-4 py-2.5 text-sm text-brand-primary focus:outline-none focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400 placeholder:text-neutral-400 transition-all font-medium"
-            />
-            <Search className="absolute left-3.5 top-3.5 text-neutral-400" size={16} />
+        <div className="px-6 py-4 md:px-8 bg-neutral-50 border-b border-brand-border flex flex-col gap-3 shrink-0">
+          <div className="flex flex-col md:flex-row gap-4 justify-between items-stretch md:items-center">
+            {/* Search bar */}
+            <div className="relative w-full md:w-72 shrink-0">
+              <input 
+                type="text" 
+                placeholder="Search style numbers, brands..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="w-full bg-white border border-brand-border rounded-xl pl-10 pr-4 py-2.5 text-sm text-brand-primary focus:outline-none focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400 placeholder:text-neutral-400 transition-all font-medium"
+              />
+              <Search className="absolute left-3.5 top-3.5 text-neutral-400" size={16} />
+            </div>
+
+            {/* Brand Tabs */}
+            <div className="flex-1 min-w-0 flex gap-1.5 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
+              {brands.map(brand => (
+                <button
+                  key={brand}
+                  onClick={() => setSelectedBrand(brand)}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all border ${
+                    selectedBrand === brand 
+                      ? 'bg-brand-primary text-white border-brand-primary' 
+                      : 'bg-white text-brand-secondary border-brand-border hover:bg-neutral-100 hover:text-brand-primary'
+                  }`}
+                >
+                  {brand}
+                </button>
+              ))}
+            </div>
           </div>
 
-          {/* Brand Tabs */}
-          <div className="flex-1 min-w-0 flex gap-1.5 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
-            {brands.map(brand => (
+          {/* Garment Type Filter Chips */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pt-1 scrollbar-none">
+            <span className="text-[10px] font-bold text-neutral-400 uppercase shrink-0 mr-1">Type:</span>
+            <button
+              onClick={() => setSelectedGarmentType('All')}
+              className={`px-3 py-1 rounded-lg text-[11px] font-bold whitespace-nowrap transition-all border ${
+                selectedGarmentType === 'All'
+                  ? 'bg-neutral-900 text-white border-neutral-900'
+                  : 'bg-white text-neutral-600 border-neutral-200 hover:bg-neutral-100'
+              }`}
+            >
+              All Types
+            </button>
+            {GARMENT_TYPES.map(gt => (
               <button
-                key={brand}
-                onClick={() => setSelectedBrand(brand)}
-                className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all border ${
-                  selectedBrand === brand 
-                    ? 'bg-brand-primary text-white border-brand-primary' 
-                    : 'bg-white text-brand-secondary border-brand-border hover:bg-neutral-100 hover:text-brand-primary'
+                key={gt.id}
+                onClick={() => setSelectedGarmentType(gt.id)}
+                className={`px-3 py-1 rounded-lg text-[11px] font-bold whitespace-nowrap transition-all border ${
+                  selectedGarmentType === gt.id
+                    ? 'bg-neutral-900 text-white border-neutral-900'
+                    : 'bg-white text-neutral-600 border-neutral-200 hover:bg-neutral-100'
                 }`}
               >
-                {brand}
+                {gt.label}
               </button>
             ))}
           </div>
