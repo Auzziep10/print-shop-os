@@ -907,6 +907,17 @@ export function StorefrontCatalogTab() {
     return Array.from(map.values());
   }, [customProducts]);
 
+  const getProductDetails = (style: string) => {
+    return allCatalogProducts.find(p => p.style.toLowerCase() === style.toLowerCase()) || {
+      style,
+      title: 'Unknown Garment',
+      brand: 'N/A',
+      price: 0,
+      colors: [],
+      images: null
+    };
+  };
+
   // Curated products chosen across Rack collections & Basics
   const storefrontCuratedProducts = useMemo(() => {
     const stylesSet = new Set<string>();
@@ -936,7 +947,7 @@ export function StorefrontCatalogTab() {
     return Array.from(stylesSet)
       .map(style => getProductDetails(style))
       .filter(Boolean) as any[];
-  }, [racks, basics, customProducts]);
+  }, [racks, basics, allCatalogProducts]);
 
   // Filter products by search query
   const filteredProducts = allCatalogProducts.filter(p => 
@@ -961,17 +972,6 @@ export function StorefrontCatalogTab() {
       }
     }
     return 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
-  };
-
-  const getProductDetails = (style: string) => {
-    return allCatalogProducts.find(p => p.style.toLowerCase() === style.toLowerCase()) || {
-      style,
-      title: 'Unknown Garment',
-      brand: 'N/A',
-      price: 0,
-      colors: [],
-      images: null
-    };
   };
 
   if (loading) {
