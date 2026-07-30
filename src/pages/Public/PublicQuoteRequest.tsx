@@ -15,7 +15,8 @@ import {
   ChevronLeft,
   X,
   Scissors, 
-  UserPlus
+  UserPlus,
+  Plus
 } from 'lucide-react';
 import { db, storage } from '../../lib/firebase';
 import { doc, getDoc, setDoc, getDocs, collection, query, where } from 'firebase/firestore';
@@ -682,7 +683,7 @@ export function PublicQuoteRequest() {
           slot,
           product: displayProduct,
           color: catalogSettings.defaultColors?.racks?.[themeName]?.[slot] || displayProduct.colors[0],
-          selected: true,
+          selected: false,
           logoPos: fitted ? fitted.pos : isHat ? { x: 50, y: 55 } : isPolo ? { x: 38, y: 30 } : { x: 50, y: 35 },
           logoScale: fitted ? fitted.scale : isHat ? 0.16 : isPolo ? 0.14 : 0.28,
           logoRotation: fitted ? fitted.rotation : 0,
@@ -2156,31 +2157,61 @@ export function PublicQuoteRequest() {
                       </button>
                       <span className="text-[10px] font-extrabold uppercase tracking-[0.25em] text-neutral-400">Design your rack</span>
                     </div>
-                    <h1 className="text-4xl md:text-5xl font-serif font-bold text-neutral-950 tracking-tight leading-[0.95] pt-1">
-                      Build<br />Better.
+                    <h1 className="text-5xl md:text-6xl lg:text-7xl font-serif font-normal text-neutral-950 tracking-tight leading-[0.92] pt-2">
+                      Build<br />
+                      <span className="italic font-light">Better.</span>
                     </h1>
                     <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-400 pt-1">
                       Select your items into your custom rack below
                     </p>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-2">
-                    {visibleRackCategories.map(catName => {
-                      const isSelected = selectedThemeCategory === catName;
-                      return (
-                        <button
-                          key={catName}
-                          onClick={() => setSelectedThemeCategory(catName)}
-                          className={`px-4.5 py-2 rounded-full border text-[10px] font-bold uppercase tracking-[0.2em] transition-all duration-200 cursor-pointer ${
-                            isSelected 
-                              ? 'bg-zinc-955 border-zinc-955 text-white shadow-sm' 
-                              : 'bg-transparent border-zinc-200/80 text-zinc-650 hover:text-zinc-950 hover:border-zinc-950 hover:bg-zinc-950/5'
-                          }`}
-                        >
-                          {catName}
-                        </button>
-                      );
-                    })}
+                  <div className="flex flex-col items-end gap-3">
+                    {/* Mode switcher: Theme Collections vs Garment Types */}
+                    <div className="flex items-center gap-1.5 bg-neutral-100/80 p-1 rounded-full border border-neutral-200/60">
+                      <button
+                        type="button"
+                        onClick={() => setFlowMode('racks')}
+                        className={`px-3.5 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-[0.18em] transition-all cursor-pointer ${
+                          flowMode === 'racks' 
+                            ? 'bg-black text-white shadow-xs' 
+                            : 'text-neutral-600 hover:text-neutral-900'
+                        }`}
+                      >
+                        Theme Racks
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFlowMode('types')}
+                        className={`px-3.5 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-[0.18em] transition-all cursor-pointer ${
+                          (flowMode as string) === 'types' 
+                            ? 'bg-black text-white shadow-xs' 
+                            : 'text-neutral-600 hover:text-neutral-900'
+                        }`}
+                      >
+                        Garment Types
+                      </button>
+                    </div>
+
+                    {/* Theme categories switcher */}
+                    <div className="flex flex-wrap items-center gap-2">
+                      {visibleRackCategories.map(catName => {
+                        const isSelected = selectedThemeCategory === catName;
+                        return (
+                          <button
+                            key={catName}
+                            onClick={() => setSelectedThemeCategory(catName)}
+                            className={`px-4.5 py-2 rounded-full border text-[10px] font-bold uppercase tracking-[0.2em] transition-all duration-200 cursor-pointer ${
+                              isSelected 
+                                ? 'bg-zinc-955 border-zinc-955 text-white shadow-sm' 
+                                : 'bg-transparent border-zinc-200/80 text-zinc-650 hover:text-zinc-950 hover:border-zinc-950 hover:bg-zinc-950/5'
+                            }`}
+                          >
+                            {catName}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
 
@@ -2210,12 +2241,16 @@ export function PublicQuoteRequest() {
                           }`}
                         >
                           <div className="absolute top-0 right-0 z-10">
-                            <div className={`w-6 h-6 rounded-full border flex items-center justify-center transition-all duration-200 ${
+                            <div className={`w-7 h-7 rounded-full border flex items-center justify-center transition-all duration-200 shadow-3xs ${
                               item.selected 
-                                ? 'bg-neutral-900 border-neutral-900 text-white shadow-sm' 
-                                : 'border-neutral-300 bg-white text-transparent group-hover:border-neutral-400'
+                                ? 'bg-neutral-900 border-neutral-900 text-white scale-105 shadow-xs' 
+                                : 'border-neutral-300 bg-white text-neutral-600 group-hover:border-neutral-900 group-hover:text-neutral-900'
                             }`}>
-                              <Check size={12} strokeWidth={2.5} />
+                              {item.selected ? (
+                                <Check size={13} strokeWidth={2.5} />
+                              ) : (
+                                <Plus size={13} strokeWidth={2.5} />
+                              )}
                             </div>
                           </div>
                           
