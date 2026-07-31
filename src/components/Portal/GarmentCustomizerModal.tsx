@@ -694,28 +694,66 @@ export function GarmentCustomizerModal({
     let resolvedBack = null;
 
     if (selectedColor) {
-      const garmentImages = activeGarment?.images || {};
-      const garmentImgKey = findFuzzyColorKey(garmentImages, selectedColor);
-      const garmentColorVal = garmentImgKey ? garmentImages[garmentImgKey] : null;
-
-      resolvedFront = garmentColorVal?.front || (typeof garmentColorVal === 'string' ? garmentColorVal : null);
-      resolvedBack = garmentColorVal?.back || null;
-
-      const garmentBackImages = activeGarment?.backImages || {};
-      const garmentBackImgKey = findFuzzyColorKey(garmentBackImages, selectedColor);
-      if (garmentBackImgKey) {
-        resolvedBack = garmentBackImages[garmentBackImgKey];
+      // 0. Prioritize custom uploaded color mockup from colorMockups if configured!
+      const colorMockups = activeGarment?.colorMockups || (garment as any)?.colorMockups;
+      if (colorMockups) {
+        const cKey = selectedColor.toLowerCase().trim();
+        const stylesToTry = [activeGarment?.itemNum, activeGarment?.style, catalogProduct?.style].filter(Boolean) as string[];
+        for (const st of stylesToTry) {
+          const styleKey = st.toLowerCase().trim();
+          const matchingStyleKey = Object.keys(colorMockups).find(k => {
+            const cleanK = k.toLowerCase().trim();
+            return cleanK === styleKey ||
+                   cleanK.replace(/cvc$/i, '') === styleKey.replace(/cvc$/i, '') ||
+                   cleanK.replace(/[\s-]/g, '') === styleKey.replace(/[\s-]/g, '');
+          });
+          if (matchingStyleKey) {
+            const styleMap = colorMockups[matchingStyleKey];
+            if (styleMap) {
+              const matchingColorKey = Object.keys(styleMap).find(k => {
+                const cleanK = k.toLowerCase().trim();
+                return cleanK === cKey || cleanK.replace(/[\s-]/g, '') === cKey.replace(/[\s-]/g, '');
+              });
+              if (matchingColorKey) {
+                const customVal = styleMap[matchingColorKey];
+                if (typeof customVal === 'string' && customVal.trim()) {
+                  resolvedFront = customVal.trim();
+                  break;
+                } else if (typeof customVal === 'object' && customVal) {
+                  resolvedFront = (customVal as any).front || (customVal as any).frontImage || null;
+                  resolvedBack = (customVal as any).back || (customVal as any).backImage || null;
+                  if (resolvedFront) break;
+                }
+              }
+            }
+          }
+        }
       }
 
-      if (catalogProduct) {
-        const catalogImages = catalogProduct.images || {};
-        const catalogImgKey = findFuzzyColorKey(catalogImages, selectedColor);
-        const catalogColorVal = catalogImgKey ? catalogImages[catalogImgKey] : null;
-        if (!resolvedFront) {
-          resolvedFront = catalogColorVal?.front || (typeof catalogColorVal === 'string' ? catalogColorVal : null);
+      if (!resolvedFront) {
+        const garmentImages = activeGarment?.images || {};
+        const garmentImgKey = findFuzzyColorKey(garmentImages, selectedColor);
+        const garmentColorVal = garmentImgKey ? garmentImages[garmentImgKey] : null;
+
+        resolvedFront = garmentColorVal?.front || (typeof garmentColorVal === 'string' ? garmentColorVal : null);
+        resolvedBack = garmentColorVal?.back || null;
+
+        const garmentBackImages = activeGarment?.backImages || {};
+        const garmentBackImgKey = findFuzzyColorKey(garmentBackImages, selectedColor);
+        if (garmentBackImgKey) {
+          resolvedBack = garmentBackImages[garmentBackImgKey];
         }
-        if (!resolvedBack) {
-          resolvedBack = catalogColorVal?.back || null;
+
+        if (catalogProduct) {
+          const catalogImages = catalogProduct.images || {};
+          const catalogImgKey = findFuzzyColorKey(catalogImages, selectedColor);
+          const catalogColorVal = catalogImgKey ? catalogImages[catalogImgKey] : null;
+          if (!resolvedFront) {
+            resolvedFront = catalogColorVal?.front || (typeof catalogColorVal === 'string' ? catalogColorVal : null);
+          }
+          if (!resolvedBack) {
+            resolvedBack = catalogColorVal?.back || null;
+          }
         }
       }
     }

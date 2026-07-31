@@ -3974,6 +3974,7 @@ export function PublicQuoteRequest() {
             selectedColor: editingProduct.color,
             originalFrontImage: editingGarmentImg,
             originalBackImage: getGarmentMockupImage(editingProduct.product, editingProduct.color, 'back', catalogSettings, selectedThemeCategory, editingProduct.slot),
+            colorMockups: catalogSettings.colorMockups,
             logoUrl: editingProduct.customLogoUrl && !editingProduct.customLogoUrl.includes('mockup') ? editingProduct.customLogoUrl : logoUrl,
             logoName: artworkName || 'Logo.png',
             artworkName: artworkName || 'Logo.png',
