@@ -13,7 +13,6 @@ import {
   Phone,
   ChevronLeft,
   X,
-  Scissors, 
   UserPlus,
   Plus,
   ExternalLink
@@ -3174,15 +3173,6 @@ export function PublicQuoteRequest() {
                         )}
 
                         <div className="relative aspect-[4/5] bg-transparent border-b border-neutral-100 overflow-hidden select-none">
-                          
-                          {/* Smart Decoration Badge */}
-                          <div className="absolute top-4 left-4 z-10 bg-neutral-900/90 text-white text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded flex items-center gap-1 shadow-sm">
-                            {isEmbroidery ? (
-                              <><Scissors size={10} /> Embroidery</>
-                            ) : (
-                              <><Shirt size={10} /> Premium Print</>
-                            )}
-                          </div>
 
                           {/* View Side Toggle (Front vs Back) */}
                           <div className={`absolute top-4 ${displayRacks.length > 1 ? 'right-12' : 'right-4'} z-10 flex items-center bg-white/90 border border-neutral-200 rounded-lg p-0.5 shadow-3xs backdrop-blur-xs`}>
@@ -3361,14 +3351,6 @@ export function PublicQuoteRequest() {
                             )}
 
                             <div className="relative aspect-[4/5] bg-transparent border-b border-neutral-100 overflow-hidden select-none">
-                              {/* Smart Decoration Badge */}
-                              <div className="absolute top-4 left-4 z-10 bg-neutral-900/90 text-white text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded flex items-center gap-1 shadow-sm">
-                                {isEmbroidery ? (
-                                  <><Scissors size={10} /> Embroidery</>
-                                ) : (
-                                  <><Shirt size={10} /> Premium Print</>
-                                )}
-                              </div>
 
                               {/* View Side Toggle (Front vs Back) */}
                               <div className={`absolute top-4 ${displayItems.length > 1 ? 'right-12' : 'right-4'} z-10 flex items-center bg-white/90 border border-neutral-200 rounded-lg p-0.5 shadow-3xs backdrop-blur-xs`}>
