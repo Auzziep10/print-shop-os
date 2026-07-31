@@ -668,8 +668,9 @@ export function PublicQuoteRequest() {
     const items: DesignRackItem[] = [];
 
     const slots = getOrderedKeys(stylesMap, themeName, catalogSettings.racksOrder);
+    const hasAnySelected = rackItems.some(r => r.selected);
 
-    slots.forEach(slot => {
+    slots.forEach((slot, slotIdx) => {
       const styleId = (stylesMap as any)[slot];
       const prod = sanmarCatalog.find(p => p.style === styleId);
       if (prod) {
@@ -690,12 +691,15 @@ export function PublicQuoteRequest() {
         const placementBox = catalogSettings.logoPlacements?.racks?.[themeName]?.[slot];
         const fitted = placementBox ? fitLogoToBox(placementBox, logoAspect) : null;
 
+        const prevItem = rackItems.find(r => r.slot === slot);
+        const isSelected = prevItem ? prevItem.selected : (!hasAnySelected && slotIdx === 0);
+
         items.push({
-          id: `${slot}-${Date.now()}`,
+          id: prevItem ? prevItem.id : `${slot}-${Date.now()}`,
           slot,
           product: displayProduct,
-          color: catalogSettings.defaultColors?.racks?.[themeName]?.[slot] || displayProduct.colors[0],
-          selected: false,
+          color: prevItem ? prevItem.color : (catalogSettings.defaultColors?.racks?.[themeName]?.[slot] || displayProduct.colors[0]),
+          selected: isSelected,
           logoPos: fitted ? fitted.pos : isHat ? { x: 50, y: 55 } : isPolo ? { x: 38, y: 30 } : { x: 50, y: 35 },
           logoScale: fitted ? fitted.scale : isHat ? 0.16 : isPolo ? 0.14 : 0.28,
           logoRotation: fitted ? fitted.rotation : 0,
@@ -1255,23 +1259,29 @@ export function PublicQuoteRequest() {
     }
     setIsSubmitting(true);
     try {
+      const selectedRacks = rackItems.filter(i => i.selected);
+      const displayRacks = selectedRacks.length > 0 ? selectedRacks : (rackItems.length > 0 ? [rackItems[0]] : []);
+
+      const activeBasics = selectedBasicsItem || sanmarCatalog[0];
+      const activeBasicsColor = selectedBasicsColor || activeBasics?.colors[0] || 'Black';
+
       const itemsToCompile = flowMode === 'racks' 
-        ? rackItems.filter(i => i.selected)
+        ? displayRacks
         : flowMode === 'basics'
-        ? [
+        ? activeBasics ? [
             {
-              product: selectedBasicsItem!,
-              color: selectedBasicsColor || selectedBasicsItem?.colors[0] || 'Black',
-              logoPos: getBasicsPlacement(selectedBasicsItem!).pos,
-              logoScale: getBasicsPlacement(selectedBasicsItem!).scale,
-              logoRotation: getBasicsPlacement(selectedBasicsItem!).rotation,
+              product: activeBasics,
+              color: activeBasicsColor,
+              logoPos: getBasicsPlacement(activeBasics).pos,
+              logoScale: getBasicsPlacement(activeBasics).scale,
+              logoRotation: getBasicsPlacement(activeBasics).rotation,
               backLogoPos: { x: 50, y: 35 },
               backLogoScale: 0,
               backLogoRotation: 0,
               printSize: 'Medium' as const,
-              decoration: ['hat', 'cap', 'polo'].some(w => selectedBasicsItem!.category.toLowerCase().includes(w)) ? 'Embroidery' as const : 'Print' as const
+              decoration: ['hat', 'cap', 'polo'].some(w => (activeBasics.category || activeBasics.title || activeBasics.style || '').toLowerCase().includes(w)) ? 'Embroidery' as const : 'Print' as const
             }
-          ]
+          ] : []
         : (() => {
             const targetItem = selectedGarmentTypeItem || curatedStorefrontProducts.find(p => detectGarmentTypeTag(p, catalogSettings.garmentTypeTags) === selectedGarmentType) || curatedStorefrontProducts[0];
             if (!targetItem) return [];
@@ -2946,10 +2956,13 @@ export function PublicQuoteRequest() {
 
               {flowMode === 'racks' ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-                  {rackItems.filter(i => i.selected).map((item, itemIdx) => {
-                    const previewColor = item.color;
-                    const customSlotMockup = catalogSettings.customMockups?.racks?.[selectedThemeCategory]?.[item.slot];
-                    const previewImg = customSlotMockup || resolveGarmentImage(item.product, previewColor);
+                  {(() => {
+                    const selectedRacks = rackItems.filter(i => i.selected);
+                    const displayRacks = selectedRacks.length > 0 ? selectedRacks : (rackItems.length > 0 ? [rackItems[0]] : []);
+                    return displayRacks.map((item, itemIdx) => {
+                      const previewColor = item.color;
+                      const customSlotMockup = catalogSettings.customMockups?.racks?.[selectedThemeCategory]?.[item.slot];
+                      const previewImg = customSlotMockup || resolveGarmentImage(item.product, previewColor);
 
                     return (
                       <div 
@@ -3049,7 +3062,8 @@ export function PublicQuoteRequest() {
                         </div>
                       </div>
                     );
-                  })}
+                  });
+                })()}
                 </div>
               ) : flowMode === 'types' ? (
                 // Garment Types single product lookbook card
