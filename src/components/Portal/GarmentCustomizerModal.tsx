@@ -694,7 +694,7 @@ export function GarmentCustomizerModal({
     if (isOpen && !garment?.colorMockups && !fetchedColorMockups) {
       const fetchCatalogMockups = async () => {
         try {
-          const catRef = doc(db, 'settings', 'storefront_catalog');
+          const catRef = doc(db, 'settings', 'storefront-catalog');
           const catSnap = await getDoc(catRef);
           if (catSnap.exists() && catSnap.data().colorMockups) {
             setFetchedColorMockups(catSnap.data().colorMockups);

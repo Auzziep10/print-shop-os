@@ -564,6 +564,7 @@ export function PublicQuoteRequest() {
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editViewMode, setEditViewMode] = useState<'front' | 'back'>('front');
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
 
   // Storefront Settings from DB
   const [storefrontSettings, setStorefrontSettings] = useState<{
@@ -1108,41 +1109,111 @@ export function PublicQuoteRequest() {
     }, 'image/png');
   };
 
-  const resolveColorMockup = (style?: string, color?: string, side: 'front' | 'back' = 'front'): string | null => {
-    if (!style || !color || !catalogSettings?.colorMockups) return null;
-    const styleKey = style.toLowerCase().trim();
-    const cKey = color.toLowerCase().trim();
+  const resolveColorMockup = (style?: string, color?: string, side: 'front' | 'back' = 'front', itemObj?: any): string | null => {
+    if (!catalogSettings?.colorMockups) return null;
+    const stylesToTry = Array.from(new Set([
+      style,
+      itemObj?.style,
+      itemObj?.title,
+      itemObj?.itemNum,
+      itemObj?.id,
+      itemObj?.slot
+    ].filter(Boolean) as string[])).map(s => s.toLowerCase().trim());
 
-    // Find style entry (case-insensitive)
-    const matchingStyleKey = Object.keys(catalogSettings.colorMockups).find(k => k.toLowerCase().trim() === styleKey);
-    if (!matchingStyleKey) return null;
+    for (const styleKey of stylesToTry) {
+      const matchingStyleKey = Object.keys(catalogSettings.colorMockups).find(k => {
+        const cleanK = k.toLowerCase().trim();
+        return cleanK === styleKey || cleanK.replace(/[\s-]/g, '') === styleKey.replace(/[\s-]/g, '');
+      });
+      if (!matchingStyleKey) continue;
 
-    const styleMap = catalogSettings.colorMockups[matchingStyleKey];
-    if (!styleMap) return null;
+      const styleMap = catalogSettings.colorMockups[matchingStyleKey];
+      if (!styleMap) continue;
 
-    // Find color entry (case-insensitive, trying exact, trimmed, or stripped dashes/spaces)
-    const matchingColorKey = Object.keys(styleMap).find(k => {
-      const cleanK = k.toLowerCase().trim();
-      return cleanK === cKey || cleanK.replace(/[\s-]/g, '') === cKey.replace(/[\s-]/g, '');
-    });
-    if (!matchingColorKey) return null;
+      if (color) {
+        const cKey = color.toLowerCase().trim();
+        const matchingColorKey = Object.keys(styleMap).find(k => {
+          const cleanK = k.toLowerCase().trim();
+          return cleanK === cKey || cleanK.replace(/[\s-]/g, '') === cKey.replace(/[\s-]/g, '');
+        });
 
-    const customColorImg = styleMap[matchingColorKey];
-    if (!customColorImg) return null;
-    if (typeof customColorImg === 'string' && customColorImg.trim()) return customColorImg.trim();
-    if (typeof customColorImg === 'object') {
-      const sImg = (customColorImg as any)[side] || (customColorImg as any).front;
-      if (typeof sImg === 'string' && sImg.trim()) return sImg.trim();
+        if (matchingColorKey && styleMap[matchingColorKey]) {
+          const customColorImg = styleMap[matchingColorKey];
+          if (typeof customColorImg === 'string' && customColorImg.trim()) return customColorImg.trim();
+          if (typeof customColorImg === 'object' && customColorImg) {
+            const sImg = (customColorImg as any)[side] || (customColorImg as any).front;
+            if (typeof sImg === 'string' && sImg.trim()) return sImg.trim();
+          }
+        }
+      }
+
+      // Fallback: check first available color in styleMap if exact color not matched
+      const firstVal = Object.values(styleMap)[0];
+      if (firstVal) {
+        if (typeof firstVal === 'string' && firstVal.trim()) return firstVal.trim();
+        if (typeof firstVal === 'object' && firstVal) {
+          const sImg = (firstVal as any)[side] || (firstVal as any).front;
+          if (typeof sImg === 'string' && sImg.trim()) return sImg.trim();
+        }
+      }
     }
+
     return null;
   };
 
   const resolveGarmentImage = (item: SanMarProduct, colorKey?: string, side: 'front' | 'back' = 'front') => {
-    const cKey = colorKey || item.colors[0];
+    const cKey = colorKey || item.colors?.[0];
 
-    // 1. Color-specific custom mockup override (e.g. from catalogSettings)
-    const colorCustomImg = resolveColorMockup(item.style, cKey, side);
+    // 1. Color-specific custom mockup override (e.g. from catalogSettings.colorMockups)
+    const colorCustomImg = resolveColorMockup(item.style, cKey, side, item);
     if (colorCustomImg) return colorCustomImg;
+
+    // 2. Custom slot mockup (e.g. from catalogSettings.customMockups)
+    if (side === 'front' && catalogSettings?.customMockups) {
+      const itemSlot = (item as any).slot || (item as any).garmentType;
+      const itemCat = (item as any).category || (item as any).themeCategory;
+
+      if (itemCat && itemSlot && catalogSettings.customMockups.racks?.[itemCat]?.[itemSlot]) {
+        const custom = catalogSettings.customMockups.racks[itemCat][itemSlot];
+        if (typeof custom === 'string' && custom.trim()) return custom.trim();
+      }
+      if (catalogSettings.customMockups.racks) {
+        for (const catName of Object.keys(catalogSettings.customMockups.racks)) {
+          const slots = catalogSettings.customMockups.racks[catName];
+          if (slots) {
+            for (const sKey of Object.keys(slots)) {
+              if (slots[sKey]?.trim() && (
+                sKey === itemSlot || 
+                catalogSettings.racks?.[catName]?.[sKey] === item.style ||
+                catalogSettings.racks?.[catName]?.[sKey] === item.title
+              )) {
+                return slots[sKey].trim();
+              }
+            }
+          }
+        }
+      }
+      if (catalogSettings.customMockups.basics) {
+        for (const catName of Object.keys(catalogSettings.customMockups.basics)) {
+          const slots = catalogSettings.customMockups.basics[catName];
+          if (slots) {
+            for (const tierKey of Object.keys(slots)) {
+              if (slots[tierKey]?.trim() && (
+                catalogSettings.basics?.[catName]?.[tierKey] === item.style ||
+                catalogSettings.basics?.[catName]?.[tierKey] === item.title
+              )) {
+                return slots[tierKey].trim();
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // 3. Direct image or mockup property on the product object
+    if ((item as any).image && typeof (item as any).image === 'string' && (item as any).image.trim()) {
+      return (item as any).image.trim();
+    }
 
     if (side === 'back') {
       // Check item.backImages first if side is back
@@ -1162,7 +1233,7 @@ export function PublicQuoteRequest() {
       }
     }
 
-    // 2. Standard catalog image set for the specified color (case-insensitive lookup)
+    // 4. Standard catalog image set for the specified color (case-insensitive lookup)
     if (cKey && item.images) {
       const matchingKey = Object.keys(item.images).find(k => k.toLowerCase() === cKey.toLowerCase()) || cKey;
       const imgSet = item.images[matchingKey];
@@ -1173,7 +1244,7 @@ export function PublicQuoteRequest() {
       }
     }
 
-    // 3. Fallback to first available catalog image
+    // 5. Fallback to first available catalog image
     const firstImgSet = Object.values(item.images || {})[0];
     if (firstImgSet) {
       if (typeof firstImgSet === 'string') return firstImgSet;
@@ -3303,7 +3374,11 @@ export function PublicQuoteRequest() {
                           </div>
 
                           {/* Placement frame — same 4:5 geometry as the design editor & mockup compiler */}
-                          <div className="w-full h-full relative">
+                          <div 
+                            onClick={() => setPreviewImageUrl(cardImage)}
+                            className="w-full h-full relative cursor-zoom-in group/zoom"
+                            title="Click to expand mockup image full screen"
+                          >
                             {/* Garment Image */}
                             <img src={cardImage} className={`w-full h-full object-contain pointer-events-none mix-blend-multiply p-3 transition-transform duration-200 ${activeSide === 'back' ? 'scale-[0.92]' : 'scale-100'}`} alt={item.product.style} />
 
@@ -3484,7 +3559,11 @@ export function PublicQuoteRequest() {
                               </div>
 
                               {/* Placement frame */}
-                              <div className="w-full h-full relative">
+                              <div 
+                                onClick={() => setPreviewImageUrl(cardImage)}
+                                className="w-full h-full relative cursor-zoom-in group/zoom"
+                                title="Click to expand mockup image full screen"
+                              >
                                 <img src={cardImage} className={`w-full h-full object-contain pointer-events-none mix-blend-multiply p-3 transition-transform duration-200 ${activeSide === 'back' ? 'scale-[0.92]' : 'scale-100'}`} alt={item.product.style} />
 
                                 {/* Projected logo (only if NOT compiled) */}
@@ -3727,25 +3806,28 @@ export function PublicQuoteRequest() {
               {cart.map((item) => (
                 <div key={item.id} className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-3xs grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
                   <div className="lg:col-span-4 flex gap-4 items-center">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingItemId(item.rackItemId || item.id);
-                        setEditViewMode('front');
-                        setIsEditorOpen(true);
-                      }}
-                      className="w-16 h-18 bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 hover:border-neutral-900 rounded-xl flex items-center justify-center p-1 overflow-hidden flex-shrink-0 cursor-pointer transition-all shadow-3xs hover:shadow-md group relative"
-                      title="Click to view & edit design"
-                    >
-                      <img 
-                        src={item.compiledMockupUrl || item.mockupUrl || item.frontMockupUrl} 
-                        alt={item.product.title} 
-                        className="max-h-full max-w-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform" 
-                      />
-                      <span className="absolute bottom-1 right-1 bg-neutral-900/80 text-white p-0.5 rounded text-[8px] opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Eye size={10} />
-                      </span>
-                    </button>
+                    {(() => {
+                      const srcUrl = item.compiledMockupUrl || item.mockupUrl || item.frontMockupUrl || item.compiledBackMockupUrl;
+                      return (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (srcUrl) setPreviewImageUrl(srcUrl);
+                          }}
+                          className="w-16 h-18 bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 hover:border-neutral-900 rounded-xl flex items-center justify-center p-1 overflow-hidden flex-shrink-0 cursor-pointer transition-all shadow-3xs hover:shadow-md group relative"
+                          title="Click to expand & view full screen"
+                        >
+                          <img 
+                            src={srcUrl} 
+                            alt={item.product.title} 
+                            className="max-h-full max-w-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform" 
+                          />
+                          <span className="absolute bottom-1 right-1 bg-neutral-900/80 text-white p-0.5 rounded text-[8px] opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Eye size={10} />
+                          </span>
+                        </button>
+                      );
+                    })()}
                     <div className="min-w-0">
                       <h4 className="text-xs font-bold text-neutral-850 truncate">{getCustomGarmentName(item.product, catalogSettings)}</h4>
                       <p className="text-[10px] text-neutral-500 mt-0.5">Color: <span className="font-bold text-neutral-800">{item.color}</span> | Decoration: <span className="font-bold text-neutral-800">{item.decorationMethod}</span></p>
@@ -3755,9 +3837,23 @@ export function PublicQuoteRequest() {
                         if (item.backLogoUrl || item.customBackLogoUrl || (item.backLogoScale && item.backLogoScale > 0)) activePlacements.push("Back");
                         const count = activePlacements.length;
                         return (
-                          <p className="text-[10px] text-neutral-500 mt-0.5">
-                            Placements ({count}): <span className="font-bold text-neutral-850">{count > 0 ? activePlacements.join(', ') : 'None selected'}</span>
-                          </p>
+                          <div className="flex flex-col gap-1.5 mt-0.5">
+                            <p className="text-[10px] text-neutral-500">
+                              Placements ({count}): <span className="font-bold text-neutral-850">{count > 0 ? activePlacements.join(', ') : 'None selected'}</span>
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingItemId(item.rackItemId || item.id);
+                                setEditViewMode('front');
+                                setIsEditorOpen(true);
+                              }}
+                              className="flex items-center gap-1.5 bg-neutral-900 hover:bg-black text-white px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all shadow-3xs w-fit cursor-pointer select-none mt-0.5"
+                            >
+                              <Sparkles size={11} className="text-emerald-400" />
+                              <span>Customize Placements & Artwork</span>
+                            </button>
+                          </div>
                         );
                       })()}
                     </div>
@@ -4138,6 +4234,41 @@ export function PublicQuoteRequest() {
             setIsEditorOpen(false);
           }}
         />
+      )}
+
+      {/* Lightbox Image Preview Modal */}
+      {previewImageUrl && (
+        <div 
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+          onClick={() => setPreviewImageUrl(null)}
+        >
+          <div 
+            className="relative max-w-[95vw] max-h-[90vh] bg-white rounded-[2rem] p-6 md:p-10 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex items-center justify-center border border-neutral-200/50 cursor-crosshair group"
+            onClick={(e) => e.stopPropagation()}
+            onMouseMove={(e) => {
+              const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
+              const x = (e.clientX - left) / width;
+              const y = (e.clientY - top) / height;
+              const img = e.currentTarget.querySelector('img');
+              if (img) img.style.transformOrigin = `${x * 100}% ${y * 100}%`;
+            }}
+            title="Hover to zoom"
+          >
+            <button 
+              type="button"
+              onClick={() => setPreviewImageUrl(null)}
+              className="absolute top-6 right-6 w-10 h-10 rounded-full bg-white/90 hover:bg-white text-neutral-800 hover:text-black flex items-center justify-center shadow-lg transition-all z-50 cursor-pointer border border-neutral-100 hover:scale-105"
+            >
+              <X size={20} />
+            </button>
+            <img 
+              src={previewImageUrl} 
+              alt="Garment Mockup Preview" 
+              style={{ width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: '75vh' }}
+              className="rounded-2xl select-none transition-transform duration-200 ease-out hover:scale-[2] object-contain" 
+            />
+          </div>
+        </div>
       )}
 
       {/* RETAIL ANNOUNCEMENT/STOREFRONT SETTINGS MODAL */}
