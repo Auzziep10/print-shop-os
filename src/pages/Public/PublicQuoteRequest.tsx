@@ -1248,38 +1248,12 @@ export function PublicQuoteRequest() {
           }
         }
 
-        // Constants map position
-        const containerW = 480;
-        const containerH = 600;
+        // Direct 1-to-1 percentage mapping matching DOM overlay (same as Portal MockupCreator)
         const logoAspect = lImg.naturalHeight / lImg.naturalWidth;
-        const uiLogoW = containerW * logoScale;
+        const canvasCenterX = (logoPos.x / 100) * canvas.width;
+        const canvasCenterY = (logoPos.y / 100) * canvas.height;
 
-        const garmentAspect = gImg.naturalWidth / gImg.naturalHeight;
-        const containerAspect = containerW / containerH;
-
-        let renderedW = containerW;
-        let renderedH = containerH;
-        let offsetX = 0;
-        let offsetY = 0;
-
-        if (garmentAspect > containerAspect) {
-          renderedW = containerW;
-          renderedH = containerW / garmentAspect;
-          offsetY = (containerH - renderedH) / 2;
-        } else {
-          renderedH = containerH;
-          renderedW = containerH * garmentAspect;
-          offsetX = (containerW - renderedW) / 2;
-        }
-
-        const logoCenterXInImage = (logoPos.x / 100) * containerW - offsetX;
-        const logoCenterYInImage = (logoPos.y / 100) * containerH - offsetY;
-
-        const scaleFactor = canvas.width / renderedW;
-        const canvasCenterX = logoCenterXInImage * scaleFactor;
-        const canvasCenterY = logoCenterYInImage * scaleFactor;
-
-        const canvasLogoW = uiLogoW * scaleFactor;
+        const canvasLogoW = canvas.width * logoScale;
         const canvasLogoH = canvasLogoW * logoAspect;
 
         ctx.save();
