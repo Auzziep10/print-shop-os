@@ -458,33 +458,8 @@ export function PublicQuoteRequest() {
   const [editorLogoFilter, setEditorLogoFilter] = useState<'original' | 'white' | 'black'>('original');
   const [isGarmentColorDropdownOpen, setIsGarmentColorDropdownOpen] = useState(false);
   const [cardViewSides, setCardViewSides] = useState<Record<string, 'front' | 'back'>>({});
+  const [garmentPickerType, setGarmentPickerType] = useState<GarmentTypeId | null>(null);
 
-  // Quick-add garment to lookbook collection directly from Step 3
-  const handleAddGarmentToLookbook = (garmentTypeId: GarmentTypeId) => {
-    if (flowMode === 'racks') {
-      setRackItems(prev => {
-        const itemToSelect = prev.find(i => i.slot.toLowerCase().includes(garmentTypeId) || garmentTypeId.includes(i.slot.toLowerCase()));
-        if (itemToSelect) {
-          return prev.map(ri => ri.id === itemToSelect.id ? { ...ri, selected: true } : ri);
-        }
-        return prev;
-      });
-      return;
-    }
-
-    const matching = curatedStorefrontProducts.filter(p => detectGarmentTypeTag(p, catalogSettings.garmentTypeTags) === garmentTypeId);
-    const targetProduct = matching[0] || sanmarCatalog.find(p => p.category?.toLowerCase().includes(garmentTypeId)) || sanmarCatalog[0];
-    if (!targetProduct) return;
-
-    const newItem = {
-      id: `${garmentTypeId}-${Date.now()}`,
-      product: targetProduct,
-      color: targetProduct.colors[0] || 'Black',
-      garmentType: garmentTypeId
-    };
-
-    setSelectedGarmentTypeItems(prev => [...prev, newItem]);
-  };
 
   // Quick-remove garment from lookbook collection directly from Step 3
   const handleRemoveGarmentFromLookbook = (idToRemove: string) => {
@@ -3587,7 +3562,7 @@ export function PublicQuoteRequest() {
                     <button
                       key={gt.id}
                       type="button"
-                      onClick={() => handleAddGarmentToLookbook(gt.id)}
+                      onClick={() => setGarmentPickerType(gt.id)}
                       className="px-3.5 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 cursor-pointer bg-white hover:bg-neutral-950 text-neutral-800 hover:text-white border-neutral-250 shadow-3xs hover:shadow-xs hover:-translate-y-0.5"
                     >
                       <Plus size={12} /> {gt.label}
@@ -3881,6 +3856,108 @@ export function PublicQuoteRequest() {
           </div>
         </div>
       )}
+
+      {/* GARMENT STYLE PICKER MODAL */}
+      {garmentPickerType && (() => {
+        const matchingProducts = curatedStorefrontProducts.filter(p => detectGarmentTypeTag(p, catalogSettings.garmentTypeTags) === garmentPickerType);
+        const typeLabel = GARMENT_TYPES.find(gt => gt.id === garmentPickerType)?.label || garmentPickerType;
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
+            <div className="bg-white border border-neutral-200 rounded-3xl shadow-2xl max-w-4xl w-full p-6 space-y-6 overflow-hidden max-h-[85vh] flex flex-col">
+              {/* Header */}
+              <div className="flex justify-between items-center border-b border-neutral-100 pb-4">
+                <div>
+                  <span className="text-[9px] font-extrabold uppercase tracking-widest text-neutral-400">Add To Collection</span>
+                  <h3 className="text-xl font-serif font-bold text-neutral-900">
+                    Select Your {typeLabel} Style
+                  </h3>
+                </div>
+                <button 
+                  type="button"
+                  onClick={() => setGarmentPickerType(null)}
+                  className="p-1.5 text-neutral-400 hover:text-neutral-900 hover:bg-neutral-100 rounded-xl transition-colors border border-transparent cursor-pointer"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Product Grid */}
+              <div className="flex-1 overflow-y-auto pr-1">
+                {matchingProducts.length === 0 ? (
+                  <div className="py-12 text-center text-neutral-500 text-xs font-semibold">No styles currently available in this category.</div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+                    {matchingProducts.map(prod => {
+                      const colorKey = prod.colors[0] || 'Black';
+                      const previewImg = resolveGarmentImage(prod, colorKey);
+                      const weightAndFabric = getGarmentWeightAndFabric(prod);
+                      const customName = prod.title || `${prod.brand} ${prod.style}`;
+
+                      return (
+                        <div
+                          key={prod.style}
+                          onClick={() => {
+                            if (flowMode === 'racks') {
+                              setRackItems(prev => {
+                                const existing = prev.find(ri => ri.product.style === prod.style || ri.slot.toLowerCase().includes(garmentPickerType));
+                                if (existing) {
+                                  return prev.map(ri => ri.id === existing.id ? { ...ri, selected: true, product: prod, color: colorKey } : ri);
+                                }
+                                return [...prev, {
+                                  id: `${garmentPickerType}-${Date.now()}`,
+                                  slot: garmentPickerType,
+                                  product: prod,
+                                  color: colorKey,
+                                  selected: true,
+                                  logoPos: { x: 50, y: 35 },
+                                  logoScale: 0.28,
+                                  logoRotation: 0,
+                                  backLogoPos: { x: 50, y: 35 },
+                                  backLogoScale: 0,
+                                  backLogoRotation: 0,
+                                  printSize: 'Medium',
+                                  decoration: ['hat', 'cap', 'polo'].some(w => (prod.category || prod.title || prod.style || '').toLowerCase().includes(w)) ? 'Embroidery' : 'Print'
+                                }];
+                              });
+                            } else {
+                              const newItem = {
+                                id: `${garmentPickerType}-${Date.now()}`,
+                                product: prod,
+                                color: colorKey,
+                                garmentType: garmentPickerType
+                              };
+                              setSelectedGarmentTypeItems(prev => [...prev, newItem]);
+                            }
+                            setSelectedGarmentTypeColor(colorKey);
+                            setGarmentPickerType(null);
+                          }}
+                          className="bg-white border border-neutral-200/80 hover:border-neutral-900 rounded-2xl p-4 flex flex-col justify-between group cursor-pointer transition-all shadow-3xs hover:shadow-md hover:-translate-y-0.5"
+                        >
+                          <div className="aspect-square w-full relative flex items-center justify-center p-2 mb-3 bg-neutral-50 rounded-xl overflow-hidden">
+                            <img src={previewImg} className="max-h-full max-w-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300" alt={prod.title} />
+                          </div>
+                          <div className="space-y-1">
+                            <span className="text-[9px] font-extrabold uppercase tracking-widest text-neutral-400">{prod.brand} • {prod.style}</span>
+                            <h4 className="text-sm font-bold text-neutral-900 group-hover:text-neutral-950 truncate">{customName}</h4>
+                            {weightAndFabric?.formatted && <p className="text-[10px] text-neutral-500 line-clamp-1">{weightAndFabric.formatted}</p>}
+                          </div>
+                          <div className="pt-3 mt-3 border-t border-neutral-100 flex items-center justify-between">
+                            <span className="text-xs font-bold text-neutral-900">${prod.price?.toFixed(2)}</span>
+                            <span className="text-[10px] font-bold text-neutral-900 bg-neutral-100 group-hover:bg-neutral-900 group-hover:text-white px-3 py-1 rounded-full transition-colors">
+                              Add to Lookbook +
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* SINGLE ITEM DESIGN CANVAS EDITOR MODAL */}
       {isEditorOpen && editingItemIdx !== null && editingProduct && (() => {
