@@ -457,6 +457,7 @@ export function PublicQuoteRequest() {
   }[]>([]);
   const [editorLogoFilter, setEditorLogoFilter] = useState<'original' | 'white' | 'black'>('original');
   const [isGarmentColorDropdownOpen, setIsGarmentColorDropdownOpen] = useState(false);
+  const [cardViewSides, setCardViewSides] = useState<Record<string, 'front' | 'back'>>({});
 
   // Quick-add garment to lookbook collection directly from Step 3
   const handleAddGarmentToLookbook = (garmentTypeId: GarmentTypeId) => {
@@ -1111,13 +1112,28 @@ export function PublicQuoteRequest() {
 
   const resolveGarmentImage = (item: SanMarProduct, colorKey?: string, side: 'front' | 'back' = 'front') => {
     const styleKey = item.style?.toLowerCase() || '';
+    const cKey = colorKey || item.colors[0];
 
-    // 1. Color-specific custom mockup override
-    if (styleKey && colorKey && catalogSettings.colorMockups?.[styleKey]?.[colorKey]) {
-      return catalogSettings.colorMockups[styleKey][colorKey];
+    // 1. Color-specific custom mockup override (e.g. from catalogSettings)
+    if (styleKey && cKey && catalogSettings.colorMockups?.[styleKey]?.[cKey]) {
+      const customColorImg = catalogSettings.colorMockups[styleKey][cKey];
+      if (typeof customColorImg === 'string') return customColorImg;
+      if (typeof customColorImg === 'object' && (customColorImg as any)[side]) return (customColorImg as any)[side];
+      if (typeof customColorImg === 'object' && (customColorImg as any).front) return (customColorImg as any).front;
     }
 
-    // 2. Custom slot mockup lookup across racks / basics
+    // 2. Standard catalog image set for the specified color (case-insensitive lookup)
+    if (cKey && item.images) {
+      const matchingKey = Object.keys(item.images).find(k => k.toLowerCase() === cKey.toLowerCase()) || cKey;
+      const imgSet = item.images[matchingKey];
+      if (imgSet) {
+        if (typeof imgSet === 'string') return imgSet;
+        if (typeof imgSet === 'object' && (imgSet as any)[side]) return (imgSet as any)[side];
+        if (typeof imgSet === 'object' && (imgSet as any).front) return (imgSet as any).front;
+      }
+    }
+
+    // 3. Custom slot mockup lookup across racks / basics (if no color-specific image found)
     if (styleKey) {
       if (catalogSettings.racks) {
         for (const cat of Object.keys(catalogSettings.racks)) {
@@ -1145,10 +1161,15 @@ export function PublicQuoteRequest() {
       }
     }
 
-    // 3. Fall back to standard SanMar catalog image set
-    const cKey = colorKey || item.colors[0];
-    const imgSet = item.images[cKey] || Object.values(item.images)[0];
-    return imgSet ? (typeof imgSet === 'string' ? imgSet : (imgSet as any)[side] || (imgSet as any).front || '') : '';
+    // 4. Ultimate fallback to first available catalog image
+    const firstImgSet = Object.values(item.images || {})[0];
+    if (firstImgSet) {
+      if (typeof firstImgSet === 'string') return firstImgSet;
+      if (typeof firstImgSet === 'object' && (firstImgSet as any)[side]) return (firstImgSet as any)[side];
+      if (typeof firstImgSet === 'object' && (firstImgSet as any).front) return (firstImgSet as any).front;
+    }
+
+    return '';
   };
 
   // Compile Canvas Mockup per item
@@ -3284,6 +3305,8 @@ export function PublicQuoteRequest() {
                     backLogoPos?: { x: number; y: number };
                     backLogoScale?: number;
                     backLogoRotation?: number;
+                    customLogoUrl?: string;
+                    customBackLogoUrl?: string;
                   }[] = selectedGarmentTypeItems.length > 0 
                     ? selectedGarmentTypeItems 
                     : (() => {
@@ -3296,12 +3319,17 @@ export function PublicQuoteRequest() {
                   return (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
                       {displayItems.map((item, itemIdx) => {
+                        const activeSide = cardViewSides[item.id] || 'front';
                         const colorKey = item.color || item.product.colors[0];
-                        const previewImg = resolveGarmentImage(item.product, colorKey);
+                        const previewImg = resolveGarmentImage(item.product, colorKey, activeSide);
                         const placement = getBasicsPlacement(item.product);
-                        const activeLogoPos = item.logoPos || placement.pos;
-                        const activeLogoScale = item.logoScale ?? placement.scale;
-                        const activeLogoRotation = item.logoRotation ?? placement.rotation ?? 0;
+                        
+                        const activeLogoPos = activeSide === 'back' ? (item.backLogoPos || { x: 50, y: 35 }) : (item.logoPos || placement.pos);
+                        const activeLogoScale = activeSide === 'back' ? (item.backLogoScale ?? 0) : (item.logoScale ?? placement.scale);
+                        const activeLogoRotation = activeSide === 'back' ? (item.backLogoRotation ?? 0) : (item.logoRotation ?? placement.rotation ?? 0);
+                        const activeArtwork = activeSide === 'back' ? (item.customBackLogoUrl || logoUrl!) : (item.customLogoUrl || logoUrl!);
+                        const hasBackPrint = (item.backLogoScale && item.backLogoScale > 0) || Boolean(item.customBackLogoUrl);
+
                         const isEmbroidery = ['hat', 'cap', 'polo'].some(w => (item.product.category || item.product.title || item.product.style || '').toLowerCase().includes(w));
                         const isDark = ['black', 'dark', 'navy', 'patriot', 'charcoal', 'graphite', 'carbon', 'obsidian', 'maroon', 'cardinal', 'burgundy'].some(c => colorKey.toLowerCase().includes(c));
 
@@ -3332,8 +3360,27 @@ export function PublicQuoteRequest() {
                                 )}
                               </div>
 
-                              <div className="absolute top-4 right-4 z-10 bg-neutral-50 border border-neutral-200 text-neutral-500 text-[8px] uppercase font-bold tracking-widest px-2 py-0.5 rounded">
-                                {item.garmentType || selectedGarmentType}
+                              {/* View Side Toggle (Front vs Back) */}
+                              <div className={`absolute top-4 ${displayItems.length > 1 ? 'right-12' : 'right-4'} z-10 flex items-center bg-white/90 border border-neutral-200 rounded-lg p-0.5 shadow-3xs backdrop-blur-xs`}>
+                                <button
+                                  type="button"
+                                  onClick={() => setCardViewSides(prev => ({ ...prev, [item.id]: 'front' }))}
+                                  className={`px-2 py-0.5 text-[9px] font-bold rounded transition-all cursor-pointer ${
+                                    activeSide === 'front' ? 'bg-neutral-900 text-white shadow-xs' : 'text-neutral-600 hover:bg-neutral-100'
+                                  }`}
+                                >
+                                  Front
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setCardViewSides(prev => ({ ...prev, [item.id]: 'back' }))}
+                                  className={`px-2 py-0.5 text-[9px] font-bold rounded transition-all cursor-pointer flex items-center gap-1 ${
+                                    activeSide === 'back' ? 'bg-neutral-900 text-white shadow-xs' : 'text-neutral-600 hover:bg-neutral-100'
+                                  }`}
+                                >
+                                  <span>Back</span>
+                                  {hasBackPrint && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" title="Back print active" />}
+                                </button>
                               </div>
 
                               {/* Placement frame */}
@@ -3341,28 +3388,30 @@ export function PublicQuoteRequest() {
                                 <img src={previewImg} className="absolute inset-0 w-full h-full object-contain pointer-events-none mix-blend-multiply" alt={item.product.style} />
 
                                 {/* Projected logo */}
-                                <div
-                                  style={{
-                                    position: 'absolute',
-                                    left: `${activeLogoPos.x}%`,
-                                    top: `${activeLogoPos.y}%`,
-                                    width: `${activeLogoScale * 100}%`,
-                                    transform: `translate(-50%, -50%) rotate(${activeLogoRotation}deg)`,
-                                    pointerEvents: 'none'
-                                  }}
-                                >
-                                  <img
-                                    src={logoUrl}
-                                    alt="overlay"
+                                {activeLogoScale > 0 && (
+                                  <div
                                     style={{
-                                      width: '100%',
-                                      height: 'auto',
-                                      filter: isEmbroidery ? 'drop-shadow(1.5px 1.5px 1.5px rgba(0,0,0,0.38))' : 'none',
-                                      mixBlendMode: isDark ? 'normal' : 'multiply'
+                                      position: 'absolute',
+                                      left: `${activeLogoPos.x}%`,
+                                      top: `${activeLogoPos.y}%`,
+                                      width: `${activeLogoScale * 100}%`,
+                                      transform: `translate(-50%, -50%) rotate(${activeLogoRotation}deg)`,
+                                      pointerEvents: 'none'
                                     }}
-                                    className="object-contain"
-                                  />
-                                </div>
+                                  >
+                                    <img
+                                      src={activeArtwork}
+                                      alt="overlay"
+                                      style={{
+                                        width: '100%',
+                                        height: 'auto',
+                                        filter: isEmbroidery ? 'drop-shadow(1.5px 1.5px 1.5px rgba(0,0,0,0.38))' : 'none',
+                                        mixBlendMode: isDark ? 'normal' : 'multiply'
+                                      }}
+                                      className="object-contain"
+                                    />
+                                  </div>
+                                )}
                               </div>
                             </div>
 
