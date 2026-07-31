@@ -3832,47 +3832,49 @@ export function PublicQuoteRequest() {
                         transition: isPanning ? 'none' : 'transform 0.15s ease-out'
                       }}
                     >
-                      <img src={editingGarmentProxied} className="w-full h-full object-contain pointer-events-none select-none" alt="Editor garment" draggable="false" />
+                      <div className="absolute inset-[9%]">
+                        <img src={editingGarmentProxied} className="absolute inset-0 w-full h-full object-contain pointer-events-none select-none" alt="Editor garment" draggable="false" />
 
-                      {/* Logo overlay element */}
-                      {(!isBack || editingProduct.backLogoScale > 0) && (
-                        <div
-                          style={{
-                            position: 'absolute',
-                            left: `${activeLogoPos.x}%`,
-                            top: `${activeLogoPos.y}%`,
-                            width: `${activeLogoScale * 100}%`,
-                            transform: 'translate(-50%, -50%)',
-                            pointerEvents: 'none'
-                          }}
-                        >
-                          <div className={`relative w-full h-full p-0.5 border ${isDragging || isResizing ? 'border-neutral-900 border-dashed bg-black/[0.01]' : 'border-transparent'}`}>
-                            <div 
-                              className="resize-handle absolute bottom-0 right-0 w-3 h-3 bg-white border border-neutral-900 rounded-full shadow-sm cursor-se-resize pointer-events-auto"
-                              style={{ transform: 'translate(50%, 50%)', zIndex: 10 }}
-                              title="Resize logo"
-                            />
-                            <img
-                              ref={editorLogoRef}
-                              src={logoUrl!}
-                              style={{
-                                transform: `rotate(${activeLogoRotation}deg)`,
-                                width: '100%',
-                                height: 'auto',
-                                filter: editorLogoFilter === 'white'
-                                  ? 'brightness(0) invert(1)'
-                                  : editorLogoFilter === 'black'
-                                  ? 'brightness(0)'
-                                  : (editingProduct.decoration === 'Embroidery' ? 'drop-shadow(1.5px 1.5px 1.5px rgba(0,0,0,0.38))' : 'none'),
-                                mixBlendMode: ['black', 'dark', 'navy', 'patriot', 'charcoal', 'graphite', 'carbon', 'obsidian', 'maroon', 'cardinal', 'burgundy'].some(c => editingProduct.color.toLowerCase().includes(c)) || editorLogoFilter !== 'original' ? 'normal' : 'multiply'
-                              }}
-                              className="object-contain pointer-events-none"
-                              alt="Logo"
-                              draggable="false"
-                            />
+                        {/* Logo overlay element */}
+                        {(!isBack || editingProduct.backLogoScale > 0) && (
+                          <div
+                            style={{
+                              position: 'absolute',
+                              left: `${activeLogoPos.x}%`,
+                              top: `${activeLogoPos.y}%`,
+                              width: `${activeLogoScale * 100}%`,
+                              transform: 'translate(-50%, -50%)',
+                              pointerEvents: 'none'
+                            }}
+                          >
+                            <div className={`relative w-full h-full p-0.5 border ${isDragging || isResizing ? 'border-neutral-900 border-dashed bg-black/[0.01]' : 'border-transparent'}`}>
+                              <div 
+                                className="resize-handle absolute bottom-0 right-0 w-3 h-3 bg-white border border-neutral-900 rounded-full shadow-sm cursor-se-resize pointer-events-auto"
+                                style={{ transform: 'translate(50%, 50%)', zIndex: 10 }}
+                                title="Resize logo"
+                              />
+                              <img
+                                ref={editorLogoRef}
+                                src={logoUrl!}
+                                style={{
+                                  transform: `rotate(${activeLogoRotation}deg)`,
+                                  width: '100%',
+                                  height: 'auto',
+                                  filter: editorLogoFilter === 'white'
+                                    ? 'brightness(0) invert(1)'
+                                    : editorLogoFilter === 'black'
+                                    ? 'brightness(0)'
+                                    : (editingProduct.decoration === 'Embroidery' ? 'drop-shadow(1.5px 1.5px 1.5px rgba(0,0,0,0.38))' : 'none'),
+                                  mixBlendMode: ['black', 'dark', 'navy', 'patriot', 'charcoal', 'graphite', 'carbon', 'obsidian', 'maroon', 'cardinal', 'burgundy'].some(c => editingProduct.color.toLowerCase().includes(c)) || editorLogoFilter !== 'original' ? 'normal' : 'multiply'
+                                }}
+                                className="object-contain pointer-events-none"
+                                alt="Logo"
+                                draggable="false"
+                              />
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
                   </div>
 
