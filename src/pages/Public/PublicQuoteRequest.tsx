@@ -1137,17 +1137,41 @@ export function PublicQuoteRequest() {
     }, 'image/png');
   };
 
+  const resolveColorMockup = (style?: string, color?: string, side: 'front' | 'back' = 'front'): string | null => {
+    if (!style || !color || !catalogSettings?.colorMockups) return null;
+    const styleKey = style.toLowerCase().trim();
+    const cKey = color.toLowerCase().trim();
+
+    // Find style entry (case-insensitive)
+    const matchingStyleKey = Object.keys(catalogSettings.colorMockups).find(k => k.toLowerCase().trim() === styleKey);
+    if (!matchingStyleKey) return null;
+
+    const styleMap = catalogSettings.colorMockups[matchingStyleKey];
+    if (!styleMap) return null;
+
+    // Find color entry (case-insensitive, trying exact, trimmed, or stripped dashes/spaces)
+    const matchingColorKey = Object.keys(styleMap).find(k => {
+      const cleanK = k.toLowerCase().trim();
+      return cleanK === cKey || cleanK.replace(/[\s-]/g, '') === cKey.replace(/[\s-]/g, '');
+    });
+    if (!matchingColorKey) return null;
+
+    const customColorImg = styleMap[matchingColorKey];
+    if (!customColorImg) return null;
+    if (typeof customColorImg === 'string' && customColorImg.trim()) return customColorImg.trim();
+    if (typeof customColorImg === 'object') {
+      const sImg = (customColorImg as any)[side] || (customColorImg as any).front;
+      if (typeof sImg === 'string' && sImg.trim()) return sImg.trim();
+    }
+    return null;
+  };
+
   const resolveGarmentImage = (item: SanMarProduct, colorKey?: string, side: 'front' | 'back' = 'front') => {
-    const styleKey = item.style?.toLowerCase() || '';
     const cKey = colorKey || item.colors[0];
 
     // 1. Color-specific custom mockup override (e.g. from catalogSettings)
-    if (styleKey && cKey && catalogSettings.colorMockups?.[styleKey]?.[cKey]) {
-      const customColorImg = catalogSettings.colorMockups[styleKey][cKey];
-      if (typeof customColorImg === 'string') return customColorImg;
-      if (typeof customColorImg === 'object' && (customColorImg as any)[side]) return (customColorImg as any)[side];
-      if (typeof customColorImg === 'object' && (customColorImg as any).front) return (customColorImg as any).front;
-    }
+    const colorCustomImg = resolveColorMockup(item.style, cKey, side);
+    if (colorCustomImg) return colorCustomImg;
 
     // 2. Standard catalog image set for the specified color (case-insensitive lookup)
     if (cKey && item.images) {
@@ -1180,13 +1204,19 @@ export function PublicQuoteRequest() {
     slotKey?: string
   ): string => {
     if (!product) return '';
+
+    const activeColor = color || product.colors[0] || '';
+
+    // 1. Prioritize color-specific custom uploaded mockup (e.g. Black Heather mockup from colorMockups)
+    const colorCustomImg = resolveColorMockup(product.style, activeColor, side);
+    if (colorCustomImg) return colorCustomImg;
+
+    // 2. Explicit theme or basics slot custom mockup (for default/primary color)
     if (side === 'front') {
-      // 1. Explicit theme + slot override
       if (themeCategory && slotKey && settings?.customMockups?.racks?.[themeCategory]?.[slotKey]) {
         const custom = settings.customMockups.racks[themeCategory][slotKey];
         if (typeof custom === 'string' && custom.trim()) return custom.trim();
       }
-      // 2. Search across all customMockups.racks
       if (settings?.customMockups?.racks) {
         for (const catName of Object.keys(settings.customMockups.racks)) {
           const slots = settings.customMockups.racks[catName];
@@ -1200,7 +1230,6 @@ export function PublicQuoteRequest() {
           }
         }
       }
-      // 3. Search across all customMockups.basics
       if (settings?.customMockups?.basics) {
         for (const catName of Object.keys(settings.customMockups.basics)) {
           const slots = settings.customMockups.basics[catName];
@@ -1216,8 +1245,8 @@ export function PublicQuoteRequest() {
       }
     }
 
-    // Fallback to SanMar catalog flatlay image
-    return resolveGarmentImage(product, color, side);
+    // 3. Fallback to SanMar catalog flatlay image set for this color
+    return resolveGarmentImage(product, activeColor, side);
   };
 
   // Compile Canvas Mockup per item
