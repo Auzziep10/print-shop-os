@@ -4300,18 +4300,13 @@ export function PublicQuoteRequest() {
                     <input
                       type="range"
                       min="0.05"
-                      max="0.8"
+                      max="1.0"
                       step="0.01"
                       value={activeLogoScale}
                       disabled={isBack && editingProduct.backLogoScale === 0}
                       onChange={e => {
                         const val = parseFloat(e.target.value);
-                        setRackItems(prev => prev.map((item, idx) => {
-                          if (idx !== editingItemIdx) return item;
-                          return isBack
-                            ? { ...item, backLogoScale: val }
-                            : { ...item, logoScale: val };
-                        }));
+                        updateEditingItem(item => (isBack ? { ...item, backLogoScale: val } : { ...item, logoScale: val }));
                       }}
                       className="w-full h-1 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-neutral-900 disabled:opacity-50"
                     />
@@ -4331,13 +4326,8 @@ export function PublicQuoteRequest() {
                       value={activeLogoRotation}
                       disabled={isBack && editingProduct.backLogoScale === 0}
                       onChange={e => {
-                        const val = parseInt(e.target.value);
-                        setRackItems(prev => prev.map((item, idx) => {
-                          if (idx !== editingItemIdx) return item;
-                          return isBack
-                            ? { ...item, backLogoRotation: val }
-                            : { ...item, logoRotation: val };
-                        }));
+                        const val = parseInt(e.target.value, 10);
+                        updateEditingItem(item => (isBack ? { ...item, backLogoRotation: val } : { ...item, logoRotation: val }));
                       }}
                       className="w-full h-1 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-neutral-900 disabled:opacity-50"
                     />
