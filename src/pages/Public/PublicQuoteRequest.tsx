@@ -1885,7 +1885,7 @@ export function PublicQuoteRequest() {
   }
 
   // Pre-load flatlay for edit canvas
-  const editingProduct: DesignRackItem | null = useMemo(() => {
+  const editingProduct: DesignRackItem | null = (() => {
     if (editingItemIdx === null) return null;
     if (flowMode === 'racks') {
       return rackItems[editingItemIdx] || null;
@@ -1929,7 +1929,7 @@ export function PublicQuoteRequest() {
       };
     }
     return null;
-  }, [editingItemIdx, flowMode, rackItems, selectedGarmentTypeItems, selectedGarmentTypeItem, selectedGarmentType, selectedGarmentTypeColor, curatedStorefrontProducts]);
+  })();
   const editingImageSet = editingProduct ? (editingProduct.product.images[editingProduct.color] || Object.values(editingProduct.product.images)[0]) : null;
   const editingGarmentImg = editingImageSet ? (typeof editingImageSet === 'string' ? editingImageSet : editingImageSet[editViewMode]) : '';
   const editingGarmentProxied = editingGarmentImg.startsWith('http')
