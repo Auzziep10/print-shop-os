@@ -3380,6 +3380,9 @@ export function PublicQuoteRequest() {
                                   onClick={() => {
                                     setEditingItemIdx(itemIdx);
                                     setEditViewMode('front');
+                                    setZoom(1.0);
+                                    setPanX(0);
+                                    setPanY(0);
                                     setIsEditorOpen(true);
                                   }}
                                   className="px-3.5 py-1.5 border border-neutral-200 text-neutral-700 hover:border-neutral-900 rounded-xl text-[10px] font-bold transition-all shadow-3xs cursor-pointer shrink-0"
@@ -3814,13 +3817,13 @@ export function PublicQuoteRequest() {
 
               <div className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-6 overflow-y-auto pr-1">
                 {/* Canvas Box */}
-                <div className="md:col-span-8 flex flex-col gap-4 items-center justify-center bg-neutral-50 rounded-2xl p-6 border border-neutral-200/60 relative min-h-[380px] md:min-h-[580px]">
+                <div className="md:col-span-8 flex flex-col gap-4 items-center justify-center bg-neutral-50 rounded-2xl p-6 border border-neutral-200/60 relative min-h-[440px] md:min-h-[620px]">
                   <div 
                     ref={editorContainerRef}
                     onPointerDown={handlePointerDown}
                     onPointerMove={handlePointerMove}
                     onPointerUp={handlePointerUp}
-                    className="w-full max-w-[420px] aspect-[4/5] relative overflow-hidden select-none touch-none"
+                    className="w-full max-w-[560px] aspect-[4/5] relative bg-white border border-neutral-200/80 rounded-2xl shadow-3xs overflow-hidden select-none touch-none"
                     style={{ cursor: isDragging ? 'move' : isPanning ? 'grabbing' : zoom > 1 ? 'grab' : 'default' }}
                   >
                     {/* Zoom/Pan Wrapper */}
@@ -3832,54 +3835,52 @@ export function PublicQuoteRequest() {
                         transition: isPanning ? 'none' : 'transform 0.15s ease-out'
                       }}
                     >
-                      <div className="absolute inset-[9%]">
-                        <img src={editingGarmentProxied} className="absolute inset-0 w-full h-full object-contain pointer-events-none select-none" alt="Editor garment" draggable="false" />
+                      <img src={editingGarmentProxied} className="w-full h-full object-contain pointer-events-none select-none p-3" alt="Editor garment" draggable="false" />
 
-                        {/* Logo overlay element */}
-                        {(!isBack || editingProduct.backLogoScale > 0) && (
-                          <div
-                            style={{
-                              position: 'absolute',
-                              left: `${activeLogoPos.x}%`,
-                              top: `${activeLogoPos.y}%`,
-                              width: `${activeLogoScale * 100}%`,
-                              transform: 'translate(-50%, -50%)',
-                              pointerEvents: 'none'
-                            }}
-                          >
-                            <div className={`relative w-full h-full p-0.5 border ${isDragging || isResizing ? 'border-neutral-900 border-dashed bg-black/[0.01]' : 'border-transparent'}`}>
-                              <div 
-                                className="resize-handle absolute bottom-0 right-0 w-3 h-3 bg-white border border-neutral-900 rounded-full shadow-sm cursor-se-resize pointer-events-auto"
-                                style={{ transform: 'translate(50%, 50%)', zIndex: 10 }}
-                                title="Resize logo"
-                              />
-                              <img
-                                ref={editorLogoRef}
-                                src={logoUrl!}
-                                style={{
-                                  transform: `rotate(${activeLogoRotation}deg)`,
-                                  width: '100%',
-                                  height: 'auto',
-                                  filter: editorLogoFilter === 'white'
-                                    ? 'brightness(0) invert(1)'
-                                    : editorLogoFilter === 'black'
-                                    ? 'brightness(0)'
-                                    : (editingProduct.decoration === 'Embroidery' ? 'drop-shadow(1.5px 1.5px 1.5px rgba(0,0,0,0.38))' : 'none'),
-                                  mixBlendMode: ['black', 'dark', 'navy', 'patriot', 'charcoal', 'graphite', 'carbon', 'obsidian', 'maroon', 'cardinal', 'burgundy'].some(c => editingProduct.color.toLowerCase().includes(c)) || editorLogoFilter !== 'original' ? 'normal' : 'multiply'
-                                }}
-                                className="object-contain pointer-events-none"
-                                alt="Logo"
-                                draggable="false"
-                              />
-                            </div>
+                      {/* Logo overlay element */}
+                      {(!isBack || editingProduct.backLogoScale > 0) && (
+                        <div
+                          style={{
+                            position: 'absolute',
+                            left: `${activeLogoPos.x}%`,
+                            top: `${activeLogoPos.y}%`,
+                            width: `${activeLogoScale * 100}%`,
+                            transform: 'translate(-50%, -50%)',
+                            pointerEvents: 'none'
+                          }}
+                        >
+                          <div className={`relative w-full h-full p-0.5 border ${isDragging || isResizing ? 'border-neutral-900 border-dashed bg-black/[0.01]' : 'border-transparent'}`}>
+                            <div 
+                              className="resize-handle absolute bottom-0 right-0 w-3 h-3 bg-white border border-neutral-900 rounded-full shadow-sm cursor-se-resize pointer-events-auto"
+                              style={{ transform: 'translate(50%, 50%)', zIndex: 10 }}
+                              title="Resize logo"
+                            />
+                            <img
+                              ref={editorLogoRef}
+                              src={logoUrl!}
+                              style={{
+                                transform: `rotate(${activeLogoRotation}deg)`,
+                                width: '100%',
+                                height: 'auto',
+                                filter: editorLogoFilter === 'white'
+                                  ? 'brightness(0) invert(1)'
+                                  : editorLogoFilter === 'black'
+                                  ? 'brightness(0)'
+                                  : (editingProduct.decoration === 'Embroidery' ? 'drop-shadow(1.5px 1.5px 1.5px rgba(0,0,0,0.38))' : 'none'),
+                                mixBlendMode: ['black', 'dark', 'navy', 'patriot', 'charcoal', 'graphite', 'carbon', 'obsidian', 'maroon', 'cardinal', 'burgundy'].some(c => editingProduct.color.toLowerCase().includes(c)) || editorLogoFilter !== 'original' ? 'normal' : 'multiply'
+                              }}
+                              className="object-contain pointer-events-none"
+                              alt="Logo"
+                              draggable="false"
+                            />
                           </div>
-                        )}
-                      </div>
+                        </div>
+                      )}
                     </div>
                   </div>
 
                   {/* Position & Decorating Tip */}
-                  <div className="w-full max-w-[420px] bg-white border border-neutral-200/80 rounded-xl p-3 text-xs text-neutral-600 flex items-start gap-2.5 shadow-3xs">
+                  <div className="w-full max-w-[560px] bg-white border border-neutral-200/80 rounded-xl p-3 text-xs text-neutral-600 flex items-start gap-2.5 shadow-3xs">
                     <div className="bg-neutral-900 text-white rounded-md p-1 shrink-0 mt-0.5">
                       <Shirt size={13} />
                     </div>
