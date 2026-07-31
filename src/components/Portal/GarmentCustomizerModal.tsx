@@ -687,6 +687,26 @@ export function GarmentCustomizerModal({
 
 
 
+  // Fetch storefront_catalog colorMockups from Firestore if not provided in garment prop
+  const [fetchedColorMockups, setFetchedColorMockups] = useState<Record<string, Record<string, string>> | null>(null);
+
+  useEffect(() => {
+    if (isOpen && !garment?.colorMockups && !fetchedColorMockups) {
+      const fetchCatalogMockups = async () => {
+        try {
+          const catRef = doc(db, 'settings', 'storefront_catalog');
+          const catSnap = await getDoc(catRef);
+          if (catSnap.exists() && catSnap.data().colorMockups) {
+            setFetchedColorMockups(catSnap.data().colorMockups);
+          }
+        } catch (err) {
+          console.error("Error loading storefront color mockups in customizer:", err);
+        }
+      };
+      fetchCatalogMockups();
+    }
+  }, [isOpen, garment?.colorMockups, fetchedColorMockups]);
+
   // Case-insensitive image resolver
   const { frontImage, backImage, sleeveImage } = useMemo(() => {
     // 1. Resolve from garment.images case-insensitively first if selectedColor is chosen
@@ -695,7 +715,7 @@ export function GarmentCustomizerModal({
 
     if (selectedColor) {
       // 0. Prioritize custom uploaded color mockup from colorMockups if configured!
-      const colorMockups = activeGarment?.colorMockups || (garment as any)?.colorMockups;
+      const colorMockups = activeGarment?.colorMockups || (garment as any)?.colorMockups || fetchedColorMockups;
       if (colorMockups) {
         const cKey = selectedColor.toLowerCase().trim();
         const stylesToTry = [activeGarment?.itemNum, activeGarment?.style, catalogProduct?.style].filter(Boolean) as string[];
