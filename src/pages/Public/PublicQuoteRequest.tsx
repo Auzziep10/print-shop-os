@@ -207,6 +207,8 @@ interface DesignRackItem {
   backLogoRotation: number;
   printSize: 'Small' | 'Medium' | 'Large';
   decoration: 'Print' | 'Embroidery';
+  customLogoUrl?: string;
+  customBackLogoUrl?: string;
 }
 
 // Admin-defined logo placement box (see StorefrontCatalogTab): center x/y + size,
@@ -450,6 +452,8 @@ export function PublicQuoteRequest() {
     backLogoPos?: { x: number; y: number };
     backLogoScale?: number;
     backLogoRotation?: number;
+    customLogoUrl?: string;
+    customBackLogoUrl?: string;
   }[]>([]);
   const [editorLogoFilter, setEditorLogoFilter] = useState<'original' | 'white' | 'black'>('original');
   const [isGarmentColorDropdownOpen, setIsGarmentColorDropdownOpen] = useState(false);
@@ -556,16 +560,17 @@ export function PublicQuoteRequest() {
   const handleToggleSide = (side: 'front' | 'back') => {
     setEditViewMode(side);
     if (side === 'back' && editingItemIdx !== null) {
-      const activeProduct = rackItems[editingItemIdx];
-      if (activeProduct && activeProduct.backLogoScale === 0) {
-        // Automatically enable back logo with default values when toggling to back view for the first time
-        setRackItems(prev => prev.map((item, idx) => idx === editingItemIdx ? {
-          ...item,
-          backLogoScale: 0.24,
-          backLogoPos: { x: 50, y: 35 },
-          backLogoRotation: 0
-        } : item));
-      }
+      updateEditingItem(item => {
+        if (item.backLogoScale === 0) {
+          return {
+            ...item,
+            backLogoScale: 0.24,
+            backLogoPos: { x: 50, y: 35 },
+            backLogoRotation: 0
+          };
+        }
+        return item;
+      });
     }
   };
 
@@ -1337,12 +1342,14 @@ export function PublicQuoteRequest() {
             ? selectedGarmentTypeItems.map(item => ({
                 product: item.product,
                 color: item.color,
-                logoPos: getBasicsPlacement(item.product).pos,
-                logoScale: getBasicsPlacement(item.product).scale,
-                logoRotation: getBasicsPlacement(item.product).rotation,
-                backLogoPos: { x: 50, y: 35 },
-                backLogoScale: 0,
-                backLogoRotation: 0,
+                logoPos: item.logoPos || getBasicsPlacement(item.product).pos,
+                logoScale: item.logoScale ?? getBasicsPlacement(item.product).scale,
+                logoRotation: item.logoRotation ?? getBasicsPlacement(item.product).rotation,
+                backLogoPos: item.backLogoPos || { x: 50, y: 35 },
+                backLogoScale: item.backLogoScale ?? 0,
+                backLogoRotation: item.backLogoRotation ?? 0,
+                customLogoUrl: item.customLogoUrl,
+                customBackLogoUrl: item.customBackLogoUrl,
                 printSize: 'Medium' as const,
                 decoration: ['hat', 'cap', 'polo'].some(w => (item.product.category || item.product.title || item.product.style || '').toLowerCase().includes(w)) ? 'Embroidery' as const : 'Print' as const
               }))
@@ -1375,11 +1382,14 @@ export function PublicQuoteRequest() {
       const compiledCartItems = [];
 
       for (const item of itemsToCompile) {
+        const frontArtwork = (item as any).customLogoUrl || logoUrl;
+        const backArtwork = (item as any).customBackLogoUrl || logoUrl;
+
         // Compile front mockup
         const fMockup = await compileGarmentMockup(
           item.product,
           item.color,
-          logoUrl,
+          frontArtwork,
           item.logoPos,
           item.logoScale,
           item.logoRotation,
@@ -1393,7 +1403,7 @@ export function PublicQuoteRequest() {
           bMockup = await compileGarmentMockup(
             item.product,
             item.color,
-            logoUrl,
+            backArtwork,
             item.backLogoPos,
             item.backLogoScale,
             item.backLogoRotation,
@@ -1437,12 +1447,12 @@ export function PublicQuoteRequest() {
           product: item.product,
           color: item.color,
           qty: totalQty,
-          frontLogoUrl: logoUrl,
+          frontLogoUrl: frontArtwork,
           frontOriginalFileUrl: originalFileUrl,
           frontArtworkName: artworkName,
           frontPrintSize: item.printSize,
           frontMockupUrl: fMockup,
-          backLogoUrl: item.backLogoScale > 0 ? logoUrl : null,
+          backLogoUrl: item.backLogoScale > 0 ? backArtwork : null,
           backMockupUrl: bMockup,
           mockupUrl: fMockup || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200',
           decorationMethod: item.decoration,
@@ -1533,6 +1543,7 @@ export function PublicQuoteRequest() {
             decoration: ['hat', 'cap', 'polo'].some(w => (fallback.category || fallback.title || fallback.style || '').toLowerCase().includes(w)) ? 'Embroidery' : 'Print'
           };
           const updated = updater(defaultRack);
+          setSelectedGarmentTypeColor(updated.color);
           return [{
             id: defaultRack.id,
             product: fallback,
@@ -1543,7 +1554,9 @@ export function PublicQuoteRequest() {
             logoRotation: updated.logoRotation,
             backLogoPos: updated.backLogoPos,
             backLogoScale: updated.backLogoScale,
-            backLogoRotation: updated.backLogoRotation
+            backLogoRotation: updated.backLogoRotation,
+            customLogoUrl: updated.customLogoUrl,
+            customBackLogoUrl: updated.customBackLogoUrl
           }];
         }
 
@@ -1563,9 +1576,12 @@ export function PublicQuoteRequest() {
             backLogoScale: item.backLogoScale ?? 0,
             backLogoRotation: item.backLogoRotation ?? 0,
             printSize: 'Medium',
-            decoration: ['hat', 'cap', 'polo'].some(w => (item.product.category || item.product.title || item.product.style || '').toLowerCase().includes(w)) ? 'Embroidery' : 'Print'
+            decoration: ['hat', 'cap', 'polo'].some(w => (item.product.category || item.product.title || item.product.style || '').toLowerCase().includes(w)) ? 'Embroidery' : 'Print',
+            customLogoUrl: item.customLogoUrl,
+            customBackLogoUrl: item.customBackLogoUrl
           };
           const updated = updater(rackLike);
+          setSelectedGarmentTypeColor(updated.color);
           return {
             ...item,
             color: updated.color,
@@ -1574,7 +1590,9 @@ export function PublicQuoteRequest() {
             logoRotation: updated.logoRotation,
             backLogoPos: updated.backLogoPos,
             backLogoScale: updated.backLogoScale,
-            backLogoRotation: updated.backLogoRotation
+            backLogoRotation: updated.backLogoRotation,
+            customLogoUrl: updated.customLogoUrl,
+            customBackLogoUrl: updated.customBackLogoUrl
           };
         });
       });
@@ -1614,13 +1632,15 @@ export function PublicQuoteRequest() {
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     if (editingItemIdx === null || !editorContainerRef.current) return;
     const containerRect = editorContainerRef.current.getBoundingClientRect();
+    const isBackView = editViewMode === 'back';
 
     if (isResizing) {
-      const logoRect = editorLogoRef.current.getBoundingClientRect();
+      const logoRect = editorLogoRef.current ? editorLogoRef.current.getBoundingClientRect() : null;
+      if (!logoRect) return;
       const logoCenterX = logoRect.left + logoRect.width / 2;
       const dx = Math.abs(e.clientX - logoCenterX);
       const newScale = ((dx / zoom) * 2) / containerRect.width;
-      updateEditingItem(item => ({ ...item, logoScale: Math.max(0.05, Math.min(1.0, newScale)) }));
+      updateEditingItem(item => (isBackView ? { ...item, backLogoScale: Math.max(0.05, Math.min(1.0, newScale)) } : { ...item, logoScale: Math.max(0.05, Math.min(1.0, newScale)) }));
       return;
     }
 
@@ -1643,7 +1663,7 @@ export function PublicQuoteRequest() {
     // Allow logo to be positioned anywhere on the garment canvas
     xPct = Math.max(0, Math.min(100, xPct));
     yPct = Math.max(0, Math.min(100, yPct));
-    updateEditingItem(item => ({ ...item, logoPos: { x: xPct, y: yPct } }));
+    updateEditingItem(item => (isBackView ? { ...item, backLogoPos: { x: xPct, y: yPct } } : { ...item, logoPos: { x: xPct, y: yPct } }));
   };
 
   const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -3859,7 +3879,7 @@ export function PublicQuoteRequest() {
                             />
                             <img
                               ref={editorLogoRef}
-                              src={logoUrl!}
+                              src={(isBack ? (editingProduct.customBackLogoUrl || logoUrl!) : (editingProduct.customLogoUrl || logoUrl!))}
                               style={{
                                 transform: `rotate(${activeLogoRotation}deg)`,
                                 width: '100%',
@@ -3921,6 +3941,49 @@ export function PublicQuoteRequest() {
                       >
                         Back View
                       </button>
+                    </div>
+
+                    {/* Artwork Customizer per View (Multiple Logos Support) */}
+                    <div className="pt-2 flex flex-col gap-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold text-neutral-400 block uppercase tracking-wider">
+                          {isBack ? 'Back View Artwork' : 'Front View Artwork'}
+                        </span>
+                        {isBack && editingProduct.customBackLogoUrl && (
+                          <button
+                            type="button"
+                            onClick={() => updateEditingItem(item => ({ ...item, customBackLogoUrl: undefined }))}
+                            className="text-[10px] text-red-500 hover:underline font-semibold cursor-pointer"
+                          >
+                            Reset to Front Logo
+                          </button>
+                        )}
+                      </div>
+
+                      <label className="w-full bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 rounded-xl px-3 py-2 text-xs font-bold text-neutral-700 flex items-center justify-center gap-2 cursor-pointer transition-colors shadow-3xs">
+                        <Upload size={13} className="text-neutral-500" />
+                        <span>{isBack ? (editingProduct.customBackLogoUrl ? 'Change Back Logo' : 'Upload Different Back Logo') : 'Change Front Logo'}</span>
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          className="hidden" 
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            const reader = new FileReader();
+                            reader.onload = (evt) => {
+                              const dUrl = evt.target?.result as string;
+                              if (dUrl) {
+                                updateEditingItem(item => isBack 
+                                  ? { ...item, customBackLogoUrl: dUrl, backLogoScale: item.backLogoScale > 0 ? item.backLogoScale : 0.24, backLogoPos: item.backLogoPos || { x: 50, y: 35 } } 
+                                  : { ...item, customLogoUrl: dUrl }
+                                );
+                              }
+                            };
+                            reader.readAsDataURL(file);
+                          }}
+                        />
+                      </label>
                     </div>
                   </div>
 
