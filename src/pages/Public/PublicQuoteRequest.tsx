@@ -1885,11 +1885,14 @@ export function PublicQuoteRequest() {
         const fallback = selectedGarmentTypeItem || curatedStorefrontProducts.find(p => detectGarmentTypeTag(p, catalogSettings.garmentTypeTags) === selectedGarmentType) || curatedStorefrontProducts[0];
         if (!fallback) return null;
         const placement = getBasicsPlacement(fallback);
+        const activeColor = selectedGarmentTypeColor && fallback.colors.includes(selectedGarmentTypeColor)
+          ? selectedGarmentTypeColor
+          : (fallback.colors.find(c => c.toLowerCase().includes('heather') || c.toLowerCase().includes('grey') || c.toLowerCase().includes('black')) || fallback.colors[0] || 'Black');
         return {
           id: 'editing-fallback',
           slot: selectedGarmentType,
           product: fallback,
-          color: selectedGarmentTypeColor || fallback.colors[0] || 'Black',
+          color: activeColor,
           selected: true,
           logoPos: placement.pos,
           logoScale: placement.scale,
@@ -3441,9 +3444,14 @@ export function PublicQuoteRequest() {
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    if (item.color) {
-                                      setSelectedGarmentTypeColor(item.color);
-                                    }
+                                    const chosenColor = item.color || selectedGarmentTypeColor || item.product.colors[0];
+                                    setSelectedGarmentTypeColor(chosenColor);
+                                    setSelectedGarmentTypeItems(prev => {
+                                      if (prev.length === 0) {
+                                        return [{ id: 'default-1', product: item.product, color: chosenColor, garmentType: selectedGarmentType }];
+                                      }
+                                      return prev.map(gi => gi.id === item.id ? { ...gi, color: chosenColor } : gi);
+                                    });
                                     setEditingItemIdx(itemIdx);
                                     setEditViewMode('front');
                                     setZoom(1.0);
