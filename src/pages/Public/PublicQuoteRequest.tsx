@@ -16,7 +16,9 @@ import {
   X,
   Scissors, 
   UserPlus,
-  Plus
+  Plus,
+  ExternalLink,
+  Palette
 } from 'lucide-react';
 import { db, storage } from '../../lib/firebase';
 import { doc, getDoc, setDoc, getDocs, collection, query, where } from 'firebase/firestore';
@@ -408,7 +410,7 @@ export function PublicQuoteRequest() {
   const [paymentSuccessMsg, setPaymentSuccessMsg] = useState('');
 
   // Logo Designer Tab selection
-  const [designerTab, setDesignerTab] = useState<'upload' | 'text' | 'clipart' | 'ai'>('upload');
+  const [designerTab, setDesignerTab] = useState<'upload' | 'canva' | 'text' | 'clipart'>('upload');
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [logoAspect, setLogoAspect] = useState(1); // natural w/h, used to fit logos into placement boxes
   const [artworkName, setArtworkName] = useState<string | null>(null);
@@ -416,13 +418,13 @@ export function PublicQuoteRequest() {
   const [originalFileUrl, setOriginalFileUrl] = useState<string | null>(null);
   
   // Tab details
+  const [canvaUrlInput, setCanvaUrlInput] = useState('');
+  const [isCanvaConnected, setIsCanvaConnected] = useState(false);
+  const [isConnectingCanva, setIsConnectingCanva] = useState(false);
   const [customText, setCustomText] = useState('');
   const [textFont, setTextFont] = useState('Modern');
   const [textColor, setTextColor] = useState('#1E1E1E');
   const [clipartColor, setClipartColor] = useState('#1E1E1E');
-  const [aiPrompt, setAiPrompt] = useState('');
-  const [aiStyle, setAiStyle] = useState('Minimalist Vector Logo');
-  const [isGeneratingAi, setIsGeneratingAi] = useState(false);
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
 
   // Design Your Rack selections
@@ -2078,15 +2080,28 @@ export function PublicQuoteRequest() {
           <header className="bg-white/95 backdrop-blur-md border-b border-neutral-200/60 py-4 px-6 sticky top-0 z-50">
             <div className="max-w-7xl mx-auto flex items-center justify-between gap-6">
               <div 
-                onClick={() => navigate('/start2')}
+                onClick={() => {
+                  if (step > 1) {
+                    setStep(step - 1);
+                  } else {
+                    navigate('/start2');
+                  }
+                }}
                 className="flex items-center gap-2 cursor-pointer group"
-                title="Back to Main Page"
+                title={step > 1 ? "Back to Previous Step" : "Back to Main Page"}
               >
                 <button
                   type="button"
-                  onClick={(e) => { e.stopPropagation(); navigate('/start2'); }}
+                  onClick={(e) => { 
+                    e.stopPropagation(); 
+                    if (step > 1) {
+                      setStep(step - 1);
+                    } else {
+                      navigate('/start2');
+                    }
+                  }}
                   className="p-1 -ml-1.5 rounded-full text-zinc-400 group-hover:text-zinc-950 group-hover:bg-zinc-100 transition-colors cursor-pointer"
-                  title="Back to Main Page"
+                  title={step > 1 ? "Back to Previous Step" : "Back to Main Page"}
                 >
                   <ChevronLeft size={20} />
                 </button>
@@ -2665,26 +2680,33 @@ export function PublicQuoteRequest() {
                 </div>
               </div>
 
-              {/* Designer Tabs Header */}
-              <div className="flex border border-neutral-200 bg-neutral-50 p-1 rounded-xl gap-1">
+              {/* Designer Tabs Header - Underline Garment Type Style */}
+              <div className="flex flex-wrap items-center justify-center gap-6 sm:gap-8 md:gap-10 py-3 border-b border-neutral-200/60 font-sans">
                 {[
-                  { id: 'upload', label: 'Upload File' },
-                  { id: 'text', label: 'Add Custom Text' },
-                  { id: 'clipart', label: 'Clip Art' },
-                  { id: 'ai', label: 'AI Logo Generator' }
-                ].map(tab => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setDesignerTab(tab.id as any)}
-                    className={`px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all flex-1 text-center ${
-                      designerTab === tab.id
-                        ? 'bg-white text-neutral-900 shadow-3xs font-extrabold'
-                        : 'text-neutral-500 hover:text-neutral-900'
-                    }`}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
+                  { id: 'upload', label: 'UPLOAD FILE' },
+                  { id: 'canva', label: 'CANVA' },
+                  { id: 'text', label: 'ADD CUSTOM TEXT' },
+                  { id: 'clipart', label: 'CLIP ART' }
+                ].map(tab => {
+                  const isSelected = designerTab === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setDesignerTab(tab.id as any)}
+                      className={`relative py-1.5 text-xs font-sans uppercase tracking-[0.18em] transition-colors duration-200 cursor-pointer group ${
+                        isSelected 
+                          ? 'text-neutral-950 font-extrabold' 
+                          : 'text-neutral-500 hover:text-neutral-950 font-semibold'
+                      }`}
+                    >
+                      <span>{tab.label}</span>
+                      <span className={`absolute bottom-0 left-0 right-0 h-[2px] bg-neutral-950 transition-all duration-300 origin-center ${
+                        isSelected ? 'scale-x-100 opacity-100' : 'scale-x-0 opacity-0 group-hover:scale-x-100 group-hover:opacity-100'
+                      }`} />
+                    </button>
+                  );
+                })}
               </div>
 
               <div className="min-h-[160px] flex flex-col justify-center border border-neutral-200/50 bg-neutral-50/20 rounded-2xl p-6">
@@ -2719,6 +2741,87 @@ export function PublicQuoteRequest() {
                         <input type="file" accept="image/*,.pdf,.eps,.ai,.psd,.cdr,.zip" onChange={handleLogoUpload} className="hidden" />
                       </label>
                     )}
+                  </div>
+                )}
+
+                {/* Canva Tab */}
+                {designerTab === 'canva' && (
+                  <div className="space-y-5 max-w-lg mx-auto w-full">
+                    <div className="flex items-center justify-between bg-gradient-to-r from-purple-50 via-indigo-50 to-blue-50 border border-indigo-100 rounded-xl p-4 shadow-3xs">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-lg bg-gradient-to-tr from-cyan-500 via-purple-600 to-pink-500 text-white font-extrabold text-xs flex items-center justify-center shadow-xs">
+                          C
+                        </div>
+                        <div className="text-left">
+                          <h4 className="text-xs font-bold text-neutral-900">Canva Design Connect</h4>
+                          <p className="text-[10px] text-neutral-500">Bring your Canva designs directly to garment mockups</p>
+                        </div>
+                      </div>
+                      
+                      {!isCanvaConnected ? (
+                        <button
+                          type="button"
+                          disabled={isConnectingCanva}
+                          onClick={() => {
+                            setIsConnectingCanva(true);
+                            setTimeout(() => {
+                              setIsCanvaConnected(true);
+                              setIsConnectingCanva(false);
+                            }, 800);
+                          }}
+                          className="px-3 py-1.5 bg-neutral-900 hover:bg-neutral-800 text-white rounded-lg text-[10px] font-bold tracking-wider uppercase transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                        >
+                          {isConnectingCanva ? <Loader2 size={12} className="animate-spin" /> : null}
+                          Connect Canva
+                        </button>
+                      ) : (
+                        <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 text-emerald-700 px-2.5 py-1 rounded-lg text-[10px] font-bold">
+                          <Check size={12} /> Connected
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Import Form */}
+                    <div className="space-y-3 bg-white p-4 border border-neutral-200 rounded-xl shadow-3xs">
+                      <label className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider block text-left">
+                        Canva Design or Export Link
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={canvaUrlInput}
+                          onChange={e => setCanvaUrlInput(e.target.value)}
+                          placeholder="Paste Canva design link or image URL..."
+                          className="flex-1 bg-neutral-50 border border-neutral-200 rounded-xl px-3.5 py-2 text-xs font-bold text-neutral-900 outline-none focus:border-neutral-400"
+                        />
+                        <button
+                          type="button"
+                          disabled={!canvaUrlInput.trim() || isUploadingLogo}
+                          onClick={() => {
+                            if (!canvaUrlInput.trim()) return;
+                            setLogoUrl(canvaUrlInput.trim());
+                            setOriginalArtworkUrl(canvaUrlInput.trim());
+                            setOriginalFileUrl(canvaUrlInput.trim());
+                            setArtworkName('Canva Custom Design');
+                          }}
+                          className="px-4 py-2 bg-neutral-900 hover:bg-neutral-800 text-white rounded-xl text-xs font-bold transition-all disabled:opacity-50 flex items-center gap-1.5 shrink-0 cursor-pointer"
+                        >
+                          Import
+                        </button>
+                      </div>
+
+                      <div className="pt-2 flex items-center justify-between text-[10px]">
+                        <span className="text-neutral-400 font-medium">Need to edit artwork in Canva first?</span>
+                        <a
+                          href="https://www.canva.com"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-neutral-900 hover:underline font-bold inline-flex items-center gap-1"
+                        >
+                          Open Canva Editor <ExternalLink size={10} />
+                        </a>
+                      </div>
+                    </div>
                   </div>
                 )}
 
@@ -2805,43 +2908,6 @@ export function PublicQuoteRequest() {
                   </div>
                 )}
 
-                {/* AI Generator Tab */}
-                {designerTab === 'ai' && (
-                  <div className="space-y-4 max-w-md mx-auto w-full">
-                    <input
-                      type="text"
-                      value={aiPrompt}
-                      onChange={e => setAiPrompt(e.target.value)}
-                      placeholder="Describe your logo graphic details..."
-                      className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2.5 text-xs font-bold text-neutral-900 outline-none focus:border-neutral-400"
-                    />
-                    <div className="flex flex-col gap-1">
-                      <span className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider">Logo Art Style</span>
-                      <select
-                        value={aiStyle}
-                        onChange={e => setAiStyle(e.target.value)}
-                        className="bg-white border border-neutral-200 rounded-xl px-2.5 py-1.5 text-xs font-bold focus:outline-none"
-                      >
-                        <option value="Minimalist Vector Logo">Minimalist Vector</option>
-                        <option value="Mascot Sports Logo">Sports Mascot</option>
-                        <option value="Retro Vintage Emblem Logo">Retro Vintage Emblem</option>
-                        <option value="Modern Corporate Icon">Modern Corporate</option>
-                      </select>
-                    </div>
-                    <button
-                      onClick={generateAiLogo}
-                      disabled={!aiPrompt.trim() || isGeneratingAi}
-                      className="w-full py-2 bg-neutral-900 text-white hover:bg-neutral-800 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 disabled:opacity-50"
-                    >
-                      {isGeneratingAi ? (
-                        <><Loader2 size={13} className="animate-spin" /> Generating AI Vector...</>
-                      ) : (
-                        <><Sparkles size={13} /> Generate AI Logo</>
-                      )}
-                    </button>
-                  </div>
-                )}
-
               </div>
 
               {/* Dominant Colors / Background Remover Option */}
@@ -2865,7 +2931,14 @@ export function PublicQuoteRequest() {
               )}
 
               {/* Navigation button */}
-              <div className="pt-6 border-t border-neutral-200/50 flex justify-end">
+              <div className="pt-6 border-t border-neutral-200/50 flex justify-between items-center">
+                <button
+                  type="button"
+                  onClick={() => setStep(1)}
+                  className="px-5 h-11 bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-3xs cursor-pointer text-neutral-800"
+                >
+                  <ArrowLeft size={14} /> Back to Garment Selection
+                </button>
                 <PillButton 
                   variant="filled" 
                   onClick={() => setStep(3)} 
