@@ -12,7 +12,6 @@ import {
   Settings,
   Phone,
   ChevronLeft,
-  ChevronDown,
   X,
   Scissors, 
   UserPlus,
@@ -27,6 +26,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { PillButton } from '../../components/ui/PillButton';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
 import { getGarmentWeightAndFabric, getOrderedKeys, GARMENT_TYPES, detectGarmentTypeTag, type GarmentTypeId } from '../../lib/garmentUtils';
+import { MockupCreator } from '../../components/shared/MockupCreator';
 import colorHexMapJson from '../../data/color-hex-map.json';
 
 const colorHexMap = colorHexMapJson as Record<string, string>;
@@ -507,8 +507,6 @@ export function PublicQuoteRequest() {
     customLogoUrl?: string;
     customBackLogoUrl?: string;
   }[]>([]);
-  const [editorLogoFilter, setEditorLogoFilter] = useState<'original' | 'white' | 'black'>('original');
-  const [isGarmentColorDropdownOpen, setIsGarmentColorDropdownOpen] = useState(false);
   const [cardViewSides, setCardViewSides] = useState<Record<string, 'front' | 'back'>>({});
   const [garmentPickerType, setGarmentPickerType] = useState<GarmentTypeId | null>(null);
 
@@ -562,45 +560,6 @@ export function PublicQuoteRequest() {
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editViewMode, setEditViewMode] = useState<'front' | 'back'>('front');
-  const [isDragging, setIsDragging] = useState(false);
-  const [isResizing, setIsResizing] = useState(false);
-  const editorContainerRef = useRef<HTMLDivElement>(null);
-  const editorLogoRef = useRef<any>(null);
-  const dragStartOffset = useRef({ x: 0, y: 0 });
-
-  // Zoom and pan states for lookbook design editor modal
-  const [zoom, setZoom] = useState(1);
-  const [panX, setPanX] = useState(0);
-  const [panY, setPanY] = useState(0);
-  const [isPanning, setIsPanning] = useState(false);
-  const panStart = useRef({ x: 0, y: 0 });
-
-  // Automatically reset zoom and panning when the editor modal is closed
-  useEffect(() => {
-    if (!isEditorOpen) {
-      setZoom(1);
-      setPanX(0);
-      setPanY(0);
-      setIsPanning(false);
-    }
-  }, [isEditorOpen, editingItemId]);
-
-  const handleToggleSide = (side: 'front' | 'back') => {
-    setEditViewMode(side);
-    if (side === 'back' && editingItemId) {
-      updateEditingItem(item => {
-        if (item.backLogoScale === 0) {
-          return {
-            ...item,
-            backLogoScale: 0.24,
-            backLogoPos: { x: 50, y: 35 },
-            backLogoRotation: 0
-          };
-        }
-        return item;
-      });
-    }
-  };
 
   // Storefront Settings from DB
   const [storefrontSettings, setStorefrontSettings] = useState<{
@@ -1671,82 +1630,6 @@ export function PublicQuoteRequest() {
     }
   };
 
-  // Pointer Canvas Drag/Resize (Single Item Editor Modal)
-  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!editingItemId) return;
-    const target = e.target as HTMLElement;
-    const isResize = target.closest('.resize-handle');
-    if (isResize) {
-      e.preventDefault();
-      setIsResizing(true);
-      target.setPointerCapture(e.pointerId);
-      return;
-    }
-    if (!logoUrl || !editorContainerRef.current || !editorLogoRef.current) return;
-    const logoRect = editorLogoRef.current.getBoundingClientRect();
-    const clickX = e.clientX;
-    const clickY = e.clientY;
-    if (clickX >= logoRect.left && clickX <= logoRect.right && clickY >= logoRect.top && clickY <= logoRect.bottom) {
-      e.preventDefault();
-      setIsDragging(true);
-      target.setPointerCapture(e.pointerId);
-      const logoCenterX = logoRect.left + logoRect.width / 2;
-      const logoCenterY = logoRect.top + logoRect.height / 2;
-      dragStartOffset.current = { x: clickX - logoCenterX, y: clickY - logoCenterY };
-    } else if (zoom > 1) {
-      e.preventDefault();
-      setIsPanning(true);
-      target.setPointerCapture(e.pointerId);
-      panStart.current = { x: clickX - panX, y: clickY - panY };
-    }
-  };
-
-  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!editingItemId || !editorContainerRef.current) return;
-    const containerRect = editorContainerRef.current.getBoundingClientRect();
-    const isBackView = editViewMode === 'back';
-
-    if (isResizing) {
-      const logoRect = editorLogoRef.current ? editorLogoRef.current.getBoundingClientRect() : null;
-      if (!logoRect) return;
-      const logoCenterX = logoRect.left + logoRect.width / 2;
-      const dx = Math.abs(e.clientX - logoCenterX);
-      const newScale = ((dx / zoom) * 2) / containerRect.width;
-      updateEditingItem(item => (isBackView ? { ...item, backLogoScale: Math.max(0.05, Math.min(1.0, newScale)) } : { ...item, logoScale: Math.max(0.05, Math.min(1.0, newScale)) }));
-      return;
-    }
-
-    if (isPanning) {
-      setPanX(e.clientX - panStart.current.x);
-      setPanY(e.clientY - panStart.current.y);
-      return;
-    }
-
-    if (!isDragging) return;
-    const screenX = e.clientX - containerRect.left - dragStartOffset.current.x;
-    const screenY = e.clientY - containerRect.top - dragStartOffset.current.y;
-    
-    // Undo pan and zoom to convert back to 0-100% space
-    const innerX = (screenX - panX) / zoom;
-    const innerY = (screenY - panY) / zoom;
-    
-    let xPct = (innerX / containerRect.width) * 100;
-    let yPct = (innerY / containerRect.height) * 100;
-    // Allow logo to be positioned anywhere on the garment canvas
-    xPct = Math.max(0, Math.min(100, xPct));
-    yPct = Math.max(0, Math.min(100, yPct));
-    updateEditingItem(item => (isBackView ? { ...item, backLogoPos: { x: xPct, y: yPct } } : { ...item, logoPos: { x: xPct, y: yPct } }));
-  };
-
-  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
-    setIsDragging(false);
-    setIsResizing(false);
-    setIsPanning(false);
-    try {
-      (e.target as HTMLElement).releasePointerCapture(e.pointerId);
-    } catch {}
-  };
-
   // Submit quote request or start checkout
   const submitOrderOrCheckout = async (isPayNow: boolean) => {
     if (hasLowQuantityItems) {
@@ -2028,9 +1911,6 @@ export function PublicQuoteRequest() {
     return null;
   })();
   const editingGarmentImg = editingProduct ? getGarmentMockupImage(editingProduct.product, editingProduct.color, editViewMode, catalogSettings, selectedThemeCategory, editingProduct.slot) : '';
-  const editingGarmentProxied = editingGarmentImg.startsWith('http')
-    ? `/api/sanmar/proxy-image?url=${encodeURIComponent(editingGarmentImg)}`
-    : editingGarmentImg;
 
   return (
     <div className="w-full">
@@ -3555,9 +3435,6 @@ export function PublicQuoteRequest() {
                                     });
                                     setEditingItemId(item.id);
                                     setEditViewMode('front');
-                                    setZoom(1.0);
-                                    setPanX(0);
-                                    setPanY(0);
                                     setIsEditorOpen(true);
                                   }}
                                   className="px-3.5 py-1.5 border border-neutral-200 text-neutral-700 hover:border-neutral-900 rounded-xl text-[10px] font-bold transition-all shadow-3xs cursor-pointer shrink-0"
@@ -4064,392 +3941,33 @@ export function PublicQuoteRequest() {
         );
       })()}
 
-      {/* SINGLE ITEM DESIGN CANVAS EDITOR MODAL */}
-      {isEditorOpen && editingItemId && editingProduct && (() => {
-        const isBack = editViewMode === 'back';
-        const activeLogoPos = isBack ? editingProduct.backLogoPos : editingProduct.logoPos;
-        const activeLogoScale = isBack ? editingProduct.backLogoScale : editingProduct.logoScale;
-        const activeLogoRotation = isBack ? editingProduct.backLogoRotation : editingProduct.logoRotation;
-
-        return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
-            <div className="bg-white border border-neutral-200 rounded-3xl shadow-2xl max-w-5xl w-full p-6 space-y-6 overflow-hidden max-h-[90vh] flex flex-col">
-              <div className="flex justify-between items-start border-b border-neutral-100 pb-3">
-                <div>
-                  <span className="text-[9px] font-extrabold uppercase tracking-widest text-neutral-400">Position & Alignment</span>
-                  <h3 className="text-lg font-sans font-bold text-neutral-900">
-                    Tweak Customization for {catalogSettings.customNames?.racks?.[selectedThemeCategory]?.[editingProduct.slot] || `${editingProduct.product.brand} ${editingProduct.product.style}`}
-                  </h3>
-                </div>
-                <button 
-                  onClick={() => setIsEditorOpen(false)}
-                  className="p-1 text-neutral-400 hover:text-neutral-900 hover:bg-neutral-50 rounded-lg transition-colors border border-transparent"
-                >
-                  <X size={18} />
-                </button>
-              </div>
-
-              <div className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-6 overflow-y-auto pr-1">
-                {/* Canvas Box */}
-                <div className="md:col-span-8 flex flex-col gap-4 items-center justify-center bg-neutral-50 rounded-2xl p-6 border border-neutral-200/60 relative min-h-[440px] md:min-h-[620px]">
-                  <div 
-                    ref={editorContainerRef}
-                    onPointerDown={handlePointerDown}
-                    onPointerMove={handlePointerMove}
-                    onPointerUp={handlePointerUp}
-                    className="w-full max-w-[560px] aspect-[4/5] relative bg-white border border-neutral-200/80 rounded-2xl shadow-3xs overflow-hidden select-none touch-none"
-                    style={{ cursor: isDragging ? 'move' : isPanning ? 'grabbing' : zoom > 1 ? 'grab' : 'default' }}
-                  >
-                    {/* Zoom/Pan Wrapper */}
-                    <div
-                      className="w-full h-full relative"
-                      style={{
-                        transform: `translate(${panX}px, ${panY}px) scale(${zoom})`,
-                        transformOrigin: 'center center',
-                        transition: isPanning ? 'none' : 'transform 0.15s ease-out'
-                      }}
-                    >
-                      <img src={editingGarmentProxied} className="w-full h-full object-contain pointer-events-none select-none p-3" alt="Editor garment" draggable="false" />
-
-                      {/* Logo overlay element */}
-                      {(!isBack || editingProduct.backLogoScale > 0) && (
-                        <div
-                          style={{
-                            position: 'absolute',
-                            left: `${activeLogoPos.x}%`,
-                            top: `${activeLogoPos.y}%`,
-                            width: `${activeLogoScale * 100}%`,
-                            transform: 'translate(-50%, -50%)',
-                            pointerEvents: 'none'
-                          }}
-                        >
-                          <div className={`relative w-full h-full p-0.5 border ${isDragging || isResizing ? 'border-neutral-900 border-dashed bg-black/[0.01]' : 'border-transparent'}`}>
-                            <div 
-                              className="resize-handle absolute bottom-0 right-0 w-3 h-3 bg-white border border-neutral-900 rounded-full shadow-sm cursor-se-resize pointer-events-auto"
-                              style={{ transform: 'translate(50%, 50%)', zIndex: 10 }}
-                              title="Resize logo"
-                            />
-                            <img
-                              ref={editorLogoRef}
-                              src={(isBack ? (editingProduct.customBackLogoUrl || logoUrl!) : (editingProduct.customLogoUrl || logoUrl!))}
-                              style={{
-                                transform: `rotate(${activeLogoRotation}deg)`,
-                                width: '100%',
-                                height: 'auto',
-                                filter: editorLogoFilter === 'white'
-                                  ? 'brightness(0) invert(1)'
-                                  : editorLogoFilter === 'black'
-                                  ? 'brightness(0)'
-                                  : (editingProduct.decoration === 'Embroidery' ? 'drop-shadow(1.5px 1.5px 1.5px rgba(0,0,0,0.38))' : 'none'),
-                                mixBlendMode: ['black', 'dark', 'navy', 'patriot', 'charcoal', 'graphite', 'carbon', 'obsidian', 'maroon', 'cardinal', 'burgundy'].some(c => editingProduct.color.toLowerCase().includes(c)) || editorLogoFilter !== 'original' ? 'normal' : 'multiply'
-                              }}
-                              className="object-contain pointer-events-none"
-                              alt="Logo"
-                              draggable="false"
-                            />
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Position & Decorating Tip */}
-                  <div className="w-full max-w-[560px] bg-white border border-neutral-200/80 rounded-xl p-3 text-xs text-neutral-600 flex items-start gap-2.5 shadow-3xs">
-                    <div className="bg-neutral-900 text-white rounded-md p-1 shrink-0 mt-0.5">
-                      <Shirt size={13} />
-                    </div>
-                    <div className="space-y-0.5">
-                      <span className="font-bold text-neutral-900 block text-xs">Decorating & Placement Tip</span>
-                      <p className="text-[11px] text-neutral-500 leading-snug">
-                        Click & drag your artwork directly on the garment mockup image to position it. Use <strong>Garment Zoom</strong> to zoom in for precise placement, or use the sliders on the right to scale and rotate.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Controls Box */}
-                <div className="md:col-span-4 space-y-6">
-                  {/* View Toggle (Front vs Back) */}
-                  <div className="space-y-2">
-                    <span className="text-[10px] font-bold text-neutral-400 block uppercase tracking-wider">Select Edit View</span>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        onClick={() => handleToggleSide('front')}
-                        className={`py-2 border rounded-xl text-xs font-bold transition-all ${
-                          !isBack
-                            ? 'bg-neutral-900 border-neutral-900 text-white shadow-3xs'
-                            : 'bg-white border-neutral-200 text-neutral-700 hover:bg-neutral-50'
-                        }`}
-                      >
-                        Front View
-                      </button>
-                      <button
-                        onClick={() => handleToggleSide('back')}
-                        className={`py-2 border rounded-xl text-xs font-bold transition-all ${
-                          isBack
-                            ? 'bg-neutral-900 border-neutral-900 text-white shadow-3xs'
-                            : 'bg-white border-neutral-200 text-neutral-700 hover:bg-neutral-50'
-                        }`}
-                      >
-                        Back View
-                      </button>
-                    </div>
-
-                    {/* Artwork Customizer per View (Multiple Logos Support) */}
-                    <div className="pt-2 flex flex-col gap-1.5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold text-neutral-400 block uppercase tracking-wider">
-                          {isBack ? 'Back View Artwork' : 'Front View Artwork'}
-                        </span>
-                        {isBack && editingProduct.customBackLogoUrl && (
-                          <button
-                            type="button"
-                            onClick={() => updateEditingItem(item => ({ ...item, customBackLogoUrl: undefined }))}
-                            className="text-[10px] text-red-500 hover:underline font-semibold cursor-pointer"
-                          >
-                            Reset to Front Logo
-                          </button>
-                        )}
-                      </div>
-
-                      <label className="w-full bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 rounded-xl px-3 py-2 text-xs font-bold text-neutral-700 flex items-center justify-center gap-2 cursor-pointer transition-colors shadow-3xs">
-                        <Upload size={13} className="text-neutral-500" />
-                        <span>{isBack ? (editingProduct.customBackLogoUrl ? 'Change Back Logo' : 'Upload Different Back Logo') : 'Change Front Logo'}</span>
-                        <input 
-                          type="file" 
-                          accept="image/*" 
-                          className="hidden" 
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (!file) return;
-                            const reader = new FileReader();
-                            reader.onload = (evt) => {
-                              const dUrl = evt.target?.result as string;
-                              if (dUrl) {
-                                updateEditingItem(item => isBack 
-                                  ? { ...item, customBackLogoUrl: dUrl, backLogoScale: item.backLogoScale > 0 ? item.backLogoScale : 0.24, backLogoPos: item.backLogoPos || { x: 50, y: 35 } } 
-                                  : { ...item, customLogoUrl: dUrl }
-                                );
-                              }
-                            };
-                            reader.readAsDataURL(file);
-                          }}
-                        />
-                      </label>
-                    </div>
-                  </div>
-
-                  {/* Garment Color Selection Dropdown */}
-                  {editingProduct.product.colors && editingProduct.product.colors.length > 0 && (
-                    <div className="space-y-2">
-                      <span className="text-[10px] font-bold text-neutral-400 block uppercase tracking-wider">Garment Color</span>
-                      
-                      <div className="relative">
-                        {/* Trigger Button */}
-                        <button
-                          type="button"
-                          onClick={() => setIsGarmentColorDropdownOpen(!isGarmentColorDropdownOpen)}
-                          className="w-full bg-white border border-neutral-200 hover:border-neutral-400 rounded-xl px-3.5 py-2.5 text-xs font-bold flex items-center justify-between transition-all cursor-pointer shadow-3xs"
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <span 
-                              className="w-4 h-4 rounded-full border border-neutral-300 shrink-0"
-                              style={{
-                                backgroundColor: getSwatchColor(editingProduct.color, true).startsWith('linear-gradient') ? 'transparent' : getSwatchColor(editingProduct.color, true),
-                                backgroundImage: getSwatchColor(editingProduct.color, true).startsWith('linear-gradient') ? getSwatchColor(editingProduct.color, true) : 'none',
-                              }}
-                            />
-                            <span className="uppercase tracking-wide text-neutral-800 truncate">{editingProduct.color}</span>
-                          </div>
-                          <ChevronDown className={`w-4 h-4 text-neutral-400 transition-transform duration-200 shrink-0 ml-2 ${isGarmentColorDropdownOpen ? 'rotate-180' : ''}`} />
-                        </button>
-
-                        {/* Dropdown Menu */}
-                        {isGarmentColorDropdownOpen && (
-                          <>
-                            {/* Backdrop to close dropdown on click-away */}
-                            <div 
-                              className="fixed inset-0 z-[110]" 
-                              onClick={() => setIsGarmentColorDropdownOpen(false)}
-                            />
-                            
-                            <div className="absolute left-0 right-0 mt-1.5 bg-white border border-neutral-200 rounded-xl shadow-xl max-h-[220px] overflow-y-auto z-[115] p-1.5 flex flex-col gap-0.5 scrollbar-none animate-in fade-in slide-in-from-top-2 duration-150">
-                              {editingProduct.product.colors.map((c: string) => {
-                                const isSelected = editingProduct.color === c;
-                                const swatchHex = getSwatchColor(c, true);
-                                return (
-                                  <button
-                                    key={c}
-                                    type="button"
-                                    onClick={() => {
-                                      updateEditingItem(item => ({ ...item, color: c }));
-                                      setIsGarmentColorDropdownOpen(false);
-                                    }}
-                                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                                      isSelected 
-                                        ? 'bg-neutral-900 text-white' 
-                                        : 'text-neutral-700 hover:bg-neutral-100'
-                                    }`}
-                                  >
-                                    <div className="flex items-center gap-2.5 truncate">
-                                      <span 
-                                        className={`w-3.5 h-3.5 rounded-full border shrink-0 ${isSelected ? 'border-white/40' : 'border-neutral-300'}`}
-                                        style={{
-                                          backgroundColor: swatchHex.startsWith('linear-gradient') ? 'transparent' : swatchHex,
-                                          backgroundImage: swatchHex.startsWith('linear-gradient') ? swatchHex : 'none',
-                                        }}
-                                      />
-                                      <span className="uppercase tracking-wide truncate">{c}</span>
-                                    </div>
-                                    {isSelected && (
-                                      <Check size={14} strokeWidth={3} className="text-white shrink-0 ml-2" />
-                                    )}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Logo Recolor & Background Remover Tools */}
-                  <div className="space-y-2.5 pt-2 border-t border-neutral-100">
-                    <span className="text-[10px] font-bold text-neutral-400 block uppercase tracking-wider">Logo Color Presets</span>
-                    <div className="grid grid-cols-3 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setEditorLogoFilter('original')}
-                        className={`py-2 border rounded-xl text-xs font-bold transition-all ${
-                          editorLogoFilter === 'original'
-                            ? 'bg-neutral-900 border-neutral-900 text-white shadow-3xs'
-                            : 'bg-white border-neutral-200 text-neutral-700 hover:bg-neutral-50'
-                        }`}
-                      >
-                        Original
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setEditorLogoFilter('white')}
-                        className={`py-2 border rounded-xl text-xs font-bold transition-all ${
-                          editorLogoFilter === 'white'
-                            ? 'bg-neutral-900 border-neutral-900 text-white shadow-3xs'
-                            : 'bg-white border-neutral-200 text-neutral-700 hover:bg-neutral-50'
-                        }`}
-                      >
-                        White Logo
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setEditorLogoFilter('black')}
-                        className={`py-2 border rounded-xl text-xs font-bold transition-all ${
-                          editorLogoFilter === 'black'
-                            ? 'bg-neutral-900 border-neutral-900 text-white shadow-3xs'
-                            : 'bg-white border-neutral-200 text-neutral-700 hover:bg-neutral-50'
-                        }`}
-                      >
-                        Black Logo
-                      </button>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (originalArtworkUrl) {
-                          setIsColorRemoverOpen(true);
-                        } else {
-                          alert("Please upload a logo first to clean background/colors.");
-                        }
-                      }}
-                      className="w-full py-2.5 px-3 bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 text-neutral-800 cursor-pointer shadow-3xs mt-1"
-                    >
-                      <Scissors size={14} className="text-neutral-600" /> Clean Background / Colors
-                    </button>
-                  </div>
-
-                  {/* Garment Zoom Slider */}
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="font-semibold text-neutral-600">Garment Zoom</span>
-                      <span className="font-bold text-neutral-900">{Math.round(zoom * 100)}%</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="1"
-                      max="2.5"
-                      step="0.1"
-                      value={zoom}
-                      onChange={e => {
-                        const newZoom = parseFloat(e.target.value);
-                        setZoom(newZoom);
-                        if (newZoom === 1) {
-                          setPanX(0);
-                          setPanY(0);
-                        }
-                      }}
-                      className="w-full h-1 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-neutral-900"
-                    />
-                    {zoom > 1 && (
-                      <p className="text-[10px] text-neutral-400 italic">
-                        Drag empty canvas area to pan around the zoomed garment.
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Sizing Slider Scale */}
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="font-semibold text-neutral-600">Logo Scale</span>
-                      <span className="font-bold text-neutral-900">{Math.round(activeLogoScale * 100)}%</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0.05"
-                      max="1.0"
-                      step="0.01"
-                      value={activeLogoScale}
-                      disabled={isBack && editingProduct.backLogoScale === 0}
-                      onChange={e => {
-                        const val = parseFloat(e.target.value);
-                        updateEditingItem(item => (isBack ? { ...item, backLogoScale: val } : { ...item, logoScale: val }));
-                      }}
-                      className="w-full h-1 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-neutral-900 disabled:opacity-50"
-                    />
-                  </div>
-
-                  {/* Sizing Slider Rotation */}
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="font-semibold text-neutral-600">Logo Rotation</span>
-                      <span className="font-bold text-neutral-900">{activeLogoRotation}°</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="-180"
-                      max="180"
-                      step="1"
-                      value={activeLogoRotation}
-                      disabled={isBack && editingProduct.backLogoScale === 0}
-                      onChange={e => {
-                        const val = parseInt(e.target.value, 10);
-                        updateEditingItem(item => (isBack ? { ...item, backLogoRotation: val } : { ...item, logoRotation: val }));
-                      }}
-                      className="w-full h-1 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-neutral-900 disabled:opacity-50"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="pt-4 border-t border-neutral-100 flex justify-end">
-                <PillButton variant="filled" onClick={() => setIsEditorOpen(false)}>
-                  Save Positioning
-                </PillButton>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
+      {/* SINGLE ITEM DESIGN CANVAS EDITOR MODAL (Portal MockupCreator) */}
+      {isEditorOpen && editingItemId && editingProduct && (
+        <MockupCreator
+          isOpen={isEditorOpen}
+          onClose={() => setIsEditorOpen(false)}
+          garmentImageUrl={editingGarmentImg}
+          garmentBackImageUrl={getGarmentMockupImage(editingProduct.product, editingProduct.color, 'back', catalogSettings, selectedThemeCategory, editingProduct.slot)}
+          garmentName={getCustomGarmentName(editingProduct.product, catalogSettings, selectedThemeCategory, editingProduct.slot)}
+          colorName={editingProduct.color}
+          initialLogoUrl={editingProduct.customLogoUrl || logoUrl}
+          initialLogoUrlBack={editingProduct.customBackLogoUrl || ((editingProduct.backLogoScale && editingProduct.backLogoScale > 0) ? logoUrl : null)}
+          onSave={(compiledMockupUrl, _frontLogo, backLogo, _leftSleeve, _rightSleeve, placements) => {
+            updateEditingItem(item => ({
+              ...item,
+              customLogoUrl: compiledMockupUrl || item.customLogoUrl,
+              customBackLogoUrl: backLogo || item.customBackLogoUrl,
+              logoPos: placements?.front?.pos || item.logoPos,
+              logoScale: placements?.front?.scale ?? item.logoScale,
+              logoRotation: placements?.front?.rotation ?? item.logoRotation,
+              backLogoPos: placements?.back?.pos || item.backLogoPos,
+              backLogoScale: placements?.back?.scale ?? item.backLogoScale,
+              backLogoRotation: placements?.back?.rotation ?? item.backLogoRotation,
+            }));
+            setIsEditorOpen(false);
+          }}
+        />
+      )}
 
       {/* RETAIL ANNOUNCEMENT/STOREFRONT SETTINGS MODAL */}
       {isEditingStorefront && (

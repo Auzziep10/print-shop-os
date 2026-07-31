@@ -76,7 +76,13 @@ interface MockupCreatorProps {
     logoUrlFront: string,
     logoUrlBack?: string,
     logoUrlLeftSleeve?: string,
-    logoUrlRightSleeve?: string
+    logoUrlRightSleeve?: string,
+    placements?: {
+      front?: { pos: { x: number; y: number }; scale: number; rotation: number };
+      back?: { pos: { x: number; y: number }; scale: number; rotation: number };
+      leftSleeve?: { pos: { x: number; y: number }; scale: number; rotation: number };
+      rightSleeve?: { pos: { x: number; y: number }; scale: number; rotation: number };
+    }
   ) => void;
 }
 
@@ -558,7 +564,13 @@ export function MockupCreator({
           logoUrlFront || '',
           logoUrlBack || undefined,
           logoUrlLeftSleeve || undefined,
-          logoUrlRightSleeve || undefined
+          logoUrlRightSleeve || undefined,
+          {
+            front: { pos: logoPosFront, scale: logoScaleFront, rotation: logoRotationFront },
+            back: { pos: logoPosBack, scale: logoScaleBack, rotation: logoRotationBack },
+            leftSleeve: { pos: logoPosLeftSleeve, scale: logoScaleLeftSleeve, rotation: logoRotationLeftSleeve },
+            rightSleeve: { pos: logoPosRightSleeve, scale: logoScaleRightSleeve, rotation: logoRotationRightSleeve }
+          }
         );
         onClose();
       }, 'image/png');
