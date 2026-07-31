@@ -228,12 +228,9 @@ interface LogoBox {
 const FRAME_H_OVER_W = 5 / 4; // aspect-[4/5] placement frame
 const fitLogoToBox = (box: LogoBox, logoAspect: number): { pos: { x: number; y: number }; scale: number; rotation: number } => {
   const safeAspect = logoAspect > 0 ? logoAspect : 1;
-  let scale = box.w / 100;
-  if (safeAspect < 1) {
-    const widthByHeightConstraint = ((box.h / 100) * FRAME_H_OVER_W) / safeAspect;
-    scale = Math.min(scale, widthByHeightConstraint);
-  }
-  const clampedScale = Math.max(0.25, Math.min(0.85, scale));
+  const widthByHeightConstraint = (box.h / 100) * FRAME_H_OVER_W * safeAspect;
+  const scale = Math.min(box.w / 100, widthByHeightConstraint);
+  const clampedScale = Math.max(0.15, Math.min(0.85, scale));
   return { pos: { x: box.x, y: box.y }, scale: clampedScale, rotation: box.r ?? 0 };
 };
 
