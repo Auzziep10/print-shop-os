@@ -438,7 +438,18 @@ export function PublicQuoteRequest() {
   const [selectedGarmentType, setSelectedGarmentType] = useState<GarmentTypeId>('t-shirt');
   const [selectedGarmentTypeItem, setSelectedGarmentTypeItem] = useState<SanMarProduct | null>(null);
   const [selectedGarmentTypeColor, setSelectedGarmentTypeColor] = useState<string>('');
-  const [selectedGarmentTypeItems, setSelectedGarmentTypeItems] = useState<{ id: string; product: SanMarProduct; color: string; garmentType: GarmentTypeId }[]>([]);
+  const [selectedGarmentTypeItems, setSelectedGarmentTypeItems] = useState<{
+    id: string;
+    product: SanMarProduct;
+    color: string;
+    garmentType: GarmentTypeId;
+    logoPos?: { x: number; y: number };
+    logoScale?: number;
+    logoRotation?: number;
+    backLogoPos?: { x: number; y: number };
+    backLogoScale?: number;
+    backLogoRotation?: number;
+  }[]>([]);
   const [editorLogoFilter, setEditorLogoFilter] = useState<'original' | 'white' | 'black'>('original');
 
   // Quick-add garment to lookbook collection directly from Step 3
@@ -1492,6 +1503,82 @@ export function PublicQuoteRequest() {
     }));
   };
 
+  // Helper to update item properties in active mode (racks vs types)
+  const updateEditingItem = (updater: (item: DesignRackItem) => DesignRackItem) => {
+    if (editingItemIdx === null) return;
+
+    if (flowMode === 'racks') {
+      setRackItems(prev => prev.map((item, idx) => idx === editingItemIdx ? updater(item) : item));
+    } else if (flowMode === 'types') {
+      setSelectedGarmentTypeItems(prev => {
+        if (prev.length === 0) {
+          const fallback = selectedGarmentTypeItem || curatedStorefrontProducts.find(p => detectGarmentTypeTag(p, catalogSettings.garmentTypeTags) === selectedGarmentType) || curatedStorefrontProducts[0];
+          if (!fallback) return prev;
+          const placement = getBasicsPlacement(fallback);
+          const defaultRack: DesignRackItem = {
+            id: `${selectedGarmentType}-${Date.now()}`,
+            slot: selectedGarmentType,
+            product: fallback,
+            color: selectedGarmentTypeColor || fallback.colors[0] || 'Black',
+            selected: true,
+            logoPos: placement.pos,
+            logoScale: placement.scale,
+            logoRotation: placement.rotation,
+            backLogoPos: { x: 50, y: 35 },
+            backLogoScale: 0,
+            backLogoRotation: 0,
+            printSize: 'Medium',
+            decoration: ['hat', 'cap', 'polo'].some(w => (fallback.category || fallback.title || fallback.style || '').toLowerCase().includes(w)) ? 'Embroidery' : 'Print'
+          };
+          const updated = updater(defaultRack);
+          return [{
+            id: defaultRack.id,
+            product: fallback,
+            color: updated.color,
+            garmentType: selectedGarmentType,
+            logoPos: updated.logoPos,
+            logoScale: updated.logoScale,
+            logoRotation: updated.logoRotation,
+            backLogoPos: updated.backLogoPos,
+            backLogoScale: updated.backLogoScale,
+            backLogoRotation: updated.backLogoRotation
+          }];
+        }
+
+        return prev.map((item, idx) => {
+          if (idx !== editingItemIdx) return item;
+          const placement = getBasicsPlacement(item.product);
+          const rackLike: DesignRackItem = {
+            id: item.id,
+            slot: item.garmentType,
+            product: item.product,
+            color: item.color,
+            selected: true,
+            logoPos: item.logoPos || placement.pos,
+            logoScale: item.logoScale ?? placement.scale,
+            logoRotation: item.logoRotation ?? placement.rotation,
+            backLogoPos: item.backLogoPos || { x: 50, y: 35 },
+            backLogoScale: item.backLogoScale ?? 0,
+            backLogoRotation: item.backLogoRotation ?? 0,
+            printSize: 'Medium',
+            decoration: ['hat', 'cap', 'polo'].some(w => (item.product.category || item.product.title || item.product.style || '').toLowerCase().includes(w)) ? 'Embroidery' : 'Print'
+          };
+          const updated = updater(rackLike);
+          return {
+            ...item,
+            color: updated.color,
+            logoPos: updated.logoPos,
+            logoScale: updated.logoScale,
+            logoRotation: updated.logoRotation,
+            backLogoPos: updated.backLogoPos,
+            backLogoScale: updated.backLogoScale,
+            backLogoRotation: updated.backLogoRotation
+          };
+        });
+      });
+    }
+  };
+
   // Pointer Canvas Drag/Resize (Single Item Editor Modal)
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (editingItemIdx === null) return;
@@ -1531,7 +1618,7 @@ export function PublicQuoteRequest() {
       const logoCenterX = logoRect.left + logoRect.width / 2;
       const dx = Math.abs(e.clientX - logoCenterX);
       const newScale = ((dx / zoom) * 2) / containerRect.width;
-      setRackItems(prev => prev.map((item, idx) => idx === editingItemIdx ? { ...item, logoScale: Math.max(0.05, Math.min(1.0, newScale)) } : item));
+      updateEditingItem(item => ({ ...item, logoScale: Math.max(0.05, Math.min(1.0, newScale)) }));
       return;
     }
 
@@ -1554,7 +1641,7 @@ export function PublicQuoteRequest() {
     // Allow logo to be positioned anywhere on the garment canvas
     xPct = Math.max(0, Math.min(100, xPct));
     yPct = Math.max(0, Math.min(100, yPct));
-    setRackItems(prev => prev.map((item, idx) => idx === editingItemIdx ? { ...item, logoPos: { x: xPct, y: yPct } } : item));
+    updateEditingItem(item => ({ ...item, logoPos: { x: xPct, y: yPct } }));
   };
 
   const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -1798,7 +1885,51 @@ export function PublicQuoteRequest() {
   }
 
   // Pre-load flatlay for edit canvas
-  const editingProduct = editingItemIdx !== null ? rackItems[editingItemIdx] : null;
+  const editingProduct: DesignRackItem | null = useMemo(() => {
+    if (editingItemIdx === null) return null;
+    if (flowMode === 'racks') {
+      return rackItems[editingItemIdx] || null;
+    } else if (flowMode === 'types') {
+      const item = selectedGarmentTypeItems[editingItemIdx];
+      if (!item) {
+        const fallback = selectedGarmentTypeItem || curatedStorefrontProducts.find(p => detectGarmentTypeTag(p, catalogSettings.garmentTypeTags) === selectedGarmentType) || curatedStorefrontProducts[0];
+        if (!fallback) return null;
+        const placement = getBasicsPlacement(fallback);
+        return {
+          id: 'editing-fallback',
+          slot: selectedGarmentType,
+          product: fallback,
+          color: selectedGarmentTypeColor || fallback.colors[0] || 'Black',
+          selected: true,
+          logoPos: placement.pos,
+          logoScale: placement.scale,
+          logoRotation: placement.rotation,
+          backLogoPos: { x: 50, y: 35 },
+          backLogoScale: 0,
+          backLogoRotation: 0,
+          printSize: 'Medium',
+          decoration: ['hat', 'cap', 'polo'].some(w => (fallback.category || fallback.title || fallback.style || '').toLowerCase().includes(w)) ? 'Embroidery' : 'Print'
+        };
+      }
+      const placement = getBasicsPlacement(item.product);
+      return {
+        id: item.id,
+        slot: item.garmentType,
+        product: item.product,
+        color: item.color,
+        selected: true,
+        logoPos: item.logoPos || placement.pos,
+        logoScale: item.logoScale ?? placement.scale,
+        logoRotation: item.logoRotation ?? placement.rotation,
+        backLogoPos: item.backLogoPos || { x: 50, y: 35 },
+        backLogoScale: item.backLogoScale ?? 0,
+        backLogoRotation: item.backLogoRotation ?? 0,
+        printSize: 'Medium',
+        decoration: ['hat', 'cap', 'polo'].some(w => (item.product.category || item.product.title || item.product.style || '').toLowerCase().includes(w)) ? 'Embroidery' : 'Print'
+      };
+    }
+    return null;
+  }, [editingItemIdx, flowMode, rackItems, selectedGarmentTypeItems, selectedGarmentTypeItem, selectedGarmentType, selectedGarmentTypeColor, curatedStorefrontProducts]);
   const editingImageSet = editingProduct ? (editingProduct.product.images[editingProduct.color] || Object.values(editingProduct.product.images)[0]) : null;
   const editingGarmentImg = editingImageSet ? (typeof editingImageSet === 'string' ? editingImageSet : editingImageSet[editViewMode]) : '';
   const editingGarmentProxied = editingGarmentImg.startsWith('http')
@@ -3120,7 +3251,18 @@ export function PublicQuoteRequest() {
               ) : flowMode === 'types' ? (
                 // Garment Types lookbook grid with multi-item collection support
                 (() => {
-                  const displayItems = selectedGarmentTypeItems.length > 0 
+                  const displayItems: {
+                    id: string;
+                    product: SanMarProduct;
+                    color: string;
+                    garmentType: GarmentTypeId;
+                    logoPos?: { x: number; y: number };
+                    logoScale?: number;
+                    logoRotation?: number;
+                    backLogoPos?: { x: number; y: number };
+                    backLogoScale?: number;
+                    backLogoRotation?: number;
+                  }[] = selectedGarmentTypeItems.length > 0 
                     ? selectedGarmentTypeItems 
                     : (() => {
                         const fallbackItem = selectedGarmentTypeItem || curatedStorefrontProducts.find(p => detectGarmentTypeTag(p, catalogSettings.garmentTypeTags) === selectedGarmentType) || curatedStorefrontProducts[0];
@@ -3131,10 +3273,13 @@ export function PublicQuoteRequest() {
 
                   return (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-                      {displayItems.map((item) => {
+                      {displayItems.map((item, itemIdx) => {
                         const colorKey = item.color || item.product.colors[0];
                         const previewImg = resolveGarmentImage(item.product, colorKey);
                         const placement = getBasicsPlacement(item.product);
+                        const activeLogoPos = item.logoPos || placement.pos;
+                        const activeLogoScale = item.logoScale ?? placement.scale;
+                        const activeLogoRotation = item.logoRotation ?? placement.rotation ?? 0;
                         const isEmbroidery = ['hat', 'cap', 'polo'].some(w => (item.product.category || item.product.title || item.product.style || '').toLowerCase().includes(w));
                         const isDark = ['black', 'dark', 'navy', 'patriot', 'charcoal', 'graphite', 'carbon', 'obsidian', 'maroon', 'cardinal', 'burgundy'].some(c => colorKey.toLowerCase().includes(c));
 
@@ -3177,10 +3322,10 @@ export function PublicQuoteRequest() {
                                 <div
                                   style={{
                                     position: 'absolute',
-                                    left: `${placement.pos.x}%`,
-                                    top: `${placement.pos.y}%`,
-                                    width: `${placement.scale * 100}%`,
-                                    transform: `translate(-50%, -50%) rotate(${placement.rotation ?? 0}deg)`,
+                                    left: `${activeLogoPos.x}%`,
+                                    top: `${activeLogoPos.y}%`,
+                                    width: `${activeLogoScale * 100}%`,
+                                    transform: `translate(-50%, -50%) rotate(${activeLogoRotation}deg)`,
                                     pointerEvents: 'none'
                                   }}
                                 >
@@ -3205,28 +3350,42 @@ export function PublicQuoteRequest() {
                                 <h4 className="text-sm font-bold text-neutral-800 truncate mt-0.5">{item.product.title.replace(/®/g, '').trim()}</h4>
                               </div>
 
-                              <div className="flex gap-1 overflow-x-auto scrollbar-none py-1">
-                                {item.product.colors.slice(0, 8).map(c => {
-                                  const swatchHex = getSwatchColor(c, true);
-                                  const isColorActive = colorKey === c;
-                                  return (
-                                    <button
-                                      key={c}
-                                      type="button"
-                                      onClick={() => {
-                                        setSelectedGarmentTypeItems(prev => prev.map(gi => gi.id === item.id ? { ...gi, color: c } : gi));
-                                      }}
-                                      className={`w-5 h-5 rounded-full border transition-all ${
-                                        isColorActive ? 'ring-2 ring-neutral-900 ring-offset-1 scale-105' : 'border-neutral-350'
-                                      }`}
-                                      style={{
-                                        backgroundColor: swatchHex.startsWith('linear-gradient') ? 'transparent' : swatchHex,
-                                        backgroundImage: swatchHex.startsWith('linear-gradient') ? swatchHex : 'none'
-                                      }}
-                                      title={c}
-                                    />
-                                  );
-                                })}
+                              <div className="flex gap-3 items-center justify-between">
+                                <div className="flex-1 flex gap-1 items-center overflow-x-auto scrollbar-none py-1">
+                                  {item.product.colors.slice(0, 5).map(c => {
+                                    const swatchHex = getSwatchColor(c, true);
+                                    const isColorActive = colorKey === c;
+                                    return (
+                                      <button
+                                        key={c}
+                                        type="button"
+                                        onClick={() => {
+                                          setSelectedGarmentTypeItems(prev => prev.map(gi => gi.id === item.id ? { ...gi, color: c } : gi));
+                                        }}
+                                        className={`w-5 h-5 rounded-full border transition-all ${
+                                          isColorActive ? 'ring-2 ring-neutral-900 ring-offset-1 scale-105' : 'border-neutral-350'
+                                        }`}
+                                        style={{
+                                          backgroundColor: swatchHex.startsWith('linear-gradient') ? 'transparent' : swatchHex,
+                                          backgroundImage: swatchHex.startsWith('linear-gradient') ? swatchHex : 'none'
+                                        }}
+                                        title={c}
+                                      />
+                                    );
+                                  })}
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingItemIdx(itemIdx);
+                                    setEditViewMode('front');
+                                    setIsEditorOpen(true);
+                                  }}
+                                  className="px-3.5 py-1.5 border border-neutral-200 text-neutral-700 hover:border-neutral-900 rounded-xl text-[10px] font-bold transition-all shadow-3xs cursor-pointer shrink-0"
+                                >
+                                  Edit Design
+                                </button>
                               </div>
                             </div>
                           </div>
