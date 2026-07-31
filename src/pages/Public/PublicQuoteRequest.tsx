@@ -554,7 +554,7 @@ export function PublicQuoteRequest() {
 
   // Single Item Canvas Editor modal details
   const [isEditorOpen, setIsEditorOpen] = useState(false);
-  const [editingItemIdx, setEditingItemIdx] = useState<number | null>(null);
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editViewMode, setEditViewMode] = useState<'front' | 'back'>('front');
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
@@ -577,11 +577,11 @@ export function PublicQuoteRequest() {
       setPanY(0);
       setIsPanning(false);
     }
-  }, [isEditorOpen, editingItemIdx]);
+  }, [isEditorOpen, editingItemId]);
 
   const handleToggleSide = (side: 'front' | 'back') => {
     setEditViewMode(side);
-    if (side === 'back' && editingItemIdx !== null) {
+    if (side === 'back' && editingItemId) {
       updateEditingItem(item => {
         if (item.backLogoScale === 0) {
           return {
@@ -1531,10 +1531,10 @@ export function PublicQuoteRequest() {
 
   // Helper to update item properties in active mode (racks vs types)
   const updateEditingItem = (updater: (item: DesignRackItem) => DesignRackItem) => {
-    if (editingItemIdx === null) return;
+    if (!editingItemId) return;
 
     if (flowMode === 'racks') {
-      setRackItems(prev => prev.map((item, idx) => idx === editingItemIdx ? updater(item) : item));
+      setRackItems(prev => prev.map(item => item.id === editingItemId ? updater(item) : item));
     } else if (flowMode === 'types') {
       setSelectedGarmentTypeItems(prev => {
         if (prev.length === 0) {
@@ -1542,7 +1542,7 @@ export function PublicQuoteRequest() {
           if (!fallback) return prev;
           const placement = getBasicsPlacement(fallback);
           const defaultRack: DesignRackItem = {
-            id: `${selectedGarmentType}-${Date.now()}`,
+            id: editingItemId,
             slot: selectedGarmentType,
             product: fallback,
             color: selectedGarmentTypeColor || fallback.colors[0] || 'Black',
@@ -1559,7 +1559,7 @@ export function PublicQuoteRequest() {
           const updated = updater(defaultRack);
           setSelectedGarmentTypeColor(updated.color);
           return [{
-            id: defaultRack.id,
+            id: editingItemId,
             product: fallback,
             color: updated.color,
             garmentType: selectedGarmentType,
@@ -1574,8 +1574,8 @@ export function PublicQuoteRequest() {
           }];
         }
 
-        return prev.map((item, idx) => {
-          if (idx !== editingItemIdx) return item;
+        return prev.map(item => {
+          if (item.id !== editingItemId) return item;
           const placement = getBasicsPlacement(item.product);
           const rackLike: DesignRackItem = {
             id: item.id,
@@ -1615,7 +1615,7 @@ export function PublicQuoteRequest() {
 
   // Pointer Canvas Drag/Resize (Single Item Editor Modal)
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (editingItemIdx === null) return;
+    if (!editingItemId) return;
     const target = e.target as HTMLElement;
     const isResize = target.closest('.resize-handle');
     if (isResize) {
@@ -1644,7 +1644,7 @@ export function PublicQuoteRequest() {
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (editingItemIdx === null || !editorContainerRef.current) return;
+    if (!editingItemId || !editorContainerRef.current) return;
     const containerRect = editorContainerRef.current.getBoundingClientRect();
     const isBackView = editViewMode === 'back';
 
@@ -1922,11 +1922,11 @@ export function PublicQuoteRequest() {
 
   // Pre-load flatlay for edit canvas
   const editingProduct: DesignRackItem | null = (() => {
-    if (editingItemIdx === null) return null;
+    if (!editingItemId) return null;
     if (flowMode === 'racks') {
-      return rackItems[editingItemIdx] || null;
+      return rackItems.find(i => i.id === editingItemId) || null;
     } else if (flowMode === 'types') {
-      const item = selectedGarmentTypeItems[editingItemIdx];
+      const item = selectedGarmentTypeItems.find(i => i.id === editingItemId);
       if (!item) {
         const fallback = selectedGarmentTypeItem || curatedStorefrontProducts.find(p => detectGarmentTypeTag(p, catalogSettings.garmentTypeTags) === selectedGarmentType) || curatedStorefrontProducts[0];
         if (!fallback) return null;
@@ -1935,7 +1935,7 @@ export function PublicQuoteRequest() {
           ? selectedGarmentTypeColor
           : (fallback.colors.find(c => c.toLowerCase().includes('heather') || c.toLowerCase().includes('grey') || c.toLowerCase().includes('black')) || fallback.colors[0] || 'Black');
         return {
-          id: 'editing-fallback',
+          id: editingItemId,
           slot: selectedGarmentType,
           product: fallback,
           color: activeColor,
@@ -3180,7 +3180,7 @@ export function PublicQuoteRequest() {
                   {(() => {
                     const selectedRacks = rackItems.filter(i => i.selected);
                     const displayRacks = selectedRacks.length > 0 ? selectedRacks : (rackItems.length > 0 ? [rackItems[0]] : []);
-                    return displayRacks.map((item, itemIdx) => {
+                    return displayRacks.map(item => {
                       const activeSide = cardViewSides[item.id] || 'front';
                       const colorKey = item.color || item.product.colors[0];
                       const previewImg = resolveGarmentImage(item.product, colorKey, activeSide);
@@ -3315,7 +3315,7 @@ export function PublicQuoteRequest() {
                                 if (item.color) {
                                   setSelectedGarmentTypeColor(item.color);
                                 }
-                                setEditingItemIdx(itemIdx);
+                                setEditingItemId(item.id);
                                 setEditViewMode('front');
                                 setIsEditorOpen(true);
                               }}
@@ -3357,7 +3357,7 @@ export function PublicQuoteRequest() {
 
                   return (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-                      {displayItems.map((item, itemIdx) => {
+                      {displayItems.map(item => {
                         const activeSide = cardViewSides[item.id] || 'front';
                         const colorKey = item.color || item.product.colors[0];
                         const previewImg = resolveGarmentImage(item.product, colorKey, activeSide);
@@ -3494,11 +3494,11 @@ export function PublicQuoteRequest() {
                                     setSelectedGarmentTypeColor(chosenColor);
                                     setSelectedGarmentTypeItems(prev => {
                                       if (prev.length === 0) {
-                                        return [{ id: 'default-1', product: item.product, color: chosenColor, garmentType: selectedGarmentType }];
+                                        return [{ id: item.id, product: item.product, color: chosenColor, garmentType: selectedGarmentType }];
                                       }
                                       return prev.map(gi => gi.id === item.id ? { ...gi, color: chosenColor } : gi);
                                     });
-                                    setEditingItemIdx(itemIdx);
+                                    setEditingItemId(item.id);
                                     setEditViewMode('front');
                                     setZoom(1.0);
                                     setPanX(0);
@@ -4013,7 +4013,7 @@ export function PublicQuoteRequest() {
       })()}
 
       {/* SINGLE ITEM DESIGN CANVAS EDITOR MODAL */}
-      {isEditorOpen && editingItemIdx !== null && editingProduct && (() => {
+      {isEditorOpen && editingItemId && editingProduct && (() => {
         const isBack = editViewMode === 'back';
         const activeLogoPos = isBack ? editingProduct.backLogoPos : editingProduct.logoPos;
         const activeLogoScale = isBack ? editingProduct.backLogoScale : editingProduct.logoScale;
