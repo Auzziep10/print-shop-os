@@ -3277,11 +3277,14 @@ export function PublicQuoteRequest() {
 
                             <button
                               onClick={() => {
+                                if (item.color) {
+                                  setSelectedGarmentTypeColor(item.color);
+                                }
                                 setEditingItemIdx(itemIdx);
                                 setEditViewMode('front');
                                 setIsEditorOpen(true);
                               }}
-                              className="px-3.5 py-1.5 border border-neutral-200 text-neutral-700 hover:border-neutral-900 rounded-xl text-[10px] font-bold transition-all shadow-3xs"
+                              className="px-3.5 py-1.5 border border-neutral-200 text-neutral-700 hover:border-neutral-900 rounded-xl text-[10px] font-bold transition-all shadow-3xs cursor-pointer"
                             >
                               Edit Design
                             </button>
@@ -3432,7 +3435,9 @@ export function PublicQuoteRequest() {
                                         key={c}
                                         type="button"
                                         onClick={() => {
-                                          setSelectedGarmentTypeItems(prev => prev.map(gi => gi.id === item.id ? { ...gi, color: c } : gi));
+                                          const chosenColor = c;
+                                          setSelectedGarmentTypeColor(chosenColor);
+                                          setSelectedGarmentTypeItems(prev => prev.map(gi => gi.id === item.id ? { ...gi, color: chosenColor } : gi));
                                         }}
                                         className={`w-5 h-5 rounded-full border transition-all ${
                                           isColorActive ? 'ring-2 ring-neutral-900 ring-offset-1 scale-105' : 'border-neutral-350'
@@ -3450,6 +3455,9 @@ export function PublicQuoteRequest() {
                                 <button
                                   type="button"
                                   onClick={() => {
+                                    if (item.color) {
+                                      setSelectedGarmentTypeColor(item.color);
+                                    }
                                     setEditingItemIdx(itemIdx);
                                     setEditViewMode('front');
                                     setZoom(1.0);
