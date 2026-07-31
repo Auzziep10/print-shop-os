@@ -3221,7 +3221,7 @@ export function PublicQuoteRequest() {
                           {/* Placement frame — same 4:5 geometry as the design editor & mockup compiler */}
                           <div className="w-full h-full relative">
                             {/* Garment Image */}
-                            <img src={cardImage} className="w-full h-full object-contain pointer-events-none mix-blend-multiply p-3" alt={item.product.style} />
+                            <img src={cardImage} className={`w-full h-full object-contain pointer-events-none mix-blend-multiply p-3 transition-transform duration-200 ${activeSide === 'back' ? 'scale-[0.92]' : 'scale-100'}`} alt={item.product.style} />
 
                             {/* Overlay Projected Logo (only if NOT compiled into single image) */}
                             {!isCompiled && activeLogoScale > 0 && activeArtwork && (() => {
@@ -3401,7 +3401,7 @@ export function PublicQuoteRequest() {
 
                               {/* Placement frame */}
                               <div className="w-full h-full relative">
-                                <img src={cardImage} className="w-full h-full object-contain pointer-events-none mix-blend-multiply p-3" alt={item.product.style} />
+                                <img src={cardImage} className={`w-full h-full object-contain pointer-events-none mix-blend-multiply p-3 transition-transform duration-200 ${activeSide === 'back' ? 'scale-[0.92]' : 'scale-100'}`} alt={item.product.style} />
 
                                 {/* Projected logo (only if NOT compiled) */}
                                 {!isCompiled && activeLogoScale > 0 && activeArtwork && (
