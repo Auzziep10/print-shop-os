@@ -3163,7 +3163,7 @@ export function PublicQuoteRequest() {
                           </button>
                         )}
 
-                        <div className="relative aspect-[4/5] bg-transparent flex items-center justify-center p-6 border-b border-neutral-100 overflow-hidden select-none">
+                        <div className="relative aspect-[4/5] bg-transparent border-b border-neutral-100 overflow-hidden select-none">
                           
                           {/* Smart Decoration Badge */}
                           <div className="absolute top-4 left-4 z-10 bg-neutral-900/90 text-white text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded flex items-center gap-1 shadow-sm">
@@ -3197,9 +3197,8 @@ export function PublicQuoteRequest() {
                             </button>
                           </div>
 
-                          {/* Placement frame — same 4:5 geometry as the design editor & mockup compiler,
-                              so logoPos/logoScale render identically here, in Edit Design, and in the final mockup */}
-                          <div className="absolute inset-0 p-3">
+                          {/* Placement frame — same 4:5 geometry as the design editor & mockup compiler */}
+                          <div className="w-full h-full relative">
                             {/* Garment Image */}
                             <img src={previewImg} className="w-full h-full object-contain pointer-events-none mix-blend-multiply p-3" alt={item.product.style} />
 
@@ -3341,7 +3340,7 @@ export function PublicQuoteRequest() {
                               </button>
                             )}
 
-                            <div className="relative aspect-[4/5] bg-transparent flex items-center justify-center p-6 border-b border-neutral-100 overflow-hidden select-none">
+                            <div className="relative aspect-[4/5] bg-transparent border-b border-neutral-100 overflow-hidden select-none">
                               {/* Smart Decoration Badge */}
                               <div className="absolute top-4 left-4 z-10 bg-neutral-900/90 text-white text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded flex items-center gap-1 shadow-sm">
                                 {isEmbroidery ? (
@@ -3375,7 +3374,7 @@ export function PublicQuoteRequest() {
                               </div>
 
                               {/* Placement frame */}
-                              <div className="absolute inset-0 p-3">
+                              <div className="w-full h-full relative">
                                 <img src={previewImg} className="w-full h-full object-contain pointer-events-none mix-blend-multiply p-3" alt={item.product.style} />
 
                                 {/* Projected logo */}
