@@ -85,7 +85,8 @@ interface MockupCreatorProps {
       back?: { pos: { x: number; y: number }; scale: number; rotation: number };
       leftSleeve?: { pos: { x: number; y: number }; scale: number; rotation: number };
       rightSleeve?: { pos: { x: number; y: number }; scale: number; rotation: number };
-    }
+    },
+    compiledBackMockupUrl?: string
   ) => void;
 }
 
@@ -448,41 +449,6 @@ export function MockupCreator({
     setIsSaving(true);
 
     try {
-      const activeSides: {
-        img: string;
-        logo: string | null;
-        pos: { x: number; y: number };
-        scale: number;
-        rotation: number;
-        name: string;
-      }[] = [];
-
-      if (hasFront) activeSides.push({ img: garmentImageUrl, logo: logoUrlFront, pos: logoPosFront, scale: logoScaleFront, rotation: logoRotationFront, name: 'Front' });
-      if (hasBack) activeSides.push({ img: resolvedBackImageUrl || garmentImageUrl, logo: logoUrlBack, pos: logoPosBack, scale: logoScaleBack, rotation: logoRotationBack, name: 'Back' });
-      if (hasLeftSleeve) activeSides.push({ img: resolvedSleeveImageUrl || garmentImageUrl, logo: logoUrlLeftSleeve, pos: logoPosLeftSleeve, scale: logoScaleLeftSleeve, rotation: logoRotationLeftSleeve, name: 'Left Sleeve' });
-      if (hasRightSleeve) activeSides.push({ img: resolvedSleeveImageUrl || garmentImageUrl, logo: logoUrlRightSleeve, pos: logoPosRightSleeve, scale: logoScaleRightSleeve, rotation: logoRotationRightSleeve, name: 'Right Sleeve' });
-
-      if (activeSides.length === 0) {
-        activeSides.push({ img: garmentImageUrl, logo: null, pos: { x: 50, y: 35 }, scale: 0.3, rotation: 0, name: 'Front' });
-      }
-
-      const scaleFactor = 3;
-      const panelWidth = 600 * scaleFactor;
-      const canvasWidth = panelWidth * activeSides.length;
-      const canvasHeight = 600 * scaleFactor;
-
-      const canvas = document.createElement('canvas');
-      canvas.width = canvasWidth;
-      canvas.height = canvasHeight;
-      const ctx = canvas.getContext('2d');
-
-      if (!ctx) {
-        throw new Error('Could not create 2D context');
-      }
-
-      ctx.fillStyle = '#FFFFFF';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
       const loadImg = (src: string): Promise<HTMLImageElement> => {
         return new Promise((resolve, reject) => {
           const img = new Image();
@@ -495,13 +461,29 @@ export function MockupCreator({
         });
       };
 
-      const drawSide = async (garmentUrl: string, logoSrc: string | null, pos: { x: number; y: number }, scaleVal: number, rotationVal: number, canvasOffsetX: number, sideName: string) => {
-        const proxiedUrl = garmentUrl.startsWith('http')
-          ? `/api/sanmar/proxy-image?url=${encodeURIComponent(garmentUrl)}`
-          : garmentUrl;
+      const compileSingleSide = async (side: {
+        img: string;
+        logo: string | null;
+        pos: { x: number; y: number };
+        scale: number;
+        rotation: number;
+        name: string;
+      }): Promise<string> => {
+        const scaleFactor = 3;
+        const canvas = document.createElement('canvas');
+        canvas.width = 600 * scaleFactor;
+        canvas.height = 600 * scaleFactor;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) throw new Error('Could not create 2D context');
+
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        const proxiedUrl = side.img.startsWith('http')
+          ? `/api/sanmar/proxy-image?url=${encodeURIComponent(side.img)}`
+          : side.img;
 
         const garmentImg = await loadImg(proxiedUrl);
-
         const W = 500 * scaleFactor;
         const H = 500 * scaleFactor;
         const r = garmentImg.naturalWidth / garmentImg.naturalHeight;
@@ -522,63 +504,67 @@ export function MockupCreator({
         }
 
         ctx.save();
-        if (sideName === 'Right Sleeve') {
-          ctx.translate(canvasOffsetX + (50 * scaleFactor) + (250 * scaleFactor), (50 * scaleFactor) + (250 * scaleFactor));
+        if (side.name === 'Right Sleeve') {
+          ctx.translate((50 * scaleFactor) + (250 * scaleFactor), (50 * scaleFactor) + (250 * scaleFactor));
           ctx.scale(-1, 1);
           ctx.drawImage(garmentImg, -w_draw / 2, -h_draw / 2, w_draw, h_draw);
         } else {
-          ctx.drawImage(garmentImg, canvasOffsetX + (50 * scaleFactor) + x_draw, (50 * scaleFactor) + y_draw, w_draw, h_draw);
+          ctx.drawImage(garmentImg, (50 * scaleFactor) + x_draw, (50 * scaleFactor) + y_draw, w_draw, h_draw);
         }
         ctx.restore();
 
-        if (logoSrc) {
-          const logoImg = await loadImg(logoSrc);
-          const uiLogoW = (500 * scaleFactor) * scaleVal;
+        if (side.logo) {
+          const logoImg = await loadImg(side.logo);
+          const uiLogoW = (500 * scaleFactor) * side.scale;
           const logoAspect = logoImg.naturalHeight / logoImg.naturalWidth;
           const logoH = uiLogoW * logoAspect;
 
-          const logoCenterX = canvasOffsetX + (50 * scaleFactor) + (pos.x / 100) * (500 * scaleFactor);
-          const logoCenterY = (50 * scaleFactor) + (pos.y / 100) * (500 * scaleFactor);
+          const logoCenterX = (50 * scaleFactor) + (side.pos.x / 100) * (500 * scaleFactor);
+          const logoCenterY = (50 * scaleFactor) + (side.pos.y / 100) * (500 * scaleFactor);
 
           ctx.save();
           ctx.translate(logoCenterX, logoCenterY);
-          ctx.rotate((rotationVal * Math.PI) / 180);
+          ctx.rotate((side.rotation * Math.PI) / 180);
           ctx.drawImage(logoImg, -uiLogoW / 2, -logoH / 2, uiLogoW, logoH);
           ctx.restore();
         }
+
+        return new Promise((resolve, reject) => {
+          canvas.toBlob(async (blob) => {
+            if (!blob) return reject(new Error('Canvas blob failed'));
+            const mockupId = `mockup_${side.name.toLowerCase().replace(/\s+/g, '_')}_${Date.now()}`;
+            const fileRef = ref(storage, `public_quotes/mockups/${mockupId}.png`);
+            await uploadBytes(fileRef, blob, { contentType: 'image/png' });
+            const downloadUrl = await getDownloadURL(fileRef);
+            resolve(downloadUrl);
+          }, 'image/png');
+        });
       };
 
-      for (let i = 0; i < activeSides.length; i++) {
-        const side = activeSides[i];
-        await drawSide(side.img, side.logo, side.pos, side.scale, side.rotation, i * panelWidth, side.name);
+      const frontSide = { img: garmentImageUrl, logo: logoUrlFront, pos: logoPosFront, scale: logoScaleFront, rotation: logoRotationFront, name: 'Front' };
+      const frontMockupUrl = await compileSingleSide(frontSide);
+
+      let backMockupUrl: string | undefined = undefined;
+      if (hasBack) {
+        const backSide = { img: resolvedBackImageUrl || garmentImageUrl, logo: logoUrlBack, pos: logoPosBack, scale: logoScaleBack, rotation: logoRotationBack, name: 'Back' };
+        backMockupUrl = await compileSingleSide(backSide);
       }
 
-      canvas.toBlob(async (blob) => {
-        if (!blob) {
-          throw new Error('Canvas conversion to blob failed');
-        }
-
-        const mockupId = `mockup_${Date.now()}`;
-        const fileRef = ref(storage, `public_quotes/mockups/${mockupId}.png`);
-        
-        await uploadBytes(fileRef, blob, { contentType: 'image/png' });
-        const finalDownloadUrl = await getDownloadURL(fileRef);
-
-        onSave(
-          finalDownloadUrl,
-          logoUrlFront || '',
-          logoUrlBack || undefined,
-          logoUrlLeftSleeve || undefined,
-          logoUrlRightSleeve || undefined,
-          {
-            front: { pos: logoPosFront, scale: logoScaleFront, rotation: logoRotationFront },
-            back: { pos: logoPosBack, scale: logoScaleBack, rotation: logoRotationBack },
-            leftSleeve: { pos: logoPosLeftSleeve, scale: logoScaleLeftSleeve, rotation: logoRotationLeftSleeve },
-            rightSleeve: { pos: logoPosRightSleeve, scale: logoScaleRightSleeve, rotation: logoRotationRightSleeve }
-          }
-        );
-        onClose();
-      }, 'image/png');
+      onSave(
+        frontMockupUrl,
+        logoUrlFront || '',
+        logoUrlBack || undefined,
+        logoUrlLeftSleeve || undefined,
+        logoUrlRightSleeve || undefined,
+        {
+          front: { pos: logoPosFront, scale: logoScaleFront, rotation: logoRotationFront },
+          back: { pos: logoPosBack, scale: logoScaleBack, rotation: logoRotationBack },
+          leftSleeve: { pos: logoPosLeftSleeve, scale: logoScaleLeftSleeve, rotation: logoRotationLeftSleeve },
+          rightSleeve: { pos: logoPosRightSleeve, scale: logoScaleRightSleeve, rotation: logoRotationRightSleeve }
+        },
+        backMockupUrl
+      );
+      onClose();
 
     } catch (err) {
       console.error('Error generating mockup canvas:', err);
