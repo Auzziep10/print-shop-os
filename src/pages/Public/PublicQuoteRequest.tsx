@@ -209,6 +209,8 @@ interface DesignRackItem {
   decoration: 'Print' | 'Embroidery';
   customLogoUrl?: string;
   customBackLogoUrl?: string;
+  compiledMockupUrl?: string;
+  compiledBackMockupUrl?: string;
 }
 
 // Admin-defined logo placement box (see StorefrontCatalogTab): center x/y + size,
@@ -506,6 +508,8 @@ export function PublicQuoteRequest() {
     backLogoRotation?: number;
     customLogoUrl?: string;
     customBackLogoUrl?: string;
+    compiledMockupUrl?: string;
+    compiledBackMockupUrl?: string;
   }[]>([]);
   const [cardViewSides, setCardViewSides] = useState<Record<string, 'front' | 'back'>>({});
   const [garmentPickerType, setGarmentPickerType] = useState<GarmentTypeId | null>(null);
@@ -3121,6 +3125,9 @@ export function PublicQuoteRequest() {
                       const activeSide = cardViewSides[item.id] || 'front';
                       const colorKey = item.color || item.product.colors[0];
                       const previewImg = getGarmentMockupImage(item.product, colorKey, activeSide, catalogSettings, selectedThemeCategory, item.slot);
+                      const compiledImg = activeSide === 'back' ? item.compiledBackMockupUrl : item.compiledMockupUrl;
+                      const cardImage = compiledImg || previewImg;
+                      const isCompiled = Boolean(compiledImg);
                       const placement = getBasicsPlacement(item.product);
 
                       const activeLogoPos = activeSide === 'back' ? (item.backLogoPos || { x: 50, y: 35 }) : (item.logoPos || placement.pos);
@@ -3186,10 +3193,10 @@ export function PublicQuoteRequest() {
                           {/* Placement frame — same 4:5 geometry as the design editor & mockup compiler */}
                           <div className="w-full h-full relative">
                             {/* Garment Image */}
-                            <img src={previewImg} className="w-full h-full object-contain pointer-events-none mix-blend-multiply p-3" alt={item.product.style} />
+                            <img src={cardImage} className="w-full h-full object-contain pointer-events-none mix-blend-multiply p-3" alt={item.product.style} />
 
-                            {/* Overlay Projected Logo */}
-                            {activeLogoScale > 0 && (
+                            {/* Overlay Projected Logo (only if NOT compiled into single image) */}
+                            {!isCompiled && activeLogoScale > 0 && (
                               <div
                                 style={{
                                   position: 'absolute',
@@ -3232,7 +3239,7 @@ export function PublicQuoteRequest() {
                                   <button
                                     key={c}
                                     type="button"
-                                    onClick={() => setRackItems(prev => prev.map(ri => ri.id === item.id ? { ...ri, color: c } : ri))}
+                                    onClick={() => setRackItems(prev => prev.map(ri => ri.id === item.id ? { ...ri, color: c, compiledMockupUrl: undefined, compiledBackMockupUrl: undefined } : ri))}
                                     className={`w-5 h-5 rounded-full border transition-all ${
                                       isColorActive ? 'ring-2 ring-neutral-900 ring-offset-1 scale-105' : 'border-neutral-350'
                                     }`}
@@ -3297,6 +3304,9 @@ export function PublicQuoteRequest() {
                         const activeSide = cardViewSides[item.id] || 'front';
                         const colorKey = item.color || item.product.colors[0];
                         const previewImg = getGarmentMockupImage(item.product, colorKey, activeSide, catalogSettings);
+                        const compiledImg = activeSide === 'back' ? (item as any).compiledBackMockupUrl : (item as any).compiledMockupUrl;
+                        const cardImage = compiledImg || previewImg;
+                        const isCompiled = Boolean(compiledImg);
                         const placement = getBasicsPlacement(item.product);
                         
                         const activeLogoPos = activeSide === 'back' ? (item.backLogoPos || { x: 50, y: 35 }) : (item.logoPos || placement.pos);
@@ -3360,10 +3370,10 @@ export function PublicQuoteRequest() {
 
                               {/* Placement frame */}
                               <div className="w-full h-full relative">
-                                <img src={previewImg} className="w-full h-full object-contain pointer-events-none mix-blend-multiply p-3" alt={item.product.style} />
+                                <img src={cardImage} className="w-full h-full object-contain pointer-events-none mix-blend-multiply p-3" alt={item.product.style} />
 
-                                {/* Projected logo */}
-                                {activeLogoScale > 0 && (
+                                {/* Projected logo (only if NOT compiled) */}
+                                {!isCompiled && activeLogoScale > 0 && (
                                   <div
                                     style={{
                                       position: 'absolute',
@@ -3407,7 +3417,7 @@ export function PublicQuoteRequest() {
                                         onClick={() => {
                                           const chosenColor = c;
                                           setSelectedGarmentTypeColor(chosenColor);
-                                          setSelectedGarmentTypeItems(prev => prev.map(gi => gi.id === item.id ? { ...gi, color: chosenColor } : gi));
+                                          setSelectedGarmentTypeItems(prev => prev.map(gi => gi.id === item.id ? { ...gi, color: chosenColor, compiledMockupUrl: undefined, compiledBackMockupUrl: undefined } : gi));
                                         }}
                                         className={`w-5 h-5 rounded-full border transition-all ${
                                           isColorActive ? 'ring-2 ring-neutral-900 ring-offset-1 scale-105' : 'border-neutral-350'
