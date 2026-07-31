@@ -3970,6 +3970,18 @@ export function PublicQuoteRequest() {
           garmentBackImageUrl={getGarmentMockupImage(editingProduct.product, editingProduct.color, 'back', catalogSettings, selectedThemeCategory, editingProduct.slot)}
           garmentName={getCustomGarmentName(editingProduct.product, catalogSettings, selectedThemeCategory, editingProduct.slot)}
           colorName={editingProduct.color}
+          availableColors={editingProduct.product.colors}
+          onColorChange={(newColor) => {
+            if (editingProduct.color !== newColor) {
+              setSelectedGarmentTypeColor(newColor);
+              updateEditingItem(item => ({
+                ...item,
+                color: newColor,
+                compiledMockupUrl: undefined,
+                compiledBackMockupUrl: undefined
+              }));
+            }
+          }}
           initialLogoUrl={editingProduct.customLogoUrl && !editingProduct.customLogoUrl.includes('mockup') ? editingProduct.customLogoUrl : logoUrl}
           initialLogoUrlBack={editingProduct.customBackLogoUrl && !editingProduct.customBackLogoUrl.includes('mockup') ? editingProduct.customBackLogoUrl : ((editingProduct.backLogoScale && editingProduct.backLogoScale > 0) ? logoUrl : null)}
           onSave={(compiledMockupUrl, frontLogo, backLogo, _leftSleeve, _rightSleeve, placements) => {

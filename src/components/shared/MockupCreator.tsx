@@ -4,6 +4,7 @@ import { storage } from '../../lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
 import { generateRotatedGarment } from '../../lib/geminiService';
+import { getSwatchColor } from './GarmentBrowser';
 
 const sanmarCatalog = sanmarCatalogJson as any[];
 
@@ -67,6 +68,8 @@ interface MockupCreatorProps {
   garmentRightSleeveImageUrl?: string | null;
   garmentName: string;
   colorName: string;
+  availableColors?: string[];
+  onColorChange?: (color: string) => void;
   initialLogoUrl: string | null;
   initialLogoUrlBack?: string | null;
   initialLogoUrlLeftSleeve?: string | null;
@@ -95,6 +98,8 @@ export function MockupCreator({
   // garmentRightSleeveImageUrl is unused and excluded from destructuring to avoid compiler errors
   garmentName,
   colorName,
+  availableColors,
+  onColorChange,
   initialLogoUrl,
   initialLogoUrlBack,
   initialLogoUrlLeftSleeve,
@@ -590,7 +595,32 @@ export function MockupCreator({
       <div className="px-8 py-5 border-b border-neutral-100 flex items-center justify-between bg-neutral-50/50 shrink-0">
         <div>
           <h3 className="text-xl font-bold font-serif text-brand-primary leading-tight">{garmentName}</h3>
-          <p className="text-xs font-semibold text-brand-secondary mt-1">{colorName}</p>
+          <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+            <span className="text-xs font-bold text-neutral-600 uppercase tracking-wider">{colorName}</span>
+            {availableColors && availableColors.length > 0 && (
+              <div className="flex gap-1.5 items-center pl-3 border-l border-neutral-200">
+                {availableColors.map(c => {
+                  const swatchHex = getSwatchColor(c, true);
+                  const isColorActive = colorName.toLowerCase() === c.toLowerCase();
+                  return (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => onColorChange?.(c)}
+                      className={`w-5 h-5 rounded-full border transition-all cursor-pointer ${
+                        isColorActive ? 'ring-2 ring-neutral-900 ring-offset-1 scale-110 shadow-xs' : 'border-neutral-300 hover:scale-105 opacity-80 hover:opacity-100'
+                      }`}
+                      style={{
+                        backgroundColor: swatchHex.startsWith('linear-gradient') ? 'transparent' : swatchHex,
+                        backgroundImage: swatchHex.startsWith('linear-gradient') ? swatchHex : 'none'
+                      }}
+                      title={`Switch color to ${c}`}
+                    />
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
         <button onClick={onClose} className="w-10 h-10 rounded-full bg-white border border-neutral-200 flex items-center justify-center text-neutral-500 hover:text-black hover:border-black transition-all shadow-sm cursor-pointer animate-in zoom-in duration-200">
           <X size={20} />
@@ -646,10 +676,10 @@ export function MockupCreator({
           {/* Garment + Logo Wrapper */}
           <div 
             ref={containerRef}
-            className="relative flex-1 min-h-0 max-h-[calc(100vh-260px)] aspect-square bg-white rounded-[2rem] shadow-lg border border-neutral-200/60 overflow-hidden flex items-center justify-center cursor-default transition-all duration-300 hover:shadow-xl"
+            className="relative flex-1 min-h-0 max-h-[calc(100vh-240px)] aspect-[4/5] bg-transparent flex items-center justify-center cursor-default transition-all duration-300"
           >
-            {/* Zoom Wrapper to enlarge shirt */}
-            <div className="relative w-full h-full flex items-center justify-center scale-[1.1]">
+            {/* Shirt Wrapper */}
+            <div className="relative w-full h-full flex items-center justify-center p-1">
               {/* Proxied or direct garment image */}
               {(!needsGeneration || isGenerated) && (
                 <img 
