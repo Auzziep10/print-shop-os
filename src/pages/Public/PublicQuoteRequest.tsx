@@ -1133,35 +1133,7 @@ export function PublicQuoteRequest() {
       }
     }
 
-    // 3. Custom slot mockup lookup across racks / basics (if no color-specific image found)
-    if (styleKey) {
-      if (catalogSettings.racks) {
-        for (const cat of Object.keys(catalogSettings.racks)) {
-          const catObj = catalogSettings.racks[cat];
-          if (catObj && typeof catObj === 'object') {
-            for (const sKey of Object.keys(catObj)) {
-              if (catObj[sKey]?.toLowerCase() === styleKey && catalogSettings.customMockups?.racks?.[cat]?.[sKey]) {
-                return catalogSettings.customMockups.racks[cat][sKey];
-              }
-            }
-          }
-        }
-      }
-      if (catalogSettings.basics) {
-        for (const cat of Object.keys(catalogSettings.basics)) {
-          const catObj = catalogSettings.basics[cat];
-          if (catObj && typeof catObj === 'object') {
-            for (const sKey of Object.keys(catObj)) {
-              if (catObj[sKey]?.toLowerCase() === styleKey && catalogSettings.customMockups?.basics?.[cat]?.[sKey]) {
-                return catalogSettings.customMockups.basics[cat][sKey];
-              }
-            }
-          }
-        }
-      }
-    }
-
-    // 4. Ultimate fallback to first available catalog image
+    // 3. Fallback to first available catalog image
     const firstImgSet = Object.values(item.images || {})[0];
     if (firstImgSet) {
       if (typeof firstImgSet === 'string') return firstImgSet;
@@ -3185,9 +3157,19 @@ export function PublicQuoteRequest() {
                     const selectedRacks = rackItems.filter(i => i.selected);
                     const displayRacks = selectedRacks.length > 0 ? selectedRacks : (rackItems.length > 0 ? [rackItems[0]] : []);
                     return displayRacks.map((item, itemIdx) => {
-                      const previewColor = item.color;
-                      const customSlotMockup = catalogSettings.customMockups?.racks?.[selectedThemeCategory]?.[item.slot];
-                      const previewImg = customSlotMockup || resolveGarmentImage(item.product, previewColor);
+                      const activeSide = cardViewSides[item.id] || 'front';
+                      const colorKey = item.color || item.product.colors[0];
+                      const previewImg = resolveGarmentImage(item.product, colorKey, activeSide);
+                      const placement = getBasicsPlacement(item.product);
+
+                      const activeLogoPos = activeSide === 'back' ? (item.backLogoPos || { x: 50, y: 35 }) : (item.logoPos || placement.pos);
+                      const activeLogoScale = activeSide === 'back' ? (item.backLogoScale ?? 0) : (item.logoScale ?? placement.scale);
+                      const activeLogoRotation = activeSide === 'back' ? (item.backLogoRotation ?? 0) : (item.logoRotation ?? placement.rotation ?? 0);
+                      const activeArtwork = activeSide === 'back' ? (item.customBackLogoUrl || logoUrl!) : (item.customLogoUrl || logoUrl!);
+                      const hasBackPrint = (item.backLogoScale && item.backLogoScale > 0) || Boolean(item.customBackLogoUrl);
+
+                      const isEmbroidery = item.decoration === 'Embroidery';
+                      const isDark = ['black', 'dark', 'navy', 'patriot', 'charcoal', 'graphite', 'carbon', 'obsidian', 'maroon', 'cardinal', 'burgundy'].some(c => colorKey.toLowerCase().includes(c));
 
                     return (
                       <div 
@@ -3198,15 +3180,34 @@ export function PublicQuoteRequest() {
                           
                           {/* Smart Decoration Badge */}
                           <div className="absolute top-4 left-4 z-10 bg-neutral-900/90 text-white text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded flex items-center gap-1 shadow-sm">
-                            {item.decoration === 'Embroidery' ? (
+                            {isEmbroidery ? (
                               <><Scissors size={10} /> Embroidery</>
                             ) : (
                               <><Shirt size={10} /> Premium Print</>
                             )}
                           </div>
 
-                          <div className="absolute top-4 right-4 z-10 bg-neutral-50 border border-neutral-200 text-neutral-500 text-[8px] uppercase font-bold tracking-widest px-2 py-0.5 rounded">
-                            {item.slot}
+                          {/* View Side Toggle (Front vs Back) */}
+                          <div className="absolute top-4 right-4 z-10 flex items-center bg-white/90 border border-neutral-200 rounded-lg p-0.5 shadow-3xs backdrop-blur-xs">
+                            <button
+                              type="button"
+                              onClick={() => setCardViewSides(prev => ({ ...prev, [item.id]: 'front' }))}
+                              className={`px-2 py-0.5 text-[9px] font-bold rounded transition-all cursor-pointer ${
+                                activeSide === 'front' ? 'bg-neutral-900 text-white shadow-xs' : 'text-neutral-600 hover:bg-neutral-100'
+                              }`}
+                            >
+                              Front
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setCardViewSides(prev => ({ ...prev, [item.id]: 'back' }))}
+                              className={`px-2 py-0.5 text-[9px] font-bold rounded transition-all cursor-pointer flex items-center gap-1 ${
+                                activeSide === 'back' ? 'bg-neutral-900 text-white shadow-xs' : 'text-neutral-600 hover:bg-neutral-100'
+                              }`}
+                            >
+                              <span>Back</span>
+                              {hasBackPrint && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" title="Back print active" />}
+                            </button>
                           </div>
 
                           {/* Placement frame — same 4:5 geometry as the design editor & mockup compiler,
@@ -3216,29 +3217,30 @@ export function PublicQuoteRequest() {
                             <img src={previewImg} className="absolute inset-0 w-full h-full object-contain pointer-events-none mix-blend-multiply" alt={item.product.style} />
 
                             {/* Overlay Projected Logo */}
-                            <div
-                              style={{
-                                position: 'absolute',
-                                left: `${item.logoPos.x}%`,
-                                top: `${item.logoPos.y}%`,
-                                width: `${item.logoScale * 100}%`,
-                                transform: 'translate(-50%, -50%)',
-                                pointerEvents: 'none'
-                              }}
-                            >
-                              <img
-                                src={logoUrl}
-                                alt="overlay"
+                            {activeLogoScale > 0 && (
+                              <div
                                 style={{
-                                  transform: `rotate(${item.logoRotation}deg)`,
-                                  width: '100%',
-                                  height: 'auto',
-                                  filter: item.decoration === 'Embroidery' ? 'drop-shadow(1.5px 1.5px 1.5px rgba(0,0,0,0.38))' : 'none',
-                                  mixBlendMode: ['black', 'dark', 'navy', 'patriot', 'charcoal', 'graphite', 'carbon', 'obsidian', 'maroon', 'cardinal', 'burgundy'].some(c => item.color.toLowerCase().includes(c)) ? 'normal' : 'multiply'
+                                  position: 'absolute',
+                                  left: `${activeLogoPos.x}%`,
+                                  top: `${activeLogoPos.y}%`,
+                                  width: `${activeLogoScale * 100}%`,
+                                  transform: `translate(-50%, -50%) rotate(${activeLogoRotation}deg)`,
+                                  pointerEvents: 'none'
                                 }}
-                                className="object-contain"
-                              />
-                            </div>
+                              >
+                                <img
+                                  src={activeArtwork}
+                                  alt="overlay"
+                                  style={{
+                                    width: '100%',
+                                    height: 'auto',
+                                    filter: isEmbroidery ? 'drop-shadow(1.5px 1.5px 1.5px rgba(0,0,0,0.38))' : 'none',
+                                    mixBlendMode: isDark ? 'normal' : 'multiply'
+                                  }}
+                                  className="object-contain"
+                                />
+                              </div>
+                            )}
                           </div>
                         </div>
 
