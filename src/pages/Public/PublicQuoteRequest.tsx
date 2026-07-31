@@ -12,6 +12,7 @@ import {
   Settings,
   Phone,
   ChevronLeft,
+  ChevronDown,
   X,
   Scissors, 
   UserPlus,
@@ -451,6 +452,7 @@ export function PublicQuoteRequest() {
     backLogoRotation?: number;
   }[]>([]);
   const [editorLogoFilter, setEditorLogoFilter] = useState<'original' | 'white' | 'black'>('original');
+  const [isGarmentColorDropdownOpen, setIsGarmentColorDropdownOpen] = useState(false);
 
   // Quick-add garment to lookbook collection directly from Step 3
   const handleAddGarmentToLookbook = (garmentTypeId: GarmentTypeId) => {
@@ -3922,33 +3924,80 @@ export function PublicQuoteRequest() {
                     </div>
                   </div>
 
-                  {/* Garment Color Swatches */}
-                  <div className="space-y-2">
-                    <span className="text-[10px] font-bold text-neutral-400 block uppercase tracking-wider">Garment Color</span>
-                    <div className="flex gap-1.5 overflow-x-auto scrollbar-none py-1">
-                      {editingProduct.product.colors.map(c => {
-                        const swatchHex = getSwatchColor(c, true);
-                        const isColorActive = editingProduct.color === c;
-                        return (
-                          <button
-                            key={c}
-                            type="button"
-                            onClick={() => {
-                              setRackItems(prev => prev.map((item, idx) => idx === editingItemIdx ? { ...item, color: c } : item));
-                            }}
-                            className={`w-6 h-6 rounded-full border transition-all cursor-pointer ${
-                              isColorActive ? 'ring-2 ring-neutral-900 ring-offset-1 scale-105' : 'border-neutral-300 hover:scale-105'
-                            }`}
-                            style={{
-                              backgroundColor: swatchHex.startsWith('linear-gradient') ? 'transparent' : swatchHex,
-                              backgroundImage: swatchHex.startsWith('linear-gradient') ? swatchHex : 'none'
-                            }}
-                            title={c}
-                          />
-                        );
-                      })}
+                  {/* Garment Color Selection Dropdown */}
+                  {editingProduct.product.colors && editingProduct.product.colors.length > 0 && (
+                    <div className="space-y-2">
+                      <span className="text-[10px] font-bold text-neutral-400 block uppercase tracking-wider">Garment Color</span>
+                      
+                      <div className="relative">
+                        {/* Trigger Button */}
+                        <button
+                          type="button"
+                          onClick={() => setIsGarmentColorDropdownOpen(!isGarmentColorDropdownOpen)}
+                          className="w-full bg-white border border-neutral-200 hover:border-neutral-400 rounded-xl px-3.5 py-2.5 text-xs font-bold flex items-center justify-between transition-all cursor-pointer shadow-3xs"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <span 
+                              className="w-4 h-4 rounded-full border border-neutral-300 shrink-0"
+                              style={{
+                                backgroundColor: getSwatchColor(editingProduct.color, true).startsWith('linear-gradient') ? 'transparent' : getSwatchColor(editingProduct.color, true),
+                                backgroundImage: getSwatchColor(editingProduct.color, true).startsWith('linear-gradient') ? getSwatchColor(editingProduct.color, true) : 'none',
+                              }}
+                            />
+                            <span className="uppercase tracking-wide text-neutral-800 truncate">{editingProduct.color}</span>
+                          </div>
+                          <ChevronDown className={`w-4 h-4 text-neutral-400 transition-transform duration-200 shrink-0 ml-2 ${isGarmentColorDropdownOpen ? 'rotate-180' : ''}`} />
+                        </button>
+
+                        {/* Dropdown Menu */}
+                        {isGarmentColorDropdownOpen && (
+                          <>
+                            {/* Backdrop to close dropdown on click-away */}
+                            <div 
+                              className="fixed inset-0 z-[110]" 
+                              onClick={() => setIsGarmentColorDropdownOpen(false)}
+                            />
+                            
+                            <div className="absolute left-0 right-0 mt-1.5 bg-white border border-neutral-200 rounded-xl shadow-xl max-h-[220px] overflow-y-auto z-[115] p-1.5 flex flex-col gap-0.5 scrollbar-none animate-in fade-in slide-in-from-top-2 duration-150">
+                              {editingProduct.product.colors.map((c: string) => {
+                                const isSelected = editingProduct.color === c;
+                                const swatchHex = getSwatchColor(c, true);
+                                return (
+                                  <button
+                                    key={c}
+                                    type="button"
+                                    onClick={() => {
+                                      updateEditingItem(item => ({ ...item, color: c }));
+                                      setIsGarmentColorDropdownOpen(false);
+                                    }}
+                                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                                      isSelected 
+                                        ? 'bg-neutral-900 text-white' 
+                                        : 'text-neutral-700 hover:bg-neutral-100'
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-2.5 truncate">
+                                      <span 
+                                        className={`w-3.5 h-3.5 rounded-full border shrink-0 ${isSelected ? 'border-white/40' : 'border-neutral-300'}`}
+                                        style={{
+                                          backgroundColor: swatchHex.startsWith('linear-gradient') ? 'transparent' : swatchHex,
+                                          backgroundImage: swatchHex.startsWith('linear-gradient') ? swatchHex : 'none',
+                                        }}
+                                      />
+                                      <span className="uppercase tracking-wide truncate">{c}</span>
+                                    </div>
+                                    {isSelected && (
+                                      <Check size={14} strokeWidth={3} className="text-white shrink-0 ml-2" />
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </>
+                        )}
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   {/* Logo Recolor & Background Remover Tools */}
                   <div className="space-y-2.5 pt-2 border-t border-neutral-100">
