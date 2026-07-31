@@ -4002,31 +4002,33 @@ export function PublicQuoteRequest() {
             logoUrl: editingProduct.customLogoUrl && !editingProduct.customLogoUrl.includes('mockup') ? editingProduct.customLogoUrl : logoUrl,
             logoName: artworkName || 'Logo.png',
             artworkName: artworkName || 'Logo.png',
-            logoUrlBack: editingProduct.customBackLogoUrl && !editingProduct.customBackLogoUrl.includes('mockup') ? editingProduct.customBackLogoUrl : ((editingProduct.backLogoScale && editingProduct.backLogoScale > 0) ? logoUrl : null),
+            logoUrlBack: editingProduct.customBackLogoUrl && !editingProduct.customBackLogoUrl.includes('mockup') ? editingProduct.customBackLogoUrl : null,
             logoPlacementFront: editingProduct.logoPos ? { xPct: editingProduct.logoPos.x, yPct: editingProduct.logoPos.y } : undefined,
             customScaleFront: editingProduct.logoScale ? (editingProduct.logoScale <= 1 ? Math.round(editingProduct.logoScale * 100) : editingProduct.logoScale) : 38,
             customRotationFront: editingProduct.logoRotation,
             logoPlacementBack: editingProduct.backLogoPos ? { xPct: editingProduct.backLogoPos.x, yPct: editingProduct.backLogoPos.y } : undefined,
-            customScaleBack: editingProduct.backLogoScale ? (editingProduct.backLogoScale <= 1 ? Math.round(editingProduct.backLogoScale * 100) : editingProduct.backLogoScale) : 38,
+            customScaleBack: (editingProduct.backLogoScale && editingProduct.backLogoScale > 0) ? (editingProduct.backLogoScale <= 1 ? Math.round(editingProduct.backLogoScale * 100) : editingProduct.backLogoScale) : 0,
             customRotationBack: editingProduct.backLogoRotation,
           }}
           customerId="PUBLIC_VISITOR"
           onSave={(customizedData) => {
             const cleanFrontLogo = customizedData.logoUrl && !customizedData.logoUrl.includes('mockup') ? customizedData.logoUrl : undefined;
             const cleanBackLogo = customizedData.logoUrlBack && !customizedData.logoUrlBack.includes('mockup') ? customizedData.logoUrlBack : undefined;
+            const hasBackLogo = Boolean(customizedData.selectedLogoBack?.url || cleanBackLogo);
+
             updateEditingItem(item => {
               const rawFrontScale = customizedData.customScaleFront ?? item.logoScale;
               const normFrontScale = rawFrontScale > 1 ? rawFrontScale / 100 : rawFrontScale;
               const rawBackScale = customizedData.customScaleBack ?? item.backLogoScale;
-              const normBackScale = rawBackScale > 1 ? rawBackScale / 100 : rawBackScale;
+              const normBackScale = hasBackLogo ? (rawBackScale > 1 ? rawBackScale / 100 : rawBackScale) : 0;
 
               return {
                 ...item,
                 color: customizedData.selectedColor || item.color,
                 compiledMockupUrl: customizedData.customizedFrontImage || item.compiledMockupUrl,
-                compiledBackMockupUrl: customizedData.customizedBackImage || item.compiledBackMockupUrl,
+                compiledBackMockupUrl: hasBackLogo ? (customizedData.customizedBackImage || item.compiledBackMockupUrl) : undefined,
                 customLogoUrl: cleanFrontLogo || item.customLogoUrl,
-                customBackLogoUrl: cleanBackLogo || item.customBackLogoUrl,
+                customBackLogoUrl: hasBackLogo ? cleanBackLogo : undefined,
                 logoPos: customizedData.logoPlacementFront ? { x: customizedData.logoPlacementFront.xPct, y: customizedData.logoPlacementFront.yPct } : item.logoPos,
                 logoScale: normFrontScale,
                 logoRotation: customizedData.customRotationFront ?? item.logoRotation,
