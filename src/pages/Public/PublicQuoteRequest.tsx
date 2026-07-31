@@ -228,9 +228,12 @@ interface LogoBox {
 const FRAME_H_OVER_W = 5 / 4; // aspect-[4/5] placement frame
 const fitLogoToBox = (box: LogoBox, logoAspect: number): { pos: { x: number; y: number }; scale: number; rotation: number } => {
   const safeAspect = logoAspect > 0 ? logoAspect : 1;
-  const widthByHeightConstraint = ((box.h / 100) * FRAME_H_OVER_W) / safeAspect;
-  const scale = Math.min(box.w / 100, widthByHeightConstraint);
-  const clampedScale = Math.max(0.12, Math.min(0.85, scale));
+  let scale = box.w / 100;
+  if (safeAspect < 1) {
+    const widthByHeightConstraint = ((box.h / 100) * FRAME_H_OVER_W) / safeAspect;
+    scale = Math.min(scale, widthByHeightConstraint);
+  }
+  const clampedScale = Math.max(0.25, Math.min(0.85, scale));
   return { pos: { x: box.x, y: box.y }, scale: clampedScale, rotation: box.r ?? 0 };
 };
 
@@ -743,11 +746,17 @@ export function PublicQuoteRequest() {
         const prevItem = rackItems.find(r => r.slot === slot);
         const isSelected = prevItem ? prevItem.selected : (!hasAnySelected && slotIdx === 0);
 
+        const configuredColor =
+          (themeName && slot && catalogSettings.defaultColors?.racks?.[themeName]?.[slot]) ||
+          (slot && Object.values(catalogSettings.defaultColors?.racks || {}).find((catSlots: any) => catSlots?.[slot])?.[slot]);
+
+        const itemColor = configuredColor || prevItem?.color || displayProduct.colors[0];
+
         items.push({
           id: prevItem ? prevItem.id : `${slot}-${Date.now()}`,
           slot,
           product: displayProduct,
-          color: prevItem ? prevItem.color : (catalogSettings.defaultColors?.racks?.[themeName]?.[slot] || displayProduct.colors[0]),
+          color: itemColor,
           selected: isSelected,
           logoPos: fitted ? fitted.pos : (prevItem?.logoPos || (isHat ? { x: 50, y: 35 } : isPolo ? { x: 38, y: 30 } : { x: 50, y: 35 })),
           logoScale: fitted ? fitted.scale : (prevItem?.logoScale || (isHat ? 0.22 : isPolo ? 0.18 : 0.38)),
