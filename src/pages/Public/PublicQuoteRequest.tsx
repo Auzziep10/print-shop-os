@@ -749,12 +749,12 @@ export function PublicQuoteRequest() {
           product: displayProduct,
           color: prevItem ? prevItem.color : (catalogSettings.defaultColors?.racks?.[themeName]?.[slot] || displayProduct.colors[0]),
           selected: isSelected,
-          logoPos: fitted ? fitted.pos : isHat ? { x: 50, y: 35 } : isPolo ? { x: 38, y: 30 } : { x: 50, y: 35 },
-          logoScale: fitted ? fitted.scale : isHat ? 0.22 : isPolo ? 0.18 : 0.38,
-          logoRotation: fitted ? fitted.rotation : 0,
-          backLogoPos: { x: 50, y: 35 },
-          backLogoScale: 0,
-          backLogoRotation: 0,
+          logoPos: fitted ? fitted.pos : (prevItem?.logoPos || (isHat ? { x: 50, y: 35 } : isPolo ? { x: 38, y: 30 } : { x: 50, y: 35 })),
+          logoScale: fitted ? fitted.scale : (prevItem?.logoScale || (isHat ? 0.22 : isPolo ? 0.18 : 0.38)),
+          logoRotation: fitted ? fitted.rotation : (prevItem?.logoRotation || 0),
+          backLogoPos: prevItem?.backLogoPos || { x: 50, y: 35 },
+          backLogoScale: prevItem?.backLogoScale || 0,
+          backLogoRotation: prevItem?.backLogoRotation || 0,
           printSize: isHat ? 'Small' : isPolo ? 'Small' : 'Medium',
           decoration: (isHat || isPolo) ? 'Embroidery' : 'Print'
         });
@@ -3207,30 +3207,33 @@ export function PublicQuoteRequest() {
                             <img src={cardImage} className="w-full h-full object-contain pointer-events-none mix-blend-multiply p-3" alt={item.product.style} />
 
                             {/* Overlay Projected Logo (only if NOT compiled into single image) */}
-                            {!isCompiled && activeLogoScale > 0 && (
-                              <div
-                                style={{
-                                  position: 'absolute',
-                                  left: `${activeLogoPos.x}%`,
-                                  top: `${activeLogoPos.y}%`,
-                                  width: `${activeLogoScale * 100}%`,
-                                  transform: `translate(-50%, -50%) rotate(${activeLogoRotation}deg)`,
-                                  pointerEvents: 'none'
-                                }}
-                              >
-                                <img
-                                  src={activeArtwork}
-                                  alt="overlay"
+                            {!isCompiled && activeLogoScale > 0 && (() => {
+                              const normCardScale = activeLogoScale > 1 ? activeLogoScale : activeLogoScale * 100;
+                              return (
+                                <div
                                   style={{
-                                    width: '100%',
-                                    height: 'auto',
-                                    filter: isEmbroidery ? 'drop-shadow(1.5px 1.5px 1.5px rgba(0,0,0,0.38))' : 'none',
-                                    mixBlendMode: isDark ? 'normal' : 'multiply'
+                                    position: 'absolute',
+                                    left: `${activeLogoPos.x}%`,
+                                    top: `${activeLogoPos.y}%`,
+                                    width: `${normCardScale}%`,
+                                    transform: `translate(-50%, -50%) rotate(${activeLogoRotation}deg)`,
+                                    pointerEvents: 'none'
                                   }}
-                                  className="object-contain"
-                                />
-                              </div>
-                            )}
+                                >
+                                  <img
+                                    src={activeArtwork}
+                                    alt="overlay"
+                                    style={{
+                                      width: '100%',
+                                      height: 'auto',
+                                      filter: isEmbroidery ? 'drop-shadow(1.5px 1.5px 1.5px rgba(0,0,0,0.38))' : 'none',
+                                      mixBlendMode: isDark ? 'normal' : 'multiply'
+                                    }}
+                                    className="object-contain"
+                                  />
+                                </div>
+                              );
+                            })()}
                           </div>
                         </div>
 
