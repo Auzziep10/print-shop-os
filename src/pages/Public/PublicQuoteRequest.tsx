@@ -2918,27 +2918,25 @@ export function PublicQuoteRequest() {
 
         {/* STEP 3: THE CLOTHING LOOKBOOK RACK */}
         {step === 3 && logoUrl && (
-          <div className="space-y-8 animate-in fade-in duration-500">
-            {/* Header step card */}
-            <div className="w-full bg-white/40 backdrop-blur-xl rounded-3xl p-6 md:p-8 border border-zinc-200/40 shadow-xs flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => setStep(2)}
-                  className="p-2 border border-neutral-200 hover:border-neutral-450 text-neutral-500 hover:text-neutral-900 bg-neutral-50 rounded-xl transition-all shadow-3xs cursor-pointer"
-                >
-                  <ChevronLeft size={16} />
-                </button>
-                <div>
-                  <span className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-400">Step 3 of 5</span>
-                  <h3 className="text-2xl font-sans font-bold text-neutral-900 mt-0.5">Your Curated Collection Lookbook</h3>
+          <div className="space-y-8 max-w-7xl mx-auto animate-in fade-in duration-500">
+            <div className="space-y-6 bg-white py-2">
+              <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-neutral-200/50">
+                <div className="space-y-2">
+                  <h1 className="text-5xl md:text-6xl lg:text-7xl font-serif font-normal text-neutral-950 tracking-tight leading-[0.92]">
+                    Build<br />
+                    <span className="italic font-light">Better.</span>
+                  </h1>
+                  <p className="text-[10px] font-sans font-extrabold uppercase tracking-[0.2em] text-neutral-400 pt-1">
+                    Your Curated Collection Lookbook
+                  </p>
                 </div>
-              </div>
 
-              {/* Logo mini thumbnail */}
-              <div className="flex items-center gap-3 bg-neutral-50 border border-neutral-200/60 p-2 rounded-xl">
-                <span className="text-[9px] font-extrabold uppercase tracking-widest text-neutral-400 pl-1">Active Logo</span>
-                <div className="w-9 h-9 bg-checkerboard border border-neutral-200 rounded-lg flex items-center justify-center p-1 overflow-hidden">
-                  <img src={logoUrl} className="max-h-full max-w-full object-contain" alt="mini logo" />
+                {/* Logo mini thumbnail */}
+                <div className="flex items-center gap-3 bg-neutral-50 border border-neutral-200/60 p-2 rounded-xl shrink-0">
+                  <span className="text-[9px] font-extrabold uppercase tracking-widest text-neutral-400 pl-1">Active Logo</span>
+                  <div className="w-9 h-9 bg-checkerboard border border-neutral-200 rounded-lg flex items-center justify-center p-1 overflow-hidden">
+                    <img src={logoUrl} className="max-h-full max-w-full object-contain" alt="mini logo" />
+                  </div>
                 </div>
               </div>
             </div>
@@ -3244,17 +3242,18 @@ export function PublicQuoteRequest() {
 
         {/* STEP 4: SIZES & QUANTITIES BREAKDOWN */}
         {step === 4 && cart.length > 0 && (
-          <div className="space-y-8 animate-in fade-in duration-500">
-            <div className="w-full bg-white/40 backdrop-blur-xl rounded-3xl p-6 md:p-8 border border-zinc-200/40 shadow-xs flex items-center gap-3">
-              <button
-                onClick={() => setStep(3)}
-                className="p-2 border border-neutral-200 hover:border-neutral-450 text-neutral-500 hover:text-neutral-900 bg-neutral-50 rounded-xl transition-all shadow-3xs cursor-pointer"
-              >
-                <ChevronLeft size={16} />
-              </button>
-              <div>
-                <span className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-400">Step 4 of 5</span>
-                <h3 className="text-2xl font-sans font-bold text-neutral-900 mt-0.5">Sizing Distribution & Quantities</h3>
+          <div className="space-y-8 max-w-7xl mx-auto animate-in fade-in duration-500">
+            <div className="space-y-6 bg-white py-2">
+              <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-neutral-200/50">
+                <div className="space-y-2">
+                  <h1 className="text-5xl md:text-6xl lg:text-7xl font-serif font-normal text-neutral-950 tracking-tight leading-[0.92]">
+                    Build<br />
+                    <span className="italic font-light">Better.</span>
+                  </h1>
+                  <p className="text-[10px] font-sans font-extrabold uppercase tracking-[0.2em] text-neutral-400 pt-1">
+                    Sizing Distribution & Quantities
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -3334,17 +3333,18 @@ export function PublicQuoteRequest() {
 
         {/* STEP 5: REVIEW DETAILS & CHECKOUT */}
         {step === 5 && cart.length > 0 && (
-          <div className="space-y-8 animate-in fade-in duration-500">
-            <div className="w-full bg-white/40 backdrop-blur-xl rounded-3xl p-6 md:p-8 border border-zinc-200/40 shadow-xs flex items-center gap-3">
-              <button
-                onClick={() => setStep(4)}
-                className="p-2 border border-neutral-200 hover:border-neutral-450 text-neutral-500 hover:text-neutral-900 bg-neutral-50 rounded-xl transition-all shadow-3xs cursor-pointer"
-              >
-                <ChevronLeft size={16} />
-              </button>
-              <div>
-                <span className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-400">Step 5 of 5</span>
-                <h3 className="text-2xl font-sans font-bold text-neutral-900 mt-0.5">Finalize Project & Submit Quote</h3>
+          <div className="space-y-8 max-w-7xl mx-auto animate-in fade-in duration-500">
+            <div className="space-y-6 bg-white py-2">
+              <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-neutral-200/50">
+                <div className="space-y-2">
+                  <h1 className="text-5xl md:text-6xl lg:text-7xl font-serif font-normal text-neutral-950 tracking-tight leading-[0.92]">
+                    Build<br />
+                    <span className="italic font-light">Better.</span>
+                  </h1>
+                  <p className="text-[10px] font-sans font-extrabold uppercase tracking-[0.2em] text-neutral-400 pt-1">
+                    Finalize Project & Submit Quote
+                  </p>
+                </div>
               </div>
             </div>
 
