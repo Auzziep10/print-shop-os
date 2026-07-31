@@ -438,6 +438,43 @@ export function PublicQuoteRequest() {
   const [selectedGarmentType, setSelectedGarmentType] = useState<GarmentTypeId>('t-shirt');
   const [selectedGarmentTypeItem, setSelectedGarmentTypeItem] = useState<SanMarProduct | null>(null);
   const [selectedGarmentTypeColor, setSelectedGarmentTypeColor] = useState<string>('');
+  const [selectedGarmentTypeItems, setSelectedGarmentTypeItems] = useState<{ id: string; product: SanMarProduct; color: string; garmentType: GarmentTypeId }[]>([]);
+
+  // Quick-add garment to lookbook collection directly from Step 3
+  const handleAddGarmentToLookbook = (garmentTypeId: GarmentTypeId) => {
+    if (flowMode === 'racks') {
+      setRackItems(prev => {
+        const itemToSelect = prev.find(i => i.slot.toLowerCase().includes(garmentTypeId) || garmentTypeId.includes(i.slot.toLowerCase()));
+        if (itemToSelect) {
+          return prev.map(ri => ri.id === itemToSelect.id ? { ...ri, selected: true } : ri);
+        }
+        return prev;
+      });
+      return;
+    }
+
+    const matching = curatedStorefrontProducts.filter(p => detectGarmentTypeTag(p, catalogSettings.garmentTypeTags) === garmentTypeId);
+    const targetProduct = matching[0] || sanmarCatalog.find(p => p.category?.toLowerCase().includes(garmentTypeId)) || sanmarCatalog[0];
+    if (!targetProduct) return;
+
+    const newItem = {
+      id: `${garmentTypeId}-${Date.now()}`,
+      product: targetProduct,
+      color: targetProduct.colors[0] || 'Black',
+      garmentType: garmentTypeId
+    };
+
+    setSelectedGarmentTypeItems(prev => [...prev, newItem]);
+  };
+
+  // Quick-remove garment from lookbook collection directly from Step 3
+  const handleRemoveGarmentFromLookbook = (idToRemove: string) => {
+    if (flowMode === 'racks') {
+      setRackItems(prev => prev.map(i => i.id === idToRemove ? { ...i, selected: false } : i));
+      return;
+    }
+    setSelectedGarmentTypeItems(prev => prev.filter(i => i.id !== idToRemove));
+  };
 
   // Curated products chosen across LIVE Rack collections only
   const curatedStorefrontProducts = useMemo(() => {
@@ -1282,24 +1319,38 @@ export function PublicQuoteRequest() {
               decoration: ['hat', 'cap', 'polo'].some(w => (activeBasics.category || activeBasics.title || activeBasics.style || '').toLowerCase().includes(w)) ? 'Embroidery' as const : 'Print' as const
             }
           ] : []
-        : (() => {
-            const targetItem = selectedGarmentTypeItem || curatedStorefrontProducts.find(p => detectGarmentTypeTag(p, catalogSettings.garmentTypeTags) === selectedGarmentType) || curatedStorefrontProducts[0];
-            if (!targetItem) return [];
-            return [
-              {
-                product: targetItem,
-                color: selectedGarmentTypeColor || targetItem.colors[0] || 'Black',
-                logoPos: getBasicsPlacement(targetItem).pos,
-                logoScale: getBasicsPlacement(targetItem).scale,
-                logoRotation: getBasicsPlacement(targetItem).rotation,
+        : (selectedGarmentTypeItems.length > 0 
+            ? selectedGarmentTypeItems.map(item => ({
+                product: item.product,
+                color: item.color,
+                logoPos: getBasicsPlacement(item.product).pos,
+                logoScale: getBasicsPlacement(item.product).scale,
+                logoRotation: getBasicsPlacement(item.product).rotation,
                 backLogoPos: { x: 50, y: 35 },
                 backLogoScale: 0,
                 backLogoRotation: 0,
                 printSize: 'Medium' as const,
-                decoration: ['hat', 'cap', 'polo'].some(w => (targetItem.category || targetItem.title || targetItem.style || '').toLowerCase().includes(w)) ? 'Embroidery' as const : 'Print' as const
-              }
-            ];
-          })();
+                decoration: ['hat', 'cap', 'polo'].some(w => (item.product.category || item.product.title || item.product.style || '').toLowerCase().includes(w)) ? 'Embroidery' as const : 'Print' as const
+              }))
+            : (() => {
+                const targetItem = selectedGarmentTypeItem || curatedStorefrontProducts.find(p => detectGarmentTypeTag(p, catalogSettings.garmentTypeTags) === selectedGarmentType) || curatedStorefrontProducts[0];
+                if (!targetItem) return [];
+                return [
+                  {
+                    product: targetItem,
+                    color: selectedGarmentTypeColor || targetItem.colors[0] || 'Black',
+                    logoPos: getBasicsPlacement(targetItem).pos,
+                    logoScale: getBasicsPlacement(targetItem).scale,
+                    logoRotation: getBasicsPlacement(targetItem).rotation,
+                    backLogoPos: { x: 50, y: 35 },
+                    backLogoScale: 0,
+                    backLogoRotation: 0,
+                    printSize: 'Medium' as const,
+                    decoration: ['hat', 'cap', 'polo'].some(w => (targetItem.category || targetItem.title || targetItem.style || '').toLowerCase().includes(w)) ? 'Embroidery' as const : 'Print' as const
+                  }
+                ];
+              })()
+          );
 
       if (itemsToCompile.length === 0) {
         alert("Please select at least one garment from the rack to customize.");
@@ -3066,88 +3117,120 @@ export function PublicQuoteRequest() {
                 })()}
                 </div>
               ) : flowMode === 'types' ? (
-                // Garment Types single product lookbook card
+                // Garment Types lookbook grid with multi-item collection support
                 (() => {
-                  const activeItem = selectedGarmentTypeItem || curatedStorefrontProducts.find(p => detectGarmentTypeTag(p, catalogSettings.garmentTypeTags) === selectedGarmentType) || curatedStorefrontProducts[0];
-                  if (!activeItem) return null;
-                  const colorKey = selectedGarmentTypeColor && activeItem.colors.includes(selectedGarmentTypeColor) ? selectedGarmentTypeColor : activeItem.colors[0];
-                  const previewImg = resolveGarmentImage(activeItem, colorKey);
-                  const placement = getBasicsPlacement(activeItem);
-                  const isDark = ['black', 'dark', 'navy', 'patriot', 'charcoal', 'graphite', 'carbon', 'obsidian', 'maroon', 'cardinal', 'burgundy'].some(c => colorKey.toLowerCase().includes(c));
+                  const displayItems = selectedGarmentTypeItems.length > 0 
+                    ? selectedGarmentTypeItems 
+                    : (() => {
+                        const fallbackItem = selectedGarmentTypeItem || curatedStorefrontProducts.find(p => detectGarmentTypeTag(p, catalogSettings.garmentTypeTags) === selectedGarmentType) || curatedStorefrontProducts[0];
+                        return fallbackItem ? [{ id: 'default-1', product: fallbackItem, color: selectedGarmentTypeColor || fallbackItem.colors[0] || 'Black', garmentType: selectedGarmentType }] : [];
+                      })();
+
+                  if (displayItems.length === 0) return null;
 
                   return (
-                    <div className="max-w-md mx-auto bg-white border border-neutral-200/80 rounded-2xl overflow-hidden flex flex-col justify-between group shadow-3xs select-none">
-                      <div className="relative aspect-[4/5] bg-transparent flex items-center justify-center p-6 border-b border-neutral-100 overflow-hidden">
-                        {/* Decoration badge */}
-                        <div className="absolute top-4 left-4 z-10 bg-neutral-900/90 text-white text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded flex items-center gap-1 shadow-sm">
-                          {['hat', 'cap', 'polo'].some(w => (activeItem.category || activeItem.title || activeItem.style || '').toLowerCase().includes(w)) ? (
-                            <><Scissors size={10} /> Embroidery</>
-                          ) : (
-                            <><Shirt size={10} /> Premium Print</>
-                          )}
-                        </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+                      {displayItems.map((item) => {
+                        const colorKey = item.color || item.product.colors[0];
+                        const previewImg = resolveGarmentImage(item.product, colorKey);
+                        const placement = getBasicsPlacement(item.product);
+                        const isEmbroidery = ['hat', 'cap', 'polo'].some(w => (item.product.category || item.product.title || item.product.style || '').toLowerCase().includes(w));
+                        const isDark = ['black', 'dark', 'navy', 'patriot', 'charcoal', 'graphite', 'carbon', 'obsidian', 'maroon', 'cardinal', 'burgundy'].some(c => colorKey.toLowerCase().includes(c));
 
-                        <div className="absolute top-4 right-4 z-10 bg-neutral-50 border border-neutral-200 text-neutral-500 text-[8px] uppercase font-bold tracking-widest px-2 py-0.5 rounded">
-                          {selectedGarmentType}
-                        </div>
-
-                        {/* Placement frame */}
-                        <div className="absolute inset-[9%]">
-                          <img src={previewImg} className="absolute inset-0 w-full h-full object-contain pointer-events-none mix-blend-multiply" alt={activeItem.style} />
-
-                          {/* Projected logo */}
-                          <div
-                            style={{
-                              position: 'absolute',
-                              left: `${placement.pos.x}%`,
-                              top: `${placement.pos.y}%`,
-                              width: `${placement.scale * 100}%`,
-                              transform: `translate(-50%, -50%) rotate(${placement.rotation ?? 0}deg)`,
-                              pointerEvents: 'none'
-                            }}
+                        return (
+                          <div 
+                            key={item.id} 
+                            className="bg-white border border-neutral-200/80 rounded-2xl overflow-hidden flex flex-col justify-between group shadow-3xs hover:shadow-md transition-all duration-350 relative"
                           >
-                            <img
-                              src={logoUrl}
-                              alt="overlay"
-                              style={{
-                                width: '100%',
-                                height: 'auto',
-                                mixBlendMode: isDark ? 'normal' : 'multiply'
-                              }}
-                              className="object-contain"
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="p-5 space-y-4">
-                        <div>
-                          <span className="text-[9px] font-extrabold uppercase tracking-widest text-neutral-400">{activeItem.brand} • {activeItem.style}</span>
-                          <h4 className="text-sm font-bold text-neutral-800 truncate mt-0.5">{activeItem.title.replace(/®/g, '').trim()}</h4>
-                        </div>
-
-                        <div className="flex gap-1 overflow-x-auto scrollbar-none py-1">
-                          {activeItem.colors.slice(0, 8).map(c => {
-                            const swatchHex = getSwatchColor(c, true);
-                            const isColorActive = colorKey === c;
-                            return (
+                            {/* Remove button if more than 1 item */}
+                            {displayItems.length > 1 && (
                               <button
-                                key={c}
                                 type="button"
-                                onClick={() => setSelectedGarmentTypeColor(c)}
-                                className={`w-5 h-5 rounded-full border transition-all ${
-                                  isColorActive ? 'ring-2 ring-neutral-900 ring-offset-1 scale-105' : 'border-neutral-350'
-                                }`}
-                                style={{
-                                  backgroundColor: swatchHex.startsWith('linear-gradient') ? 'transparent' : swatchHex,
-                                  backgroundImage: swatchHex.startsWith('linear-gradient') ? swatchHex : 'none'
-                                }}
-                                title={c}
-                              />
-                            );
-                          })}
-                        </div>
-                      </div>
+                                onClick={() => handleRemoveGarmentFromLookbook(item.id)}
+                                className="absolute top-3 right-3 z-20 w-7 h-7 bg-white/90 hover:bg-red-50 text-neutral-400 hover:text-red-600 border border-neutral-200 rounded-full flex items-center justify-center transition-all shadow-3xs cursor-pointer"
+                                title="Remove garment from collection"
+                              >
+                                <X size={14} />
+                              </button>
+                            )}
+
+                            <div className="relative aspect-[4/5] bg-transparent flex items-center justify-center p-6 border-b border-neutral-100 overflow-hidden select-none">
+                              {/* Smart Decoration Badge */}
+                              <div className="absolute top-4 left-4 z-10 bg-neutral-900/90 text-white text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded flex items-center gap-1 shadow-sm">
+                                {isEmbroidery ? (
+                                  <><Scissors size={10} /> Embroidery</>
+                                ) : (
+                                  <><Shirt size={10} /> Premium Print</>
+                                )}
+                              </div>
+
+                              <div className="absolute top-4 right-4 z-10 bg-neutral-50 border border-neutral-200 text-neutral-500 text-[8px] uppercase font-bold tracking-widest px-2 py-0.5 rounded">
+                                {item.garmentType || selectedGarmentType}
+                              </div>
+
+                              {/* Placement frame */}
+                              <div className="absolute inset-[9%]">
+                                <img src={previewImg} className="absolute inset-0 w-full h-full object-contain pointer-events-none mix-blend-multiply" alt={item.product.style} />
+
+                                {/* Projected logo */}
+                                <div
+                                  style={{
+                                    position: 'absolute',
+                                    left: `${placement.pos.x}%`,
+                                    top: `${placement.pos.y}%`,
+                                    width: `${placement.scale * 100}%`,
+                                    transform: `translate(-50%, -50%) rotate(${placement.rotation ?? 0}deg)`,
+                                    pointerEvents: 'none'
+                                  }}
+                                >
+                                  <img
+                                    src={logoUrl}
+                                    alt="overlay"
+                                    style={{
+                                      width: '100%',
+                                      height: 'auto',
+                                      filter: isEmbroidery ? 'drop-shadow(1.5px 1.5px 1.5px rgba(0,0,0,0.38))' : 'none',
+                                      mixBlendMode: isDark ? 'normal' : 'multiply'
+                                    }}
+                                    className="object-contain"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="p-5 space-y-4">
+                              <div>
+                                <span className="text-[9px] font-extrabold uppercase tracking-widest text-neutral-400">{item.product.brand} • {item.product.style}</span>
+                                <h4 className="text-sm font-bold text-neutral-800 truncate mt-0.5">{item.product.title.replace(/®/g, '').trim()}</h4>
+                              </div>
+
+                              <div className="flex gap-1 overflow-x-auto scrollbar-none py-1">
+                                {item.product.colors.slice(0, 8).map(c => {
+                                  const swatchHex = getSwatchColor(c, true);
+                                  const isColorActive = colorKey === c;
+                                  return (
+                                    <button
+                                      key={c}
+                                      type="button"
+                                      onClick={() => {
+                                        setSelectedGarmentTypeItems(prev => prev.map(gi => gi.id === item.id ? { ...gi, color: c } : gi));
+                                      }}
+                                      className={`w-5 h-5 rounded-full border transition-all ${
+                                        isColorActive ? 'ring-2 ring-neutral-900 ring-offset-1 scale-105' : 'border-neutral-350'
+                                      }`}
+                                      style={{
+                                        backgroundColor: swatchHex.startsWith('linear-gradient') ? 'transparent' : swatchHex,
+                                        backgroundImage: swatchHex.startsWith('linear-gradient') ? swatchHex : 'none'
+                                      }}
+                                      title={c}
+                                    />
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   );
                 })()
@@ -3228,6 +3311,35 @@ export function PublicQuoteRequest() {
                   </div>
                 )
               )}
+            </div>
+
+            {/* Quick-Add Garment Bar in Lookbook */}
+            <div className="bg-neutral-50 border border-neutral-200/80 rounded-2xl p-5 space-y-3 shadow-3xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <h4 className="text-xs font-extrabold uppercase tracking-wider text-neutral-950 flex items-center gap-1.5">
+                    <Plus size={14} className="text-neutral-700" /> Add Another Garment to Collection
+                  </h4>
+                  <p className="text-[11px] text-neutral-500 font-medium mt-0.5">
+                    Project your logo onto additional garment styles in 1 click
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2 pt-1">
+                {GARMENT_TYPES.map(gt => {
+                  return (
+                    <button
+                      key={gt.id}
+                      type="button"
+                      onClick={() => handleAddGarmentToLookbook(gt.id)}
+                      className="px-3.5 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 cursor-pointer bg-white hover:bg-neutral-950 text-neutral-800 hover:text-white border-neutral-250 shadow-3xs hover:shadow-xs hover:-translate-y-0.5"
+                    >
+                      <Plus size={12} /> {gt.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             {/* Actions Footer */}
