@@ -3661,7 +3661,7 @@ export function PublicQuoteRequest() {
                     onPointerDown={handlePointerDown}
                     onPointerMove={handlePointerMove}
                     onPointerUp={handlePointerUp}
-                    className="w-full max-w-[420px] aspect-[4/5] relative bg-white border border-neutral-200 rounded-xl overflow-hidden shadow-xs select-none touch-none"
+                    className="w-full max-w-[420px] aspect-[4/5] relative overflow-hidden select-none touch-none"
                     style={{ cursor: isDragging ? 'move' : isPanning ? 'grabbing' : zoom > 1 ? 'grab' : 'default' }}
                   >
                     {/* Zoom/Pan Wrapper */}
