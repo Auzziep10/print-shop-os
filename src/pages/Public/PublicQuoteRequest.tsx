@@ -3125,15 +3125,20 @@ export function PublicQuoteRequest() {
                       const activeSide = cardViewSides[item.id] || 'front';
                       const colorKey = item.color || item.product.colors[0];
                       const previewImg = getGarmentMockupImage(item.product, colorKey, activeSide, catalogSettings, selectedThemeCategory, item.slot);
-                      const compiledImg = activeSide === 'back' ? item.compiledBackMockupUrl : item.compiledMockupUrl;
-                      const cardImage = compiledImg || previewImg;
-                      const isCompiled = Boolean(compiledImg);
+                      const rawCompiled = activeSide === 'back'
+                        ? (item.compiledBackMockupUrl || (item.customBackLogoUrl?.includes('mockup') ? item.customBackLogoUrl : undefined))
+                        : (item.compiledMockupUrl || (item.customLogoUrl?.includes('mockup') ? item.customLogoUrl : undefined));
+                      const cardImage = rawCompiled || previewImg;
+                      const isCompiled = Boolean(rawCompiled);
                       const placement = getBasicsPlacement(item.product);
 
                       const activeLogoPos = activeSide === 'back' ? (item.backLogoPos || { x: 50, y: 35 }) : (item.logoPos || placement.pos);
                       const activeLogoScale = activeSide === 'back' ? (item.backLogoScale ?? 0) : (item.logoScale ?? placement.scale);
                       const activeLogoRotation = activeSide === 'back' ? (item.backLogoRotation ?? 0) : (item.logoRotation ?? placement.rotation ?? 0);
-                      const activeArtwork = activeSide === 'back' ? (item.customBackLogoUrl || logoUrl!) : (item.customLogoUrl || logoUrl!);
+                      const rawLogo = activeSide === 'back'
+                        ? (item.customBackLogoUrl && !item.customBackLogoUrl.includes('mockup') ? item.customBackLogoUrl : logoUrl)
+                        : (item.customLogoUrl && !item.customLogoUrl.includes('mockup') ? item.customLogoUrl : logoUrl);
+                      const activeArtwork = rawLogo || logoUrl!;
                       const hasBackPrint = (item.backLogoScale && item.backLogoScale > 0) || Boolean(item.customBackLogoUrl);
 
                       const isEmbroidery = item.decoration === 'Embroidery';
@@ -3304,15 +3309,20 @@ export function PublicQuoteRequest() {
                         const activeSide = cardViewSides[item.id] || 'front';
                         const colorKey = item.color || item.product.colors[0];
                         const previewImg = getGarmentMockupImage(item.product, colorKey, activeSide, catalogSettings);
-                        const compiledImg = activeSide === 'back' ? (item as any).compiledBackMockupUrl : (item as any).compiledMockupUrl;
-                        const cardImage = compiledImg || previewImg;
-                        const isCompiled = Boolean(compiledImg);
+                        const rawCompiled = activeSide === 'back'
+                          ? ((item as any).compiledBackMockupUrl || (item.customBackLogoUrl?.includes('mockup') ? item.customBackLogoUrl : undefined))
+                          : ((item as any).compiledMockupUrl || (item.customLogoUrl?.includes('mockup') ? item.customLogoUrl : undefined));
+                        const cardImage = rawCompiled || previewImg;
+                        const isCompiled = Boolean(rawCompiled);
                         const placement = getBasicsPlacement(item.product);
                         
                         const activeLogoPos = activeSide === 'back' ? (item.backLogoPos || { x: 50, y: 35 }) : (item.logoPos || placement.pos);
                         const activeLogoScale = activeSide === 'back' ? (item.backLogoScale ?? 0) : (item.logoScale ?? placement.scale);
                         const activeLogoRotation = activeSide === 'back' ? (item.backLogoRotation ?? 0) : (item.logoRotation ?? placement.rotation ?? 0);
-                        const activeArtwork = activeSide === 'back' ? (item.customBackLogoUrl || logoUrl!) : (item.customLogoUrl || logoUrl!);
+                        const rawLogo = activeSide === 'back'
+                          ? (item.customBackLogoUrl && !item.customBackLogoUrl.includes('mockup') ? item.customBackLogoUrl : logoUrl)
+                          : (item.customLogoUrl && !item.customLogoUrl.includes('mockup') ? item.customLogoUrl : logoUrl);
+                        const activeArtwork = rawLogo || logoUrl!;
                         const hasBackPrint = (item.backLogoScale && item.backLogoScale > 0) || Boolean(item.customBackLogoUrl);
 
                         const isEmbroidery = ['hat', 'cap', 'polo'].some(w => (item.product.category || item.product.title || item.product.style || '').toLowerCase().includes(w));
@@ -3960,13 +3970,17 @@ export function PublicQuoteRequest() {
           garmentBackImageUrl={getGarmentMockupImage(editingProduct.product, editingProduct.color, 'back', catalogSettings, selectedThemeCategory, editingProduct.slot)}
           garmentName={getCustomGarmentName(editingProduct.product, catalogSettings, selectedThemeCategory, editingProduct.slot)}
           colorName={editingProduct.color}
-          initialLogoUrl={editingProduct.customLogoUrl || logoUrl}
-          initialLogoUrlBack={editingProduct.customBackLogoUrl || ((editingProduct.backLogoScale && editingProduct.backLogoScale > 0) ? logoUrl : null)}
-          onSave={(compiledMockupUrl, _frontLogo, backLogo, _leftSleeve, _rightSleeve, placements) => {
+          initialLogoUrl={editingProduct.customLogoUrl && !editingProduct.customLogoUrl.includes('mockup') ? editingProduct.customLogoUrl : logoUrl}
+          initialLogoUrlBack={editingProduct.customBackLogoUrl && !editingProduct.customBackLogoUrl.includes('mockup') ? editingProduct.customBackLogoUrl : ((editingProduct.backLogoScale && editingProduct.backLogoScale > 0) ? logoUrl : null)}
+          onSave={(compiledMockupUrl, frontLogo, backLogo, _leftSleeve, _rightSleeve, placements) => {
+            const cleanFrontLogo = frontLogo && !frontLogo.includes('mockup') ? frontLogo : undefined;
+            const cleanBackLogo = backLogo && !backLogo.includes('mockup') ? backLogo : undefined;
             updateEditingItem(item => ({
               ...item,
-              customLogoUrl: compiledMockupUrl || item.customLogoUrl,
-              customBackLogoUrl: backLogo || item.customBackLogoUrl,
+              compiledMockupUrl: compiledMockupUrl || item.compiledMockupUrl,
+              compiledBackMockupUrl: backLogo && compiledMockupUrl ? compiledMockupUrl : item.compiledBackMockupUrl,
+              customLogoUrl: cleanFrontLogo || (item.customLogoUrl && !item.customLogoUrl.includes('mockup') ? item.customLogoUrl : undefined),
+              customBackLogoUrl: cleanBackLogo || (item.customBackLogoUrl && !item.customBackLogoUrl.includes('mockup') ? item.customBackLogoUrl : undefined),
               logoPos: placements?.front?.pos || item.logoPos,
               logoScale: placements?.front?.scale ?? item.logoScale,
               logoRotation: placements?.front?.rotation ?? item.logoRotation,
