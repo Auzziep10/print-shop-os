@@ -1183,22 +1183,29 @@ export function GarmentCustomizerModal({
       setWidthLeftSleeve(String(garment.logoWidthLeftSleeve ?? garment.widthLeftSleeve ?? ''));
       setWidthRightSleeve(String(garment.logoWidthRightSleeve ?? garment.widthRightSleeve ?? ''));
 
-      setScaleFront(garment.customScaleFront ?? 30);
+      const parseScale = (val: any, fallback = 30) => {
+        const num = typeof val === 'number' ? val : parseFloat(val);
+        if (isNaN(num) || num <= 0) return fallback;
+        if (num <= 1) return Math.round(num * 100);
+        return num;
+      };
+
+      setScaleFront(parseScale(garment.customScaleFront, 30));
       setOffsetXFront(garment.customOffsetXFront ?? 50);
       setOffsetYFront(garment.customOffsetYFront ?? 45);
       setRotationFront(garment.customRotationFront ?? 0);
 
-      setScaleBack(garment.customScaleBack ?? 30);
+      setScaleBack(parseScale(garment.customScaleBack, 30));
       setOffsetXBack(garment.customOffsetXBack ?? 50);
       setOffsetYBack(garment.customOffsetYBack ?? 40);
       setRotationBack(garment.customRotationBack ?? 0);
 
-      setScaleLeftSleeve(garment.customScaleLeftSleeve ?? 30);
+      setScaleLeftSleeve(parseScale(garment.customScaleLeftSleeve, 30));
       setOffsetXLeftSleeve(garment.customOffsetXLeftSleeve ?? 50);
       setOffsetYLeftSleeve(garment.customOffsetYLeftSleeve ?? 50);
       setRotationLeftSleeve(garment.customRotationLeftSleeve ?? 0);
 
-      setScaleRightSleeve(garment.customScaleRightSleeve ?? 30);
+      setScaleRightSleeve(parseScale(garment.customScaleRightSleeve, 30));
       setOffsetXRightSleeve(garment.customOffsetXRightSleeve ?? 50);
       setOffsetYRightSleeve(garment.customOffsetYRightSleeve ?? 50);
       setRotationRightSleeve(garment.customRotationRightSleeve ?? 0);
