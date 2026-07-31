@@ -343,7 +343,7 @@ export function StorefrontCatalogTab() {
   const [customProducts, setCustomProducts] = useState<any[]>([]);
   const [garmentTypeTags, setGarmentTypeTags] = useState<Record<string, string>>({});
   const [removeNeckTag, setRemoveNeckTag] = useState<Record<string, boolean>>({});
-  const [colorMockups, setColorMockups] = useState<Record<string, Record<string, string>>>({});
+  const [colorMockups, setColorMockups] = useState<Record<string, Record<string, any>>>({});
   const [activeGarmentType, setActiveGarmentType] = useState<GarmentTypeId>('t-shirt');
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [uploadingSlotKey, setUploadingSlotKey] = useState<string | null>(null);
@@ -2097,77 +2097,158 @@ export function StorefrontCatalogTab() {
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                 {(activeColorModalItem.colors || []).map((color: string) => {
                   const styleKey = activeColorModalItem.style.toLowerCase();
-                  const customColorImg = colorMockups[styleKey]?.[color];
+                  const rawVal = colorMockups[styleKey]?.[color];
+                  const customFront = typeof rawVal === 'string' ? rawVal : (rawVal?.front || null);
+                  const customBack = typeof rawVal === 'object' ? (rawVal?.back || null) : null;
+
                   const origImgSet = activeColorModalItem.images?.[color] || Object.values(activeColorModalItem.images || {})[0];
-                  const origImgUrl = typeof origImgSet === 'string' ? origImgSet : (origImgSet?.front || '');
-                  const currentImg = customColorImg || origImgUrl;
+                  const origFrontUrl = typeof origImgSet === 'string' ? origImgSet : (origImgSet?.front || '');
+
+                  const origBackSet = activeColorModalItem.backImages?.[color] || Object.values(activeColorModalItem.backImages || {})[0];
+                  const origBackUrl = typeof origBackSet === 'string' ? origBackSet : (origBackSet?.back || '');
+
+                  const currentFront = customFront || origFrontUrl;
+                  const currentBack = customBack || origBackUrl;
 
                   return (
-                    <div key={color} className="border border-brand-border rounded-xl p-3 bg-white space-y-2 flex flex-col justify-between">
+                    <div key={color} className="border border-brand-border rounded-xl p-3 bg-white space-y-3 flex flex-col justify-between">
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
                           <span className="text-xs font-bold text-brand-primary truncate" title={color}>{color}</span>
-                          {customColorImg && (
-                            <span className="text-[9px] font-extrabold uppercase text-amber-700 bg-amber-100 px-1 rounded">Custom</span>
-                          )}
+                          <div className="flex gap-1">
+                            {customFront && <span className="text-[8px] font-extrabold uppercase text-amber-700 bg-amber-100 px-1 rounded">Front Custom</span>}
+                            {customBack && <span className="text-[8px] font-extrabold uppercase text-indigo-700 bg-indigo-100 px-1 rounded">Back Custom</span>}
+                          </div>
                         </div>
 
-                        <div className="w-full h-32 bg-neutral-50 rounded-lg border border-neutral-200 flex items-center justify-center p-2 relative overflow-hidden bg-checkerboard">
-                          <img 
-                            src={currentImg} 
-                            alt={color} 
-                            className="max-w-full max-h-full object-contain mix-blend-multiply" 
-                          />
-                        </div>
-                      </div>
-
-                      <div className="space-y-1.5 pt-2 border-t border-neutral-100">
-                        <label className="w-full py-1 px-2 bg-neutral-100 hover:bg-neutral-200 text-brand-primary rounded-lg text-[11px] font-bold transition-all text-center cursor-pointer block">
-                          <span>{customColorImg ? 'Change Mockup' : 'Upload Mockup'}</span>
-                          <input 
-                            type="file" 
-                            accept="image/*" 
-                            className="hidden" 
-                            onChange={async (e) => {
-                              const file = e.target.files?.[0];
-                              if (!file) return;
-                              try {
-                                const storageRef = ref(storage, `storefront_color_mockups/${styleKey}/${color}_${Date.now()}_${file.name}`);
-                                await uploadBytes(storageRef, file);
-                                const url = await getDownloadURL(storageRef);
-                                setColorMockups(prev => ({
-                                  ...prev,
-                                  [styleKey]: {
-                                    ...(prev[styleKey] || {}),
-                                    [color]: url
+                        {/* Side-by-Side Front and Back previews */}
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="space-y-1">
+                            <span className="text-[9px] font-bold text-neutral-400 block text-center uppercase">Front</span>
+                            <div className="w-full h-28 bg-neutral-50 rounded-lg border border-neutral-200 flex items-center justify-center p-1 relative overflow-hidden bg-checkerboard">
+                              {currentFront ? (
+                                <img src={currentFront} alt={`${color} front`} className="max-w-full max-h-full object-contain mix-blend-multiply" />
+                              ) : (
+                                <span className="text-[10px] text-neutral-400">No Front</span>
+                              )}
+                            </div>
+                            <label className="w-full py-1 px-1.5 bg-neutral-100 hover:bg-neutral-200 text-brand-primary rounded-lg text-[10px] font-bold transition-all text-center cursor-pointer block truncate">
+                              <span>{customFront ? 'Change Front' : 'Upload Front'}</span>
+                              <input 
+                                type="file" 
+                                accept="image/*" 
+                                className="hidden" 
+                                onChange={async (e) => {
+                                  const file = e.target.files?.[0];
+                                  if (!file) return;
+                                  try {
+                                    const storageRef = ref(storage, `storefront_color_mockups/${styleKey}/${color}_front_${Date.now()}_${file.name}`);
+                                    await uploadBytes(storageRef, file);
+                                    const url = await getDownloadURL(storageRef);
+                                    setColorMockups(prev => {
+                                      const existing = prev[styleKey]?.[color];
+                                      const back = typeof existing === 'object' ? existing?.back : undefined;
+                                      return {
+                                        ...prev,
+                                        [styleKey]: {
+                                          ...(prev[styleKey] || {}),
+                                          [color]: { front: url, ...(back ? { back } : {}) }
+                                        }
+                                      };
+                                    });
+                                  } catch (err) {
+                                    console.error("Failed to upload front color mockup:", err);
+                                    alert("Failed to upload image.");
                                   }
-                                }));
-                              } catch (err) {
-                                console.error("Failed to upload color mockup:", err);
-                                alert("Failed to upload image.");
-                              }
-                            }}
-                          />
-                        </label>
+                                }}
+                              />
+                            </label>
+                            {customFront && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setColorMockups(prev => {
+                                    const existing = prev[styleKey]?.[color];
+                                    const back = typeof existing === 'object' ? existing?.back : undefined;
+                                    const styleMap = { ...(prev[styleKey] || {}) };
+                                    if (back) {
+                                      styleMap[color] = { back };
+                                    } else {
+                                      delete styleMap[color];
+                                    }
+                                    return { ...prev, [styleKey]: styleMap };
+                                  });
+                                }}
+                                className="w-full py-0.5 text-rose-600 hover:bg-rose-50 rounded text-[9px] font-bold transition-all text-center block"
+                              >
+                                Clear Front
+                              </button>
+                            )}
+                          </div>
 
-                        {customColorImg && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setColorMockups(prev => {
-                                const styleMap = { ...(prev[styleKey] || {}) };
-                                delete styleMap[color];
-                                return {
-                                  ...prev,
-                                  [styleKey]: styleMap
-                                };
-                              });
-                            }}
-                            className="w-full py-1 px-2 text-rose-600 hover:bg-rose-50 rounded-lg text-[10px] font-bold transition-all text-center"
-                          >
-                            Restore Original Mockup
-                          </button>
-                        )}
+                          <div className="space-y-1">
+                            <span className="text-[9px] font-bold text-neutral-400 block text-center uppercase">Back</span>
+                            <div className="w-full h-28 bg-neutral-50 rounded-lg border border-neutral-200 flex items-center justify-center p-1 relative overflow-hidden bg-checkerboard">
+                              {currentBack ? (
+                                <img src={currentBack} alt={`${color} back`} className="max-w-full max-h-full object-contain mix-blend-multiply" />
+                              ) : (
+                                <span className="text-[10px] text-neutral-400">No Back</span>
+                              )}
+                            </div>
+                            <label className="w-full py-1 px-1.5 bg-neutral-100 hover:bg-neutral-200 text-brand-primary rounded-lg text-[10px] font-bold transition-all text-center cursor-pointer block truncate">
+                              <span>{customBack ? 'Change Back' : 'Upload Back'}</span>
+                              <input 
+                                type="file" 
+                                accept="image/*" 
+                                className="hidden" 
+                                onChange={async (e) => {
+                                  const file = e.target.files?.[0];
+                                  if (!file) return;
+                                  try {
+                                    const storageRef = ref(storage, `storefront_color_mockups/${styleKey}/${color}_back_${Date.now()}_${file.name}`);
+                                    await uploadBytes(storageRef, file);
+                                    const url = await getDownloadURL(storageRef);
+                                    setColorMockups(prev => {
+                                      const existing = prev[styleKey]?.[color];
+                                      const front = typeof existing === 'string' ? existing : (typeof existing === 'object' ? existing?.front : undefined);
+                                      return {
+                                        ...prev,
+                                        [styleKey]: {
+                                          ...(prev[styleKey] || {}),
+                                          [color]: { ...(front ? { front } : {}), back: url }
+                                        }
+                                      };
+                                    });
+                                  } catch (err) {
+                                    console.error("Failed to upload back color mockup:", err);
+                                    alert("Failed to upload image.");
+                                  }
+                                }}
+                              />
+                            </label>
+                            {customBack && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setColorMockups(prev => {
+                                    const existing = prev[styleKey]?.[color];
+                                    const front = typeof existing === 'string' ? existing : (typeof existing === 'object' ? existing?.front : undefined);
+                                    const styleMap = { ...(prev[styleKey] || {}) };
+                                    if (front) {
+                                      styleMap[color] = { front };
+                                    } else {
+                                      delete styleMap[color];
+                                    }
+                                    return { ...prev, [styleKey]: styleMap };
+                                  });
+                                }}
+                                className="w-full py-0.5 text-rose-600 hover:bg-rose-50 rounded text-[9px] font-bold transition-all text-center block"
+                              >
+                                Clear Back
+                              </button>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     </div>
                   );

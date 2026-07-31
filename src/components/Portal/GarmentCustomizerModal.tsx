@@ -2118,8 +2118,8 @@ export function GarmentCustomizerModal({
             ref={previewRef}
             className="relative flex-1 min-h-0 max-h-[calc(100vh-280px)] aspect-square bg-white rounded-[2rem] border border-neutral-200/50 shadow-lg flex items-center justify-center overflow-hidden transition-all duration-300 hover:shadow-xl animate-in zoom-in-95 duration-300"
           >
-            {/* Zoom Wrapper to enlarge shirt */}
-            <div className="relative w-full h-full flex items-center justify-center scale-[1.1]">
+            {/* Garment Artboard Wrapper */}
+            <div className="relative w-full h-full flex items-center justify-center p-3">
               {activeTab !== 'tag' && (
                 <>
                   {/* Main Garment Image */}
