@@ -1243,14 +1243,25 @@ export function PublicQuoteRequest() {
   };
 
   // Compile Canvas Mockup per item
-  const compileGarmentMockup = (product: SanMarProduct, color: string, itemLogoUrl: string | null, logoPos: { x: number; y: number }, logoScale: number, logoRotation: number, side: 'front' | 'back', decoration: 'Print' | 'Embroidery'): Promise<string | null> => {
+  const compileGarmentMockup = (
+    product: SanMarProduct,
+    color: string,
+    itemLogoUrl: string | null,
+    logoPos: { x: number; y: number },
+    logoScale: number,
+    logoRotation: number,
+    side: 'front' | 'back',
+    decoration: 'Print' | 'Embroidery',
+    themeCategory?: string,
+    slotKey?: string
+  ): Promise<string | null> => {
     return new Promise(async (resolve, reject) => {
       if (!product || !color) {
         resolve(null);
         return;
       }
       const styleKey = product.style?.toLowerCase() || '';
-      const garmentImgUrl = getGarmentMockupImage(product, color, side, catalogSettings);
+      const garmentImgUrl = getGarmentMockupImage(product, color, side, catalogSettings, themeCategory, slotKey);
       if (!itemLogoUrl) {
         resolve(garmentImgUrl);
         return;
@@ -1450,8 +1461,8 @@ export function PublicQuoteRequest() {
         const frontArtwork = (item as any).customLogoUrl || logoUrl;
         const backArtwork = (item as any).customBackLogoUrl || logoUrl;
 
-        // Compile front mockup
-        const fMockup = await compileGarmentMockup(
+        // Compile front mockup (preserve already-saved customizer canvas mockup if available)
+        const fMockup = (item as any).compiledMockupUrl || await compileGarmentMockup(
           item.product,
           item.color,
           frontArtwork,
@@ -1459,12 +1470,14 @@ export function PublicQuoteRequest() {
           item.logoScale,
           item.logoRotation,
           'front',
-          item.decoration
+          item.decoration,
+          selectedThemeCategory,
+          (item as any).slot
         );
 
         // Compile back mockup if configured
-        let bMockup = null;
-        if (item.backLogoScale > 0) {
+        let bMockup = (item as any).compiledBackMockupUrl || null;
+        if (!bMockup && item.backLogoScale > 0) {
           bMockup = await compileGarmentMockup(
             item.product,
             item.color,
@@ -1473,7 +1486,9 @@ export function PublicQuoteRequest() {
             item.backLogoScale,
             item.backLogoRotation,
             'back',
-            item.decoration
+            item.decoration,
+            selectedThemeCategory,
+            (item as any).slot
           );
         }
 
