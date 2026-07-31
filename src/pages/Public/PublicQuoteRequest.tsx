@@ -1143,6 +1143,24 @@ export function PublicQuoteRequest() {
     const colorCustomImg = resolveColorMockup(item.style, cKey, side);
     if (colorCustomImg) return colorCustomImg;
 
+    if (side === 'back') {
+      // Check item.backImages first if side is back
+      if (cKey && (item as any).backImages) {
+        const matchingKey = Object.keys((item as any).backImages).find(k => k.toLowerCase() === cKey.toLowerCase());
+        if (matchingKey && (item as any).backImages[matchingKey]) {
+          const bVal = (item as any).backImages[matchingKey];
+          if (typeof bVal === 'string' && bVal.trim()) return bVal.trim();
+        }
+      }
+      // Or check if item.images[cKey] is an object with a .back property
+      if (cKey && item.images) {
+        const matchingKey = Object.keys(item.images).find(k => k.toLowerCase() === cKey.toLowerCase());
+        if (matchingKey && typeof item.images[matchingKey] === 'object' && (item.images[matchingKey] as any).back) {
+          return (item.images[matchingKey] as any).back;
+        }
+      }
+    }
+
     // 2. Standard catalog image set for the specified color (case-insensitive lookup)
     if (cKey && item.images) {
       const matchingKey = Object.keys(item.images).find(k => k.toLowerCase() === cKey.toLowerCase()) || cKey;
@@ -3143,14 +3161,17 @@ export function PublicQuoteRequest() {
                       const isCompiled = Boolean(rawCompiled);
                       const placement = getBasicsPlacement(item.product);
 
+                      const hasBackPrint = Boolean((item.backLogoScale && item.backLogoScale > 0) || item.customBackLogoUrl);
+
                       const activeLogoPos = activeSide === 'back' ? (item.backLogoPos || { x: 50, y: 35 }) : (item.logoPos || placement.pos);
-                      const activeLogoScale = activeSide === 'back' ? (item.backLogoScale ?? 0) : (item.logoScale ?? placement.scale);
+                      const activeLogoScale = activeSide === 'back'
+                        ? (hasBackPrint ? (item.backLogoScale ?? 0) : 0)
+                        : (item.logoScale ?? placement.scale);
                       const activeLogoRotation = activeSide === 'back' ? (item.backLogoRotation ?? 0) : (item.logoRotation ?? placement.rotation ?? 0);
                       const rawLogo = activeSide === 'back'
-                        ? (item.customBackLogoUrl && !item.customBackLogoUrl.includes('mockup') ? item.customBackLogoUrl : logoUrl)
+                        ? (item.customBackLogoUrl && !item.customBackLogoUrl.includes('mockup') ? item.customBackLogoUrl : (hasBackPrint ? logoUrl : null))
                         : (item.customLogoUrl && !item.customLogoUrl.includes('mockup') ? item.customLogoUrl : logoUrl);
-                      const activeArtwork = rawLogo || logoUrl!;
-                      const hasBackPrint = (item.backLogoScale && item.backLogoScale > 0) || Boolean(item.customBackLogoUrl);
+                      const activeArtwork = rawLogo;
 
                       const isEmbroidery = item.decoration === 'Embroidery';
                       const isDark = ['black', 'dark', 'navy', 'patriot', 'charcoal', 'graphite', 'carbon', 'obsidian', 'maroon', 'cardinal', 'burgundy'].some(c => colorKey.toLowerCase().includes(c));
@@ -3203,7 +3224,7 @@ export function PublicQuoteRequest() {
                             <img src={cardImage} className="w-full h-full object-contain pointer-events-none mix-blend-multiply p-3" alt={item.product.style} />
 
                             {/* Overlay Projected Logo (only if NOT compiled into single image) */}
-                            {!isCompiled && activeLogoScale > 0 && (() => {
+                            {!isCompiled && activeLogoScale > 0 && activeArtwork && (() => {
                               const normCardScale = activeLogoScale > 1 ? activeLogoScale : activeLogoScale * 100;
                               return (
                                 <div
@@ -3321,14 +3342,17 @@ export function PublicQuoteRequest() {
                         const isCompiled = Boolean(rawCompiled);
                         const placement = getBasicsPlacement(item.product);
                         
+                        const hasBackPrint = Boolean((item.backLogoScale && item.backLogoScale > 0) || item.customBackLogoUrl);
+
                         const activeLogoPos = activeSide === 'back' ? (item.backLogoPos || { x: 50, y: 35 }) : (item.logoPos || placement.pos);
-                        const activeLogoScale = activeSide === 'back' ? (item.backLogoScale ?? 0) : (item.logoScale ?? placement.scale);
+                        const activeLogoScale = activeSide === 'back'
+                          ? (hasBackPrint ? (item.backLogoScale ?? 0) : 0)
+                          : (item.logoScale ?? placement.scale);
                         const activeLogoRotation = activeSide === 'back' ? (item.backLogoRotation ?? 0) : (item.logoRotation ?? placement.rotation ?? 0);
                         const rawLogo = activeSide === 'back'
-                          ? (item.customBackLogoUrl && !item.customBackLogoUrl.includes('mockup') ? item.customBackLogoUrl : logoUrl)
+                          ? (item.customBackLogoUrl && !item.customBackLogoUrl.includes('mockup') ? item.customBackLogoUrl : (hasBackPrint ? logoUrl : null))
                           : (item.customLogoUrl && !item.customLogoUrl.includes('mockup') ? item.customLogoUrl : logoUrl);
-                        const activeArtwork = rawLogo || logoUrl!;
-                        const hasBackPrint = (item.backLogoScale && item.backLogoScale > 0) || Boolean(item.customBackLogoUrl);
+                        const activeArtwork = rawLogo;
 
                         const isEmbroidery = ['hat', 'cap', 'polo'].some(w => (item.product.category || item.product.title || item.product.style || '').toLowerCase().includes(w));
                         const isDark = ['black', 'dark', 'navy', 'patriot', 'charcoal', 'graphite', 'carbon', 'obsidian', 'maroon', 'cardinal', 'burgundy'].some(c => colorKey.toLowerCase().includes(c));
@@ -3380,7 +3404,7 @@ export function PublicQuoteRequest() {
                                 <img src={cardImage} className="w-full h-full object-contain pointer-events-none mix-blend-multiply p-3" alt={item.product.style} />
 
                                 {/* Projected logo (only if NOT compiled) */}
-                                {!isCompiled && activeLogoScale > 0 && (
+                                {!isCompiled && activeLogoScale > 0 && activeArtwork && (
                                   <div
                                     style={{
                                       position: 'absolute',
