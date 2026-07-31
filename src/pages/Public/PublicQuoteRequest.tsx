@@ -15,6 +15,7 @@ import {
   X,
   UserPlus,
   Plus,
+  Eye,
   ExternalLink
 } from 'lucide-react';
 import { db, storage } from '../../lib/firebase';
@@ -1583,6 +1584,50 @@ export function PublicQuoteRequest() {
   const updateEditingItem = (updater: (item: DesignRackItem) => DesignRackItem) => {
     if (!editingItemId) return;
 
+    setCart(prev => prev.map(cartItem => {
+      if (cartItem.id === editingItemId || cartItem.rackItemId === editingItemId) {
+        const tempRackItem: DesignRackItem = {
+          id: cartItem.id,
+          slot: cartItem.slot || 'tshirt',
+          product: cartItem.product,
+          color: cartItem.color,
+          selected: true,
+          logoPos: cartItem.logoPos || { x: 50, y: 35 },
+          logoScale: cartItem.logoScale || 0.38,
+          logoRotation: cartItem.logoRotation || 0,
+          backLogoPos: cartItem.backLogoPos || { x: 50, y: 35 },
+          backLogoScale: cartItem.backLogoScale || 0,
+          backLogoRotation: cartItem.backLogoRotation || 0,
+          customLogoUrl: cartItem.frontLogoUrl || cartItem.customLogoUrl,
+          customBackLogoUrl: cartItem.backLogoUrl || cartItem.customBackLogoUrl,
+          compiledMockupUrl: cartItem.compiledMockupUrl || cartItem.mockupUrl,
+          compiledBackMockupUrl: cartItem.compiledBackMockupUrl || cartItem.backMockupUrl,
+          printSize: cartItem.frontPrintSize || 'Medium',
+          decoration: cartItem.decorationMethod || 'Print'
+        };
+        const updated = updater(tempRackItem);
+        const hasBack = Boolean(updated.backLogoScale && updated.backLogoScale > 0);
+        return {
+          ...cartItem,
+          color: updated.color,
+          logoPos: updated.logoPos,
+          logoScale: updated.logoScale,
+          logoRotation: updated.logoRotation,
+          backLogoPos: updated.backLogoPos,
+          backLogoScale: updated.backLogoScale,
+          backLogoRotation: updated.backLogoRotation,
+          customLogoUrl: updated.customLogoUrl,
+          customBackLogoUrl: updated.customBackLogoUrl,
+          frontLogoUrl: updated.customLogoUrl || cartItem.frontLogoUrl,
+          backLogoUrl: hasBack ? (updated.customBackLogoUrl || cartItem.backLogoUrl) : null,
+          compiledMockupUrl: updated.compiledMockupUrl || cartItem.compiledMockupUrl,
+          compiledBackMockupUrl: hasBack ? (updated.compiledBackMockupUrl || cartItem.compiledBackMockupUrl) : null,
+          mockupUrl: updated.compiledMockupUrl || cartItem.mockupUrl
+        };
+      }
+      return cartItem;
+    }));
+
     if (flowMode === 'racks') {
       setRackItems(prev => prev.map(item => item.id === editingItemId ? updater(item) : item));
     } else if (flowMode === 'types') {
@@ -1897,8 +1942,32 @@ export function PublicQuoteRequest() {
   // Pre-load flatlay for edit canvas
   const editingProduct: DesignRackItem | null = (() => {
     if (!editingItemId) return null;
+    const rackMatch = rackItems.find(i => i.id === editingItemId);
+    if (rackMatch) return rackMatch;
+    const cartMatch = cart.find(c => c.id === editingItemId || c.rackItemId === editingItemId);
+    if (cartMatch) {
+      return {
+        id: cartMatch.id,
+        slot: cartMatch.slot || 'tshirt',
+        product: cartMatch.product,
+        color: cartMatch.color,
+        selected: true,
+        logoPos: cartMatch.logoPos || { x: 50, y: 35 },
+        logoScale: cartMatch.logoScale || 0.38,
+        logoRotation: cartMatch.logoRotation || 0,
+        backLogoPos: cartMatch.backLogoPos || { x: 50, y: 35 },
+        backLogoScale: cartMatch.backLogoScale || 0,
+        backLogoRotation: cartMatch.backLogoRotation || 0,
+        customLogoUrl: cartMatch.frontLogoUrl || cartMatch.customLogoUrl,
+        customBackLogoUrl: cartMatch.backLogoUrl || cartMatch.customBackLogoUrl,
+        compiledMockupUrl: cartMatch.compiledMockupUrl || cartMatch.mockupUrl,
+        compiledBackMockupUrl: cartMatch.compiledBackMockupUrl || cartMatch.backMockupUrl,
+        printSize: cartMatch.frontPrintSize || 'Medium',
+        decoration: cartMatch.decorationMethod || 'Print'
+      };
+    }
     if (flowMode === 'racks') {
-      return rackItems.find(i => i.id === editingItemId) || null;
+      return null;
     } else if (flowMode === 'types') {
       const item = selectedGarmentTypeItems.find(i => i.id === editingItemId);
       if (!item) {
@@ -3643,18 +3712,32 @@ export function PublicQuoteRequest() {
               {cart.map((item) => (
                 <div key={item.id} className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-3xs grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
                   <div className="lg:col-span-4 flex gap-4 items-center">
-                    <div className="w-14 h-16 bg-white border border-neutral-200 rounded-lg flex items-center justify-center p-1.5 overflow-hidden flex-shrink-0">
-                      <img src={item.mockupUrl} alt={item.product.title} className="max-h-full max-w-full object-contain" />
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingItemId(item.rackItemId || item.id);
+                        setEditViewMode('front');
+                        setIsEditorOpen(true);
+                      }}
+                      className="w-16 h-18 bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 hover:border-neutral-900 rounded-xl flex items-center justify-center p-1 overflow-hidden flex-shrink-0 cursor-pointer transition-all shadow-3xs hover:shadow-md group relative"
+                      title="Click to view & edit design"
+                    >
+                      <img 
+                        src={item.compiledMockupUrl || item.mockupUrl || item.frontMockupUrl} 
+                        alt={item.product.title} 
+                        className="max-h-full max-w-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform" 
+                      />
+                      <span className="absolute bottom-1 right-1 bg-neutral-900/80 text-white p-0.5 rounded text-[8px] opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Eye size={10} />
+                      </span>
+                    </button>
                     <div className="min-w-0">
                       <h4 className="text-xs font-bold text-neutral-850 truncate">{getCustomGarmentName(item.product, catalogSettings)}</h4>
                       <p className="text-[10px] text-neutral-500 mt-0.5">Color: <span className="font-bold text-neutral-800">{item.color}</span> | Decoration: <span className="font-bold text-neutral-800">{item.decorationMethod}</span></p>
                       {(() => {
                         const activePlacements = [];
-                        if (item.frontLogoUrl || item.logoUrl) activePlacements.push("Front");
-                        if (item.backLogoUrl || item.logoUrlBack) activePlacements.push("Back");
-                        if (item.leftSleeveLogoUrl || item.logoUrlLeftSleeve) activePlacements.push("Left Sleeve");
-                        if (item.rightSleeveLogoUrl || item.logoUrlRightSleeve) activePlacements.push("Right Sleeve");
+                        if (item.frontLogoUrl || item.customLogoUrl || item.logoUrl) activePlacements.push("Front");
+                        if (item.backLogoUrl || item.customBackLogoUrl || (item.backLogoScale && item.backLogoScale > 0)) activePlacements.push("Back");
                         const count = activePlacements.length;
                         return (
                           <p className="text-[10px] text-neutral-500 mt-0.5">
