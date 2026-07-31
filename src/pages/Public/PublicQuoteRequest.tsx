@@ -230,6 +230,52 @@ const fitLogoToBox = (box: LogoBox, logoAspect: number): { pos: { x: number; y: 
   return { pos: { x: box.x, y: box.y }, scale, rotation: box.r ?? 0 };
 };
 
+const getCustomGarmentName = (product: SanMarProduct, catalogSettings: any, themeCategory?: string, slotKey?: string): string => {
+  if (!product) return '';
+  
+  // 1. Explicit theme + slot override
+  if (themeCategory && slotKey && catalogSettings?.customNames?.racks?.[themeCategory]?.[slotKey]) {
+    const custom = catalogSettings.customNames.racks[themeCategory][slotKey];
+    if (typeof custom === 'string' && custom.trim()) return custom.trim();
+  }
+
+  // 2. Search across all catalogSettings.customNames.racks
+  if (catalogSettings?.customNames?.racks) {
+    for (const catName of Object.keys(catalogSettings.customNames.racks)) {
+      const slots = catalogSettings.customNames.racks[catName];
+      const styles = catalogSettings.racks?.[catName];
+      if (styles && slots) {
+        for (const sKey of Object.keys(slots)) {
+          if (styles[sKey] === product.style && slots[sKey]?.trim()) {
+            return slots[sKey].trim();
+          }
+        }
+      }
+    }
+  }
+
+  // 3. Search across all catalogSettings.customNames.basics
+  if (catalogSettings?.customNames?.basics) {
+    for (const catName of Object.keys(catalogSettings.customNames.basics)) {
+      const slots = catalogSettings.customNames.basics[catName];
+      const styles = catalogSettings.basics?.[catName];
+      if (styles && slots) {
+        for (const tierKey of Object.keys(slots)) {
+          if (styles[tierKey] === product.style && slots[tierKey]?.trim()) {
+            return slots[tierKey].trim();
+          }
+        }
+      }
+    }
+  }
+
+  // 4. Product title fallback
+  if (product.title) {
+    return product.title.replace(/®/g, '').trim();
+  }
+  return `${product.brand || ''} ${product.style || ''}`.trim();
+};
+
 interface TiltCardProps {
   children: React.ReactNode;
   className: string;
@@ -3899,7 +3945,7 @@ export function PublicQuoteRequest() {
                       const colorKey = prod.colors[0] || 'Black';
                       const previewImg = resolveGarmentImage(prod, colorKey);
                       const weightAndFabric = getGarmentWeightAndFabric(prod);
-                      const customName = prod.title || `${prod.brand} ${prod.style}`;
+                      const customName = getCustomGarmentName(prod, catalogSettings);
 
                       return (
                         <div
