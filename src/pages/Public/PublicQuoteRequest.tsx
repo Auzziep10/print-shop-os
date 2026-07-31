@@ -3212,9 +3212,9 @@ export function PublicQuoteRequest() {
 
                           {/* Placement frame — same 4:5 geometry as the design editor & mockup compiler,
                               so logoPos/logoScale render identically here, in Edit Design, and in the final mockup */}
-                          <div className="absolute inset-[9%]">
+                          <div className="absolute inset-0 p-3">
                             {/* Garment Image */}
-                            <img src={previewImg} className="absolute inset-0 w-full h-full object-contain pointer-events-none mix-blend-multiply" alt={item.product.style} />
+                            <img src={previewImg} className="w-full h-full object-contain pointer-events-none mix-blend-multiply p-3" alt={item.product.style} />
 
                             {/* Overlay Projected Logo */}
                             {activeLogoScale > 0 && (
@@ -3388,8 +3388,8 @@ export function PublicQuoteRequest() {
                               </div>
 
                               {/* Placement frame */}
-                              <div className="absolute inset-[9%]">
-                                <img src={previewImg} className="absolute inset-0 w-full h-full object-contain pointer-events-none mix-blend-multiply" alt={item.product.style} />
+                              <div className="absolute inset-0 p-3">
+                                <img src={previewImg} className="w-full h-full object-contain pointer-events-none mix-blend-multiply p-3" alt={item.product.style} />
 
                                 {/* Projected logo */}
                                 {activeLogoScale > 0 && (
