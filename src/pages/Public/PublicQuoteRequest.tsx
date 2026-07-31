@@ -1973,8 +1973,7 @@ export function PublicQuoteRequest() {
     }
     return null;
   })();
-  const editingImageSet = editingProduct ? (editingProduct.product.images[editingProduct.color] || Object.values(editingProduct.product.images)[0]) : null;
-  const editingGarmentImg = editingImageSet ? (typeof editingImageSet === 'string' ? editingImageSet : editingImageSet[editViewMode]) : '';
+  const editingGarmentImg = editingProduct ? resolveGarmentImage(editingProduct.product, editingProduct.color, editViewMode) : '';
   const editingGarmentProxied = editingGarmentImg.startsWith('http')
     ? `/api/sanmar/proxy-image?url=${encodeURIComponent(editingGarmentImg)}`
     : editingGarmentImg;
