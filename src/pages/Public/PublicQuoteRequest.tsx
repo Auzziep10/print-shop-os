@@ -439,6 +439,7 @@ export function PublicQuoteRequest() {
   const [selectedGarmentTypeItem, setSelectedGarmentTypeItem] = useState<SanMarProduct | null>(null);
   const [selectedGarmentTypeColor, setSelectedGarmentTypeColor] = useState<string>('');
   const [selectedGarmentTypeItems, setSelectedGarmentTypeItems] = useState<{ id: string; product: SanMarProduct; color: string; garmentType: GarmentTypeId }[]>([]);
+  const [editorLogoFilter, setEditorLogoFilter] = useState<'original' | 'white' | 'black'>('original');
 
   // Quick-add garment to lookbook collection directly from Step 3
   const handleAddGarmentToLookbook = (garmentTypeId: GarmentTypeId) => {
@@ -3699,7 +3700,12 @@ export function PublicQuoteRequest() {
                                 transform: `rotate(${activeLogoRotation}deg)`,
                                 width: '100%',
                                 height: 'auto',
-                                mixBlendMode: ['black', 'dark', 'navy', 'patriot', 'charcoal', 'graphite', 'carbon', 'obsidian', 'maroon', 'cardinal', 'burgundy'].some(c => editingProduct.color.toLowerCase().includes(c)) ? 'normal' : 'multiply'
+                                filter: editorLogoFilter === 'white'
+                                  ? 'brightness(0) invert(1)'
+                                  : editorLogoFilter === 'black'
+                                  ? 'brightness(0)'
+                                  : (editingProduct.decoration === 'Embroidery' ? 'drop-shadow(1.5px 1.5px 1.5px rgba(0,0,0,0.38))' : 'none'),
+                                mixBlendMode: ['black', 'dark', 'navy', 'patriot', 'charcoal', 'graphite', 'carbon', 'obsidian', 'maroon', 'cardinal', 'burgundy'].some(c => editingProduct.color.toLowerCase().includes(c)) || editorLogoFilter !== 'original' ? 'normal' : 'multiply'
                               }}
                               className="object-contain pointer-events-none"
                               alt="Logo"
@@ -3708,6 +3714,19 @@ export function PublicQuoteRequest() {
                           </div>
                         </div>
                       )}
+                    </div>
+                  </div>
+
+                  {/* Position & Decorating Tip */}
+                  <div className="w-full max-w-[420px] bg-white border border-neutral-200/80 rounded-xl p-3 text-xs text-neutral-600 flex items-start gap-2.5 shadow-3xs">
+                    <div className="bg-neutral-900 text-white rounded-md p-1 shrink-0 mt-0.5">
+                      <Shirt size={13} />
+                    </div>
+                    <div className="space-y-0.5">
+                      <span className="font-bold text-neutral-900 block text-xs">Decorating & Placement Tip</span>
+                      <p className="text-[11px] text-neutral-500 leading-snug">
+                        Click & drag your artwork directly on the garment mockup image to position it. Use <strong>Garment Zoom</strong> to zoom in for precise placement, or use the sliders on the right to scale and rotate.
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -3741,117 +3760,86 @@ export function PublicQuoteRequest() {
                     </div>
                   </div>
 
-                  {/* Enable Back Logo Checkbox */}
-                  {isBack && (
-                    <div className="flex items-center gap-2 p-3 bg-neutral-50 border border-neutral-200 rounded-xl">
-                      <input
-                        type="checkbox"
-                        id="enable-back-print"
-                        checked={editingProduct.backLogoScale > 0}
-                        onChange={(e) => {
-                          const enabled = e.target.checked;
-                          setRackItems(prev => prev.map((item, idx) => idx === editingItemIdx ? {
-                            ...item,
-                            backLogoScale: enabled ? 0.24 : 0,
-                            backLogoPos: { x: 50, y: 35 },
-                            backLogoRotation: 0
-                          } : item));
-                        }}
-                        className="w-4 h-4 text-neutral-900 border-neutral-300 rounded focus:ring-neutral-950 accent-neutral-900 cursor-pointer"
-                      />
-                      <label htmlFor="enable-back-print" className="text-xs font-bold text-neutral-700 cursor-pointer select-none">
-                        Enable Back Decoration
-                      </label>
-                    </div>
-                  )}
-
-                  {/* Print vs Embroidery selection */}
+                  {/* Garment Color Swatches */}
                   <div className="space-y-2">
-                    <span className="text-[10px] font-bold text-neutral-400 block uppercase tracking-wider">Decoration Method</span>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        onClick={() => setRackItems(prev => prev.map((item, idx) => idx === editingItemIdx ? { ...item, decoration: 'Print' } : item))}
-                        className={`py-2.5 border rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-                          editingProduct.decoration === 'Print'
-                            ? 'bg-neutral-900 border-neutral-900 text-white shadow-3xs'
-                            : 'bg-white border-neutral-200 text-neutral-700 hover:bg-neutral-50'
-                        }`}
-                      >
-                        Premium Print
-                      </button>
-                      <button
-                        onClick={() => setRackItems(prev => prev.map((item, idx) => idx === editingItemIdx ? { ...item, decoration: 'Embroidery' } : item))}
-                        className={`py-2.5 border rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-                          editingProduct.decoration === 'Embroidery'
-                            ? 'bg-neutral-900 border-neutral-900 text-white shadow-3xs'
-                            : 'bg-white border-neutral-200 text-neutral-700 hover:bg-neutral-50'
-                        }`}
-                      >
-                        Embroidery
-                      </button>
+                    <span className="text-[10px] font-bold text-neutral-400 block uppercase tracking-wider">Garment Color</span>
+                    <div className="flex gap-1.5 overflow-x-auto scrollbar-none py-1">
+                      {editingProduct.product.colors.map(c => {
+                        const swatchHex = getSwatchColor(c, true);
+                        const isColorActive = editingProduct.color === c;
+                        return (
+                          <button
+                            key={c}
+                            type="button"
+                            onClick={() => {
+                              setRackItems(prev => prev.map((item, idx) => idx === editingItemIdx ? { ...item, color: c } : item));
+                            }}
+                            className={`w-6 h-6 rounded-full border transition-all cursor-pointer ${
+                              isColorActive ? 'ring-2 ring-neutral-900 ring-offset-1 scale-105' : 'border-neutral-300 hover:scale-105'
+                            }`}
+                            style={{
+                              backgroundColor: swatchHex.startsWith('linear-gradient') ? 'transparent' : swatchHex,
+                              backgroundImage: swatchHex.startsWith('linear-gradient') ? swatchHex : 'none'
+                            }}
+                            title={c}
+                          />
+                        );
+                      })}
                     </div>
                   </div>
 
-                  {/* Print placement presets */}
-                  <div className="space-y-2">
-                    <span className="text-[10px] font-bold text-neutral-400 block uppercase tracking-wider">Placement Presets</span>
+                  {/* Logo Recolor & Background Remover Tools */}
+                  <div className="space-y-2.5 pt-2 border-t border-neutral-100">
+                    <span className="text-[10px] font-bold text-neutral-400 block uppercase tracking-wider">Logo Color Presets</span>
                     <div className="grid grid-cols-3 gap-2">
-                      {isBack ? (
-                        <>
-                          <button
-                            disabled={editingProduct.backLogoScale === 0}
-                            onClick={() => {
-                              setRackItems(prev => prev.map((item, idx) => idx === editingItemIdx ? { ...item, backLogoPos: { x: 50, y: 35 }, backLogoScale: 0.28 } : item));
-                            }}
-                            className="py-2 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-bold hover:bg-neutral-100 flex items-center justify-center gap-1 disabled:opacity-50"
-                          >
-                            Large Back
-                          </button>
-                          <button
-                            disabled={editingProduct.backLogoScale === 0}
-                            onClick={() => {
-                              setRackItems(prev => prev.map((item, idx) => idx === editingItemIdx ? { ...item, backLogoPos: { x: 50, y: 20 }, backLogoScale: 0.14 } : item));
-                            }}
-                            className="py-2 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-bold hover:bg-neutral-100 flex items-center justify-center gap-1 disabled:opacity-50"
-                          >
-                            Locker Patch
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          <button
-                            onClick={() => {
-                              setRackItems(prev => prev.map((item, idx) => idx === editingItemIdx ? { ...item, logoPos: { x: 50, y: 35 }, logoScale: 0.28 } : item));
-                            }}
-                            className="py-2 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-bold hover:bg-neutral-100 flex items-center justify-center gap-1"
-                          >
-                            Center
-                          </button>
-                          <button
-                            onClick={() => {
-                              setRackItems(prev => prev.map((item, idx) => idx === editingItemIdx ? { ...item, logoPos: { x: 38, y: 30 }, logoScale: 0.14 } : item));
-                            }}
-                            className="py-2 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-bold hover:bg-neutral-100 flex items-center justify-center gap-1"
-                          >
-                            Left Chest
-                          </button>
-                        </>
-                      )}
                       <button
-                        disabled={isBack && editingProduct.backLogoScale === 0}
-                        onClick={() => {
-                          setRackItems(prev => prev.map((item, idx) => {
-                            if (idx !== editingItemIdx) return item;
-                            return isBack
-                              ? { ...item, backLogoPos: { x: 50, y: 35 }, backLogoScale: 0.24, backLogoRotation: 0 }
-                              : { ...item, logoPos: { x: 50, y: 35 }, logoScale: 0.28, logoRotation: 0 };
-                          }));
-                        }}
-                        className="py-2 bg-neutral-50 border border-neutral-200 rounded-xl text-xs font-bold hover:bg-neutral-100 flex items-center justify-center gap-1 disabled:opacity-50"
+                        type="button"
+                        onClick={() => setEditorLogoFilter('original')}
+                        className={`py-2 border rounded-xl text-xs font-bold transition-all ${
+                          editorLogoFilter === 'original'
+                            ? 'bg-neutral-900 border-neutral-900 text-white shadow-3xs'
+                            : 'bg-white border-neutral-200 text-neutral-700 hover:bg-neutral-50'
+                        }`}
                       >
-                        Reset
+                        Original
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditorLogoFilter('white')}
+                        className={`py-2 border rounded-xl text-xs font-bold transition-all ${
+                          editorLogoFilter === 'white'
+                            ? 'bg-neutral-900 border-neutral-900 text-white shadow-3xs'
+                            : 'bg-white border-neutral-200 text-neutral-700 hover:bg-neutral-50'
+                        }`}
+                      >
+                        White Logo
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditorLogoFilter('black')}
+                        className={`py-2 border rounded-xl text-xs font-bold transition-all ${
+                          editorLogoFilter === 'black'
+                            ? 'bg-neutral-900 border-neutral-900 text-white shadow-3xs'
+                            : 'bg-white border-neutral-200 text-neutral-700 hover:bg-neutral-50'
+                        }`}
+                      >
+                        Black Logo
                       </button>
                     </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (originalArtworkUrl) {
+                          setIsColorRemoverOpen(true);
+                        } else {
+                          alert("Please upload a logo first to clean background/colors.");
+                        }
+                      }}
+                      className="w-full py-2.5 px-3 bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 text-neutral-800 cursor-pointer shadow-3xs mt-1"
+                    >
+                      <Scissors size={14} className="text-neutral-600" /> Clean Background / Colors
+                    </button>
                   </div>
 
                   {/* Garment Zoom Slider */}
