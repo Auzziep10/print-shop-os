@@ -9,7 +9,6 @@ import {
   Loader2,
   Lock,
   FileText,
-  Sparkles,
   Settings,
   Phone,
   ChevronLeft,
@@ -17,8 +16,7 @@ import {
   Scissors, 
   UserPlus,
   Plus,
-  ExternalLink,
-  Palette
+  ExternalLink
 } from 'lucide-react';
 import { db, storage } from '../../lib/firebase';
 import { doc, getDoc, setDoc, getDocs, collection, query, where } from 'firebase/firestore';
@@ -970,52 +968,6 @@ export function PublicQuoteRequest() {
         }
       });
     };
-  };
-
-  const generateAiLogo = async () => {
-    if (!aiPrompt.trim()) return;
-    setIsGeneratingAi(true);
-    try {
-      const fullPrompt = `${aiPrompt}, ${aiStyle}, high resolution vector logo, isolated graphic on flat solid white background, 4k`;
-      const encodedPrompt = encodeURIComponent(fullPrompt);
-      const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=512&height=512&nologo=true&seed=${Math.floor(Math.random() * 100000)}`;
-      
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.src = `/api/sanmar/proxy-image?url=${encodeURIComponent(imageUrl)}`;
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = 512;
-        canvas.height = 512;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-        ctx.drawImage(img, 0, 0, 512, 512);
-        canvas.toBlob(async (blob) => {
-          if (!blob) {
-            setIsGeneratingAi(false);
-            return;
-          }
-          const file = new File([blob], `ai_${Date.now()}.png`, { type: 'image/png' });
-          const tempId = `ai_${Date.now()}`;
-          const storageRef = ref(storage, `public_quotes/logos/${tempId}/${file.name}`);
-          await uploadBytes(storageRef, file);
-          const url = await getDownloadURL(storageRef);
-          
-          setLogoUrl(url);
-          setOriginalArtworkUrl(url);
-          setOriginalFileUrl(url);
-          setArtworkName(`AI: "${aiPrompt}"`);
-          setIsGeneratingAi(false);
-        }, 'image/png');
-      };
-      img.onerror = () => {
-        setIsGeneratingAi(false);
-        alert("Failed to compile AI logo. Please try again.");
-      };
-    } catch (err) {
-      console.error(err);
-      setIsGeneratingAi(false);
-    }
   };
 
   // Clipart SVGs
