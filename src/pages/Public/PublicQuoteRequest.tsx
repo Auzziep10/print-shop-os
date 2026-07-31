@@ -226,8 +226,10 @@ interface LogoBox {
 const FRAME_H_OVER_W = 5 / 4; // aspect-[4/5] placement frame
 const fitLogoToBox = (box: LogoBox, logoAspect: number): { pos: { x: number; y: number }; scale: number; rotation: number } => {
   const safeAspect = logoAspect > 0 ? logoAspect : 1;
-  const scale = Math.min(box.w / 100, (box.h / 100) * FRAME_H_OVER_W * safeAspect);
-  return { pos: { x: box.x, y: box.y }, scale, rotation: box.r ?? 0 };
+  const widthByHeightConstraint = ((box.h / 100) * FRAME_H_OVER_W) / safeAspect;
+  const scale = Math.min(box.w / 100, widthByHeightConstraint);
+  const clampedScale = Math.max(0.12, Math.min(0.85, scale));
+  return { pos: { x: box.x, y: box.y }, scale: clampedScale, rotation: box.r ?? 0 };
 };
 
 const getCustomGarmentName = (product: SanMarProduct, catalogSettings: any, themeCategory?: string, slotKey?: string): string => {
@@ -783,7 +785,7 @@ export function PublicQuoteRequest() {
           color: prevItem ? prevItem.color : (catalogSettings.defaultColors?.racks?.[themeName]?.[slot] || displayProduct.colors[0]),
           selected: isSelected,
           logoPos: fitted ? fitted.pos : isHat ? { x: 50, y: 55 } : isPolo ? { x: 38, y: 30 } : { x: 50, y: 35 },
-          logoScale: fitted ? fitted.scale : isHat ? 0.16 : isPolo ? 0.14 : 0.28,
+          logoScale: fitted ? fitted.scale : isHat ? 0.22 : isPolo ? 0.18 : 0.38,
           logoRotation: fitted ? fitted.rotation : 0,
           backLogoPos: { x: 50, y: 35 },
           backLogoScale: 0,
@@ -822,7 +824,7 @@ export function PublicQuoteRequest() {
     const cat = catalogSettings.basics?.[selectedBasicsCategory];
     const tier = cat ? ['good', 'better', 'best'].find(t => cat[t] === product.style) : undefined;
     const box = tier ? catalogSettings.logoPlacements?.basics?.[selectedBasicsCategory]?.[tier] : undefined;
-    return box ? fitLogoToBox(box, logoAspect) : { pos: { x: 50, y: 35 }, scale: 0.28, rotation: 0 };
+    return box ? fitLogoToBox(box, logoAspect) : { pos: { x: 50, y: 35 }, scale: 0.38, rotation: 0 };
   };
 
   // Populate basics selection
