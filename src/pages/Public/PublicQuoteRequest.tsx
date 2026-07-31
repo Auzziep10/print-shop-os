@@ -26,7 +26,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { PillButton } from '../../components/ui/PillButton';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
 import { getGarmentWeightAndFabric, getOrderedKeys, GARMENT_TYPES, detectGarmentTypeTag, type GarmentTypeId } from '../../lib/garmentUtils';
-import { MockupCreator } from '../../components/shared/MockupCreator';
+import { GarmentCustomizerModal } from '../../components/Portal/GarmentCustomizerModal';
 import colorHexMapJson from '../../data/color-hex-map.json';
 
 const colorHexMap = colorHexMapJson as Record<string, string>;
@@ -1174,8 +1174,16 @@ export function PublicQuoteRequest() {
     const colorCustomImg = resolveColorMockup(product.style, activeColor, side);
     if (colorCustomImg) return colorCustomImg;
 
-    // 2. Explicit theme or basics slot custom mockup (for default/primary color)
-    if (side === 'front') {
+    // 2. Explicit theme or basics slot custom mockup (only for default/primary color)
+    const defaultColor = (
+      (themeCategory && slotKey && settings?.defaultColors?.racks?.[themeCategory]?.[slotKey]) ||
+      product.colors[0] ||
+      ''
+    ).toLowerCase();
+
+    const isDefaultColor = !color || activeColor.toLowerCase() === defaultColor || activeColor.toLowerCase() === product.colors[0]?.toLowerCase();
+
+    if (side === 'front' && isDefaultColor) {
       if (themeCategory && slotKey && settings?.customMockups?.racks?.[themeCategory]?.[slotKey]) {
         const custom = settings.customMockups.racks[themeCategory][slotKey];
         if (typeof custom === 'string' && custom.trim()) return custom.trim();
@@ -3961,44 +3969,48 @@ export function PublicQuoteRequest() {
         );
       })()}
 
-      {/* SINGLE ITEM DESIGN CANVAS EDITOR MODAL (Portal MockupCreator) */}
+      {/* SINGLE ITEM DESIGN CANVAS EDITOR MODAL (Portal GarmentCustomizerModal) */}
       {isEditorOpen && editingItemId && editingProduct && (
-        <MockupCreator
+        <GarmentCustomizerModal
           isOpen={isEditorOpen}
           onClose={() => setIsEditorOpen(false)}
-          garmentImageUrl={editingGarmentImg}
-          garmentBackImageUrl={getGarmentMockupImage(editingProduct.product, editingProduct.color, 'back', catalogSettings, selectedThemeCategory, editingProduct.slot)}
-          garmentName={getCustomGarmentName(editingProduct.product, catalogSettings, selectedThemeCategory, editingProduct.slot)}
-          colorName={editingProduct.color}
-          availableColors={editingProduct.product.colors}
-          onColorChange={(newColor) => {
-            if (editingProduct.color !== newColor) {
-              setSelectedGarmentTypeColor(newColor);
-              updateEditingItem(item => ({
-                ...item,
-                color: newColor,
-                compiledMockupUrl: undefined,
-                compiledBackMockupUrl: undefined
-              }));
-            }
+          garment={{
+            id: editingProduct.id,
+            style: getCustomGarmentName(editingProduct.product, catalogSettings, selectedThemeCategory, editingProduct.slot),
+            itemNum: editingProduct.product.style,
+            image: editingGarmentImg,
+            images: editingProduct.product.images || null,
+            backImages: (editingProduct.product as any).backImages || null,
+            colors: editingProduct.product.colors || ['Custom Color'],
+            selectedColor: editingProduct.color,
+            originalFrontImage: editingGarmentImg,
+            originalBackImage: getGarmentMockupImage(editingProduct.product, editingProduct.color, 'back', catalogSettings, selectedThemeCategory, editingProduct.slot),
+            logoUrl: editingProduct.customLogoUrl && !editingProduct.customLogoUrl.includes('mockup') ? editingProduct.customLogoUrl : logoUrl,
+            logoUrlBack: editingProduct.customBackLogoUrl && !editingProduct.customBackLogoUrl.includes('mockup') ? editingProduct.customBackLogoUrl : ((editingProduct.backLogoScale && editingProduct.backLogoScale > 0) ? logoUrl : null),
+            logoPlacementFront: editingProduct.logoPos ? { xPct: editingProduct.logoPos.x, yPct: editingProduct.logoPos.y } : undefined,
+            customScaleFront: editingProduct.logoScale,
+            customRotationFront: editingProduct.logoRotation,
+            logoPlacementBack: editingProduct.backLogoPos ? { xPct: editingProduct.backLogoPos.x, yPct: editingProduct.backLogoPos.y } : undefined,
+            customScaleBack: editingProduct.backLogoScale,
+            customRotationBack: editingProduct.backLogoRotation,
           }}
-          initialLogoUrl={editingProduct.customLogoUrl && !editingProduct.customLogoUrl.includes('mockup') ? editingProduct.customLogoUrl : logoUrl}
-          initialLogoUrlBack={editingProduct.customBackLogoUrl && !editingProduct.customBackLogoUrl.includes('mockup') ? editingProduct.customBackLogoUrl : ((editingProduct.backLogoScale && editingProduct.backLogoScale > 0) ? logoUrl : null)}
-          onSave={(compiledMockupUrl, frontLogo, backLogo, _leftSleeve, _rightSleeve, placements) => {
-            const cleanFrontLogo = frontLogo && !frontLogo.includes('mockup') ? frontLogo : undefined;
-            const cleanBackLogo = backLogo && !backLogo.includes('mockup') ? backLogo : undefined;
+          customerId="PUBLIC_VISITOR"
+          onSave={(customizedData) => {
+            const cleanFrontLogo = customizedData.logoUrl && !customizedData.logoUrl.includes('mockup') ? customizedData.logoUrl : undefined;
+            const cleanBackLogo = customizedData.logoUrlBack && !customizedData.logoUrlBack.includes('mockup') ? customizedData.logoUrlBack : undefined;
             updateEditingItem(item => ({
               ...item,
-              compiledMockupUrl: compiledMockupUrl || item.compiledMockupUrl,
-              compiledBackMockupUrl: backLogo && compiledMockupUrl ? compiledMockupUrl : item.compiledBackMockupUrl,
-              customLogoUrl: cleanFrontLogo || (item.customLogoUrl && !item.customLogoUrl.includes('mockup') ? item.customLogoUrl : undefined),
-              customBackLogoUrl: cleanBackLogo || (item.customBackLogoUrl && !item.customBackLogoUrl.includes('mockup') ? item.customBackLogoUrl : undefined),
-              logoPos: placements?.front?.pos || item.logoPos,
-              logoScale: placements?.front?.scale ?? item.logoScale,
-              logoRotation: placements?.front?.rotation ?? item.logoRotation,
-              backLogoPos: placements?.back?.pos || item.backLogoPos,
-              backLogoScale: placements?.back?.scale ?? item.backLogoScale,
-              backLogoRotation: placements?.back?.rotation ?? item.backLogoRotation,
+              color: customizedData.selectedColor || item.color,
+              compiledMockupUrl: customizedData.customizedFrontImage || item.compiledMockupUrl,
+              compiledBackMockupUrl: customizedData.customizedBackImage || item.compiledBackMockupUrl,
+              customLogoUrl: cleanFrontLogo || item.customLogoUrl,
+              customBackLogoUrl: cleanBackLogo || item.customBackLogoUrl,
+              logoPos: customizedData.logoPlacementFront ? { x: customizedData.logoPlacementFront.xPct, y: customizedData.logoPlacementFront.yPct } : item.logoPos,
+              logoScale: customizedData.customScaleFront ?? item.logoScale,
+              logoRotation: customizedData.customRotationFront ?? item.logoRotation,
+              backLogoPos: customizedData.logoPlacementBack ? { x: customizedData.logoPlacementBack.xPct, y: customizedData.logoPlacementBack.yPct } : item.backLogoPos,
+              backLogoScale: customizedData.customScaleBack ?? item.backLogoScale,
+              backLogoRotation: customizedData.customRotationBack ?? item.backLogoRotation,
             }));
             setIsEditorOpen(false);
           }}

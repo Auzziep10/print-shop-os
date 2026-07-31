@@ -1,10 +1,9 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { X, Upload, RotateCw, Check, RefreshCw, Sparkles, Loader2 } from 'lucide-react';
+import { X, Upload, RotateCw, Check, RefreshCw, Sparkles, Loader2, ChevronDown } from 'lucide-react';
 import { storage } from '../../lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
 import { generateRotatedGarment } from '../../lib/geminiService';
-import { getSwatchColor } from './GarmentBrowser';
 
 const sanmarCatalog = sanmarCatalogJson as any[];
 
@@ -581,30 +580,25 @@ export function MockupCreator({
       <div className="px-8 py-5 border-b border-neutral-100 flex items-center justify-between bg-neutral-50/50 shrink-0">
         <div>
           <h3 className="text-xl font-bold font-serif text-brand-primary leading-tight">{garmentName}</h3>
-          <div className="flex items-center gap-3 mt-1.5 flex-wrap">
-            <span className="text-xs font-bold text-neutral-600 uppercase tracking-wider">{colorName}</span>
-            {availableColors && availableColors.length > 0 && (
-              <div className="flex gap-1.5 items-center pl-3 border-l border-neutral-200">
-                {availableColors.map(c => {
-                  const swatchHex = getSwatchColor(c, true);
-                  const isColorActive = colorName.toLowerCase() === c.toLowerCase();
-                  return (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={() => onColorChange?.(c)}
-                      className={`w-5 h-5 rounded-full border transition-all cursor-pointer ${
-                        isColorActive ? 'ring-2 ring-neutral-900 ring-offset-1 scale-110 shadow-xs' : 'border-neutral-300 hover:scale-105 opacity-80 hover:opacity-100'
-                      }`}
-                      style={{
-                        backgroundColor: swatchHex.startsWith('linear-gradient') ? 'transparent' : swatchHex,
-                        backgroundImage: swatchHex.startsWith('linear-gradient') ? swatchHex : 'none'
-                      }}
-                      title={`Switch color to ${c}`}
-                    />
-                  );
-                })}
+          <div className="flex items-center gap-2.5 mt-1.5 flex-wrap">
+            <span className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Garment Color:</span>
+            {availableColors && availableColors.length > 0 ? (
+              <div className="relative inline-flex items-center">
+                <select
+                  value={colorName}
+                  onChange={(e) => onColorChange?.(e.target.value)}
+                  className="bg-white border border-neutral-300 hover:border-neutral-900 rounded-xl px-3 py-1.5 pr-8 text-xs font-bold text-neutral-800 shadow-3xs cursor-pointer focus:outline-none focus:ring-2 focus:ring-neutral-900 appearance-none transition-all"
+                >
+                  {availableColors.map(c => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown size={14} className="absolute right-2.5 pointer-events-none text-neutral-500" />
               </div>
+            ) : (
+              <span className="text-xs font-bold text-neutral-800 uppercase tracking-wider">{colorName}</span>
             )}
           </div>
         </div>

@@ -1256,6 +1256,22 @@ export function GarmentCustomizerModal({
   useEffect(() => {
     const fetchAssets = async () => {
       if (!customerId) return;
+      if (customerId === 'PUBLIC_VISITOR') {
+        const initialAssets: any[] = [];
+        if (garment?.logoUrl) {
+          const defaultLogo = { id: 'public-logo-front', name: 'Front Logo', url: garment.logoUrl };
+          setSelectedLogoFront(defaultLogo);
+          initialAssets.push(defaultLogo);
+        }
+        if (garment?.logoUrlBack) {
+          const defaultBackLogo = { id: 'public-logo-back', name: 'Back Logo', url: garment.logoUrlBack };
+          setSelectedLogoBack(defaultBackLogo);
+          initialAssets.push(defaultBackLogo);
+        }
+        setAssets(initialAssets);
+        setIsLoadingAssets(false);
+        return;
+      }
       setIsLoadingAssets(true);
       try {
         const docRef = doc(db, 'customers', customerId);
@@ -1285,7 +1301,8 @@ export function GarmentCustomizerModal({
 
     setIsUploading(true);
     try {
-      const storageRef = ref(storage, `portal/${customerId}/vault/${Date.now()}_${file.name}`);
+      const uploadPath = customerId === 'PUBLIC_VISITOR' ? `public_quotes/uploads/${Date.now()}_${file.name}` : `portal/${customerId}/vault/${Date.now()}_${file.name}`;
+      const storageRef = ref(storage, uploadPath);
       await uploadBytes(storageRef, file);
       const downloadUrl = await getDownloadURL(storageRef);
 
@@ -1298,9 +1315,11 @@ export function GarmentCustomizerModal({
 
       const updatedAssets = [...assets, newAsset];
       
-      await updateDoc(doc(db, 'customers', customerId), {
-        assets: updatedAssets
-      });
+      if (customerId !== 'PUBLIC_VISITOR') {
+        await updateDoc(doc(db, 'customers', customerId), {
+          assets: updatedAssets
+        });
+      }
 
       setAssets(updatedAssets);
       setSelectedLogo(newAsset);
@@ -1887,7 +1906,7 @@ export function GarmentCustomizerModal({
         tagSizeSpelledOut: tagSize.spelledOut || false
       };
 
-      if (saveToLibraryName && saveToLibraryName.trim()) {
+      if (saveToLibraryName && saveToLibraryName.trim() && customerId !== 'PUBLIC_VISITOR') {
         await saveDesignToLibrary(customerId || 'CUS-001', saveToLibraryName.trim(), finalCustomizedGarment);
         alert(`Successfully saved "${saveToLibraryName.trim()}" to your Saved Designs library!`);
       }
