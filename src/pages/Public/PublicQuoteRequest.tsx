@@ -1171,6 +1171,55 @@ export function PublicQuoteRequest() {
     return '';
   };
 
+  const getGarmentMockupImage = (
+    product: SanMarProduct,
+    color: string,
+    side: 'front' | 'back',
+    settings: any,
+    themeCategory?: string,
+    slotKey?: string
+  ): string => {
+    if (!product) return '';
+    if (side === 'front') {
+      // 1. Explicit theme + slot override
+      if (themeCategory && slotKey && settings?.customMockups?.racks?.[themeCategory]?.[slotKey]) {
+        const custom = settings.customMockups.racks[themeCategory][slotKey];
+        if (typeof custom === 'string' && custom.trim()) return custom.trim();
+      }
+      // 2. Search across all customMockups.racks
+      if (settings?.customMockups?.racks) {
+        for (const catName of Object.keys(settings.customMockups.racks)) {
+          const slots = settings.customMockups.racks[catName];
+          const styles = settings.racks?.[catName];
+          if (styles && slots) {
+            for (const sKey of Object.keys(slots)) {
+              if (styles[sKey] === product.style && slots[sKey]?.trim()) {
+                return slots[sKey].trim();
+              }
+            }
+          }
+        }
+      }
+      // 3. Search across all customMockups.basics
+      if (settings?.customMockups?.basics) {
+        for (const catName of Object.keys(settings.customMockups.basics)) {
+          const slots = settings.customMockups.basics[catName];
+          const styles = settings.basics?.[catName];
+          if (styles && slots) {
+            for (const tierKey of Object.keys(slots)) {
+              if (styles[tierKey] === product.style && slots[tierKey]?.trim()) {
+                return slots[tierKey].trim();
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Fallback to SanMar catalog flatlay image
+    return resolveGarmentImage(product, color, side);
+  };
+
   // Compile Canvas Mockup per item
   const compileGarmentMockup = (product: SanMarProduct, color: string, itemLogoUrl: string | null, logoPos: { x: number; y: number }, logoScale: number, logoRotation: number, side: 'front' | 'back', decoration: 'Print' | 'Embroidery'): Promise<string | null> => {
     return new Promise(async (resolve, reject) => {
@@ -1179,7 +1228,7 @@ export function PublicQuoteRequest() {
         return;
       }
       const styleKey = product.style?.toLowerCase() || '';
-      const garmentImgUrl = resolveGarmentImage(product, color, side);
+      const garmentImgUrl = getGarmentMockupImage(product, color, side, catalogSettings);
       if (!itemLogoUrl) {
         resolve(garmentImgUrl);
         return;
@@ -1949,7 +1998,7 @@ export function PublicQuoteRequest() {
     }
     return null;
   })();
-  const editingGarmentImg = editingProduct ? resolveGarmentImage(editingProduct.product, editingProduct.color, editViewMode) : '';
+  const editingGarmentImg = editingProduct ? getGarmentMockupImage(editingProduct.product, editingProduct.color, editViewMode, catalogSettings, selectedThemeCategory, editingProduct.slot) : '';
   const editingGarmentProxied = editingGarmentImg.startsWith('http')
     ? `/api/sanmar/proxy-image?url=${encodeURIComponent(editingGarmentImg)}`
     : editingGarmentImg;
@@ -3162,7 +3211,7 @@ export function PublicQuoteRequest() {
                     return displayRacks.map(item => {
                       const activeSide = cardViewSides[item.id] || 'front';
                       const colorKey = item.color || item.product.colors[0];
-                      const previewImg = resolveGarmentImage(item.product, colorKey, activeSide);
+                      const previewImg = getGarmentMockupImage(item.product, colorKey, activeSide, catalogSettings, selectedThemeCategory, item.slot);
                       const placement = getBasicsPlacement(item.product);
 
                       const activeLogoPos = activeSide === 'back' ? (item.backLogoPos || { x: 50, y: 35 }) : (item.logoPos || placement.pos);
@@ -3338,7 +3387,7 @@ export function PublicQuoteRequest() {
                       {displayItems.map(item => {
                         const activeSide = cardViewSides[item.id] || 'front';
                         const colorKey = item.color || item.product.colors[0];
-                        const previewImg = resolveGarmentImage(item.product, colorKey, activeSide);
+                        const previewImg = getGarmentMockupImage(item.product, colorKey, activeSide, catalogSettings);
                         const placement = getBasicsPlacement(item.product);
                         
                         const activeLogoPos = activeSide === 'back' ? (item.backLogoPos || { x: 50, y: 35 }) : (item.logoPos || placement.pos);
