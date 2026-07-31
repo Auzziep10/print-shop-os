@@ -269,11 +269,15 @@ const getCustomGarmentName = (product: SanMarProduct, catalogSettings: any, them
     }
   }
 
-  // 4. Product title fallback
+  // 4. Product title fallback cleaned of brand & ®
   if (product.title) {
-    return product.title.replace(/®/g, '').trim();
+    const cleanTitle = product.title
+      .replace(/®/g, '')
+      .replace(/BELLA\+CANVAS|BELLA \+ CANVAS|District|Sport-Tek|Stanley\/Stella|Port & Company|Anvil|Gildan|Next Level|CornerStone|Mercer|Ogio/gi, '')
+      .trim();
+    if (cleanTitle) return cleanTitle;
   }
-  return `${product.brand || ''} ${product.style || ''}`.trim();
+  return 'Custom Garment';
 };
 
 interface TiltCardProps {
@@ -1766,7 +1770,7 @@ export function PublicQuoteRequest() {
       const totalUnits = cart.reduce((acc, item) => acc + item.qty, 0);
       const estimatedTotalPrice = cart.reduce((acc, item) => acc + (item.pricingDetails.total * item.qty), 0);
       const averageEstimatedPricePerUnit = totalUnits > 0 ? (estimatedTotalPrice / totalUnits) : 0;
-      const orderTitle = `${storefrontSettings.logoText} Quote for ${cart.map(item => `${item.product.brand} ${item.product.style}`).join(', ')}`;
+      const orderTitle = `${storefrontSettings.logoText} Quote for ${cart.map(item => getCustomGarmentName(item.product, catalogSettings)).join(', ')}`;
 
       const payload = {
         id: orderId,
@@ -1779,7 +1783,7 @@ export function PublicQuoteRequest() {
         createdAt: new Date().toISOString(),
         items: cart.map((item, idx) => ({
           id: Date.now() + idx,
-          style: `${item.product.brand} ${item.product.style} - ${item.product.title.replace(/®/g, '').trim()}`,
+          style: getCustomGarmentName(item.product, catalogSettings),
           color: item.color || '',
           qty: item.qty,
           image: item.mockupUrl || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200',
@@ -1828,7 +1832,7 @@ export function PublicQuoteRequest() {
             price_data: {
               currency: 'usd',
               product_data: {
-                name: `${item.product.brand} ${item.product.style} - ${item.product.title.replace(/®/g, '').trim()} (${item.color})`,
+                name: `${getCustomGarmentName(item.product, catalogSettings)} (${item.color})`,
                 description: `Decoration: ${item.decorationMethod} | Sizes: ${sizeDescription || 'Quote Pending'}`,
                 images: item.mockupUrl && item.mockupUrl.startsWith('http') ? [item.mockupUrl] : undefined
               },
@@ -2617,8 +2621,7 @@ export function PublicQuoteRequest() {
                             <img src={previewImg} alt={item.title} className="max-h-full max-w-full object-contain mix-blend-multiply" />
                           </div>
                           <div>
-                            <span className="text-[10px] font-bold text-neutral-400 uppercase">{item.brand} • {item.style}</span>
-                            <h4 className="text-sm font-bold text-neutral-800 truncate mt-0.5">{item.title}</h4>
+                            <h4 className="text-sm font-bold text-neutral-800 truncate">{getCustomGarmentName(item, catalogSettings)}</h4>
                             {(() => {
                               const specs = catalogSettings.customSpecs?.basics?.[selectedBasicsCategory]?.[slot];
                               const desc = specs?.description !== undefined ? specs.description : item.description;
@@ -3282,8 +3285,7 @@ export function PublicQuoteRequest() {
                         {/* Card details Footer */}
                         <div className="p-5 space-y-4">
                           <div>
-                            <span className="text-[9px] font-extrabold uppercase tracking-widest text-neutral-400">{item.product.brand} • {item.product.style}</span>
-                            <h4 className="text-sm font-bold text-neutral-800 truncate mt-0.5">{item.product.title.replace(/®/g, '').trim()}</h4>
+                            <h4 className="text-sm font-bold text-neutral-800 truncate">{getCustomGarmentName(item.product, catalogSettings, selectedThemeCategory, item.slot)}</h4>
                           </div>
 
                           <div className="flex gap-3">
@@ -3456,8 +3458,7 @@ export function PublicQuoteRequest() {
 
                             <div className="p-5 space-y-4">
                               <div>
-                                <span className="text-[9px] font-extrabold uppercase tracking-widest text-neutral-400">{item.product.brand} • {item.product.style}</span>
-                                <h4 className="text-sm font-bold text-neutral-800 truncate mt-0.5">{item.product.title.replace(/®/g, '').trim()}</h4>
+                                <h4 className="text-sm font-bold text-neutral-800 truncate">{getCustomGarmentName(item.product, catalogSettings)}</h4>
                               </div>
 
                               <div className="flex gap-3 items-center justify-between">
@@ -3565,8 +3566,7 @@ export function PublicQuoteRequest() {
 
                     <div className="p-5 space-y-4">
                       <div>
-                        <span className="text-[9px] font-extrabold uppercase tracking-widest text-neutral-400">{selectedBasicsItem.brand} • {selectedBasicsItem.style}</span>
-                        <h4 className="text-sm font-bold text-neutral-800 truncate mt-0.5">{selectedBasicsItem.title.replace(/®/g, '').trim()}</h4>
+                        <h4 className="text-sm font-bold text-neutral-800 truncate">{getCustomGarmentName(selectedBasicsItem, catalogSettings)}</h4>
                       </div>
 
                       <div className="flex gap-1 overflow-x-auto scrollbar-none py-1">
@@ -3675,8 +3675,7 @@ export function PublicQuoteRequest() {
                       <img src={item.mockupUrl} alt={item.product.title} className="max-h-full max-w-full object-contain" />
                     </div>
                     <div className="min-w-0">
-                      <span className="text-[9px] font-bold text-neutral-400 uppercase tracking-wider">{item.product.brand} {item.product.style}</span>
-                      <h4 className="text-xs font-bold text-neutral-850 truncate">{item.product.title.replace(/®/g, '').trim()}</h4>
+                      <h4 className="text-xs font-bold text-neutral-850 truncate">{getCustomGarmentName(item.product, catalogSettings)}</h4>
                       <p className="text-[10px] text-neutral-500 mt-0.5">Color: <span className="font-bold text-neutral-800">{item.color}</span> | Decoration: <span className="font-bold text-neutral-800">{item.decorationMethod}</span></p>
                       {(() => {
                         const activePlacements = [];
@@ -3991,7 +3990,6 @@ export function PublicQuoteRequest() {
                             <img src={previewImg} className="max-h-full max-w-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300" alt={prod.title} />
                           </div>
                           <div className="space-y-1">
-                            <span className="text-[9px] font-extrabold uppercase tracking-widest text-neutral-400">{prod.brand} • {prod.style}</span>
                             <h4 className="text-sm font-bold text-neutral-900 group-hover:text-neutral-950 truncate">{customName}</h4>
                             {weightAndFabric?.formatted && <p className="text-[10px] text-neutral-500 line-clamp-1">{weightAndFabric.formatted}</p>}
                           </div>
