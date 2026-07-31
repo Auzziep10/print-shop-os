@@ -3986,6 +3986,8 @@ export function PublicQuoteRequest() {
             originalFrontImage: editingGarmentImg,
             originalBackImage: getGarmentMockupImage(editingProduct.product, editingProduct.color, 'back', catalogSettings, selectedThemeCategory, editingProduct.slot),
             logoUrl: editingProduct.customLogoUrl && !editingProduct.customLogoUrl.includes('mockup') ? editingProduct.customLogoUrl : logoUrl,
+            logoName: artworkName || 'Logo.png',
+            artworkName: artworkName || 'Logo.png',
             logoUrlBack: editingProduct.customBackLogoUrl && !editingProduct.customBackLogoUrl.includes('mockup') ? editingProduct.customBackLogoUrl : ((editingProduct.backLogoScale && editingProduct.backLogoScale > 0) ? logoUrl : null),
             logoPlacementFront: editingProduct.logoPos ? { xPct: editingProduct.logoPos.x, yPct: editingProduct.logoPos.y } : undefined,
             customScaleFront: editingProduct.logoScale,

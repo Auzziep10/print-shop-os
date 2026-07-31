@@ -1259,12 +1259,16 @@ export function GarmentCustomizerModal({
       if (customerId === 'PUBLIC_VISITOR') {
         const initialAssets: any[] = [];
         if (garment?.logoUrl) {
-          const defaultLogo = { id: 'public-logo-front', name: 'Front Logo', url: garment.logoUrl };
+          const rawName = garment?.logoName || garment?.artworkName || 'Logo.png';
+          const logoName = rawName.includes('.') ? rawName : `${rawName}.png`;
+          const defaultLogo = { id: 'public-logo-front', name: logoName, url: garment.logoUrl };
           setSelectedLogoFront(defaultLogo);
           initialAssets.push(defaultLogo);
         }
         if (garment?.logoUrlBack) {
-          const defaultBackLogo = { id: 'public-logo-back', name: 'Back Logo', url: garment.logoUrlBack };
+          const rawBackName = garment?.logoNameBack || 'Back_Logo.png';
+          const logoBackName = rawBackName.includes('.') ? rawBackName : `${rawBackName}.png`;
+          const defaultBackLogo = { id: 'public-logo-back', name: logoBackName, url: garment.logoUrlBack };
           setSelectedLogoBack(defaultBackLogo);
           initialAssets.push(defaultBackLogo);
         }
@@ -1967,8 +1971,12 @@ export function GarmentCustomizerModal({
   };
 
   const isImageFile = (name: string) => {
+    if (!name) return true;
+    if (name.startsWith('http') || name.startsWith('data:image')) return true;
     const ext = name.split('.').pop()?.toLowerCase();
-    return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext || '');
+    if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext || '')) return true;
+    if (!name.includes('.')) return true;
+    return false;
   };
 
   const isPdfFile = (name: string) => {
