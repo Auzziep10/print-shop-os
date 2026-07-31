@@ -3174,8 +3174,20 @@ export function PublicQuoteRequest() {
                     return (
                       <div 
                         key={item.id} 
-                        className="bg-white border border-neutral-200/80 rounded-2xl overflow-hidden flex flex-col justify-between group shadow-3xs hover:shadow-md hover:-translate-y-1 transition-all duration-350"
+                        className="bg-white border border-neutral-200/80 rounded-2xl overflow-hidden flex flex-col justify-between group shadow-3xs hover:shadow-md hover:-translate-y-1 transition-all duration-350 relative"
                       >
+                        {/* Remove button if more than 1 item */}
+                        {displayRacks.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveGarmentFromLookbook(item.id)}
+                            className="absolute top-3 right-3 z-20 w-7 h-7 bg-white/90 hover:bg-red-50 text-neutral-400 hover:text-red-600 border border-neutral-200 rounded-full flex items-center justify-center transition-all shadow-3xs cursor-pointer"
+                            title="Remove garment from collection"
+                          >
+                            <X size={14} />
+                          </button>
+                        )}
+
                         <div className="relative aspect-[4/5] bg-transparent flex items-center justify-center p-6 border-b border-neutral-100 overflow-hidden select-none">
                           
                           {/* Smart Decoration Badge */}
@@ -3188,7 +3200,7 @@ export function PublicQuoteRequest() {
                           </div>
 
                           {/* View Side Toggle (Front vs Back) */}
-                          <div className="absolute top-4 right-4 z-10 flex items-center bg-white/90 border border-neutral-200 rounded-lg p-0.5 shadow-3xs backdrop-blur-xs">
+                          <div className={`absolute top-4 ${displayRacks.length > 1 ? 'right-12' : 'right-4'} z-10 flex items-center bg-white/90 border border-neutral-200 rounded-lg p-0.5 shadow-3xs backdrop-blur-xs`}>
                             <button
                               type="button"
                               onClick={() => setCardViewSides(prev => ({ ...prev, [item.id]: 'front' }))}
