@@ -735,7 +735,9 @@ export function PublicQuoteRequest() {
         const isPolo = slot === 'polo';
 
         // Admin-configured placement box beats the hardcoded slot defaults
-        const placementBox = catalogSettings.logoPlacements?.racks?.[themeName]?.[slot];
+        const placementBox =
+          (themeName && slot && catalogSettings.logoPlacements?.racks?.[themeName]?.[slot]) ||
+          (slot && Object.values(catalogSettings.logoPlacements?.racks || {}).find((catSlots: any) => catSlots?.[slot])?.[slot]);
         const fitted = placementBox ? fitLogoToBox(placementBox, logoAspect) : null;
 
         const prevItem = rackItems.find(r => r.slot === slot);
@@ -747,7 +749,7 @@ export function PublicQuoteRequest() {
           product: displayProduct,
           color: prevItem ? prevItem.color : (catalogSettings.defaultColors?.racks?.[themeName]?.[slot] || displayProduct.colors[0]),
           selected: isSelected,
-          logoPos: fitted ? fitted.pos : isHat ? { x: 50, y: 55 } : isPolo ? { x: 38, y: 30 } : { x: 50, y: 35 },
+          logoPos: fitted ? fitted.pos : isHat ? { x: 50, y: 35 } : isPolo ? { x: 38, y: 30 } : { x: 50, y: 35 },
           logoScale: fitted ? fitted.scale : isHat ? 0.22 : isPolo ? 0.18 : 0.38,
           logoRotation: fitted ? fitted.rotation : 0,
           backLogoPos: { x: 50, y: 35 },
@@ -1180,13 +1182,18 @@ export function PublicQuoteRequest() {
         const custom = settings.customMockups.racks[themeCategory][slotKey];
         if (typeof custom === 'string' && custom.trim()) return custom.trim();
       }
+      if (slotKey && settings?.customMockups?.racks) {
+        for (const catName of Object.keys(settings.customMockups.racks)) {
+          const custom = settings.customMockups.racks[catName]?.[slotKey];
+          if (typeof custom === 'string' && custom.trim()) return custom.trim();
+        }
+      }
       if (settings?.customMockups?.racks) {
         for (const catName of Object.keys(settings.customMockups.racks)) {
           const slots = settings.customMockups.racks[catName];
-          const styles = settings.racks?.[catName];
-          if (styles && slots) {
+          if (slots) {
             for (const sKey of Object.keys(slots)) {
-              if (styles[sKey] === product.style && slots[sKey]?.trim()) {
+              if (slots[sKey]?.trim() && (sKey === slotKey || settings.racks?.[catName]?.[sKey] === product.style)) {
                 return slots[sKey].trim();
               }
             }
@@ -1196,10 +1203,9 @@ export function PublicQuoteRequest() {
       if (settings?.customMockups?.basics) {
         for (const catName of Object.keys(settings.customMockups.basics)) {
           const slots = settings.customMockups.basics[catName];
-          const styles = settings.basics?.[catName];
-          if (styles && slots) {
+          if (slots) {
             for (const tierKey of Object.keys(slots)) {
-              if (styles[tierKey] === product.style && slots[tierKey]?.trim()) {
+              if (slots[tierKey]?.trim() && settings.basics?.[catName]?.[tierKey] === product.style) {
                 return slots[tierKey].trim();
               }
             }
