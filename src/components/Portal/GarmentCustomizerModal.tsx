@@ -1851,9 +1851,16 @@ export function GarmentCustomizerModal({
       const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
       if (!blob) throw new Error("Failed to create canvas blob");
 
-      const compositeRef = ref(storage, `portal/${customerId}/customizations/${Date.now()}_custom.png`);
-      await uploadBytes(compositeRef, blob);
-      const downloadUrl = await getDownloadURL(compositeRef);
+      const compositeDataUrl = canvas.toDataURL('image/png');
+      let downloadUrl = compositeDataUrl;
+      try {
+        const targetCustId = customerId || 'PUBLIC_VISITOR';
+        const compositeRef = ref(storage, `portal/${targetCustId}/customizations/${Date.now()}_custom.png`);
+        await uploadBytes(compositeRef, blob);
+        downloadUrl = await getDownloadURL(compositeRef);
+      } catch (storageErr) {
+        console.warn('Storage upload skipped for composite preview, using dataUrl fallback', storageErr);
+      }
 
       // Helper function to generate and upload a single side mockup
       const generateAndUploadSide = async (garmentSrc: string, logoAsset: any, scaleVal: number, offX: number, offY: number, rotationVal: number, sideName: string) => {
@@ -1924,12 +1931,19 @@ export function GarmentCustomizerModal({
           tempCtx.restore();
         }
 
+        const sideDataUrl = tempCanvas.toDataURL('image/png');
         const sideBlob = await new Promise<Blob | null>((resolve) => tempCanvas.toBlob(resolve, 'image/png'));
-        if (!sideBlob) return null;
+        if (!sideBlob) return sideDataUrl;
 
-        const sideRef = ref(storage, `portal/${customerId}/customizations/${Date.now()}_${sideName.replace(' ', '_').toLowerCase()}.png`);
-        await uploadBytes(sideRef, sideBlob);
-        return await getDownloadURL(sideRef);
+        try {
+          const targetCustId = customerId || 'PUBLIC_VISITOR';
+          const sideRef = ref(storage, `portal/${targetCustId}/customizations/${Date.now()}_${sideName.replace(' ', '_').toLowerCase()}.png`);
+          await uploadBytes(sideRef, sideBlob);
+          return await getDownloadURL(sideRef);
+        } catch (storageErr) {
+          console.warn('Storage upload skipped for side preview, returning dataUrl fallback', storageErr);
+          return sideDataUrl;
+        }
       };
 
       // Generate individual side images
@@ -1949,11 +1963,18 @@ export function GarmentCustomizerModal({
       if (isTagCustomized) {
         const tagBaseCanvas = await compileTagCanvas(false);
         if (tagBaseCanvas) {
+          const tagDataUrl = tagBaseCanvas.toDataURL('image/png');
+          logoUrlTag = tagDataUrl;
           const tagBlob = await new Promise<Blob | null>((resolve) => tagBaseCanvas.toBlob(resolve, 'image/png'));
           if (tagBlob) {
-            const tagRef = ref(storage, `portal/${customerId}/customizations/${Date.now()}_tag_base.png`);
-            await uploadBytes(tagRef, tagBlob);
-            logoUrlTag = await getDownloadURL(tagRef);
+            try {
+              const targetCustId = customerId || 'PUBLIC_VISITOR';
+              const tagRef = ref(storage, `portal/${targetCustId}/customizations/${Date.now()}_tag_base.png`);
+              await uploadBytes(tagRef, tagBlob);
+              logoUrlTag = await getDownloadURL(tagRef);
+            } catch (tagStorageErr) {
+              console.warn('Tag storage upload skipped for guest user, using dataUrl fallback', tagStorageErr);
+            }
           }
         }
       }
