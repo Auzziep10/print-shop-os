@@ -950,26 +950,32 @@ export function PublicQuoteRequest() {
 
     setIsUploadingLogo(true);
     try {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          const dUrl = event.target.result as string;
-          setOriginalArtworkUrl(dUrl);
-          extractDominantColors(dUrl);
-        }
-      };
-      reader.readAsDataURL(file);
+      const dataUrl = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          if (event.target?.result) resolve(event.target.result as string);
+        };
+        reader.readAsDataURL(file);
+      });
 
-      const tempId = `logo_${Date.now()}`;
-      const storageRef = ref(storage, `public_quotes/logos/${tempId}/${file.name}`);
-      await uploadBytes(storageRef, file);
-      const url = await getDownloadURL(storageRef);
-      setLogoUrl(url);
-      setOriginalFileUrl(url);
+      setOriginalArtworkUrl(dataUrl);
+      extractDominantColors(dataUrl);
       setArtworkName(file.name);
+
+      try {
+        const tempId = `logo_${Date.now()}`;
+        const storageRef = ref(storage, `public_quotes/logos/${tempId}/${file.name}`);
+        await uploadBytes(storageRef, file);
+        const url = await getDownloadURL(storageRef);
+        setLogoUrl(url);
+        setOriginalFileUrl(url);
+      } catch (storageErr) {
+        console.warn('Firebase storage upload skipped/failed for guest user, using dataUrl fallback', storageErr);
+        setLogoUrl(dataUrl);
+        setOriginalFileUrl(dataUrl);
+      }
     } catch (err) {
-      console.error('Logo upload failed', err);
-      alert('Failed to upload logo image.');
+      console.error('Logo file reading failed', err);
     } finally {
       setIsUploadingLogo(false);
     }
@@ -984,19 +990,11 @@ export function PublicQuoteRequest() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    let fontStr = `bold 64px sans-serif`;
-    if (textFont === 'Serif') fontStr = `bold 64px Georgia, serif`;
-    else if (textFont === 'Collegiate') fontStr = `bold 80px "Impact", "Arial Black", sans-serif`;
-    else if (textFont === 'Script') fontStr = `italic 70px "Brush Script MT", cursive`;
-    else if (textFont === 'Modern') fontStr = `bold 72px "Outfit", sans-serif`;
-    
-    ctx.font = fontStr;
-    ctx.fillStyle = textColor;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    
-    if (textFont === 'Collegiate') {
+    ctx.font = `bold 64px ${textFont}`;
+
+    if (textHasOutline) {
       ctx.strokeStyle = '#FFFFFF';
       ctx.lineWidth = 10;
       ctx.strokeText(customText, canvas.width / 2, canvas.height / 2);
@@ -1004,12 +1002,18 @@ export function PublicQuoteRequest() {
       ctx.lineWidth = 3;
       ctx.strokeText(customText, canvas.width / 2, canvas.height / 2);
     }
+    ctx.fillStyle = textColor;
     ctx.fillText(customText, canvas.width / 2, canvas.height / 2);
     
+    const dataUrl = canvas.toDataURL('image/png');
+    setLogoUrl(dataUrl);
+    setOriginalArtworkUrl(dataUrl);
+    setOriginalFileUrl(dataUrl);
+    setArtworkName(`Text: "${customText}"`);
+
     canvas.toBlob(async (blob) => {
       if (!blob) return;
       const file = new File([blob], `text_${Date.now()}.png`, { type: 'image/png' });
-      setIsUploadingLogo(true);
       try {
         const tempId = `text_${Date.now()}`;
         const storageRef = ref(storage, `public_quotes/logos/${tempId}/${file.name}`);
@@ -1018,11 +1022,8 @@ export function PublicQuoteRequest() {
         setLogoUrl(url);
         setOriginalArtworkUrl(url);
         setOriginalFileUrl(url);
-        setArtworkName(`Text: "${customText}"`);
       } catch (err) {
-        console.error('Text upload failed', err);
-      } finally {
-        setIsUploadingLogo(false);
+        console.warn('Text logo storage upload skipped for guest user, using dataUrl fallback', err);
       }
     }, 'image/png');
   };
@@ -1040,10 +1041,16 @@ export function PublicQuoteRequest() {
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
       ctx.drawImage(img, 0, 0, 512, 512);
+
+      const pngDataUrl = canvas.toDataURL('image/png');
+      setLogoUrl(pngDataUrl);
+      setOriginalArtworkUrl(pngDataUrl);
+      setOriginalFileUrl(pngDataUrl);
+      setArtworkName(`Clipart: ${clipartKey}`);
+
       canvas.toBlob(async (blob) => {
         if (!blob) return;
         const file = new File([blob], `clipart_${clipartKey.toLowerCase()}_${Date.now()}.png`, { type: 'image/png' });
-        setIsUploadingLogo(true);
         try {
           const tempId = `clip_${Date.now()}`;
           const storageRef = ref(storage, `public_quotes/logos/${tempId}/${file.name}`);
@@ -1052,13 +1059,10 @@ export function PublicQuoteRequest() {
           setLogoUrl(url);
           setOriginalArtworkUrl(url);
           setOriginalFileUrl(url);
-          setArtworkName(`Clipart: ${clipartKey}`);
         } catch (err) {
-          console.error(err);
-        } finally {
-          setIsUploadingLogo(false);
+          console.warn('Clipart storage upload skipped for guest user, using dataUrl fallback', err);
         }
-      });
+      }, 'image/png');
     };
   };
 
@@ -1468,16 +1472,22 @@ export function PublicQuoteRequest() {
         ctx.drawImage(lImg, -canvasLogoW / 2, -canvasLogoH / 2, canvasLogoW, canvasLogoH);
         ctx.restore();
 
+        const dataUrl = canvas.toDataURL('image/png');
         canvas.toBlob(async (blob) => {
           if (!blob) {
-            reject(new Error('Canvas conversion to blob failed'));
+            resolve(dataUrl);
             return;
           }
-          const mockupId = `mockup_${Date.now()}`;
-          const fileRef = ref(storage, `public_quotes/mockups/${mockupId}.png`);
-          await uploadBytes(fileRef, blob, { contentType: 'image/png' });
-          const finalDownloadUrl = await getDownloadURL(fileRef);
-          resolve(finalDownloadUrl);
+          try {
+            const mockupId = `mockup_${Date.now()}`;
+            const fileRef = ref(storage, `public_quotes/mockups/${mockupId}.png`);
+            await uploadBytes(fileRef, blob, { contentType: 'image/png' });
+            const finalDownloadUrl = await getDownloadURL(fileRef);
+            resolve(finalDownloadUrl);
+          } catch (storageErr) {
+            console.warn('Mockup storage upload failed for guest user, using dataUrl fallback', storageErr);
+            resolve(dataUrl);
+          }
         }, 'image/png');
       } catch (err) {
         console.error(err);

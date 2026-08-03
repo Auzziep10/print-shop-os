@@ -318,14 +318,26 @@ export function MockupCreator({
 
     setIsUploadingLogo(true);
     try {
-      const tempId = `temp_logo_${Date.now()}`;
-      const storageRef = ref(storage, `public_quotes/logos/${tempId}/${file.name}`);
-      await uploadBytes(storageRef, file);
-      const url = await getDownloadURL(storageRef);
-      setLogoUrl(url);
+      const dataUrl = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          if (event.target?.result) resolve(event.target.result as string);
+        };
+        reader.readAsDataURL(file);
+      });
+
+      try {
+        const tempId = `temp_logo_${Date.now()}`;
+        const storageRef = ref(storage, `public_quotes/logos/${tempId}/${file.name}`);
+        await uploadBytes(storageRef, file);
+        const url = await getDownloadURL(storageRef);
+        setLogoUrl(url);
+      } catch (storageErr) {
+        console.warn('Storage upload fallback to dataUrl for guest user', storageErr);
+        setLogoUrl(dataUrl);
+      }
     } catch (err) {
       console.error('Logo upload failed', err);
-      alert('Failed to upload logo image.');
     } finally {
       setIsUploadingLogo(false);
     }
