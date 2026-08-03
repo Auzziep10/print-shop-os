@@ -1752,7 +1752,9 @@ export function PublicQuoteRequest() {
             backLogoScale: updated.backLogoScale,
             backLogoRotation: updated.backLogoRotation,
             customLogoUrl: updated.customLogoUrl,
-            customBackLogoUrl: updated.customBackLogoUrl
+            customBackLogoUrl: updated.customBackLogoUrl,
+            compiledMockupUrl: updated.compiledMockupUrl,
+            compiledBackMockupUrl: updated.compiledBackMockupUrl
           }];
         }
 
@@ -1774,7 +1776,9 @@ export function PublicQuoteRequest() {
             printSize: 'Medium',
             decoration: ['hat', 'cap', 'polo'].some(w => (item.product.category || item.product.title || item.product.style || '').toLowerCase().includes(w)) ? 'Embroidery' : 'Print',
             customLogoUrl: item.customLogoUrl,
-            customBackLogoUrl: item.customBackLogoUrl
+            customBackLogoUrl: item.customBackLogoUrl,
+            compiledMockupUrl: (item as any).compiledMockupUrl,
+            compiledBackMockupUrl: (item as any).compiledBackMockupUrl
           };
           const updated = updater(rackLike);
           setSelectedGarmentTypeColor(updated.color);
@@ -1788,7 +1792,9 @@ export function PublicQuoteRequest() {
             backLogoScale: updated.backLogoScale,
             backLogoRotation: updated.backLogoRotation,
             customLogoUrl: updated.customLogoUrl,
-            customBackLogoUrl: updated.customBackLogoUrl
+            customBackLogoUrl: updated.customBackLogoUrl,
+            compiledMockupUrl: updated.compiledMockupUrl,
+            compiledBackMockupUrl: updated.compiledBackMockupUrl
           };
         });
       });
@@ -3385,7 +3391,8 @@ export function PublicQuoteRequest() {
 
                             {/* Overlay Projected Logo (only if NOT compiled into single image) */}
                             {!isCompiled && activeLogoScale > 0 && activeArtwork && (() => {
-                              const normCardScale = activeLogoScale > 1 ? activeLogoScale : activeLogoScale * 100;
+                              const normVal = activeLogoScale > 1 ? activeLogoScale / 100 : activeLogoScale;
+                              const normCardScale = Math.min(60, Math.max(5, normVal * 36));
                               return (
                                 <div
                                   style={{
@@ -3568,30 +3575,34 @@ export function PublicQuoteRequest() {
                                 <img src={cardImage} className={`w-full h-full object-contain pointer-events-none mix-blend-multiply p-3 transition-transform duration-200 ${activeSide === 'back' ? 'scale-[0.92]' : 'scale-100'}`} alt={item.product.style} />
 
                                 {/* Projected logo (only if NOT compiled) */}
-                                {!isCompiled && activeLogoScale > 0 && activeArtwork && (
-                                  <div
-                                    style={{
-                                      position: 'absolute',
-                                      left: `${activeLogoPos.x}%`,
-                                      top: `${activeLogoPos.y}%`,
-                                      width: `${activeLogoScale * 100}%`,
-                                      transform: `translate(-50%, -50%) rotate(${activeLogoRotation}deg)`,
-                                      pointerEvents: 'none'
-                                    }}
-                                  >
-                                    <img
-                                      src={activeArtwork}
-                                      alt="overlay"
+                                {!isCompiled && activeLogoScale > 0 && activeArtwork && (() => {
+                                  const normVal = activeLogoScale > 1 ? activeLogoScale / 100 : activeLogoScale;
+                                  const normCardScale = Math.min(60, Math.max(5, normVal * 36));
+                                  return (
+                                    <div
                                       style={{
-                                        width: '100%',
-                                        height: 'auto',
-                                        filter: isEmbroidery ? 'drop-shadow(1.5px 1.5px 1.5px rgba(0,0,0,0.38))' : 'none',
-                                        mixBlendMode: isDark ? 'normal' : 'multiply'
+                                        position: 'absolute',
+                                        left: `${activeLogoPos.x}%`,
+                                        top: `${activeLogoPos.y}%`,
+                                        width: `${normCardScale}%`,
+                                        transform: `translate(-50%, -50%) rotate(${activeLogoRotation}deg)`,
+                                        pointerEvents: 'none'
                                       }}
-                                      className="object-contain"
-                                    />
-                                  </div>
-                                )}
+                                    >
+                                      <img
+                                        src={activeArtwork}
+                                        alt="overlay"
+                                        style={{
+                                          width: '100%',
+                                          height: 'auto',
+                                          filter: isEmbroidery ? 'drop-shadow(1.5px 1.5px 1.5px rgba(0,0,0,0.38))' : 'none',
+                                          mixBlendMode: isDark ? 'normal' : 'multiply'
+                                        }}
+                                        className="object-contain"
+                                      />
+                                    </div>
+                                  );
+                                })()}
                               </div>
                             </div>
 
