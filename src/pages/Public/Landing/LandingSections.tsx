@@ -322,11 +322,12 @@ export function ShowcaseSection({
     const mm = gsap.matchMedia();
     mm.add(
       {
+        desktop: '(min-width: 1024px)',
         reduce: '(prefers-reduced-motion: reduce)',
       },
       (ctx) => {
-        const { reduce } = ctx.conditions as { reduce: boolean };
-        if (reduce) return;
+        const { desktop, reduce } = ctx.conditions as { desktop: boolean; reduce: boolean };
+        if (!desktop || reduce) return;
         const track = trackRef.current;
         const section = sectionRef.current;
         if (!track || !section) return;
@@ -350,7 +351,7 @@ export function ShowcaseSection({
 
   return (
     <section ref={sectionRef} className="overflow-hidden bg-zinc-950 text-[#faf9f5]">
-      <div className="flex items-end justify-between px-6 pt-20 pb-10 md:px-12 md:pt-28">
+      <div className="flex items-end justify-between px-6 pt-20 pb-8 md:px-12 md:pt-28 md:pb-10">
         <div>
           <p className="font-inter mb-4 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-500">
             {settings?.showcaseLabel || '( The catalog )'}
@@ -361,15 +362,20 @@ export function ShowcaseSection({
             )}
           </h2>
         </div>
-        <p className="font-inter hidden max-w-xs text-xs font-light leading-relaxed text-zinc-400 md:block">
-          {settings?.showcaseSubtitle ||
-            'Every category is curated Good / Better / Best — compare options side by side, then make them yours.'}
-        </p>
+        <div className="flex flex-col items-end gap-2">
+          <p className="font-inter hidden max-w-xs text-xs font-light leading-relaxed text-zinc-400 md:block">
+            {settings?.showcaseSubtitle ||
+              'Every category is curated Good / Better / Best — compare options side by side, then make them yours.'}
+          </p>
+          <span className="font-inter flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-300 lg:hidden">
+            Swipe sideways <ArrowRight size={11} className="text-amber-400" />
+          </span>
+        </div>
       </div>
 
       <div
         ref={trackRef}
-        className="flex w-max gap-5 overflow-visible px-6 pb-20 md:px-12 md:pb-28"
+        className="flex w-full overflow-x-auto gap-4 px-6 pb-16 snap-x snap-mandatory touch-pan-x scrollbar-none md:gap-5 md:pb-28 lg:w-max lg:overflow-visible lg:snap-none"
         style={{ scrollbarWidth: 'none' }}
       >
         {SHOWCASE_ITEMS.map((item, i) => {
@@ -379,7 +385,7 @@ export function ShowcaseSection({
               key={item.label}
               data-cursor
               onClick={() => onStart('racks')}
-              className="showcase-card group relative h-[52vh] w-[72vw] shrink-0 cursor-pointer overflow-hidden rounded-2xl bg-zinc-900 text-left sm:w-[44vw] lg:h-[58vh] lg:w-[30vw]"
+              className="showcase-card group relative h-[52vh] w-[78vw] shrink-0 snap-start cursor-pointer overflow-hidden rounded-2xl bg-zinc-900 text-left sm:w-[44vw] lg:h-[58vh] lg:w-[30vw]"
             >
               <img
                 src={cardImg}
@@ -410,7 +416,7 @@ export function ShowcaseSection({
         <button
           data-cursor
           onClick={() => onStart('racks')}
-          className="group relative flex h-[52vh] w-[72vw] shrink-0 cursor-pointer flex-col items-start justify-between overflow-hidden rounded-2xl border border-white/15 bg-[#faf9f5] p-6 text-left text-zinc-950 sm:w-[44vw] lg:h-[58vh] lg:w-[30vw]"
+          className="group relative flex h-[52vh] w-[78vw] shrink-0 snap-start cursor-pointer flex-col items-start justify-between overflow-hidden rounded-2xl border border-white/15 bg-[#faf9f5] p-6 text-left text-zinc-950 sm:w-[44vw] lg:h-[58vh] lg:w-[30vw]"
         >
           <span className="font-mono text-[10px] font-semibold tracking-[0.3em] text-zinc-400">
             {String(SHOWCASE_ITEMS.length + 1).padStart(2, '0')}
