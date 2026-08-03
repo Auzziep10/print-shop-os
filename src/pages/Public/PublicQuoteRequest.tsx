@@ -4205,28 +4205,36 @@ export function PublicQuoteRequest() {
             originalFrontImage: editingGarmentImg,
             originalBackImage: getGarmentMockupImage(editingProduct.product, editingProduct.color, 'back', catalogSettings, selectedThemeCategory, editingProduct.slot),
             colorMockups: catalogSettings.colorMockups,
-            logoUrl: editingProduct.customLogoUrl && !editingProduct.customLogoUrl.includes('mockup') ? editingProduct.customLogoUrl : logoUrl,
-            logoName: artworkName || 'Logo.png',
-            artworkName: artworkName || 'Logo.png',
-            logoUrlBack: editingProduct.customBackLogoUrl && !editingProduct.customBackLogoUrl.includes('mockup') ? editingProduct.customBackLogoUrl : null,
-            logoPlacementFront: editingProduct.logoPos ? { xPct: editingProduct.logoPos.x, yPct: editingProduct.logoPos.y } : undefined,
-            customScaleFront: editingProduct.logoScale ? (editingProduct.logoScale <= 1 ? Math.round(editingProduct.logoScale * 100) : editingProduct.logoScale) : 38,
-            customRotationFront: editingProduct.logoRotation,
-            logoPlacementBack: editingProduct.backLogoPos ? { xPct: editingProduct.backLogoPos.x, yPct: editingProduct.backLogoPos.y } : undefined,
-            customScaleBack: (editingProduct.backLogoScale && editingProduct.backLogoScale > 0) ? (editingProduct.backLogoScale <= 1 ? Math.round(editingProduct.backLogoScale * 100) : editingProduct.backLogoScale) : 0,
-            customRotationBack: editingProduct.backLogoRotation,
+            logoUrl: editingProduct.customLogoUrl || ((editingProduct as any).frontLogoUrl && !(editingProduct as any).frontLogoUrl.includes('mockup') ? (editingProduct as any).frontLogoUrl : null) || logoUrl,
+            logoName: (editingProduct as any).logoName || artworkName || 'Logo.png',
+            artworkName: (editingProduct as any).logoName || artworkName || 'Logo.png',
+            logoUrlBack: editingProduct.customBackLogoUrl || ((editingProduct as any).backLogoUrl && !(editingProduct as any).backLogoUrl.includes('mockup') ? (editingProduct as any).backLogoUrl : null) || null,
+            logoNameBack: (editingProduct as any).logoNameBack || 'Back_Logo.png',
+            customOffsetXFront: editingProduct.logoPos?.x ?? (editingProduct as any).customOffsetXFront ?? 50,
+            customOffsetYFront: editingProduct.logoPos?.y ?? (editingProduct as any).customOffsetYFront ?? 45,
+            customScaleFront: editingProduct.logoScale ? (editingProduct.logoScale <= 1 ? Math.round(editingProduct.logoScale * 100) : editingProduct.logoScale) : ((editingProduct as any).customScaleFront ?? 30),
+            customRotationFront: editingProduct.logoRotation ?? (editingProduct as any).customRotationFront ?? 0,
+            customOffsetXBack: editingProduct.backLogoPos?.x ?? (editingProduct as any).customOffsetXBack ?? 50,
+            customOffsetYBack: editingProduct.backLogoPos?.y ?? (editingProduct as any).customOffsetYBack ?? 40,
+            customScaleBack: (editingProduct.backLogoScale && editingProduct.backLogoScale > 0) ? (editingProduct.backLogoScale <= 1 ? Math.round(editingProduct.backLogoScale * 100) : editingProduct.backLogoScale) : ((editingProduct as any).customScaleBack ?? 0),
+            customRotationBack: editingProduct.backLogoRotation ?? (editingProduct as any).customRotationBack ?? 0,
           }}
           customerId="PUBLIC_VISITOR"
           onSave={(customizedData) => {
-            const cleanFrontLogo = customizedData.logoUrl && !customizedData.logoUrl.includes('mockup') ? customizedData.logoUrl : undefined;
-            const cleanBackLogo = customizedData.logoUrlBack && !customizedData.logoUrlBack.includes('mockup') ? customizedData.logoUrlBack : undefined;
-            const hasBackLogo = Boolean(customizedData.selectedLogoBack?.url || cleanBackLogo);
+            const cleanFrontLogo = customizedData.logoUrl && !customizedData.logoUrl.includes('mockup') ? customizedData.logoUrl : customizedData.customLogoUrl;
+            const cleanBackLogo = customizedData.logoUrlBack && !customizedData.logoUrlBack.includes('mockup') ? customizedData.logoUrlBack : customizedData.customBackLogoUrl;
+            const hasBackLogo = Boolean(cleanBackLogo || customizedData.customizedBackImage || (customizedData.customScaleBack && customizedData.customScaleBack > 0));
 
             updateEditingItem(item => {
-              const rawFrontScale = customizedData.customScaleFront ?? item.logoScale;
+              const rawFrontScale = customizedData.customScaleFront ?? (item.logoScale ? item.logoScale * 100 : 30);
               const normFrontScale = rawFrontScale > 1 ? rawFrontScale / 100 : rawFrontScale;
-              const rawBackScale = customizedData.customScaleBack ?? item.backLogoScale;
+              const rawBackScale = customizedData.customScaleBack ?? (item.backLogoScale ? item.backLogoScale * 100 : 30);
               const normBackScale = hasBackLogo ? (rawBackScale > 1 ? rawBackScale / 100 : rawBackScale) : 0;
+
+              const frontX = customizedData.customOffsetXFront ?? customizedData.logoPlacementFront?.xPct ?? item.logoPos?.x ?? 50;
+              const frontY = customizedData.customOffsetYFront ?? customizedData.logoPlacementFront?.yPct ?? item.logoPos?.y ?? 45;
+              const backX = customizedData.customOffsetXBack ?? customizedData.logoPlacementBack?.xPct ?? item.backLogoPos?.x ?? 50;
+              const backY = customizedData.customOffsetYBack ?? customizedData.logoPlacementBack?.yPct ?? item.backLogoPos?.y ?? 40;
 
               return {
                 ...item,
@@ -4234,13 +4242,25 @@ export function PublicQuoteRequest() {
                 compiledMockupUrl: customizedData.customizedFrontImage || item.compiledMockupUrl,
                 compiledBackMockupUrl: hasBackLogo ? (customizedData.customizedBackImage || item.compiledBackMockupUrl) : undefined,
                 customLogoUrl: cleanFrontLogo || item.customLogoUrl,
-                customBackLogoUrl: hasBackLogo ? cleanBackLogo : undefined,
-                logoPos: customizedData.logoPlacementFront ? { x: customizedData.logoPlacementFront.xPct, y: customizedData.logoPlacementFront.yPct } : item.logoPos,
+                customBackLogoUrl: hasBackLogo ? (cleanBackLogo || item.customBackLogoUrl) : undefined,
+                logoPos: { x: frontX, y: frontY },
                 logoScale: normFrontScale,
-                logoRotation: customizedData.customRotationFront ?? item.logoRotation,
-                backLogoPos: customizedData.logoPlacementBack ? { x: customizedData.logoPlacementBack.xPct, y: customizedData.logoPlacementBack.yPct } : item.backLogoPos,
+                logoRotation: customizedData.customRotationFront ?? item.logoRotation ?? 0,
+                backLogoPos: { x: backX, y: backY },
                 backLogoScale: normBackScale,
-                backLogoRotation: customizedData.customRotationBack ?? item.backLogoRotation,
+                backLogoRotation: customizedData.customRotationBack ?? item.backLogoRotation ?? 0,
+                customScaleFront: customizedData.customScaleFront,
+                customOffsetXFront: frontX,
+                customOffsetYFront: frontY,
+                customRotationFront: customizedData.customRotationFront ?? 0,
+                customScaleBack: customizedData.customScaleBack,
+                customOffsetXBack: backX,
+                customOffsetYBack: backY,
+                customRotationBack: customizedData.customRotationBack ?? 0,
+                logoUrl: cleanFrontLogo,
+                logoUrlBack: cleanBackLogo,
+                logoName: customizedData.logoName,
+                logoNameBack: customizedData.logoNameBack,
               };
             });
             setIsEditorOpen(false);

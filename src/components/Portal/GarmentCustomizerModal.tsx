@@ -1212,26 +1212,31 @@ export function GarmentCustomizerModal({
       setSelectedColor(garment.selectedColor || garment.colors?.[0] || 'Custom Color');
     }
 
-    const hasLogos = !!(garment && (garment.customized || garment.logoUrl || garment.logoUrlBack || garment.logoUrlLeftSleeve || garment.logoUrlRightSleeve));
+    const hasLogos = !!(garment && (garment.customized || garment.logoUrl || garment.logoUrlBack || garment.customLogoUrl || garment.customBackLogoUrl || garment.logoUrlLeftSleeve || garment.logoUrlRightSleeve));
 
     if (hasLogos) {
-      if (garment.logoUrl) {
-        setSelectedLogoFront({ url: garment.logoUrl, name: garment.logoName || 'Front Logo' });
+      const frontUrl = garment.customLogoUrl || garment.logoUrl || garment.frontLogoUrl || (typeof garment.customizedFrontImage === 'string' && !garment.customizedFrontImage.includes('custom') ? garment.customizedFrontImage : null);
+      if (frontUrl) {
+        setSelectedLogoFront({ url: frontUrl, name: garment.logoName || 'Front Logo' });
       } else {
         setSelectedLogoFront(null);
       }
-      if (garment.logoUrlBack) {
-        setSelectedLogoBack({ url: garment.logoUrlBack, name: garment.logoNameBack || 'Back Logo' });
+
+      const backUrl = garment.customBackLogoUrl || garment.logoUrlBack || garment.backLogoUrl || (typeof garment.customizedBackImage === 'string' && !garment.customizedBackImage.includes('custom') ? garment.customizedBackImage : null);
+      if (backUrl) {
+        setSelectedLogoBack({ url: backUrl, name: garment.logoNameBack || garment.logoName || 'Back Logo' });
       } else {
         setSelectedLogoBack(null);
       }
-      if (garment.logoUrlLeftSleeve) {
-        setSelectedLogoLeftSleeve({ url: garment.logoUrlLeftSleeve, name: garment.logoNameLeftSleeve || 'Left Sleeve Logo' });
+
+      if (garment.customLeftSleeveLogoUrl || garment.logoUrlLeftSleeve) {
+        setSelectedLogoLeftSleeve({ url: garment.customLeftSleeveLogoUrl || garment.logoUrlLeftSleeve, name: garment.logoNameLeftSleeve || 'Left Sleeve Logo' });
       } else {
         setSelectedLogoLeftSleeve(null);
       }
-      if (garment.logoUrlRightSleeve) {
-        setSelectedLogoRightSleeve({ url: garment.logoUrlRightSleeve, name: garment.logoNameRightSleeve || 'Right Sleeve Logo' });
+
+      if (garment.customRightSleeveLogoUrl || garment.logoUrlRightSleeve) {
+        setSelectedLogoRightSleeve({ url: garment.customRightSleeveLogoUrl || garment.logoUrlRightSleeve, name: garment.logoNameRightSleeve || 'Right Sleeve Logo' });
       } else {
         setSelectedLogoRightSleeve(null);
       }
@@ -1248,15 +1253,20 @@ export function GarmentCustomizerModal({
         return num;
       };
 
-      setScaleFront(parseScale(garment.customScaleFront, 30));
-      setOffsetXFront(garment.customOffsetXFront ?? 50);
-      setOffsetYFront(garment.customOffsetYFront ?? 45);
-      setRotationFront(garment.customRotationFront ?? 0);
+      const frontX = garment.customOffsetXFront ?? garment.logoPos?.x ?? garment.logoPlacementFront?.xPct ?? 50;
+      const frontY = garment.customOffsetYFront ?? garment.logoPos?.y ?? garment.logoPlacementFront?.yPct ?? 45;
+      const backX = garment.customOffsetXBack ?? garment.backLogoPos?.x ?? garment.logoPlacementBack?.xPct ?? 50;
+      const backY = garment.customOffsetYBack ?? garment.backLogoPos?.y ?? garment.logoPlacementBack?.yPct ?? 40;
 
-      setScaleBack(parseScale(garment.customScaleBack, 30));
-      setOffsetXBack(garment.customOffsetXBack ?? 50);
-      setOffsetYBack(garment.customOffsetYBack ?? 40);
-      setRotationBack(garment.customRotationBack ?? 0);
+      setScaleFront(parseScale(garment.customScaleFront ?? garment.logoScale, 30));
+      setOffsetXFront(frontX);
+      setOffsetYFront(frontY);
+      setRotationFront(garment.customRotationFront ?? garment.logoRotation ?? 0);
+
+      setScaleBack(parseScale(garment.customScaleBack ?? garment.backLogoScale, 30));
+      setOffsetXBack(backX);
+      setOffsetYBack(backY);
+      setRotationBack(garment.customRotationBack ?? garment.backLogoRotation ?? 0);
 
       setScaleLeftSleeve(parseScale(garment.customScaleLeftSleeve, 30));
       setOffsetXLeftSleeve(garment.customOffsetXLeftSleeve ?? 50);
