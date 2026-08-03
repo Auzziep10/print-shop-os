@@ -380,6 +380,7 @@ export function ShowcaseSection({
       >
         {SHOWCASE_ITEMS.map((item, i) => {
           const cardImg = settings?.showcaseImages?.[item.label] || item.src;
+          const cardBadge = settings?.showcaseBadges?.[item.label] || settings?.showcaseBadge || 'Good · Better · Best';
           return (
             <button
               key={item.label}
@@ -399,7 +400,7 @@ export function ShowcaseSection({
                   {String(i + 1).padStart(2, '0')}
                 </span>
                 <span className="font-inter rounded-full border border-white/20 bg-black/30 px-3 py-1 text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-100 backdrop-blur-md shadow-sm">
-                  Good · Better · Best
+                  {cardBadge}
                 </span>
               </div>
               <div className="absolute inset-x-0 bottom-0 flex items-end justify-between p-5">

@@ -40,6 +40,8 @@ export interface StorefrontSettingsShape {
   showcaseLabel?: string;
   showcaseTitle?: string;
   showcaseSubtitle?: string;
+  showcaseBadge?: string;
+  showcaseBadges?: Record<string, string>;
   showcaseImages?: Record<string, string>;
 
   // Process

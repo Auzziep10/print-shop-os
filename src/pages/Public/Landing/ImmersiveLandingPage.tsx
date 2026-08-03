@@ -20,6 +20,7 @@ const DEFAULT_SETTINGS: StorefrontSettingsShape = {
   showcaseLabel: '( The catalog )',
   showcaseTitle: 'Built on premium blanks',
   showcaseSubtitle: 'Every category is curated Good / Better / Best — compare options side by side, then make them yours.',
+  showcaseBadge: 'Good · Better · Best',
   processLabel: '( The process )',
   processTitle: 'From logo to loading dock',
   processSubtitle: 'Four steps. One portal. A human checks every order before it ever hits a press.',
@@ -527,39 +528,71 @@ export function ImmersiveLandingPage() {
                     />
                   </div>
 
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-bold text-zinc-900">Default Card Pill Badge Text</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Good · Better · Best"
+                      value={editSettings.showcaseBadge || DEFAULT_SETTINGS.showcaseBadge || ''}
+                      onChange={e => setEditSettings({ ...editSettings, showcaseBadge: e.target.value })}
+                      className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2 text-sm font-medium"
+                    />
+                  </div>
+
                   <div className="pt-2">
-                    <span className="text-xs font-bold text-zinc-900 block mb-2">Category Card Custom Image Uploads</span>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <span className="text-xs font-bold text-zinc-900 block mb-2">Category Cards: Custom Images & Badge Overrides</span>
+                    <div className="grid grid-cols-1 gap-3">
                       {['T-Shirts', 'Sweatshirts', 'Hats', 'Polos', 'Jackets', 'Bags'].map((cat) => {
                         const currentImg = editSettings.showcaseImages?.[cat];
+                        const currentBadge = editSettings.showcaseBadges?.[cat] || '';
                         return (
-                          <div key={cat} className="p-3 bg-zinc-50 border border-zinc-200 rounded-2xl flex items-center justify-between gap-2">
-                            <div>
-                              <span className="text-xs font-bold text-zinc-900 block">{cat}</span>
-                              {currentImg ? (
-                                <span className="text-[10px] text-emerald-600 font-semibold">Custom Image Active</span>
-                              ) : (
-                                <span className="text-[10px] text-zinc-400">Default image active</span>
-                              )}
+                          <div key={cat} className="p-3.5 bg-zinc-50 border border-zinc-200 rounded-2xl space-y-3">
+                            <div className="flex items-center justify-between gap-2">
+                              <div>
+                                <span className="text-xs font-bold text-zinc-900 block">{cat}</span>
+                                {currentImg ? (
+                                  <span className="text-[10px] text-emerald-600 font-semibold">Custom Image Active</span>
+                                ) : (
+                                  <span className="text-[10px] text-zinc-400">Default image active</span>
+                                )}
+                              </div>
+                              <label className="px-3 py-1 bg-zinc-900 hover:bg-zinc-800 text-white text-[11px] font-bold rounded-xl cursor-pointer flex items-center gap-1 shadow-xs transition-all shrink-0">
+                                {uploadingField === `showcase_${cat}` ? (
+                                  <Loader2 className="animate-spin" size={12} />
+                                ) : (
+                                  <Upload size={12} />
+                                )}
+                                <span>Upload Image</span>
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  className="hidden"
+                                  disabled={uploadingField === `showcase_${cat}`}
+                                  onChange={(e) => {
+                                    const f = e.target.files?.[0];
+                                    if (f) handleFileUpload(f, `showcase_${cat}`, cat);
+                                  }}
+                                />
+                              </label>
                             </div>
-                            <label className="px-3 py-1 bg-zinc-900 hover:bg-zinc-800 text-white text-[11px] font-bold rounded-xl cursor-pointer flex items-center gap-1 shadow-xs transition-all shrink-0">
-                              {uploadingField === `showcase_${cat}` ? (
-                                <Loader2 className="animate-spin" size={12} />
-                              ) : (
-                                <Upload size={12} />
-                              )}
-                              <span>Upload</span>
+                            <div className="flex flex-col gap-1">
+                              <label className="text-[10px] font-semibold text-zinc-500">Custom Badge Text (optional override)</label>
                               <input
-                                type="file"
-                                accept="image/*"
-                                className="hidden"
-                                disabled={uploadingField === `showcase_${cat}`}
-                                onChange={(e) => {
-                                  const f = e.target.files?.[0];
-                                  if (f) handleFileUpload(f, `showcase_${cat}`, cat);
+                                type="text"
+                                placeholder={`Default: ${editSettings.showcaseBadge || 'Good · Better · Best'}`}
+                                value={currentBadge}
+                                onChange={e => {
+                                  const updated = { ...(editSettings.showcaseBadges || {}) };
+                                  if (e.target.value.trim() === '') {
+                                    delete updated[cat];
+                                  } else {
+                                    updated[cat] = e.target.value;
+                                  }
+                                  setEditSettings({ ...editSettings, showcaseBadges: updated });
                                 }}
+                                className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-1.5 text-xs font-medium"
                               />
-                            </label>
+                            </div>
                           </div>
                         );
                       })}
