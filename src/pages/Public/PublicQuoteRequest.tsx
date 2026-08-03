@@ -16,7 +16,8 @@ import {
   UserPlus,
   Plus,
   Eye,
-  ExternalLink
+  ExternalLink,
+  Sparkles
 } from 'lucide-react';
 import { db, storage } from '../../lib/firebase';
 import { doc, getDoc, setDoc, getDocs, collection, query, where } from 'firebase/firestore';
@@ -1127,7 +1128,7 @@ export function PublicQuoteRequest() {
       });
       if (!matchingStyleKey) continue;
 
-      const styleMap = catalogSettings.colorMockups[matchingStyleKey];
+      const styleMap: Record<string, any> = catalogSettings.colorMockups[matchingStyleKey];
       if (!styleMap) continue;
 
       if (color) {
