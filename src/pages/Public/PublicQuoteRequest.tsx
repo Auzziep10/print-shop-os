@@ -1951,51 +1951,63 @@ export function PublicQuoteRequest() {
       });
       const portalId = `${prefix}${maxCount + 1}`;
 
-      const totalUnits = cart.reduce((acc, item) => acc + item.qty, 0);
-      const estimatedTotalPrice = cart.reduce((acc, item) => acc + (item.pricingDetails.total * item.qty), 0);
+      const totalUnits = cart.reduce((acc, item) => acc + (item.qty || 0), 0);
+      const estimatedTotalPrice = cart.reduce((acc, item) => acc + ((item.pricingDetails?.total || 0) * (item.qty || 0)), 0);
       const averageEstimatedPricePerUnit = totalUnits > 0 ? (estimatedTotalPrice / totalUnits) : 0;
-      const orderTitle = `${storefrontSettings.logoText} Quote for ${cart.map(item => getCustomGarmentName(item.product, catalogSettings)).join(', ')}`;
+      const rawTitle = `${storefrontSettings?.logoText || 'Custom'} Quote for ${cart.map(item => getCustomGarmentName(item.product, catalogSettings)).join(', ')}`;
+      const orderTitle = rawTitle.length > 100 ? rawTitle.slice(0, 97) + '...' : rawTitle;
 
       const payload = {
         id: orderId,
         portalId: portalId,
         customerId: customerId,
-        title: orderTitle.length > 100 ? orderTitle.slice(0, 97) + '...' : orderTitle,
+        title: orderTitle,
         statusIndex: isPayNow ? 3 : 0, 
         paymentStatus: isPayNow ? 'pending' : 'unpaid',
         date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric'}),
         createdAt: new Date().toISOString(),
-        items: cart.map((item, idx) => ({
-          id: Date.now() + idx,
-          style: getCustomGarmentName(item.product, catalogSettings),
-          color: item.color || '',
-          qty: item.qty,
-          image: item.mockupUrl || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200',
-          notes: '',
-          sizes: item.sizes || {},
-          price: item.pricingDetails.total,
-          total: item.pricingDetails.total * item.qty,
-          logos: [`Front: ${item.frontPrintSize} (${item.decorationMethod})`],
-          artworks: [{ url: item.frontLogoUrl, originalUrl: item.frontOriginalFileUrl || item.frontLogoUrl, name: item.frontArtworkName || `Front_Logo` }]
-        })),
+        items: cart.map((item, idx) => {
+          const itemPrice = item.pricingDetails?.total || 0;
+          const itemQty = item.qty || 1;
+          const itemTotal = itemPrice * itemQty;
+          const artUrl = item.frontLogoUrl || item.mockupUrl || '';
+          return {
+            id: Date.now() + idx,
+            style: getCustomGarmentName(item.product, catalogSettings) || 'Custom Garment',
+            color: item.color || '',
+            qty: itemQty,
+            image: item.mockupUrl || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200',
+            notes: '',
+            sizes: item.sizes || {},
+            price: itemPrice,
+            total: itemTotal,
+            logos: [`Front: ${item.frontPrintSize || 'Standard'} (${item.decorationMethod || 'Print'})`],
+            artworks: artUrl ? [{ url: artUrl, originalUrl: item.frontOriginalFileUrl || artUrl, name: item.frontArtworkName || `Front_Logo` }] : []
+          };
+        }),
         contactDetails: {
-           name: customerInfo.contactName,
-           email: customerInfo.emailAddress,
+           name: customerInfo.contactName || '',
+           email: customerInfo.emailAddress || '',
            phone: customerInfo.phone || ''
         },
-        inHandsDate: inHandsDate,
-        notes: notes,
-        budgetTier: budgetTier,
+        inHandsDate: inHandsDate || '',
+        notes: notes || '',
+        budgetTier: budgetTier || 'Retail Standard',
         estimatedPricePerUnit: averageEstimatedPricePerUnit,
         estimatedTotalPrice: estimatedTotalPrice,
-        placements: cart.map(item => ({ side: 'front', size: item.frontPrintSize, logo: item.frontLogoUrl, mockup: item.frontMockupUrl })),
+        placements: cart.map(item => ({
+          side: 'front',
+          size: item.frontPrintSize || 'Standard',
+          logo: item.frontLogoUrl || '',
+          mockup: item.frontMockupUrl || item.mockupUrl || ''
+        })),
         activities: [{
           id: `act-${Date.now()}`,
           type: 'system',
           message: isPayNow 
             ? `Order created via online checkout. Initiating Stripe Checkout Session for $${estimatedTotalPrice.toFixed(2)}.` 
-            : `${storefrontSettings.logoText} Web Quote Request submitted by ${customerInfo.contactName}`,
-          user: customerInfo.emailAddress,
+            : `${storefrontSettings?.logoText || 'Web'} Web Quote Request submitted by ${customerInfo.contactName}`,
+          user: customerInfo.emailAddress || '',
           timestamp: new Date().toISOString()
         }]
       };
@@ -2011,18 +2023,19 @@ export function PublicQuoteRequest() {
             .filter(([_, v]) => (v as number) > 0)
             .map(([k, v]) => `${k}: ${v}`)
             .join(', ');
+          const itemPrice = item.pricingDetails?.total || 0;
           
           return {
             price_data: {
               currency: 'usd',
               product_data: {
-                name: `${getCustomGarmentName(item.product, catalogSettings)} (${item.color})`,
-                description: `Decoration: ${item.decorationMethod} | Sizes: ${sizeDescription || 'Quote Pending'}`,
+                name: `${getCustomGarmentName(item.product, catalogSettings)} (${item.color || 'Standard'})`,
+                description: `Decoration: ${item.decorationMethod || 'Print'} | Sizes: ${sizeDescription || 'Quote Pending'}`,
                 images: item.mockupUrl && item.mockupUrl.startsWith('http') ? [item.mockupUrl] : undefined
               },
-              unit_amount: Math.round(item.pricingDetails.total * 100)
+              unit_amount: Math.round(itemPrice * 100)
             },
-            quantity: item.qty
+            quantity: item.qty || 1
           };
         });
 
@@ -2053,9 +2066,9 @@ export function PublicQuoteRequest() {
         // Automatically redirect to the logged-in client portal!
         navigate(`/portal/${customerId}`);
       }
-    } catch (err) {
-      console.error(err);
-      alert("Failed to submit request.");
+    } catch (err: any) {
+      console.error("Order submission error:", err);
+      alert(`Failed to submit request: ${err?.message || 'Please check your inputs and try again.'}`);
     } finally {
       setIsSubmitting(false);
     }
