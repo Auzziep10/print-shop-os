@@ -2161,6 +2161,37 @@ export function OrderDetail() {
   const handleSaveInlineSpecs = async (item: any) => {
     if (!id || !order) return;
     try {
+      if (item.id === 'master-combined-item') {
+        const itemsMap: Record<string, any[]> = {};
+        editingArtworks.forEach(art => {
+          const w = parseFloat(art.width) || 3.5;
+          const aspect = art.aspectRatio || 1.0;
+          const h = parseFloat((w * aspect).toFixed(2));
+          const updatedArt = { ...art, width: w, height: h };
+
+          const targetItemId = art.itemId;
+          if (targetItemId) {
+            if (!itemsMap[targetItemId]) itemsMap[targetItemId] = [];
+            itemsMap[targetItemId].push(updatedArt);
+          }
+        });
+
+        const updatedItems = (order.items || []).map((orderItem: any) => {
+          if (itemsMap[orderItem.id]) {
+            return {
+              ...orderItem,
+              artworks: itemsMap[orderItem.id]
+            };
+          }
+          return orderItem;
+        });
+
+        await updateDoc(doc(db, 'orders', id), { items: updatedItems });
+        setEditingSpecsCardId(null);
+        alert("All order item print specifications updated successfully!");
+        return;
+      }
+
       const updatedItems = (order.items || []).map((orderItem: any) => {
         if (orderItem.id === item.id) {
           const mappedArtworks = editingArtworks.map(art => {
@@ -4286,12 +4317,58 @@ export function OrderDetail() {
                                     setEditingSpecsCardId(null);
                                   } else {
                                     setEditingSpecsCardId(card.id);
-                                    setEditingArtworks(card.item.artworks || []);
+                                    if (card.isMaster) {
+                                      const allCombined: any[] = [];
+                                      (order.items || []).forEach((item: any) => {
+                                        const garmentQty = Object.values(item.sizes || {}).reduce((sum: number, val: any) => sum + (parseInt(val) || 0), 0) || item.quantity || 1;
+                                        if (Array.isArray(item.artworks) && item.artworks.length > 0) {
+                                          item.artworks.forEach((art: any) => {
+                                            if (art.name === 'Size Tag Print' || art.name?.toLowerCase().includes('tag')) return;
+                                            const url = art.url || art.imageUrl || art.originalUrl || item.originalSheetUrl || item.image;
+                                            if (url) {
+                                              allCombined.push({
+                                                ...art,
+                                                itemId: item.id,
+                                                itemStyle: item.style || 'Garment',
+                                                name: art.name || 'Placement',
+                                                url,
+                                                width: parseFloat(art.width) || 3.5,
+                                                quantity: parseInt(art.quantity) || garmentQty,
+                                              });
+                                            }
+                                          });
+                                        } else {
+                                          const logoFields = [
+                                            { name: 'Front Logo', url: item.logoUrl, width: item.logoWidth || 3.5 },
+                                            { name: 'Back Logo', url: item.logoUrlBack, width: item.logoWidthBack || 10 },
+                                            { name: 'Left Sleeve Logo', url: item.logoUrlLeftSleeve, width: item.logoWidthLeftSleeve || 3.5 },
+                                            { name: 'Right Sleeve Logo', url: item.logoUrlRightSleeve, width: item.logoWidthRightSleeve || 3.5 },
+                                            { name: 'Chest Logo', url: item.logoUrlChest, width: item.logoWidthChest || 4.0 },
+                                          ];
+                                          logoFields.forEach(lf => {
+                                            if (lf.url) {
+                                              allCombined.push({
+                                                id: `art-${Date.now()}-${Math.random()}`,
+                                                itemId: item.id,
+                                                itemStyle: item.style || 'Garment',
+                                                name: lf.name,
+                                                url: lf.url,
+                                                width: parseFloat(lf.width as any) || 3.5,
+                                                quantity: garmentQty,
+                                              });
+                                            }
+                                          });
+                                        }
+                                      });
+                                      setEditingArtworks(allCombined);
+                                    } else {
+                                      setEditingArtworks(card.item.artworks || []);
+                                    }
                                   }
                                 }}
                                 className="text-[10px] font-bold text-neutral-400 hover:text-white uppercase tracking-wider underline cursor-pointer mt-1.5 block"
                               >
-                                {editingSpecsCardId === card.id ? 'Cancel Adjusting' : 'Adjust Layout/Logos'}
+                                {editingSpecsCardId === card.id ? 'Cancel Adjusting' : (card.isMaster ? 'Adjust All Order Logos / Widths' : 'Adjust Layout/Logos')}
                               </button>
                             )}
                           </div>
@@ -4329,16 +4406,20 @@ export function OrderDetail() {
                         {editingSpecsCardId === card.id ? (
                           <div id={`specs-editor-${card.item.id}`} className="flex flex-col gap-3 bg-neutral-950/40 border border-neutral-850 p-4 rounded-xl max-h-[350px] overflow-y-auto transition-all">
                             <div className="flex justify-between items-center border-b border-neutral-800 pb-2 mb-1">
-                              <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">Configure Logos</span>
-                              <label className="text-[10px] font-bold text-neutral-350 hover:text-white cursor-pointer flex items-center gap-1">
-                                <Plus size={10} /> Add Logo
-                                <input
-                                  type="file"
-                                  className="hidden"
-                                  accept="image/*"
-                                  onChange={(e) => handleInlineLogoUpload(e, card.item.id, editingArtworks.length)}
-                                />
-                              </label>
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">
+                                {card.isMaster ? 'Configure All Order Logos & Widths' : 'Configure Logos'}
+                              </span>
+                              {!card.isMaster && (
+                                <label className="text-[10px] font-bold text-neutral-350 hover:text-white cursor-pointer flex items-center gap-1">
+                                  <Plus size={10} /> Add Logo
+                                  <input
+                                    type="file"
+                                    className="hidden"
+                                    accept="image/*"
+                                    onChange={(e) => handleInlineLogoUpload(e, card.item.id, editingArtworks.length)}
+                                  />
+                                </label>
+                              )}
                             </div>
                             
                             {editingArtworks.length === 0 ? (
@@ -4387,7 +4468,12 @@ export function OrderDetail() {
                                       </div>
                                       
                                       <div className="flex-1 min-w-0">
-                                        <p className="text-[10px] font-bold text-neutral-350 truncate" title={art.name || 'Logo'}>
+                                        {art.itemStyle && (
+                                          <span className="text-[9px] font-bold text-amber-400 bg-amber-950/80 border border-amber-800/80 px-1.5 py-0.5 rounded mr-1.5 inline-block mb-0.5">
+                                            {art.itemStyle}
+                                          </span>
+                                        )}
+                                        <p className="text-[10px] font-bold text-neutral-350 truncate inline-block" title={art.name || 'Logo'}>
                                           {art.name || 'Unnamed Logo'}
                                         </p>
                                       </div>
