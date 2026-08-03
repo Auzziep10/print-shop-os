@@ -146,8 +146,10 @@ export function PortalRequestQuote() {
   const [products, setProducts] = useState<any[]>([
     { id: 1, artworkUrl: null, artworkName: null, isUploading: false }
   ]);
+  const [customer, setCustomer] = useState<any>(null);
 
   const hasLowQuantityItems = useMemo(() => {
+    if (customer?.bypassMinimumRequirement || customer?.disableMinimumRequirement) return false;
     if (products.length === 0) return false;
     const configuredProducts = products.filter(p => p.garmentName || p.itemNum);
     if (configuredProducts.length === 0) return false;
@@ -156,7 +158,7 @@ export function PortalRequestQuote() {
       const totalQty = sizeQtySum || p.qty || 0;
       return totalQty < 20;
     });
-  }, [products]);
+  }, [products, customer]);
 
   const [contactName, setContactName] = useState('');
   const [emailAddress, setEmailAddress] = useState('');
@@ -274,7 +276,6 @@ export function PortalRequestQuote() {
   const [expandedImage, setExpandedImage] = useState<string | null>(null);
 
   // Customer Profile & Completeness States
-  const [customer, setCustomer] = useState<any>(null);
   const [globalCustomMockups, setGlobalCustomMockups] = useState<any>({ racks: {}, basics: {} });
   const [globalRacksOrder, setGlobalRacksOrder] = useState<any>({});
   const [isSavedDesignsModalOpen, setIsSavedDesignsModalOpen] = useState(false);

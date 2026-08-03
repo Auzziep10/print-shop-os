@@ -1389,6 +1389,7 @@ export function OrderDetail() {
   const [isZipping, setIsZipping] = useState(false);
   const [generatingItemId, setGeneratingItemId] = useState<string | null>(null);
   const [generatingTagItemId, setGeneratingTagItemId] = useState<string | null>(null);
+  const [isGeneratingCombined, setIsGeneratingCombined] = useState(false);
   const [tagColorOverrides, setTagColorOverrides] = useState<Record<string, string>>({});
   const [previewMode, setPreviewMode] = useState<Record<string, 'print' | 'cut'>>({});
   const [editingSpecsCardId, setEditingSpecsCardId] = useState<string | null>(null);
@@ -2250,6 +2251,114 @@ export function OrderDetail() {
     }
   };
 
+  const handleGenerateCombinedOrderGangSheet = async () => {
+    if (!id || !order || !order.items || order.items.length === 0) return;
+
+    const combinedArtworks: any[] = [];
+    let totalGarmentsCount = 0;
+
+    (order.items || []).forEach((item: any) => {
+      const garmentQty = Object.values(item.sizes || {}).reduce((sum: number, val: any) => sum + (parseInt(val) || 0), 0) || item.quantity || 1;
+      totalGarmentsCount += garmentQty;
+
+      if (Array.isArray(item.artworks) && item.artworks.length > 0) {
+        item.artworks.forEach((art: any) => {
+          if (art.name === 'Size Tag Print' || art.name?.toLowerCase().includes('tag')) return;
+          const qty = parseInt(art.quantity) || garmentQty;
+          const url = art.url || art.imageUrl || art.originalUrl || item.originalSheetUrl || item.image;
+          if (url) {
+            combinedArtworks.push({
+              ...art,
+              name: `${item.style || 'Item'} - ${art.name || 'Placement'}`,
+              url,
+              width: parseFloat(art.width) || 3.5,
+              quantity: qty,
+            });
+          }
+        });
+      } else {
+        const logoFields = [
+          { name: 'Front Logo', url: item.logoUrl, width: item.logoWidth || 3.5 },
+          { name: 'Back Logo', url: item.logoUrlBack, width: item.logoWidthBack || 10 },
+          { name: 'Left Sleeve Logo', url: item.logoUrlLeftSleeve, width: item.logoWidthLeftSleeve || 3.5 },
+          { name: 'Right Sleeve Logo', url: item.logoUrlRightSleeve, width: item.logoWidthRightSleeve || 3.5 },
+          { name: 'Chest Logo', url: item.logoUrlChest, width: item.logoWidthChest || 4.0 },
+        ];
+        logoFields.forEach(lf => {
+          if (lf.url) {
+            combinedArtworks.push({
+              name: `${item.style || 'Item'} - ${lf.name}`,
+              url: lf.url,
+              width: parseFloat(lf.width as any) || 3.5,
+              quantity: garmentQty,
+            });
+          }
+        });
+        if (item.itemType === 'gang_sheet' && (item.originalSheetUrl || item.image)) {
+          combinedArtworks.push({
+            name: item.sheetSizeName || 'DTF Gang Sheet',
+            url: item.originalSheetUrl || item.image,
+            width: parseFloat(item.sheetWidth) || 22,
+            quantity: item.quantity || 1,
+          });
+        }
+      }
+    });
+
+    if (combinedArtworks.length === 0) {
+      alert("No printable artworks found across order line items.");
+      return;
+    }
+
+    const missingDims = combinedArtworks.filter(art => !art.width || parseFloat(art.width) <= 0);
+    if (missingDims.length > 0) {
+      alert(`Missing Print Dimensions: Please set print width for "${missingDims.map(d => d.name).join(', ')}" under Adjust Layout/Logos first.`);
+      return;
+    }
+
+    setIsGeneratingCombined(true);
+    try {
+      const syntheticItem = {
+        id: `master-combined-${id}`,
+        sheetSizeName: 'Combined Order Master Sheet',
+        sheetWidth: 22,
+        artworks: combinedArtworks,
+        style: `Order #${order.orderNumber || id} (Master Sheet)`,
+        quantity: 1,
+      };
+
+      const { printDataUrl, cutDataUrl, sheetHeight } = await generateFinalSheetsForPrintAndCut(
+        syntheticItem,
+        order.id,
+        order.customerName || 'Customer',
+        order.shippingAddress || null
+      );
+
+      const printStorageRef = ref(storage, `production-sheets/${id}/master-combined-print.png`);
+      const cutStorageRef = ref(storage, `production-sheets/${id}/master-combined-cut.svg`);
+
+      await uploadString(printStorageRef, printDataUrl, 'data_url');
+      await uploadString(cutStorageRef, cutDataUrl, 'data_url');
+
+      const masterPrintReadyUrl = await getDownloadURL(printStorageRef);
+      const masterCutReadyUrl = await getDownloadURL(cutStorageRef);
+
+      await updateDoc(doc(db, 'orders', id), {
+        masterPrintReadyUrl,
+        masterCutReadyUrl,
+        masterSheetHeight: sheetHeight,
+        masterReadyToPrint: true,
+      });
+
+      alert("Master combined gang sheet successfully generated for the entire order!");
+    } catch (err) {
+      console.error('Error generating combined print/cut files:', err);
+      alert('Failed to generate master combined sheet: ' + (err as Error).message);
+    } finally {
+      setIsGeneratingCombined(false);
+    }
+  };
+
   const handleGenerateTagGangSheet = async (item: any) => {
     if (!id || !order) return;
     setGeneratingTagItemId(item.id);
@@ -2557,6 +2666,16 @@ export function OrderDetail() {
   const handleToggleItemReadyToPrint = async (itemId: string, type: 'art' | 'tag' = 'art') => {
     if (!id || !order) return;
     
+    if (itemId === 'master-combined-item') {
+      const nextReadyState = !order.masterReadyToPrint;
+      await updateDoc(doc(db, 'orders', id), {
+        masterReadyToPrint: nextReadyState,
+        masterReadyToPrintAt: nextReadyState ? new Date().toISOString() : null,
+        masterReadyToPrintBy: nextReadyState ? (userData?.name || user?.displayName || user?.email?.split('@')[0] || 'Staff') : null
+      });
+      return;
+    }
+
     const updatedItems = order.items.map((item: any) => {
       if (item.id === itemId) {
         if (type === 'tag') {
@@ -2608,6 +2727,16 @@ export function OrderDetail() {
 
   const handleToggleItemPrinted = async (itemId: string, type: 'art' | 'tag' = 'art') => {
     if (!id || !order) return;
+
+    if (itemId === 'master-combined-item') {
+      const nextPrintedState = !order.masterPrinted;
+      await updateDoc(doc(db, 'orders', id), {
+        masterPrinted: nextPrintedState,
+        masterPrintedAt: nextPrintedState ? new Date().toISOString() : null,
+        masterPrintedBy: nextPrintedState ? (userData?.name || user?.displayName || user?.email?.split('@')[0] || 'Staff') : null
+      });
+      return;
+    }
     
     const updatedItems = order.items.map((item: any) => {
       if (item.id === itemId) {
@@ -2667,6 +2796,27 @@ export function OrderDetail() {
 
       // Find all printable items in this order
       const printableItems = (order.items || []).filter(isPrintableItem);
+
+      if (order.masterPrintReadyUrl) {
+        try {
+          const masterPrintRes = await fetch(order.masterPrintReadyUrl);
+          const masterPrintBlob = await masterPrintRes.blob();
+          zip.file(`${order.id}-MASTER-COMBINED-print.png`, masterPrintBlob);
+          hasFiles = true;
+        } catch (err) {
+          console.error("Failed to fetch master print file", err);
+        }
+      }
+      if (order.masterCutReadyUrl) {
+        try {
+          const masterCutRes = await fetch(order.masterCutReadyUrl);
+          const masterCutBlob = await masterCutRes.blob();
+          zip.file(`${order.id}-MASTER-COMBINED-cut.svg`, masterCutBlob);
+          hasFiles = true;
+        } catch (err) {
+          console.error("Failed to fetch master cut file", err);
+        }
+      }
 
       for (const item of printableItems) {
         if (item.printReadyUrl) {
@@ -4010,11 +4160,21 @@ export function OrderDetail() {
                   <h2 className={tokens.typography.h2}>Production Assets</h2>
                 </div>
                 <div className="flex items-center gap-2.5">
+                  <button
+                    type="button"
+                    onClick={handleGenerateCombinedOrderGangSheet}
+                    disabled={isGeneratingCombined}
+                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-black font-bold text-xs rounded-full shadow-sm transition-all disabled:opacity-50 cursor-pointer"
+                    title="Combine all logos from every line item in this order into one master gang sheet"
+                  >
+                    {isGeneratingCombined ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}
+                    <span>Generate 1 Master Sheet (All Items)</span>
+                  </button>
                   <PillButton 
                     variant="outline" 
                     onClick={handleDownloadAllZip}
                     className="gap-2" 
-                    disabled={isZipping || !order.items?.some((item: any) => item.printReadyUrl || item.cutReadyUrl || item.tagPrintReadyUrl)}
+                    disabled={isZipping || (!order.masterPrintReadyUrl && !order.items?.some((item: any) => item.printReadyUrl || item.cutReadyUrl || item.tagPrintReadyUrl))}
                   >
                     {isZipping ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
                     Download All Sheets (ZIP)
@@ -4036,7 +4196,31 @@ export function OrderDetail() {
                     cutUrl: string | null;
                     isGenerating: boolean;
                     generateFunc: () => void;
+                    isMaster?: boolean;
                   }> = [];
+
+                  const printableItems = (order.items || []).filter(isPrintableItem);
+                  if (printableItems.length >= 1) {
+                    const totalGarmentsCount = (order.items || []).reduce((sum: number, item: any) => {
+                      return sum + (Object.values(item.sizes || {}).reduce((s: number, v: any) => s + (parseInt(v) || 0), 0) || item.quantity || 1);
+                    }, 0);
+
+                    productionCards.push({
+                      id: 'master-combined-card',
+                      item: { id: 'master-combined-item', style: 'Combined Order Master Sheet' },
+                      type: 'art',
+                      isMaster: true,
+                      title: `✨ Combined Order Master Sheet (All Items)`,
+                      description: `Single Combined 22" Sheet • ${printableItems.length} Line Items • ${totalGarmentsCount} Total Garments`,
+                      isPrintReady: !!(order.masterPrintReadyUrl && order.masterCutReadyUrl),
+                      isReady: !!order.masterReadyToPrint,
+                      isPrinted: !!order.masterPrinted,
+                      printUrl: order.masterPrintReadyUrl || null,
+                      cutUrl: order.masterCutReadyUrl || null,
+                      isGenerating: isGeneratingCombined,
+                      generateFunc: () => handleGenerateCombinedOrderGangSheet()
+                    });
+                  }
 
                   (order.items || []).forEach((item: any) => {
                     const hasArt = item.itemType === 'gang_sheet' || 
@@ -4086,7 +4270,7 @@ export function OrderDetail() {
                       : (card.cutUrl || (card.type === 'art' ? (card.item.originalSheetUrl || card.item.image) : card.item.logoUrlTag));
 
                     return (
-                      <div key={card.id} className="bg-neutral-900 text-white rounded-2xl border border-neutral-800 p-5 flex flex-col gap-4 shadow-xl">
+                      <div key={card.id} className={`text-white rounded-2xl border p-5 flex flex-col gap-4 shadow-xl ${card.isMaster ? 'bg-neutral-900 border-amber-500/50 ring-1 ring-amber-500/30' : 'bg-neutral-900 border-neutral-800'}`}>
                         {/* Card Header */}
                         <div className="flex justify-between items-start gap-4">
                           <div>

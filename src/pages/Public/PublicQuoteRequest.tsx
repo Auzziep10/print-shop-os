@@ -459,10 +459,29 @@ export function PublicQuoteRequest() {
 
   const [cart, setCart] = useState<any[]>([]);
 
+  const [customer, setCustomer] = useState<any>(null);
+
+  useEffect(() => {
+    const custId = userData?.customerId;
+    if (!custId) return;
+    const fetchCustomer = async () => {
+      try {
+        const d = await getDoc(doc(db, 'customers', custId));
+        if (d.exists()) {
+          setCustomer(d.data());
+        }
+      } catch (err) {
+        console.error("Error fetching customer in PublicQuoteRequest:", err);
+      }
+    };
+    fetchCustomer();
+  }, [userData?.customerId]);
+
   const hasLowQuantityItems = useMemo(() => {
+    if (customer?.bypassMinimumRequirement || customer?.disableMinimumRequirement) return false;
     if (cart.length === 0) return false;
     return cart.some(item => (item.qty || 0) < 20);
-  }, [cart]);
+  }, [cart, customer]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
