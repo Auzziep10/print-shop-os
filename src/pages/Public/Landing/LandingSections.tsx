@@ -322,12 +322,11 @@ export function ShowcaseSection({
     const mm = gsap.matchMedia();
     mm.add(
       {
-        desktop: '(min-width: 1024px)',
         reduce: '(prefers-reduced-motion: reduce)',
       },
       (ctx) => {
-        const { desktop, reduce } = ctx.conditions as { desktop: boolean; reduce: boolean };
-        if (!desktop || reduce) return;
+        const { reduce } = ctx.conditions as { reduce: boolean };
+        if (reduce) return;
         const track = trackRef.current;
         const section = sectionRef.current;
         if (!track || !section) return;
@@ -370,7 +369,7 @@ export function ShowcaseSection({
 
       <div
         ref={trackRef}
-        className="flex w-max gap-5 overflow-x-auto px-6 pb-20 md:px-12 md:pb-28 lg:overflow-visible"
+        className="flex w-max gap-5 overflow-visible px-6 pb-20 md:px-12 md:pb-28"
         style={{ scrollbarWidth: 'none' }}
       >
         {SHOWCASE_ITEMS.map((item, i) => {
