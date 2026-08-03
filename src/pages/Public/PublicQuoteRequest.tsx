@@ -1997,8 +1997,14 @@ export function PublicQuoteRequest() {
             sizes: item.sizes || {},
             price: itemPrice,
             total: itemTotal,
-            logos: [`Front: ${item.frontPrintSize || 'Standard'} (${item.decorationMethod || 'Print'})`],
-            artworks: artUrl ? [{ url: artUrl, originalUrl: item.frontOriginalFileUrl || artUrl, name: item.frontArtworkName || `Front_Logo` }] : []
+            logos: `Front: ${item.frontPrintSize || 'Standard'} (${item.decorationMethod || 'Print'})`,
+            artworks: artUrl ? {
+              art_0: {
+                url: artUrl,
+                originalUrl: item.frontOriginalFileUrl || artUrl,
+                name: item.frontArtworkName || `Front_Logo`
+              }
+            } : {}
           };
         }),
         contactDetails: {
