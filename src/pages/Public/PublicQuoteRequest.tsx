@@ -990,11 +990,18 @@ export function PublicQuoteRequest() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    let fontStr = `bold 64px sans-serif`;
+    if (textFont === 'Serif') fontStr = `bold 64px Georgia, serif`;
+    else if (textFont === 'Collegiate') fontStr = `bold 80px "Impact", "Arial Black", sans-serif`;
+    else if (textFont === 'Script') fontStr = `italic 70px "Brush Script MT", cursive`;
+    else if (textFont === 'Modern') fontStr = `bold 72px "Outfit", sans-serif`;
+    
+    ctx.font = fontStr;
+    ctx.fillStyle = textColor;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.font = `bold 64px ${textFont}`;
-
-    if (textHasOutline) {
+    
+    if (textFont === 'Collegiate') {
       ctx.strokeStyle = '#FFFFFF';
       ctx.lineWidth = 10;
       ctx.strokeText(customText, canvas.width / 2, canvas.height / 2);
@@ -1002,7 +1009,6 @@ export function PublicQuoteRequest() {
       ctx.lineWidth = 3;
       ctx.strokeText(customText, canvas.width / 2, canvas.height / 2);
     }
-    ctx.fillStyle = textColor;
     ctx.fillText(customText, canvas.width / 2, canvas.height / 2);
     
     const dataUrl = canvas.toDataURL('image/png');
