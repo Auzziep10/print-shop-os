@@ -880,7 +880,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                         <div className="flex items-stretch gap-[2px] bg-neutral-200 p-[3px] rounded-xl font-sans shrink-0">
                           {(() => {
                             const sizeQtySum = item.sizes ? Object.values(item.sizes).reduce((acc: number, val: any) => acc + (parseInt(val) || 0), 0) : 0;
-                            const safeQty = item.qty ? parseInt(item.qty.toString().replace(/[^0-9]/g, '')) || 0 : sizeQtySum || 0;
+                            const safeQty = sizeQtySum > 0 ? sizeQtySum : (item.qty ? parseInt(item.qty.toString().replace(/[^0-9]/g, '')) || 0 : (item.quantity ? parseInt(item.quantity.toString().replace(/[^0-9]/g, '')) || 0 : 0));
                             
                             let safePriceNum = 0;
                             if (item.price !== undefined && item.price !== null) {
@@ -889,11 +889,11 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                             }
 
                             let safeTotalStr = '-';
-                            if (item.total && item.total !== '-') {
+                            if (safeQty > 0 && safePriceNum > 0) {
+                                safeTotalStr = `$${(safeQty * safePriceNum).toFixed(2)}`;
+                            } else if (item.total && item.total !== '-') {
                                 let tString = item.total.toString().replace(/[^0-9.]/g, '');
                                 if (tString !== '' && !isNaN(parseFloat(tString))) { safeTotalStr = `$${parseFloat(tString).toFixed(2)}`; }
-                            } else if (safeQty > 0 && safePriceNum > 0) {
-                                safeTotalStr = `$${(safeQty * safePriceNum).toFixed(2)}`;
                             }
 
                             const showPricing = order.statusIndex >= 2 && hasPermission('viewPricing');
