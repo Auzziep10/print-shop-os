@@ -3213,11 +3213,28 @@ export function OrderDetail() {
     return !isShipping && !isTax;
   });
 
-  const totalItems = garmentItems.reduce((acc: number, i: any) => acc + (i.qty || 0), 0) || 0;
+  const totalItems = garmentItems.reduce((acc: number, i: any) => {
+    const sizeSum = i.sizes ? Object.values(i.sizes).reduce((sum: number, val: any) => sum + (parseInt(val) || 0), 0) : 0;
+    return acc + (sizeSum > 0 ? sizeSum : (parseInt(i.qty) || parseInt(i.quantity) || 0));
+  }, 0) || 0;
+
   const totalPriceRaw = order.items?.reduce((acc: number, i: any) => {
+    const sizeSum = i.sizes ? Object.values(i.sizes).reduce((sum: number, val: any) => sum + (parseInt(val) || 0), 0) : 0;
+    const safeQty = sizeSum > 0 ? sizeSum : (i.qty ? parseInt(i.qty.toString().replace(/[^0-9]/g, '')) || 0 : (i.quantity ? parseInt(i.quantity.toString().replace(/[^0-9]/g, '')) || 0 : 0));
+    
+    let safePriceNum = 0;
+    if (i.price !== undefined && i.price !== null) {
+      const pString = i.price.toString().replace(/[^0-9.]/g, '');
+      if (pString !== '') safePriceNum = parseFloat(pString);
+    }
+
+    if (safeQty > 0 && safePriceNum > 0) {
+      return acc + (safeQty * safePriceNum);
+    }
     const priceMatch = (i.total || '$0').toString().replace(/[^0-9.]/g, '');
     return acc + (parseFloat(priceMatch) || 0);
   }, 0) || 0;
+
   const totalFormatted = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalPriceRaw);
 
   // Costs & Receipts Calculations
