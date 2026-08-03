@@ -61,7 +61,7 @@ export function ImmersiveLandingPage() {
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [uploadingField, setUploadingField] = useState<string | null>(null);
 
-  const isAdmin = true;
+  const isAdmin = userData?.role === 'Admin';
 
   useEffect(() => {
     const unsub = onSnapshot(

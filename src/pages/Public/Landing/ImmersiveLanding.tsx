@@ -306,7 +306,7 @@ function LandingNav({
             {currentTime || '00:00:00'}
           </span>
 
-          {(canCustomize || isStaff || !user || import.meta.env.DEV) && (
+          {canCustomize && (
             <button data-cursor onClick={onCustomize} className={ghostBtn}>
               Customize Store
             </button>
