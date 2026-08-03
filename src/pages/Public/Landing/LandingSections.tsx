@@ -385,24 +385,24 @@ export function ShowcaseSection({
               <img
                 src={cardImg}
                 alt={`Custom ${item.label.toLowerCase()}`}
-                className="h-full w-full object-cover opacity-90"
+                className="h-full w-full object-cover opacity-100"
                 loading="lazy"
               />
-            <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/90 via-transparent to-zinc-950/20" />
-            <div className="absolute inset-x-0 top-0 flex items-start justify-between p-5">
-              <span className="font-mono text-[10px] font-semibold tracking-[0.3em] text-zinc-300">
-                {String(i + 1).padStart(2, '0')}
-              </span>
-              <span className="font-inter rounded-full border border-white/20 bg-white/5 px-3 py-1 text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-200 backdrop-blur-sm">
-                Good · Better · Best
-              </span>
-            </div>
-            <div className="absolute inset-x-0 bottom-0 flex items-end justify-between p-5">
-              <span className="font-serif text-3xl tracking-tight lg:text-4xl">{item.label}</span>
-              <span className="font-inter flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-300 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-                Start here <ArrowRight size={12} />
-              </span>
-            </div>
+              <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-black/10" />
+              <div className="absolute inset-x-0 top-0 flex items-start justify-between p-5">
+                <span className="font-mono text-[10px] font-semibold tracking-[0.3em] text-zinc-200 drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">
+                  {String(i + 1).padStart(2, '0')}
+                </span>
+                <span className="font-inter rounded-full border border-white/20 bg-black/30 px-3 py-1 text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-100 backdrop-blur-md shadow-sm">
+                  Good · Better · Best
+                </span>
+              </div>
+              <div className="absolute inset-x-0 bottom-0 flex items-end justify-between p-5">
+                <span className="font-serif text-3xl tracking-tight text-white drop-shadow-[0_2px_6px_rgba(0,0,0,0.7)] lg:text-4xl">{item.label}</span>
+                <span className="font-inter flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-100 opacity-0 transition-opacity duration-300 group-hover:opacity-100 drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">
+                  Start here <ArrowRight size={12} />
+                </span>
+              </div>
           </button>
         );
       })}
