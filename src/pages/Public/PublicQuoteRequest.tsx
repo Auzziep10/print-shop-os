@@ -16,11 +16,13 @@ import {
   UserPlus,
   Plus,
   Eye,
+  EyeOff,
   ExternalLink,
   Sparkles
 } from 'lucide-react';
-import { db, storage } from '../../lib/firebase';
+import { db, storage, auth } from '../../lib/firebase';
 import { doc, getDoc, setDoc, getDocs, collection, query, where } from 'firebase/firestore';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
@@ -582,8 +584,10 @@ export function PublicQuoteRequest() {
     contactName: '',
     emailAddress: '',
     phone: '',
-    website: ''
+    website: '',
+    password: ''
   });
+  const [showPassword, setShowPassword] = useState(false);
   const [budgetTier, setBudgetTier] = useState('Retail Standard');
   const [inHandsDate, setInHandsDate] = useState('');
   const [notes, setNotes] = useState('');
@@ -1853,29 +1857,62 @@ export function PublicQuoteRequest() {
 
     setIsSubmitting(true);
     try {
-      const customerId = `cust-${Date.now()}`;
+      let firebaseUid = user?.uid;
+      let customerId = userData?.customerId;
+
+      // Authenticate with Firebase Auth if not already logged in
+      if (!user) {
+        if (!customerInfo.password || customerInfo.password.length < 6) {
+          alert("Please enter a password (at least 6 characters) so we can create your portal account.");
+          setIsSubmitting(false);
+          return;
+        }
+
+        try {
+          const userCred = await createUserWithEmailAndPassword(auth, customerInfo.emailAddress.trim(), customerInfo.password);
+          firebaseUid = userCred.user.uid;
+        } catch (authErr: any) {
+          if (authErr.code === 'auth/email-already-in-use') {
+            try {
+              const userCred = await signInWithEmailAndPassword(auth, customerInfo.emailAddress.trim(), customerInfo.password);
+              firebaseUid = userCred.user.uid;
+            } catch (loginErr: any) {
+              alert("An account with this email already exists, but the password entered was incorrect. Please verify your password.");
+              setIsSubmitting(false);
+              return;
+            }
+          } else {
+            console.error("Firebase Auth signup error:", authErr);
+            alert(`Could not create account: ${authErr.message || 'Please try again.'}`);
+            setIsSubmitting(false);
+            return;
+          }
+        }
+      }
+
+      if (!customerId) {
+        customerId = `cust-${Date.now()}`;
+      }
+
       const orderId = `quote-${Date.now()}`;
 
-      // Create Customer record
+      // Create or update Customer record
       await setDoc(doc(db, 'customers', customerId), {
         id: customerId,
         company: customerInfo.companyName || '-',
         contactName: customerInfo.contactName,
-        email: customerInfo.emailAddress,
+        email: customerInfo.emailAddress.toLowerCase().trim(),
         phone: customerInfo.phone || '-',
         website: customerInfo.website || '',
         type: 'Web Lead',
         createdAt: new Date().toISOString()
-      });
+      }, { merge: true });
 
-      // Create Portal User Doc
-      const userQuery = query(collection(db, 'users'), where('email', '==', customerInfo.emailAddress.toLowerCase()));
-      const userSnapshot = await getDocs(userQuery);
-      if (userSnapshot.empty) {
-        const newUserRef = doc(collection(db, 'users'));
-        await setDoc(newUserRef, {
-          id: newUserRef.id,
-          email: customerInfo.emailAddress.toLowerCase(),
+      // Create or update Portal User Doc if we have a Firebase UID
+      if (firebaseUid) {
+        await setDoc(doc(db, 'users', firebaseUid), {
+          id: firebaseUid,
+          email: customerInfo.emailAddress.toLowerCase().trim(),
           name: customerInfo.contactName,
           role: 'Client',
           customerId: customerId,
@@ -1883,7 +1920,7 @@ export function PublicQuoteRequest() {
           companyName: customerInfo.companyName || '-',
           website: customerInfo.website || '',
           createdAt: new Date().toISOString()
-        });
+        }, { merge: true });
       }
 
       // Generate incremental ID
@@ -1966,8 +2003,8 @@ export function PublicQuoteRequest() {
       await setDoc(doc(db, 'orders', orderId), payload);
 
       if (isPayNow) {
-        const successUrl = `${window.location.origin}${window.location.pathname}?success=true&order_id=${orderId}&session_id={CHECKOUT_SESSION_ID}`;
-        const cancelUrl = `${window.location.origin}${window.location.pathname}?canceled=true&order_id=${orderId}`;
+        const successUrl = `${window.location.origin}/portal/${customerId}?success=true&order_id=${orderId}&session_id={CHECKOUT_SESSION_ID}`;
+        const cancelUrl = `${window.location.origin}/portal/${customerId}?canceled=true&order_id=${orderId}`;
 
         const lineItems = cart.map(item => {
           const sizeDescription = Object.entries(item.sizes || {})
@@ -2009,11 +2046,12 @@ export function PublicQuoteRequest() {
         if (res.ok && data.url) {
           window.location.href = data.url; 
         } else {
-          alert("Failed to initiate secure checkout session. Please try again or submit quote instead.");
+          alert("Failed to initiate secure checkout session. Redirecting to your portal...");
+          navigate(`/portal/${customerId}`);
         }
       } else {
-        setPaymentSuccessMsg(`Thank you, ${customerInfo.contactName}! We've received your ${storefrontSettings.logoText} design selections. Our design team will review your specifications and contact you shortly with a formal price quote.`);
-        setSuccess(true);
+        // Automatically redirect to the logged-in client portal!
+        navigate(`/portal/${customerId}`);
       }
     } catch (err) {
       console.error(err);
@@ -4084,6 +4122,33 @@ export function PublicQuoteRequest() {
                       placeholder="jane@company.com" 
                     />
                   </div>
+                  {!user && (
+                    <div className="flex flex-col gap-1.5">
+                      <div className="flex justify-between items-center">
+                        <label className="text-xs font-bold text-neutral-700">Create Account Password *</label>
+                        <span className="text-[10px] text-neutral-400 font-medium">Min 6 chars</span>
+                      </div>
+                      <div className="relative">
+                        <input 
+                          type={showPassword ? "text" : "password"} 
+                          required
+                          minLength={6}
+                          value={customerInfo.password} 
+                          onChange={e => setCustomerInfo({...customerInfo, password: e.target.value})} 
+                          className="w-full bg-neutral-50 border border-neutral-200 rounded-xl pl-4 pr-10 py-2.5 text-xs font-bold focus:outline-none focus:border-neutral-400" 
+                          placeholder="••••••••" 
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 cursor-pointer"
+                          title={showPassword ? "Hide password" : "Show password"}
+                        >
+                          {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                   <div className="flex flex-col gap-1.5">
                     <label className="text-xs font-bold text-neutral-700">Company Name</label>
                     <input 
