@@ -20,6 +20,32 @@ const loadImg = (src: string): Promise<HTMLImageElement> => {
   });
 };
 
+const fetchImageBlobUrl = async (url: string): Promise<string> => {
+  if (!url || url.startsWith('data:') || url.startsWith('blob:')) return url;
+  try {
+    const res = await fetch(url, { mode: 'cors' });
+    if (res.ok) {
+      const blob = await res.blob();
+      return URL.createObjectURL(blob);
+    }
+  } catch {
+    // Fall through to proxy if direct fetch fails
+  }
+  if (url.startsWith('http')) {
+    try {
+      const proxyUrl = `/api/sanmar/proxy-image?url=${encodeURIComponent(url)}`;
+      const res = await fetch(proxyUrl);
+      if (res.ok) {
+        const blob = await res.blob();
+        return URL.createObjectURL(blob);
+      }
+    } catch {
+      // ignore
+    }
+  }
+  return url;
+};
+
 export const WashingSymbol = ({ color = 'currentColor' }: { color?: string }) => (
   <svg viewBox="0 0 100 100" fill="none" stroke={color} strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" className="w-full h-full">
     <path d="M15 35 L22 75 A 5 5 0 0 0 27 80 L73 80 A 5 5 0 0 0 78 75 L85 35" />
@@ -1413,13 +1439,22 @@ export function GarmentCustomizerModal({
   const handleRecolorAsset = async (asset: any, hexColor: string) => {
     if (!asset || !customerId) return;
     setIsRecoloring(true);
+    let safeUrl = asset.url;
+    let isCreatedBlob = false;
     try {
+      if (asset.url && !asset.url.startsWith('data:') && !asset.url.startsWith('blob:')) {
+        safeUrl = await fetchImageBlobUrl(asset.url);
+        isCreatedBlob = safeUrl.startsWith('blob:');
+      }
+
       const img = new Image();
-      img.crossOrigin = 'Anonymous';
+      if (!isCreatedBlob) {
+        img.crossOrigin = 'Anonymous';
+      }
       await new Promise((resolve, reject) => {
         img.onload = resolve;
         img.onerror = reject;
-        img.src = asset.url;
+        img.src = safeUrl;
       });
 
       const canvas = document.createElement('canvas');
@@ -1437,7 +1472,8 @@ export function GarmentCustomizerModal({
       const response = await fetch(recoloredDataUrl);
       const blob = await response.blob();
 
-      const filename = `recolored_${hexColor.replace('#', '')}_${asset.name.split('.').slice(0, -1).join('.') || 'asset'}.png`;
+      const rawName = asset.name || 'asset';
+      const filename = `recolored_${hexColor.replace('#', '')}_${rawName.split('.').slice(0, -1).join('.') || 'asset'}.png`;
       const storageRef = ref(storage, `portal/${customerId}/vault/${Date.now()}_${filename}`);
       await uploadBytes(storageRef, blob);
       const downloadUrl = await getDownloadURL(storageRef);
@@ -1462,6 +1498,9 @@ export function GarmentCustomizerModal({
       console.error(err);
       alert('Failed to recolor asset. Ensure image origin supports CORS.');
     } finally {
+      if (isCreatedBlob && safeUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(safeUrl);
+      }
       setIsRecoloring(false);
     }
   };

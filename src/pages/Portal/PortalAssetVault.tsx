@@ -332,16 +332,51 @@ export function PortalAssetVault() {
     }
   };
 
+  const fetchImageBlobUrl = async (url: string): Promise<string> => {
+    if (!url || url.startsWith('data:') || url.startsWith('blob:')) return url;
+    try {
+      const res = await fetch(url, { mode: 'cors' });
+      if (res.ok) {
+        const blob = await res.blob();
+        return URL.createObjectURL(blob);
+      }
+    } catch {
+      // Fall through to proxy if direct fetch fails
+    }
+    if (url.startsWith('http')) {
+      try {
+        const proxyUrl = `/api/sanmar/proxy-image?url=${encodeURIComponent(url)}`;
+        const res = await fetch(proxyUrl);
+        if (res.ok) {
+          const blob = await res.blob();
+          return URL.createObjectURL(blob);
+        }
+      } catch {
+        // ignore
+      }
+    }
+    return url;
+  };
+
   const handleRecolorAsset = async (assetImageUrl: string, hexColor: string) => {
     if (!selectedAsset) return;
     setIsRecoloring(true);
+    let safeUrl = assetImageUrl;
+    let isCreatedBlob = false;
     try {
+      if (assetImageUrl && !assetImageUrl.startsWith('data:') && !assetImageUrl.startsWith('blob:')) {
+        safeUrl = await fetchImageBlobUrl(assetImageUrl);
+        isCreatedBlob = safeUrl.startsWith('blob:');
+      }
+
       const img = new Image();
-      img.crossOrigin = 'Anonymous';
+      if (!isCreatedBlob) {
+        img.crossOrigin = 'Anonymous';
+      }
       await new Promise((resolve, reject) => {
         img.onload = resolve;
         img.onerror = reject;
-        img.src = assetImageUrl;
+        img.src = safeUrl;
       });
 
       const canvas = document.createElement('canvas');
@@ -380,6 +415,9 @@ export function PortalAssetVault() {
       console.error(err);
       alert('Failed to recolor asset. Ensure image origin supports CORS.');
     } finally {
+      if (isCreatedBlob && safeUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(safeUrl);
+      }
       setIsRecoloring(false);
     }
   };
