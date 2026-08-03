@@ -212,6 +212,10 @@ interface DesignRackItem {
   customBackLogoUrl?: string;
   compiledMockupUrl?: string;
   compiledBackMockupUrl?: string;
+  compiledSleeveMockupUrl?: string;
+  customizedSleeveImage?: string;
+  customLeftSleeveLogoUrl?: string;
+  customRightSleeveLogoUrl?: string;
 }
 
 // Admin-defined logo placement box (see StorefrontCatalogTab): center x/y + size,
@@ -511,8 +515,12 @@ export function PublicQuoteRequest() {
     customBackLogoUrl?: string;
     compiledMockupUrl?: string;
     compiledBackMockupUrl?: string;
+    compiledSleeveMockupUrl?: string;
+    customizedSleeveImage?: string;
+    customLeftSleeveLogoUrl?: string;
+    customRightSleeveLogoUrl?: string;
   }[]>([]);
-  const [cardViewSides, setCardViewSides] = useState<Record<string, 'front' | 'back'>>({});
+  const [cardViewSides, setCardViewSides] = useState<Record<string, 'front' | 'back' | 'sleeve'>>({});
   const [garmentPickerType, setGarmentPickerType] = useState<GarmentTypeId | null>(null);
 
 
@@ -1110,7 +1118,7 @@ export function PublicQuoteRequest() {
     }, 'image/png');
   };
 
-  const resolveColorMockup = (style?: string, color?: string, side: 'front' | 'back' = 'front', itemObj?: any): string | null => {
+  const resolveColorMockup = (style?: string, color?: string, side: 'front' | 'back' | 'sleeve' = 'front', itemObj?: any): string | null => {
     if (!catalogSettings?.colorMockups) return null;
     const stylesToTry = Array.from(new Set([
       style,
@@ -1162,7 +1170,7 @@ export function PublicQuoteRequest() {
     return null;
   };
 
-  const resolveGarmentImage = (item: SanMarProduct, colorKey?: string, side: 'front' | 'back' = 'front') => {
+  const resolveGarmentImage = (item: SanMarProduct, colorKey?: string, side: 'front' | 'back' | 'sleeve' = 'front') => {
     const cKey = colorKey || item.colors?.[0];
 
     // 1. Color-specific custom mockup override (e.g. from catalogSettings.colorMockups)
@@ -1259,7 +1267,7 @@ export function PublicQuoteRequest() {
   const getGarmentMockupImage = (
     product: SanMarProduct,
     color: string,
-    side: 'front' | 'back',
+    side: 'front' | 'back' | 'sleeve',
     settings: any,
     themeCategory?: string,
     slotKey?: string
@@ -1322,7 +1330,7 @@ export function PublicQuoteRequest() {
     logoPos: { x: number; y: number },
     logoScale: number,
     logoRotation: number,
-    side: 'front' | 'back',
+    side: 'front' | 'back' | 'sleeve',
     decoration: 'Print' | 'Embroidery',
     themeCategory?: string,
     slotKey?: string
@@ -1754,7 +1762,11 @@ export function PublicQuoteRequest() {
             customLogoUrl: updated.customLogoUrl,
             customBackLogoUrl: updated.customBackLogoUrl,
             compiledMockupUrl: updated.compiledMockupUrl,
-            compiledBackMockupUrl: updated.compiledBackMockupUrl
+            compiledBackMockupUrl: updated.compiledBackMockupUrl,
+            compiledSleeveMockupUrl: (updated as any).compiledSleeveMockupUrl,
+            customizedSleeveImage: (updated as any).customizedSleeveImage,
+            customLeftSleeveLogoUrl: (updated as any).customLeftSleeveLogoUrl,
+            customRightSleeveLogoUrl: (updated as any).customRightSleeveLogoUrl,
           }];
         }
 
@@ -1778,7 +1790,11 @@ export function PublicQuoteRequest() {
             customLogoUrl: item.customLogoUrl,
             customBackLogoUrl: item.customBackLogoUrl,
             compiledMockupUrl: (item as any).compiledMockupUrl,
-            compiledBackMockupUrl: (item as any).compiledBackMockupUrl
+            compiledBackMockupUrl: (item as any).compiledBackMockupUrl,
+            compiledSleeveMockupUrl: (item as any).compiledSleeveMockupUrl,
+            customizedSleeveImage: (item as any).customizedSleeveImage,
+            customLeftSleeveLogoUrl: (item as any).customLeftSleeveLogoUrl,
+            customRightSleeveLogoUrl: (item as any).customRightSleeveLogoUrl,
           };
           const updated = updater(rackLike);
           setSelectedGarmentTypeColor(updated.color);
@@ -1794,7 +1810,11 @@ export function PublicQuoteRequest() {
             customLogoUrl: updated.customLogoUrl,
             customBackLogoUrl: updated.customBackLogoUrl,
             compiledMockupUrl: updated.compiledMockupUrl,
-            compiledBackMockupUrl: updated.compiledBackMockupUrl
+            compiledBackMockupUrl: updated.compiledBackMockupUrl,
+            compiledSleeveMockupUrl: (updated as any).compiledSleeveMockupUrl,
+            customizedSleeveImage: (updated as any).customizedSleeveImage,
+            customLeftSleeveLogoUrl: (updated as any).customLeftSleeveLogoUrl,
+            customRightSleeveLogoUrl: (updated as any).customRightSleeveLogoUrl,
           };
         });
       });
@@ -3315,24 +3335,46 @@ export function PublicQuoteRequest() {
                     return displayRacks.map(item => {
                       const activeSide = cardViewSides[item.id] || 'front';
                       const colorKey = item.color || item.product.colors[0];
+
+                      const hasBackPrint = Boolean((item.backLogoScale && item.backLogoScale > 0) || item.customBackLogoUrl);
+                      const hasSleevePrint = Boolean(
+                        (item as any).compiledSleeveMockupUrl ||
+                        (item as any).customizedSleeveImage ||
+                        (item as any).customLeftSleeveLogoUrl ||
+                        (item as any).customRightSleeveLogoUrl ||
+                        (item as any).logoUrlLeftSleeve ||
+                        (item as any).logoUrlRightSleeve ||
+                        ((item as any).customScaleLeftSleeve && (item as any).customScaleLeftSleeve > 0) ||
+                        ((item as any).customScaleRightSleeve && (item as any).customScaleRightSleeve > 0)
+                      );
+
                       const previewImg = getGarmentMockupImage(item.product, colorKey, activeSide, catalogSettings, selectedThemeCategory, item.slot);
-                      const rawCompiled = activeSide === 'back'
-                        ? (item.compiledBackMockupUrl || (item.customBackLogoUrl?.includes('mockup') ? item.customBackLogoUrl : undefined))
-                        : (item.compiledMockupUrl || (item.customLogoUrl?.includes('mockup') ? item.customLogoUrl : undefined));
+                      const rawCompiled = activeSide === 'sleeve'
+                        ? ((item as any).compiledSleeveMockupUrl || (item as any).customizedSleeveImage)
+                        : (activeSide === 'back'
+                            ? (item.compiledBackMockupUrl || (item.customBackLogoUrl?.includes('mockup') ? item.customBackLogoUrl : undefined))
+                            : (item.compiledMockupUrl || (item.customLogoUrl?.includes('mockup') ? item.customLogoUrl : undefined)));
                       const cardImage = rawCompiled || previewImg;
                       const isCompiled = Boolean(rawCompiled);
                       const placement = getBasicsPlacement(item.product);
 
-                      const hasBackPrint = Boolean((item.backLogoScale && item.backLogoScale > 0) || item.customBackLogoUrl);
+                      const activeLogoPos = activeSide === 'sleeve'
+                        ? { x: (item as any).customOffsetXLeftSleeve ?? 50, y: (item as any).customOffsetYLeftSleeve ?? 50 }
+                        : (activeSide === 'back' ? (item.backLogoPos || { x: 50, y: 35 }) : (item.logoPos || placement.pos));
 
-                      const activeLogoPos = activeSide === 'back' ? (item.backLogoPos || { x: 50, y: 35 }) : (item.logoPos || placement.pos);
-                      const activeLogoScale = activeSide === 'back'
-                        ? (hasBackPrint ? (item.backLogoScale ?? 0) : 0)
-                        : (item.logoScale ?? placement.scale);
-                      const activeLogoRotation = activeSide === 'back' ? (item.backLogoRotation ?? 0) : (item.logoRotation ?? placement.rotation ?? 0);
-                      const rawLogo = activeSide === 'back'
-                        ? (item.customBackLogoUrl && !item.customBackLogoUrl.includes('mockup') ? item.customBackLogoUrl : (hasBackPrint ? logoUrl : null))
-                        : (item.customLogoUrl && !item.customLogoUrl.includes('mockup') ? item.customLogoUrl : logoUrl);
+                      const activeLogoScale = activeSide === 'sleeve'
+                        ? ((item as any).customScaleLeftSleeve ?? (item as any).customScaleRightSleeve ?? 30)
+                        : (activeSide === 'back' ? (hasBackPrint ? (item.backLogoScale ?? 0) : 0) : (item.logoScale ?? placement.scale));
+
+                      const activeLogoRotation = activeSide === 'sleeve'
+                        ? ((item as any).customRotationLeftSleeve ?? (item as any).customRotationRightSleeve ?? 0)
+                        : (activeSide === 'back' ? (item.backLogoRotation ?? 0) : (item.logoRotation ?? placement.rotation ?? 0));
+
+                      const rawLogo = activeSide === 'sleeve'
+                        ? ((item as any).customLeftSleeveLogoUrl || (item as any).customRightSleeveLogoUrl || (item as any).logoUrlLeftSleeve || (item as any).logoUrlRightSleeve || logoUrl)
+                        : (activeSide === 'back'
+                            ? (item.customBackLogoUrl && !item.customBackLogoUrl.includes('mockup') ? item.customBackLogoUrl : (hasBackPrint ? logoUrl : null))
+                            : (item.customLogoUrl && !item.customLogoUrl.includes('mockup') ? item.customLogoUrl : logoUrl));
                       const activeArtwork = rawLogo;
 
                       const isEmbroidery = item.decoration === 'Embroidery';
@@ -3357,7 +3399,7 @@ export function PublicQuoteRequest() {
 
                         <div className="relative aspect-[4/5] bg-transparent border-b border-neutral-100 overflow-hidden select-none">
 
-                          {/* View Side Toggle (Front vs Back) */}
+                          {/* View Side Toggle (Front, Back, Sleeve) */}
                           <div className={`absolute top-4 ${displayRacks.length > 1 ? 'right-12' : 'right-4'} z-10 flex items-center bg-white/90 border border-neutral-200 rounded-lg p-0.5 shadow-3xs backdrop-blur-xs`}>
                             <button
                               type="button"
@@ -3378,6 +3420,18 @@ export function PublicQuoteRequest() {
                               <span>Back</span>
                               {hasBackPrint && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" title="Back print active" />}
                             </button>
+                            {hasSleevePrint && (
+                              <button
+                                type="button"
+                                onClick={() => setCardViewSides(prev => ({ ...prev, [item.id]: 'sleeve' }))}
+                                className={`px-2 py-0.5 text-[9px] font-bold rounded transition-all cursor-pointer flex items-center gap-1 ${
+                                  activeSide === 'sleeve' ? 'bg-neutral-900 text-white shadow-xs' : 'text-neutral-600 hover:bg-neutral-100'
+                                }`}
+                              >
+                                <span>Sleeve</span>
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" title="Sleeve print active" />
+                              </button>
+                            )}
                           </div>
 
                           {/* Placement frame — same 4:5 geometry as the design editor & mockup compiler */}
@@ -3501,24 +3555,46 @@ export function PublicQuoteRequest() {
                       {displayItems.map(item => {
                         const activeSide = cardViewSides[item.id] || 'front';
                         const colorKey = item.color || item.product.colors[0];
+
+                        const hasBackPrint = Boolean((item.backLogoScale && item.backLogoScale > 0) || item.customBackLogoUrl);
+                        const hasSleevePrint = Boolean(
+                          (item as any).compiledSleeveMockupUrl ||
+                          (item as any).customizedSleeveImage ||
+                          (item as any).customLeftSleeveLogoUrl ||
+                          (item as any).customRightSleeveLogoUrl ||
+                          (item as any).logoUrlLeftSleeve ||
+                          (item as any).logoUrlRightSleeve ||
+                          ((item as any).customScaleLeftSleeve && (item as any).customScaleLeftSleeve > 0) ||
+                          ((item as any).customScaleRightSleeve && (item as any).customScaleRightSleeve > 0)
+                        );
+
                         const previewImg = getGarmentMockupImage(item.product, colorKey, activeSide, catalogSettings);
-                        const rawCompiled = activeSide === 'back'
-                          ? ((item as any).compiledBackMockupUrl || (item.customBackLogoUrl?.includes('mockup') ? item.customBackLogoUrl : undefined))
-                          : ((item as any).compiledMockupUrl || (item.customLogoUrl?.includes('mockup') ? item.customLogoUrl : undefined));
+                        const rawCompiled = activeSide === 'sleeve'
+                          ? ((item as any).compiledSleeveMockupUrl || (item as any).customizedSleeveImage)
+                          : (activeSide === 'back'
+                              ? ((item as any).compiledBackMockupUrl || (item.customBackLogoUrl?.includes('mockup') ? item.customBackLogoUrl : undefined))
+                              : ((item as any).compiledMockupUrl || (item.customLogoUrl?.includes('mockup') ? item.customLogoUrl : undefined)));
                         const cardImage = rawCompiled || previewImg;
                         const isCompiled = Boolean(rawCompiled);
                         const placement = getBasicsPlacement(item.product);
-                        
-                        const hasBackPrint = Boolean((item.backLogoScale && item.backLogoScale > 0) || item.customBackLogoUrl);
 
-                        const activeLogoPos = activeSide === 'back' ? (item.backLogoPos || { x: 50, y: 35 }) : (item.logoPos || placement.pos);
-                        const activeLogoScale = activeSide === 'back'
-                          ? (hasBackPrint ? (item.backLogoScale ?? 0) : 0)
-                          : (item.logoScale ?? placement.scale);
-                        const activeLogoRotation = activeSide === 'back' ? (item.backLogoRotation ?? 0) : (item.logoRotation ?? placement.rotation ?? 0);
-                        const rawLogo = activeSide === 'back'
-                          ? (item.customBackLogoUrl && !item.customBackLogoUrl.includes('mockup') ? item.customBackLogoUrl : (hasBackPrint ? logoUrl : null))
-                          : (item.customLogoUrl && !item.customLogoUrl.includes('mockup') ? item.customLogoUrl : logoUrl);
+                        const activeLogoPos = activeSide === 'sleeve'
+                          ? { x: (item as any).customOffsetXLeftSleeve ?? 50, y: (item as any).customOffsetYLeftSleeve ?? 50 }
+                          : (activeSide === 'back' ? (item.backLogoPos || { x: 50, y: 35 }) : (item.logoPos || placement.pos));
+
+                        const activeLogoScale = activeSide === 'sleeve'
+                          ? ((item as any).customScaleLeftSleeve ?? (item as any).customScaleRightSleeve ?? 30)
+                          : (activeSide === 'back' ? (hasBackPrint ? (item.backLogoScale ?? 0) : 0) : (item.logoScale ?? placement.scale));
+
+                        const activeLogoRotation = activeSide === 'sleeve'
+                          ? ((item as any).customRotationLeftSleeve ?? (item as any).customRotationRightSleeve ?? 0)
+                          : (activeSide === 'back' ? (item.backLogoRotation ?? 0) : (item.logoRotation ?? placement.rotation ?? 0));
+
+                        const rawLogo = activeSide === 'sleeve'
+                          ? ((item as any).customLeftSleeveLogoUrl || (item as any).customRightSleeveLogoUrl || (item as any).logoUrlLeftSleeve || (item as any).logoUrlRightSleeve || logoUrl)
+                          : (activeSide === 'back'
+                              ? (item.customBackLogoUrl && !item.customBackLogoUrl.includes('mockup') ? item.customBackLogoUrl : (hasBackPrint ? logoUrl : null))
+                              : (item.customLogoUrl && !item.customLogoUrl.includes('mockup') ? item.customLogoUrl : logoUrl));
                         const activeArtwork = rawLogo;
 
                         const isEmbroidery = ['hat', 'cap', 'polo'].some(w => (item.product.category || item.product.title || item.product.style || '').toLowerCase().includes(w));
@@ -3543,7 +3619,7 @@ export function PublicQuoteRequest() {
 
                             <div className="relative aspect-[4/5] bg-transparent border-b border-neutral-100 overflow-hidden select-none">
 
-                              {/* View Side Toggle (Front vs Back) */}
+                              {/* View Side Toggle (Front, Back, Sleeve) */}
                               <div className={`absolute top-4 ${displayItems.length > 1 ? 'right-12' : 'right-4'} z-10 flex items-center bg-white/90 border border-neutral-200 rounded-lg p-0.5 shadow-3xs backdrop-blur-xs`}>
                                 <button
                                   type="button"
@@ -3564,6 +3640,18 @@ export function PublicQuoteRequest() {
                                   <span>Back</span>
                                   {hasBackPrint && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" title="Back print active" />}
                                 </button>
+                                {hasSleevePrint && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setCardViewSides(prev => ({ ...prev, [item.id]: 'sleeve' }))}
+                                    className={`px-2 py-0.5 text-[9px] font-bold rounded transition-all cursor-pointer flex items-center gap-1 ${
+                                      activeSide === 'sleeve' ? 'bg-neutral-900 text-white shadow-xs' : 'text-neutral-600 hover:bg-neutral-100'
+                                    }`}
+                                  >
+                                    <span>Sleeve</span>
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" title="Sleeve print active" />
+                                  </button>
+                                )}
                               </div>
 
                               {/* Placement frame */}
@@ -4223,7 +4311,10 @@ export function PublicQuoteRequest() {
           onSave={(customizedData) => {
             const cleanFrontLogo = customizedData.logoUrl && !customizedData.logoUrl.includes('mockup') ? customizedData.logoUrl : customizedData.customLogoUrl;
             const cleanBackLogo = customizedData.logoUrlBack && !customizedData.logoUrlBack.includes('mockup') ? customizedData.logoUrlBack : customizedData.customBackLogoUrl;
+            const cleanSleeveLogo = (customizedData.logoUrlLeftSleeve || customizedData.logoUrlRightSleeve || customizedData.customSleeveLogoUrl) && !((customizedData.logoUrlLeftSleeve || customizedData.logoUrlRightSleeve || customizedData.customSleeveLogoUrl)?.includes('mockup')) ? (customizedData.logoUrlLeftSleeve || customizedData.logoUrlRightSleeve || customizedData.customSleeveLogoUrl) : undefined;
+
             const hasBackLogo = Boolean(cleanBackLogo || customizedData.customizedBackImage || (customizedData.customScaleBack && customizedData.customScaleBack > 0));
+            const hasSleeveLogo = Boolean(cleanSleeveLogo || customizedData.customizedSleeveImage || (customizedData.customScaleLeftSleeve && customizedData.customScaleLeftSleeve > 0) || (customizedData.customScaleRightSleeve && customizedData.customScaleRightSleeve > 0));
 
             updateEditingItem(item => {
               const rawFrontScale = customizedData.customScaleFront ?? (item.logoScale ? item.logoScale * 100 : 30);
@@ -4241,8 +4332,11 @@ export function PublicQuoteRequest() {
                 color: customizedData.selectedColor || item.color,
                 compiledMockupUrl: customizedData.customizedFrontImage || item.compiledMockupUrl,
                 compiledBackMockupUrl: hasBackLogo ? (customizedData.customizedBackImage || item.compiledBackMockupUrl) : undefined,
+                compiledSleeveMockupUrl: hasSleeveLogo ? (customizedData.customizedSleeveImage || (item as any).compiledSleeveMockupUrl) : undefined,
+                customizedSleeveImage: hasSleeveLogo ? (customizedData.customizedSleeveImage || (item as any).customizedSleeveImage) : undefined,
                 customLogoUrl: cleanFrontLogo || item.customLogoUrl,
                 customBackLogoUrl: hasBackLogo ? (cleanBackLogo || item.customBackLogoUrl) : undefined,
+                customLeftSleeveLogoUrl: hasSleeveLogo ? (cleanSleeveLogo || (item as any).customLeftSleeveLogoUrl) : undefined,
                 logoPos: { x: frontX, y: frontY },
                 logoScale: normFrontScale,
                 logoRotation: customizedData.customRotationFront ?? item.logoRotation ?? 0,
@@ -4257,8 +4351,17 @@ export function PublicQuoteRequest() {
                 customOffsetXBack: backX,
                 customOffsetYBack: backY,
                 customRotationBack: customizedData.customRotationBack ?? 0,
+                customScaleLeftSleeve: customizedData.customScaleLeftSleeve,
+                customOffsetXLeftSleeve: customizedData.customOffsetXLeftSleeve,
+                customOffsetYLeftSleeve: customizedData.customOffsetYLeftSleeve,
+                customRotationLeftSleeve: customizedData.customRotationLeftSleeve,
+                customScaleRightSleeve: customizedData.customScaleRightSleeve,
+                customOffsetXRightSleeve: customizedData.customOffsetXRightSleeve,
+                customOffsetYRightSleeve: customizedData.customOffsetYRightSleeve,
+                customRotationRightSleeve: customizedData.customRotationRightSleeve,
                 logoUrl: cleanFrontLogo,
                 logoUrlBack: cleanBackLogo,
+                logoUrlLeftSleeve: cleanSleeveLogo,
                 logoName: customizedData.logoName,
                 logoNameBack: customizedData.logoNameBack,
               };
