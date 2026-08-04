@@ -541,8 +541,10 @@ export function PublicQuoteRequest() {
     customLeftSleeveLogoUrl?: string;
     customRightSleeveLogoUrl?: string;
   }[]>([]);
-  const [cardViewSides, setCardViewSides] = useState<Record<string, 'front' | 'back' | 'sleeve'>>({});
   const [garmentPickerType, setGarmentPickerType] = useState<GarmentTypeId | null>(null);
+  const [cardViewSides, setCardViewSides] = useState<Record<string, 'front' | 'back' | 'sleeve'>>({});
+  const [submittingStep, setSubmittingStep] = useState<string>('');
+  const [submittingStepIndex, setSubmittingStepIndex] = useState<number>(0);
 
 
   // Quick-remove garment from lookbook collection directly from Step 3
@@ -1871,6 +1873,8 @@ export function PublicQuoteRequest() {
     }
 
     setIsSubmitting(true);
+    setSubmittingStepIndex(1);
+    setSubmittingStep('Creating secure user profile & authenticating...');
     try {
       let firebaseUid = user?.uid;
       let customerId = userData?.customerId;
@@ -1882,7 +1886,46 @@ export function PublicQuoteRequest() {
       const companyName = customerInfo.companyName || customerInfo.contactName || 'New Company';
       const cleanEmail = customerInfo.emailAddress.toLowerCase().trim();
 
-      // 1. Create or update Customer (Company) record FIRST
+      // 1. Authenticate with Firebase Auth FIRST if not already logged in
+      if (!user) {
+        if (!customerInfo.password || customerInfo.password.length < 6) {
+          alert("Please enter a password (at least 6 characters) so we can create your portal account.");
+          setIsSubmitting(false);
+          setSubmittingStep('');
+          setSubmittingStepIndex(0);
+          return;
+        }
+
+        try {
+          const userCred = await createUserWithEmailAndPassword(auth, cleanEmail, customerInfo.password);
+          firebaseUid = userCred.user.uid;
+        } catch (authErr: any) {
+          if (authErr.code === 'auth/email-already-in-use') {
+            try {
+              const userCred = await signInWithEmailAndPassword(auth, cleanEmail, customerInfo.password);
+              firebaseUid = userCred.user.uid;
+            } catch (loginErr: any) {
+              alert("An account with this email already exists, but the password entered was incorrect. Please verify your password.");
+              setIsSubmitting(false);
+              setSubmittingStep('');
+              setSubmittingStepIndex(0);
+              return;
+            }
+          } else {
+            console.error("Firebase Auth signup error:", authErr);
+            alert(`Could not create account: ${authErr.message || 'Please try again.'}`);
+            setIsSubmitting(false);
+            setSubmittingStep('');
+            setSubmittingStepIndex(0);
+            return;
+          }
+        }
+      }
+
+      // 2. NOW authenticated — Provision Customer (Company) & User Profile
+      setSubmittingStepIndex(2);
+      setSubmittingStep('Generating customer portal workspace for your company...');
+
       await setDoc(doc(db, 'customers', customerId), {
         id: customerId,
         company: companyName,
@@ -1895,62 +1938,7 @@ export function PublicQuoteRequest() {
         createdAt: new Date().toISOString()
       }, { merge: true });
 
-      // 2. Authenticate with Firebase Auth if not already logged in
-      if (!user) {
-        if (!customerInfo.password || customerInfo.password.length < 6) {
-          alert("Please enter a password (at least 6 characters) so we can create your portal account.");
-          setIsSubmitting(false);
-          return;
-        }
-
-        try {
-          const userCred = await createUserWithEmailAndPassword(auth, cleanEmail, customerInfo.password);
-          firebaseUid = userCred.user.uid;
-
-          // Immediately write Client Portal user document
-          await setDoc(doc(db, 'users', firebaseUid), {
-            id: firebaseUid,
-            uid: firebaseUid,
-            email: cleanEmail,
-            name: customerInfo.contactName,
-            role: 'Client',
-            customerId: customerId,
-            phone: customerInfo.phone || '-',
-            companyName: companyName,
-            website: customerInfo.website || '',
-            createdAt: new Date().toISOString()
-          }, { merge: true });
-        } catch (authErr: any) {
-          if (authErr.code === 'auth/email-already-in-use') {
-            try {
-              const userCred = await signInWithEmailAndPassword(auth, cleanEmail, customerInfo.password);
-              firebaseUid = userCred.user.uid;
-
-              await setDoc(doc(db, 'users', firebaseUid), {
-                id: firebaseUid,
-                uid: firebaseUid,
-                email: cleanEmail,
-                name: customerInfo.contactName,
-                role: 'Client',
-                customerId: customerId,
-                phone: customerInfo.phone || '-',
-                companyName: companyName,
-                website: customerInfo.website || '',
-                createdAt: new Date().toISOString()
-              }, { merge: true });
-            } catch (loginErr: any) {
-              alert("An account with this email already exists, but the password entered was incorrect. Please verify your password.");
-              setIsSubmitting(false);
-              return;
-            }
-          } else {
-            console.error("Firebase Auth signup error:", authErr);
-            alert(`Could not create account: ${authErr.message || 'Please try again.'}`);
-            setIsSubmitting(false);
-            return;
-          }
-        }
-      } else if (firebaseUid) {
+      if (firebaseUid) {
         await setDoc(doc(db, 'users', firebaseUid), {
           id: firebaseUid,
           uid: firebaseUid,
@@ -1965,35 +1953,46 @@ export function PublicQuoteRequest() {
         }, { merge: true });
       }
 
+      // 3. Create Quote Request order document
+      setSubmittingStepIndex(3);
+      setSubmittingStep('Submitting quote request & starting production timeline...');
+
       const orderId = `quote-${Date.now()}`;
 
-      // Generate incremental ID
+      // Generate incremental ID with fallback if global permissions restrict reading all orders
       const todayStart = new Date();
       todayStart.setHours(0, 0, 0, 0);
       const todayEnd = new Date();
       todayEnd.setHours(23, 59, 59, 999);
       
-      const ordersQuery = query(collection(db, 'orders'), where('createdAt', '>=', todayStart.toISOString()), where('createdAt', '<=', todayEnd.toISOString()));
-      const ordersSnapshot = await getDocs(ordersQuery);
       const yy = String(todayStart.getFullYear()).slice(-2);
       const mm = String(todayStart.getMonth() + 1).padStart(2, '0');
       const dd = String(todayStart.getDate()).padStart(2, '0');
       const prefix = `${yy}${mm}${dd}-`;
 
-      let maxCount = 0;
-      ordersSnapshot.forEach(docSnap => {
-          const data = docSnap.data();
-          if (data.portalId && data.portalId.startsWith(prefix)) {
-             const suffix = data.portalId.split('-')[1];
-             if (suffix) {
-                const numericCount = parseInt(suffix, 10);
-                if (!isNaN(numericCount) && numericCount > maxCount) {
-                   maxCount = numericCount;
-                }
-             }
-          }
-      });
-      const portalId = `${prefix}${maxCount + 1}`;
+      let portalId = `${prefix}1`;
+      try {
+        const ordersQuery = query(collection(db, 'orders'), where('createdAt', '>=', todayStart.toISOString()), where('createdAt', '<=', todayEnd.toISOString()));
+        const ordersSnapshot = await getDocs(ordersQuery);
+        let maxCount = 0;
+        ordersSnapshot.forEach(docSnap => {
+            const data = docSnap.data();
+            if (data.portalId && data.portalId.startsWith(prefix)) {
+               const suffix = data.portalId.split('-')[1];
+               if (suffix) {
+                  const numericCount = parseInt(suffix, 10);
+                  if (!isNaN(numericCount) && numericCount > maxCount) {
+                     maxCount = numericCount;
+                  }
+               }
+            }
+        });
+        portalId = `${prefix}${maxCount + 1}`;
+      } catch (countErr) {
+        console.warn("Global order permissions restricted order count query, using fallback portalId:", countErr);
+        const randomSuffix = Math.floor(100 + Math.random() * 900);
+        portalId = `${prefix}${randomSuffix}`;
+      }
 
       const totalUnits = cart.reduce((acc, item) => acc + (item.qty || 0), 0);
       const estimatedTotalPrice = cart.reduce((acc, item) => acc + ((item.pricingDetails?.total || 0) * (item.qty || 0)), 0);
@@ -2064,6 +2063,10 @@ export function PublicQuoteRequest() {
 
       await setDoc(doc(db, 'orders', orderId), payload);
 
+      // 4. Redirecting
+      setSubmittingStepIndex(4);
+      setSubmittingStep('Opening your new Customer Portal...');
+
       if (isPayNow) {
         const successUrl = `${window.location.origin}/portal/${customerId}?success=true&order_id=${orderId}&session_id={CHECKOUT_SESSION_ID}`;
         const cancelUrl = `${window.location.origin}/portal/${customerId}?canceled=true&order_id=${orderId}`;
@@ -2121,7 +2124,10 @@ export function PublicQuoteRequest() {
       alert(`Failed to submit request: ${err?.message || 'Please check your inputs and try again.'}`);
     } finally {
       setIsSubmitting(false);
+      setSubmittingStep('');
+      setSubmittingStepIndex(0);
     }
+
   };
 
   if (isVerifyingPayment) {
@@ -4895,6 +4901,73 @@ export function PublicQuoteRequest() {
                 >
                   Apply & Save Transparency
                 </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {isSubmitting && submittingStep && (
+        <div className="fixed inset-0 z-[100] bg-black/65 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in duration-300">
+          <div className="bg-white rounded-3xl p-8 max-w-lg w-full shadow-2xl border border-neutral-100 flex flex-col items-center text-center space-y-6">
+            <div className="w-16 h-16 rounded-2xl bg-neutral-900 text-white flex items-center justify-center shadow-lg">
+              <Loader2 className="animate-spin" size={32} />
+            </div>
+            
+            <div className="space-y-1">
+              <h3 className="text-xl font-serif font-bold text-neutral-900">Setting Up Your Workspace</h3>
+              <p className="text-xs text-neutral-500 font-medium">{submittingStep}</p>
+            </div>
+
+            {/* Visual Progress Bar */}
+            <div className="w-full space-y-1.5">
+              <div className="flex justify-between text-[11px] font-semibold text-neutral-500 px-1">
+                <span>Provisioning Progress</span>
+                <span>{Math.min((submittingStepIndex || 1) * 25, 100)}%</span>
+              </div>
+              <div className="w-full bg-neutral-100 h-2.5 rounded-full overflow-hidden p-0.5">
+                <div 
+                  className="bg-neutral-900 h-full rounded-full transition-all duration-500 ease-out" 
+                  style={{ width: `${Math.min((submittingStepIndex || 1) * 25, 100)}%` }} 
+                />
+              </div>
+            </div>
+
+            {/* Multi-step Workflow Indicators */}
+            <div className="w-full bg-neutral-50 rounded-2xl p-4 text-left space-y-3 border border-neutral-100/80">
+              <div className="flex items-center gap-3">
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
+                  submittingStepIndex > 1 ? 'bg-emerald-500 text-white' : submittingStepIndex === 1 ? 'bg-neutral-900 text-white animate-pulse' : 'bg-neutral-200 text-neutral-500'
+                }`}>
+                  {submittingStepIndex > 1 ? <Check size={14} /> : '1'}
+                </div>
+                <div className="flex-1">
+                  <p className={`text-xs font-semibold ${submittingStepIndex >= 1 ? 'text-neutral-900' : 'text-neutral-400'}`}>Create User Profile</p>
+                  <p className="text-[10px] text-neutral-500">Authenticating credentials & user account</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
+                  submittingStepIndex > 2 ? 'bg-emerald-500 text-white' : submittingStepIndex === 2 ? 'bg-neutral-900 text-white animate-pulse' : 'bg-neutral-200 text-neutral-500'
+                }`}>
+                  {submittingStepIndex > 2 ? <Check size={14} /> : '2'}
+                </div>
+                <div className="flex-1">
+                  <p className={`text-xs font-semibold ${submittingStepIndex >= 2 ? 'text-neutral-900' : 'text-neutral-400'}`}>Setup Customer Portal</p>
+                  <p className="text-[10px] text-neutral-500">Dedicated workspace portal for company</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
+                  submittingStepIndex > 3 ? 'bg-emerald-500 text-white' : submittingStepIndex === 3 ? 'bg-neutral-900 text-white animate-pulse' : 'bg-neutral-200 text-neutral-500'
+                }`}>
+                  {submittingStepIndex > 3 ? <Check size={14} /> : '3'}
+                </div>
+                <div className="flex-1">
+                  <p className={`text-xs font-semibold ${submittingStepIndex >= 3 ? 'text-neutral-900' : 'text-neutral-400'}`}>Provision Quote Request</p>
+                  <p className="text-[10px] text-neutral-500">Attaching quote request to start production timeline</p>
+                </div>
               </div>
             </div>
           </div>

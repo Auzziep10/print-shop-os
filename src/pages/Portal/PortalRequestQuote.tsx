@@ -780,30 +780,34 @@ export function PortalRequestQuote() {
       const todayEnd = new Date();
       todayEnd.setHours(23, 59, 59, 999);
       
-      const ordersQuery = query(collection(db, 'orders'), where('createdAt', '>=', todayStart.toISOString()), where('createdAt', '<=', todayEnd.toISOString()));
-      const ordersSnapshot = await getDocs(ordersQuery);
-      
       const yy = String(todayStart.getFullYear()).slice(-2);
       const mm = String(todayStart.getMonth() + 1).padStart(2, '0');
       const dd = String(todayStart.getDate()).padStart(2, '0');
       const prefix = `${yy}${mm}${dd}-`;
 
-      let maxCount = 0;
-      ordersSnapshot.forEach(docSnap => {
-          const data = docSnap.data();
-          if (data.portalId && data.portalId.startsWith(prefix)) {
-             const suffix = data.portalId.split('-')[1];
-             if (suffix) {
-                const numericCount = parseInt(suffix, 10);
-                if (!isNaN(numericCount) && numericCount > maxCount) {
-                   maxCount = numericCount;
-                }
-             }
-          }
-      });
-
-      const count = maxCount + 1;
-      const portalId = `${prefix}${count}`;
+      let portalId = `${prefix}1`;
+      try {
+        const ordersQuery = query(collection(db, 'orders'), where('createdAt', '>=', todayStart.toISOString()), where('createdAt', '<=', todayEnd.toISOString()));
+        const ordersSnapshot = await getDocs(ordersQuery);
+        let maxCount = 0;
+        ordersSnapshot.forEach(docSnap => {
+            const data = docSnap.data();
+            if (data.portalId && data.portalId.startsWith(prefix)) {
+               const suffix = data.portalId.split('-')[1];
+               if (suffix) {
+                  const numericCount = parseInt(suffix, 10);
+                  if (!isNaN(numericCount) && numericCount > maxCount) {
+                     maxCount = numericCount;
+                  }
+               }
+            }
+        });
+        portalId = `${prefix}${maxCount + 1}`;
+      } catch (countErr) {
+        console.warn("Global order permissions restricted order count query, using fallback portalId:", countErr);
+        const randomSuffix = Math.floor(100 + Math.random() * 900);
+        portalId = `${prefix}${randomSuffix}`;
+      }
 
       // Map products asynchronously to resolve natural aspect ratios and calculate heights proportionally
       const resolvedItems = await Promise.all(products.map(async (p) => {
