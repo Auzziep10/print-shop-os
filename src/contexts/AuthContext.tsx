@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut as firebaseSignOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, type User } from 'firebase/auth';
-import { collection, query, where, getDocs, doc, setDoc, updateDoc, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, setDoc, updateDoc, onSnapshot, getDoc } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 
 export type UserRole = 'Staff' | 'Manager' | 'Leadership' | 'Admin' | 'Client' | 'Pending' | 'Printer';
@@ -172,56 +172,109 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         try {
-          // Check if user exists by email
-          const q = query(collection(db, 'users'), where('email', '==', currentUser.email.toLowerCase()));
-          const querySnapshot = await getDocs(q);
+          const userEmail = currentUser.email.toLowerCase().trim();
+          let userDocRef = doc(db, 'users', currentUser.uid);
+          let userDocSnap = await getDoc(userDocRef);
 
-          if (querySnapshot.empty) {
+          if (!userDocSnap.exists()) {
+            const q = query(collection(db, 'users'), where('email', '==', userEmail));
+            const querySnapshot = await getDocs(q);
+            if (!querySnapshot.empty) {
+              userDocSnap = querySnapshot.docs[0];
+              userDocRef = userDocSnap.ref;
+            }
+          }
+
+          // Retry loop to handle race conditions during registration (e.g. quote request flow)
+          if (!userDocSnap.exists()) {
+            for (let attempt = 0; attempt < 3; attempt++) {
+              await new Promise((resolve) => setTimeout(resolve, 350));
+              userDocSnap = await getDoc(doc(db, 'users', currentUser.uid));
+              if (userDocSnap.exists()) {
+                userDocRef = userDocSnap.ref;
+                break;
+              }
+              const qRetry = query(collection(db, 'users'), where('email', '==', userEmail));
+              const retrySnap = await getDocs(qRetry);
+              if (!retrySnap.empty) {
+                userDocSnap = retrySnap.docs[0];
+                userDocRef = userDocSnap.ref;
+                break;
+              }
+            }
+          }
+
+          if (!userDocSnap.exists()) {
             // Auto-grant Admin to the very first user
             const allUsersSnapshot = await getDocs(collection(db, 'users'));
             if (allUsersSnapshot.empty) {
-              const newUserDocRef = doc(collection(db, 'users'));
               const newUserData: UserData = {
-                id: newUserDocRef.id,
-                email: currentUser.email.toLowerCase(),
-                name: currentUser.displayName || '',
+                id: currentUser.uid,
+                email: userEmail,
+                name: currentUser.displayName || userEmail.split('@')[0],
                 role: 'Admin',
                 createdAt: new Date().toISOString(),
                 uid: currentUser.uid
               };
-              await setDoc(newUserDocRef, newUserData);
+              await setDoc(doc(db, 'users', currentUser.uid), newUserData);
 
               setUser(currentUser);
               setUserData(newUserData);
             } else {
-              // Put them in the waiting room
-              const newUserDocRef = doc(collection(db, 'users'));
+              // Check if customer company record exists in 'customers' collection
+              const custQuery = query(collection(db, 'customers'), where('email', '==', userEmail));
+              const custSnap = await getDocs(custQuery);
+              
+              let customerId = `cust-${Date.now()}`;
+              let companyName = currentUser.displayName || userEmail.split('@')[0];
+
+              if (!custSnap.empty) {
+                const custDoc = custSnap.docs[0];
+                customerId = custDoc.id;
+                const custData = custDoc.data();
+                companyName = custData.company || custData.name || companyName;
+              } else {
+                // Create new Customer (Company) record
+                await setDoc(doc(db, 'customers', customerId), {
+                  id: customerId,
+                  company: companyName,
+                  name: companyName,
+                  contactName: currentUser.displayName || userEmail.split('@')[0],
+                  email: userEmail,
+                  phone: '-',
+                  type: 'Web Lead',
+                  createdAt: new Date().toISOString()
+                }, { merge: true });
+              }
+
+              // Create Client portal user doc
               const newUserData: UserData = {
-                id: newUserDocRef.id,
-                email: currentUser.email.toLowerCase(),
-                name: currentUser.displayName || '',
-                role: 'Pending',
+                id: currentUser.uid,
+                email: userEmail,
+                name: currentUser.displayName || userEmail.split('@')[0],
+                role: 'Client',
+                customerId: customerId,
+                companyName: companyName,
                 createdAt: new Date().toISOString(),
                 uid: currentUser.uid
               };
-              await setDoc(newUserDocRef, newUserData);
+              await setDoc(doc(db, 'users', currentUser.uid), newUserData);
 
               setUser(currentUser);
               setUserData(newUserData);
             }
           } else {
             // User exists, grab the data
-            const userDoc = querySnapshot.docs[0];
-            const data = { id: userDoc.id, ...userDoc.data() } as UserData;
+            const data = { id: userDocSnap.id, ...userDocSnap.data() } as UserData;
 
             // Update uid and name if empty
             if (!data.uid || !data.name) {
-              await updateDoc(userDoc.ref, { 
+              await updateDoc(userDocRef, { 
                 uid: currentUser.uid, 
-                name: currentUser.displayName || data.name || '' 
+                name: currentUser.displayName || data.name || data.email.split('@')[0] || '' 
               });
               data.uid = currentUser.uid;
-              data.name = currentUser.displayName || data.name || '';
+              data.name = currentUser.displayName || data.name || data.email.split('@')[0] || '';
             }
 
             setUser(currentUser);

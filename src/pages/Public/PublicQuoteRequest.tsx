@@ -1876,7 +1876,27 @@ export function PublicQuoteRequest() {
       let firebaseUid = user?.uid;
       let customerId = userData?.customerId;
 
-      // Authenticate with Firebase Auth if not already logged in
+      if (!customerId) {
+        customerId = `cust-${Date.now()}`;
+      }
+
+      const companyName = customerInfo.companyName || customerInfo.contactName || 'New Company';
+      const cleanEmail = customerInfo.emailAddress.toLowerCase().trim();
+
+      // 1. Create or update Customer (Company) record FIRST
+      await setDoc(doc(db, 'customers', customerId), {
+        id: customerId,
+        company: companyName,
+        name: companyName,
+        contactName: customerInfo.contactName,
+        email: cleanEmail,
+        phone: customerInfo.phone || '-',
+        website: customerInfo.website || '',
+        type: 'Web Lead',
+        createdAt: new Date().toISOString()
+      }, { merge: true });
+
+      // 2. Authenticate with Firebase Auth if not already logged in
       if (!user) {
         if (!customerInfo.password || customerInfo.password.length < 6) {
           alert("Please enter a password (at least 6 characters) so we can create your portal account.");
@@ -1885,13 +1905,40 @@ export function PublicQuoteRequest() {
         }
 
         try {
-          const userCred = await createUserWithEmailAndPassword(auth, customerInfo.emailAddress.trim(), customerInfo.password);
+          const userCred = await createUserWithEmailAndPassword(auth, cleanEmail, customerInfo.password);
           firebaseUid = userCred.user.uid;
+
+          // Immediately write Client Portal user document
+          await setDoc(doc(db, 'users', firebaseUid), {
+            id: firebaseUid,
+            uid: firebaseUid,
+            email: cleanEmail,
+            name: customerInfo.contactName,
+            role: 'Client',
+            customerId: customerId,
+            phone: customerInfo.phone || '-',
+            companyName: companyName,
+            website: customerInfo.website || '',
+            createdAt: new Date().toISOString()
+          }, { merge: true });
         } catch (authErr: any) {
           if (authErr.code === 'auth/email-already-in-use') {
             try {
-              const userCred = await signInWithEmailAndPassword(auth, customerInfo.emailAddress.trim(), customerInfo.password);
+              const userCred = await signInWithEmailAndPassword(auth, cleanEmail, customerInfo.password);
               firebaseUid = userCred.user.uid;
+
+              await setDoc(doc(db, 'users', firebaseUid), {
+                id: firebaseUid,
+                uid: firebaseUid,
+                email: cleanEmail,
+                name: customerInfo.contactName,
+                role: 'Client',
+                customerId: customerId,
+                phone: customerInfo.phone || '-',
+                companyName: companyName,
+                website: customerInfo.website || '',
+                createdAt: new Date().toISOString()
+              }, { merge: true });
             } catch (loginErr: any) {
               alert("An account with this email already exists, but the password entered was incorrect. Please verify your password.");
               setIsSubmitting(false);
@@ -1904,40 +1951,22 @@ export function PublicQuoteRequest() {
             return;
           }
         }
-      }
-
-      if (!customerId) {
-        customerId = `cust-${Date.now()}`;
-      }
-
-      const orderId = `quote-${Date.now()}`;
-
-      // Create or update Customer record
-      await setDoc(doc(db, 'customers', customerId), {
-        id: customerId,
-        company: customerInfo.companyName || '-',
-        contactName: customerInfo.contactName,
-        email: customerInfo.emailAddress.toLowerCase().trim(),
-        phone: customerInfo.phone || '-',
-        website: customerInfo.website || '',
-        type: 'Web Lead',
-        createdAt: new Date().toISOString()
-      }, { merge: true });
-
-      // Create or update Portal User Doc if we have a Firebase UID
-      if (firebaseUid) {
+      } else if (firebaseUid) {
         await setDoc(doc(db, 'users', firebaseUid), {
           id: firebaseUid,
-          email: customerInfo.emailAddress.toLowerCase().trim(),
+          uid: firebaseUid,
+          email: cleanEmail,
           name: customerInfo.contactName,
           role: 'Client',
           customerId: customerId,
           phone: customerInfo.phone || '-',
-          companyName: customerInfo.companyName || '-',
+          companyName: companyName,
           website: customerInfo.website || '',
           createdAt: new Date().toISOString()
         }, { merge: true });
       }
+
+      const orderId = `quote-${Date.now()}`;
 
       // Generate incremental ID
       const todayStart = new Date();
