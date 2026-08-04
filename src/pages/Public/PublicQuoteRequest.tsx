@@ -2014,7 +2014,11 @@ export function PublicQuoteRequest() {
       const totalUnits = cart.reduce((acc, item) => acc + (item.qty || 0), 0);
       const estimatedTotalPrice = cart.reduce((acc, item) => acc + ((item.pricingDetails?.total || 0) * (item.qty || 0)), 0);
       const averageEstimatedPricePerUnit = totalUnits > 0 ? (estimatedTotalPrice / totalUnits) : 0;
-      const rawTitle = `${storefrontSettings?.logoText || 'Custom'} Quote for ${cart.map(item => getCustomGarmentName(item.product, catalogSettings)).join(', ')}`;
+      const displayCompany = customerInfo.companyName?.trim() || customerInfo.contactName?.trim() || storefrontSettings?.logoText || 'Custom';
+      const garmentSummary = cart.map(item => getCustomGarmentName(item.product, catalogSettings)).filter(Boolean).join(', ');
+      const rawTitle = garmentSummary 
+        ? `${displayCompany} Quote - ${garmentSummary}`
+        : `${displayCompany} Quote Request`;
       const orderTitle = rawTitle.length > 100 ? rawTitle.slice(0, 97) + '...' : rawTitle;
 
       const rawPayload = {
