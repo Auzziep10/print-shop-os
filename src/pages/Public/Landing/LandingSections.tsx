@@ -349,6 +349,41 @@ export function ShowcaseSection({
     return () => mm.revert();
   }, []);
 
+  const isDraggingRef = useRef(false);
+  const touchStartRef = useRef<{ x: number; y: number; scrollLeft: number } | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length !== 1 || !trackRef.current) return;
+    isDraggingRef.current = false;
+    touchStartRef.current = {
+      x: e.touches[0].clientX,
+      y: e.touches[0].clientY,
+      scrollLeft: trackRef.current.scrollLeft,
+    };
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (!touchStartRef.current || !trackRef.current) return;
+    const touch = e.touches[0];
+    const deltaX = touchStartRef.current.x - touch.clientX;
+    const deltaY = touchStartRef.current.y - touch.clientY;
+
+    if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
+      isDraggingRef.current = true;
+    }
+
+    trackRef.current.scrollLeft = touchStartRef.current.scrollLeft + deltaX;
+  };
+
+  const handleCardClick = (e: React.MouseEvent) => {
+    if (isDraggingRef.current) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+    onStart('racks');
+  };
+
   return (
     <section ref={sectionRef} className="overflow-hidden bg-zinc-950 text-[#faf9f5]">
       <div className="flex items-end justify-between px-6 pt-20 pb-8 md:px-12 md:pt-28 md:pb-10">
@@ -375,8 +410,10 @@ export function ShowcaseSection({
 
       <div
         ref={trackRef}
-        className="flex w-full overflow-x-auto gap-4 px-6 pb-16 snap-x snap-mandatory touch-auto scrollbar-none md:gap-5 md:pb-28 lg:w-max lg:overflow-visible lg:snap-none"
-        style={{ scrollbarWidth: 'none', touchAction: 'auto' }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        className="flex w-full overflow-x-auto gap-4 px-6 pb-16 scrollbar-none md:gap-5 md:pb-28 lg:w-max lg:overflow-visible"
+        style={{ scrollbarWidth: 'none', touchAction: 'pan-y' }}
       >
         {SHOWCASE_ITEMS.map((item, i) => {
           const cardImg = settings?.showcaseImages?.[item.label] || item.src;
@@ -385,8 +422,8 @@ export function ShowcaseSection({
             <button
               key={item.label}
               data-cursor
-              onClick={() => onStart('racks')}
-              className="showcase-card group relative h-[52vh] w-[78vw] shrink-0 snap-start cursor-pointer overflow-hidden rounded-2xl bg-zinc-900 text-left sm:w-[44vw] lg:h-[58vh] lg:w-[30vw]"
+              onClick={handleCardClick}
+              className="showcase-card group relative h-[52vh] w-[78vw] shrink-0 cursor-pointer overflow-hidden rounded-2xl bg-zinc-900 text-left sm:w-[44vw] lg:h-[58vh] lg:w-[30vw]"
             >
               <img
                 src={cardImg}
@@ -416,8 +453,8 @@ export function ShowcaseSection({
         {/* Terminal card — full rack CTA */}
         <button
           data-cursor
-          onClick={() => onStart('racks')}
-          className="group relative flex h-[52vh] w-[78vw] shrink-0 snap-start cursor-pointer flex-col items-start justify-between overflow-hidden rounded-2xl border border-white/15 bg-[#faf9f5] p-6 text-left text-zinc-950 sm:w-[44vw] lg:h-[58vh] lg:w-[30vw]"
+          onClick={handleCardClick}
+          className="group relative flex h-[52vh] w-[78vw] shrink-0 cursor-pointer flex-col items-start justify-between overflow-hidden rounded-2xl border border-white/15 bg-[#faf9f5] p-6 text-left text-zinc-950 sm:w-[44vw] lg:h-[58vh] lg:w-[30vw]"
         >
           <span className="font-mono text-[10px] font-semibold tracking-[0.3em] text-zinc-400">
             {String(SHOWCASE_ITEMS.length + 1).padStart(2, '0')}
