@@ -1926,31 +1926,35 @@ export function PublicQuoteRequest() {
       setSubmittingStepIndex(2);
       setSubmittingStep('Generating customer portal workspace for your company...');
 
-      await setDoc(doc(db, 'customers', customerId), {
+      const customerPayload = JSON.parse(JSON.stringify({
         id: customerId,
         company: companyName,
         name: companyName,
-        contactName: customerInfo.contactName,
+        contactName: customerInfo.contactName || '',
         email: cleanEmail,
         phone: customerInfo.phone || '-',
         website: customerInfo.website || '',
         type: 'Web Lead',
         createdAt: new Date().toISOString()
-      }, { merge: true });
+      }));
+
+      await setDoc(doc(db, 'customers', customerId), customerPayload, { merge: true });
 
       if (firebaseUid) {
-        await setDoc(doc(db, 'users', firebaseUid), {
+        const userPayload = JSON.parse(JSON.stringify({
           id: firebaseUid,
           uid: firebaseUid,
           email: cleanEmail,
-          name: customerInfo.contactName,
+          name: customerInfo.contactName || '',
           role: 'Client',
           customerId: customerId,
           phone: customerInfo.phone || '-',
           companyName: companyName,
           website: customerInfo.website || '',
           createdAt: new Date().toISOString()
-        }, { merge: true });
+        }));
+
+        await setDoc(doc(db, 'users', firebaseUid), userPayload, { merge: true });
       }
 
       // 3. Create Quote Request order document
@@ -2000,7 +2004,7 @@ export function PublicQuoteRequest() {
       const rawTitle = `${storefrontSettings?.logoText || 'Custom'} Quote for ${cart.map(item => getCustomGarmentName(item.product, catalogSettings)).join(', ')}`;
       const orderTitle = rawTitle.length > 100 ? rawTitle.slice(0, 97) + '...' : rawTitle;
 
-      const payload = {
+      const rawPayload = {
         id: orderId,
         portalId: portalId,
         customerId: customerId,
@@ -2025,13 +2029,11 @@ export function PublicQuoteRequest() {
             price: itemPrice,
             total: itemTotal,
             logos: `Front: ${item.frontPrintSize || 'Standard'} (${item.decorationMethod || 'Print'})`,
-            artworks: artUrl ? {
-              art_0: {
-                url: artUrl,
-                originalUrl: item.frontOriginalFileUrl || artUrl,
-                name: item.frontArtworkName || `Front_Logo`
-              }
-            } : {}
+            artworks: artUrl ? [{
+              url: artUrl,
+              originalUrl: item.frontOriginalFileUrl || artUrl,
+              name: item.frontArtworkName || `Front_Logo`
+            }] : []
           };
         }),
         contactDetails: {
@@ -2061,6 +2063,7 @@ export function PublicQuoteRequest() {
         }]
       };
 
+      const payload = JSON.parse(JSON.stringify(rawPayload));
       await setDoc(doc(db, 'orders', orderId), payload);
 
       // 4. Redirecting
