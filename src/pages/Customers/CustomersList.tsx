@@ -2,12 +2,12 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
-import { Search, Filter, Plus, FileDown, MoreHorizontal, Building2, User } from 'lucide-react';
+import { Search, Filter, Plus, FileDown, MoreHorizontal, Building2, User, Trash2 } from 'lucide-react';
 
 import { useEffect, useMemo } from 'react';
 
 import { db } from '../../lib/firebase';
-import { collection, onSnapshot } from 'firebase/firestore';
+import { collection, onSnapshot, doc, deleteDoc, query, where, getDocs } from 'firebase/firestore';
 import { useOrders } from '../../hooks/useOrders';
 import { NewCustomerModal } from './NewCustomerModal';
 
@@ -15,6 +15,31 @@ export function CustomersList() {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [deletingCustomerId, setDeletingCustomerId] = useState<string | null>(null);
+
+  const handleDeleteCustomer = async (e: React.MouseEvent, custId: string, companyName: string) => {
+    e.stopPropagation();
+    const nameToDisplay = companyName && companyName !== '-' ? companyName : 'this customer';
+    if (!window.confirm(`Are you sure you want to delete "${nameToDisplay}"?\n\nThis will permanently delete the company profile and remove portal access for all linked users.`)) {
+      return;
+    }
+
+    setDeletingCustomerId(custId);
+    try {
+      // Delete associated portal users
+      const userQuery = query(collection(db, 'users'), where('customerId', '==', custId));
+      const userSnap = await getDocs(userQuery);
+      await Promise.all(userSnap.docs.map(userDoc => deleteDoc(userDoc.ref)));
+
+      // Delete customer document
+      await deleteDoc(doc(db, 'customers', custId));
+    } catch (err: any) {
+      console.error("Error deleting customer:", err);
+      alert("Failed to delete customer: " + (err?.message || "Unknown error"));
+    } finally {
+      setDeletingCustomerId(null);
+    }
+  };
   
   const { orders, loading: ordersLoading } = useOrders();
   const [liveCustomers, setLiveCustomers] = useState<Record<string, any>>({});
@@ -202,7 +227,16 @@ export function CustomersList() {
                 </div>
                 <div className="text-right text-sm font-serif text-brand-primary">{customer.ltv}</div>
                 <div className="text-right pr-4 text-sm font-medium text-brand-secondary group-hover:text-brand-primary transition-colors">{customer.lastOrder}</div>
-                <div className="flex justify-end">
+                <div className="flex justify-end items-center gap-1">
+                   <button 
+                     type="button"
+                     onClick={(e) => handleDeleteCustomer(e, customer.id, customer.company)}
+                     disabled={deletingCustomerId === customer.id}
+                     className="p-1.5 text-brand-secondary hover:text-red-600 hover:bg-red-50 rounded-md transition-colors disabled:opacity-50"
+                     title="Delete Company"
+                   >
+                     <Trash2 size={16} />
+                   </button>
                    <button className="p-1.5 text-brand-secondary hover:text-brand-primary rounded-md hover:bg-white transition-colors">
                      <MoreHorizontal size={18} />
                    </button>

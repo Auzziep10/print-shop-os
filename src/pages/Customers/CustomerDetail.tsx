@@ -108,6 +108,7 @@ export function CustomerDetail() {
   const [contacts, setContacts] = useState<any[]>([]);
   const [isAddingContact, setIsAddingContact] = useState(false);
   const [isUploadingResaleCert, setIsUploadingResaleCert] = useState(false);
+  const [isDeletingCompany, setIsDeletingCompany] = useState(false);
   const [newContact, setNewContact] = useState({ name: '', role: '', email: '', viewAll: false });
 
   const handleAddContact = async () => {
@@ -935,6 +936,32 @@ export function CustomerDetail() {
       console.error(e);
     } finally {
       setSavingCompany(false);
+    }
+  };
+
+  const handleDeleteCompany = async () => {
+    if (!id) return;
+    const companyName = editCompanyForm.name || customer?.company || customer?.name || 'this company';
+    const confirmMsg = `Are you sure you want to delete "${companyName}"?\n\nThis will permanently delete the company profile and remove portal access for all linked users. This action cannot be undone.`;
+    if (!window.confirm(confirmMsg)) return;
+
+    setIsDeletingCompany(true);
+    try {
+      // 1. Delete associated portal users linked to this company
+      const userQuery = query(collection(db, 'users'), where('customerId', '==', id));
+      const userSnap = await getDocs(userQuery);
+      await Promise.all(userSnap.docs.map(userDoc => deleteDoc(userDoc.ref)));
+
+      // 2. Delete the company document
+      await deleteDoc(doc(db, 'customers', id));
+
+      alert(`"${companyName}" has been deleted.`);
+      navigate('/customers');
+    } catch (err: any) {
+      console.error("Error deleting company:", err);
+      alert("Failed to delete company: " + (err?.message || "Unknown error"));
+    } finally {
+      setIsDeletingCompany(false);
     }
   };
 
@@ -2297,11 +2324,22 @@ export function CustomerDetail() {
                 </div>
              </div>
             
-            <div className="p-6 border-t border-brand-border bg-white flex justify-end gap-3">
-                <PillButton variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</PillButton>
-                <PillButton variant="filled" onClick={handleSaveCompany} disabled={savingCompany}>
-                  {savingCompany ? 'Saving...' : 'Save Changes'}
-                </PillButton>
+            <div className="p-6 border-t border-brand-border bg-white flex justify-between items-center">
+                <button
+                  type="button"
+                  onClick={handleDeleteCompany}
+                  disabled={isDeletingCompany || savingCompany}
+                  className="px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200/80 rounded-xl text-xs font-bold transition-colors flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  <Trash2 size={15} />
+                  {isDeletingCompany ? 'Deleting Company...' : 'Delete Company'}
+                </button>
+                <div className="flex gap-3">
+                  <PillButton variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</PillButton>
+                  <PillButton variant="filled" onClick={handleSaveCompany} disabled={savingCompany}>
+                    {savingCompany ? 'Saving...' : 'Save Changes'}
+                  </PillButton>
+                </div>
             </div>
           </div>
         </div>
