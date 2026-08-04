@@ -3435,12 +3435,26 @@ export function PublicQuoteRequest() {
                   </p>
                 </div>
 
-                {/* Logo mini thumbnail */}
-                <div className="flex items-center gap-3 bg-neutral-50 border border-neutral-200/60 p-2 rounded-xl shrink-0">
-                  <span className="text-[9px] font-extrabold uppercase tracking-widest text-neutral-400 pl-1">Active Logo</span>
-                  <div className="w-9 h-9 bg-checkerboard border border-neutral-200 rounded-lg flex items-center justify-center p-1 overflow-hidden">
-                    <img src={logoUrl} className="max-h-full max-w-full object-contain" alt="mini logo" />
+                {/* Logo mini thumbnail & Top Action CTA */}
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex items-center gap-3 bg-neutral-50 border border-neutral-200/60 p-2 rounded-xl shrink-0">
+                    <span className="text-[9px] font-extrabold uppercase tracking-widest text-neutral-400 pl-1">Active Logo</span>
+                    <div className="w-9 h-9 bg-checkerboard border border-neutral-200 rounded-lg flex items-center justify-center p-1 overflow-hidden">
+                      <img src={logoUrl} className="max-h-full max-w-full object-contain" alt="mini logo" />
+                    </div>
                   </div>
+                  <PillButton 
+                    variant="filled" 
+                    onClick={compileLookbookToCart} 
+                    disabled={isSubmitting}
+                    className="gap-2 px-6 py-3 text-xs font-bold shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all"
+                  >
+                    {isSubmitting ? (
+                      <><Loader2 className="animate-spin" size={14} /> Generating Lookbook Mockups...</>
+                    ) : (
+                      <>Continue to Sizes <ArrowRight size={14} /></>
+                    )}
+                  </PillButton>
                 </div>
               </div>
             </div>
