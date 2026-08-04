@@ -133,17 +133,9 @@ export function UsersTab() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center p-12 text-brand-secondary">
-        <Loader2 className="animate-spin w-6 h-6" />
-      </div>
-    );
-  }
-
-  // Pending users logic
-  const pendingUsers = users.filter(u => u.role === 'Pending');
-  const activeUsers = users.filter(u => u.role !== 'Pending');
+  // Pending & active users filtering and sorting (Hooks called at top-level)
+  const pendingUsers = useMemo(() => users.filter(u => u.role === 'Pending'), [users]);
+  const activeUsers = useMemo(() => users.filter(u => u.role !== 'Pending'), [users]);
 
   const handleSort = (field: 'user' | 'role' | 'clientProfile') => {
     if (sortField === field) {
@@ -204,6 +196,14 @@ export function UsersTab() {
         return sortOrder === 'asc' ? comp : -comp;
       });
   }, [activeUsers, customers, searchQuery, sortField, sortOrder]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center p-12 text-brand-secondary">
+        <Loader2 className="animate-spin w-6 h-6" />
+      </div>
+    );
+  }
 
   return (
     <div>
