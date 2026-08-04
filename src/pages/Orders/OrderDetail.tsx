@@ -3994,9 +3994,13 @@ export function OrderDetail() {
                          <div className="flex flex-wrap gap-2 items-center bg-gray-50/80 p-3 pt-4 rounded-xl border border-brand-border shadow-inner">
                             {item.itemNum && <DataPill label="Item #" value={item.itemNum} />}
                             {item.color && <DataPill label="Garment Color" value={item.color} />}
-                            {item.logos?.map((logo: string, i: number) => (
-                              <DataPill key={i} label={`Logo ${i+1}`} value={logo} />
-                            ))}
+                            {Array.isArray(item.logos) ? (
+                              item.logos.map((logo: string, i: number) => (
+                                <DataPill key={i} label={`Logo ${i+1}`} value={logo} />
+                              ))
+                            ) : typeof item.logos === 'string' && (item.logos as string).trim() ? (
+                              <DataPill label="Logos & Decoration" value={item.logos} />
+                            ) : null}
                             {item.artworks?.map((art: any, i: number) => {
                                if (!art?.url) return null;
                                return (

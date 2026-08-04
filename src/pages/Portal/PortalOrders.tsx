@@ -856,9 +856,13 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                         {/* Specs */}
                         <div className="flex flex-wrap gap-2 flex-1">
                            {item.color && <DataPill label="Garment Color" value={item.color} />}
-                           {item.logos?.map((logo: string, i: number) => (
-                             <DataPill key={i} label={`Logo ${i+1}`} value={logo} />
-                           ))}
+                           {Array.isArray(item.logos) ? (
+                             item.logos.map((logo: string, i: number) => (
+                               <DataPill key={i} label={`Logo ${i+1}`} value={logo} />
+                             ))
+                           ) : typeof item.logos === 'string' && (item.logos as string).trim() ? (
+                             <DataPill label="Logos & Decoration" value={item.logos} />
+                           ) : null}
                         </div>
                       </div>
 

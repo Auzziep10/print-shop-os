@@ -2041,7 +2041,7 @@ export function PublicQuoteRequest() {
             sizes: item.sizes || {},
             price: itemPrice,
             total: itemTotal,
-            logos: `Front: ${item.frontPrintSize || 'Standard'} (${item.decorationMethod || 'Print'})`,
+            logos: [`Front: ${item.frontPrintSize || 'Standard'} (${item.decorationMethod || 'Print'})`],
             artworks: artUrl ? [{
               url: artUrl,
               originalUrl: item.frontOriginalFileUrl || artUrl,
