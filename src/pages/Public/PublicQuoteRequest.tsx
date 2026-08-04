@@ -2679,7 +2679,7 @@ export function PublicQuoteRequest() {
                     </p>
                   </div>
 
-                  <div className="flex flex-col items-end gap-3 font-sans">
+                  <div className="flex flex-wrap items-center gap-3 font-sans">
                     {/* Mode switcher: Occasion vs Garment Types */}
                     <div className="flex items-center gap-1.5 bg-neutral-100/80 p-1 rounded-full border border-neutral-200/60">
                       <button
@@ -2705,6 +2705,21 @@ export function PublicQuoteRequest() {
                         Garment Types
                       </button>
                     </div>
+
+                    <PillButton 
+                      variant="filled" 
+                      onClick={() => {
+                        const selectedCount = rackItems.filter(i => i.selected).length;
+                        if (selectedCount === 0) {
+                          alert("Please select at least one garment for your collection to proceed.");
+                          return;
+                        }
+                        setStep(2);
+                      }} 
+                      className="gap-2 px-5 py-2 text-xs font-bold shadow-xs hover:scale-[1.02] active:scale-[0.98] transition-all"
+                    >
+                      Proceed to Logo Upload ({rackItems.filter(i => i.selected).length} Selected) <ArrowRight size={14} />
+                    </PillButton>
                   </div>
                 </div>
 
@@ -2949,7 +2964,7 @@ export function PublicQuoteRequest() {
                     </p>
                   </div>
 
-                  <div className="flex flex-col items-end gap-3 font-sans">
+                  <div className="flex flex-wrap items-center gap-3 font-sans">
                     {/* Mode switcher: Occasion vs Garment Types */}
                     <div className="flex items-center gap-1.5 bg-neutral-100/80 p-1 rounded-full border border-neutral-200/60">
                       <button
@@ -2975,6 +2990,20 @@ export function PublicQuoteRequest() {
                         Garment Types
                       </button>
                     </div>
+
+                    <PillButton 
+                      variant="filled" 
+                      onClick={() => {
+                        if (selectedGarmentTypeItems.length === 0) {
+                          alert("Please select at least one garment for your collection to proceed.");
+                          return;
+                        }
+                        setStep(2);
+                      }} 
+                      className="gap-2 px-5 py-2 text-xs font-bold shadow-xs hover:scale-[1.02] active:scale-[0.98] transition-all"
+                    >
+                      Proceed to Logo Upload ({selectedGarmentTypeItems.length} Selected) <ArrowRight size={14} />
+                    </PillButton>
                   </div>
                 </div>
 
