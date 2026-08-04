@@ -375,7 +375,7 @@ export function ShowcaseSection({
 
       <div
         ref={trackRef}
-        className="flex w-full overflow-x-auto gap-4 px-6 pb-16 snap-x snap-mandatory touch-pan-x scrollbar-none md:gap-5 md:pb-28 lg:w-max lg:overflow-visible lg:snap-none"
+        className="flex w-full overflow-x-auto gap-4 px-6 pb-16 snap-x snap-mandatory touch-pan-x touch-pan-y scrollbar-none md:gap-5 md:pb-28 lg:w-max lg:overflow-visible lg:snap-none"
         style={{ scrollbarWidth: 'none' }}
       >
         {SHOWCASE_ITEMS.map((item, i) => {
