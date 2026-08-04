@@ -1390,6 +1390,7 @@ export function OrderDetail() {
   const [generatingItemId, setGeneratingItemId] = useState<string | null>(null);
   const [generatingTagItemId, setGeneratingTagItemId] = useState<string | null>(null);
   const [isGeneratingCombined, setIsGeneratingCombined] = useState(false);
+  const [isGeneratingCombinedTags, setIsGeneratingCombinedTags] = useState(false);
   const [tagColorOverrides, setTagColorOverrides] = useState<Record<string, string>>({});
   const [previewMode, setPreviewMode] = useState<Record<string, 'print' | 'cut'>>({});
   const [editingSpecsCardId, setEditingSpecsCardId] = useState<string | null>(null);
@@ -2390,6 +2391,265 @@ export function OrderDetail() {
     }
   };
 
+  const handleGenerateCombinedTagGangSheet = async () => {
+    if (!id || !order) return;
+    setIsGeneratingCombinedTags(true);
+    try {
+      const tagItems = (order.items || []).filter((item: any) => !!item.logoUrlTag);
+      if (tagItems.length === 0) {
+        throw new Error("No custom size tags found in this order.");
+      }
+
+      const BASE_DPI = 300;
+      const MARGIN_PX = 300;
+      const HEADER_HEIGHT_PX = 300;
+      const yOffset = 750;
+      
+      const tagDim = 750;
+      const finalCanvasWidth = 6600;
+      const tagsPerRow = Math.floor((6000 - tagDim) / 610) + 1;
+      const startX = 300 + (6000 - ((tagsPerRow - 1) * 610 + tagDim)) / 2;
+
+      const placements: Array<{ x: number; y: number; canvas: HTMLCanvasElement; size: string }> = [];
+      let currentCol = 0;
+      let currentRow = 0;
+
+      for (const item of tagItems) {
+        const sizesMap = item.sizes || {};
+        const activeSizes = Object.entries(sizesMap)
+          .map(([sz, qty]) => ({ size: sz, qty: Number(qty) }))
+          .filter(s => s.qty > 0);
+
+        if (activeSizes.length === 0) continue;
+
+        const tagBaseImg = await new Promise<HTMLImageElement>((resolve, reject) => {
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          img.src = item.logoUrlTag;
+          img.onload = () => resolve(img);
+          img.onerror = () => reject(new Error(`Failed to load base tag image for ${item.style || 'Garment'}`));
+        });
+
+        const overrideColor = tagColorOverrides[item.id];
+        let processedTagImg: HTMLCanvasElement | HTMLImageElement = tagBaseImg;
+
+        if (overrideColor) {
+          const tempRecolorCanvas = document.createElement('canvas');
+          tempRecolorCanvas.width = tagBaseImg.naturalWidth || 750;
+          tempRecolorCanvas.height = tagBaseImg.naturalHeight || 750;
+          const tempRecolorCtx = tempRecolorCanvas.getContext('2d');
+          if (tempRecolorCtx) {
+            tempRecolorCtx.drawImage(tagBaseImg, 0, 0, tempRecolorCanvas.width, tempRecolorCanvas.height);
+            tempRecolorCtx.globalCompositeOperation = 'source-in';
+            tempRecolorCtx.fillStyle = overrideColor;
+            tempRecolorCtx.fillRect(0, 0, tempRecolorCanvas.width, tempRecolorCanvas.height);
+            processedTagImg = tempRecolorCanvas;
+          }
+        }
+
+        const fontName = item.tagSizeFont || 'Graduate';
+        const isBold = item.tagSizeBold !== false;
+        const isItalic = item.tagSizeItalic === true;
+        const fontSpec = `${isItalic ? 'italic' : ''} ${isBold ? 'bold' : ''} 16px "${fontName}"`.trim();
+        try {
+          await document.fonts.load(fontSpec);
+        } catch (e) {
+          console.warn("Failed to load size font:", fontName, e);
+        }
+
+        for (const sizeInfo of activeSizes) {
+          const { size, qty } = sizeInfo;
+
+          const singleCanvas = document.createElement('canvas');
+          singleCanvas.width = tagDim;
+          singleCanvas.height = tagDim;
+          const singleCtx = singleCanvas.getContext('2d');
+          if (!singleCtx) continue;
+
+          singleCtx.drawImage(processedTagImg, 0, 0, tagDim, tagDim);
+
+          const fontColor = overrideColor || item.tagSizeColor || '#111111';
+          const tagSizeScale = item.tagSizeScale || 35;
+          const fontPx = tagSizeScale * 1.40625 * (750 / 600);
+
+          singleCtx.save();
+          singleCtx.font = `${isItalic ? 'italic' : ''} ${isBold ? 'bold' : ''} ${fontPx}px "${fontName}"`.trim();
+          singleCtx.fillStyle = fontColor;
+          singleCtx.textAlign = 'center';
+          singleCtx.textBaseline = 'middle';
+
+          const sizeX = tagDim * ((item.tagSizeX ?? 50) / 100);
+          const sizeY = tagDim * ((item.tagSizeY ?? 75) / 100);
+
+          singleCtx.translate(sizeX, sizeY);
+          if (item.tagLayout?.tagSizeElement?.rotation) {
+            singleCtx.rotate((item.tagLayout.tagSizeElement.rotation * Math.PI) / 180);
+          }
+          singleCtx.fillText(size, 0, 0);
+          singleCtx.restore();
+
+          for (let q = 0; q < qty; q++) {
+            const posX = startX + currentCol * 610;
+            const posY = yOffset + currentRow * 1210 + (currentCol % 2) * 605;
+
+            placements.push({ x: posX, y: posY, canvas: singleCanvas, size });
+
+            currentCol++;
+            if (currentCol >= tagsPerRow) {
+              currentCol = 0;
+              currentRow++;
+            }
+          }
+        }
+      }
+
+      if (placements.length === 0) {
+        throw new Error("No size tags to generate.");
+      }
+
+      const totalRows = Math.ceil(placements.length / tagsPerRow);
+      const sheetContentHeight = totalRows > 0 ? (totalRows * 1210 + 605) : 0;
+      const finalCanvasHeight = yOffset + sheetContentHeight + MARGIN_PX;
+
+      const printCanvas = document.createElement('canvas');
+      printCanvas.width = finalCanvasWidth;
+      printCanvas.height = finalCanvasHeight;
+      const printCtx = printCanvas.getContext('2d');
+      if (!printCtx) throw new Error("Could not get 2D context for print canvas");
+
+      const cutCanvas = document.createElement('canvas');
+      cutCanvas.width = finalCanvasWidth;
+      cutCanvas.height = finalCanvasHeight;
+      const cutCtx = cutCanvas.getContext('2d');
+      if (!cutCtx) throw new Error("Could not get 2D context for cut canvas");
+
+      cutCtx.fillStyle = 'white';
+      cutCtx.fillRect(0, 0, finalCanvasWidth, finalCanvasHeight);
+
+      placements.forEach(p => {
+        printCtx.save();
+        printCtx.translate(p.x + tagDim / 2, p.y + tagDim / 2);
+        printCtx.rotate((45 * Math.PI) / 180);
+        printCtx.drawImage(p.canvas, -tagDim / 2, -tagDim / 2, tagDim, tagDim);
+        printCtx.restore();
+      });
+
+      const origin = window.location.origin;
+      const qrUrl = `${origin}/orders/${order.id}`;
+      const qrCodeDataUrl = await QRCodeLib.toDataURL(qrUrl, { width: HEADER_HEIGHT_PX - 20, margin: 1 });
+      
+      const qrImg = new window.Image();
+      await new Promise(resolve => { qrImg.onload = resolve; qrImg.src = qrCodeDataUrl; });
+
+      const FONT_SIZE_LARGE = BASE_DPI / 4;
+      const FONT_SIZE_MEDIUM = BASE_DPI / 6;
+      const FONT_SIZE_SMALL = BASE_DPI / 8;
+
+      const drawHeader = (ctx: CanvasRenderingContext2D, isCut: boolean) => {
+        const headerY = 1.0 * BASE_DPI;
+        if (isCut) {
+          ctx.fillStyle = 'white';
+          ctx.fillRect(0, headerY, finalCanvasWidth, HEADER_HEIGHT_PX);
+        }
+        
+        const contentStartX = (0.5 * BASE_DPI) + (0.5 * BASE_DPI) + 50; 
+        
+        if (!isCut) {
+          ctx.drawImage(qrImg, contentStartX, headerY + 10);
+        }
+
+        ctx.fillStyle = 'black';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+
+        const textX = isCut ? contentStartX : contentStartX + (HEADER_HEIGHT_PX - 20) + 20;
+
+        let textY = headerY + 15;
+        ctx.font = `bold ${FONT_SIZE_LARGE}px Arial`;
+        ctx.fillText(`Order: ${order.id}`, textX, textY);
+        textY += FONT_SIZE_LARGE + 15;
+        
+        ctx.font = `bold ${FONT_SIZE_MEDIUM}px Arial`;
+        ctx.fillText(`To: ${order.customerName || 'Customer'}`, textX, textY);
+        textY += FONT_SIZE_MEDIUM + 10;
+        
+        ctx.font = `${FONT_SIZE_SMALL}px Arial`;
+        const shippingAddress = order.shippingAddress;
+        const shipToName = shippingAddress ? `${shippingAddress.street || ''}, ${shippingAddress.city || ''}, ${shippingAddress.state || ''} ${shippingAddress.zip || ''}` : 'Pickup';
+        ctx.fillText(`Ship To: ${shipToName}`, textX, textY);
+        textY += FONT_SIZE_SMALL + 15;
+        
+        ctx.fillText(`Sheet: Combined Size Tag Gang Sheet (${placements.length} Total Tags)`, textX, textY);
+      };
+
+      drawHeader(printCtx, false);
+      drawHeader(cutCtx, true);
+
+      drawGraphtecRegistrationMarks(printCtx, finalCanvasWidth, finalCanvasHeight, 0.5 * BASE_DPI, true);
+      drawGraphtecRegistrationMarks(cutCtx, finalCanvasWidth, finalCanvasHeight, 0.5 * BASE_DPI, false);
+
+      let svgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="${finalCanvasWidth}" height="${finalCanvasHeight}" viewBox="0 0 ${finalCanvasWidth} ${finalCanvasHeight}">\n`;
+      svgContent += `  <rect width="${finalCanvasWidth}" height="${finalCanvasHeight}" fill="white" />\n`;
+
+      const xLeft = MARGIN_PX / 2;
+      const xRight = finalCanvasWidth - MARGIN_PX / 2;
+      const yTop = MARGIN_PX / 2;
+      const yBottom = finalCanvasHeight - MARGIN_PX / 2;
+      const markLength = MARGIN_PX / 2;
+      const thickness = 0.04 * BASE_DPI;
+
+      svgContent += `  <rect x="${xLeft}" y="${yTop}" width="${markLength}" height="${thickness}" fill="black" />\n`;
+      svgContent += `  <rect x="${xLeft}" y="${yTop}" width="${thickness}" height="${markLength}" fill="black" />\n`;
+      svgContent += `  <rect x="${xRight - markLength}" y="${yTop}" width="${markLength}" height="${thickness}" fill="black" />\n`;
+      svgContent += `  <rect x="${xRight - thickness}" y="${yTop}" width="${thickness}" height="${markLength}" fill="black" />\n`;
+      svgContent += `  <rect x="${xLeft}" y="${yBottom - thickness}" width="${markLength}" height="${thickness}" fill="black" />\n`;
+      svgContent += `  <rect x="${xLeft}" y="${yBottom - markLength}" width="${thickness}" height="${markLength}" fill="black" />\n`;
+      svgContent += `  <rect x="${xRight - markLength}" y="${yBottom - thickness}" width="${markLength}" height="${thickness}" fill="black" />\n`;
+      svgContent += `  <rect x="${xRight - thickness}" y="${yBottom - markLength}" width="${thickness}" height="${markLength}" fill="black" />\n`;
+
+      placements.forEach(p => {
+        const cx = p.x + tagDim / 2;
+        const cy = p.y + tagDim / 2;
+        svgContent += `  <rect x="${p.x}" y="${p.y}" width="${tagDim}" height="${tagDim}" rx="30" ry="30" fill="none" stroke="black" stroke-width="4" transform="rotate(45, ${cx}, ${cy})" />\n`;
+      });
+      svgContent += `</svg>`;
+
+      const cutDataUrl = 'data:image/svg+xml;base64,' + window.btoa(unescape(encodeURIComponent(svgContent)));
+
+      const printStorageRef = ref(storage, `production-sheets/${id}/master-tag-print.png`);
+      const cutStorageRef = ref(storage, `production-sheets/${id}/master-tag-cut.svg`);
+
+      const tagPrintDataUrl = injectDpiInPngDataUrl(printCanvas.toDataURL('image/png'), 300);
+      await uploadString(printStorageRef, tagPrintDataUrl, 'data_url');
+      await uploadString(cutStorageRef, cutDataUrl, 'data_url');
+
+      const masterTagPrintReadyUrl = await getDownloadURL(printStorageRef);
+      const masterTagCutReadyUrl = await getDownloadURL(cutStorageRef);
+
+      const updatedItems = (order.items || []).map((i: any) => {
+        if (i.logoUrlTag) {
+          return { ...i, tagPrintReadyUrl: masterTagPrintReadyUrl, tagCutReadyUrl: masterTagCutReadyUrl };
+        }
+        return i;
+      });
+
+      await updateDoc(doc(db, 'orders', id), {
+        masterTagPrintReadyUrl,
+        masterTagCutReadyUrl,
+        masterTagReadyToPrint: false,
+        masterTagPrinted: false,
+        items: updatedItems
+      });
+
+      alert("Combined Size Tag gang sheet and cut files successfully generated!");
+    } catch (err) {
+      console.error("Error generating combined tag gang sheet:", err);
+      alert("Failed to generate tag gang sheet: " + (err as Error).message);
+    } finally {
+      setIsGeneratingCombinedTags(false);
+    }
+  };
+
   const handleGenerateTagGangSheet = async (item: any) => {
     if (!id || !order) return;
     setGeneratingTagItemId(item.id);
@@ -2707,6 +2967,28 @@ export function OrderDetail() {
       return;
     }
 
+    if (itemId === 'master-tag-item') {
+      const nextReadyState = !order.masterTagReadyToPrint;
+      const updatedItems = (order.items || []).map((item: any) => {
+        if (item.logoUrlTag) {
+          return {
+            ...item,
+            tagReadyToPrint: nextReadyState,
+            tagReadyToPrintAt: nextReadyState ? new Date().toISOString() : null,
+            tagReadyToPrintBy: nextReadyState ? (userData?.name || user?.displayName || user?.email?.split('@')[0] || 'Staff') : null
+          };
+        }
+        return item;
+      });
+      await updateDoc(doc(db, 'orders', id), {
+        masterTagReadyToPrint: nextReadyState,
+        masterTagReadyToPrintAt: nextReadyState ? new Date().toISOString() : null,
+        masterTagReadyToPrintBy: nextReadyState ? (userData?.name || user?.displayName || user?.email?.split('@')[0] || 'Staff') : null,
+        items: updatedItems
+      });
+      return;
+    }
+
     const updatedItems = order.items.map((item: any) => {
       if (item.id === itemId) {
         if (type === 'tag') {
@@ -2765,6 +3047,28 @@ export function OrderDetail() {
         masterPrinted: nextPrintedState,
         masterPrintedAt: nextPrintedState ? new Date().toISOString() : null,
         masterPrintedBy: nextPrintedState ? (userData?.name || user?.displayName || user?.email?.split('@')[0] || 'Staff') : null
+      });
+      return;
+    }
+
+    if (itemId === 'master-tag-item') {
+      const nextPrintedState = !order.masterTagPrinted;
+      const updatedItems = (order.items || []).map((item: any) => {
+        if (item.logoUrlTag) {
+          return {
+            ...item,
+            tagPrinted: nextPrintedState,
+            tagPrintedAt: nextPrintedState ? new Date().toISOString() : null,
+            tagPrintedBy: nextPrintedState ? (userData?.name || user?.displayName || user?.email?.split('@')[0] || 'Staff') : null
+          };
+        }
+        return item;
+      });
+      await updateDoc(doc(db, 'orders', id), {
+        masterTagPrinted: nextPrintedState,
+        masterTagPrintedAt: nextPrintedState ? new Date().toISOString() : null,
+        masterTagPrintedBy: nextPrintedState ? (userData?.name || user?.displayName || user?.email?.split('@')[0] || 'Staff') : null,
+        items: updatedItems
       });
       return;
     }
@@ -4272,46 +4576,31 @@ export function OrderDetail() {
                     });
                   }
 
-                  (order.items || []).forEach((item: any) => {
-                    const hasArt = item.itemType === 'gang_sheet' || 
-                      ((Array.isArray(item.artworks) && item.artworks.length > 0) || !!item.logoUrl || !!item.logoUrlBack || !!item.logoUrlLeftSleeve || !!item.logoUrlRightSleeve);
-                    
-                    if (hasArt) {
-                      productionCards.push({
-                        id: `${item.id}-art`,
-                        item: item,
-                        type: 'art',
-                        title: item.itemType === 'gang_sheet' ? (item.sheetSizeName || 'DTF Gang Sheet') : `${item.style || 'Garment'} - Main Art`,
-                        description: item.itemType === 'gang_sheet'
-                          ? `${item.sheetSizeName || 'DTF Gang Sheet'} • ${item.sheetWidth}" x ${item.sheetHeight}" • ${item.quantity} ${item.quantity === 1 ? 'Sheet' : 'Sheets'}`
-                          : `Custom Placement Prints • ${Object.values(item.sizes || {}).reduce((sum: number, val: any) => sum + (parseInt(val) || 0), 0) || item.quantity || 1} Garments`,
-                        isPrintReady: !!(item.printReadyUrl && item.cutReadyUrl),
-                        isReady: !!item.readyToPrint,
-                        isPrinted: !!item.printed,
-                        printUrl: item.printReadyUrl || null,
-                        cutUrl: item.cutReadyUrl || null,
-                        isGenerating: generatingItemId === item.id,
-                        generateFunc: () => handleGeneratePrintFile(item)
-                      });
-                    }
+                  const tagItems = (order.items || []).filter((item: any) => !!item.logoUrlTag);
+                  if (tagItems.length > 0) {
+                    const totalTagsCount = tagItems.reduce((sum: number, item: any) => {
+                      return sum + (Object.values(item.sizes || {}).reduce((s: number, v: any) => s + (parseInt(v) || 0), 0) || item.quantity || 1);
+                    }, 0);
 
-                    if (item.logoUrlTag) {
-                      productionCards.push({
-                        id: `${item.id}-tag`,
-                        item: item,
-                        type: 'tag',
-                        title: `${item.style || 'Garment'} - Neck Tag`,
-                        description: `Custom Size Tags • ${Object.values(item.sizes || {}).reduce((sum: number, val: any) => sum + (parseInt(val) || 0), 0) || item.quantity || 1} Tags`,
-                        isPrintReady: !!(item.tagPrintReadyUrl && item.tagCutReadyUrl),
-                        isReady: !!item.tagReadyToPrint,
-                        isPrinted: !!item.tagPrinted,
-                        printUrl: item.tagPrintReadyUrl || null,
-                        cutUrl: item.tagCutReadyUrl || null,
-                        isGenerating: generatingTagItemId === item.id,
-                        generateFunc: () => handleGenerateTagGangSheet(item)
-                      });
-                    }
-                  });
+                    const isTagPrintReady = !!(order.masterTagPrintReadyUrl && order.masterTagCutReadyUrl) || 
+                                            tagItems.every((item: any) => !!(item.tagPrintReadyUrl && item.tagCutReadyUrl));
+
+                    productionCards.push({
+                      id: 'master-tag-item',
+                      item: tagItems[0],
+                      type: 'tag',
+                      isMaster: true,
+                      title: `🏷️ Combined Size Tag Gang Sheet (All Tags)`,
+                      description: `Custom Size Tags • ${tagItems.length} Line ${tagItems.length === 1 ? 'Item' : 'Items'} • ${totalTagsCount} Total Tags`,
+                      isPrintReady: isTagPrintReady,
+                      isReady: !!(order.masterTagReadyToPrint || tagItems.every((i: any) => i.tagReadyToPrint)),
+                      isPrinted: !!(order.masterTagPrinted || tagItems.every((i: any) => i.tagPrinted)),
+                      printUrl: order.masterTagPrintReadyUrl || tagItems.find((i: any) => i.tagPrintReadyUrl)?.tagPrintReadyUrl || null,
+                      cutUrl: order.masterTagCutReadyUrl || tagItems.find((i: any) => i.tagCutReadyUrl)?.tagCutReadyUrl || null,
+                      isGenerating: isGeneratingCombinedTags,
+                      generateFunc: () => handleGenerateCombinedTagGangSheet()
+                    });
+                  }
 
                   return productionCards.map((card) => {
                     const currentPreviewMode = previewMode[card.id] || 'print';
