@@ -3648,11 +3648,13 @@ export function OrderDetail() {
                              <div className="flex-1 min-w-0 w-full flex flex-col items-center sm:items-start">
                                 <div className="flex items-center justify-center sm:justify-start gap-2 w-full">
                                   <h4 className="font-bold text-gray-900 text-[15px]">
-                                    {item.itemType === 'gang_sheet' ? `${item.sheetSizeName || 'DTF Gang Sheet'}` : item.style}
+                                    {item.style && item.style !== item.sheetSizeName 
+                                      ? item.style 
+                                      : (item.itemType === 'gang_sheet' ? `${item.sheetSizeName || 'DTF Gang Sheet'}` : (item.style || 'Garment'))}
                                   </h4>
                                   {item.itemType === 'gang_sheet' && (
                                     <span className="text-[9px] font-bold uppercase tracking-wider text-orange-600 bg-orange-50 border border-orange-200 px-2 py-0.5 rounded shadow-sm">
-                                      DTF
+                                      {item.sheetSizeName || 'DTF'}
                                     </span>
                                   )}
                                   {item.shopifyOrder && (
@@ -3663,7 +3665,7 @@ export function OrderDetail() {
                                 </div>
                                 <p className="text-xs font-semibold text-gray-500 mt-0.5">
                                    {item.itemType === 'gang_sheet' 
-                                     ? `${item.style ? `${item.style} • ` : ''}${item.sheetWidth}" x ${item.sheetHeight}"` 
+                                     ? `${item.sheetWidth && item.sheetHeight ? `${item.sheetWidth}" x ${item.sheetHeight}"` : ''}` 
                                      : `${item.gender && item.gender !== 'Unisex' ? `${item.gender} ` : ''}${item.color ? (item.gender && item.gender !== 'Unisex' ? `- ${item.color}` : item.color) : ''}`}
                                 </p>
                                 
