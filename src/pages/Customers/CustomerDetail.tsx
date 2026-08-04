@@ -99,6 +99,7 @@ export function CustomerDetail() {
     fulfillmentType: 'Standard',
     disableRack: false,
     taxExempt: false,
+    bypassMinimumRequirement: false,
     autoQuotingEnabled: 'inherit' as 'inherit' | 'enabled' | 'disabled',
     resaleCertificateUrl: '',
     resaleCertificateName: ''
@@ -821,6 +822,7 @@ export function CustomerDetail() {
             fulfillmentType: data.fulfillmentType ?? 'Standard',
             disableRack: data.disableRack ?? false,
             taxExempt: data.taxExempt ?? false,
+            bypassMinimumRequirement: data.bypassMinimumRequirement ?? false,
             autoQuotingEnabled: data.autoQuotingEnabled || 'inherit',
             resaleCertificateUrl: data.resaleCertificateUrl || '',
             resaleCertificateName: data.resaleCertificateName || ''
@@ -906,6 +908,7 @@ export function CustomerDetail() {
         fulfillmentType: editCompanyForm.fulfillmentType,
         disableRack: editCompanyForm.disableRack,
         taxExempt: editCompanyForm.taxExempt,
+        bypassMinimumRequirement: editCompanyForm.bypassMinimumRequirement,
         autoQuotingEnabled: editCompanyForm.autoQuotingEnabled,
         resaleCertificateUrl: editCompanyForm.resaleCertificateUrl,
         resaleCertificateName: editCompanyForm.resaleCertificateName
@@ -922,6 +925,7 @@ export function CustomerDetail() {
         fulfillmentType: editCompanyForm.fulfillmentType,
         disableRack: editCompanyForm.disableRack,
         taxExempt: editCompanyForm.taxExempt,
+        bypassMinimumRequirement: editCompanyForm.bypassMinimumRequirement,
         autoQuotingEnabled: editCompanyForm.autoQuotingEnabled,
         resaleCertificateUrl: editCompanyForm.resaleCertificateUrl,
         resaleCertificateName: editCompanyForm.resaleCertificateName
@@ -1178,6 +1182,9 @@ export function CustomerDetail() {
                   )}
                   {customer?.taxExempt && (
                     <span className="text-[10px] bg-purple-50 border border-purple-200 text-purple-700 px-2.5 py-1 rounded-md font-semibold uppercase tracking-wider">Tax Exempt</span>
+                  )}
+                  {customer?.bypassMinimumRequirement && (
+                    <span className="text-[10px] bg-amber-50 border border-amber-200 text-amber-800 px-2.5 py-1 rounded-md font-semibold uppercase tracking-wider">No Order Minimum</span>
                   )}
                   {customer?.autoQuotingEnabled === 'enabled' && (
                     <span className="text-[10px] bg-amber-50 border border-amber-250 text-amber-800 px-2.5 py-1 rounded-md font-semibold uppercase tracking-wider flex items-center gap-1">
@@ -2044,6 +2051,10 @@ export function CustomerDetail() {
                     <div className="flex items-center gap-3">
                       <input type="checkbox" id="taxExempt" checked={editCompanyForm.taxExempt} onChange={e => setEditCompanyForm({...editCompanyForm, taxExempt: e.target.checked})} className="w-4 h-4 accent-brand-primary cursor-pointer" />
                       <label htmlFor="taxExempt" className="text-xs font-bold text-brand-primary uppercase tracking-widest cursor-pointer mt-0.5">TAX EXEMPT STATUS (WAIVE SALES TAX)</label>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <input type="checkbox" id="bypassMinimumRequirement" checked={editCompanyForm.bypassMinimumRequirement} onChange={e => setEditCompanyForm({...editCompanyForm, bypassMinimumRequirement: e.target.checked})} className="w-4 h-4 accent-brand-primary cursor-pointer" />
+                      <label htmlFor="bypassMinimumRequirement" className="text-xs font-bold text-brand-primary uppercase tracking-widest cursor-pointer mt-0.5">BYPASS MINIMUM GARMENT REQUIREMENT PER STYLE (ALLOW &lt;20 UNITS)</label>
                     </div>
 
                     <div className="flex flex-col gap-1.5 pt-3 border-t border-brand-border/40 mt-1">

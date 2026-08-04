@@ -601,14 +601,14 @@ export function StartCTASection({
               <img
                 src={panel.img}
                 alt={panel.title}
-                className={`h-full w-full object-cover ${panel.dark ? 'opacity-80' : 'opacity-90'}`}
+                className="h-full w-full object-cover opacity-100"
                 loading="lazy"
               />
               <div
                 className={`absolute inset-0 ${
                   panel.dark
-                    ? 'bg-gradient-to-t from-zinc-950 via-zinc-950/55 to-zinc-950/25'
-                    : 'bg-gradient-to-t from-[#faf9f5] via-[#faf9f5]/60 to-transparent'
+                    ? 'bg-gradient-to-t from-black/25 via-transparent to-black/20'
+                    : 'bg-gradient-to-t from-[#faf9f5]/40 via-transparent to-transparent'
                 }`}
               />
             </div>
@@ -617,15 +617,15 @@ export function StartCTASection({
               <div className="flex items-start justify-between">
                 <span
                   className={`font-mono text-[10px] font-semibold tracking-[0.3em] uppercase ${
-                    panel.dark ? 'text-zinc-400' : 'text-zinc-500'
+                    panel.dark ? 'text-zinc-200 drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]' : 'text-zinc-500'
                   }`}
                 >
                   {panel.num} / {panel.title}
                 </span>
                 <span
-                  className={`font-inter rounded-full border px-3 py-1 text-[9px] font-bold uppercase tracking-[0.2em] backdrop-blur-sm ${
+                  className={`font-inter rounded-full border px-3 py-1 text-[9px] font-bold uppercase tracking-[0.2em] backdrop-blur-md shadow-sm ${
                     panel.dark
-                      ? 'border-white/20 bg-white/5 text-zinc-300'
+                      ? 'border-white/30 bg-black/40 text-zinc-100'
                       : 'border-zinc-300 bg-zinc-950/5 text-zinc-600'
                   }`}
                 >
@@ -634,10 +634,10 @@ export function StartCTASection({
               </div>
 
               <div className="max-w-lg">
-                <h3 className="font-serif text-4xl tracking-tight md:text-5xl">{panel.title}</h3>
+                <h3 className="font-serif text-4xl tracking-tight md:text-5xl drop-shadow-[0_2px_6px_rgba(0,0,0,0.8)]">{panel.title}</h3>
                 <p
                   className={`font-inter mt-4 text-sm font-light leading-relaxed ${
-                    panel.dark ? 'text-zinc-300' : 'text-zinc-600'
+                    panel.dark ? 'text-zinc-100 drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]' : 'text-zinc-600'
                   }`}
                 >
                   {panel.body}

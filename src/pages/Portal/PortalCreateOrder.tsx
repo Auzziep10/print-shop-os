@@ -218,12 +218,13 @@ export function PortalCreateOrder() {
   const [orderItems, setOrderItems] = useState<any[]>([]);
 
   const hasLowQuantityItems = useMemo(() => {
+    if (customer?.bypassMinimumRequirement || customer?.disableMinimumRequirement) return false;
     if (orderItems.length === 0) return false;
     return orderItems.some(item => {
       const totalQty = Object.values(item.quantities as Record<string, number>).reduce((sum, qty) => sum + qty, 0);
       return totalQty < 20;
     });
-  }, [orderItems]);
+  }, [orderItems, customer]);
   const [customerDecks, setCustomerDecks] = useState<any[]>([]);
   const [isLoadingDecks, setIsLoadingDecks] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
