@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { collection, getDocs, addDoc, doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import type { UserData, UserRole } from '../../contexts/AuthContext';
 import { useAuth } from '../../contexts/AuthContext';
-import { Plus, Trash2, Edit2, Shield, Loader2, Sparkles } from 'lucide-react';
+import { Plus, Trash2, Edit2, Shield, Loader2, Sparkles, ArrowUp, ArrowDown, ArrowUpDown, Search } from 'lucide-react';
 import { PillButton } from '../../components/ui/PillButton';
 
 interface CustomerOption {
@@ -18,6 +18,11 @@ export function UsersTab() {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserData | null>(null);
+  
+  // Sorting & Filtering State
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortField, setSortField] = useState<'user' | 'role' | 'clientProfile'>('user');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   
   // Form state
   const [email, setEmail] = useState('');
@@ -140,17 +145,89 @@ export function UsersTab() {
   const pendingUsers = users.filter(u => u.role === 'Pending');
   const activeUsers = users.filter(u => u.role !== 'Pending');
 
+  const handleSort = (field: 'user' | 'role' | 'clientProfile') => {
+    if (sortField === field) {
+      setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortOrder('asc');
+    }
+  };
+
+  const filteredAndSortedUsers = useMemo(() => {
+    return activeUsers
+      .filter(u => {
+        if (!searchQuery.trim()) return true;
+        const q = searchQuery.toLowerCase().trim();
+        const clientName = customers.find(c => c.id === u.customerId)?.name || u.companyName || '';
+        return (
+          (u.name || '').toLowerCase().includes(q) ||
+          (u.email || '').toLowerCase().includes(q) ||
+          (u.role || '').toLowerCase().includes(q) ||
+          clientName.toLowerCase().includes(q)
+        );
+      })
+      .sort((a, b) => {
+        let comp = 0;
+        if (sortField === 'user') {
+          const nameA = (a.name || a.email || '').toLowerCase();
+          const nameB = (b.name || b.email || '').toLowerCase();
+          comp = nameA.localeCompare(nameB);
+        } else if (sortField === 'role') {
+          const roleOrder: Record<string, number> = {
+            Admin: 1,
+            Leadership: 2,
+            Manager: 3,
+            Staff: 4,
+            Printer: 5,
+            Client: 6,
+            Pending: 7,
+          };
+          const rankA = roleOrder[a.role] ?? 99;
+          const rankB = roleOrder[b.role] ?? 99;
+          comp = rankA - rankB;
+          if (comp === 0) {
+            comp = (a.name || a.email || '').localeCompare(b.name || b.email || '');
+          }
+        } else if (sortField === 'clientProfile') {
+          const clientNameA = a.role === 'Client' 
+            ? (customers.find(c => c.id === a.customerId)?.name || a.companyName || 'Not assigned').toLowerCase() 
+            : 'z_none';
+          const clientNameB = b.role === 'Client' 
+            ? (customers.find(c => c.id === b.customerId)?.name || b.companyName || 'Not assigned').toLowerCase() 
+            : 'z_none';
+          comp = clientNameA.localeCompare(clientNameB);
+          if (comp === 0) {
+            comp = (a.name || a.email || '').localeCompare(b.name || b.email || '');
+          }
+        }
+        return sortOrder === 'asc' ? comp : -comp;
+      });
+  }, [activeUsers, customers, searchQuery, sortField, sortOrder]);
+
   return (
     <div>
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div>
           <h2 className="text-lg font-semibold text-brand-primary">Users & Permissions</h2>
           <p className="text-sm text-brand-secondary mt-1">Manage team members and client access.</p>
         </div>
-        <PillButton variant="filled" className="gap-2" onClick={handleOpenCreate}>
-          <Plus size={16} />
-          Invite User
-        </PillButton>
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <div className="relative flex-1 sm:w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-secondary" size={15} />
+            <input
+              type="text"
+              placeholder="Search users, roles, or clients..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-3 py-1.5 bg-white border border-brand-border rounded-xl text-xs font-medium focus:outline-none focus:border-brand-primary/40 transition-colors"
+            />
+          </div>
+          <PillButton variant="filled" className="gap-2 shrink-0" onClick={handleOpenCreate}>
+            <Plus size={16} />
+            Invite User
+          </PillButton>
+        </div>
       </div>
 
       {pendingUsers.length > 0 && (
@@ -192,14 +269,53 @@ export function UsersTab() {
         <table className="w-full text-sm text-left whitespace-nowrap">
           <thead className="text-xs text-brand-secondary uppercase bg-brand-bg/50 border-b border-brand-border">
             <tr>
-              <th className="px-4 py-3 font-semibold">User</th>
-              <th className="px-4 py-3 font-semibold">Role</th>
-              <th className="px-4 py-3 font-semibold">Client Profile</th>
-              <th className="px-4 py-3 font-semibold text-right">Actions</th>
+              <th 
+                onClick={() => handleSort('user')}
+                className="px-4 py-3 font-semibold cursor-pointer select-none hover:text-brand-primary transition-colors"
+                title="Click to sort by User Name / Email A-Z"
+              >
+                <div className="flex items-center gap-1.5">
+                  <span>USER</span>
+                  {sortField === 'user' ? (
+                    sortOrder === 'asc' ? <ArrowUp size={13} className="text-brand-primary" /> : <ArrowDown size={13} className="text-brand-primary" />
+                  ) : (
+                    <ArrowUpDown size={12} className="opacity-40" />
+                  )}
+                </div>
+              </th>
+              <th 
+                onClick={() => handleSort('role')}
+                className="px-4 py-3 font-semibold cursor-pointer select-none hover:text-brand-primary transition-colors"
+                title="Click to sort by Role"
+              >
+                <div className="flex items-center gap-1.5">
+                  <span>ROLE</span>
+                  {sortField === 'role' ? (
+                    sortOrder === 'asc' ? <ArrowUp size={13} className="text-brand-primary" /> : <ArrowDown size={13} className="text-brand-primary" />
+                  ) : (
+                    <ArrowUpDown size={12} className="opacity-40" />
+                  )}
+                </div>
+              </th>
+              <th 
+                onClick={() => handleSort('clientProfile')}
+                className="px-4 py-3 font-semibold cursor-pointer select-none hover:text-brand-primary transition-colors"
+                title="Click to sort by Client Profile / Company A-Z"
+              >
+                <div className="flex items-center gap-1.5">
+                  <span>CLIENT PROFILE</span>
+                  {sortField === 'clientProfile' ? (
+                    sortOrder === 'asc' ? <ArrowUp size={13} className="text-brand-primary" /> : <ArrowDown size={13} className="text-brand-primary" />
+                  ) : (
+                    <ArrowUpDown size={12} className="opacity-40" />
+                  )}
+                </div>
+              </th>
+              <th className="px-4 py-3 font-semibold text-right">ACTIONS</th>
             </tr>
           </thead>
           <tbody>
-            {activeUsers.map(user => (
+            {filteredAndSortedUsers.map(user => (
               <tr key={user.id} className="border-b border-brand-border/50 hover:bg-brand-bg/30">
                 <td className="px-4 py-3">
                   <div className="font-medium text-brand-primary">{user.name || 'Pending...'}</div>
@@ -220,7 +336,7 @@ export function UsersTab() {
                 </td>
                 <td className="px-4 py-3 text-brand-secondary limit-w">
                   {user.role === 'Client' ? (
-                     customers.find(c => c.id === user.customerId)?.name || user.customerId || 'Not assigned'
+                     customers.find(c => c.id === user.customerId)?.name || user.companyName || user.customerId || 'Not assigned'
                   ) : '-'}
                 </td>
                 <td className="px-4 py-3 text-right">
@@ -235,9 +351,11 @@ export function UsersTab() {
                 </td>
               </tr>
             ))}
-            {activeUsers.length === 0 && (
+            {filteredAndSortedUsers.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-4 py-8 text-center text-brand-secondary">No active users found.</td>
+                <td colSpan={4} className="px-4 py-8 text-center text-brand-secondary">
+                  {searchQuery ? `No users matching "${searchQuery}".` : 'No active users found.'}
+                </td>
               </tr>
             )}
           </tbody>
