@@ -748,9 +748,8 @@ export function PublicQuoteRequest() {
     const items: DesignRackItem[] = [];
 
     const slots = getOrderedKeys(stylesMap, themeName, catalogSettings.racksOrder);
-    const hasAnySelected = rackItems.some(r => r.selected);
 
-    slots.forEach((slot, slotIdx) => {
+    slots.forEach((slot) => {
       const styleId = (stylesMap as any)[slot];
       const prod = sanmarCatalog.find(p => p.style === styleId);
       if (prod) {
@@ -774,7 +773,7 @@ export function PublicQuoteRequest() {
         const fitted = placementBox ? fitLogoToBox(placementBox, logoAspect) : null;
 
         const prevItem = rackItems.find(r => r.slot === slot);
-        const isSelected = prevItem ? prevItem.selected : (!hasAnySelected && slotIdx === 0);
+        const isSelected = prevItem ? prevItem.selected : false;
 
         const configuredColor =
           (themeName && slot && catalogSettings.defaultColors?.racks?.[themeName]?.[slot]) ||
@@ -2825,8 +2824,19 @@ export function PublicQuoteRequest() {
                 </div>
 
                 <div className="pt-6 border-t border-neutral-200/50 flex justify-end">
-                  <PillButton variant="filled" onClick={() => setStep(2)} className="gap-2">
-                    Proceed to Logo Upload <ArrowRight size={14} />
+                  <PillButton 
+                    variant="filled" 
+                    onClick={() => {
+                      const selectedCount = rackItems.filter(i => i.selected).length;
+                      if (selectedCount === 0) {
+                        alert("Please select at least one garment for your collection to proceed.");
+                        return;
+                      }
+                      setStep(2);
+                    }} 
+                    className="gap-2"
+                  >
+                    Proceed to Logo Upload ({rackItems.filter(i => i.selected).length} Selected) <ArrowRight size={14} />
                   </PillButton>
                 </div>
               </div>
@@ -2977,12 +2987,6 @@ export function PublicQuoteRequest() {
                         key={gt.id}
                         onClick={() => {
                           setSelectedGarmentType(gt.id);
-                          const matching = curatedStorefrontProducts.filter(p => detectGarmentTypeTag(p, catalogSettings.garmentTypeTags) === gt.id);
-                          const firstMatch = matching[0] || null;
-                          setSelectedGarmentTypeItem(firstMatch);
-                          if (firstMatch) {
-                            setSelectedGarmentTypeColor(firstMatch.colors[0]);
-                          }
                         }}
                         className={`relative py-1.5 text-xs font-sans uppercase tracking-[0.18em] transition-colors duration-200 cursor-pointer group ${
                           isSelected 
@@ -3002,7 +3006,6 @@ export function PublicQuoteRequest() {
                 {/* Garment Grid matching selected Garment Type */}
                 {(() => {
                   const matching = curatedStorefrontProducts.filter(p => detectGarmentTypeTag(p, catalogSettings.garmentTypeTags) === selectedGarmentType);
-                  const activeGarment = selectedGarmentTypeItem || matching[0];
 
                   return (
                     <div className="space-y-4 pt-4 border-t border-neutral-200/50">
@@ -3013,7 +3016,7 @@ export function PublicQuoteRequest() {
                       ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-8 gap-y-12">
                           {matching.slice(0, 32).map(item => {
-                            const isSelected = (selectedGarmentTypeItem?.style || matching[0]?.style) === item.style;
+                            const isSelected = selectedGarmentTypeItems.some(g => g.product.style === item.style);
                             const colorKey = selectedGarmentTypeColor && item.colors.includes(selectedGarmentTypeColor) ? selectedGarmentTypeColor : item.colors[0];
                             const previewImg = resolveGarmentImage(item, colorKey);
                             const weightAndFabric = getGarmentWeightAndFabric(item);
@@ -3039,6 +3042,20 @@ export function PublicQuoteRequest() {
                               <div
                                 key={item.style}
                                 onClick={() => {
+                                  setSelectedGarmentTypeItems(prev => {
+                                    const exists = prev.some(g => g.product.style === item.style);
+                                    if (exists) {
+                                      return prev.filter(g => g.product.style !== item.style);
+                                    } else {
+                                      const newItem = {
+                                        id: `${item.style}-${Date.now()}`,
+                                        product: item,
+                                        color: colorKey,
+                                        garmentType: selectedGarmentType
+                                      };
+                                      return [...prev, newItem];
+                                    }
+                                  });
                                   setSelectedGarmentTypeItem(item);
                                   setSelectedGarmentTypeColor(colorKey);
                                 }}
@@ -3112,16 +3129,15 @@ export function PublicQuoteRequest() {
                         <PillButton 
                           variant="filled" 
                           onClick={() => {
-                            if (!selectedGarmentTypeItem && activeGarment) {
-                              setSelectedGarmentTypeItem(activeGarment);
-                              setSelectedGarmentTypeColor(activeGarment.colors[0]);
+                            if (selectedGarmentTypeItems.length === 0) {
+                              alert("Please select at least one garment for your collection to proceed.");
+                              return;
                             }
                             setStep(2);
                           }} 
-                          disabled={!activeGarment}
                           className="gap-2"
                         >
-                          Proceed to Logo Upload <ArrowRight size={14} />
+                          Proceed to Logo Upload ({selectedGarmentTypeItems.length} Selected) <ArrowRight size={14} />
                         </PillButton>
                       </div>
                     </div>
