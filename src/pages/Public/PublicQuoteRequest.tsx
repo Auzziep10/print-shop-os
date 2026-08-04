@@ -594,6 +594,19 @@ export function PublicQuoteRequest() {
   const [inHandsDate, setInHandsDate] = useState('');
   const [notes, setNotes] = useState('');
 
+  // Autofill user details when authenticated
+  useEffect(() => {
+    if (user || userData) {
+      setCustomerInfo(prev => ({
+        ...prev,
+        contactName: prev.contactName || userData?.name || user?.displayName || '',
+        emailAddress: prev.emailAddress || user?.email || userData?.email || '',
+        companyName: prev.companyName || userData?.companyName || '',
+        phone: prev.phone || userData?.phone || ''
+      }));
+    }
+  }, [user, userData]);
+
   // Single Item Canvas Editor modal details
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
@@ -4254,7 +4267,12 @@ export function PublicQuoteRequest() {
                       placeholder="jane@company.com" 
                     />
                   </div>
-                  {!user && (
+                  {user ? (
+                    <div className="flex items-center gap-2 px-3.5 py-2.5 bg-emerald-50 border border-emerald-200/80 rounded-xl text-emerald-800 text-xs font-semibold">
+                      <CheckCircle size={15} className="text-emerald-600 shrink-0" />
+                      <span>Logged in as <strong>{user.email || userData?.email}</strong> (Password not required)</span>
+                    </div>
+                  ) : (
                     <div className="flex flex-col gap-1.5">
                       <div className="flex justify-between items-center">
                         <label className="text-xs font-bold text-neutral-700">Create Account Password *</label>
