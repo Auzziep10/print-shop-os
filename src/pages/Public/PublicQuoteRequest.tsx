@@ -4541,6 +4541,7 @@ export function PublicQuoteRequest() {
             originalFrontImage: editingGarmentImg,
             originalBackImage: getGarmentMockupImage(editingProduct.product, editingProduct.color, 'back', catalogSettings, selectedThemeCategory, editingProduct.slot),
             colorMockups: catalogSettings.colorMockups,
+            allowedColors: catalogSettings.allowedColors,
             logoUrl: editingProduct.customLogoUrl || ((editingProduct as any).frontLogoUrl && !(editingProduct as any).frontLogoUrl.includes('mockup') ? (editingProduct as any).frontLogoUrl : null) || logoUrl,
             logoName: (editingProduct as any).logoName || artworkName || 'Logo.png',
             artworkName: (editingProduct as any).logoName || artworkName || 'Logo.png',

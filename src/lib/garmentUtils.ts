@@ -16,15 +16,40 @@ export const getFilteredProductColors = (
 ): string[] => {
   if (!product) return [];
   const allColors = product.colors || [];
-  if (!allowedColorsMap) return allColors;
-  const styleCode = String(product.style || product.itemNum || '').toLowerCase().trim();
-  if (!styleCode) return allColors;
+  if (!allowedColorsMap || Object.keys(allowedColorsMap).length === 0) return allColors;
 
-  const matchingKey = Object.keys(allowedColorsMap).find(k => {
-    const cleanK = k.toLowerCase().trim();
-    return cleanK === styleCode ||
-           cleanK.replace(/[\s-]/g, '') === styleCode.replace(/[\s-]/g, '');
-  });
+  // Try itemNum first (SKU style code e.g. "BC3001CVC", "3001CVC"), then style
+  const styleCandidates = [product.itemNum, product.style]
+    .filter(Boolean)
+    .map(s => String(s).toLowerCase().trim());
+
+  if (styleCandidates.length === 0) return allColors;
+
+  const allowedMapKeys = Object.keys(allowedColorsMap);
+  let matchingKey: string | undefined;
+
+  for (const candidate of styleCandidates) {
+    const cleanCand = candidate.replace(/[\s-]/g, '');
+    const cleanCandNoPrefix = cleanCand.replace(/^(bc|nl|dt)/i, '');
+    const cleanCandNoCvc = cleanCand.replace(/cvc$/i, '');
+    const cleanCandBase = cleanCand.replace(/^(bc|nl|dt)|cvc$/gi, '');
+
+    matchingKey = allowedMapKeys.find(k => {
+      const cleanK = k.toLowerCase().trim().replace(/[\s-]/g, '');
+      const cleanKNoPrefix = cleanK.replace(/^(bc|nl|dt)/i, '');
+      const cleanKNoCvc = cleanK.replace(/cvc$/i, '');
+      const cleanKBase = cleanK.replace(/^(bc|nl|dt)|cvc$/gi, '');
+
+      return cleanK === cleanCand ||
+             cleanKNoPrefix === cleanCandNoPrefix ||
+             cleanKNoCvc === cleanCandNoCvc ||
+             cleanKBase === cleanCandBase ||
+             (cleanCand.length >= 3 && cleanK.includes(cleanCand)) ||
+             (cleanK.length >= 3 && cleanCand.includes(cleanK));
+    });
+
+    if (matchingKey) break;
+  }
 
   if (!matchingKey) return allColors;
   const allowed = allowedColorsMap[matchingKey];

@@ -743,9 +743,19 @@ export function GarmentCustomizerModal({
   }, [isOpen]);
 
   const displayColors = useMemo(() => {
-    const allowed = (garment as any)?.allowedColors || fetchedAllowedColors;
+    const propAllowed = (garment as any)?.allowedColors;
+    const allowed = (propAllowed && Object.keys(propAllowed).length > 0) ? propAllowed : fetchedAllowedColors;
     return getFilteredProductColors(activeGarment, allowed);
   }, [activeGarment, garment, fetchedAllowedColors]);
+
+  // Ensure selectedColor is always valid and present in displayColors
+  useEffect(() => {
+    if (displayColors && displayColors.length > 0) {
+      if (!selectedColor || !displayColors.includes(selectedColor)) {
+        setSelectedColor(displayColors[0]);
+      }
+    }
+  }, [displayColors, selectedColor]);
 
   // Case-insensitive image resolver
   const { frontImage, backImage, sleeveImage } = useMemo(() => {
