@@ -10,6 +10,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useSearchParams } from 'react-router-dom';
 import { AhaSendTab } from './AhaSendTab';
 import { QuoTab } from './QuoTab';
+import { DtfPricingSettingsTab } from './DtfPricingSettingsTab';
 
 export function Settings() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -78,6 +79,16 @@ export function Settings() {
               Business Profile
             </button>
             <button
+              onClick={() => setActiveTab('pricing')}
+              className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+                activeTab === 'pricing' 
+                  ? 'bg-brand-primary text-white' 
+                  : 'text-brand-secondary hover:bg-brand-bg hover:text-brand-primary'
+              }`}
+            >
+              Auto-Quoting & DTF Pricing
+            </button>
+            <button
               onClick={() => setActiveTab('apps')}
               className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
                 activeTab === 'apps' 
@@ -135,6 +146,7 @@ export function Settings() {
           {activeTab === 'users' && <UsersTab />}
           {activeTab === 'permissions' && <PermissionsTab />}
           {activeTab === 'business' && <BusinessTab />}
+          {activeTab === 'pricing' && <DtfPricingSettingsTab />}
           {activeTab === 'apps' && <AppsTab />}
           {activeTab === 'storefront-catalog' && <StorefrontCatalogTab />}
           {activeTab === 'signatures' && <Signatures />}

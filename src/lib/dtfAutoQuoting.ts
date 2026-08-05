@@ -184,6 +184,19 @@ export async function fetchDtfPricingSettings(customerId?: string): Promise<{ co
         } else if (custData.autoQuotingEnabled === 'disabled' || custData.autoQuotingEnabled === false) {
           autoQuotingEnabled = false;
         }
+
+        // Custom pricing overrides for specific customer
+        if (custData.customPricing?.enabled) {
+          if (custData.customPricing.costs) {
+            costs = { ...costs, ...custData.customPricing.costs };
+          }
+          if (custData.customPricing.ladder) {
+            ladder = { ...ladder, ...custData.customPricing.ladder };
+          }
+          if (custData.customPricing.autoQuotingEnabled !== undefined) {
+            autoQuotingEnabled = custData.customPricing.autoQuotingEnabled === 'enabled' || custData.customPricing.autoQuotingEnabled === true;
+          }
+        }
       }
     } catch (err) {
       console.error("Error checking customer auto-quoting override:", err);

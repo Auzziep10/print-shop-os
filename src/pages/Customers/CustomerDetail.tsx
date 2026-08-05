@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
-import { ArrowLeft, Mail, Phone, MapPin, Building2, ExternalLink, Plus, Loader2, Upload, X, Check, Edit3, ChevronRight, Trash2, FileText, Crop, Eye, EyeOff, Search, Send, MessageSquare, Image, Zap } from 'lucide-react';
+import { ArrowLeft, Mail, Phone, MapPin, Building2, ExternalLink, Plus, Loader2, Upload, X, Check, Edit3, ChevronRight, Trash2, FileText, Crop, Eye, EyeOff, Search, Send, MessageSquare, Image, Zap, DollarSign, Sliders } from 'lucide-react';
 
 import { storage, db } from '../../lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -104,6 +104,55 @@ export function CustomerDetail() {
     resaleCertificateUrl: '',
     resaleCertificateName: ''
   });
+
+  const [customPricing, setCustomPricing] = useState<{
+    enabled: boolean;
+    autoQuotingEnabled: 'inherit' | 'enabled' | 'disabled';
+    ladder: { priceAtLowTier?: number; priceAtHighTier?: number; marginFloor?: number };
+    costs: any;
+  }>({
+    enabled: false,
+    autoQuotingEnabled: 'inherit',
+    ladder: { priceAtLowTier: 5.50, priceAtHighTier: 3.00, marginFloor: 0.35 },
+    costs: {}
+  });
+  const [savingCustomPricing, setSavingCustomPricing] = useState(false);
+
+  const handleSaveCustomPricing = async () => {
+    if (!id) return;
+    setSavingCustomPricing(true);
+    try {
+      const custRef = doc(db, 'customers', id);
+      await setDoc(custRef, {
+        autoQuotingEnabled: customPricing.autoQuotingEnabled,
+        customPricing: {
+          enabled: customPricing.enabled,
+          autoQuotingEnabled: customPricing.autoQuotingEnabled,
+          ladder: customPricing.ladder,
+          costs: customPricing.costs || {}
+        },
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+
+      setLiveCustomerData((prev: any) => ({
+        ...prev,
+        autoQuotingEnabled: customPricing.autoQuotingEnabled,
+        customPricing: {
+          enabled: customPricing.enabled,
+          autoQuotingEnabled: customPricing.autoQuotingEnabled,
+          ladder: customPricing.ladder,
+          costs: customPricing.costs || {}
+        }
+      }));
+
+      alert('Customer auto-quoting & pricing overrides saved successfully!');
+    } catch (err) {
+      console.error("Error saving customer pricing overrides:", err);
+      alert("Failed to save custom pricing overrides.");
+    } finally {
+      setSavingCustomPricing(false);
+    }
+  };
   
   const [contacts, setContacts] = useState<any[]>([]);
   const [isAddingContact, setIsAddingContact] = useState(false);
@@ -808,6 +857,20 @@ export function CustomerDetail() {
           else if (data.catalogLinkId) fetchedLinks = [data.catalogLinkId];
           
           setCatalogLinkIds(fetchedLinks);
+
+          if (data.customPricing) {
+            setCustomPricing({
+              enabled: !!data.customPricing.enabled,
+              autoQuotingEnabled: data.customPricing.autoQuotingEnabled || data.autoQuotingEnabled || 'inherit',
+              ladder: data.customPricing.ladder || { priceAtLowTier: 5.50, priceAtHighTier: 3.00, marginFloor: 0.35 },
+              costs: data.customPricing.costs || {}
+            });
+          } else if (data.autoQuotingEnabled) {
+            setCustomPricing(prev => ({
+              ...prev,
+              autoQuotingEnabled: data.autoQuotingEnabled || 'inherit'
+            }));
+          }
           
           setEditCompanyForm({
             name: data.company || data.contactName || '',
@@ -1305,6 +1368,151 @@ export function CustomerDetail() {
 
       {/* Main Content Area */}
       <div className="flex flex-col gap-8">
+
+        {/* Customer Custom Auto-Quoting & Pricing Overrides Card */}
+        <div className="bg-white rounded-card border border-brand-border shadow-xs p-6 space-y-5">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-brand-border/40 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-amber-500/10 text-amber-600 rounded-xl shrink-0">
+                <Zap size={20} />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-brand-primary flex items-center gap-2">
+                  Customer Auto-Quoting & Pricing Overrides
+                  <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-extrabold uppercase tracking-wider ${
+                    customPricing.enabled 
+                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' 
+                      : 'bg-neutral-100 text-neutral-600 border border-neutral-250'
+                  }`}>
+                    {customPricing.enabled ? 'Custom Pricing Active' : 'Inheriting Shop Defaults'}
+                  </span>
+                </h3>
+                <p className="text-xs text-brand-secondary mt-0.5">
+                  Override global shop auto-quoting behavior and custom price ladder anchors specifically for {liveCustomerData.company || editCompanyForm.name || 'this customer'}.
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleSaveCustomPricing}
+              disabled={savingCustomPricing}
+              className="px-5 py-2.5 bg-brand-primary hover:bg-black text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-2 cursor-pointer disabled:opacity-50"
+            >
+              {savingCustomPricing ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+              <span>Save Customer Pricing</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* 1. Auto-Quoting Behavior */}
+            <div className="space-y-2 bg-neutral-50/70 p-4 rounded-2xl border border-neutral-200">
+              <label className="text-xs font-bold text-brand-primary uppercase tracking-wider flex items-center gap-1.5">
+                <Zap size={14} className="text-amber-500" />
+                <span>Portal Auto-Quoting Behavior</span>
+              </label>
+              <select
+                value={customPricing.autoQuotingEnabled}
+                onChange={(e) => setCustomPricing({ ...customPricing, autoQuotingEnabled: e.target.value as any })}
+                className="w-full bg-white border border-neutral-300 rounded-xl px-3.5 py-2 text-xs font-bold text-brand-primary focus:outline-none focus:border-brand-primary transition-colors cursor-pointer"
+              >
+                <option value="inherit">⚡ Shop Default (Inherit Global Settings)</option>
+                <option value="enabled">✅ Always Auto-Quote Portal Orders (Forced ON)</option>
+                <option value="disabled">❌ Require Manual Shop Review (Forced OFF)</option>
+              </select>
+              <p className="text-[11px] text-neutral-500 font-medium italic">
+                Determines if quote requests submitted by this customer skip manual review and present instant prices.
+              </p>
+            </div>
+
+            {/* 2. Custom Price Ladder Overrides */}
+            <div className="space-y-2 bg-neutral-50/70 p-4 rounded-2xl border border-neutral-200 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-brand-primary uppercase tracking-wider flex items-center gap-1.5">
+                    <Zap size={14} className="text-brand-secondary" />
+                    <span>Custom Price Ladder & Margin Floor</span>
+                  </label>
+
+                  <button
+                    type="button"
+                    onClick={() => setCustomPricing({ ...customPricing, enabled: !customPricing.enabled })}
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                      customPricing.enabled ? 'bg-emerald-500' : 'bg-neutral-300'
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                        customPricing.enabled ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+                <p className="text-[11px] text-neutral-500 font-medium italic mt-1">
+                  {customPricing.enabled 
+                    ? 'Custom pricing rules are active for this customer.' 
+                    : 'Toggle ON to set custom tier pricing anchors or margin floors different from shop defaults.'}
+                </p>
+              </div>
+
+              {customPricing.enabled && (
+                <div className="grid grid-cols-3 gap-2 pt-2 border-t border-neutral-200 mt-2">
+                  <div>
+                    <span className="text-[9px] font-bold text-neutral-400 uppercase block">1-24 Tier Anchor</span>
+                    <div className="relative mt-1">
+                      <DollarSign size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-neutral-400" />
+                      <input
+                        type="number"
+                        step="0.25"
+                        value={customPricing.ladder?.priceAtLowTier ?? 5.50}
+                        onChange={(e) => setCustomPricing({
+                          ...customPricing,
+                          ladder: { ...customPricing.ladder, priceAtLowTier: parseFloat(e.target.value) || 0 }
+                        })}
+                        className="w-full pl-5 pr-1 py-1 text-xs bg-white border border-neutral-300 rounded-lg font-bold text-brand-primary"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <span className="text-[9px] font-bold text-neutral-400 uppercase block">500+ Tier Anchor</span>
+                    <div className="relative mt-1">
+                      <DollarSign size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-neutral-400" />
+                      <input
+                        type="number"
+                        step="0.25"
+                        value={customPricing.ladder?.priceAtHighTier ?? 3.00}
+                        onChange={(e) => setCustomPricing({
+                          ...customPricing,
+                          ladder: { ...customPricing.ladder, priceAtHighTier: parseFloat(e.target.value) || 0 }
+                        })}
+                        className="w-full pl-5 pr-1 py-1 text-xs bg-white border border-neutral-300 rounded-lg font-bold text-brand-primary"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <span className="text-[9px] font-bold text-neutral-400 uppercase block">Margin Floor</span>
+                    <div className="relative mt-1">
+                      <input
+                        type="number"
+                        step="1"
+                        min="0"
+                        max="60"
+                        value={Math.round((customPricing.ladder?.marginFloor ?? 0.35) * 100)}
+                        onChange={(e) => setCustomPricing({
+                          ...customPricing,
+                          ladder: { ...customPricing.ladder, marginFloor: (parseInt(e.target.value) || 0) / 100 }
+                        })}
+                        className="w-full px-2 py-1 text-xs bg-white border border-neutral-300 rounded-lg font-bold text-brand-primary text-center"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
 
         {/* Active Catalogs */}
         {isLoadingCustomerDecks ? (
