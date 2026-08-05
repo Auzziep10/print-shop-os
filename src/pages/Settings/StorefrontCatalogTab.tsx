@@ -444,6 +444,24 @@ export function StorefrontCatalogTab() {
     fetchCatalogSettings();
   }, []);
 
+  const persistColorSettings = async (
+    nextAllowed?: Record<string, string[]>,
+    nextMockups?: Record<string, Record<string, any>>,
+    nextNeckTag?: Record<string, boolean>
+  ) => {
+    try {
+      const docRef = doc(db, 'settings', 'storefront-catalog');
+      await setDoc(docRef, {
+        allowedColors: nextAllowed ?? allowedColors,
+        colorMockups: nextMockups ?? colorMockups,
+        removeNeckTag: nextNeckTag ?? removeNeckTag,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+    } catch (err) {
+      console.error("Error auto-persisting color settings to Firestore:", err);
+    }
+  };
+
   const handleSaveSettings = async () => {
     setSaving(true);
     try {
@@ -2124,11 +2142,11 @@ export function StorefrontCatalogTab() {
                 </div>
 
                 <div className="flex items-center gap-3 w-full md:w-auto justify-end">
-                  <PillButton variant="filled" onClick={() => setActiveColorModalItem(null)} className="px-6 py-2.5 text-xs font-bold gap-2">
+                  <PillButton variant="filled" onClick={() => { persistColorSettings(); setActiveColorModalItem(null); }} className="px-6 py-2.5 text-xs font-bold gap-2">
                     <Check size={16} /> Save & Done
                   </PillButton>
                   <button 
-                    onClick={() => setActiveColorModalItem(null)}
+                    onClick={() => { persistColorSettings(); setActiveColorModalItem(null); }}
                     className="p-2 text-neutral-400 hover:text-brand-primary hover:bg-neutral-100 rounded-full transition-all cursor-pointer"
                   >
                     <X size={22} />
@@ -2514,7 +2532,7 @@ export function StorefrontCatalogTab() {
                 <span className="text-xs text-neutral-500 font-medium">
                   Showing {displayedColors.length} of {totalCount} color variations
                 </span>
-                <PillButton variant="filled" onClick={() => setActiveColorModalItem(null)} className="px-8 py-2.5 text-xs font-bold gap-2">
+                <PillButton variant="filled" onClick={() => { persistColorSettings(); setActiveColorModalItem(null); }} className="px-8 py-2.5 text-xs font-bold gap-2">
                   <Check size={16} /> Save & Done
                 </PillButton>
               </div>

@@ -765,18 +765,38 @@ export function GarmentCustomizerModal({
 
     if (selectedColor) {
       // 0. Prioritize custom uploaded color mockup from colorMockups if configured!
-      const colorMockups = activeGarment?.colorMockups || (garment as any)?.colorMockups || fetchedColorMockups;
-      if (colorMockups) {
+      const mockupsCand = (garment as any)?.colorMockups;
+      const colorMockups = (mockupsCand && Object.keys(mockupsCand).length > 0)
+        ? mockupsCand
+        : (activeGarment?.colorMockups && Object.keys(activeGarment.colorMockups).length > 0)
+          ? activeGarment.colorMockups
+          : fetchedColorMockups;
+
+      if (colorMockups && Object.keys(colorMockups).length > 0) {
         const cKey = selectedColor.toLowerCase().trim();
         const stylesToTry = [activeGarment?.itemNum, activeGarment?.style, catalogProduct?.style].filter(Boolean) as string[];
+        const mockupStyleKeys = Object.keys(colorMockups);
+
         for (const st of stylesToTry) {
-          const styleKey = st.toLowerCase().trim();
-          const matchingStyleKey = Object.keys(colorMockups).find(k => {
-            const cleanK = k.toLowerCase().trim();
-            return cleanK === styleKey ||
-                   cleanK.replace(/cvc$/i, '') === styleKey.replace(/cvc$/i, '') ||
-                   cleanK.replace(/[\s-]/g, '') === styleKey.replace(/[\s-]/g, '');
+          const cleanSt = st.toLowerCase().trim().replace(/[\s-]/g, '');
+          const cleanStNoPrefix = cleanSt.replace(/^(bc|nl|dt)/i, '');
+          const cleanStNoCvc = cleanSt.replace(/cvc$/i, '');
+          const cleanStBase = cleanSt.replace(/^(bc|nl|dt)|cvc$/gi, '');
+
+          const matchingStyleKey = mockupStyleKeys.find(k => {
+            const cleanK = k.toLowerCase().trim().replace(/[\s-]/g, '');
+            const cleanKNoPrefix = cleanK.replace(/^(bc|nl|dt)/i, '');
+            const cleanKNoCvc = cleanK.replace(/cvc$/i, '');
+            const cleanKBase = cleanK.replace(/^(bc|nl|dt)|cvc$/gi, '');
+
+            return cleanK === cleanSt ||
+                   cleanKNoPrefix === cleanStNoPrefix ||
+                   cleanKNoCvc === cleanStNoCvc ||
+                   cleanKBase === cleanStBase ||
+                   (cleanSt.length >= 3 && cleanK.includes(cleanSt)) ||
+                   (cleanK.length >= 3 && cleanSt.includes(cleanK));
           });
+
           if (matchingStyleKey) {
             const styleMap = colorMockups[matchingStyleKey];
             if (styleMap) {
@@ -792,7 +812,7 @@ export function GarmentCustomizerModal({
                 } else if (typeof customVal === 'object' && customVal) {
                   resolvedFront = (customVal as any).front || (customVal as any).frontImage || null;
                   resolvedBack = (customVal as any).back || (customVal as any).backImage || null;
-                  if (resolvedFront) break;
+                  if (resolvedFront || resolvedBack) break;
                 }
               }
             }
