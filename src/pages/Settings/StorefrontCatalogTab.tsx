@@ -6,7 +6,7 @@ import { Loader2, Save, Search, Check, Info, Crosshair, X, Trash2, Plus, Edit2, 
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
-import { getOrderedKeys, GARMENT_TYPES, detectGarmentTypeTag, type GarmentTypeId } from '../../lib/garmentUtils';
+import { getOrderedKeys, GARMENT_TYPES, detectGarmentTypeTag, getFilteredProductColors, type GarmentTypeId } from '../../lib/garmentUtils';
 import { ImportGarmentModal } from '../../components/shared/ImportGarmentModal';
 
 interface SanMarProduct {
@@ -344,6 +344,7 @@ export function StorefrontCatalogTab() {
   const [garmentTypeTags, setGarmentTypeTags] = useState<Record<string, string>>({});
   const [removeNeckTag, setRemoveNeckTag] = useState<Record<string, boolean>>({});
   const [colorMockups, setColorMockups] = useState<Record<string, Record<string, any>>>({});
+  const [allowedColors, setAllowedColors] = useState<Record<string, string[]>>({});
   const [activeGarmentType, setActiveGarmentType] = useState<GarmentTypeId>('t-shirt');
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [uploadingSlotKey, setUploadingSlotKey] = useState<string | null>(null);
@@ -381,6 +382,7 @@ export function StorefrontCatalogTab() {
           if (data.garmentTypeTags) setGarmentTypeTags(data.garmentTypeTags);
           if (data.removeNeckTag) setRemoveNeckTag(data.removeNeckTag);
           if (data.colorMockups) setColorMockups(data.colorMockups);
+          if (data.allowedColors) setAllowedColors(data.allowedColors);
           if (data.customNames) {
             setCustomNames(data.customNames);
           } else {
@@ -457,6 +459,7 @@ export function StorefrontCatalogTab() {
         garmentTypeTags,
         removeNeckTag,
         colorMockups,
+        allowedColors,
         updatedAt: new Date().toISOString()
       }, { merge: true });
       alert('Storefront catalog settings saved successfully!');
@@ -1474,11 +1477,15 @@ export function StorefrontCatalogTab() {
                         <button
                           type="button"
                           onClick={() => setActiveColorModalItem(p)}
-                          className="flex-1 py-2 px-3 bg-white border border-brand-border text-brand-primary rounded-xl text-[10px] font-bold uppercase tracking-wider hover:bg-neutral-50 transition-all flex items-center justify-center gap-1.5"
-                          title="Manage custom mockups and image overrides per color variation"
+                          className={`flex-1 py-2 px-3 border rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 ${
+                            (allowedColors[p.style.toLowerCase()] !== undefined && getFilteredProductColors(p, allowedColors).length < (p.colors?.length || 0))
+                              ? 'bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100'
+                              : 'bg-white border-brand-border text-brand-primary hover:bg-neutral-50'
+                          }`}
+                          title="Manage custom mockups, tagless collar, and available storefront colors"
                         >
                           <ImageIcon size={12} />
-                          <span>Colors ({p.colors?.length || 0})</span>
+                          <span>Colors ({getFilteredProductColors(p, allowedColors).length}{(allowedColors[p.style.toLowerCase()] !== undefined && getFilteredProductColors(p, allowedColors).length < (p.colors?.length || 0)) ? `/${p.colors?.length || 0}` : ''})</span>
                         </button>
                       </div>
                     )}
@@ -1909,11 +1916,15 @@ export function StorefrontCatalogTab() {
                               <button
                                 type="button"
                                 onClick={() => setActiveColorModalItem(p)}
-                                className="flex-1 py-1.5 px-3 bg-white border border-brand-border text-brand-primary rounded-xl text-[10px] font-bold uppercase tracking-wider hover:bg-neutral-50 transition-all flex items-center justify-center gap-1.5"
-                                title="Manage custom mockups and image overrides per color variation"
+                                className={`flex-1 py-1.5 px-3 border rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 ${
+                                  (allowedColors[p.style.toLowerCase()] !== undefined && getFilteredProductColors(p, allowedColors).length < (p.colors?.length || 0))
+                                    ? 'bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100'
+                                    : 'bg-white border-brand-border text-brand-primary hover:bg-neutral-50'
+                                }`}
+                                title="Manage custom mockups, tagless collar, and available storefront colors"
                               >
                                 <ImageIcon size={12} />
-                                <span>Colors ({p.colors?.length || 0})</span>
+                                <span>Colors ({getFilteredProductColors(p, allowedColors).length}{(allowedColors[p.style.toLowerCase()] !== undefined && getFilteredProductColors(p, allowedColors).length < (p.colors?.length || 0)) ? `/${p.colors?.length || 0}` : ''})</span>
                               </button>
                             </div>
                           </div>
@@ -2069,34 +2080,86 @@ export function StorefrontCatalogTab() {
               </button>
             </div>
 
-            <div className="flex items-center justify-between bg-neutral-50 p-3 rounded-xl border border-brand-border">
-              <div className="flex items-center gap-2">
-                <Scissors size={16} className="text-emerald-700" />
-                <span className="text-xs font-bold text-brand-primary">Tagless Collar (Manufacturer Tag Removal):</span>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between bg-neutral-50 p-3 rounded-xl border border-brand-border">
+                <div className="flex items-center gap-2">
+                  <Scissors size={16} className="text-emerald-700" />
+                  <span className="text-xs font-bold text-brand-primary">Tagless Collar (Manufacturer Tag Removal):</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const key = activeColorModalItem.style.toLowerCase();
+                    setRemoveNeckTag(prev => ({
+                      ...prev,
+                      [key]: !(prev[key] ?? true)
+                    }));
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border cursor-pointer ${
+                    (removeNeckTag[activeColorModalItem.style.toLowerCase()] ?? true)
+                      ? 'bg-emerald-600 text-white border-emerald-600'
+                      : 'bg-white text-neutral-600 border-neutral-300'
+                  }`}
+                >
+                  {(removeNeckTag[activeColorModalItem.style.toLowerCase()] ?? true) ? 'Enabled (Tag Removed)' : 'Disabled (Original Tag)'}
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  const key = activeColorModalItem.style.toLowerCase();
-                  setRemoveNeckTag(prev => ({
-                    ...prev,
-                    [key]: !(prev[key] ?? true)
-                  }));
-                }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
-                  (removeNeckTag[activeColorModalItem.style.toLowerCase()] ?? true)
-                    ? 'bg-emerald-600 text-white border-emerald-600'
-                    : 'bg-white text-neutral-600 border-neutral-300'
-                }`}
-              >
-                {(removeNeckTag[activeColorModalItem.style.toLowerCase()] ?? true) ? 'Enabled (Tag Removed)' : 'Disabled (Original Tag)'}
-              </button>
+
+              {/* Storefront Color Availability Control Bar */}
+              {(() => {
+                const modalStyleKey = activeColorModalItem.style.toLowerCase().trim();
+                const allItemColors: string[] = activeColorModalItem.colors || [];
+                const currentAllowed: string[] = allowedColors[modalStyleKey] ?? allItemColors;
+                const allowedCount = currentAllowed.length;
+                const totalCount = allItemColors.length;
+
+                return (
+                  <div className="flex flex-wrap items-center justify-between gap-3 bg-neutral-50 p-3 rounded-xl border border-brand-border">
+                    <div className="flex items-center gap-2">
+                      <Eye size={16} className="text-brand-primary" />
+                      <span className="text-xs font-bold text-brand-primary">
+                        Storefront Color Options ({allowedCount} of {totalCount} Enabled):
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAllowedColors(prev => ({
+                            ...prev,
+                            [modalStyleKey]: [...allItemColors]
+                          }));
+                        }}
+                        className="px-2.5 py-1 bg-white hover:bg-emerald-50 text-emerald-700 border border-emerald-300 rounded-lg text-xs font-bold transition-all cursor-pointer"
+                      >
+                        Enable All
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAllowedColors(prev => ({
+                            ...prev,
+                            [modalStyleKey]: []
+                          }));
+                        }}
+                        className="px-2.5 py-1 bg-white hover:bg-rose-50 text-rose-600 border border-neutral-300 hover:border-rose-300 rounded-lg text-xs font-bold transition-all cursor-pointer"
+                      >
+                        Disable All
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
 
             <div className="flex-1 overflow-y-auto pr-1 space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                 {(activeColorModalItem.colors || []).map((color: string) => {
-                  const styleKey = activeColorModalItem.style.toLowerCase();
+                  const styleKey = activeColorModalItem.style.toLowerCase().trim();
+                  const allItemColors: string[] = activeColorModalItem.colors || [];
+                  const currentAllowed: string[] = allowedColors[styleKey] ?? allItemColors;
+                  const isColorAllowed = currentAllowed.includes(color);
+
                   const rawVal = colorMockups[styleKey]?.[color];
                   const customFront = typeof rawVal === 'string' ? rawVal : (rawVal?.front || null);
                   const customBack = typeof rawVal === 'object' ? (rawVal?.back || null) : null;
@@ -2111,15 +2174,55 @@ export function StorefrontCatalogTab() {
                   const currentBack = customBack || origBackUrl;
 
                   return (
-                    <div key={color} className="border border-brand-border rounded-xl p-3 bg-white space-y-3 flex flex-col justify-between">
+                    <div 
+                      key={color} 
+                      className={`border rounded-xl p-3 space-y-3 flex flex-col justify-between transition-all ${
+                        isColorAllowed 
+                          ? 'border-brand-border bg-white shadow-xs' 
+                          : 'border-neutral-200 bg-neutral-50/80 opacity-75 hover:opacity-100'
+                      }`}
+                    >
                       <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-brand-primary truncate" title={color}>{color}</span>
-                          <div className="flex gap-1">
+                        <div className="flex items-center justify-between gap-1">
+                          <span 
+                            className={`text-xs font-bold truncate ${isColorAllowed ? 'text-brand-primary' : 'text-neutral-400 line-through'}`} 
+                            title={color}
+                          >
+                            {color}
+                          </span>
+                          <div className="flex gap-1 shrink-0">
                             {customFront && <span className="text-[8px] font-extrabold uppercase text-amber-700 bg-amber-100 px-1 rounded">Front Custom</span>}
                             {customBack && <span className="text-[8px] font-extrabold uppercase text-indigo-700 bg-indigo-100 px-1 rounded">Back Custom</span>}
                           </div>
                         </div>
+
+                        {/* Storefront Availability Toggle Button */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAllowedColors(prev => {
+                              const list = prev[styleKey] ?? allItemColors;
+                              const next = list.includes(color) ? list.filter((c: string) => c !== color) : [...list, color];
+                              return { ...prev, [styleKey]: next };
+                            });
+                          }}
+                          className={`w-full py-1 px-2 rounded-lg text-[10px] font-bold transition-all flex items-center justify-between border cursor-pointer ${
+                            isColorAllowed
+                              ? 'bg-emerald-50 text-emerald-900 border-emerald-300 hover:bg-emerald-100'
+                              : 'bg-neutral-100 text-neutral-600 border-neutral-300 hover:bg-neutral-200'
+                          }`}
+                          title={isColorAllowed ? "Click to remove this color option from customer storefront" : "Click to allow this color option for customer storefront"}
+                        >
+                          <span className="flex items-center gap-1.5">
+                            {isColorAllowed ? <Eye size={12} className="text-emerald-600" /> : <EyeOff size={12} className="text-neutral-400" />}
+                            <span>{isColorAllowed ? 'Storefront Enabled' : 'Hidden from Storefront'}</span>
+                          </span>
+                          <span className={`px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase ${
+                            isColorAllowed ? 'bg-emerald-600 text-white' : 'bg-neutral-300 text-neutral-700'
+                          }`}>
+                            {isColorAllowed ? 'Active' : 'Off'}
+                          </span>
+                        </button>
 
                         {/* Side-by-Side Front and Back previews */}
                         <div className="grid grid-cols-2 gap-2">

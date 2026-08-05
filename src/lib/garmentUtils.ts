@@ -10,6 +10,29 @@ export interface WeightAndFabric {
 
 export const DEFAULT_SLOT_ORDER = ['hat', 'shirt', 'polo', 'crewneck', 'hoodie', 'longsleeve'];
 
+export const getFilteredProductColors = (
+  product: { style?: string; colors?: string[]; itemNum?: string } | null | undefined,
+  allowedColorsMap?: Record<string, string[]> | null
+): string[] => {
+  if (!product) return [];
+  const allColors = product.colors || [];
+  if (!allowedColorsMap) return allColors;
+  const styleCode = String(product.style || product.itemNum || '').toLowerCase().trim();
+  if (!styleCode) return allColors;
+
+  const matchingKey = Object.keys(allowedColorsMap).find(k => {
+    const cleanK = k.toLowerCase().trim();
+    return cleanK === styleCode ||
+           cleanK.replace(/[\s-]/g, '') === styleCode.replace(/[\s-]/g, '');
+  });
+
+  if (!matchingKey) return allColors;
+  const allowed = allowedColorsMap[matchingKey];
+  if (!allowed || !Array.isArray(allowed)) return allColors;
+  return allColors.filter(c => allowed.includes(c));
+};
+
+
 export interface GarmentTypeConfig {
   id: string;
   label: string;

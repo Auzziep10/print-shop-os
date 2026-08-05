@@ -7,6 +7,7 @@ import { generateRotatedGarment } from '../../lib/geminiService';
 import { getSwatchColor } from '../shared/GarmentBrowser';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
 import { saveDesignToLibrary } from '../../lib/savedDesignsUtils';
+import { getFilteredProductColors } from '../../lib/garmentUtils';
 
 const sanmarCatalog = sanmarCatalogJson as any[];
 
@@ -232,10 +233,15 @@ export function GarmentCustomizerModal({
       const activeId = activeGarment.id || activeGarment.itemNum || activeGarment.style;
       if (lastGarmentIdRef.current !== activeId) {
         lastGarmentIdRef.current = activeId;
-        setSelectedColor(activeGarment.selectedColor || activeGarment.colors?.[0] || 'Custom Color');
+        const allowedList = (garment as any)?.allowedColors || fetchedAllowedColors;
+        const availableCols = getFilteredProductColors(activeGarment, allowedList);
+        const initCol = activeGarment.selectedColor && availableCols.includes(activeGarment.selectedColor)
+          ? activeGarment.selectedColor
+          : (availableCols[0] || 'Custom Color');
+        setSelectedColor(initCol);
       }
     }
-  }, [activeGarment]);
+  }, [activeGarment, fetchedAllowedColors, garment]);
 
 
 
@@ -713,25 +719,33 @@ export function GarmentCustomizerModal({
 
 
 
-  // Fetch storefront_catalog colorMockups from Firestore if not provided in garment prop
+  // Fetch storefront_catalog colorMockups & allowedColors from Firestore if not provided in garment prop
   const [fetchedColorMockups, setFetchedColorMockups] = useState<Record<string, Record<string, string>> | null>(null);
+  const [fetchedAllowedColors, setFetchedAllowedColors] = useState<Record<string, string[]> | null>(null);
 
   useEffect(() => {
-    if (isOpen && !garment?.colorMockups && !fetchedColorMockups) {
-      const fetchCatalogMockups = async () => {
+    if (isOpen) {
+      const fetchCatalogSettings = async () => {
         try {
           const catRef = doc(db, 'settings', 'storefront-catalog');
           const catSnap = await getDoc(catRef);
-          if (catSnap.exists() && catSnap.data().colorMockups) {
-            setFetchedColorMockups(catSnap.data().colorMockups);
+          if (catSnap.exists()) {
+            const data = catSnap.data();
+            if (data.colorMockups) setFetchedColorMockups(data.colorMockups);
+            if (data.allowedColors) setFetchedAllowedColors(data.allowedColors);
           }
         } catch (err) {
-          console.error("Error loading storefront color mockups in customizer:", err);
+          console.error("Error loading storefront catalog settings in customizer:", err);
         }
       };
-      fetchCatalogMockups();
+      fetchCatalogSettings();
     }
-  }, [isOpen, garment?.colorMockups, fetchedColorMockups]);
+  }, [isOpen]);
+
+  const displayColors = useMemo(() => {
+    const allowed = (garment as any)?.allowedColors || fetchedAllowedColors;
+    return getFilteredProductColors(activeGarment, allowed);
+  }, [activeGarment, garment, fetchedAllowedColors]);
 
   // Case-insensitive image resolver
   const { frontImage, backImage, sleeveImage } = useMemo(() => {
@@ -2599,7 +2613,7 @@ export function GarmentCustomizerModal({
           )}
 
           {/* Garment Color Selection Dropdown */}
-          {activeGarment.colors && activeGarment.colors.length > 0 && (
+          {displayColors && displayColors.length > 0 && (
             <div className="flex flex-col gap-2 border-b border-neutral-100 pb-6">
               <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Garment Color</label>
               
@@ -2635,7 +2649,7 @@ export function GarmentCustomizerModal({
                     />
                     
                     <div className="absolute left-0 right-0 mt-2 bg-white border border-neutral-200 rounded-xl shadow-xl max-h-[240px] overflow-y-auto z-[115] p-1.5 flex flex-col gap-0.5 custom-scrollbar animate-in fade-in slide-in-from-top-2 duration-200">
-                      {activeGarment.colors.map((c: string) => {
+                      {displayColors.map((c: string) => {
                         const isSelected = selectedColor === c;
                         const swatchHex = getSwatchColor(c, true);
                         return (

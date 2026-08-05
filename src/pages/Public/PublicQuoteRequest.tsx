@@ -28,7 +28,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { PillButton } from '../../components/ui/PillButton';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
-import { getGarmentWeightAndFabric, getOrderedKeys, GARMENT_TYPES, detectGarmentTypeTag, type GarmentTypeId } from '../../lib/garmentUtils';
+import { getGarmentWeightAndFabric, getOrderedKeys, GARMENT_TYPES, detectGarmentTypeTag, getFilteredProductColors, type GarmentTypeId } from '../../lib/garmentUtils';
 import { GarmentCustomizerModal } from '../../components/Portal/GarmentCustomizerModal';
 import colorHexMapJson from '../../data/color-hex-map.json';
 
@@ -443,6 +443,7 @@ export function PublicQuoteRequest() {
     };
     customMockups?: Record<string, any>;
     racksOrder?: Record<string, string[]>;
+    allowedColors?: Record<string, string[]>;
   }>({
     racks: DEFAULT_RACKS,
     basics: DEFAULT_BASICS,
@@ -456,7 +457,8 @@ export function PublicQuoteRequest() {
     hiddenCollections: {},
     defaultColors: { racks: {}, basics: {} },
     logoPlacements: { racks: {}, basics: {} },
-    racksOrder: {}
+    racksOrder: {},
+    allowedColors: {}
   });
 
   const [cart, setCart] = useState<any[]>([]);
@@ -681,7 +683,8 @@ export function PublicQuoteRequest() {
             hiddenCollections: cData.hiddenCollections || {},
             defaultColors: cData.defaultColors || { racks: {}, basics: {} },
             logoPlacements: cData.logoPlacements || { racks: {}, basics: {} },
-            racksOrder: cData.racksOrder || {}
+            racksOrder: cData.racksOrder || {},
+            allowedColors: cData.allowedColors || {}
           });
         }
       } catch (err) {
@@ -794,7 +797,10 @@ export function PublicQuoteRequest() {
           (themeName && slot && catalogSettings.defaultColors?.racks?.[themeName]?.[slot]) ||
           (slot && Object.values(catalogSettings.defaultColors?.racks || {}).find((catSlots: any) => catSlots?.[slot])?.[slot]);
 
-        const itemColor = configuredColor || prevItem?.color || displayProduct.colors[0];
+        const availableProductColors = getFilteredProductColors(displayProduct, catalogSettings.allowedColors);
+        const itemColor = (configuredColor && availableProductColors.includes(configuredColor))
+          ? configuredColor
+          : (prevItem?.color && availableProductColors.includes(prevItem.color) ? prevItem.color : (availableProductColors[0] || 'Black'));
 
         items.push({
           id: prevItem ? prevItem.id : `${slot}-${Date.now()}`,
@@ -892,7 +898,11 @@ export function PublicQuoteRequest() {
       if (selectedBasicsItem.style === styles.better) slot = 'better';
       else if (selectedBasicsItem.style === styles.best) slot = 'best';
       
-      const defaultColor = catalogSettings.defaultColors?.basics?.[selectedBasicsCategory]?.[slot] || selectedBasicsItem.colors[0];
+      const availableBasicsColors = getFilteredProductColors(selectedBasicsItem, catalogSettings.allowedColors);
+      const configuredBasicsColor = catalogSettings.defaultColors?.basics?.[selectedBasicsCategory]?.[slot];
+      const defaultColor = (configuredBasicsColor && availableBasicsColors.includes(configuredBasicsColor))
+        ? configuredBasicsColor
+        : (availableBasicsColors[0] || 'Black');
       setSelectedBasicsColor(defaultColor);
     }
   }, [selectedBasicsItem, selectedBasicsCategory, catalogSettings]);
@@ -2782,7 +2792,7 @@ export function PublicQuoteRequest() {
                       const fabricText = (specs?.description !== undefined && specs.description.trim() !== '') 
                         ? specs.description 
                         : (weightAndFabric.formatted || item.product.description || '');
-                      const colors = item.product.colors || (item.color ? [item.color] : []);
+                      const colors = getFilteredProductColors(item.product, catalogSettings.allowedColors);
 
                       return (
                         <div 
@@ -3066,16 +3076,13 @@ export function PublicQuoteRequest() {
                     <div className="space-y-4 pt-4 border-t border-neutral-200/50">
                       {matching.length === 0 ? (
                         <div className="text-center py-12 bg-neutral-50 rounded-2xl border border-dashed border-neutral-300">
-                          <p className="text-xs font-bold text-neutral-500">No products available in this category.</p>
-                        </div>
-                      ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-8 gap-y-12">
                           {matching.slice(0, 32).map(item => {
                             const isSelected = selectedGarmentTypeItems.some(g => g.product.style === item.style);
-                            const colorKey = selectedGarmentTypeColor && item.colors.includes(selectedGarmentTypeColor) ? selectedGarmentTypeColor : item.colors[0];
+                            const colors = getFilteredProductColors(item, catalogSettings.allowedColors);
+                            const colorKey = selectedGarmentTypeColor && colors.includes(selectedGarmentTypeColor) ? selectedGarmentTypeColor : (colors[0] || 'Black');
                             const previewImg = resolveGarmentImage(item, colorKey);
                             const weightAndFabric = getGarmentWeightAndFabric(item);
-                            const colors = item.colors || [];
                             const customName = (() => {
                               if (catalogSettings.customNames?.racks) {
                                 for (const catName of Object.keys(catalogSettings.customNames.racks)) {
@@ -4011,7 +4018,7 @@ export function PublicQuoteRequest() {
                       </div>
 
                       <div className="flex gap-1 overflow-x-auto scrollbar-none py-1">
-                        {selectedBasicsItem.colors.slice(0, 8).map(c => {
+                        {getFilteredProductColors(selectedBasicsItem, catalogSettings.allowedColors).slice(0, 8).map(c => {
                           const swatchHex = getSwatchColor(c, true);
                           const isColorActive = selectedBasicsColor === c;
                           return (
