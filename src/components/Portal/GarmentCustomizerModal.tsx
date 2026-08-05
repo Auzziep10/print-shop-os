@@ -156,6 +156,9 @@ export function GarmentCustomizerModal({
   onSave,
   showCatalogSearch = false
 }: GarmentCustomizerModalProps) {
+  const [fetchedColorMockups, setFetchedColorMockups] = useState<Record<string, Record<string, string>> | null>(null);
+  const [fetchedAllowedColors, setFetchedAllowedColors] = useState<Record<string, string[]> | null>(null);
+
   const [activeTab, setActiveTab] = useState<'front' | 'back' | 'sleeve' | 'tag'>('front');
   const [isSleeveMirrored, setIsSleeveMirrored] = useState(false);
   const [selectedColor, setSelectedColor] = useState<string>('Custom Color');
@@ -720,9 +723,6 @@ export function GarmentCustomizerModal({
 
 
   // Fetch storefront_catalog colorMockups & allowedColors from Firestore if not provided in garment prop
-  const [fetchedColorMockups, setFetchedColorMockups] = useState<Record<string, Record<string, string>> | null>(null);
-  const [fetchedAllowedColors, setFetchedAllowedColors] = useState<Record<string, string[]> | null>(null);
-
   useEffect(() => {
     if (isOpen) {
       const fetchCatalogSettings = async () => {

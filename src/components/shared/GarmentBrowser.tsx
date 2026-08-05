@@ -6,7 +6,7 @@ import sanmarCatalogJson from '../../data/sanmar-catalog.json';
 import colorHexMapJson from '../../data/color-hex-map.json';
 import { useAuth } from '../../contexts/AuthContext';
 import { ImportGarmentModal } from './ImportGarmentModal';
-import { getGarmentWeightAndFabric, getOrderedKeys, GARMENT_TYPES, detectGarmentTypeTag, getFilteredProductColors, type GarmentTypeId } from '../../lib/garmentUtils';
+import { GARMENT_TYPES, detectGarmentTypeTag, getFilteredProductColors } from '../../lib/garmentUtils';
 
 const colorHexMap = colorHexMapJson as Record<string, string>;
 
@@ -32,6 +32,7 @@ interface GarmentBrowserProps {
 }
 
 const baseColors: Record<string, string> = {
+  // Whites / Light / Greys
   white: "#FFFFFF",
   snow: "#FBFBF9",
   bone: "#E3DAC9",
@@ -57,11 +58,15 @@ const baseColors: Record<string, string> = {
   alumninum: "#A9ACB6",
   quarry: "#7A8187",
   smoke: "#8A95A5",
+
+  // Blacks / Darks
   black: "#1A1A1A",
   dark: "#1A1A1A",
   onyx: "#0F0F0F",
   coal: "#2A2A2A",
   obsidian: "#121212",
+
+  // Blues
   navy: "#0A1128",
   patriot: "#0D1B2A",
   royal: "#0F4C81",
@@ -77,6 +82,8 @@ const baseColors: Record<string, string> = {
   denim: "#2F4F4F",
   indigo: "#4B0082",
   parcel: "#1E507F",
+
+  // Reds / Pinks
   red: "#B91C1C",
   cardinal: "#800020",
   maroon: "#581845",
@@ -92,6 +99,8 @@ const baseColors: Record<string, string> = {
   coral: "#FF7F50",
   peach: "#FFDAB9",
   apricot: "#FBCEB1",
+
+  // Greens
   green: "#15803D",
   kelly: "#16A34A",
   emerald: "#047857",
@@ -104,6 +113,8 @@ const baseColors: Record<string, string> = {
   army: "#4B5320",
   forest: "#228B22",
   lime: "#84CC16",
+
+  // Yellows / Golds / Oranges
   yellow: "#FACC15",
   gold: "#D97706",
   vegas: "#C5B358",
@@ -113,9 +124,13 @@ const baseColors: Record<string, string> = {
   copper: "#B87333",
   bronze: "#CD7F32",
   mustard: "#FFDB58",
+
+  // Purples
   purple: "#7C3AED",
   lavender: "#E9D5FF",
   violet: "#8F00FF",
+
+  // Browns / Tans
   brown: "#451A03",
   chocolate: "#451A03",
   tan: "#D2B48C",
@@ -131,53 +146,64 @@ const baseColors: Record<string, string> = {
 
 function resolveSingleColor(part: string): string {
   const normalized = part.toLowerCase().trim();
+  
+  // 1. Try exact case-insensitive match in generated color-hex-map
   for (const [key, hex] of Object.entries(colorHexMap)) {
     if (key.toLowerCase() === normalized) {
       return hex;
     }
   }
+
+  // 2. Try substring match in generated color-hex-map (e.g. if "biscuit" matches "biscuit/ true blue")
   for (const [key, hex] of Object.entries(colorHexMap)) {
     const keyLower = key.toLowerCase();
     if (keyLower.includes(normalized) || normalized.includes(keyLower)) {
       return hex;
     }
   }
+
+  // 3. Fall back to baseColors exact match
   if (baseColors[normalized]) {
     return baseColors[normalized];
   }
+  
+  // 4. Fall back to baseColors multi-word and sub-matches
   for (const [key, hex] of Object.entries(baseColors)) {
     if (key.includes(' ') && normalized.includes(key)) {
       return hex;
     }
   }
+  
   for (const [key, hex] of Object.entries(baseColors)) {
     if (!key.includes(' ') && normalized.includes(key)) {
       return hex;
     }
   }
+  
   return "#D1D5DB";
 }
 
 export function getSwatchColor(colorName: string, returnGradient = false): string {
   if (!colorName) return "#D1D5DB";
+  
   const parts = colorName.split('/').map(p => p.trim()).filter(Boolean);
   if (parts.length === 0) return "#D1D5DB";
+  
   const colors = parts.map(resolveSingleColor);
+  
   if (!returnGradient || colors.length === 1) {
     return colors[0];
   }
+  
   if (colors.length === 2) {
     return `linear-gradient(135deg, ${colors[0]} 50%, ${colors[1]} 50%)`;
   }
+  
   if (colors.length === 3) {
     return `linear-gradient(135deg, ${colors[0]} 33%, ${colors[1]} 33%, ${colors[1]} 66%, ${colors[2]} 66%)`;
   }
+  
   return colors[0];
-}
-
-function resolveGarmentImage(product: SanMarProduct, color: string): string | null {
-  const imageSet = product.images[color] || Object.values(product.images)[0];
-  return imageSet ? (typeof imageSet === 'string' ? imageSet : imageSet.front) : null;
 }
 
 export function GarmentBrowser({ isOpen, onClose, onSelect, allowedStyleCodes, hidePricing = false }: GarmentBrowserProps) {
@@ -186,6 +212,8 @@ export function GarmentBrowser({ isOpen, onClose, onSelect, allowedStyleCodes, h
   const [selectedBrand, setSelectedBrand] = useState('All');
   const [selectedGarmentType, setSelectedGarmentType] = useState('All');
   const [visibleCount, setVisibleCount] = useState(24);
+  
+  // Track the active preview color for each product style code
   const [productPreviewColors, setProductPreviewColors] = useState<Record<string, string>>({});
   const [expandedProducts, setExpandedProducts] = useState<Record<string, boolean>>({});
   const [customProducts, setCustomProducts] = useState<any[]>([]);
@@ -193,6 +221,7 @@ export function GarmentBrowser({ isOpen, onClose, onSelect, allowedStyleCodes, h
   const [allowedColors, setAllowedColors] = useState<Record<string, string[]>>({});
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
+  // Fetch custom imported products and garment tags from Firestore
   useEffect(() => {
     if (!isOpen) return;
     const fetchCustomItems = async () => {
@@ -219,10 +248,12 @@ export function GarmentBrowser({ isOpen, onClose, onSelect, allowedStyleCodes, h
     return Array.from(map.values()) as SanMarProduct[];
   }, [customProducts]);
 
+  // Reset visibleCount when queries or filters change
   useEffect(() => {
     setVisibleCount(24);
   }, [searchQuery, selectedBrand, selectedGarmentType, isOpen]);
 
+  // Get list of unique brands for filters
   const brands = useMemo(() => {
     const sourceList = (allowedStyleCodes && allowedStyleCodes.length > 0)
       ? allCatalog.filter(p => allowedStyleCodes.map(s => s.toLowerCase()).includes(p.style.toLowerCase()))
@@ -231,20 +262,24 @@ export function GarmentBrowser({ isOpen, onClose, onSelect, allowedStyleCodes, h
     return ['All', ...Array.from(unique)];
   }, [allowedStyleCodes, allCatalog]);
 
+  // Filtered products list
   const filteredProducts = useMemo(() => {
     let list = allCatalog;
     if (allowedStyleCodes && allowedStyleCodes.length > 0) {
       const lowerCodes = allowedStyleCodes.map(s => s.toLowerCase());
       list = allCatalog.filter(p => lowerCodes.includes(p.style.toLowerCase()));
     }
+    
     return list.filter(p => {
       const matchesSearch = 
         p.style.toLowerCase().includes(searchQuery.toLowerCase()) ||
         p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         p.brand.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (p.description || '').toLowerCase().includes(searchQuery.toLowerCase());
+      
       const matchesBrand = selectedBrand === 'All' || p.brand === selectedBrand;
       const matchesType = selectedGarmentType === 'All' || detectGarmentTypeTag(p, garmentTypeTags) === selectedGarmentType;
+
       return matchesSearch && matchesBrand && matchesType;
     });
   }, [searchQuery, selectedBrand, selectedGarmentType, allowedStyleCodes, allCatalog, garmentTypeTags]);
@@ -253,11 +288,16 @@ export function GarmentBrowser({ isOpen, onClose, onSelect, allowedStyleCodes, h
 
   return (
     <div className="fixed inset-0 z-[130] overflow-hidden flex items-center justify-center p-4 sm:p-6 md:p-10">
+      {/* Backdrop */}
       <div 
         className="absolute inset-0 bg-neutral-900/60 backdrop-blur-sm transition-opacity duration-300 animate-in fade-in"
         onClick={onClose}
       />
+
+      {/* Modal Container */}
       <div className="relative w-full max-w-5xl h-[85vh] md:h-[80vh] bg-white rounded-3xl shadow-2xl border border-brand-border flex flex-col overflow-hidden animate-in zoom-in-95 duration-300 z-10">
+        
+        {/* Header */}
         <div className="p-6 md:p-8 border-b border-brand-border flex items-center justify-between bg-white shrink-0">
           <div className="space-y-1">
             <h2 className="text-2xl font-serif text-brand-primary tracking-tight flex items-center gap-2">
@@ -285,8 +325,11 @@ export function GarmentBrowser({ isOpen, onClose, onSelect, allowedStyleCodes, h
             </button>
           </div>
         </div>
+
+        {/* Filters Panel */}
         <div className="px-6 py-4 md:px-8 bg-neutral-50 border-b border-brand-border flex flex-col gap-3 shrink-0">
           <div className="flex flex-col md:flex-row gap-4 justify-between items-stretch md:items-center">
+            {/* Search bar */}
             <div className="relative w-full md:w-72 shrink-0">
               <input 
                 type="text" 
@@ -297,6 +340,8 @@ export function GarmentBrowser({ isOpen, onClose, onSelect, allowedStyleCodes, h
               />
               <Search className="absolute left-3.5 top-3.5 text-neutral-400" size={16} />
             </div>
+
+            {/* Brand Tabs */}
             <div className="flex-1 min-w-0 flex gap-1.5 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
               {brands.map(brand => (
                 <button
@@ -313,6 +358,8 @@ export function GarmentBrowser({ isOpen, onClose, onSelect, allowedStyleCodes, h
               ))}
             </div>
           </div>
+
+          {/* Garment Type Filter Chips */}
           <div className="flex items-center gap-1.5 overflow-x-auto pt-1 scrollbar-none">
             <span className="text-[10px] font-bold text-neutral-400 uppercase shrink-0 mr-1">Type:</span>
             <button
@@ -340,6 +387,8 @@ export function GarmentBrowser({ isOpen, onClose, onSelect, allowedStyleCodes, h
             ))}
           </div>
         </div>
+
+        {/* Catalog Grid */}
         <div className="flex-1 overflow-y-auto p-6 md:p-8 bg-brand-bg/25">
           {filteredProducts.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center p-8 bg-white border border-brand-border rounded-2xl">
@@ -354,36 +403,44 @@ export function GarmentBrowser({ isOpen, onClose, onSelect, allowedStyleCodes, h
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
               {filteredProducts.slice(0, visibleCount).map(product => {
+                // Determine current preview color (defaults to first color available)
                 const productColors = getFilteredProductColors(product, allowedColors);
                 const currentPreviewColor = (productPreviewColors[product.style] && productColors.includes(productPreviewColors[product.style]))
                   ? productPreviewColors[product.style]
                   : (productColors[0] || 'Black');
-                const firstColorImg = resolveGarmentImage(product, currentPreviewColor);
-                const pPrice = product.price;
+                const imageSet = product.images[currentPreviewColor] || Object.values(product.images)[0];
+                const previewImgUrl = imageSet ? (typeof imageSet === 'string' ? imageSet : imageSet.front) : '';
 
                 return (
                   <div 
                     key={product.style} 
-                    className="bg-white border border-brand-border rounded-2xl p-5 hover:border-neutral-400 hover:shadow-lg transition-all flex flex-col justify-between group"
+                    className="bg-white border border-brand-border rounded-2xl overflow-hidden flex flex-col hover:shadow-[0_12px_32px_rgba(0,0,0,0.06)] hover:-translate-y-1 transition-all duration-300 group"
                   >
-                    <div className="space-y-4">
-                      <div className="aspect-[4/5] bg-neutral-50 rounded-xl border border-brand-border/40 p-4 flex items-center justify-center relative overflow-hidden bg-checkerboard group-hover:bg-white transition-colors">
-                        {firstColorImg ? (
-                          <img 
-                            src={firstColorImg} 
-                            alt={`${product.title} in ${currentPreviewColor}`}
-                            className="w-full h-full object-contain mix-blend-multiply transition-transform duration-300 group-hover:scale-105"
-                          />
-                        ) : (
-                          <Shirt className="text-neutral-300" size={48} />
-                        )}
-                        {!hidePricing && hasPermission('viewPricing') && userData?.role !== 'Client' && (
-                          <span className="absolute top-2.5 right-2.5 bg-white/90 backdrop-blur-xs px-2 py-0.5 rounded-md text-[10px] font-bold text-brand-primary border border-brand-border/40 shadow-2xs">
-                            ${pPrice.toFixed(2)}
-                          </span>
-                        )}
+                    {/* Visual Preview */}
+                    <div className="aspect-[4/5] bg-white border-b border-brand-border flex items-center justify-center p-6 relative overflow-hidden shrink-0 transition-colors">
+                      {/* Price Badge */}
+                      {!hidePricing && hasPermission('viewPricing') && userData?.role !== 'Client' && (
+                        <div className="absolute top-4 left-4 z-10 bg-white/95 backdrop-blur-xs border border-brand-border text-brand-primary text-xs font-bold px-3 py-1 rounded-full flex items-center gap-0.5 shadow-sm">
+                          <DollarSign size={11} />{product.price.toFixed(2)}
+                        </div>
+                      )}
+
+                      {/* Category Badge */}
+                      <div className="absolute top-4 right-4 bg-white/85 backdrop-blur-xs border border-brand-border text-brand-secondary text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md">
+                        {product.category}
                       </div>
-                      <div className="space-y-1">
+
+                      {/* T-Shirt Render */}
+                      <img 
+                        src={previewImgUrl} 
+                        alt={`${product.title} in ${currentPreviewColor}`}
+                        className="max-w-[82%] max-h-[82%] object-contain filter drop-shadow-sm select-none pointer-events-none group-hover:scale-103 transition-transform duration-500"
+                      />
+                    </div>
+
+                    {/* Meta info */}
+                    <div className="p-5 flex-1 flex flex-col justify-between gap-4">
+                      <div className="space-y-1.5">
                         <div className="flex items-center gap-1.5">
                           <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">{product.brand}</span>
                           <span className="text-[10px] bg-neutral-100 text-neutral-600 font-bold px-1.5 py-0.25 rounded-md uppercase">{product.style}</span>
@@ -391,6 +448,26 @@ export function GarmentBrowser({ isOpen, onClose, onSelect, allowedStyleCodes, h
                         <h4 className="text-base font-bold text-brand-primary leading-tight group-hover:text-brand-primary/95 transition-colors">
                           {product.title.replace(`${product.brand} `, '').replace(/®/g, '').trim()}
                         </h4>
+                        <p className="text-xs text-brand-secondary line-clamp-2 leading-relaxed">
+                          {product.description}
+                        </p>
+                      </div>
+
+                      {/* Swatches & Select Button */}
+                      <div className="space-y-4 pt-2 border-t border-brand-border/40">
+                        {/* Swatches block */}
+                        <div className="space-y-1.5">
+                          <span className="text-[10px] font-bold text-brand-secondary uppercase tracking-wider block">
+                            Available Colors ({productColors.length})
+                          </span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {(expandedProducts[product.style] ? productColors : productColors.slice(0, 8)).map(color => {
+                              const hex = getSwatchColor(color, true);
+                              const isActive = currentPreviewColor === color;
+                              const isWhite = color.toLowerCase() === 'white';
+                              
+                              return (
+                                <button
                                   key={color}
                                   type="button"
                                   title={color}
