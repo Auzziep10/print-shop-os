@@ -349,6 +349,8 @@ export function StorefrontCatalogTab() {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [uploadingSlotKey, setUploadingSlotKey] = useState<string | null>(null);
   const [activeColorModalItem, setActiveColorModalItem] = useState<any | null>(null);
+  const [colorSearchQuery, setColorSearchQuery] = useState('');
+  const [colorFilterTab, setColorFilterTab] = useState<'all' | 'enabled' | 'hidden' | 'custom'>('all');
 
   // Logo placement editor modal state
   const [placementTarget, setPlacementTarget] = useState<{
@@ -2058,315 +2060,469 @@ export function StorefrontCatalogTab() {
       )}
 
       {/* Import Custom Item Modal */}
-      {/* Color Variations & Mockups Modal */}
-      {activeColorModalItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
-          <div className="bg-white border border-brand-border rounded-2xl shadow-2xl max-w-3xl w-full p-6 space-y-6 overflow-hidden max-h-[85vh] flex flex-col">
-            <div className="flex items-start justify-between gap-4 border-b border-neutral-100 pb-4">
-              <div>
-                <h3 className="text-lg font-serif text-brand-primary font-bold flex items-center gap-2">
-                  <ImageIcon size={20} className="text-brand-primary" />
-                  Color Variations & Mockups for {activeColorModalItem.brand} {activeColorModalItem.style}
-                </h3>
-                <p className="text-xs text-brand-secondary">
-                  Manage custom mockup image overrides and tagless neck tag removal for every color variation.
-                </p>
-              </div>
-              <button 
-                onClick={() => setActiveColorModalItem(null)}
-                className="p-1 text-neutral-400 hover:text-brand-primary rounded-lg transition-all"
-              >
-                <X size={20} />
-              </button>
-            </div>
+      {/* Color Variations & Mockups Modal (Full-screen Manager) */}
+      {activeColorModalItem && (() => {
+        const modalStyleKey = activeColorModalItem.style.toLowerCase().trim();
+        const allItemColors: string[] = activeColorModalItem.colors || [];
+        const currentAllowed: string[] = allowedColors[modalStyleKey] ?? allItemColors;
+        const allowedCount = currentAllowed.length;
+        const totalCount = allItemColors.length;
+        const hiddenCount = totalCount - allowedCount;
 
-            <div className="space-y-3">
-              <div className="flex items-center justify-between bg-neutral-50 p-3 rounded-xl border border-brand-border">
-                <div className="flex items-center gap-2">
-                  <Scissors size={16} className="text-emerald-700" />
-                  <span className="text-xs font-bold text-brand-primary">Tagless Collar (Manufacturer Tag Removal):</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const key = activeColorModalItem.style.toLowerCase();
-                    setRemoveNeckTag(prev => ({
-                      ...prev,
-                      [key]: !(prev[key] ?? true)
-                    }));
-                  }}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border cursor-pointer ${
-                    (removeNeckTag[activeColorModalItem.style.toLowerCase()] ?? true)
-                      ? 'bg-emerald-600 text-white border-emerald-600'
-                      : 'bg-white text-neutral-600 border-neutral-300'
-                  }`}
-                >
-                  {(removeNeckTag[activeColorModalItem.style.toLowerCase()] ?? true) ? 'Enabled (Tag Removed)' : 'Disabled (Original Tag)'}
-                </button>
-              </div>
+        let customMockupCount = 0;
+        allItemColors.forEach(c => {
+          const rawVal = colorMockups[modalStyleKey]?.[c];
+          if (rawVal) {
+            const front = typeof rawVal === 'string' ? rawVal : rawVal?.front;
+            const back = typeof rawVal === 'object' ? rawVal?.back : null;
+            if (front || back) customMockupCount++;
+          }
+        });
 
-              {/* Storefront Color Availability Control Bar */}
-              {(() => {
-                const modalStyleKey = activeColorModalItem.style.toLowerCase().trim();
-                const allItemColors: string[] = activeColorModalItem.colors || [];
-                const currentAllowed: string[] = allowedColors[modalStyleKey] ?? allItemColors;
-                const allowedCount = currentAllowed.length;
-                const totalCount = allItemColors.length;
+        const displayedColors = allItemColors.filter(color => {
+          const matchesSearch = color.toLowerCase().includes(colorSearchQuery.toLowerCase().trim());
+          const isAllowed = currentAllowed.includes(color);
 
-                return (
-                  <div className="flex flex-wrap items-center justify-between gap-3 bg-neutral-50 p-3 rounded-xl border border-brand-border">
-                    <div className="flex items-center gap-2">
-                      <Eye size={16} className="text-brand-primary" />
-                      <span className="text-xs font-bold text-brand-primary">
-                        Storefront Color Options ({allowedCount} of {totalCount} Enabled):
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setAllowedColors(prev => ({
-                            ...prev,
-                            [modalStyleKey]: [...allItemColors]
-                          }));
-                        }}
-                        className="px-2.5 py-1 bg-white hover:bg-emerald-50 text-emerald-700 border border-emerald-300 rounded-lg text-xs font-bold transition-all cursor-pointer"
-                      >
-                        Enable All
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setAllowedColors(prev => ({
-                            ...prev,
-                            [modalStyleKey]: []
-                          }));
-                        }}
-                        className="px-2.5 py-1 bg-white hover:bg-rose-50 text-rose-600 border border-neutral-300 hover:border-rose-300 rounded-lg text-xs font-bold transition-all cursor-pointer"
-                      >
-                        Disable All
-                      </button>
-                    </div>
+          const rawVal = colorMockups[modalStyleKey]?.[color];
+          const customFront = typeof rawVal === 'string' ? rawVal : (rawVal?.front || null);
+          const customBack = typeof rawVal === 'object' ? (rawVal?.back || null) : null;
+          const hasCustom = Boolean(customFront || customBack);
+
+          if (!matchesSearch) return false;
+          if (colorFilterTab === 'enabled') return isAllowed;
+          if (colorFilterTab === 'hidden') return !isAllowed;
+          if (colorFilterTab === 'custom') return hasCustom;
+          return true;
+        });
+
+        const isTaglessActive = removeNeckTag[activeColorModalItem.style.toLowerCase()] ?? true;
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-2 sm:p-4 md:p-6 animate-in fade-in duration-200">
+            <div className="bg-white border border-brand-border rounded-3xl shadow-2xl w-full max-w-7xl h-full max-h-[95vh] flex flex-col overflow-hidden">
+              
+              {/* Header Bar */}
+              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 p-5 md:px-8 md:py-6 border-b border-neutral-150 bg-white shrink-0">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs bg-neutral-900 text-white font-black px-2.5 py-0.5 rounded-md uppercase tracking-wider">
+                      {activeColorModalItem.style}
+                    </span>
+                    <span className="text-xs font-bold text-neutral-500 uppercase tracking-widest">
+                      {activeColorModalItem.brand}
+                    </span>
+                    <span className="text-xs bg-neutral-100 text-neutral-600 font-bold px-2 py-0.5 rounded uppercase">
+                      {activeColorModalItem.category}
+                    </span>
                   </div>
-                );
-              })()}
-            </div>
+                  <h3 className="text-xl md:text-2xl font-serif text-brand-primary font-bold">
+                    {activeColorModalItem.title} — Color Variations & Storefront Availability
+                  </h3>
+                  <p className="text-xs text-brand-secondary">
+                    Control which colors storefront customers can see, upload custom mockup overrides, and toggle tagless collar mode.
+                  </p>
+                </div>
 
-            <div className="flex-1 overflow-y-auto pr-1 space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                {(activeColorModalItem.colors || []).map((color: string) => {
-                  const styleKey = activeColorModalItem.style.toLowerCase().trim();
-                  const allItemColors: string[] = activeColorModalItem.colors || [];
-                  const currentAllowed: string[] = allowedColors[styleKey] ?? allItemColors;
-                  const isColorAllowed = currentAllowed.includes(color);
+                <div className="flex items-center gap-3 w-full md:w-auto justify-end">
+                  <PillButton variant="filled" onClick={() => setActiveColorModalItem(null)} className="px-6 py-2.5 text-xs font-bold gap-2">
+                    <Check size={16} /> Save & Done
+                  </PillButton>
+                  <button 
+                    onClick={() => setActiveColorModalItem(null)}
+                    className="p-2 text-neutral-400 hover:text-brand-primary hover:bg-neutral-100 rounded-full transition-all cursor-pointer"
+                  >
+                    <X size={22} />
+                  </button>
+                </div>
+              </div>
 
-                  const rawVal = colorMockups[styleKey]?.[color];
-                  const customFront = typeof rawVal === 'string' ? rawVal : (rawVal?.front || null);
-                  const customBack = typeof rawVal === 'object' ? (rawVal?.back || null) : null;
+              {/* Control Stats & Quick Actions Toolbar */}
+              <div className="p-4 md:px-8 bg-neutral-50 border-b border-brand-border flex flex-wrap items-center justify-between gap-4 shrink-0">
+                {/* Stats */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="bg-white border border-neutral-200 px-3 py-1.5 rounded-xl flex items-center gap-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">Total Colors</span>
+                    <span className="text-xs font-black text-brand-primary">{totalCount}</span>
+                  </div>
 
-                  const origImgSet = activeColorModalItem.images?.[color] || Object.values(activeColorModalItem.images || {})[0];
-                  const origFrontUrl = typeof origImgSet === 'string' ? origImgSet : (origImgSet?.front || '');
+                  <div className="bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-xl flex items-center gap-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">Storefront Active</span>
+                    <span className="text-xs font-black text-emerald-700">{allowedCount}</span>
+                  </div>
 
-                  const origBackSet = activeColorModalItem.backImages?.[color] || Object.values(activeColorModalItem.backImages || {})[0];
-                  const origBackUrl = typeof origBackSet === 'string' ? origBackSet : (origBackSet?.back || '');
+                  {hiddenCount > 0 && (
+                    <div className="bg-rose-50 border border-rose-200 px-3 py-1.5 rounded-xl flex items-center gap-2">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-rose-800">Hidden</span>
+                      <span className="text-xs font-black text-rose-700">{hiddenCount}</span>
+                    </div>
+                  )}
 
-                  const currentFront = customFront || origFrontUrl;
-                  const currentBack = customBack || origBackUrl;
+                  {customMockupCount > 0 && (
+                    <div className="bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-xl flex items-center gap-2">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800">Custom Mockups</span>
+                      <span className="text-xs font-black text-amber-700">{customMockupCount}</span>
+                    </div>
+                  )}
+                </div>
 
-                  return (
-                    <div 
-                      key={color} 
-                      className={`border rounded-xl p-3 space-y-3 flex flex-col justify-between transition-all ${
-                        isColorAllowed 
-                          ? 'border-brand-border bg-white shadow-xs' 
-                          : 'border-neutral-200 bg-neutral-50/80 opacity-75 hover:opacity-100'
+                {/* Quick Action Buttons */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const key = activeColorModalItem.style.toLowerCase();
+                      setRemoveNeckTag(prev => ({
+                        ...prev,
+                        [key]: !(prev[key] ?? true)
+                      }));
+                    }}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border cursor-pointer flex items-center gap-1.5 ${
+                      isTaglessActive
+                        ? 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700'
+                        : 'bg-white text-neutral-700 border-neutral-300 hover:bg-neutral-100'
+                    }`}
+                  >
+                    <Scissors size={14} />
+                    <span>Tagless Collar: {isTaglessActive ? 'Active (Removed)' : 'Off (Original)'}</span>
+                  </button>
+
+                  <div className="h-4 w-px bg-neutral-300 hidden sm:block" />
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAllowedColors(prev => ({
+                        ...prev,
+                        [modalStyleKey]: [...allItemColors]
+                      }));
+                    }}
+                    className="px-3 py-1.5 bg-white hover:bg-emerald-50 text-emerald-700 border border-emerald-300 hover:border-emerald-400 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1"
+                  >
+                    <Check size={14} /> Enable All
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAllowedColors(prev => ({
+                        ...prev,
+                        [modalStyleKey]: []
+                      }));
+                    }}
+                    className="px-3 py-1.5 bg-white hover:bg-rose-50 text-rose-600 border border-neutral-300 hover:border-rose-300 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1"
+                  >
+                    <X size={14} /> Disable All
+                  </button>
+                </div>
+              </div>
+
+              {/* Search Bar & Filter Tabs */}
+              <div className="p-4 md:px-8 bg-white border-b border-neutral-150 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 shrink-0">
+                {/* Search */}
+                <div className="relative w-full md:w-80">
+                  <input 
+                    type="text"
+                    placeholder="Search color name (e.g. Heather, Navy)..."
+                    value={colorSearchQuery}
+                    onChange={(e) => setColorSearchQuery(e.target.value)}
+                    className="w-full bg-neutral-50 border border-neutral-250 rounded-xl pl-9 pr-8 py-2 text-xs font-bold text-brand-primary focus:outline-none focus:border-neutral-400 focus:bg-white transition-all placeholder:text-neutral-400 font-medium"
+                  />
+                  <Search className="absolute left-3 top-2.5 text-neutral-400" size={14} />
+                  {colorSearchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setColorSearchQuery('')}
+                      className="absolute right-2.5 top-2.5 text-neutral-400 hover:text-black cursor-pointer"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+
+                {/* Filter Tabs */}
+                <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none">
+                  <button
+                    type="button"
+                    onClick={() => setColorFilterTab('all')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all border cursor-pointer ${
+                      colorFilterTab === 'all'
+                        ? 'bg-neutral-900 text-white border-neutral-900'
+                        : 'bg-white text-neutral-600 border-neutral-200 hover:bg-neutral-100'
+                    }`}
+                  >
+                    All Colors ({totalCount})
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setColorFilterTab('enabled')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all border cursor-pointer ${
+                      colorFilterTab === 'enabled'
+                        ? 'bg-emerald-600 text-white border-emerald-600'
+                        : 'bg-white text-emerald-800 border-emerald-200 hover:bg-emerald-50'
+                    }`}
+                  >
+                    Storefront Active ({allowedCount})
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setColorFilterTab('hidden')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all border cursor-pointer ${
+                      colorFilterTab === 'hidden'
+                        ? 'bg-rose-600 text-white border-rose-600'
+                        : 'bg-white text-rose-700 border-rose-200 hover:bg-rose-50'
+                    }`}
+                  >
+                    Hidden from Customers ({hiddenCount})
+                  </button>
+
+                  {customMockupCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setColorFilterTab('custom')}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all border cursor-pointer ${
+                        colorFilterTab === 'custom'
+                          ? 'bg-amber-600 text-white border-amber-600'
+                          : 'bg-white text-amber-800 border-amber-200 hover:bg-amber-50'
                       }`}
                     >
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between gap-1">
-                          <span 
-                            className={`text-xs font-bold truncate ${isColorAllowed ? 'text-brand-primary' : 'text-neutral-400 line-through'}`} 
-                            title={color}
-                          >
-                            {color}
-                          </span>
-                          <div className="flex gap-1 shrink-0">
-                            {customFront && <span className="text-[8px] font-extrabold uppercase text-amber-700 bg-amber-100 px-1 rounded">Front Custom</span>}
-                            {customBack && <span className="text-[8px] font-extrabold uppercase text-indigo-700 bg-indigo-100 px-1 rounded">Back Custom</span>}
-                          </div>
-                        </div>
-
-                        {/* Storefront Availability Toggle Button */}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setAllowedColors(prev => {
-                              const list = prev[styleKey] ?? allItemColors;
-                              const next = list.includes(color) ? list.filter((c: string) => c !== color) : [...list, color];
-                              return { ...prev, [styleKey]: next };
-                            });
-                          }}
-                          className={`w-full py-1 px-2 rounded-lg text-[10px] font-bold transition-all flex items-center justify-between border cursor-pointer ${
-                            isColorAllowed
-                              ? 'bg-emerald-50 text-emerald-900 border-emerald-300 hover:bg-emerald-100'
-                              : 'bg-neutral-100 text-neutral-600 border-neutral-300 hover:bg-neutral-200'
-                          }`}
-                          title={isColorAllowed ? "Click to remove this color option from customer storefront" : "Click to allow this color option for customer storefront"}
-                        >
-                          <span className="flex items-center gap-1.5">
-                            {isColorAllowed ? <Eye size={12} className="text-emerald-600" /> : <EyeOff size={12} className="text-neutral-400" />}
-                            <span>{isColorAllowed ? 'Storefront Enabled' : 'Hidden from Storefront'}</span>
-                          </span>
-                          <span className={`px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase ${
-                            isColorAllowed ? 'bg-emerald-600 text-white' : 'bg-neutral-300 text-neutral-700'
-                          }`}>
-                            {isColorAllowed ? 'Active' : 'Off'}
-                          </span>
-                        </button>
-
-                        {/* Side-by-Side Front and Back previews */}
-                        <div className="grid grid-cols-2 gap-2">
-                          <div className="space-y-1">
-                            <span className="text-[9px] font-bold text-neutral-400 block text-center uppercase">Front</span>
-                            <div className="w-full h-28 bg-neutral-50 rounded-lg border border-neutral-200 flex items-center justify-center p-1 relative overflow-hidden bg-checkerboard">
-                              {currentFront ? (
-                                <img src={currentFront} alt={`${color} front`} className="max-w-full max-h-full object-contain mix-blend-multiply" />
-                              ) : (
-                                <span className="text-[10px] text-neutral-400">No Front</span>
-                              )}
-                            </div>
-                            <label className="w-full py-1 px-1.5 bg-neutral-100 hover:bg-neutral-200 text-brand-primary rounded-lg text-[10px] font-bold transition-all text-center cursor-pointer block truncate">
-                              <span>{customFront ? 'Change Front' : 'Upload Front'}</span>
-                              <input 
-                                type="file" 
-                                accept="image/*" 
-                                className="hidden" 
-                                onChange={async (e) => {
-                                  const file = e.target.files?.[0];
-                                  if (!file) return;
-                                  try {
-                                    const storageRef = ref(storage, `storefront_color_mockups/${styleKey}/${color}_front_${Date.now()}_${file.name}`);
-                                    await uploadBytes(storageRef, file);
-                                    const url = await getDownloadURL(storageRef);
-                                    setColorMockups(prev => {
-                                      const existing = prev[styleKey]?.[color];
-                                      const back = typeof existing === 'object' ? existing?.back : undefined;
-                                      return {
-                                        ...prev,
-                                        [styleKey]: {
-                                          ...(prev[styleKey] || {}),
-                                          [color]: { front: url, ...(back ? { back } : {}) }
-                                        }
-                                      };
-                                    });
-                                  } catch (err) {
-                                    console.error("Failed to upload front color mockup:", err);
-                                    alert("Failed to upload image.");
-                                  }
-                                }}
-                              />
-                            </label>
-                            {customFront && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setColorMockups(prev => {
-                                    const existing = prev[styleKey]?.[color];
-                                    const back = typeof existing === 'object' ? existing?.back : undefined;
-                                    const styleMap = { ...(prev[styleKey] || {}) };
-                                    if (back) {
-                                      styleMap[color] = { back };
-                                    } else {
-                                      delete styleMap[color];
-                                    }
-                                    return { ...prev, [styleKey]: styleMap };
-                                  });
-                                }}
-                                className="w-full py-0.5 text-rose-600 hover:bg-rose-50 rounded text-[9px] font-bold transition-all text-center block"
-                              >
-                                Clear Front
-                              </button>
-                            )}
-                          </div>
-
-                          <div className="space-y-1">
-                            <span className="text-[9px] font-bold text-neutral-400 block text-center uppercase">Back</span>
-                            <div className="w-full h-28 bg-neutral-50 rounded-lg border border-neutral-200 flex items-center justify-center p-1 relative overflow-hidden bg-checkerboard">
-                              {currentBack ? (
-                                <img src={currentBack} alt={`${color} back`} className="max-w-full max-h-full object-contain mix-blend-multiply" />
-                              ) : (
-                                <span className="text-[10px] text-neutral-400">No Back</span>
-                              )}
-                            </div>
-                            <label className="w-full py-1 px-1.5 bg-neutral-100 hover:bg-neutral-200 text-brand-primary rounded-lg text-[10px] font-bold transition-all text-center cursor-pointer block truncate">
-                              <span>{customBack ? 'Change Back' : 'Upload Back'}</span>
-                              <input 
-                                type="file" 
-                                accept="image/*" 
-                                className="hidden" 
-                                onChange={async (e) => {
-                                  const file = e.target.files?.[0];
-                                  if (!file) return;
-                                  try {
-                                    const storageRef = ref(storage, `storefront_color_mockups/${styleKey}/${color}_back_${Date.now()}_${file.name}`);
-                                    await uploadBytes(storageRef, file);
-                                    const url = await getDownloadURL(storageRef);
-                                    setColorMockups(prev => {
-                                      const existing = prev[styleKey]?.[color];
-                                      const front = typeof existing === 'string' ? existing : (typeof existing === 'object' ? existing?.front : undefined);
-                                      return {
-                                        ...prev,
-                                        [styleKey]: {
-                                          ...(prev[styleKey] || {}),
-                                          [color]: { ...(front ? { front } : {}), back: url }
-                                        }
-                                      };
-                                    });
-                                  } catch (err) {
-                                    console.error("Failed to upload back color mockup:", err);
-                                    alert("Failed to upload image.");
-                                  }
-                                }}
-                              />
-                            </label>
-                            {customBack && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setColorMockups(prev => {
-                                    const existing = prev[styleKey]?.[color];
-                                    const front = typeof existing === 'string' ? existing : (typeof existing === 'object' ? existing?.front : undefined);
-                                    const styleMap = { ...(prev[styleKey] || {}) };
-                                    if (front) {
-                                      styleMap[color] = { front };
-                                    } else {
-                                      delete styleMap[color];
-                                    }
-                                    return { ...prev, [styleKey]: styleMap };
-                                  });
-                                }}
-                                className="w-full py-0.5 text-rose-600 hover:bg-rose-50 rounded text-[9px] font-bold transition-all text-center block"
-                              >
-                                Clear Back
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
+                      Custom Mockups ({customMockupCount})
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
 
-            <div className="flex justify-end pt-4 border-t border-neutral-100">
-              <PillButton variant="filled" onClick={() => setActiveColorModalItem(null)}>
-                Done
-              </PillButton>
+              {/* Color Grid Content */}
+              <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-neutral-50/50">
+                {displayedColors.length === 0 ? (
+                  <div className="h-64 flex flex-col items-center justify-center text-center p-8 bg-white border border-dashed border-neutral-300 rounded-2xl">
+                    <EyeOff size={32} className="text-neutral-300 mb-2" />
+                    <h4 className="text-sm font-bold text-neutral-700">No matching colors found</h4>
+                    <p className="text-xs text-neutral-400 mt-1">Try clearing your search query or filter tab.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-5">
+                    {displayedColors.map((color: string) => {
+                      const isColorAllowed = currentAllowed.includes(color);
+
+                      const rawVal = colorMockups[modalStyleKey]?.[color];
+                      const customFront = typeof rawVal === 'string' ? rawVal : (rawVal?.front || null);
+                      const customBack = typeof rawVal === 'object' ? (rawVal?.back || null) : null;
+
+                      const origImgSet = activeColorModalItem.images?.[color] || Object.values(activeColorModalItem.images || {})[0];
+                      const origFrontUrl = typeof origImgSet === 'string' ? origImgSet : (origImgSet?.front || '');
+
+                      const origBackSet = activeColorModalItem.backImages?.[color] || Object.values(activeColorModalItem.backImages || {})[0];
+                      const origBackUrl = typeof origBackSet === 'string' ? origBackSet : (origBackSet?.back || '');
+
+                      const currentFront = customFront || origFrontUrl;
+                      const currentBack = customBack || origBackUrl;
+
+                      return (
+                        <div 
+                          key={color} 
+                          className={`border rounded-2xl p-3.5 space-y-3 flex flex-col justify-between transition-all ${
+                            isColorAllowed 
+                              ? 'border-neutral-250 bg-white shadow-xs hover:border-neutral-400' 
+                              : 'border-neutral-200 bg-neutral-100/70 opacity-80 hover:opacity-100'
+                          }`}
+                        >
+                          <div className="space-y-2.5">
+                            {/* Color Header & Badges */}
+                            <div className="flex items-center justify-between gap-1.5 border-b border-neutral-100 pb-2">
+                              <span 
+                                className={`text-xs font-extrabold truncate ${isColorAllowed ? 'text-brand-primary' : 'text-neutral-500 line-through'}`} 
+                                title={color}
+                              >
+                                {color}
+                              </span>
+                              <div className="flex gap-1 shrink-0">
+                                {customFront && <span className="text-[8px] font-black uppercase text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded">Front Mock</span>}
+                                {customBack && <span className="text-[8px] font-black uppercase text-indigo-800 bg-indigo-100 px-1.5 py-0.5 rounded">Back Mock</span>}
+                              </div>
+                            </div>
+
+                            {/* Main Storefront Availability Toggle Button */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setAllowedColors(prev => {
+                                  const list = prev[modalStyleKey] ?? allItemColors;
+                                  const next = list.includes(color) ? list.filter((c: string) => c !== color) : [...list, color];
+                                  return { ...prev, [modalStyleKey]: next };
+                                });
+                              }}
+                              className={`w-full py-1.5 px-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between border cursor-pointer ${
+                                isColorAllowed
+                                  ? 'bg-emerald-50 text-emerald-950 border-emerald-300 hover:bg-emerald-100'
+                                  : 'bg-neutral-200/80 text-neutral-700 border-neutral-300 hover:bg-neutral-300'
+                              }`}
+                              title={isColorAllowed ? "Click to remove color from customer storefront" : "Click to enable color for customer storefront"}
+                            >
+                              <span className="flex items-center gap-1.5">
+                                {isColorAllowed ? <Eye size={14} className="text-emerald-600" /> : <EyeOff size={14} className="text-neutral-500" />}
+                                <span>{isColorAllowed ? 'Storefront Active' : 'Hidden from Storefront'}</span>
+                              </span>
+                              <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider ${
+                                isColorAllowed ? 'bg-emerald-600 text-white' : 'bg-neutral-400 text-white'
+                              }`}>
+                                {isColorAllowed ? 'ON' : 'OFF'}
+                              </span>
+                            </button>
+
+                            {/* Front and Back Mockup previews */}
+                            <div className="grid grid-cols-2 gap-2 pt-1">
+                              {/* Front */}
+                              <div className="space-y-1">
+                                <span className="text-[9px] font-bold text-neutral-400 block text-center uppercase tracking-wider">Front</span>
+                                <div className="w-full h-28 bg-neutral-50 rounded-xl border border-neutral-200 flex items-center justify-center p-1 relative overflow-hidden bg-checkerboard">
+                                  {currentFront ? (
+                                    <img src={currentFront} alt={`${color} front`} className="max-w-full max-h-full object-contain mix-blend-multiply" />
+                                  ) : (
+                                    <span className="text-[10px] text-neutral-400">No Image</span>
+                                  )}
+                                </div>
+                                <label className="w-full py-1 px-1.5 bg-neutral-100 hover:bg-neutral-200 text-brand-primary rounded-lg text-[10px] font-bold transition-all text-center cursor-pointer block truncate">
+                                  <span>{customFront ? 'Change Front' : 'Upload Front'}</span>
+                                  <input 
+                                    type="file" 
+                                    accept="image/*" 
+                                    className="hidden" 
+                                    onChange={async (e) => {
+                                      const file = e.target.files?.[0];
+                                      if (!file) return;
+                                      try {
+                                        const storageRef = ref(storage, `storefront_color_mockups/${modalStyleKey}/${color}_front_${Date.now()}_${file.name}`);
+                                        await uploadBytes(storageRef, file);
+                                        const url = await getDownloadURL(storageRef);
+                                        setColorMockups(prev => {
+                                          const existing = prev[modalStyleKey]?.[color];
+                                          const back = typeof existing === 'object' ? existing?.back : undefined;
+                                          return {
+                                            ...prev,
+                                            [modalStyleKey]: {
+                                              ...(prev[modalStyleKey] || {}),
+                                              [color]: { front: url, ...(back ? { back } : {}) }
+                                            }
+                                          };
+                                        });
+                                      } catch (err) {
+                                        console.error("Failed to upload front color mockup:", err);
+                                        alert("Failed to upload image.");
+                                      }
+                                    }}
+                                  />
+                                </label>
+                                {customFront && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setColorMockups(prev => {
+                                        const existing = prev[modalStyleKey]?.[color];
+                                        const back = typeof existing === 'object' ? existing?.back : undefined;
+                                        const styleMap = { ...(prev[modalStyleKey] || {}) };
+                                        if (back) {
+                                          styleMap[color] = { back };
+                                        } else {
+                                          delete styleMap[color];
+                                        }
+                                        return { ...prev, [modalStyleKey]: styleMap };
+                                      });
+                                    }}
+                                    className="w-full py-0.5 text-rose-600 hover:bg-rose-50 rounded text-[9px] font-bold transition-all text-center block cursor-pointer"
+                                  >
+                                    Clear Front
+                                  </button>
+                                )}
+                              </div>
+
+                              {/* Back */}
+                              <div className="space-y-1">
+                                <span className="text-[9px] font-bold text-neutral-400 block text-center uppercase tracking-wider">Back</span>
+                                <div className="w-full h-28 bg-neutral-50 rounded-xl border border-neutral-200 flex items-center justify-center p-1 relative overflow-hidden bg-checkerboard">
+                                  {currentBack ? (
+                                    <img src={currentBack} alt={`${color} back`} className="max-w-full max-h-full object-contain mix-blend-multiply" />
+                                  ) : (
+                                    <span className="text-[10px] text-neutral-400">No Image</span>
+                                  )}
+                                </div>
+                                <label className="w-full py-1 px-1.5 bg-neutral-100 hover:bg-neutral-200 text-brand-primary rounded-lg text-[10px] font-bold transition-all text-center cursor-pointer block truncate">
+                                  <span>{customBack ? 'Change Back' : 'Upload Back'}</span>
+                                  <input 
+                                    type="file" 
+                                    accept="image/*" 
+                                    className="hidden" 
+                                    onChange={async (e) => {
+                                      const file = e.target.files?.[0];
+                                      if (!file) return;
+                                      try {
+                                        const storageRef = ref(storage, `storefront_color_mockups/${modalStyleKey}/${color}_back_${Date.now()}_${file.name}`);
+                                        await uploadBytes(storageRef, file);
+                                        const url = await getDownloadURL(storageRef);
+                                        setColorMockups(prev => {
+                                          const existing = prev[modalStyleKey]?.[color];
+                                          const front = typeof existing === 'string' ? existing : (typeof existing === 'object' ? existing?.front : undefined);
+                                          return {
+                                            ...prev,
+                                            [modalStyleKey]: {
+                                              ...(prev[modalStyleKey] || {}),
+                                              [color]: { ...(front ? { front } : {}), back: url }
+                                            }
+                                          };
+                                        });
+                                      } catch (err) {
+                                        console.error("Failed to upload back color mockup:", err);
+                                        alert("Failed to upload image.");
+                                      }
+                                    }}
+                                  />
+                                </label>
+                                {customBack && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setColorMockups(prev => {
+                                        const existing = prev[modalStyleKey]?.[color];
+                                        const front = typeof existing === 'string' ? existing : (typeof existing === 'object' ? existing?.front : undefined);
+                                        const styleMap = { ...(prev[modalStyleKey] || {}) };
+                                        if (front) {
+                                          styleMap[color] = { front };
+                                        } else {
+                                          delete styleMap[color];
+                                        }
+                                        return { ...prev, [modalStyleKey]: styleMap };
+                                      });
+                                    }}
+                                    className="w-full py-0.5 text-rose-600 hover:bg-rose-50 rounded text-[9px] font-bold transition-all text-center block cursor-pointer"
+                                  >
+                                    Clear Back
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div className="p-4 md:px-8 border-t border-neutral-200 bg-white flex items-center justify-between shrink-0">
+                <span className="text-xs text-neutral-500 font-medium">
+                  Showing {displayedColors.length} of {totalCount} color variations
+                </span>
+                <PillButton variant="filled" onClick={() => setActiveColorModalItem(null)} className="px-8 py-2.5 text-xs font-bold gap-2">
+                  <Check size={16} /> Save & Done
+                </PillButton>
+              </div>
+
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       <ImportGarmentModal
         isOpen={isImportModalOpen}
