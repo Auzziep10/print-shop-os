@@ -576,32 +576,48 @@ export function StorefrontCatalogTab() {
     setIsModalOpen(true);
   };
 
-  const handleSelectProduct = (style: string) => {
+  const handleSelectProduct = async (style: string) => {
     if (!activeSelectTarget) return;
 
     const { mode, category, slot } = activeSelectTarget;
 
+    let nextRacks = racks;
+    let nextBasics = basics;
+
     // Custom display names are slot-level branding and intentionally survive product swaps
     if (mode === 'racks') {
-      setRacks(prev => ({
-        ...prev,
+      nextRacks = {
+        ...racks,
         [category]: {
-          ...prev[category],
+          ...(racks[category] || {}),
           [slot]: style
         }
-      }));
+      };
+      setRacks(nextRacks);
     } else {
-      setBasics(prev => ({
-        ...prev,
+      nextBasics = {
+        ...basics,
         [category]: {
-          ...prev[category],
+          ...(basics[category] || {}),
           [slot]: style
         }
-      }));
+      };
+      setBasics(nextBasics);
     }
 
     setIsModalOpen(false);
     setActiveSelectTarget(null);
+
+    // Auto-persist slot garment replacement to Firestore
+    try {
+      await setDoc(doc(db, 'settings', 'storefront-catalog'), {
+        racks: nextRacks,
+        basics: nextBasics,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+    } catch (err) {
+      console.error("Error auto-persisting replaced garment slot to Firestore:", err);
+    }
   };
 
   const handleAddTheme = () => {

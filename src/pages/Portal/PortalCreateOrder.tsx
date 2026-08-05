@@ -970,11 +970,11 @@ export function PortalCreateOrder() {
           const deckIds = customerData.catalogLinkIds || (customerData.catalogLinkId ? [customerData.catalogLinkId] : []);
           
           // Set customer custom racks, fall back to global settings or defaults
-          const fetchedRacks = customerData.racks || globalRacks;
+          const fetchedRacks = (customerData.customRacksEnabled && customerData.racks) ? customerData.racks : globalRacks;
           setCustomerRacks(fetchedRacks);
-          setCustomNames(customerData.customNames || globalCustomNames);
-          setCustomSpecs(customerData.customSpecs || globalCustomSpecs);
-          setDefaultColors(customerData.defaultColors || globalDefaultColors);
+          setCustomNames((customerData.customRacksEnabled && customerData.customNames) ? customerData.customNames : globalCustomNames);
+          setCustomSpecs((customerData.customRacksEnabled && customerData.customSpecs) ? customerData.customSpecs : globalCustomSpecs);
+          setDefaultColors((customerData.customRacksEnabled && customerData.defaultColors) ? customerData.defaultColors : globalDefaultColors);
 
           const categories = Object.keys(fetchedRacks);
           if (categories.length > 0 && !categories.includes(activeRackCategory)) {

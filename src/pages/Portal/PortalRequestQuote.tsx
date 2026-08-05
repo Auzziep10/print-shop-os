@@ -475,11 +475,11 @@ export function PortalRequestQuote() {
           }
 
           // 4. Fetch Customer Custom Racks (fallback to global racks, then DEFAULT_RACKS)
-          const fetchedRacks = data.racks || globalRacks;
+          const fetchedRacks = (data.customRacksEnabled && data.racks) ? data.racks : globalRacks;
           setCustomerRacks(fetchedRacks);
-          setCustomNames(data.customNames || globalCustomNames);
-          setCustomSpecs(data.customSpecs || globalCustomSpecs);
-          setDefaultColors(data.defaultColors || globalDefaultColors);
+          setCustomNames((data.customRacksEnabled && data.customNames) ? data.customNames : globalCustomNames);
+          setCustomSpecs((data.customRacksEnabled && data.customSpecs) ? data.customSpecs : globalCustomSpecs);
+          setDefaultColors((data.customRacksEnabled && data.defaultColors) ? data.defaultColors : globalDefaultColors);
           
           // Set active category to the first key if the current active category does not exist in fetched racks
           const categories = Object.keys(fetchedRacks);
