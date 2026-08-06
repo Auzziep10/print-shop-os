@@ -2325,7 +2325,7 @@ export function GarmentCustomizerModal({
                         width: `${guide.box.w}%`,
                         height: `${guide.box.h}%`,
                         borderColor: guide.borderColor,
-                        backgroundColor: `${guide.borderColor.replace('0.75', '0.06')}`,
+                        backgroundColor: 'transparent',
                         transform: `translate(-50%, -50%) rotate(${guide.box.r ?? 0}deg)`,
                       }}
                     >
