@@ -50,6 +50,65 @@ export interface LogoBox {
   r?: number; // rotation in degrees (clockwise), applied to the logo via logoRotation
 }
 
+export interface MultiLogoBoxes {
+  large?: LogoBox;
+  medium?: LogoBox;
+  small?: LogoBox;
+  x?: number;
+  y?: number;
+  w?: number;
+  h?: number;
+  r?: number;
+}
+
+const PRINT_SIZE_CONFIGS: {
+  key: 'large' | 'medium' | 'small';
+  label: string;
+  subLabel: string;
+  badgeBg: string;
+  badgeText: string;
+  borderColor: string;
+  activeBorderColor: string;
+  handleColor: string;
+  defaultBox: LogoBox;
+}[] = [
+  {
+    key: 'large',
+    label: 'Large Print',
+    subLabel: 'Full Front / Back (11×14")',
+    badgeBg: 'bg-red-100 text-red-800 border border-red-300',
+    badgeText: 'LARGE PRINT',
+    borderColor: 'rgba(239, 68, 68, 0.65)',
+    activeBorderColor: '#dc2626',
+    handleColor: '#dc2626',
+    defaultBox: { x: 50, y: 38, w: 50, h: 40 }
+  },
+  {
+    key: 'medium',
+    label: 'Medium Print',
+    subLabel: 'Chest / Torso (7×9")',
+    badgeBg: 'bg-blue-100 text-blue-800 border border-blue-300',
+    badgeText: 'MEDIUM PRINT',
+    borderColor: 'rgba(59, 130, 246, 0.65)',
+    activeBorderColor: '#2563eb',
+    handleColor: '#2563eb',
+    defaultBox: { x: 50, y: 34, w: 32, h: 26 }
+  },
+  {
+    key: 'small',
+    label: 'Small Print',
+    subLabel: 'Left / Right Chest (4×4")',
+    badgeBg: 'bg-emerald-100 text-emerald-800 border border-emerald-300',
+    badgeText: 'SMALL PRINT',
+    borderColor: 'rgba(16, 185, 129, 0.65)',
+    activeBorderColor: '#059669',
+    handleColor: '#059669',
+    defaultBox: { x: 36, y: 28, w: 18, h: 14 }
+  }
+];
+
+const MIN_BOX_PX = 14;
+
 const PLACEMENT_PRESETS: { label: string; box: LogoBox }[] = [
   { label: 'Full Front', box: { x: 50, y: 38, w: 50, h: 40 } },
   { label: 'Left Chest', box: { x: 36, y: 28, w: 16, h: 13 } },
@@ -85,6 +144,9 @@ const RESIZE_HANDLES: { id: string; sx: number; sy: number; cursor: string }[] =
   { id: 'e', sx: 1, sy: 0, cursor: 'ew-resize' },
   { id: 'se', sx: 1, sy: 1, cursor: 'nwse-resize' },
   { id: 's', sx: 0, sy: 1, cursor: 'ns-resize' },
+  { id: 'sw', sx: -1, sy: 1, cursor: 'nesw-resize' },
+  { id: 'w', sx: -1, sy: 0, cursor: 'ew-resize' },
+];
 function LogoPlacementModal({
   title,
   imageUrl,
@@ -1000,7 +1062,7 @@ export function StorefrontCatalogTab() {
     }));
   };
 
-  const handleApplyPlacement = (box: LogoBox) => {
+  const handleApplyPlacement = (box: MultiLogoBoxes | LogoBox) => {
     if (!placementTarget) return;
     const { mode, category, slot } = placementTarget;
     setLogoPlacements(prev => {

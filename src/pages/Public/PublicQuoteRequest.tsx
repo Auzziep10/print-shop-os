@@ -219,6 +219,18 @@ interface DesignRackItem {
   customizedSleeveImage?: string;
   customLeftSleeveLogoUrl?: string;
   customRightSleeveLogoUrl?: string;
+  customScaleFront?: number;
+  customOffsetXFront?: number;
+  customOffsetYFront?: number;
+  customRotationFront?: number;
+  customScaleBack?: number;
+  customOffsetXBack?: number;
+  customOffsetYBack?: number;
+  customRotationBack?: number;
+  logoUrlTag?: string;
+  compiledTagMockupUrl?: string;
+  customizedTagImage?: string;
+  tagLayout?: any;
 }
 
 // Admin-defined logo placement box (see StorefrontCatalogTab): center x/y + size,
