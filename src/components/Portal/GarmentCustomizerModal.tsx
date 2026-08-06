@@ -2417,18 +2417,6 @@ export function GarmentCustomizerModal({
                     </div>
                   )}
 
-                  {/* Placement Guides Toggle Pill */}
-                  {currentPlacementGuides && currentPlacementGuides.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setShowPlacementGuides(prev => !prev)}
-                      className="absolute bottom-3 left-3 z-30 bg-white/90 hover:bg-white border border-neutral-200 shadow-xs px-2.5 py-1.5 rounded-full text-[10px] font-extrabold text-neutral-700 hover:text-black flex items-center gap-1.5 transition-all cursor-pointer backdrop-blur-xs"
-                      title="Toggle print placement area boundaries"
-                    >
-                      <Eye size={12} className={showPlacementGuides ? "text-emerald-600" : "text-neutral-400"} />
-                      <span>{showPlacementGuides ? "Placement Areas On" : "Show Placement Areas"}</span>
-                    </button>
-                  )}
                 </>
               )}
 
@@ -2626,6 +2614,17 @@ export function GarmentCustomizerModal({
                   <span className="text-[9px] font-bold uppercase tracking-widest text-neutral-400 bg-neutral-50 border border-neutral-200 px-2 py-0.5 rounded shadow-sm">
                     Size: Large
                   </span>
+                )}
+                {currentPlacementGuides && currentPlacementGuides.length > 0 && activeTab !== 'tag' && (
+                  <button
+                    type="button"
+                    onClick={() => setShowPlacementGuides(prev => !prev)}
+                    className="text-[9px] font-extrabold uppercase tracking-wider text-neutral-700 hover:text-black bg-white border border-neutral-200 px-2.5 py-0.5 rounded-md shadow-sm flex items-center gap-1 transition-all cursor-pointer hover:bg-neutral-50"
+                    title="Toggle print placement area boundaries"
+                  >
+                    <Eye size={11} className={showPlacementGuides ? "text-emerald-600" : "text-neutral-400"} />
+                    <span>{showPlacementGuides ? "Placement Areas On" : "Show Placement Areas"}</span>
+                  </button>
                 )}
               </div>
               {activeTab === 'tag' && (
