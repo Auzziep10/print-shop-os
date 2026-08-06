@@ -246,7 +246,22 @@ interface LogoBox {
 // Largest logoScale (logo width as a fraction of frame width) that keeps a logo of
 // the given aspect ratio (w/h) inside the box, centered on the box.
 const FRAME_H_OVER_W = 5 / 4; // aspect-[4/5] placement frame
-const fitLogoToBox = (box: LogoBox, logoAspect: number): { pos: { x: number; y: number }; scale: number; rotation: number } => {
+const resolveBoxForSize = (boxOrBoxes: any, printSize?: string, side: 'front' | 'back' = 'front'): LogoBox => {
+  if (!boxOrBoxes) return { x: 50, y: 38, w: 50, h: 40 };
+  const targetSideMap = side === 'back' ? (boxOrBoxes.back || (boxOrBoxes && !boxOrBoxes.front ? boxOrBoxes : null)) : (boxOrBoxes.front || boxOrBoxes);
+  if (targetSideMap && (targetSideMap.large || targetSideMap.medium || targetSideMap.small)) {
+    if (printSize === 'Small') return targetSideMap.small || targetSideMap.medium || targetSideMap.large || targetSideMap;
+    if (printSize === 'Medium') return targetSideMap.medium || targetSideMap.large || targetSideMap.small || targetSideMap;
+    return targetSideMap.large || targetSideMap.medium || targetSideMap.small || targetSideMap;
+  }
+  if (targetSideMap && typeof targetSideMap.x === 'number') {
+    return targetSideMap as LogoBox;
+  }
+  return { x: 50, y: 38, w: 50, h: 40 };
+};
+
+const fitLogoToBox = (boxOrBoxes: any, logoAspect: number, printSize?: string, side: 'front' | 'back' = 'front'): { pos: { x: number; y: number }; scale: number; rotation: number } => {
+  const box = resolveBoxForSize(boxOrBoxes, printSize, side);
   const safeAspect = logoAspect > 0 ? logoAspect : 1;
   const widthByHeightConstraint = (box.h / 100) * FRAME_H_OVER_W * safeAspect;
   const scale = Math.min(box.w / 100, widthByHeightConstraint);

@@ -54,6 +54,8 @@ export interface MultiLogoBoxes {
   large?: LogoBox;
   medium?: LogoBox;
   small?: LogoBox;
+  front?: { large?: LogoBox; medium?: LogoBox; small?: LogoBox; x?: number; y?: number; w?: number; h?: number; r?: number };
+  back?: { large?: LogoBox; medium?: LogoBox; small?: LogoBox; x?: number; y?: number; w?: number; h?: number; r?: number };
   x?: number;
   y?: number;
   w?: number;
@@ -150,6 +152,7 @@ const RESIZE_HANDLES: { id: string; sx: number; sy: number; cursor: string }[] =
 function LogoPlacementModal({
   title,
   imageUrl,
+  backImageUrl,
   initialBox,
   hasExisting,
   onApply,
@@ -158,24 +161,27 @@ function LogoPlacementModal({
 }: {
   title: string;
   imageUrl: string;
+  backImageUrl?: string | null;
   initialBox: MultiLogoBoxes | LogoBox;
   hasExisting: boolean;
   onApply: (box: MultiLogoBoxes) => void;
   onClear: () => void;
   onClose: () => void;
 }) {
-  const parseInitialBoxes = (): Record<'large' | 'medium' | 'small', LogoBox | null> => {
+  const parseInitialBoxes = (side: 'front' | 'back'): Record<'large' | 'medium' | 'small', LogoBox | null> => {
     const raw = initialBox as MultiLogoBoxes;
-    if (raw && (raw.large || raw.medium || raw.small)) {
+    const sideMap = side === 'back' ? (raw?.back || (raw && !raw.front ? raw : null)) : (raw?.front || raw);
+    
+    if (sideMap && (sideMap.large || sideMap.medium || sideMap.small)) {
       return {
-        large: raw.large ? clampBox(raw.large) : null,
-        medium: raw.medium ? clampBox(raw.medium) : null,
-        small: raw.small ? clampBox(raw.small) : null,
+        large: sideMap.large ? clampBox(sideMap.large) : null,
+        medium: sideMap.medium ? clampBox(sideMap.medium) : null,
+        small: sideMap.small ? clampBox(sideMap.small) : null,
       };
     }
-    if (raw && typeof raw.x === 'number') {
+    if (sideMap && typeof sideMap.x === 'number') {
       return {
-        large: clampBox(raw as LogoBox),
+        large: clampBox(sideMap as LogoBox),
         medium: null,
         small: null
       };
@@ -187,8 +193,14 @@ function LogoPlacementModal({
     };
   };
 
-  const [boxes, setBoxes] = useState<Record<'large' | 'medium' | 'small', LogoBox | null>>(parseInitialBoxes);
+  const [activeSide, setActiveSide] = useState<'front' | 'back'>('front');
+  const [frontBoxes, setFrontBoxes] = useState<Record<'large' | 'medium' | 'small', LogoBox | null>>(() => parseInitialBoxes('front'));
+  const [backBoxes, setBackBoxes] = useState<Record<'large' | 'medium' | 'small', LogoBox | null>>(() => parseInitialBoxes('back'));
   const [activeSize, setActiveSize] = useState<'large' | 'medium' | 'small'>('large');
+
+  const currentBoxes = activeSide === 'front' ? frontBoxes : backBoxes;
+  const setCurrentBoxes = activeSide === 'front' ? setFrontBoxes : setBackBoxes;
+  const currentMockUrl = (activeSide === 'back' && backImageUrl) ? backImageUrl : imageUrl;
 
   const frameRef = useRef<HTMLDivElement>(null);
   const gestureRef = useRef<{
@@ -198,10 +210,10 @@ function LogoPlacementModal({
     startBox: LogoBox;
   } | null>(null);
 
-  const activeBox = boxes[activeSize] || PRINT_SIZE_CONFIGS.find(c => c.key === activeSize)!.defaultBox;
+  const activeBox = currentBoxes[activeSize] || PRINT_SIZE_CONFIGS.find(c => c.key === activeSize)!.defaultBox;
 
   const updateActiveBox = (newBox: LogoBox) => {
-    setBoxes(prev => ({
+    setCurrentBoxes(prev => ({
       ...prev,
       [activeSize]: newBox
     }));
@@ -256,7 +268,7 @@ function LogoPlacementModal({
     const sin = Math.sin(start.rad);
 
     const ax = start.cx - (sx * (start.bw / 2)) * cos + (sy * (start.bh / 2)) * sin;
-    const ay = start.cy - (sx * (start.bw / 2)) * sin - (sy * (start.bh / 2)) * cos;
+    const ay = start.cy - (sx * (start.bh / 2)) * sin - (sy * (start.bh / 2)) * cos;
 
     const dx = x - ax;
     const dy = y - ay;
@@ -285,12 +297,26 @@ function LogoPlacementModal({
   };
 
   const handleSave = () => {
-    const primaryBox = boxes.large || boxes.medium || boxes.small || PRINT_SIZE_CONFIGS[0].defaultBox;
+    const primaryFront = frontBoxes.large || frontBoxes.medium || frontBoxes.small || PRINT_SIZE_CONFIGS[0].defaultBox;
+    const primaryBack = backBoxes.large || backBoxes.medium || backBoxes.small || PRINT_SIZE_CONFIGS[0].defaultBox;
+
     const payload: MultiLogoBoxes = {
-      ...primaryBox,
-      large: boxes.large ? clampBox(boxes.large) : undefined,
-      medium: boxes.medium ? clampBox(boxes.medium) : undefined,
-      small: boxes.small ? clampBox(boxes.small) : undefined,
+      ...primaryFront,
+      large: frontBoxes.large ? clampBox(frontBoxes.large) : undefined,
+      medium: frontBoxes.medium ? clampBox(frontBoxes.medium) : undefined,
+      small: frontBoxes.small ? clampBox(frontBoxes.small) : undefined,
+      front: {
+        large: frontBoxes.large ? clampBox(frontBoxes.large) : undefined,
+        medium: frontBoxes.medium ? clampBox(frontBoxes.medium) : undefined,
+        small: frontBoxes.small ? clampBox(frontBoxes.small) : undefined,
+        ...primaryFront
+      },
+      back: {
+        large: backBoxes.large ? clampBox(backBoxes.large) : undefined,
+        medium: backBoxes.medium ? clampBox(backBoxes.medium) : undefined,
+        small: backBoxes.small ? clampBox(backBoxes.small) : undefined,
+        ...primaryBack
+      }
     };
     onApply(payload);
   };
@@ -314,11 +340,44 @@ function LogoPlacementModal({
           </button>
         </div>
 
+        {/* Front / Back Side View Switcher */}
+        <div className="flex items-center justify-center gap-2 bg-neutral-100 p-1.5 rounded-2xl border border-neutral-200 w-fit mx-auto shadow-2xs">
+          <button
+            type="button"
+            onClick={() => setActiveSide('front')}
+            className={`px-6 py-2 rounded-xl text-xs font-extrabold transition-all uppercase tracking-wider flex items-center gap-2 cursor-pointer ${
+              activeSide === 'front'
+                ? 'bg-neutral-900 text-white shadow-sm'
+                : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-200/60'
+            }`}
+          >
+            <span>Front Placement</span>
+            {Object.values(frontBoxes).some(Boolean) && (
+              <span className="w-2 h-2 rounded-full bg-emerald-400" />
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveSide('back')}
+            className={`px-6 py-2 rounded-xl text-xs font-extrabold transition-all uppercase tracking-wider flex items-center gap-2 cursor-pointer ${
+              activeSide === 'back'
+                ? 'bg-neutral-900 text-white shadow-sm'
+                : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-200/60'
+            }`}
+          >
+            <span>Back Placement</span>
+            {Object.values(backBoxes).some(Boolean) && (
+              <span className="w-2 h-2 rounded-full bg-emerald-400" />
+            )}
+          </button>
+        </div>
+
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {PRINT_SIZE_CONFIGS.map((cfg) => {
             const isSelected = activeSize === cfg.key;
-            const hasBox = !!boxes[cfg.key];
-            const currentBox = boxes[cfg.key];
+            const hasBox = !!currentBoxes[cfg.key];
+            const currentBox = currentBoxes[cfg.key];
 
             return (
               <div
@@ -326,7 +385,7 @@ function LogoPlacementModal({
                 onClick={() => {
                   setActiveSize(cfg.key);
                   if (!hasBox) {
-                    setBoxes(prev => ({ ...prev, [cfg.key]: cfg.defaultBox }));
+                    setCurrentBoxes(prev => ({ ...prev, [cfg.key]: cfg.defaultBox }));
                   }
                 }}
                 className={`relative p-3.5 rounded-2xl border-2 cursor-pointer transition-all flex flex-col justify-between ${
@@ -360,7 +419,7 @@ function LogoPlacementModal({
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        setBoxes(prev => ({ ...prev, [cfg.key]: null }));
+                        setCurrentBoxes(prev => ({ ...prev, [cfg.key]: null }));
                       }}
                       className="text-[10px] font-bold text-red-500 hover:text-red-700 px-1.5 py-0.5 rounded hover:bg-red-50 transition-colors cursor-pointer"
                       title={`Remove ${cfg.label} box`}
@@ -382,14 +441,14 @@ function LogoPlacementModal({
             className="relative w-full max-w-[560px] aspect-[4/5] bg-checkerboard border-2 border-neutral-300 rounded-2xl overflow-hidden select-none touch-none shadow-lg"
           >
             <img
-              src={imageUrl}
+              src={currentMockUrl}
               alt="Garment mock"
               draggable="false"
               className="absolute inset-0 w-full h-full object-contain mix-blend-multiply pointer-events-none"
             />
 
             {PRINT_SIZE_CONFIGS.map((cfg) => {
-              const b = boxes[cfg.key];
+              const b = currentBoxes[cfg.key];
               if (!b) return null;
               const isEditing = activeSize === cfg.key;
 
@@ -1203,6 +1262,24 @@ export function StorefrontCatalogTab() {
       }
     }
     return 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
+  };
+
+  const getGarmentBackImage = (p: any, chosenColor?: string, mode?: 'racks' | 'basics', category?: string, slot?: string) => {
+    const styleKey = (p?.style || p?.itemNum || '').toLowerCase();
+
+    if (styleKey && chosenColor && colorMockups?.[styleKey]?.[chosenColor]?.backMockup) {
+      return colorMockups[styleKey][chosenColor].backMockup;
+    }
+
+    if (p?.backImages) {
+      if (chosenColor && typeof p.backImages === 'object') {
+        const matchKey = Object.keys(p.backImages).find(k => k.toLowerCase() === chosenColor.toLowerCase());
+        if (matchKey) return p.backImages[matchKey];
+      }
+      if (typeof p.backImages === 'string') return p.backImages;
+    }
+
+    return getGarmentImage(p, chosenColor, mode, category, slot);
   };
 
   if (loading) {
@@ -2155,11 +2232,13 @@ export function StorefrontCatalogTab() {
         const { mode, category, slot } = placementTarget;
         const style = (mode === 'racks' ? racks : basics)[category]?.[slot] || '';
         const p = getProductDetails(style) as any;
-        const existing = logoPlacements[mode]?.[category]?.[slot] as LogoBox | undefined;
+        const chosenColor = (mode === 'racks' ? defaultColors.racks : defaultColors.basics)?.[category]?.[slot];
+        const existing = logoPlacements[mode]?.[category]?.[slot] as MultiLogoBoxes | undefined;
         return (
           <LogoPlacementModal
              title={`${category} — ${slot.replace('longsleeve', 'long sleeve').toUpperCase()} (${p.brand} ${p.style})`}
-             imageUrl={getGarmentImage(p, (mode === 'racks' ? defaultColors.racks : defaultColors.basics)?.[category]?.[slot], mode, category, slot)}
+             imageUrl={getGarmentImage(p, chosenColor, mode, category, slot)}
+             backImageUrl={getGarmentBackImage(p, chosenColor, mode, category, slot)}
             initialBox={existing || slotDefaultBox(slot)}
             hasExisting={!!existing}
             onApply={handleApplyPlacement}
