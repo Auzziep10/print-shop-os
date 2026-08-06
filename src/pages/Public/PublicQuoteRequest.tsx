@@ -3061,8 +3061,7 @@ export function PublicQuoteRequest() {
 
                           <div className="h-64 flex items-center justify-center p-2 overflow-hidden mb-3">
                             {(() => {
-                              const customSlotMockup = catalogSettings.customMockups?.racks?.[selectedThemeCategory]?.[item.slot];
-                              const imgSrc = customSlotMockup || resolveGarmentImage(item.product, item.color);
+                              const imgSrc = getGarmentMockupImage(item.product, item.color, 'front', catalogSettings, selectedThemeCategory, item.slot);
                               return (
                                 <img 
                                   src={imgSrc} 
@@ -3324,7 +3323,7 @@ export function PublicQuoteRequest() {
                             const isSelected = selectedGarmentTypeItems.some(g => g.product.style === item.style);
                             const colors = getFilteredProductColors(item, catalogSettings.allowedColors);
                             const colorKey = selectedGarmentTypeColor && colors.includes(selectedGarmentTypeColor) ? selectedGarmentTypeColor : (colors[0] || 'Black');
-                            const previewImg = resolveGarmentImage(item, colorKey);
+                            const previewImg = getGarmentMockupImage(item, colorKey, 'front', catalogSettings);
                             const weightAndFabric = getGarmentWeightAndFabric(item);
                             const customName = (() => {
                               if (catalogSettings.customNames?.racks) {
