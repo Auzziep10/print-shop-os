@@ -2222,7 +2222,7 @@ export function GarmentCustomizerModal({
                 }`}
               >
                 <RefreshCw size={13} className={isSleeveMirrored ? "animate-spin" : ""} style={{ animationIterationCount: 1, animationDuration: '0.4s' }} />
-                <span>{isSleeveMirrored ? 'Mirrored View' : 'Standard View'}</span>
+                <span>Flip</span>
               </button>
             )}
           </div>
