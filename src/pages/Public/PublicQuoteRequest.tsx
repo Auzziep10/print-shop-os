@@ -721,6 +721,12 @@ export function PublicQuoteRequest() {
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editViewMode, setEditViewMode] = useState<'front' | 'back'>('front');
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+  const [previewModalData, setPreviewModalData] = useState<{
+    title?: string;
+    frontUrl?: string | null;
+    backUrl?: string | null;
+    activeView?: 'front' | 'back';
+  } | null>(null);
 
   // Storefront Settings from DB
   const [storefrontSettings, setStorefrontSettings] = useState<{
@@ -4317,19 +4323,49 @@ export function PublicQuoteRequest() {
                   <div key={item.id} className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-3xs grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
                     <div className="lg:col-span-4 flex gap-4 items-center">
                       {(() => {
-                        const srcUrl = item.compiledMockupUrl || item.mockupUrl || item.frontMockupUrl || item.compiledBackMockupUrl;
+                        const frontUrl = item.compiledMockupUrl || item.mockupUrl || item.frontMockupUrl;
+                        const backUrl = item.compiledBackMockupUrl || item.backMockupUrl || (item.customBackLogoUrl?.includes('mockup') ? item.customBackLogoUrl : null);
+                        const hasBack = !!(backUrl && (item.backLogoScale > 0 || item.compiledBackMockupUrl || item.backLogoUrl || item.customBackLogoUrl));
+
+                        if (hasBack && frontUrl && backUrl) {
+                          return (
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => setPreviewModalData({ title: getCustomGarmentName(item.product, catalogSettings), frontUrl, backUrl, activeView: 'front' })}
+                                className="w-14 h-18 bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 hover:border-neutral-900 rounded-xl flex flex-col items-center justify-center p-1 overflow-hidden shrink-0 cursor-pointer transition-all shadow-3xs hover:shadow-md group relative"
+                                title="Click to view Front mockup"
+                              >
+                                <img src={frontUrl} alt="Front" className="max-h-12 max-w-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform" />
+                                <span className="text-[8px] font-extrabold uppercase text-neutral-600 tracking-tight mt-0.5">Front</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => setPreviewModalData({ title: getCustomGarmentName(item.product, catalogSettings), frontUrl, backUrl, activeView: 'back' })}
+                                className="w-14 h-18 bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 hover:border-neutral-900 rounded-xl flex flex-col items-center justify-center p-1 overflow-hidden shrink-0 cursor-pointer transition-all shadow-3xs hover:shadow-md group relative"
+                                title="Click to view Back mockup"
+                              >
+                                <img src={backUrl} alt="Back" className="max-h-12 max-w-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform" />
+                                <span className="text-[8px] font-extrabold uppercase text-neutral-600 tracking-tight mt-0.5">Back</span>
+                              </button>
+                            </div>
+                          );
+                        }
+
+                        const srcUrl = frontUrl || backUrl;
                         return (
                           <button
                             type="button"
                             onClick={() => {
-                              if (srcUrl) setPreviewImageUrl(srcUrl);
+                              if (srcUrl) setPreviewModalData({ title: getCustomGarmentName(item.product, catalogSettings), frontUrl: srcUrl, backUrl: null, activeView: 'front' });
                             }}
-                            className="w-16 h-18 bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 hover:border-neutral-900 rounded-xl flex items-center justify-center p-1 overflow-hidden flex-shrink-0 cursor-pointer transition-all shadow-3xs hover:shadow-md group relative"
+                            className="w-16 h-18 bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 hover:border-neutral-900 rounded-xl flex items-center justify-center p-1 overflow-hidden shrink-0 cursor-pointer transition-all shadow-3xs hover:shadow-md group relative"
                             title="Click to expand & view full screen"
                           >
                             <img 
                               src={srcUrl} 
-                              alt={item.product.title} 
+                              alt={item.product?.title} 
                               className="max-h-full max-w-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform" 
                             />
                             <span className="absolute bottom-1 right-1 bg-neutral-900/80 text-white p-0.5 rounded text-[8px] opacity-0 group-hover:opacity-100 transition-opacity">
@@ -4954,39 +4990,89 @@ export function PublicQuoteRequest() {
       )}
 
       {/* Lightbox Image Preview Modal */}
-      {previewImageUrl && (
-        <div 
-          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200"
-          onClick={() => setPreviewImageUrl(null)}
-        >
+      {(previewModalData || previewImageUrl) && (() => {
+        const modalData = previewModalData || {
+          frontUrl: previewImageUrl,
+          backUrl: null,
+          activeView: 'front' as const
+        };
+        const currentSrc = modalData.activeView === 'back' && modalData.backUrl ? modalData.backUrl : (modalData.frontUrl || modalData.backUrl || '');
+
+        return (
           <div 
-            className="relative max-w-[95vw] max-h-[90vh] bg-white rounded-[2rem] p-6 md:p-10 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex items-center justify-center border border-neutral-200/50 cursor-crosshair group"
-            onClick={(e) => e.stopPropagation()}
-            onMouseMove={(e) => {
-              const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
-              const x = (e.clientX - left) / width;
-              const y = (e.clientY - top) / height;
-              const img = e.currentTarget.querySelector('img');
-              if (img) img.style.transformOrigin = `${x * 100}% ${y * 100}%`;
+            className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-md p-4 animate-in fade-in duration-200"
+            onClick={() => {
+              setPreviewModalData(null);
+              setPreviewImageUrl(null);
             }}
-            title="Hover to zoom"
           >
-            <button 
-              type="button"
-              onClick={() => setPreviewImageUrl(null)}
-              className="absolute top-6 right-6 w-10 h-10 rounded-full bg-white/90 hover:bg-white text-neutral-800 hover:text-black flex items-center justify-center shadow-lg transition-all z-50 cursor-pointer border border-neutral-100 hover:scale-105"
+            <div 
+              className="relative max-w-[95vw] max-h-[90vh] bg-white rounded-[2rem] p-6 md:p-8 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col items-center justify-center border border-neutral-200/50 cursor-crosshair group"
+              onClick={(e) => e.stopPropagation()}
+              onMouseMove={(e) => {
+                const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
+                const x = (e.clientX - left) / width;
+                const y = (e.clientY - top) / height;
+                const img = e.currentTarget.querySelector('.preview-modal-img');
+                if (img) (img as HTMLElement).style.transformOrigin = `${x * 100}% ${y * 100}%`;
+              }}
+              title="Hover image to zoom"
             >
-              <X size={20} />
-            </button>
-            <img 
-              src={previewImageUrl} 
-              alt="Garment Mockup Preview" 
-              style={{ width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: '75vh' }}
-              className="rounded-2xl select-none transition-transform duration-200 ease-out hover:scale-[2] object-contain" 
-            />
+              <button 
+                type="button"
+                onClick={() => {
+                  setPreviewModalData(null);
+                  setPreviewImageUrl(null);
+                }}
+                className="absolute top-5 right-5 w-10 h-10 rounded-full bg-white/90 hover:bg-white text-neutral-800 hover:text-black flex items-center justify-center shadow-md transition-all z-50 cursor-pointer border border-neutral-200 hover:scale-105"
+              >
+                <X size={20} />
+              </button>
+
+              {/* Front / Back Toggle Buttons if both placements exist */}
+              {modalData.frontUrl && modalData.backUrl && (
+                <div className="flex items-center gap-2 mb-4 bg-neutral-100 p-1.5 rounded-full border border-neutral-200 z-40 shadow-2xs">
+                  <button
+                    type="button"
+                    onClick={() => setPreviewModalData(prev => prev ? { ...prev, activeView: 'front' } : { frontUrl: modalData.frontUrl, backUrl: modalData.backUrl, activeView: 'front' })}
+                    className={`px-5 py-1.5 rounded-full text-xs font-extrabold transition-all uppercase tracking-wider ${
+                      modalData.activeView === 'front'
+                        ? 'bg-neutral-900 text-white shadow-sm'
+                        : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-200/60'
+                    }`}
+                  >
+                    Front View
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewModalData(prev => prev ? { ...prev, activeView: 'back' } : { frontUrl: modalData.frontUrl, backUrl: modalData.backUrl, activeView: 'back' })}
+                    className={`px-5 py-1.5 rounded-full text-xs font-extrabold transition-all uppercase tracking-wider ${
+                      modalData.activeView === 'back'
+                        ? 'bg-neutral-900 text-white shadow-sm'
+                        : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-200/60'
+                    }`}
+                  >
+                    Back View
+                  </button>
+                </div>
+              )}
+
+              {modalData.title && (
+                <p className="text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">
+                  {modalData.title} {modalData.frontUrl && modalData.backUrl ? `(${modalData.activeView?.toUpperCase()} VIEW)` : ''}
+                </p>
+              )}
+
+              <img 
+                src={currentSrc} 
+                alt="Garment Mockup Preview" 
+                style={{ width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: '70vh' }}
+                className="preview-modal-img rounded-2xl select-none transition-transform duration-200 ease-out hover:scale-[2] object-contain mix-blend-multiply" 
+              />
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* RETAIL ANNOUNCEMENT/STOREFRONT SETTINGS MODAL */}
       {isEditingStorefront && (
