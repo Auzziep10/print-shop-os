@@ -1,4 +1,4 @@
-import { Suspense, lazy } from 'react';
+import { Suspense, lazy, useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AppLayout } from './components/layout/AppLayout';
 import { PortalLayout } from './components/layout/PortalLayout';
@@ -103,6 +103,9 @@ function PermissionGuard({ permission, children }: { permission: PermissionKey; 
 
 
 function App() {
+  useEffect(() => {
+    document.title = 'INKTHEORY';
+  }, []);
   return (
     <AuthProvider>
       <Suspense fallback={
