@@ -2300,12 +2300,10 @@ export function GarmentCustomizerModal({
           {/* Garment Preview Container */}
           <div 
             ref={previewRef}
-            className={`relative flex-1 min-h-0 max-h-[calc(100vh-280px)] ${activeTab === 'tag' ? 'aspect-square' : 'aspect-[4/5]'} bg-white rounded-[2rem] border border-neutral-200/50 shadow-lg flex items-center justify-center overflow-hidden transition-all duration-300 hover:shadow-xl animate-in zoom-in-95 duration-300`}
+            className={`relative flex-1 min-h-0 max-h-[calc(100vh-280px)] ${activeTab === 'tag' ? 'aspect-square' : 'aspect-[4/5]'} bg-white rounded-[2rem] border border-neutral-200/50 shadow-lg flex items-center justify-center overflow-hidden transition-all duration-300 hover:shadow-xl animate-in zoom-in-95 duration-300 select-none`}
           >
-            {/* Garment Artboard Wrapper */}
-            <div className={`relative w-full h-full ${activeTab === 'tag' ? '' : 'aspect-[4/5]'} flex items-center justify-center p-3`}>
-              {activeTab !== 'tag' && (
-                <>
+            {activeTab !== 'tag' && (
+              <>
                   {/* Main Garment Image */}
                   {(!needsGeneration || isGenerated) && (
                     <img 
@@ -2618,7 +2616,6 @@ export function GarmentCustomizerModal({
                   })()}
                 </div>
               )}
-            </div>
 
             <div className="absolute bottom-4 left-4 flex flex-col gap-1.5 z-30">
               <div className="flex flex-wrap items-center gap-1.5">
