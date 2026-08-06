@@ -612,9 +612,35 @@ export function PublicQuoteRequest() {
     fetchDtfPricingSettings().then(setDtfSettings).catch(console.error);
   }, []);
 
+  // Helper to ensure cart item properties are normalized for autoQuoteItem
+  const getNormalizedAutoQuote = (item: any, overrideQty?: number) => {
+    const product = item.product || {};
+    const qty = overrideQty || Object.values(item.sizes || item.quantities || {}).reduce((s: number, q: any) => s + (parseFloat(q as any) || 0), 0) || parseFloat(item.qty) || 1;
+    const blankCost = parseFloat(product.price) || parseFloat(product.blankCost) || parseFloat(item.blankCost) || parseFloat(item.price) || 0;
+
+    const normalizedItem = {
+      ...item,
+      style: product.style || item.style || product.title,
+      title: product.title || item.title || item.name,
+      category: product.category || item.category,
+      blankCost: blankCost,
+      qty: qty,
+      quantities: { S: qty },
+      sizes: { S: qty },
+      logoUrlFront: item.frontLogoUrl || item.customLogoUrl || item.logoUrl || item.logoUrlFront,
+      logoUrlBack: item.backLogoUrl || item.customBackLogoUrl || item.logoUrlBack,
+      logoUrlLeftSleeve: item.customLeftSleeveLogoUrl || item.logoUrlLeftSleeve,
+      logoUrlRightSleeve: item.customRightSleeveLogoUrl || item.logoUrlRightSleeve,
+      logoUrlTag: item.logoUrlTag,
+      backLogoScale: item.backLogoScale
+    };
+
+    return autoQuoteItem(normalizedItem, dtfSettings?.costs, dtfSettings?.ladder);
+  };
+
   const cartAutoQuotes = useMemo(() => {
     return cart.map(item => {
-      const quoteRes = autoQuoteItem({ ...item, blankCost: item.product.price || item.blankCost || 0 }, dtfSettings?.costs, dtfSettings?.ladder);
+      const quoteRes = getNormalizedAutoQuote(item);
       return {
         item,
         quoteRes,
@@ -4253,7 +4279,7 @@ export function PublicQuoteRequest() {
               {cart.map((item) => {
                 const tierInfo = (() => {
                   const qty = item.qty || Object.values(item.sizes || {}).reduce((s: number, q: any) => s + (parseFloat(q as any) || 0), 0) || 1;
-                  const quote = autoQuoteItem({ ...item, blankCost: item.product.price || item.blankCost || 0 }, dtfSettings?.costs, dtfSettings?.ladder);
+                  const quote = getNormalizedAutoQuote(item, qty);
                   
                   const TIER_MINS = [1, 25, 50, 100, 250, 500];
                   const TIER_LABELS = ["1–24", "25–49", "50–99", "100–249", "250–499", "500+"];
@@ -4268,7 +4294,7 @@ export function PublicQuoteRequest() {
                   const nextMin = TIER_MINS[tierIdx + 1];
                   let nextTierNudge = null;
                   if (nextMin) {
-                    const nextQuote = autoQuoteItem({ ...item, qty: nextMin, sizes: { S: nextMin }, quantities: { S: nextMin }, blankCost: item.product.price || item.blankCost || 0 }, dtfSettings?.costs, dtfSettings?.ladder);
+                    const nextQuote = getNormalizedAutoQuote(item, nextMin);
                     if (quote.ok && nextQuote.ok && quote.pricePerPiece > nextQuote.pricePerPiece) {
                       nextTierNudge = {
                         nextMin,
