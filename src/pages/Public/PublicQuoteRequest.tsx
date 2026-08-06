@@ -4562,8 +4562,8 @@ export function PublicQuoteRequest() {
             const cleanBackLogo = customizedData.logoUrlBack && !customizedData.logoUrlBack.includes('mockup') ? customizedData.logoUrlBack : customizedData.customBackLogoUrl;
             const cleanSleeveLogo = (customizedData.logoUrlLeftSleeve || customizedData.logoUrlRightSleeve || customizedData.customSleeveLogoUrl) && !((customizedData.logoUrlLeftSleeve || customizedData.logoUrlRightSleeve || customizedData.customSleeveLogoUrl)?.includes('mockup')) ? (customizedData.logoUrlLeftSleeve || customizedData.logoUrlRightSleeve || customizedData.customSleeveLogoUrl) : undefined;
 
-            const hasBackLogo = Boolean(cleanBackLogo || customizedData.customizedBackImage || (customizedData.customScaleBack && customizedData.customScaleBack > 0));
-            const hasSleeveLogo = Boolean(cleanSleeveLogo || customizedData.customizedSleeveImage || (customizedData.customScaleLeftSleeve && customizedData.customScaleLeftSleeve > 0) || (customizedData.customScaleRightSleeve && customizedData.customScaleRightSleeve > 0));
+            const hasBackLogo = Boolean((cleanBackLogo || customizedData.customizedBackImage) && (customizedData.customScaleBack && customizedData.customScaleBack > 0));
+            const hasSleeveLogo = Boolean((cleanSleeveLogo || customizedData.customizedSleeveImage) && ((customizedData.customScaleLeftSleeve && customizedData.customScaleLeftSleeve > 0) || (customizedData.customScaleRightSleeve && customizedData.customScaleRightSleeve > 0)));
 
             updateEditingItem(item => {
               const rawFrontScale = customizedData.customScaleFront ?? (item.logoScale ? item.logoScale * 100 : 30);
@@ -4596,21 +4596,21 @@ export function PublicQuoteRequest() {
                 customOffsetXFront: frontX,
                 customOffsetYFront: frontY,
                 customRotationFront: customizedData.customRotationFront ?? 0,
-                customScaleBack: customizedData.customScaleBack,
+                customScaleBack: hasBackLogo ? customizedData.customScaleBack : 0,
                 customOffsetXBack: backX,
                 customOffsetYBack: backY,
                 customRotationBack: customizedData.customRotationBack ?? 0,
-                customScaleLeftSleeve: customizedData.customScaleLeftSleeve,
+                customScaleLeftSleeve: hasSleeveLogo ? customizedData.customScaleLeftSleeve : 0,
                 customOffsetXLeftSleeve: customizedData.customOffsetXLeftSleeve,
                 customOffsetYLeftSleeve: customizedData.customOffsetYLeftSleeve,
                 customRotationLeftSleeve: customizedData.customRotationLeftSleeve,
-                customScaleRightSleeve: customizedData.customScaleRightSleeve,
+                customScaleRightSleeve: hasSleeveLogo ? customizedData.customScaleRightSleeve : 0,
                 customOffsetXRightSleeve: customizedData.customOffsetXRightSleeve,
                 customOffsetYRightSleeve: customizedData.customOffsetYRightSleeve,
                 customRotationRightSleeve: customizedData.customRotationRightSleeve,
                 logoUrl: cleanFrontLogo,
-                logoUrlBack: cleanBackLogo,
-                logoUrlLeftSleeve: cleanSleeveLogo,
+                logoUrlBack: hasBackLogo ? cleanBackLogo : undefined,
+                logoUrlLeftSleeve: hasSleeveLogo ? cleanSleeveLogo : undefined,
                 logoName: customizedData.logoName,
                 logoNameBack: customizedData.logoNameBack,
               };
