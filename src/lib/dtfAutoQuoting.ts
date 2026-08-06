@@ -66,9 +66,12 @@ export function detectPlacementIds(item: any, garmentId: string): string[] {
   // 5. NECK TAG (Only if explicitly customized with tag logo or text)
   const hasTag = !!(
     (item.logoUrlTag && item.logoUrlTag !== '') || 
+    (item.customizedTagImage && item.customizedTagImage !== '') ||
+    (item.compiledTagMockupUrl && item.compiledTagMockupUrl !== '') ||
     (item.tagLayout && ((item.tagLayout.placedTagLogos && item.tagLayout.placedTagLogos.length > 0) || (item.tagLayout.placedTagTexts && item.tagLayout.placedTagTexts.length > 0))) ||
     lp.includes('tag: custom tag') ||
-    lp.includes('neck tag')
+    lp.includes('neck tag') ||
+    lp.includes('size tag')
   );
   if (hasTag) placements.push('tag');
 

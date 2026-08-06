@@ -631,7 +631,9 @@ export function PublicQuoteRequest() {
       logoUrlBack: item.backLogoUrl || item.customBackLogoUrl || item.logoUrlBack,
       logoUrlLeftSleeve: item.customLeftSleeveLogoUrl || item.logoUrlLeftSleeve,
       logoUrlRightSleeve: item.customRightSleeveLogoUrl || item.logoUrlRightSleeve,
-      logoUrlTag: item.logoUrlTag,
+      logoUrlTag: item.logoUrlTag || (item as any).customizedTagImage || (item as any).compiledTagMockupUrl || (item as any).customTagLogoUrl,
+      customizedTagImage: (item as any).customizedTagImage || (item as any).compiledTagMockupUrl,
+      compiledTagMockupUrl: (item as any).compiledTagMockupUrl,
       backLogoScale: item.backLogoScale
     };
 
@@ -725,7 +727,8 @@ export function PublicQuoteRequest() {
     title?: string;
     frontUrl?: string | null;
     backUrl?: string | null;
-    activeView?: 'front' | 'back';
+    tagUrl?: string | null;
+    activeView?: 'front' | 'back' | 'tag';
   } | null>(null);
 
   // Storefront Settings from DB
@@ -2412,7 +2415,10 @@ export function PublicQuoteRequest() {
         customScaleBack: cartMatch.customScaleBack,
         customOffsetXBack: cartMatch.customOffsetXBack,
         customOffsetYBack: cartMatch.customOffsetYBack,
-        customRotationBack: cartMatch.customRotationBack
+        customRotationBack: cartMatch.customRotationBack,
+        logoUrlTag: cartMatch.logoUrlTag || (cartMatch as any).compiledTagMockupUrl || (cartMatch as any).customizedTagImage || null,
+        compiledTagMockupUrl: (cartMatch as any).compiledTagMockupUrl || (cartMatch as any).customizedTagImage || null,
+        tagLayout: (cartMatch as any).tagLayout || null
       } as any;
     }
     const rackMatch = rackItems.find(i => i.id === editingItemId);
@@ -4356,40 +4362,48 @@ export function PublicQuoteRequest() {
                       {(() => {
                         const frontUrl = item.compiledMockupUrl || item.mockupUrl || item.frontMockupUrl;
                         const backUrl = item.compiledBackMockupUrl || item.backMockupUrl || (item.customBackLogoUrl?.includes('mockup') ? item.customBackLogoUrl : null);
+                        const tagUrl = (item as any).compiledTagMockupUrl || (item as any).customizedTagImage || item.logoUrlTag;
+
+                        const hasFront = !!frontUrl;
                         const hasBack = !!(backUrl && (item.backLogoScale > 0 || item.compiledBackMockupUrl || item.backLogoUrl || item.customBackLogoUrl));
+                        const hasTag = !!(tagUrl || (item as any).tagLayout);
 
-                        if (hasBack && frontUrl && backUrl) {
+                        const availableThumbnails: { label: string; url: string; view: 'front' | 'back' | 'tag' }[] = [];
+                        if (hasFront && frontUrl) availableThumbnails.push({ label: 'FRONT', url: frontUrl, view: 'front' });
+                        if (hasBack && backUrl) availableThumbnails.push({ label: 'BACK', url: backUrl, view: 'back' });
+                        if (hasTag && tagUrl) availableThumbnails.push({ label: 'SIZE TAG', url: tagUrl, view: 'tag' });
+
+                        if (availableThumbnails.length > 1) {
                           return (
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              <button
-                                type="button"
-                                onClick={() => setPreviewModalData({ title: getCustomGarmentName(item.product, catalogSettings), frontUrl, backUrl, activeView: 'front' })}
-                                className="w-14 h-18 bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 hover:border-neutral-900 rounded-xl flex flex-col items-center justify-center p-1 overflow-hidden shrink-0 cursor-pointer transition-all shadow-3xs hover:shadow-md group relative"
-                                title="Click to view Front mockup"
-                              >
-                                <img src={frontUrl} alt="Front" className="max-h-12 max-w-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform" />
-                                <span className="text-[8px] font-extrabold uppercase text-neutral-600 tracking-tight mt-0.5">Front</span>
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() => setPreviewModalData({ title: getCustomGarmentName(item.product, catalogSettings), frontUrl, backUrl, activeView: 'back' })}
-                                className="w-14 h-18 bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 hover:border-neutral-900 rounded-xl flex flex-col items-center justify-center p-1 overflow-hidden shrink-0 cursor-pointer transition-all shadow-3xs hover:shadow-md group relative"
-                                title="Click to view Back mockup"
-                              >
-                                <img src={backUrl} alt="Back" className="max-h-12 max-w-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform" />
-                                <span className="text-[8px] font-extrabold uppercase text-neutral-600 tracking-tight mt-0.5">Back</span>
-                              </button>
+                            <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+                              {availableThumbnails.map((thumb) => (
+                                <button
+                                  key={thumb.view}
+                                  type="button"
+                                  onClick={() => setPreviewModalData({ 
+                                    title: getCustomGarmentName(item.product, catalogSettings), 
+                                    frontUrl: hasFront ? frontUrl : null, 
+                                    backUrl: hasBack ? backUrl : null, 
+                                    tagUrl: hasTag ? tagUrl : null, 
+                                    activeView: thumb.view 
+                                  })}
+                                  className="w-14 h-18 bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 hover:border-neutral-900 rounded-xl flex flex-col items-center justify-center p-1 overflow-hidden shrink-0 cursor-pointer transition-all shadow-3xs hover:shadow-md group relative"
+                                  title={`Click to view ${thumb.label} mockup`}
+                                >
+                                  <img src={thumb.url} alt={thumb.label} className="max-h-11 max-w-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform" />
+                                  <span className="text-[7.5px] font-extrabold uppercase text-neutral-600 tracking-tighter mt-0.5 whitespace-nowrap">{thumb.label}</span>
+                                </button>
+                              ))}
                             </div>
                           );
                         }
 
-                        const srcUrl = frontUrl || backUrl;
+                        const srcUrl = frontUrl || backUrl || tagUrl;
                         return (
                           <button
                             type="button"
                             onClick={() => {
-                              if (srcUrl) setPreviewModalData({ title: getCustomGarmentName(item.product, catalogSettings), frontUrl: srcUrl, backUrl: null, activeView: 'front' });
+                              if (srcUrl) setPreviewModalData({ title: getCustomGarmentName(item.product, catalogSettings), frontUrl: srcUrl, backUrl: null, tagUrl: null, activeView: 'front' });
                             }}
                             className="w-16 h-18 bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 hover:border-neutral-900 rounded-xl flex items-center justify-center p-1 overflow-hidden shrink-0 cursor-pointer transition-all shadow-3xs hover:shadow-md group relative"
                             title="Click to expand & view full screen"
@@ -4412,6 +4426,7 @@ export function PublicQuoteRequest() {
                           const activePlacements = [];
                           if (item.frontLogoUrl || item.customLogoUrl || item.logoUrl) activePlacements.push("Front");
                           if (item.backLogoUrl || item.customBackLogoUrl || (item.backLogoScale && item.backLogoScale > 0)) activePlacements.push("Back");
+                          if (item.logoUrlTag || (item as any).compiledTagMockupUrl || (item as any).customizedTagImage || (item as any).tagLayout) activePlacements.push("Size Tag");
                           const count = activePlacements.length;
                           return (
                             <div className="flex flex-col gap-1.5 mt-0.5">
@@ -4961,9 +4976,11 @@ export function PublicQuoteRequest() {
             const cleanFrontLogo = customizedData.logoUrl && !customizedData.logoUrl.includes('mockup') ? customizedData.logoUrl : customizedData.customLogoUrl;
             const cleanBackLogo = customizedData.logoUrlBack && !customizedData.logoUrlBack.includes('mockup') ? customizedData.logoUrlBack : customizedData.customBackLogoUrl;
             const cleanSleeveLogo = (customizedData.logoUrlLeftSleeve || customizedData.logoUrlRightSleeve || customizedData.customSleeveLogoUrl) && !((customizedData.logoUrlLeftSleeve || customizedData.logoUrlRightSleeve || customizedData.customSleeveLogoUrl)?.includes('mockup')) ? (customizedData.logoUrlLeftSleeve || customizedData.logoUrlRightSleeve || customizedData.customSleeveLogoUrl) : undefined;
+            const cleanTagLogo = customizedData.logoUrlTag || customizedData.customizedTagImage || (customizedData as any).compiledTagMockupUrl;
 
             const hasBackLogo = Boolean((cleanBackLogo || customizedData.customizedBackImage) && (customizedData.customScaleBack && customizedData.customScaleBack > 0));
             const hasSleeveLogo = Boolean((cleanSleeveLogo || customizedData.customizedSleeveImage) && ((customizedData.customScaleLeftSleeve && customizedData.customScaleLeftSleeve > 0) || (customizedData.customScaleRightSleeve && customizedData.customScaleRightSleeve > 0)));
+            const hasTagLogo = Boolean(cleanTagLogo || customizedData.tagLayout);
 
             updateEditingItem(item => {
               const rawFrontScale = customizedData.customScaleFront ?? (item.logoScale ? item.logoScale * 100 : 30);
@@ -5011,6 +5028,10 @@ export function PublicQuoteRequest() {
                 logoUrl: cleanFrontLogo,
                 logoUrlBack: hasBackLogo ? cleanBackLogo : undefined,
                 logoUrlLeftSleeve: hasSleeveLogo ? cleanSleeveLogo : undefined,
+                logoUrlTag: hasTagLogo ? cleanTagLogo : undefined,
+                compiledTagMockupUrl: hasTagLogo ? (customizedData.customizedTagImage || (item as any).compiledTagMockupUrl || cleanTagLogo) : undefined,
+                customizedTagImage: hasTagLogo ? (customizedData.customizedTagImage || cleanTagLogo) : undefined,
+                tagLayout: hasTagLogo ? (customizedData.tagLayout || (item as any).tagLayout) : undefined,
                 logoName: customizedData.logoName,
                 logoNameBack: customizedData.logoNameBack,
               };
@@ -5025,9 +5046,15 @@ export function PublicQuoteRequest() {
         const modalData = previewModalData || {
           frontUrl: previewImageUrl,
           backUrl: null,
+          tagUrl: null,
           activeView: 'front' as const
         };
-        const currentSrc = modalData.activeView === 'back' && modalData.backUrl ? modalData.backUrl : (modalData.frontUrl || modalData.backUrl || '');
+        const currentSrc = 
+          modalData.activeView === 'back' && modalData.backUrl ? modalData.backUrl :
+          modalData.activeView === 'tag' && modalData.tagUrl ? modalData.tagUrl :
+          (modalData.frontUrl || modalData.backUrl || modalData.tagUrl || '');
+
+        const hasMultipleViews = ((modalData.frontUrl ? 1 : 0) + (modalData.backUrl ? 1 : 0) + (modalData.tagUrl ? 1 : 0)) > 1;
 
         return (
           <div 
@@ -5060,37 +5087,54 @@ export function PublicQuoteRequest() {
                 <X size={20} />
               </button>
 
-              {/* Front / Back Toggle Buttons if both placements exist */}
-              {modalData.frontUrl && modalData.backUrl && (
+              {/* Front / Back / Size Tag Toggle Buttons if multiple placements exist */}
+              {hasMultipleViews && (
                 <div className="flex items-center gap-2 mb-4 bg-neutral-100 p-1.5 rounded-full border border-neutral-200 z-40 shadow-2xs">
-                  <button
-                    type="button"
-                    onClick={() => setPreviewModalData(prev => prev ? { ...prev, activeView: 'front' } : { frontUrl: modalData.frontUrl, backUrl: modalData.backUrl, activeView: 'front' })}
-                    className={`px-5 py-1.5 rounded-full text-xs font-extrabold transition-all uppercase tracking-wider ${
-                      modalData.activeView === 'front'
-                        ? 'bg-neutral-900 text-white shadow-sm'
-                        : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-200/60'
-                    }`}
-                  >
-                    Front View
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPreviewModalData(prev => prev ? { ...prev, activeView: 'back' } : { frontUrl: modalData.frontUrl, backUrl: modalData.backUrl, activeView: 'back' })}
-                    className={`px-5 py-1.5 rounded-full text-xs font-extrabold transition-all uppercase tracking-wider ${
-                      modalData.activeView === 'back'
-                        ? 'bg-neutral-900 text-white shadow-sm'
-                        : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-200/60'
-                    }`}
-                  >
-                    Back View
-                  </button>
+                  {modalData.frontUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setPreviewModalData(prev => prev ? { ...prev, activeView: 'front' } : null)}
+                      className={`px-4 py-1.5 rounded-full text-xs font-extrabold transition-all uppercase tracking-wider ${
+                        modalData.activeView === 'front'
+                          ? 'bg-neutral-900 text-white shadow-sm'
+                          : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-200/60'
+                      }`}
+                    >
+                      Front View
+                    </button>
+                  )}
+                  {modalData.backUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setPreviewModalData(prev => prev ? { ...prev, activeView: 'back' } : null)}
+                      className={`px-4 py-1.5 rounded-full text-xs font-extrabold transition-all uppercase tracking-wider ${
+                        modalData.activeView === 'back'
+                          ? 'bg-neutral-900 text-white shadow-sm'
+                          : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-200/60'
+                      }`}
+                    >
+                      Back View
+                    </button>
+                  )}
+                  {modalData.tagUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setPreviewModalData(prev => prev ? { ...prev, activeView: 'tag' } : null)}
+                      className={`px-4 py-1.5 rounded-full text-xs font-extrabold transition-all uppercase tracking-wider ${
+                        modalData.activeView === 'tag'
+                          ? 'bg-neutral-900 text-white shadow-sm'
+                          : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-200/60'
+                      }`}
+                    >
+                      Size Tag View
+                    </button>
+                  )}
                 </div>
               )}
 
               {modalData.title && (
                 <p className="text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">
-                  {modalData.title} {modalData.frontUrl && modalData.backUrl ? `(${modalData.activeView?.toUpperCase()} VIEW)` : ''}
+                  {modalData.title} {hasMultipleViews ? `(${modalData.activeView?.toUpperCase()} VIEW)` : ''}
                 </p>
               )}
 
