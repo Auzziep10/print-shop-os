@@ -1486,12 +1486,36 @@ export function PublicQuoteRequest() {
         const custom = settings.customMockups.racks[themeCategory][slotKey];
         if (typeof custom === 'string' && custom.trim()) return custom.trim();
       }
+      if (themeCategory && slotKey && settings?.customMockups?.basics?.[themeCategory]?.[slotKey]) {
+        const custom = settings.customMockups.basics[themeCategory][slotKey];
+        if (typeof custom === 'string' && custom.trim()) return custom.trim();
+      }
+
+      if (themeCategory && slotKey) {
+        const altCat = themeCategory.endsWith('s') ? themeCategory.slice(0, -1) : `${themeCategory}s`;
+        if (settings?.customMockups?.racks?.[altCat]?.[slotKey]) {
+          const custom = settings.customMockups.racks[altCat][slotKey];
+          if (typeof custom === 'string' && custom.trim()) return custom.trim();
+        }
+        if (settings?.customMockups?.basics?.[altCat]?.[slotKey]) {
+          const custom = settings.customMockups.basics[altCat][slotKey];
+          if (typeof custom === 'string' && custom.trim()) return custom.trim();
+        }
+      }
+
       if (slotKey && settings?.customMockups?.racks) {
         for (const catName of Object.keys(settings.customMockups.racks)) {
           const custom = settings.customMockups.racks[catName]?.[slotKey];
           if (typeof custom === 'string' && custom.trim()) return custom.trim();
         }
       }
+      if (slotKey && settings?.customMockups?.basics) {
+        for (const catName of Object.keys(settings.customMockups.basics)) {
+          const custom = settings.customMockups.basics[catName]?.[slotKey];
+          if (typeof custom === 'string' && custom.trim()) return custom.trim();
+        }
+      }
+
       if (settings?.customMockups?.racks) {
         for (const catName of Object.keys(settings.customMockups.racks)) {
           const slots = settings.customMockups.racks[catName];
@@ -3145,9 +3169,10 @@ export function PublicQuoteRequest() {
                     const item = (preCuratedBasicsOptions as any)[slot];
                     if (!item) return null;
                     const isSelected = selectedBasicsItem?.style === item.style;
-                    const defaultColor = catalogSettings.defaultColors?.basics?.[selectedBasicsCategory]?.[slot] || item.colors[0];
-                    const customBasicsMockup = catalogSettings.customMockups?.basics?.[selectedBasicsCategory]?.[slot];
-                    const previewImg = customBasicsMockup || resolveGarmentImage(item, defaultColor);
+                    const defaultColor = catalogSettings.defaultColors?.basics?.[selectedBasicsCategory]?.[slot] ||
+                                         catalogSettings.defaultColors?.basics?.[selectedBasicsCategory?.replace(/s$/i, '')]?.[slot] ||
+                                         item.colors[0];
+                    const previewImg = getGarmentMockupImage(item, defaultColor, 'front', catalogSettings, selectedBasicsCategory, slot);
 
                     return (
                       <div
@@ -4898,7 +4923,7 @@ export function PublicQuoteRequest() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
                     {matchingProducts.map(prod => {
                       const colorKey = prod.colors[0] || 'Black';
-                      const previewImg = resolveGarmentImage(prod, colorKey);
+                      const previewImg = getGarmentMockupImage(prod, colorKey, 'front', catalogSettings);
                       const weightAndFabric = getGarmentWeightAndFabric(prod);
                       const customName = getCustomGarmentName(prod, catalogSettings);
 
