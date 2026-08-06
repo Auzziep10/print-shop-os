@@ -20,6 +20,7 @@ export function DtfPricingSettingsTab() {
   const [costs, setCosts] = useState<any>({ ...DTFPricing.DEFAULT_COSTS });
   const [ladder, setLadder] = useState<any>({ ...DEFAULT_LADDER_FALLBACK });
   const [autoQuotingEnabled, setAutoQuotingEnabled] = useState<boolean>(true);
+  const [storefrontAutoQuotingEnabled, setStorefrontAutoQuotingEnabled] = useState<boolean>(true);
   
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
@@ -45,6 +46,7 @@ export function DtfPricingSettingsTab() {
           if (data.costs) setCosts({ ...DTFPricing.DEFAULT_COSTS, ...data.costs });
           if (data.ladder) setLadder({ ...DEFAULT_LADDER_FALLBACK, ...data.ladder });
           if (data.autoQuotingEnabled !== undefined) setAutoQuotingEnabled(!!data.autoQuotingEnabled);
+          if (data.storefrontAutoQuotingEnabled !== undefined) setStorefrontAutoQuotingEnabled(!!data.storefrontAutoQuotingEnabled);
         }
       } catch (err) {
         console.error("Error loading DTF pricing settings:", err);
@@ -63,6 +65,7 @@ export function DtfPricingSettingsTab() {
         costs,
         ladder,
         autoQuotingEnabled,
+        storefrontAutoQuotingEnabled,
         updatedAt: new Date().toISOString()
       }, { merge: true });
       setStatusMessage({ success: true, text: 'DTF Pricing & Auto-Quoting settings saved successfully!' });
@@ -165,40 +168,83 @@ export function DtfPricingSettingsTab() {
         </div>
       )}
 
-      {/* Customer Portal Auto-Quoting Toggle Card */}
-      <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/80 rounded-2xl p-5 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="flex items-start gap-3">
-          <div className="p-2.5 bg-amber-500/10 text-amber-600 rounded-xl shrink-0 mt-0.5">
-            <Zap size={20} />
+      {/* Auto-Quoting Controls Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Customer Portal Auto-Quoting Toggle Card */}
+        <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/80 rounded-2xl p-5 shadow-xs flex flex-col justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="p-2.5 bg-amber-500/10 text-amber-600 rounded-xl shrink-0 mt-0.5">
+              <Zap size={20} />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-neutral-900 flex items-center gap-2">
+                Customer Portal Auto-Quoting
+                <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-extrabold uppercase tracking-wider ${
+                  autoQuotingEnabled ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-neutral-200 text-neutral-700'
+                }`}>
+                  {autoQuotingEnabled ? 'ENABLED' : 'DISABLED'}
+                </span>
+              </h4>
+              <p className="text-xs text-neutral-600 font-medium mt-1">
+                Automatically calculate quotes & skip manual review for customer portal orders using print dimensions & artwork placement.
+              </p>
+            </div>
           </div>
-          <div>
-            <h4 className="text-sm font-bold text-neutral-900 flex items-center gap-2">
-              Customer Portal Auto-Quoting
-              <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-extrabold uppercase tracking-wider ${
-                autoQuotingEnabled ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-neutral-200 text-neutral-700'
-              }`}>
-                {autoQuotingEnabled ? 'GLOBAL ENABLED' : 'GLOBAL DISABLED'}
-              </span>
-            </h4>
-            <p className="text-xs text-neutral-600 font-medium mt-0.5 max-w-xl">
-              Automatically calculate quotes & skip manual review for customer portal orders using print dimensions & artwork placement. Customers can pay immediately!
-            </p>
+
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => setAutoQuotingEnabled(!autoQuotingEnabled)}
+              className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                autoQuotingEnabled ? 'bg-emerald-500' : 'bg-neutral-300'
+              }`}
+            >
+              <span
+                className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                  autoQuotingEnabled ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setAutoQuotingEnabled(!autoQuotingEnabled)}
-          className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-            autoQuotingEnabled ? 'bg-emerald-500' : 'bg-neutral-300'
-          }`}
-        >
-          <span
-            className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
-              autoQuotingEnabled ? 'translate-x-5' : 'translate-x-0'
-            }`}
-          />
-        </button>
+        {/* Storefront Public Auto-Quoting Toggle Card */}
+        <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200/80 rounded-2xl p-5 shadow-xs flex flex-col justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="p-2.5 bg-emerald-500/10 text-emerald-600 rounded-xl shrink-0 mt-0.5">
+              <Calculator size={20} />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-neutral-900 flex items-center gap-2">
+                Storefront Public Auto-Quoting
+                <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-extrabold uppercase tracking-wider ${
+                  storefrontAutoQuotingEnabled ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-neutral-200 text-neutral-700'
+                }`}>
+                  {storefrontAutoQuotingEnabled ? 'ENABLED' : 'DISABLED'}
+                </span>
+              </h4>
+              <p className="text-xs text-neutral-600 font-medium mt-1">
+                Apply instant live pricing calculations to public visitors at the Sizing & Quantities section. Allows direct checkout & immediate order submission!
+              </p>
+            </div>
+          </div>
+
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => setStorefrontAutoQuotingEnabled(!storefrontAutoQuotingEnabled)}
+              className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                storefrontAutoQuotingEnabled ? 'bg-emerald-500' : 'bg-neutral-300'
+              }`}
+            >
+              <span
+                className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                  storefrontAutoQuotingEnabled ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Section Sub-Navigation Tabs */}

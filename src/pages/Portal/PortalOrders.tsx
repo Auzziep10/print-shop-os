@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { ChevronRight, Loader2, PackageOpen, Building2, X, Trash2, ChevronDown, Box, Printer, ExternalLink, Truck, Download, Check, RotateCcw } from 'lucide-react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useOrders } from '../../hooks/useOrders';
 import { db } from '../../lib/firebase';
 import QRCode from 'react-qr-code';
-import { doc, getDoc, deleteDoc, writeBatch } from 'firebase/firestore';
+import { doc, getDoc, setDoc, deleteDoc, writeBatch } from 'firebase/firestore';
 import { getTrackingLink } from '../../lib/utils';
 import { StripePaymentModal } from '../../components/Orders/StripePaymentModal';
 
@@ -162,6 +162,42 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
       window.dispatchEvent(new Event('wovn_cart_updated'));
     }, 800);
   };
+
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  useEffect(() => {
+    const success = searchParams.get('success');
+    const orderId = searchParams.get('order_id');
+    const sessionId = searchParams.get('session_id');
+
+    if (success === 'true' && orderId) {
+      const updateOrderPayment = async () => {
+        try {
+          if (sessionId) {
+            await fetch('/api/stripe/verify-session', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ sessionId })
+            }).catch(console.error);
+          }
+          const orderRef = doc(db, 'orders', orderId);
+          await setDoc(orderRef, {
+            paymentStatus: 'paid',
+            statusIndex: 3,
+            status: 'In Production'
+          }, { merge: true });
+        } catch (err) {
+          console.error("Error updating order payment status:", err);
+        } finally {
+          searchParams.delete('success');
+          searchParams.delete('order_id');
+          searchParams.delete('session_id');
+          setSearchParams(searchParams, { replace: true });
+        }
+      };
+      updateOrderPayment();
+    }
+  }, [searchParams, setSearchParams]);
 
   useEffect(() => {
     const fetchCustomer = async () => {

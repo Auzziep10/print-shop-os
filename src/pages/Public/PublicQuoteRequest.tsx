@@ -30,6 +30,7 @@ import { PillButton } from '../../components/ui/PillButton';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
 import { getGarmentWeightAndFabric, getOrderedKeys, GARMENT_TYPES, detectGarmentTypeTag, getFilteredProductColors, type GarmentTypeId } from '../../lib/garmentUtils';
 import { GarmentCustomizerModal } from '../../components/Portal/GarmentCustomizerModal';
+import { fetchDtfPricingSettings, autoQuoteItem } from '../../lib/dtfAutoQuoting';
 import colorHexMapJson from '../../data/color-hex-map.json';
 
 const colorHexMap = colorHexMapJson as Record<string, string>;
@@ -595,6 +596,86 @@ export function PublicQuoteRequest() {
   const [budgetTier, setBudgetTier] = useState('Retail Standard');
   const [inHandsDate, setInHandsDate] = useState('');
   const [notes, setNotes] = useState('');
+
+  // DTF Pricing Settings & Auto-Quoting Calculations
+  const [dtfSettings, setDtfSettings] = useState<{ costs: any; ladder: any; autoQuotingEnabled: boolean; storefrontAutoQuotingEnabled: boolean } | null>(null);
+  const [shippingAddress, setShippingAddress] = useState({
+    street: '',
+    city: '',
+    state: '',
+    zip: ''
+  });
+  const [taxAmount, setTaxAmount] = useState(0);
+  const [isCalculatingTax, setIsCalculatingTax] = useState(false);
+
+  useEffect(() => {
+    fetchDtfPricingSettings().then(setDtfSettings).catch(console.error);
+  }, []);
+
+  const cartAutoQuotes = useMemo(() => {
+    return cart.map(item => {
+      const quoteRes = autoQuoteItem({ ...item, blankCost: item.product.price || item.blankCost || 0 }, dtfSettings?.costs, dtfSettings?.ladder);
+      return {
+        item,
+        quoteRes,
+        unitPrice: quoteRes.ok ? quoteRes.pricePerPiece : (item.pricingDetails?.total || 0),
+        itemTotal: quoteRes.ok ? quoteRes.orderTotal : ((item.pricingDetails?.total || 0) * (item.qty || 1))
+      };
+    });
+  }, [cart, dtfSettings]);
+
+  const cartTotalUnits = useMemo(() => cart.reduce((acc, item) => acc + (item.qty || 0), 0), [cart]);
+  const cartSubtotal = useMemo(() => cartAutoQuotes.reduce((acc, item) => acc + item.itemTotal, 0), [cartAutoQuotes]);
+  const estimatedShipping = useMemo(() => (cartTotalUnits > 0 ? (15 + cartTotalUnits * 0.35) : 0), [cartTotalUnits]);
+  const grandTotal = useMemo(() => (cartSubtotal + estimatedShipping + taxAmount), [cartSubtotal, estimatedShipping, taxAmount]);
+
+  useEffect(() => {
+    if (!shippingAddress.street || !shippingAddress.city || !shippingAddress.state || !shippingAddress.zip) {
+      setTaxAmount(0);
+      return;
+    }
+    const calcTax = async () => {
+      setIsCalculatingTax(true);
+      try {
+        const items = cartAutoQuotes.map((cq, idx) => ({
+          id: cq.item.id || `item_${idx}`,
+          amount: cq.itemTotal
+        }));
+        const res = await fetch('/api/stripe/calculate-tax', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            shippingAddress: {
+              street: shippingAddress.street,
+              city: shippingAddress.city,
+              state: shippingAddress.state,
+              zip: shippingAddress.zip,
+              country: 'US'
+            },
+            items,
+            shippingAmount: estimatedShipping
+          })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (typeof data.taxAmount === 'number') {
+            setTaxAmount(data.taxAmount);
+          } else {
+            setTaxAmount(Math.round((cartSubtotal + estimatedShipping) * 0.065 * 100) / 100);
+          }
+        } else {
+          setTaxAmount(Math.round((cartSubtotal + estimatedShipping) * 0.065 * 100) / 100);
+        }
+      } catch (err) {
+        setTaxAmount(Math.round((cartSubtotal + estimatedShipping) * 0.065 * 100) / 100);
+      } finally {
+        setIsCalculatingTax(false);
+      }
+    };
+
+    const timer = setTimeout(calcTax, 600);
+    return () => clearTimeout(timer);
+  }, [shippingAddress, cartAutoQuotes, cartSubtotal, estimatedShipping]);
 
   // Autofill user details when authenticated
   useEffect(() => {
@@ -1894,6 +1975,10 @@ export function PublicQuoteRequest() {
       alert("Please provide at least your Contact Name and Email Address.");
       return;
     }
+    if (isPayNow && (!shippingAddress.street || !shippingAddress.city || !shippingAddress.state || !shippingAddress.zip)) {
+      alert("Please enter a complete Shipping Address (Street Address, City, State, and ZIP Code) for calculated tax & shipping.");
+      return;
+    }
 
     setIsSubmitting(true);
     setSubmittingStepIndex(1);
@@ -1982,7 +2067,7 @@ export function PublicQuoteRequest() {
 
       // 3. Create Quote Request order document
       setSubmittingStepIndex(3);
-      setSubmittingStep('Submitting quote request & starting production timeline...');
+      setSubmittingStep(isPayNow ? 'Initiating order & secure payment...' : 'Submitting quote request & starting production timeline...');
 
       const orderId = `quote-${Date.now()}`;
 
@@ -2021,14 +2106,14 @@ export function PublicQuoteRequest() {
         portalId = `${prefix}${randomSuffix}`;
       }
 
-      const totalUnits = cart.reduce((acc, item) => acc + (item.qty || 0), 0);
-      const estimatedTotalPrice = cart.reduce((acc, item) => acc + ((item.pricingDetails?.total || 0) * (item.qty || 0)), 0);
-      const averageEstimatedPricePerUnit = totalUnits > 0 ? (estimatedTotalPrice / totalUnits) : 0;
+      const totalUnits = cartTotalUnits;
+      const finalTotalPrice = dtfSettings?.storefrontAutoQuotingEnabled ? grandTotal : cartSubtotal;
+      const averageEstimatedPricePerUnit = totalUnits > 0 ? (finalTotalPrice / totalUnits) : 0;
       const displayCompany = customerInfo.companyName?.trim() || customerInfo.contactName?.trim() || storefrontSettings?.logoText || 'Custom';
       const garmentSummary = cart.map(item => getCustomGarmentName(item.product, catalogSettings)).filter(Boolean).join(', ');
       const rawTitle = garmentSummary 
-        ? `${displayCompany} Quote - ${garmentSummary}`
-        : `${displayCompany} Quote Request`;
+        ? `${displayCompany} Order - ${garmentSummary}`
+        : `${displayCompany} Custom Order`;
       const orderTitle = rawTitle.length > 100 ? rawTitle.slice(0, 97) + '...' : rawTitle;
 
       const rawPayload = {
@@ -2037,13 +2122,15 @@ export function PublicQuoteRequest() {
         customerId: customerId,
         title: orderTitle,
         statusIndex: isPayNow ? 3 : 0, 
+        status: isPayNow ? 'In Production' : 'Submitted',
         paymentStatus: isPayNow ? 'pending' : 'unpaid',
         date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric'}),
         createdAt: new Date().toISOString(),
-        items: cart.map((item, idx) => {
-          const itemPrice = item.pricingDetails?.total || 0;
+        items: cartAutoQuotes.map((cq, idx) => {
+          const item = cq.item;
+          const itemPrice = cq.unitPrice;
           const itemQty = item.qty || 1;
-          const itemTotal = itemPrice * itemQty;
+          const itemTotal = cq.itemTotal;
           const artUrl = item.frontLogoUrl || item.mockupUrl || '';
           return {
             id: Date.now() + idx,
@@ -2068,11 +2155,16 @@ export function PublicQuoteRequest() {
            email: customerInfo.emailAddress || '',
            phone: customerInfo.phone || ''
         },
+        shippingAddress: shippingAddress,
+        shippingCost: estimatedShipping,
+        taxAmount: taxAmount,
+        subtotal: cartSubtotal,
+        orderTotal: finalTotalPrice,
         inHandsDate: inHandsDate || '',
         notes: notes || '',
         budgetTier: budgetTier || 'Retail Standard',
         estimatedPricePerUnit: averageEstimatedPricePerUnit,
-        estimatedTotalPrice: estimatedTotalPrice,
+        estimatedTotalPrice: finalTotalPrice,
         placements: cart.map(item => ({
           side: 'front',
           size: item.frontPrintSize || 'Standard',
@@ -2083,7 +2175,7 @@ export function PublicQuoteRequest() {
           id: `act-${Date.now()}`,
           type: 'system',
           message: isPayNow 
-            ? `Order created via online checkout. Initiating Stripe Checkout Session for $${estimatedTotalPrice.toFixed(2)}.` 
+            ? `Order created via online storefront checkout. Initiating Stripe Checkout Session for $${finalTotalPrice.toFixed(2)}.` 
             : `${storefrontSettings?.logoText || 'Web'} Web Quote Request submitted by ${customerInfo.contactName}`,
           user: customerInfo.emailAddress || '',
           timestamp: new Date().toISOString()
@@ -2095,32 +2187,60 @@ export function PublicQuoteRequest() {
 
       // 4. Redirecting
       setSubmittingStepIndex(4);
-      setSubmittingStep('Opening your new Customer Portal...');
+      setSubmittingStep('Opening your Customer Portal...');
 
       if (isPayNow) {
         const successUrl = `${window.location.origin}/portal/${customerId}?success=true&order_id=${orderId}&session_id={CHECKOUT_SESSION_ID}`;
         const cancelUrl = `${window.location.origin}/portal/${customerId}?canceled=true&order_id=${orderId}`;
 
-        const lineItems = cart.map(item => {
+        const lineItems = cartAutoQuotes.map(cq => {
+          const item = cq.item;
           const sizeDescription = Object.entries(item.sizes || {})
             .filter(([_, v]) => (v as number) > 0)
             .map(([k, v]) => `${k}: ${v}`)
             .join(', ');
-          const itemPrice = item.pricingDetails?.total || 0;
           
           return {
             price_data: {
               currency: 'usd',
               product_data: {
                 name: `${getCustomGarmentName(item.product, catalogSettings)} (${item.color || 'Standard'})`,
-                description: `Decoration: ${item.decorationMethod || 'Print'} | Sizes: ${sizeDescription || 'Quote Pending'}`,
+                description: `Decoration: ${item.decorationMethod || 'Print'} | Sizes: ${sizeDescription || 'Standard'}`,
                 images: item.mockupUrl && item.mockupUrl.startsWith('http') ? [item.mockupUrl] : undefined
               },
-              unit_amount: Math.round(itemPrice * 100)
+              unit_amount: Math.round(cq.unitPrice * 100)
             },
             quantity: item.qty || 1
           };
         });
+
+        if (estimatedShipping > 0) {
+          lineItems.push({
+            price_data: {
+              currency: 'usd',
+              product_data: {
+                name: 'Estimated Shipping & Delivery',
+                description: 'Standard Ground Delivery'
+              },
+              unit_amount: Math.round(estimatedShipping * 100)
+            },
+            quantity: 1
+          });
+        }
+
+        if (taxAmount > 0) {
+          lineItems.push({
+            price_data: {
+              currency: 'usd',
+              product_data: {
+                name: 'Sales Tax',
+                description: 'State & Local Sales Tax'
+              },
+              unit_amount: Math.round(taxAmount * 100)
+            },
+            quantity: 1
+          });
+        }
 
         const res = await fetch('/api/stripe/create-checkout-session', {
           method: 'POST',
@@ -2151,13 +2271,12 @@ export function PublicQuoteRequest() {
       }
     } catch (err: any) {
       console.error("Order submission error:", err);
-      alert(`Failed to submit request: ${err?.message || 'Please check your inputs and try again.'}`);
+      alert(`Could not process order: ${err.message || 'Please try again.'}`);
     } finally {
       setIsSubmitting(false);
       setSubmittingStep('');
       setSubmittingStepIndex(0);
     }
-
   };
 
   if (isVerifyingPayment) {
@@ -4194,9 +4313,20 @@ export function PublicQuoteRequest() {
                     ))}
                   </div>
 
-                  <div className="lg:col-span-2 text-right border-t lg:border-t-0 lg:border-l border-neutral-100 pt-4 lg:pt-0 lg:pl-6">
+                  <div className="lg:col-span-2 text-right border-t lg:border-t-0 lg:border-l border-neutral-100 pt-4 lg:pt-0 lg:pl-6 space-y-1">
                     <span className="text-[9px] text-neutral-400 block font-bold uppercase">Total Units</span>
                     <span className="text-base font-extrabold text-neutral-900 block mt-0.5">{item.qty} units</span>
+                    {dtfSettings?.storefrontAutoQuotingEnabled && (() => {
+                      const cq = cartAutoQuotes.find(c => c.item.id === item.id);
+                      if (!cq || !cq.quoteRes.ok) return null;
+                      return (
+                        <div className="pt-2 border-t border-neutral-100 mt-2 space-y-0.5">
+                          <span className="text-[9px] text-emerald-600 block font-bold uppercase tracking-wider">Live Pricing</span>
+                          <span className="text-xs font-bold text-neutral-700 block">${cq.unitPrice.toFixed(2)} / ea</span>
+                          <span className="text-sm font-extrabold text-emerald-700 block">${cq.itemTotal.toFixed(2)}</span>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               ))}
@@ -4232,22 +4362,37 @@ export function PublicQuoteRequest() {
                     <span className="italic font-light">Better.</span>
                   </h1>
                   <p className="text-[10px] font-sans font-extrabold uppercase tracking-[0.2em] text-neutral-400 pt-1">
-                    Finalize Project & Submit Quote
+                    Finalize Project & Submit Order
                   </p>
                 </div>
               </div>
             </div>
 
             {/* Client Registration Notice */}
-            <div className="bg-white/40 backdrop-blur-xl border border-zinc-200/40 rounded-3xl p-5 flex gap-4 items-start text-xs text-neutral-600 leading-relaxed shadow-xs max-w-4xl">
-              <div className="bg-neutral-100 p-2 rounded-xl text-neutral-900 shrink-0">
-                <UserPlus size={18} />
+            {dtfSettings?.storefrontAutoQuotingEnabled ? (
+              <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200/80 rounded-3xl p-5 flex gap-4 items-start text-xs text-neutral-700 leading-relaxed shadow-xs max-w-4xl">
+                <div className="bg-emerald-500/10 p-2.5 rounded-xl text-emerald-700 shrink-0">
+                  <Sparkles size={20} />
+                </div>
+                <div className="space-y-1">
+                  <span className="font-extrabold text-neutral-900 block text-sm flex items-center gap-2">
+                    Instant Auto-Quoting & Direct Checkout Enabled
+                    <span className="bg-emerald-100 text-emerald-800 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">Live Pricing</span>
+                  </span>
+                  <p>Your pricing has been calculated instantly based on your artwork placements and quantities. Enter your delivery address below to calculate shipping and tax, then pay securely to place your order directly into production!</p>
+                </div>
               </div>
-              <div className="space-y-1">
-                <span className="font-extrabold text-neutral-855 block text-sm">Quote Request & Client Registration</span>
-                <p>Submit your design selections as a quote request. No payment is required today. This will register you as a new client and automatically prepare your portal account, where you can log in with Google to monitor project status and view custom pricing quotes once completed by our design team.</p>
+            ) : (
+              <div className="bg-white/40 backdrop-blur-xl border border-zinc-200/40 rounded-3xl p-5 flex gap-4 items-start text-xs text-neutral-600 leading-relaxed shadow-xs max-w-4xl">
+                <div className="bg-neutral-100 p-2 rounded-xl text-neutral-900 shrink-0">
+                  <UserPlus size={18} />
+                </div>
+                <div className="space-y-1">
+                  <span className="font-extrabold text-neutral-855 block text-sm">Quote Request & Client Registration</span>
+                  <p>Submit your design selections as a quote request. No payment is required today. This will register you as a new client and automatically prepare your portal account, where you can log in with Google to monitor project status and view custom pricing quotes once completed by our design team.</p>
+                </div>
               </div>
-            </div>
+            )}
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
               
@@ -4357,12 +4502,65 @@ export function PublicQuoteRequest() {
                   <div className="md:col-span-2 flex flex-col gap-1.5">
                     <label className="text-xs font-bold text-neutral-700">Vision & Notes</label>
                     <textarea 
-                      rows={4} 
+                      rows={3} 
                       value={notes}
                       onChange={e => setNotes(e.target.value)}
                       placeholder="Additional specs or design notes..."
                       className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-3 text-xs font-bold focus:outline-none resize-none"
                     />
+                  </div>
+                </div>
+
+                {/* Shipping & Delivery Address Section */}
+                <div className="pt-6 border-t border-neutral-150 space-y-4">
+                  <div>
+                    <h4 className="text-sm font-bold text-neutral-850 uppercase tracking-wider">Shipping & Delivery Address</h4>
+                    <p className="text-xs text-neutral-500 mt-0.5">Required for calculating accurate sales tax & ground shipping rates.</p>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="md:col-span-2 flex flex-col gap-1.5">
+                      <label className="text-xs font-bold text-neutral-700">Street Address *</label>
+                      <input 
+                        type="text" 
+                        value={shippingAddress.street} 
+                        onChange={e => setShippingAddress({...shippingAddress, street: e.target.value})} 
+                        className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-2.5 text-xs font-bold focus:outline-none focus:border-neutral-400" 
+                        placeholder="123 Commerce St, Suite 100" 
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-bold text-neutral-700">City *</label>
+                      <input 
+                        type="text" 
+                        value={shippingAddress.city} 
+                        onChange={e => setShippingAddress({...shippingAddress, city: e.target.value})} 
+                        className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-2.5 text-xs font-bold focus:outline-none focus:border-neutral-400" 
+                        placeholder="Austin" 
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-bold text-neutral-700">State *</label>
+                        <input 
+                          type="text" 
+                          value={shippingAddress.state} 
+                          onChange={e => setShippingAddress({...shippingAddress, state: e.target.value})} 
+                          className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2.5 text-xs font-bold focus:outline-none focus:border-neutral-400 uppercase" 
+                          placeholder="TX" 
+                          maxLength={2}
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-bold text-neutral-700">ZIP Code *</label>
+                        <input 
+                          type="text" 
+                          value={shippingAddress.zip} 
+                          onChange={e => setShippingAddress({...shippingAddress, zip: e.target.value})} 
+                          className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2.5 text-xs font-bold focus:outline-none focus:border-neutral-400" 
+                          placeholder="78701" 
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -4381,20 +4579,6 @@ export function PublicQuoteRequest() {
                   >
                     <ArrowLeft size={14} /> Back
                   </button>
-                  <div className="flex-1 flex justify-end">
-                    <button
-                      onClick={() => submitOrderOrCheckout(false)}
-                      disabled={isSubmitting || hasLowQuantityItems}
-                      className={`w-full sm:w-auto px-8 h-11 rounded-xl text-xs font-bold tracking-wide transition-all shadow-xs flex items-center justify-center gap-1.5 ${
-                        (!isSubmitting && !hasLowQuantityItems)
-                          ? 'bg-neutral-900 text-white hover:bg-neutral-800 cursor-pointer'
-                          : 'bg-neutral-200 text-neutral-400 cursor-not-allowed'
-                      }`}
-                    >
-                      {isSubmitting ? <Loader2 className="animate-spin" size={14} /> : <FileText size={14} />}
-                      Submit Quote Request
-                    </button>
-                  </div>
                 </div>
               </div>
 
@@ -4408,11 +4592,73 @@ export function PublicQuoteRequest() {
                   </div>
                   <div className="py-2.5 flex justify-between">
                     <span className="text-neutral-500 font-semibold">Total Units</span>
-                    <span className="text-neutral-800 font-bold">
-                      {cart.reduce((acc, item) => acc + item.qty, 0)}
-                    </span>
+                    <span className="text-neutral-800 font-bold">{cartTotalUnits}</span>
                   </div>
+                  {dtfSettings?.storefrontAutoQuotingEnabled && (
+                    <>
+                      <div className="py-2.5 flex justify-between">
+                        <span className="text-neutral-500 font-semibold">Items Subtotal</span>
+                        <span className="text-neutral-800 font-bold">${cartSubtotal.toFixed(2)}</span>
+                      </div>
+                      <div className="py-2.5 flex justify-between">
+                        <span className="text-neutral-500 font-semibold">Est. Ground Shipping</span>
+                        <span className="text-neutral-800 font-bold">${estimatedShipping.toFixed(2)}</span>
+                      </div>
+                      <div className="py-2.5 flex justify-between">
+                        <span className="text-neutral-500 font-semibold">Est. Sales Tax</span>
+                        <span className="text-neutral-800 font-bold flex items-center gap-1">
+                          {isCalculatingTax ? <Loader2 className="animate-spin text-neutral-400" size={12} /> : `$${taxAmount.toFixed(2)}`}
+                        </span>
+                      </div>
+                      <div className="py-3.5 flex justify-between border-t border-neutral-200 text-base font-extrabold text-neutral-900 mt-2">
+                        <span>Grand Total</span>
+                        <span className="text-emerald-700">${grandTotal.toFixed(2)}</span>
+                      </div>
+                    </>
+                  )}
                 </div>
+
+                {/* Actions */}
+                {dtfSettings?.storefrontAutoQuotingEnabled ? (
+                  <div className="space-y-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => submitOrderOrCheckout(true)}
+                      disabled={isSubmitting || hasLowQuantityItems}
+                      className={`w-full py-3.5 px-4 rounded-xl text-xs font-bold tracking-wide transition-all shadow-md flex items-center justify-center gap-2 ${
+                        (!isSubmitting && !hasLowQuantityItems)
+                          ? 'bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white cursor-pointer'
+                          : 'bg-neutral-200 text-neutral-400 cursor-not-allowed'
+                      }`}
+                    >
+                      {isSubmitting ? <Loader2 className="animate-spin" size={16} /> : <Lock size={16} />}
+                      <span>Pay & Submit Order (${grandTotal.toFixed(2)})</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => submitOrderOrCheckout(false)}
+                      disabled={isSubmitting || hasLowQuantityItems}
+                      className="w-full text-center text-[11px] font-bold text-neutral-500 hover:text-neutral-900 underline cursor-pointer"
+                    >
+                      Or submit as Quote Request (No payment required)
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => submitOrderOrCheckout(false)}
+                    disabled={isSubmitting || hasLowQuantityItems}
+                    className={`w-full py-3.5 px-4 rounded-xl text-xs font-bold tracking-wide transition-all shadow-xs flex items-center justify-center gap-2 ${
+                      (!isSubmitting && !hasLowQuantityItems)
+                        ? 'bg-neutral-900 text-white hover:bg-neutral-800 cursor-pointer'
+                        : 'bg-neutral-200 text-neutral-400 cursor-not-allowed'
+                    }`}
+                  >
+                    {isSubmitting ? <Loader2 className="animate-spin" size={16} /> : <FileText size={16} />}
+                    <span>Submit Quote Request</span>
+                  </button>
+                )}
               </div>
 
             </div>

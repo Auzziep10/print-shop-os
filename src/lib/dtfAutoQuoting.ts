@@ -153,10 +153,11 @@ export function autoQuoteItem(item: any, costs?: any, ladder?: any, packagingOve
 /**
  * Fetch DTF pricing settings from Firestore with optional customer override.
  */
-export async function fetchDtfPricingSettings(customerId?: string): Promise<{ costs: any; ladder: any; autoQuotingEnabled: boolean }> {
+export async function fetchDtfPricingSettings(customerId?: string): Promise<{ costs: any; ladder: any; autoQuotingEnabled: boolean; storefrontAutoQuotingEnabled: boolean }> {
   let costs = DTFPricing.DEFAULT_COSTS;
   let ladder = DTFPricing.DEFAULT_LADDER;
   let autoQuotingEnabled = true;
+  let storefrontAutoQuotingEnabled = true;
 
   try {
     const docRef = doc(db, 'settings', 'dtf_pricing');
@@ -167,6 +168,9 @@ export async function fetchDtfPricingSettings(customerId?: string): Promise<{ co
       ladder = data.ladder ? { ...DTFPricing.DEFAULT_LADDER, ...data.ladder } : DTFPricing.DEFAULT_LADDER;
       if (data.autoQuotingEnabled !== undefined) {
         autoQuotingEnabled = !!data.autoQuotingEnabled;
+      }
+      if (data.storefrontAutoQuotingEnabled !== undefined) {
+        storefrontAutoQuotingEnabled = !!data.storefrontAutoQuotingEnabled;
       }
     }
   } catch (err) {
@@ -206,6 +210,7 @@ export async function fetchDtfPricingSettings(customerId?: string): Promise<{ co
   return {
     costs,
     ladder,
-    autoQuotingEnabled
+    autoQuotingEnabled,
+    storefrontAutoQuotingEnabled
   };
 }
