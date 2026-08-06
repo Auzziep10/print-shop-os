@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../../lib/firebase';
-import { X, Upload, Loader2, Check, FileText, Sparkles, RefreshCw, Type, Image as ImageIcon, Sliders, Trash2, Bold, Italic, Search, Shirt, Plus, Palette, AlertCircle } from 'lucide-react';
+import { X, Upload, Loader2, Check, FileText, Sparkles, RefreshCw, Type, Image as ImageIcon, Sliders, Trash2, Bold, Italic, Search, Shirt, Plus, Palette, AlertCircle, Eye } from 'lucide-react';
 import { generateRotatedGarment } from '../../lib/geminiService';
 import { getSwatchColor } from '../shared/GarmentBrowser';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
@@ -158,6 +158,8 @@ export function GarmentCustomizerModal({
 }: GarmentCustomizerModalProps) {
   const [fetchedColorMockups, setFetchedColorMockups] = useState<Record<string, Record<string, string>> | null>(null);
   const [fetchedAllowedColors, setFetchedAllowedColors] = useState<Record<string, string[]> | null>(null);
+  const [fetchedLogoPlacements, setFetchedLogoPlacements] = useState<Record<string, any>>({});
+  const [showPlacementGuides, setShowPlacementGuides] = useState(true);
 
   const [activeTab, setActiveTab] = useState<'front' | 'back' | 'sleeve' | 'tag'>('front');
   const [isSleeveMirrored, setIsSleeveMirrored] = useState(false);
@@ -722,7 +724,7 @@ export function GarmentCustomizerModal({
 
 
 
-  // Fetch storefront_catalog colorMockups & allowedColors from Firestore if not provided in garment prop
+  // Fetch storefront_catalog colorMockups, allowedColors, and logoPlacements from Firestore if not provided in garment prop
   useEffect(() => {
     if (isOpen) {
       const fetchCatalogSettings = async () => {
@@ -733,6 +735,7 @@ export function GarmentCustomizerModal({
             const data = catSnap.data();
             if (data.colorMockups) setFetchedColorMockups(data.colorMockups);
             if (data.allowedColors) setFetchedAllowedColors(data.allowedColors);
+            if (data.logoPlacements) setFetchedLogoPlacements(data.logoPlacements);
           }
         } catch (err) {
           console.error("Error loading storefront catalog settings in customizer:", err);
@@ -741,6 +744,56 @@ export function GarmentCustomizerModal({
       fetchCatalogSettings();
     }
   }, [isOpen]);
+
+  const currentPlacementGuides = useMemo(() => {
+    if (activeTab !== 'front' && activeTab !== 'back') return null;
+    const propPlacement = activeGarment?.placementData || garment?.placementData;
+    const slot = activeGarment?.slot || garment?.slot;
+    const themeCategory = activeGarment?.themeCategory || garment?.themeCategory;
+    
+    let rawPlacement = propPlacement;
+    if (!rawPlacement && fetchedLogoPlacements) {
+      if (themeCategory && slot) {
+        rawPlacement = fetchedLogoPlacements.racks?.[themeCategory]?.[slot] || fetchedLogoPlacements.basics?.[themeCategory]?.[slot];
+      }
+      if (!rawPlacement) {
+        for (const mode of ['racks', 'basics']) {
+          const modeMap = fetchedLogoPlacements[mode];
+          if (modeMap) {
+            for (const cat of Object.keys(modeMap)) {
+              if (slot && modeMap[cat]?.[slot]) {
+                rawPlacement = modeMap[cat][slot];
+                break;
+              }
+            }
+          }
+          if (rawPlacement) break;
+        }
+      }
+    }
+
+    if (!rawPlacement) return null;
+
+    const sideData = activeTab === 'back' ? (rawPlacement.back || (rawPlacement && !rawPlacement.front ? rawPlacement : null)) : (rawPlacement.front || rawPlacement);
+    if (!sideData) return null;
+
+    const guides: { key: string; label: string; badgeBg: string; borderColor: string; box: any }[] = [];
+    if (sideData.large) {
+      guides.push({ key: 'large', label: 'LARGE PRINT (11×14")', badgeBg: 'bg-red-100 text-red-800 border border-red-300', borderColor: 'rgba(239, 68, 68, 0.75)', box: sideData.large });
+    }
+    if (sideData.medium) {
+      guides.push({ key: 'medium', label: 'MEDIUM PRINT (7×9")', badgeBg: 'bg-blue-100 text-blue-800 border border-blue-300', borderColor: 'rgba(59, 130, 246, 0.75)', box: sideData.medium });
+    }
+    if (sideData.small) {
+      guides.push({ key: 'small', label: 'SMALL PRINT (4×4")', badgeBg: 'bg-emerald-100 text-emerald-800 border border-emerald-300', borderColor: 'rgba(16, 185, 129, 0.75)', box: sideData.small });
+    }
+
+    if (guides.length === 0 && typeof sideData.x === 'number') {
+      guides.push({ key: 'large', label: 'PRINT AREA', badgeBg: 'bg-neutral-800 text-white border border-neutral-700', borderColor: 'rgba(0, 0, 0, 0.75)', box: sideData });
+    }
+
+    return guides;
+  }, [activeTab, activeGarment, garment, fetchedLogoPlacements]);
 
   const displayColors = useMemo(() => {
     const propAllowed = (garment as any)?.allowedColors;
@@ -2263,6 +2316,29 @@ export function GarmentCustomizerModal({
                     />
                   )}
 
+                  {/* Admin Placement Bounding Box Guides for Customer Guidance */}
+                  {showPlacementGuides && currentPlacementGuides && currentPlacementGuides.map((guide) => (
+                    <div
+                      key={guide.key}
+                      className="absolute border-2 border-dashed rounded-md pointer-events-none z-10 transition-opacity duration-300"
+                      style={{
+                        left: `${guide.box.x}%`,
+                        top: `${guide.box.y}%`,
+                        width: `${guide.box.w}%`,
+                        height: `${guide.box.h}%`,
+                        borderColor: guide.borderColor,
+                        backgroundColor: `${guide.borderColor.replace('0.75', '0.06')}`,
+                        transform: `translate(-50%, -50%) rotate(${guide.box.r ?? 0}deg)`,
+                      }}
+                    >
+                      <span 
+                        className={`absolute -top-5 left-1 text-[8px] font-extrabold uppercase tracking-widest px-1.5 py-0.5 rounded shadow-2xs select-none pointer-events-none whitespace-nowrap opacity-90 ${guide.badgeBg}`}
+                      >
+                        {guide.label}
+                      </span>
+                    </div>
+                  ))}
+
                   {/* Logo Overlay */}
                   {(!needsGeneration || isGenerated) && selectedLogo && (selectedLogo.isText || isImageFile(selectedLogo.name)) && (
                     <div 
@@ -2341,6 +2417,19 @@ export function GarmentCustomizerModal({
                         )}
                       </button>
                     </div>
+                  )}
+
+                  {/* Placement Guides Toggle Pill */}
+                  {currentPlacementGuides && currentPlacementGuides.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setShowPlacementGuides(prev => !prev)}
+                      className="absolute bottom-3 left-3 z-30 bg-white/90 hover:bg-white border border-neutral-200 shadow-xs px-2.5 py-1.5 rounded-full text-[10px] font-extrabold text-neutral-700 hover:text-black flex items-center gap-1.5 transition-all cursor-pointer backdrop-blur-xs"
+                      title="Toggle print placement area boundaries"
+                    >
+                      <Eye size={12} className={showPlacementGuides ? "text-emerald-600" : "text-neutral-400"} />
+                      <span>{showPlacementGuides ? "Placement Areas On" : "Show Placement Areas"}</span>
+                    </button>
                   )}
                 </>
               )}

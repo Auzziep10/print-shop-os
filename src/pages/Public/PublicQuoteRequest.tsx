@@ -4973,6 +4973,10 @@ export function PublicQuoteRequest() {
           onClose={() => setIsEditorOpen(false)}
           garment={{
             id: editingProduct.id,
+            slot: editingProduct.slot,
+            themeCategory: selectedThemeCategory,
+            placementData: catalogSettings.logoPlacements?.racks?.[selectedThemeCategory]?.[editingProduct.slot] ||
+                           catalogSettings.logoPlacements?.basics?.[selectedBasicsCategory]?.[editingProduct.slot],
             style: getCustomGarmentName(editingProduct.product, catalogSettings, selectedThemeCategory, editingProduct.slot),
             itemNum: editingProduct.product.style,
             image: editingGarmentImg,
