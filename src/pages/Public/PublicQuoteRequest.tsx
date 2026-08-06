@@ -2193,7 +2193,7 @@ export function PublicQuoteRequest() {
         const successUrl = `${window.location.origin}/portal/${customerId}?success=true&order_id=${orderId}&session_id={CHECKOUT_SESSION_ID}`;
         const cancelUrl = `${window.location.origin}/portal/${customerId}?canceled=true&order_id=${orderId}`;
 
-        const lineItems = cartAutoQuotes.map(cq => {
+        const lineItems: any[] = cartAutoQuotes.map(cq => {
           const item = cq.item;
           const sizeDescription = Object.entries(item.sizes || {})
             .filter(([_, v]) => (v as number) > 0)
