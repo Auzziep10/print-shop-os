@@ -318,7 +318,7 @@ function LandingNav({
             <>
               {isClient ? (
                 <button data-cursor onClick={onPortal} className={solidBtn}>
-                  View portal
+                  Your portal
                 </button>
               ) : isStaff ? (
                 <button data-cursor onClick={onAdminPanel} className={solidBtn}>

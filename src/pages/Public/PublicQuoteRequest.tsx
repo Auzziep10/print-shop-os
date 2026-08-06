@@ -2463,9 +2463,9 @@ export function PublicQuoteRequest() {
                       {userData?.role === 'Client' ? (
                         <button
                           onClick={() => navigate(userData.customerId ? `/portal/${userData.customerId}` : '/portal')}
-                          className="px-4 py-1.5 bg-zinc-950 text-white rounded-lg text-xs font-bold hover:bg-zinc-800 transition-all shadow-xs cursor-pointer"
+                          className="px-4 py-1.5 bg-zinc-955 text-white rounded-lg text-xs font-bold hover:bg-zinc-800 transition-all shadow-xs cursor-pointer"
                         >
-                          View Portal
+                          Your Portal
                         </button>
                       ) : (userData && ['Admin', 'Leadership', 'Manager', 'Staff', 'Printer'].includes(userData.role)) ? (
                         <button
@@ -2766,9 +2766,9 @@ export function PublicQuoteRequest() {
                     {userData?.role === 'Client' ? (
                       <button
                         onClick={() => navigate(userData.customerId ? `/portal/${userData.customerId}` : '/portal')}
-                        className="flex items-center justify-center gap-1.5 px-5 h-9 bg-zinc-950 text-white rounded-full text-[10px] font-bold hover:bg-zinc-800 transition-all uppercase tracking-[0.2em] cursor-pointer"
+                        className="flex items-center justify-center gap-1.5 px-5 h-9 bg-zinc-955 text-white rounded-full text-[10px] font-bold hover:bg-zinc-800 transition-all uppercase tracking-[0.2em] cursor-pointer"
                       >
-                        <span>View Portal</span>
+                        <span>Your Portal</span>
                       </button>
                     ) : (userData && ['Admin', 'Leadership', 'Manager', 'Staff', 'Printer'].includes(userData.role)) ? (
                       <button
