@@ -4233,103 +4233,164 @@ export function PublicQuoteRequest() {
                     Sizing Distribution & Quantities
                   </p>
                 </div>
+
+                {/* Live Estimated Subtotal Summary Bar */}
+                <div className="bg-neutral-900 text-white px-5 py-3.5 rounded-2xl flex items-center gap-6 shadow-md border border-neutral-800 shrink-0">
+                  <div className="space-y-0.5">
+                    <span className="text-[9px] uppercase tracking-widest text-emerald-400 font-extrabold block">Live Estimated Subtotal</span>
+                    <span className="text-2xl font-extrabold text-white block">${cartSubtotal.toFixed(2)}</span>
+                  </div>
+                  <div className="border-l border-neutral-700 pl-5 space-y-0.5 text-right">
+                    <span className="text-[9px] uppercase tracking-wider text-neutral-400 font-bold block">Total Quantity</span>
+                    <span className="text-sm font-bold text-neutral-200 block">{cartTotalUnits} garments</span>
+                  </div>
+                </div>
               </div>
             </div>
 
             {/* Sizes Spread Matrices per Item */}
             <div className="space-y-6">
-              {cart.map((item) => (
-                <div key={item.id} className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-3xs grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-                  <div className="lg:col-span-4 flex gap-4 items-center">
-                    {(() => {
-                      const srcUrl = item.compiledMockupUrl || item.mockupUrl || item.frontMockupUrl || item.compiledBackMockupUrl;
-                      return (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (srcUrl) setPreviewImageUrl(srcUrl);
-                          }}
-                          className="w-16 h-18 bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 hover:border-neutral-900 rounded-xl flex items-center justify-center p-1 overflow-hidden flex-shrink-0 cursor-pointer transition-all shadow-3xs hover:shadow-md group relative"
-                          title="Click to expand & view full screen"
-                        >
-                          <img 
-                            src={srcUrl} 
-                            alt={item.product.title} 
-                            className="max-h-full max-w-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform" 
-                          />
-                          <span className="absolute bottom-1 right-1 bg-neutral-900/80 text-white p-0.5 rounded text-[8px] opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Eye size={10} />
-                          </span>
-                        </button>
-                      );
-                    })()}
-                    <div className="min-w-0">
-                      <h4 className="text-xs font-bold text-neutral-850 truncate">{getCustomGarmentName(item.product, catalogSettings)}</h4>
-                      <p className="text-[10px] text-neutral-500 mt-0.5">Color: <span className="font-bold text-neutral-800">{item.color}</span> | Decoration: <span className="font-bold text-neutral-800">{item.decorationMethod}</span></p>
+              {cart.map((item) => {
+                const tierInfo = (() => {
+                  const qty = item.qty || Object.values(item.sizes || {}).reduce((s: number, q: any) => s + (parseFloat(q as any) || 0), 0) || 1;
+                  const quote = autoQuoteItem({ ...item, blankCost: item.product.price || item.blankCost || 0 }, dtfSettings?.costs, dtfSettings?.ladder);
+                  
+                  const TIER_MINS = [1, 25, 50, 100, 250, 500];
+                  const TIER_LABELS = ["1–24", "25–49", "50–99", "100–249", "250–499", "500+"];
+                  let tierIdx = 0;
+                  for (let i = TIER_MINS.length - 1; i >= 0; i--) {
+                    if (qty >= TIER_MINS[i]) {
+                      tierIdx = i;
+                      break;
+                    }
+                  }
+                  const currentTierLabel = TIER_LABELS[tierIdx];
+                  const nextMin = TIER_MINS[tierIdx + 1];
+                  let nextTierNudge = null;
+                  if (nextMin) {
+                    const nextQuote = autoQuoteItem({ ...item, qty: nextMin, sizes: { S: nextMin }, quantities: { S: nextMin }, blankCost: item.product.price || item.blankCost || 0 }, dtfSettings?.costs, dtfSettings?.ladder);
+                    if (quote.ok && nextQuote.ok && quote.pricePerPiece > nextQuote.pricePerPiece) {
+                      nextTierNudge = {
+                        nextMin,
+                        neededMore: nextMin - qty,
+                        nextPricePerPiece: nextQuote.pricePerPiece,
+                        savingsPerPiece: quote.pricePerPiece - nextQuote.pricePerPiece
+                      };
+                    }
+                  }
+                  return {
+                    quote,
+                    unitPrice: quote.pricePerPiece,
+                    itemTotal: quote.orderTotal,
+                    currentTierLabel,
+                    nextTierNudge
+                  };
+                })();
+
+                return (
+                  <div key={item.id} className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-3xs grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+                    <div className="lg:col-span-4 flex gap-4 items-center">
                       {(() => {
-                        const activePlacements = [];
-                        if (item.frontLogoUrl || item.customLogoUrl || item.logoUrl) activePlacements.push("Front");
-                        if (item.backLogoUrl || item.customBackLogoUrl || (item.backLogoScale && item.backLogoScale > 0)) activePlacements.push("Back");
-                        const count = activePlacements.length;
+                        const srcUrl = item.compiledMockupUrl || item.mockupUrl || item.frontMockupUrl || item.compiledBackMockupUrl;
                         return (
-                          <div className="flex flex-col gap-1.5 mt-0.5">
-                            <p className="text-[10px] text-neutral-500">
-                              Placements ({count}): <span className="font-bold text-neutral-850">{count > 0 ? activePlacements.join(', ') : 'None selected'}</span>
-                            </p>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setEditingItemId(item.rackItemId || item.id);
-                                setEditViewMode('front');
-                                setIsEditorOpen(true);
-                              }}
-                              className="flex items-center gap-1.5 bg-neutral-900 hover:bg-black text-white px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all shadow-3xs w-fit cursor-pointer select-none mt-0.5"
-                            >
-                              <Sparkles size={11} className="text-emerald-400" />
-                              <span>Customize Placements & Artwork</span>
-                            </button>
-                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (srcUrl) setPreviewImageUrl(srcUrl);
+                            }}
+                            className="w-16 h-18 bg-neutral-50 hover:bg-neutral-100 border border-neutral-200 hover:border-neutral-900 rounded-xl flex items-center justify-center p-1 overflow-hidden flex-shrink-0 cursor-pointer transition-all shadow-3xs hover:shadow-md group relative"
+                            title="Click to expand & view full screen"
+                          >
+                            <img 
+                              src={srcUrl} 
+                              alt={item.product.title} 
+                              className="max-h-full max-w-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform" 
+                            />
+                            <span className="absolute bottom-1 right-1 bg-neutral-900/80 text-white p-0.5 rounded text-[8px] opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Eye size={10} />
+                            </span>
+                          </button>
                         );
                       })()}
+                      <div className="min-w-0">
+                        <h4 className="text-xs font-bold text-neutral-850 truncate">{getCustomGarmentName(item.product, catalogSettings)}</h4>
+                        <p className="text-[10px] text-neutral-500 mt-0.5">Color: <span className="font-bold text-neutral-800">{item.color}</span> | Decoration: <span className="font-bold text-neutral-800">{item.decorationMethod}</span></p>
+                        {(() => {
+                          const activePlacements = [];
+                          if (item.frontLogoUrl || item.customLogoUrl || item.logoUrl) activePlacements.push("Front");
+                          if (item.backLogoUrl || item.customBackLogoUrl || (item.backLogoScale && item.backLogoScale > 0)) activePlacements.push("Back");
+                          const count = activePlacements.length;
+                          return (
+                            <div className="flex flex-col gap-1.5 mt-0.5">
+                              <p className="text-[10px] text-neutral-500">
+                                Placements ({count}): <span className="font-bold text-neutral-850">{count > 0 ? activePlacements.join(', ') : 'None selected'}</span>
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingItemId(item.rackItemId || item.id);
+                                  setEditViewMode('front');
+                                  setIsEditorOpen(true);
+                                }}
+                                className="flex items-center gap-1.5 bg-neutral-900 hover:bg-black text-white px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all shadow-3xs w-fit cursor-pointer select-none mt-0.5"
+                              >
+                                <Sparkles size={11} className="text-emerald-400" />
+                                <span>Customize Placements & Artwork</span>
+                              </button>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    </div>
+
+                    {/* Dynamic Spreadsheet Input */}
+                    <div className="lg:col-span-5 grid gap-2" style={{ gridTemplateColumns: `repeat(${Object.keys(item.sizes || {}).length}, minmax(0, 1fr))` }}>
+                      {Object.keys(item.sizes || {}).map((size) => (
+                        <div key={size} className="flex flex-col gap-1">
+                          <label className="text-[9px] font-bold text-neutral-400 text-center uppercase tracking-wider">{size}</label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={item.sizes?.[size] ?? 0}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value) || 0;
+                              updateCartItemSize(item.id, size, val);
+                            }}
+                            className="w-full bg-neutral-50 border border-neutral-200 rounded-lg py-1.5 text-center text-xs font-bold text-neutral-900 outline-none focus:border-neutral-400 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          />
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Pricing, Tier Badge & Discount Progress */}
+                    <div className="lg:col-span-3 text-right border-t lg:border-t-0 lg:border-l border-neutral-100 pt-4 lg:pt-0 lg:pl-6 space-y-2">
+                      <div className="flex justify-between lg:justify-end items-baseline gap-2">
+                        <span className="text-[9px] text-neutral-400 font-bold uppercase">Total Units:</span>
+                        <span className="text-base font-extrabold text-neutral-900">{item.qty} units</span>
+                      </div>
+
+                      <div className="bg-emerald-50/80 border border-emerald-200/80 rounded-xl p-3 text-right space-y-1 shadow-3xs">
+                        <div className="flex justify-between items-center text-[10px] font-bold text-emerald-800">
+                          <span className="bg-emerald-200/80 text-emerald-950 px-2 py-0.5 rounded-md text-[9px] font-extrabold uppercase tracking-wider">{tierInfo.currentTierLabel} TIER</span>
+                          <span className="text-emerald-900 font-extrabold text-xs">${tierInfo.unitPrice.toFixed(2)} / ea</span>
+                        </div>
+                        <div className="text-xl font-black text-emerald-950 pt-0.5">
+                          ${tierInfo.itemTotal.toFixed(2)}
+                        </div>
+                      </div>
+
+                      {tierInfo.nextTierNudge && (
+                        <div className="bg-amber-50 border border-amber-200/90 rounded-xl p-2.5 text-left text-[10px] text-amber-900 font-medium leading-relaxed flex items-start gap-1.5 shadow-2xs">
+                          <Sparkles size={13} className="text-amber-600 shrink-0 mt-0.5" />
+                          <div>
+                            <span className="font-extrabold text-amber-950">Save ${tierInfo.nextTierNudge.savingsPerPiece.toFixed(2)}/ea!</span> Add <strong>{tierInfo.nextTierNudge.neededMore}</strong> more garments to reach the {tierInfo.nextTierNudge.nextMin}+ tier rate (${tierInfo.nextTierNudge.nextPricePerPiece.toFixed(2)}/ea).
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
-
-                  {/* Dynamic Spreadsheet Input */}
-                  <div className="lg:col-span-6 grid gap-2" style={{ gridTemplateColumns: `repeat(${Object.keys(item.sizes || {}).length}, minmax(0, 1fr))` }}>
-                    {Object.keys(item.sizes || {}).map((size) => (
-                      <div key={size} className="flex flex-col gap-1">
-                        <label className="text-[9px] font-bold text-neutral-400 text-center uppercase tracking-wider">{size}</label>
-                        <input
-                          type="number"
-                          min="0"
-                          value={item.sizes?.[size] ?? 0}
-                          onChange={(e) => {
-                            const val = parseInt(e.target.value) || 0;
-                            updateCartItemSize(item.id, size, val);
-                          }}
-                          className="w-full bg-neutral-50 border border-neutral-200 rounded-lg py-1.5 text-center text-xs font-bold text-neutral-900 outline-none focus:border-neutral-400 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                        />
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="lg:col-span-2 text-right border-t lg:border-t-0 lg:border-l border-neutral-100 pt-4 lg:pt-0 lg:pl-6 space-y-1">
-                    <span className="text-[9px] text-neutral-400 block font-bold uppercase">Total Units</span>
-                    <span className="text-base font-extrabold text-neutral-900 block mt-0.5">{item.qty} units</span>
-                    {dtfSettings?.storefrontAutoQuotingEnabled && (() => {
-                      const cq = cartAutoQuotes.find(c => c.item.id === item.id);
-                      if (!cq || !cq.quoteRes.ok) return null;
-                      return (
-                        <div className="pt-2 border-t border-neutral-100 mt-2 space-y-0.5">
-                          <span className="text-[9px] text-emerald-600 block font-bold uppercase tracking-wider">Live Pricing</span>
-                          <span className="text-xs font-bold text-neutral-700 block">${cq.unitPrice.toFixed(2)} / ea</span>
-                          <span className="text-sm font-extrabold text-emerald-700 block">${cq.itemTotal.toFixed(2)}</span>
-                        </div>
-                      );
-                    })()}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Actions */}
