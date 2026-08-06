@@ -2300,10 +2300,10 @@ export function GarmentCustomizerModal({
           {/* Garment Preview Container */}
           <div 
             ref={previewRef}
-            className="relative flex-1 min-h-0 max-h-[calc(100vh-280px)] aspect-square bg-white rounded-[2rem] border border-neutral-200/50 shadow-lg flex items-center justify-center overflow-hidden transition-all duration-300 hover:shadow-xl animate-in zoom-in-95 duration-300"
+            className={`relative flex-1 min-h-0 max-h-[calc(100vh-280px)] ${activeTab === 'tag' ? 'aspect-square' : 'aspect-[4/5]'} bg-white rounded-[2rem] border border-neutral-200/50 shadow-lg flex items-center justify-center overflow-hidden transition-all duration-300 hover:shadow-xl animate-in zoom-in-95 duration-300`}
           >
             {/* Garment Artboard Wrapper */}
-            <div className="relative w-full h-full flex items-center justify-center p-3">
+            <div className={`relative w-full h-full ${activeTab === 'tag' ? '' : 'aspect-[4/5]'} flex items-center justify-center p-3`}>
               {activeTab !== 'tag' && (
                 <>
                   {/* Main Garment Image */}
@@ -2312,7 +2312,7 @@ export function GarmentCustomizerModal({
                       src={proxiedActiveMockupImage} 
                       alt={activeGarment.style} 
                       style={{ transform: (activeTab === 'sleeve' && isSleeveMirrored) ? 'scaleX(-1)' : 'none' }}
-                      className="max-w-full max-h-full object-contain mix-blend-multiply select-none pointer-events-none animate-in fade-in duration-500" 
+                      className="absolute inset-0 w-full h-full object-contain mix-blend-multiply select-none pointer-events-none animate-in fade-in duration-500" 
                     />
                   )}
 
