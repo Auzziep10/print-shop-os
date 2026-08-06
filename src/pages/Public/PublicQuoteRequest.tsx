@@ -1780,6 +1780,7 @@ export function PublicQuoteRequest() {
 
         compiledCartItems.push({
           id: `cart-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+          rackItemId: (item as any).id,
           product: item.product,
           color: item.color,
           qty: totalQty,
@@ -1793,6 +1794,20 @@ export function PublicQuoteRequest() {
           mockupUrl: fMockup || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200',
           decorationMethod: item.decoration,
           sizes: initialSizes,
+          logoPos: item.logoPos || { x: 50, y: 35 },
+          logoScale: item.logoScale ?? 0.30,
+          logoRotation: item.logoRotation ?? 0,
+          backLogoPos: item.backLogoPos || { x: 50, y: 35 },
+          backLogoScale: item.backLogoScale ?? 0,
+          backLogoRotation: item.backLogoRotation ?? 0,
+          customScaleFront: (item as any).customScaleFront ?? (item.logoScale ? (item.logoScale <= 1 ? Math.round(item.logoScale * 100) : item.logoScale) : 30),
+          customOffsetXFront: item.logoPos?.x ?? 50,
+          customOffsetYFront: item.logoPos?.y ?? 45,
+          customRotationFront: item.logoRotation ?? 0,
+          customScaleBack: (item as any).customScaleBack ?? (item.backLogoScale ? (item.backLogoScale <= 1 ? Math.round(item.backLogoScale * 100) : item.backLogoScale) : 0),
+          customOffsetXBack: item.backLogoPos?.x ?? 50,
+          customOffsetYBack: item.backLogoPos?.y ?? 40,
+          customRotationBack: item.backLogoRotation ?? 0,
           pricingDetails: {
             base: baseVal,
             front: decorationCost,
@@ -1893,7 +1908,15 @@ export function PublicQuoteRequest() {
           backLogoUrl: hasBack ? (updated.customBackLogoUrl || cartItem.backLogoUrl) : null,
           compiledMockupUrl: updated.compiledMockupUrl || cartItem.compiledMockupUrl,
           compiledBackMockupUrl: hasBack ? (updated.compiledBackMockupUrl || cartItem.compiledBackMockupUrl) : null,
-          mockupUrl: updated.compiledMockupUrl || cartItem.mockupUrl
+          mockupUrl: updated.compiledMockupUrl || cartItem.mockupUrl,
+          customScaleFront: updated.customScaleFront,
+          customOffsetXFront: updated.customOffsetXFront,
+          customOffsetYFront: updated.customOffsetYFront,
+          customRotationFront: updated.customRotationFront,
+          customScaleBack: updated.customScaleBack,
+          customOffsetXBack: updated.customOffsetXBack,
+          customOffsetYBack: updated.customOffsetYBack,
+          customRotationBack: updated.customRotationBack
         };
       }
       return cartItem;
@@ -2362,8 +2385,6 @@ export function PublicQuoteRequest() {
   // Pre-load flatlay for edit canvas
   const editingProduct: DesignRackItem | null = (() => {
     if (!editingItemId) return null;
-    const rackMatch = rackItems.find(i => i.id === editingItemId);
-    if (rackMatch) return rackMatch;
     const cartMatch = cart.find(c => c.id === editingItemId || c.rackItemId === editingItemId);
     if (cartMatch) {
       return {
@@ -2372,20 +2393,30 @@ export function PublicQuoteRequest() {
         product: cartMatch.product,
         color: cartMatch.color,
         selected: true,
-        logoPos: cartMatch.logoPos || { x: 50, y: 35 },
-        logoScale: cartMatch.logoScale || 0.38,
-        logoRotation: cartMatch.logoRotation || 0,
-        backLogoPos: cartMatch.backLogoPos || { x: 50, y: 35 },
-        backLogoScale: cartMatch.backLogoScale || 0,
-        backLogoRotation: cartMatch.backLogoRotation || 0,
+        logoPos: cartMatch.logoPos || { x: cartMatch.customOffsetXFront ?? 50, y: cartMatch.customOffsetYFront ?? 45 },
+        logoScale: cartMatch.logoScale ?? (cartMatch.customScaleFront ? cartMatch.customScaleFront / 100 : 0.30),
+        logoRotation: cartMatch.logoRotation ?? cartMatch.customRotationFront ?? 0,
+        backLogoPos: cartMatch.backLogoPos || { x: cartMatch.customOffsetXBack ?? 50, y: cartMatch.customOffsetYBack ?? 40 },
+        backLogoScale: cartMatch.backLogoScale ?? (cartMatch.customScaleBack ? cartMatch.customScaleBack / 100 : 0),
+        backLogoRotation: cartMatch.backLogoRotation ?? cartMatch.customRotationBack ?? 0,
         customLogoUrl: cartMatch.frontLogoUrl || cartMatch.customLogoUrl,
         customBackLogoUrl: cartMatch.backLogoUrl || cartMatch.customBackLogoUrl,
         compiledMockupUrl: cartMatch.compiledMockupUrl || cartMatch.mockupUrl,
         compiledBackMockupUrl: cartMatch.compiledBackMockupUrl || cartMatch.backMockupUrl,
         printSize: cartMatch.frontPrintSize || 'Medium',
-        decoration: cartMatch.decorationMethod || 'Print'
-      };
+        decoration: cartMatch.decorationMethod || 'Print',
+        customScaleFront: cartMatch.customScaleFront,
+        customOffsetXFront: cartMatch.customOffsetXFront,
+        customOffsetYFront: cartMatch.customOffsetYFront,
+        customRotationFront: cartMatch.customRotationFront,
+        customScaleBack: cartMatch.customScaleBack,
+        customOffsetXBack: cartMatch.customOffsetXBack,
+        customOffsetYBack: cartMatch.customOffsetYBack,
+        customRotationBack: cartMatch.customRotationBack
+      } as any;
     }
+    const rackMatch = rackItems.find(i => i.id === editingItemId);
+    if (rackMatch) return rackMatch;
     if (flowMode === 'racks') {
       return null;
     } else if (flowMode === 'types') {
@@ -4916,14 +4947,14 @@ export function PublicQuoteRequest() {
             artworkName: (editingProduct as any).logoName || artworkName || 'Logo.png',
             logoUrlBack: editingProduct.customBackLogoUrl || ((editingProduct as any).backLogoUrl && !(editingProduct as any).backLogoUrl.includes('mockup') ? (editingProduct as any).backLogoUrl : null) || null,
             logoNameBack: (editingProduct as any).logoNameBack || 'Back_Logo.png',
-            customOffsetXFront: editingProduct.logoPos?.x ?? (editingProduct as any).customOffsetXFront ?? 50,
-            customOffsetYFront: editingProduct.logoPos?.y ?? (editingProduct as any).customOffsetYFront ?? 45,
-            customScaleFront: editingProduct.logoScale ? (editingProduct.logoScale <= 1 ? Math.round(editingProduct.logoScale * 100) : editingProduct.logoScale) : ((editingProduct as any).customScaleFront ?? 30),
-            customRotationFront: editingProduct.logoRotation ?? (editingProduct as any).customRotationFront ?? 0,
-            customOffsetXBack: editingProduct.backLogoPos?.x ?? (editingProduct as any).customOffsetXBack ?? 50,
-            customOffsetYBack: editingProduct.backLogoPos?.y ?? (editingProduct as any).customOffsetYBack ?? 40,
-            customScaleBack: (editingProduct.backLogoScale && editingProduct.backLogoScale > 0) ? (editingProduct.backLogoScale <= 1 ? Math.round(editingProduct.backLogoScale * 100) : editingProduct.backLogoScale) : ((editingProduct as any).customScaleBack ?? 0),
-            customRotationBack: editingProduct.backLogoRotation ?? (editingProduct as any).customRotationBack ?? 0,
+            customOffsetXFront: editingProduct.customOffsetXFront ?? editingProduct.logoPos?.x ?? 50,
+            customOffsetYFront: editingProduct.customOffsetYFront ?? editingProduct.logoPos?.y ?? 45,
+            customScaleFront: editingProduct.customScaleFront ?? (editingProduct.logoScale ? (editingProduct.logoScale <= 1 ? Math.round(editingProduct.logoScale * 100) : editingProduct.logoScale) : 30),
+            customRotationFront: editingProduct.customRotationFront ?? editingProduct.logoRotation ?? 0,
+            customOffsetXBack: editingProduct.customOffsetXBack ?? editingProduct.backLogoPos?.x ?? 50,
+            customOffsetYBack: editingProduct.customOffsetYBack ?? editingProduct.backLogoPos?.y ?? 40,
+            customScaleBack: editingProduct.customScaleBack ?? (editingProduct.backLogoScale ? (editingProduct.backLogoScale <= 1 ? Math.round(editingProduct.backLogoScale * 100) : editingProduct.backLogoScale) : 0),
+            customRotationBack: editingProduct.customRotationBack ?? editingProduct.backLogoRotation ?? 0,
           }}
           customerId="PUBLIC_VISITOR"
           onSave={(customizedData) => {
