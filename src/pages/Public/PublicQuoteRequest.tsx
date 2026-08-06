@@ -986,6 +986,49 @@ export function PublicQuoteRequest() {
     }
   }, [flowMode, selectedThemeCategory, catalogSettings, logoAspect]);
 
+  const resolveProductDefaultColor = (
+    product: SanMarProduct,
+    settings: any,
+    availableColors: string[]
+  ): string => {
+    if (!product || !availableColors.length) return availableColors[0] || 'Black';
+    const targetStyle = product.style.toLowerCase();
+
+    if (settings?.defaultColors?.basics) {
+      for (const catName of Object.keys(settings.defaultColors.basics)) {
+        const catDefaults = settings.defaultColors.basics[catName];
+        const catStyles = settings.basics?.[catName];
+        if (catDefaults && catStyles) {
+          for (const tierKey of Object.keys(catDefaults)) {
+            const assignedStyle = (catStyles[tierKey] || '').toLowerCase();
+            const colorVal = catDefaults[tierKey];
+            if (assignedStyle === targetStyle && colorVal && availableColors.includes(colorVal)) {
+              return colorVal;
+            }
+          }
+        }
+      }
+    }
+
+    if (settings?.defaultColors?.racks) {
+      for (const catName of Object.keys(settings.defaultColors.racks)) {
+        const catDefaults = settings.defaultColors.racks[catName];
+        const catStyles = settings.racks?.[catName];
+        if (catDefaults && catStyles) {
+          for (const slotKey of Object.keys(catDefaults)) {
+            const assignedStyle = (catStyles[slotKey] || '').toLowerCase();
+            const colorVal = catDefaults[slotKey];
+            if (assignedStyle === targetStyle && colorVal && availableColors.includes(colorVal)) {
+              return colorVal;
+            }
+          }
+        }
+      }
+    }
+
+    return availableColors[0] || 'Black';
+  };
+
   // Resolve the admin-configured placement for a basics product (falls back to legacy default)
   const getBasicsPlacement = (product: SanMarProduct): { pos: { x: number; y: number }; scale: number; rotation: number } => {
     const cat = catalogSettings.basics?.[selectedBasicsCategory];
@@ -3328,7 +3371,8 @@ export function PublicQuoteRequest() {
                           {matching.slice(0, 32).map(item => {
                             const isSelected = selectedGarmentTypeItems.some(g => g.product.style === item.style);
                             const colors = getFilteredProductColors(item, catalogSettings.allowedColors);
-                            const colorKey = selectedGarmentTypeColor && colors.includes(selectedGarmentTypeColor) ? selectedGarmentTypeColor : (colors[0] || 'Black');
+                            const configuredDefaultColor = resolveProductDefaultColor(item, catalogSettings, colors);
+                            const colorKey = selectedGarmentTypeColor && colors.includes(selectedGarmentTypeColor) ? selectedGarmentTypeColor : configuredDefaultColor;
                             const previewImg = getGarmentMockupImage(item, colorKey, 'front', catalogSettings);
                             const weightAndFabric = getGarmentWeightAndFabric(item);
                             const customName = (() => {
@@ -4927,7 +4971,8 @@ export function PublicQuoteRequest() {
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
                     {matchingProducts.map(prod => {
-                      const colorKey = prod.colors[0] || 'Black';
+                      const colors = getFilteredProductColors(prod, catalogSettings.allowedColors);
+                      const colorKey = resolveProductDefaultColor(prod, catalogSettings, colors);
                       const previewImg = getGarmentMockupImage(prod, colorKey, 'front', catalogSettings);
                       const weightAndFabric = getGarmentWeightAndFabric(prod);
                       const customName = getCustomGarmentName(prod, catalogSettings);
