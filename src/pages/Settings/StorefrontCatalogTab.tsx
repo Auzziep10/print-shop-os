@@ -85,12 +85,6 @@ const RESIZE_HANDLES: { id: string; sx: number; sy: number; cursor: string }[] =
   { id: 'e', sx: 1, sy: 0, cursor: 'ew-resize' },
   { id: 'se', sx: 1, sy: 1, cursor: 'nwse-resize' },
   { id: 's', sx: 0, sy: 1, cursor: 'ns-resize' },
-  { id: 'sw', sx: -1, sy: 1, cursor: 'nesw-resize' },
-  { id: 'w', sx: -1, sy: 0, cursor: 'ew-resize' },
-];
-
-const MIN_BOX_PX = 14;
-
 function LogoPlacementModal({
   title,
   imageUrl,
@@ -102,23 +96,55 @@ function LogoPlacementModal({
 }: {
   title: string;
   imageUrl: string;
-  initialBox: LogoBox;
+  initialBox: MultiLogoBoxes | LogoBox;
   hasExisting: boolean;
-  onApply: (box: LogoBox) => void;
+  onApply: (box: MultiLogoBoxes) => void;
   onClear: () => void;
   onClose: () => void;
 }) {
-  const [box, setBox] = useState<LogoBox>(clampBox(initialBox));
+  const parseInitialBoxes = (): Record<'large' | 'medium' | 'small', LogoBox | null> => {
+    const raw = initialBox as MultiLogoBoxes;
+    if (raw && (raw.large || raw.medium || raw.small)) {
+      return {
+        large: raw.large ? clampBox(raw.large) : null,
+        medium: raw.medium ? clampBox(raw.medium) : null,
+        small: raw.small ? clampBox(raw.small) : null,
+      };
+    }
+    if (raw && typeof raw.x === 'number') {
+      return {
+        large: clampBox(raw as LogoBox),
+        medium: null,
+        small: null
+      };
+    }
+    return {
+      large: PRINT_SIZE_CONFIGS[0].defaultBox,
+      medium: PRINT_SIZE_CONFIGS[1].defaultBox,
+      small: PRINT_SIZE_CONFIGS[2].defaultBox,
+    };
+  };
+
+  const [boxes, setBoxes] = useState<Record<'large' | 'medium' | 'small', LogoBox | null>>(parseInitialBoxes);
+  const [activeSize, setActiveSize] = useState<'large' | 'medium' | 'small'>('large');
+
   const frameRef = useRef<HTMLDivElement>(null);
   const gestureRef = useRef<{
-    type: 'move' | 'rotate' | string; // string = resize handle id
-    startX: number; // pointer, frame px
+    type: 'move' | 'rotate' | string;
+    startX: number;
     startY: number;
     startBox: LogoBox;
   } | null>(null);
 
-  // All gesture math runs in frame pixels (rotation mixes axes, and the frame
-  // is 4:5 so percent units differ per axis); state stays in percent.
+  const activeBox = boxes[activeSize] || PRINT_SIZE_CONFIGS.find(c => c.key === activeSize)!.defaultBox;
+
+  const updateActiveBox = (newBox: LogoBox) => {
+    setBoxes(prev => ({
+      ...prev,
+      [activeSize]: newBox
+    }));
+  };
+
   const pointerPx = (e: React.PointerEvent) => {
     const rect = frameRef.current!.getBoundingClientRect();
     return { x: e.clientX - rect.left, y: e.clientY - rect.top, rect };
@@ -136,7 +162,7 @@ function LogoPlacementModal({
     e.preventDefault();
     e.stopPropagation();
     const { x, y } = pointerPx(e);
-    gestureRef.current = { type, startX: x, startY: y, startBox: box };
+    gestureRef.current = { type, startX: x, startY: y, startBox: activeBox };
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   };
 
@@ -147,7 +173,7 @@ function LogoPlacementModal({
     const start = boxToPx(g.startBox, rect);
 
     if (g.type === 'move') {
-      setBox(clampBox({
+      updateActiveBox(clampBox({
         ...g.startBox,
         x: ((start.cx + (x - g.startX)) / rect.width) * 100,
         y: ((start.cy + (y - g.startY)) / rect.height) * 100,
@@ -156,9 +182,8 @@ function LogoPlacementModal({
     }
 
     if (g.type === 'rotate') {
-      // Handle sits above the box's local top edge, so straight up = 0deg
       const deg = (Math.atan2(y - start.cy, x - start.cx) * 180) / Math.PI + 90;
-      setBox(clampBox({ ...g.startBox, r: Math.round(deg) }));
+      updateActiveBox(clampBox({ ...g.startBox, r: Math.round(deg) }));
       return;
     }
 
@@ -168,11 +193,9 @@ function LogoPlacementModal({
     const cos = Math.cos(start.rad);
     const sin = Math.sin(start.rad);
 
-    // Anchor = the point opposite the handle (stays fixed while dragging)
     const ax = start.cx - (sx * (start.bw / 2)) * cos + (sy * (start.bh / 2)) * sin;
     const ay = start.cy - (sx * (start.bw / 2)) * sin - (sy * (start.bh / 2)) * cos;
 
-    // Pointer offset from the anchor, rotated into the box's local space
     const dx = x - ax;
     const dy = y - ay;
     const localX = dx * cos + dy * sin;
@@ -181,13 +204,12 @@ function LogoPlacementModal({
     const bw = sx !== 0 ? Math.max(MIN_BOX_PX, sx * localX) : start.bw;
     const bh = sy !== 0 ? Math.max(MIN_BOX_PX, sy * localY) : start.bh;
 
-    // New center = anchor pushed back out along the local handle direction
     const ox = sx * (bw / 2);
     const oy = sy * (bh / 2);
     const cx = ax + ox * cos - oy * sin;
     const cy = ay + ox * sin + oy * cos;
 
-    setBox(clampBox({
+    updateActiveBox(clampBox({
       x: (cx / rect.width) * 100,
       y: (cy / rect.height) * 100,
       w: (bw / rect.width) * 100,
@@ -200,122 +222,200 @@ function LogoPlacementModal({
     gestureRef.current = null;
   };
 
+  const handleSave = () => {
+    const primaryBox = boxes.large || boxes.medium || boxes.small || PRINT_SIZE_CONFIGS[0].defaultBox;
+    const payload: MultiLogoBoxes = {
+      ...primaryBox,
+      large: boxes.large ? clampBox(boxes.large) : undefined,
+      medium: boxes.medium ? clampBox(boxes.medium) : undefined,
+      small: boxes.small ? clampBox(boxes.small) : undefined,
+    };
+    onApply(payload);
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
-      <div className="bg-white border border-brand-border rounded-2xl shadow-2xl max-w-lg w-full p-6 space-y-5 max-h-[92vh] overflow-y-auto">
-        <div className="flex justify-between items-start">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-4 md:p-6 animate-in fade-in duration-200">
+      <div className="bg-white border border-brand-border rounded-3xl shadow-2xl max-w-5xl w-full p-6 md:p-8 space-y-5 max-h-[95vh] overflow-y-auto flex flex-col">
+        <div className="flex justify-between items-start pb-2 border-b border-neutral-100">
           <div>
-            <span className="text-[9px] font-extrabold uppercase tracking-widest text-neutral-400">Logo Placement</span>
-            <h3 className="text-lg font-serif text-brand-primary">{title}</h3>
-            <p className="text-xs text-brand-secondary mt-1">
-              Drag the box where the logo should land on this mock. Customer logos are auto-fitted
-              inside it, so the same box drives the lookbook preview and the final mockup.
+            <span className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-400">Garment Placement Editor</span>
+            <h3 className="text-xl font-serif text-brand-primary">{title}</h3>
+            <p className="text-xs text-brand-secondary mt-1 max-w-3xl">
+              Define placement boxes for Large, Medium, and Small print sizes. Select an option below to draw or resize its box. Customer logos will auto-fit into the matching box and calculate accurate tier pricing.
             </p>
           </div>
           <button
             onClick={onClose}
-            className="p-1 text-neutral-400 hover:text-neutral-900 hover:bg-neutral-50 rounded-lg transition-colors"
+            className="p-2 text-neutral-400 hover:text-neutral-900 hover:bg-neutral-100 rounded-full transition-colors cursor-pointer"
           >
-            <X size={18} />
+            <X size={20} />
           </button>
         </div>
 
-        {/* Placement canvas — same geometry as the customer-facing placement frame */}
-        <div
-          ref={frameRef}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          className="relative w-full max-w-[360px] mx-auto aspect-[4/5] bg-checkerboard border border-brand-border rounded-xl overflow-hidden select-none touch-none"
-        >
-          <img
-            src={imageUrl}
-            alt="Garment mock"
-            draggable="false"
-            className="absolute inset-0 w-full h-full object-contain mix-blend-multiply pointer-events-none"
-          />
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {PRINT_SIZE_CONFIGS.map((cfg) => {
+            const isSelected = activeSize === cfg.key;
+            const hasBox = !!boxes[cfg.key];
+            const currentBox = boxes[cfg.key];
 
-          <div
-            onPointerDown={(e) => handlePointerDown(e, 'move')}
-            className="absolute border-2 border-dashed border-neutral-900 bg-neutral-900/10 cursor-move rounded-sm"
-            style={{
-              left: `${box.x}%`,
-              top: `${box.y}%`,
-              width: `${box.w}%`,
-              height: `${box.h}%`,
-              transform: `translate(-50%, -50%) rotate(${box.r ?? 0}deg)`,
-            }}
-          >
-            <Crosshair
-              size={14}
-              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-neutral-900/60 pointer-events-none"
-            />
-            <span className="absolute -top-5 left-0 text-[9px] font-extrabold uppercase tracking-wider text-neutral-900 bg-white/85 px-1 rounded pointer-events-none whitespace-nowrap">
-              Logo area
-            </span>
-
-            {/* Rotation Handle */}
-            <div
-              className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-6 flex flex-col items-center"
-              style={{ transformOrigin: 'bottom center' }}
-            >
-              <div className="w-0.5 h-4 bg-neutral-900" />
+            return (
               <div
-                onPointerDown={(e) => handlePointerDown(e, 'rotate')}
-                className="w-3 h-3 bg-white border-2 border-neutral-900 rounded-full shadow-md hover:bg-neutral-100 transition-colors cursor-alias"
-                title="Rotate box"
-              />
-            </div>
+                key={cfg.key}
+                onClick={() => {
+                  setActiveSize(cfg.key);
+                  if (!hasBox) {
+                    setBoxes(prev => ({ ...prev, [cfg.key]: cfg.defaultBox }));
+                  }
+                }}
+                className={`relative p-3.5 rounded-2xl border-2 cursor-pointer transition-all flex flex-col justify-between ${
+                  isSelected 
+                    ? 'bg-neutral-50 border-neutral-900 shadow-md ring-2 ring-neutral-900/10' 
+                    : 'bg-white border-neutral-200 hover:border-neutral-400 hover:bg-neutral-50/50'
+                }`}
+              >
+                <div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className={`text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-md ${cfg.badgeBg}`}>
+                      {cfg.label}
+                    </span>
+                    {hasBox ? (
+                      <span className="text-[10px] font-bold text-emerald-600 flex items-center gap-1">
+                        <Check size={12} /> Active
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-medium text-neutral-400">Click to add</span>
+                    )}
+                  </div>
+                  <p className="text-xs font-semibold text-neutral-800 mt-2">{cfg.subLabel}</p>
+                </div>
 
-            {/* Resize Handles */}
-            {RESIZE_HANDLES.map((handle) => {
-              const left = `${(handle.sx + 1) * 50}%`;
-              const top = `${(handle.sy + 1) * 50}%`;
+                <div className="flex items-center justify-between mt-3 pt-2 border-t border-neutral-100">
+                  <span className="text-[10px] font-mono text-neutral-500">
+                    {hasBox ? `${Math.round(currentBox!.w)}% × ${Math.round(currentBox!.h)}%` : 'No box set'}
+                  </span>
+                  {hasBox && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setBoxes(prev => ({ ...prev, [cfg.key]: null }));
+                      }}
+                      className="text-[10px] font-bold text-red-500 hover:text-red-700 px-1.5 py-0.5 rounded hover:bg-red-50 transition-colors cursor-pointer"
+                      title={`Remove ${cfg.label} box`}
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="relative flex-1 flex flex-col items-center justify-center bg-neutral-50 p-4 rounded-2xl border border-neutral-200 min-h-[420px]">
+          <div
+            ref={frameRef}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            className="relative w-full max-w-[560px] aspect-[4/5] bg-checkerboard border-2 border-neutral-300 rounded-2xl overflow-hidden select-none touch-none shadow-lg"
+          >
+            <img
+              src={imageUrl}
+              alt="Garment mock"
+              draggable="false"
+              className="absolute inset-0 w-full h-full object-contain mix-blend-multiply pointer-events-none"
+            />
+
+            {PRINT_SIZE_CONFIGS.map((cfg) => {
+              const b = boxes[cfg.key];
+              if (!b) return null;
+              const isEditing = activeSize === cfg.key;
+
               return (
                 <div
-                  key={handle.id}
-                  onPointerDown={(e) => handlePointerDown(e, handle.id)}
-                  className="absolute w-2.5 h-2.5 bg-white border-2 border-neutral-900 rounded-full shadow-xs -translate-x-1/2 -translate-y-1/2 z-10"
+                  key={cfg.key}
+                  onClick={() => setActiveSize(cfg.key)}
+                  onPointerDown={(e) => isEditing && handlePointerDown(e, 'move')}
+                  className={`absolute border-2 rounded-sm transition-all ${
+                    isEditing 
+                      ? 'border-dashed cursor-move z-30 shadow-md' 
+                      : 'border-dashed opacity-60 hover:opacity-100 cursor-pointer z-20 hover:scale-[1.01]'
+                  }`}
                   style={{
-                    left,
-                    top,
-                    cursor: handle.cursor,
+                    left: `${b.x}%`,
+                    top: `${b.y}%`,
+                    width: `${b.w}%`,
+                    height: `${b.h}%`,
+                    borderColor: isEditing ? cfg.activeBorderColor : cfg.borderColor,
+                    backgroundColor: isEditing ? `${cfg.activeBorderColor}15` : `${cfg.borderColor}10`,
+                    transform: `translate(-50%, -50%) rotate(${b.r ?? 0}deg)`,
                   }}
-                  title={`Resize ${handle.id.toUpperCase()}`}
-                />
+                >
+                  <Crosshair
+                    size={14}
+                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-neutral-900/60 pointer-events-none"
+                  />
+                  <span 
+                    className={`absolute -top-6 left-0 text-[9px] font-extrabold uppercase tracking-wider px-1.5 py-0.5 rounded shadow-2xs pointer-events-none whitespace-nowrap ${cfg.badgeBg}`}
+                  >
+                    {cfg.badgeText} ({Math.round(b.w)}% × {Math.round(b.h)}%)
+                  </span>
+
+                  {isEditing && (
+                    <>
+                      <div
+                        className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-7 flex flex-col items-center"
+                        style={{ transformOrigin: 'bottom center' }}
+                      >
+                        <div className="w-0.5 h-4" style={{ backgroundColor: cfg.handleColor }} />
+                        <div
+                          onPointerDown={(e) => handlePointerDown(e, 'rotate')}
+                          className="w-3.5 h-3.5 bg-white border-2 rounded-full shadow-md hover:scale-110 transition-transform cursor-alias"
+                          style={{ borderColor: cfg.handleColor }}
+                          title="Rotate box"
+                        />
+                      </div>
+
+                      {RESIZE_HANDLES.map((handle) => {
+                        const left = `${(handle.sx + 1) * 50}%`;
+                        const top = `${(handle.sy + 1) * 50}%`;
+                        return (
+                          <div
+                            key={handle.id}
+                            onPointerDown={(e) => handlePointerDown(e, handle.id)}
+                            className="absolute w-3 h-3 bg-white border-2 rounded-full shadow-xs -translate-x-1/2 -translate-y-1/2 z-40 hover:scale-125 transition-transform"
+                            style={{
+                              left,
+                              top,
+                              borderColor: cfg.handleColor,
+                              cursor: handle.cursor,
+                            }}
+                            title={`Resize ${handle.id.toUpperCase()}`}
+                          />
+                        );
+                      })}
+                    </>
+                  )}
+                </div>
               );
             })}
           </div>
         </div>
 
-        {/* Presets + readout */}
-        <div className="flex flex-wrap items-center gap-2">
-          {PLACEMENT_PRESETS.map(preset => (
-            <button
-              key={preset.label}
-              onClick={() => setBox(clampBox(preset.box))}
-              className="px-3 py-1.5 bg-white border border-brand-border rounded-xl text-[10px] font-bold text-brand-primary hover:bg-neutral-50 transition-colors"
-            >
-              {preset.label}
-            </button>
-          ))}
-          <span className="ml-auto text-[10px] font-mono text-neutral-400">
-            {Math.round(box.w)}% × {Math.round(box.h)}% {box.r ? `@ ${box.r}°` : ''}
-          </span>
-        </div>
-
         <div className="flex justify-between items-center pt-4 border-t border-brand-border">
           {hasExisting ? (
             <button
+              type="button"
               onClick={onClear}
-              className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-red-500 hover:bg-red-50 rounded-xl transition-colors"
+              className="flex items-center gap-1.5 px-4 py-2.5 text-xs font-bold text-red-500 hover:bg-red-50 rounded-xl transition-colors cursor-pointer"
             >
-              <Trash2 size={13} /> Clear placement
+              <Trash2 size={15} /> Clear All Placements
             </button>
           ) : <span />}
-          <div className="flex gap-2">
+          <div className="flex gap-3">
             <PillButton variant="outline" onClick={onClose}>Cancel</PillButton>
-            <PillButton variant="filled" onClick={() => onApply(clampBox(box))} className="gap-2">
-              <Check size={14} /> Apply Placement
+            <PillButton variant="filled" onClick={handleSave} className="gap-2 px-6 py-2.5 text-xs font-bold">
+              <Check size={16} /> Save All Placements
             </PillButton>
           </div>
         </div>

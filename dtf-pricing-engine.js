@@ -62,7 +62,10 @@ const DEFAULT_COSTS = {
   /** Handling + overhead per garment: receiving, folding, packing, utilities, rent. */
   overheadPerGarment: 0.75,
   /** Loaded transfer cost: full front or full back, up to 11x14. */
+  /** Loaded transfer cost: full front or full back, up to 11x14. */
   transferLarge: 0.95,
+  /** Loaded transfer cost: medium front or medium back, up to 7x9. */
+  transferMedium: 0.65,
   /** Loaded transfer cost: left chest or sleeve, ~4in. */
   transferSmall: 0.40,
   /** Loaded transfer cost: neck tag print, ~2x3. */
@@ -109,12 +112,12 @@ const REFERENCE_PRODUCT = { garmentId: "tee", placementIds: ["ff"] };
  * `allows` lists which placement ids are valid for that garment.
  */
 const GARMENTS = [
-  { id: "tee",    label: "T-shirt",             handlingMultiplier: 1.00, allows: ["ff","fb","lc","sl","sr","tag","sb"] },
-  { id: "hoodie", label: "Hoodie",              handlingMultiplier: 1.55, allows: ["ff","fb","lc","sl","sr","tag","sb"] },
-  { id: "crew",   label: "Crewneck sweatshirt", handlingMultiplier: 1.40, allows: ["ff","fb","lc","sl","sr","tag","sb"] },
-  { id: "ls",     label: "Long-sleeve tee",     handlingMultiplier: 1.18, allows: ["ff","fb","lc","sl","sr","tag","sb"] },
-  { id: "youth",  label: "Youth tee",           handlingMultiplier: 0.90, allows: ["ff","fb","lc","sl","sr","tag","sb"] },
-  { id: "tote",   label: "Tote bag",            handlingMultiplier: 0.82, allows: ["ff","fb"] },
+  { id: "tee",    label: "T-shirt",             handlingMultiplier: 1.00, allows: ["ff","mf","fb","mb","lc","sb","sl","sr","tag"] },
+  { id: "hoodie", label: "Hoodie",              handlingMultiplier: 1.55, allows: ["ff","mf","fb","mb","lc","sb","sl","sr","tag"] },
+  { id: "crew",   label: "Crewneck sweatshirt", handlingMultiplier: 1.40, allows: ["ff","mf","fb","mb","lc","sb","sl","sr","tag"] },
+  { id: "ls",     label: "Long-sleeve tee",     handlingMultiplier: 1.18, allows: ["ff","mf","fb","mb","lc","sb","sl","sr","tag"] },
+  { id: "youth",  label: "Youth tee",           handlingMultiplier: 0.90, allows: ["ff","mf","fb","mb","lc","sb","sl","sr","tag"] },
+  { id: "tote",   label: "Tote bag",            handlingMultiplier: 0.82, allows: ["ff","mf","fb","mb"] },
   { id: "hat",    label: "Hat / cap",           handlingMultiplier: 1.05, allows: ["patch"] },
 ];
 
@@ -125,7 +128,9 @@ const GARMENTS = [
  */
 const PLACEMENTS = [
   { id: "ff",    label: "Full front (11×14)",         costKey: "transferLarge" },
+  { id: "mf",    label: "Medium front (7×9)",          costKey: "transferMedium" },
   { id: "fb",    label: "Full back (11×14)",          costKey: "transferLarge" },
+  { id: "mb",    label: "Medium back (7×9)",           costKey: "transferMedium" },
   { id: "lc",    label: "Left chest (≈4\")",          costKey: "transferSmall" },
   { id: "sb",    label: "Small back (≈4\")",          costKey: "transferSmall" },
   { id: "sl",    label: "Left sleeve",                costKey: "transferSmall" },
