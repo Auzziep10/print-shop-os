@@ -1450,10 +1450,23 @@ export function GarmentCustomizerModal({
 
     setIsUploading(true);
     try {
-      const uploadPath = customerId === 'PUBLIC_VISITOR' ? `public_quotes/uploads/${Date.now()}_${file.name}` : `portal/${customerId}/vault/${Date.now()}_${file.name}`;
-      const storageRef = ref(storage, uploadPath);
-      await uploadBytes(storageRef, file);
-      const downloadUrl = await getDownloadURL(storageRef);
+      let downloadUrl = '';
+      try {
+        const uploadPath = (!customerId || customerId === 'PUBLIC_VISITOR') 
+          ? `public_quotes/uploads/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}` 
+          : `portal/${customerId}/vault/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+        const storageRef = ref(storage, uploadPath);
+        await uploadBytes(storageRef, file);
+        downloadUrl = await getDownloadURL(storageRef);
+      } catch (storageErr) {
+        console.warn("Storage upload failed or unauthenticated, using Data URL fallback:", storageErr);
+        downloadUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+      }
 
       const newAsset = {
         id: `asset-${Date.now()}`,
@@ -1464,17 +1477,21 @@ export function GarmentCustomizerModal({
 
       const updatedAssets = [...assets, newAsset];
       
-      if (customerId !== 'PUBLIC_VISITOR') {
-        await updateDoc(doc(db, 'customers', customerId), {
-          assets: updatedAssets
-        });
+      if (customerId && customerId !== 'PUBLIC_VISITOR') {
+        try {
+          await updateDoc(doc(db, 'customers', customerId), {
+            assets: updatedAssets
+          });
+        } catch (dbErr) {
+          console.warn("Could not save asset to customer doc:", dbErr);
+        }
       }
 
       setAssets(updatedAssets);
       setSelectedLogo(newAsset);
     } catch (err) {
-      console.error("Logo upload failed:", err);
-      alert("Failed to upload logo.");
+      console.error("Logo upload failed completely:", err);
+      alert("Failed to process logo image. Please try another file format.");
     } finally {
       setIsUploading(false);
     }
