@@ -1516,24 +1516,30 @@ export function PublicQuoteRequest() {
         }
       }
 
-      if (settings?.customMockups?.racks) {
+      const targetStyle = (product?.style || '').toLowerCase();
+
+      if (targetStyle && settings?.customMockups?.racks) {
         for (const catName of Object.keys(settings.customMockups.racks)) {
           const slots = settings.customMockups.racks[catName];
+          const rackCatObj = settings.racks?.[catName];
           if (slots) {
             for (const sKey of Object.keys(slots)) {
-              if (slots[sKey]?.trim() && (sKey === slotKey || settings.racks?.[catName]?.[sKey] === product.style)) {
+              const assignedStyle = (rackCatObj?.[sKey] || '').toLowerCase();
+              if (slots[sKey]?.trim() && assignedStyle && assignedStyle === targetStyle) {
                 return slots[sKey].trim();
               }
             }
           }
         }
       }
-      if (settings?.customMockups?.basics) {
+      if (targetStyle && settings?.customMockups?.basics) {
         for (const catName of Object.keys(settings.customMockups.basics)) {
           const slots = settings.customMockups.basics[catName];
+          const basicsCatObj = settings.basics?.[catName];
           if (slots) {
             for (const tierKey of Object.keys(slots)) {
-              if (slots[tierKey]?.trim() && settings.basics?.[catName]?.[tierKey] === product.style) {
+              const assignedStyle = (basicsCatObj?.[tierKey] || '').toLowerCase();
+              if (slots[tierKey]?.trim() && assignedStyle && assignedStyle === targetStyle) {
                 return slots[tierKey].trim();
               }
             }
