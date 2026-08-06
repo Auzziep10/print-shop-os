@@ -479,7 +479,8 @@ export function DtfPricingSettingsTab() {
                   <tr key={p.id} className="hover:bg-neutral-50/60">
                     <td className="p-3 font-bold text-brand-primary">{p.label}</td>
                     {DTFPricing.TIERS.map((_: string, tIdx: number) => {
-                      const sellPrice = DTFPricing.placementSellPrice(p.id, tIdx, ladder);
+                      const cost = DTFPricing.decorationCost('tee', [p.id], tIdx, costs);
+                      const sellPrice = DTFPricing.priceFromCost(cost, tIdx, costs, ladder);
                       return (
                         <td key={tIdx} className="p-3 text-center font-mono font-bold text-emerald-800">
                           ${sellPrice.toFixed(2)}
