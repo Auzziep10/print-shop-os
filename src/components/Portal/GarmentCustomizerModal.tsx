@@ -892,7 +892,7 @@ export function GarmentCustomizerModal({
       backImage: null,
       sleeveImage: null
     };
-  }, [activeGarment, selectedColor, catalogProduct, generatedViews]);
+  }, [activeGarment, garment, selectedColor, catalogProduct, generatedViews, fetchedColorMockups]);
 
   const activeMockupImage = useMemo(() => {
     if (activeTab === 'front') return frontImage;
