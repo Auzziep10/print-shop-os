@@ -7,7 +7,7 @@ import { generateRotatedGarment } from '../../lib/geminiService';
 import { getSwatchColor } from '../shared/GarmentBrowser';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
 import { saveDesignToLibrary } from '../../lib/savedDesignsUtils';
-import { getFilteredProductColors } from '../../lib/garmentUtils';
+import { getFilteredProductColors, resolveGarmentPlacementData } from '../../lib/garmentUtils';
 
 const sanmarCatalog = sanmarCatalogJson as any[];
 
@@ -159,6 +159,7 @@ export function GarmentCustomizerModal({
   const [fetchedColorMockups, setFetchedColorMockups] = useState<Record<string, Record<string, string>> | null>(null);
   const [fetchedAllowedColors, setFetchedAllowedColors] = useState<Record<string, string[]> | null>(null);
   const [fetchedLogoPlacements, setFetchedLogoPlacements] = useState<Record<string, any>>({});
+  const [fetchedCatalogSettings, setFetchedCatalogSettings] = useState<any>(null);
   const [showPlacementGuides, setShowPlacementGuides] = useState(true);
 
   const [activeTab, setActiveTab] = useState<'front' | 'back' | 'sleeve' | 'tag'>('front');
@@ -733,6 +734,7 @@ export function GarmentCustomizerModal({
           const catSnap = await getDoc(catRef);
           if (catSnap.exists()) {
             const data = catSnap.data();
+            setFetchedCatalogSettings(data);
             if (data.colorMockups) setFetchedColorMockups(data.colorMockups);
             if (data.allowedColors) setFetchedAllowedColors(data.allowedColors);
             if (data.logoPlacements) setFetchedLogoPlacements(data.logoPlacements);
@@ -747,30 +749,8 @@ export function GarmentCustomizerModal({
 
   const currentPlacementGuides = useMemo(() => {
     if (activeTab !== 'front' && activeTab !== 'back') return null;
-    const propPlacement = activeGarment?.placementData || garment?.placementData;
-    const slot = activeGarment?.slot || garment?.slot;
-    const themeCategory = activeGarment?.themeCategory || garment?.themeCategory;
-    
-    let rawPlacement = propPlacement;
-    if (!rawPlacement && fetchedLogoPlacements) {
-      if (themeCategory && slot) {
-        rawPlacement = fetchedLogoPlacements.racks?.[themeCategory]?.[slot] || fetchedLogoPlacements.basics?.[themeCategory]?.[slot];
-      }
-      if (!rawPlacement) {
-        for (const mode of ['racks', 'basics']) {
-          const modeMap = fetchedLogoPlacements[mode];
-          if (modeMap) {
-            for (const cat of Object.keys(modeMap)) {
-              if (slot && modeMap[cat]?.[slot]) {
-                rawPlacement = modeMap[cat][slot];
-                break;
-              }
-            }
-          }
-          if (rawPlacement) break;
-        }
-      }
-    }
+    const targetGarment = activeGarment || garment;
+    const rawPlacement = resolveGarmentPlacementData(targetGarment, fetchedLogoPlacements, fetchedCatalogSettings);
 
     if (!rawPlacement) return null;
 
@@ -793,7 +773,7 @@ export function GarmentCustomizerModal({
     }
 
     return guides;
-  }, [activeTab, activeGarment, garment, fetchedLogoPlacements]);
+  }, [activeTab, activeGarment, garment, fetchedLogoPlacements, fetchedCatalogSettings]);
 
   const displayColors = useMemo(() => {
     const propAllowed = (garment as any)?.allowedColors;

@@ -272,3 +272,107 @@ export const getGarmentWeightAndFabric = (item: any, catalogProduct?: any): Weig
 
   return { weight, fabric, formatted };
 };
+
+export const resolveGarmentPlacementData = (
+  itemOrGarment: any,
+  logoPlacements?: any,
+  catalogSettings?: any
+): any => {
+  if (!itemOrGarment) return null;
+
+  // 1. Explicit placementData attached to itemOrGarment
+  if (itemOrGarment.placementData) {
+    const pd = itemOrGarment.placementData;
+    if (pd && (pd.large || pd.medium || pd.small || pd.front || pd.back || typeof pd.x === 'number')) {
+      return pd;
+    }
+  }
+
+  const placements = logoPlacements || catalogSettings?.logoPlacements;
+  if (!placements) return null;
+
+  const styleCode = (
+    itemOrGarment.style ||
+    itemOrGarment.itemNum ||
+    itemOrGarment.product?.style ||
+    itemOrGarment.product?.itemNum ||
+    ''
+  ).toLowerCase().trim();
+
+  const slot = (
+    itemOrGarment.slot ||
+    itemOrGarment.garmentType ||
+    itemOrGarment.product?.slot ||
+    ''
+  ).toLowerCase().trim();
+
+  const themeCategory = itemOrGarment.themeCategory || catalogSettings?.selectedThemeCategory;
+  const basicsCategory = itemOrGarment.basicsCategory || catalogSettings?.selectedBasicsCategory;
+  const tier = itemOrGarment.tier;
+
+  // 2. Direct lookup by themeCategory + slot in racks
+  if (themeCategory && slot && placements.racks?.[themeCategory]?.[slot]) {
+    return placements.racks[themeCategory][slot];
+  }
+
+  // 3. Direct lookup by basicsCategory + tier/slot in basics
+  if (basicsCategory) {
+    if (tier && placements.basics?.[basicsCategory]?.[tier]) {
+      return placements.basics[basicsCategory][tier];
+    }
+    if (slot && placements.basics?.[basicsCategory]?.[slot]) {
+      return placements.basics[basicsCategory][slot];
+    }
+  }
+
+  // 4. Search by product style code matching in catalogSettings.racks
+  if (styleCode && catalogSettings?.racks) {
+    for (const catName of Object.keys(catalogSettings.racks)) {
+      const rackSlots = catalogSettings.racks[catName];
+      if (rackSlots) {
+        for (const sKey of Object.keys(rackSlots)) {
+          if (String(rackSlots[sKey]).toLowerCase().trim() === styleCode) {
+            const placement = placements.racks?.[catName]?.[sKey];
+            if (placement) return placement;
+          }
+        }
+      }
+    }
+  }
+
+  // 5. Search by product style code matching in catalogSettings.basics
+  if (styleCode && catalogSettings?.basics) {
+    for (const catName of Object.keys(catalogSettings.basics)) {
+      const basicsTiers = catalogSettings.basics[catName];
+      if (basicsTiers) {
+        for (const tKey of Object.keys(basicsTiers)) {
+          if (String(basicsTiers[tKey]).toLowerCase().trim() === styleCode) {
+            const placement = placements.basics?.[catName]?.[tKey];
+            if (placement) return placement;
+          }
+        }
+      }
+    }
+  }
+
+  // 6. Search across all categories in placements.racks for matching slot
+  if (slot && placements.racks) {
+    for (const catName of Object.keys(placements.racks)) {
+      if (placements.racks[catName]?.[slot]) {
+        return placements.racks[catName][slot];
+      }
+    }
+  }
+
+  // 7. Search across all categories in placements.basics for matching slot/tier
+  if (slot && placements.basics) {
+    for (const catName of Object.keys(placements.basics)) {
+      if (placements.basics[catName]?.[slot]) {
+        return placements.basics[catName][slot];
+      }
+    }
+  }
+
+  return null;
+};
+

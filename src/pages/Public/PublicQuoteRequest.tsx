@@ -28,7 +28,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { PillButton } from '../../components/ui/PillButton';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
-import { getGarmentWeightAndFabric, getOrderedKeys, GARMENT_TYPES, detectGarmentTypeTag, getFilteredProductColors, type GarmentTypeId } from '../../lib/garmentUtils';
+import { getGarmentWeightAndFabric, getOrderedKeys, GARMENT_TYPES, detectGarmentTypeTag, getFilteredProductColors, resolveGarmentPlacementData, type GarmentTypeId } from '../../lib/garmentUtils';
 import { GarmentCustomizerModal } from '../../components/Portal/GarmentCustomizerModal';
 import { fetchDtfPricingSettings, autoQuoteItem } from '../../lib/dtfAutoQuoting';
 import colorHexMapJson from '../../data/color-hex-map.json';
@@ -928,9 +928,11 @@ export function PublicQuoteRequest() {
         const isPolo = slot === 'polo';
 
         // Admin-configured placement box beats the hardcoded slot defaults
-        const placementBox =
-          (themeName && slot && catalogSettings.logoPlacements?.racks?.[themeName]?.[slot]) ||
-          (slot && Object.values(catalogSettings.logoPlacements?.racks || {}).find((catSlots: any) => catSlots?.[slot])?.[slot]);
+        const placementBox = resolveGarmentPlacementData(
+          { themeCategory: themeName, slot, product: displayProduct },
+          catalogSettings.logoPlacements,
+          catalogSettings
+        );
         const fitted = placementBox ? fitLogoToBox(placementBox, logoAspect) : null;
 
         const prevItem = rackItems.find(r => r.slot === slot);
@@ -1031,9 +1033,11 @@ export function PublicQuoteRequest() {
 
   // Resolve the admin-configured placement for a basics product (falls back to legacy default)
   const getBasicsPlacement = (product: SanMarProduct): { pos: { x: number; y: number }; scale: number; rotation: number } => {
-    const cat = catalogSettings.basics?.[selectedBasicsCategory];
-    const tier = cat ? ['good', 'better', 'best'].find(t => cat[t] === product.style) : undefined;
-    const box = tier ? catalogSettings.logoPlacements?.basics?.[selectedBasicsCategory]?.[tier] : undefined;
+    const box = resolveGarmentPlacementData(
+      { basicsCategory: selectedBasicsCategory, product },
+      catalogSettings.logoPlacements,
+      catalogSettings
+    );
     return box ? fitLogoToBox(box, logoAspect) : { pos: { x: 50, y: 35 }, scale: 0.38, rotation: 0 };
   };
 
@@ -5050,8 +5054,7 @@ export function PublicQuoteRequest() {
             id: editingProduct.id,
             slot: editingProduct.slot,
             themeCategory: selectedThemeCategory,
-            placementData: catalogSettings.logoPlacements?.racks?.[selectedThemeCategory]?.[editingProduct.slot] ||
-                           catalogSettings.logoPlacements?.basics?.[selectedBasicsCategory]?.[editingProduct.slot],
+            placementData: resolveGarmentPlacementData(editingProduct, catalogSettings.logoPlacements, catalogSettings),
             style: getCustomGarmentName(editingProduct.product, catalogSettings, selectedThemeCategory, editingProduct.slot),
             itemNum: editingProduct.product.style,
             image: editingGarmentImg,
