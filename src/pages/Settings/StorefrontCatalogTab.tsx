@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db, storage } from '../../lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { Loader2, Save, Search, Check, Info, Crosshair, X, Trash2, Plus, Edit2, ImageIcon, ArrowLeft, ArrowRight, Eye, EyeOff, Scissors } from 'lucide-react';
+import { Loader2, Save, Search, Check, Info, Crosshair, X, Trash2, Plus, Edit2, ImageIcon, ArrowLeft, ArrowRight, Eye, EyeOff, Scissors, Upload } from 'lucide-react';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
@@ -153,6 +153,7 @@ function LogoPlacementModal({
   title,
   imageUrl,
   backImageUrl,
+  onUploadBackMockup,
   initialBox,
   hasExisting,
   onApply,
@@ -162,6 +163,7 @@ function LogoPlacementModal({
   title: string;
   imageUrl: string;
   backImageUrl?: string | null;
+  onUploadBackMockup?: (file: File) => Promise<string>;
   initialBox: MultiLogoBoxes | LogoBox;
   hasExisting: boolean;
   onApply: (box: MultiLogoBoxes) => void;
@@ -197,10 +199,15 @@ function LogoPlacementModal({
   const [frontBoxes, setFrontBoxes] = useState<Record<'large' | 'medium' | 'small', LogoBox | null>>(() => parseInitialBoxes('front'));
   const [backBoxes, setBackBoxes] = useState<Record<'large' | 'medium' | 'small', LogoBox | null>>(() => parseInitialBoxes('back'));
   const [activeSize, setActiveSize] = useState<'large' | 'medium' | 'small'>('large');
+  const [customBackUrl, setCustomBackUrl] = useState<string | null>(null);
+  const [isUploadingBack, setIsUploadingBack] = useState(false);
 
   const currentBoxes = activeSide === 'front' ? frontBoxes : backBoxes;
   const setCurrentBoxes = activeSide === 'front' ? setFrontBoxes : setBackBoxes;
-  const currentMockUrl = (activeSide === 'back' && backImageUrl) ? backImageUrl : imageUrl;
+
+  const effectiveBackUrl = customBackUrl || (backImageUrl !== imageUrl ? backImageUrl : null) || backImageUrl;
+  const currentMockUrl = (activeSide === 'back' && effectiveBackUrl) ? effectiveBackUrl : imageUrl;
+  const isBackMockupSameAsFront = activeSide === 'back' && currentMockUrl === imageUrl;
 
   const frameRef = useRef<HTMLDivElement>(null);
   const gestureRef = useRef<{
@@ -341,36 +348,65 @@ function LogoPlacementModal({
         </div>
 
         {/* Front / Back Side View Switcher */}
-        <div className="flex items-center justify-center gap-2 bg-neutral-100 p-1.5 rounded-2xl border border-neutral-200 w-fit mx-auto shadow-2xs">
-          <button
-            type="button"
-            onClick={() => setActiveSide('front')}
-            className={`px-6 py-2 rounded-xl text-xs font-extrabold transition-all uppercase tracking-wider flex items-center gap-2 cursor-pointer ${
-              activeSide === 'front'
-                ? 'bg-neutral-900 text-white shadow-sm'
-                : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-200/60'
-            }`}
-          >
-            <span>Front Placement</span>
-            {Object.values(frontBoxes).some(Boolean) && (
-              <span className="w-2 h-2 rounded-full bg-emerald-400" />
-            )}
-          </button>
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 bg-neutral-100 p-1.5 rounded-2xl border border-neutral-200 w-fit mx-auto shadow-2xs">
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setActiveSide('front')}
+              className={`px-6 py-2 rounded-xl text-xs font-extrabold transition-all uppercase tracking-wider flex items-center gap-2 cursor-pointer ${
+                activeSide === 'front'
+                  ? 'bg-neutral-900 text-white shadow-sm'
+                  : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-200/60'
+              }`}
+            >
+              <span>Front Placement</span>
+              {Object.values(frontBoxes).some(Boolean) && (
+                <span className="w-2 h-2 rounded-full bg-emerald-400" />
+              )}
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveSide('back')}
-            className={`px-6 py-2 rounded-xl text-xs font-extrabold transition-all uppercase tracking-wider flex items-center gap-2 cursor-pointer ${
-              activeSide === 'back'
-                ? 'bg-neutral-900 text-white shadow-sm'
-                : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-200/60'
-            }`}
-          >
-            <span>Back Placement</span>
-            {Object.values(backBoxes).some(Boolean) && (
-              <span className="w-2 h-2 rounded-full bg-emerald-400" />
-            )}
-          </button>
+            <button
+              type="button"
+              onClick={() => setActiveSide('back')}
+              className={`px-6 py-2 rounded-xl text-xs font-extrabold transition-all uppercase tracking-wider flex items-center gap-2 cursor-pointer ${
+                activeSide === 'back'
+                  ? 'bg-neutral-900 text-white shadow-sm'
+                  : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-200/60'
+              }`}
+            >
+              <span>Back Placement</span>
+              {Object.values(backBoxes).some(Boolean) && (
+                <span className="w-2 h-2 rounded-full bg-emerald-400" />
+              )}
+            </button>
+          </div>
+
+          {activeSide === 'back' && onUploadBackMockup && (
+            <label className="inline-flex items-center gap-1.5 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs shrink-0">
+              {isUploadingBack ? <Loader2 className="animate-spin" size={13} /> : <Upload size={13} />}
+              <span>{isUploadingBack ? 'Uploading...' : (isBackMockupSameAsFront ? 'Upload Back Image' : 'Change Back Image')}</span>
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                disabled={isUploadingBack}
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  try {
+                    setIsUploadingBack(true);
+                    const uploadedUrl = await onUploadBackMockup(file);
+                    setCustomBackUrl(uploadedUrl);
+                  } catch (err) {
+                    console.error("Error uploading back mockup:", err);
+                    alert("Failed to upload back mockup image.");
+                  } finally {
+                    setIsUploadingBack(false);
+                  }
+                }}
+              />
+            </label>
+          )}
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -1267,8 +1303,12 @@ export function StorefrontCatalogTab() {
   const getGarmentBackImage = (p: any, chosenColor?: string, mode?: 'racks' | 'basics', category?: string, slot?: string) => {
     const styleKey = (p?.style || p?.itemNum || '').toLowerCase();
 
-    if (styleKey && chosenColor && colorMockups?.[styleKey]?.[chosenColor]?.backMockup) {
-      return colorMockups[styleKey][chosenColor].backMockup;
+    if (styleKey && chosenColor && colorMockups?.[styleKey]?.[chosenColor]) {
+      const entry = colorMockups[styleKey][chosenColor];
+      if (typeof entry === 'object' && entry !== null) {
+        const backUrl = entry.back || entry.backMockup;
+        if (backUrl) return backUrl;
+      }
     }
 
     if (p?.backImages) {
@@ -2239,6 +2279,25 @@ export function StorefrontCatalogTab() {
              title={`${category} — ${slot.replace('longsleeve', 'long sleeve').toUpperCase()} (${p.brand} ${p.style})`}
              imageUrl={getGarmentImage(p, chosenColor, mode, category, slot)}
              backImageUrl={getGarmentBackImage(p, chosenColor, mode, category, slot)}
+             onUploadBackMockup={async (file: File) => {
+               const modalStyleKey = p.style.toLowerCase().trim();
+               const colorKey = chosenColor || (p.colors?.[0] || 'Default');
+               const storageRef = ref(storage, `storefront_color_mockups/${modalStyleKey}/${colorKey}_back_${Date.now()}_${file.name}`);
+               await uploadBytes(storageRef, file);
+               const url = await getDownloadURL(storageRef);
+               setColorMockups(prev => {
+                 const existing = prev[modalStyleKey]?.[colorKey];
+                 const front = typeof existing === 'string' ? existing : (typeof existing === 'object' ? existing?.front : undefined);
+                 return {
+                   ...prev,
+                   [modalStyleKey]: {
+                     ...(prev[modalStyleKey] || {}),
+                     [colorKey]: { ...(front ? { front } : {}), back: url }
+                   }
+                 };
+               });
+               return url;
+             }}
             initialBox={existing || slotDefaultBox(slot)}
             hasExisting={!!existing}
             onApply={handleApplyPlacement}
