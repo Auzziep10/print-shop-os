@@ -341,6 +341,10 @@ function LandingNav({
             </button>
           )}
 
+          <a data-cursor href="/shop" className={ghostBtn}>
+            Shop
+          </a>
+
           <button data-cursor onClick={() => onScrollTo('#start-cta')} className={solidBtn}>
             Start
           </button>

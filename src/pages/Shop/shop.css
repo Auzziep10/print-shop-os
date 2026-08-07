@@ -1,0 +1,59 @@
+/* Brand Shop — scoped styles. Loaded only by the /shop routes. */
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Caveat:wght@500;600&display=swap');
+
+.shop-root {
+  font-family: 'Montserrat', 'Inter', system-ui, sans-serif;
+  background: #fff;
+  color: #1a1a1a;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+.shop-root ::selection {
+  background: #1a1a1a;
+  color: #fff;
+}
+
+/* Script overlay on the footer banner — brush-script feel */
+.shop-script {
+  font-family: 'Caveat', 'Pacifico', cursive;
+  font-weight: 600;
+  line-height: 1;
+}
+
+/* Vertical edge text (e.g. DESERT MADE on the footer banner) */
+.shop-vertical {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+}
+
+/* Product image hover */
+.shop-card-img {
+  transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.4s ease;
+}
+.shop-card:hover .shop-card-img {
+  transform: scale(1.03);
+}
+
+/* Drawer + modal transitions */
+.shop-fade-in {
+  animation: shopFadeIn 0.25s ease both;
+}
+@keyframes shopFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.shop-slide-in {
+  animation: shopSlideIn 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes shopSlideIn {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+.shop-pop-in {
+  animation: shopPopIn 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes shopPopIn {
+  from { opacity: 0; transform: translateY(16px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}

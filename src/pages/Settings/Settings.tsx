@@ -5,6 +5,7 @@ import { PermissionsTab } from './PermissionsTab';
 import { BusinessTab } from './BusinessTab';
 import { AppsTab } from './AppsTab';
 import { StorefrontCatalogTab } from './StorefrontCatalogTab';
+import { ShopManagerTab } from './ShopManagerTab';
 import { Signatures } from '../Signatures/Signatures';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSearchParams } from 'react-router-dom';
@@ -109,6 +110,16 @@ export function Settings() {
               Storefront Catalog
             </button>
             <button
+              onClick={() => setActiveTab('brand-shop')}
+              className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+                activeTab === 'brand-shop'
+                  ? 'bg-brand-primary text-white'
+                  : 'text-brand-secondary hover:bg-brand-bg hover:text-brand-primary'
+              }`}
+            >
+              Brand Shop
+            </button>
+            <button
               onClick={() => setActiveTab('signatures')}
               className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
                 activeTab === 'signatures' 
@@ -149,6 +160,7 @@ export function Settings() {
           {activeTab === 'pricing' && <DtfPricingSettingsTab />}
           {activeTab === 'apps' && <AppsTab />}
           {activeTab === 'storefront-catalog' && <StorefrontCatalogTab />}
+          {activeTab === 'brand-shop' && <ShopManagerTab />}
           {activeTab === 'signatures' && <Signatures />}
           {activeTab === 'email' && <AhaSendTab />}
           {activeTab === 'sms' && <QuoTab />}
