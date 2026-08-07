@@ -2278,11 +2278,12 @@ export function GarmentCustomizerModal({
           </div>
 
           {/* Garment Preview Container */}
-          <div className="flex-1 min-h-0 w-full flex flex-col items-center justify-center gap-3 p-2">
-            <div 
-              ref={previewRef}
-              className={`relative w-full max-w-[560px] ${activeTab === 'tag' ? 'aspect-square' : 'aspect-[4/5]'} bg-white rounded-[2rem] border border-neutral-200/50 shadow-lg flex items-center justify-center overflow-hidden transition-all duration-300 hover:shadow-xl animate-in zoom-in-95 duration-300 select-none`}
-            >
+          <div className="flex-1 min-h-0 w-full flex flex-col items-center justify-center gap-3 p-2 overflow-hidden">
+            <div className="relative flex-1 min-h-0 w-full flex items-center justify-center overflow-hidden max-h-[calc(100vh-260px)]">
+              <div 
+                ref={previewRef}
+                className={`relative h-full max-h-full max-w-full ${activeTab === 'tag' ? 'aspect-square' : 'aspect-[4/5]'} bg-white rounded-[2rem] border border-neutral-200/50 shadow-lg flex items-center justify-center overflow-hidden transition-all duration-300 hover:shadow-xl animate-in zoom-in-95 duration-300 select-none`}
+              >
               {activeTab !== 'tag' && (
                 <>
                   {/* Main Garment Image */}
@@ -2632,6 +2633,7 @@ export function GarmentCustomizerModal({
             </div>
           </div>
         </div>
+      </div>
 
         {/* Right Panel: Controls */}
         <div className="w-full md:w-[420px] md:h-full md:min-h-0 overflow-y-auto p-8 flex flex-col gap-6 shrink-0 border-l border-neutral-150 bg-white shadow-sm">
