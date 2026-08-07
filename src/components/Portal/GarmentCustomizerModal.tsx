@@ -2273,6 +2273,8 @@ export function GarmentCustomizerModal({
               >
                 <RefreshCw size={13} className={isSleeveMirrored ? "animate-spin" : ""} style={{ animationIterationCount: 1, animationDuration: '0.4s' }} />
                 <span>Flip</span>
+              </button>
+            )}
           </div>
 
           {/* Garment Preview Container */}
@@ -2620,6 +2622,7 @@ export function GarmentCustomizerModal({
               )}
             </div>
           </div>
+        </div>
 
         {/* Right Panel: Controls */}
         <div className="w-full md:w-[420px] md:h-full md:min-h-0 overflow-y-auto p-8 flex flex-col gap-6 shrink-0 border-l border-neutral-150 bg-white shadow-sm">
