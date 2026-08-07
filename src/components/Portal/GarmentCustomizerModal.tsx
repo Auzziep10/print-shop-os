@@ -2273,17 +2273,16 @@ export function GarmentCustomizerModal({
               >
                 <RefreshCw size={13} className={isSleeveMirrored ? "animate-spin" : ""} style={{ animationIterationCount: 1, animationDuration: '0.4s' }} />
                 <span>Flip</span>
-              </button>
-            )}
           </div>
 
           {/* Garment Preview Container */}
-          <div 
-            ref={previewRef}
-            className={`relative flex-1 min-h-0 max-h-[calc(100vh-280px)] ${activeTab === 'tag' ? 'aspect-square' : 'aspect-[4/5]'} bg-white rounded-[2rem] border border-neutral-200/50 shadow-lg flex items-center justify-center overflow-hidden transition-all duration-300 hover:shadow-xl animate-in zoom-in-95 duration-300 select-none`}
-          >
-            {activeTab !== 'tag' && (
-              <>
+          <div className="flex-1 min-h-0 w-full flex flex-col items-center justify-center gap-3 p-2">
+            <div 
+              ref={previewRef}
+              className={`relative w-full max-w-[560px] ${activeTab === 'tag' ? 'aspect-square' : 'aspect-[4/5]'} bg-white rounded-[2rem] border border-neutral-200/50 shadow-lg flex items-center justify-center overflow-hidden transition-all duration-300 hover:shadow-xl animate-in zoom-in-95 duration-300 select-none`}
+            >
+              {activeTab !== 'tag' && (
+                <>
                   {/* Main Garment Image */}
                   {(!needsGeneration || isGenerated) && (
                     <img 
@@ -2584,9 +2583,11 @@ export function GarmentCustomizerModal({
                   })()}
                 </div>
               )}
+            </div>
 
-            <div className="absolute bottom-4 left-4 flex flex-col gap-1.5 z-30">
-              <div className="flex flex-wrap items-center gap-1.5">
+            {/* Bottom Bar: Badges & Controls */}
+            <div className="flex flex-wrap items-center justify-between gap-3 w-full max-w-[560px] px-2 shrink-0">
+              <div className="flex items-center gap-2">
                 <span className="text-[9px] font-bold uppercase tracking-widest text-neutral-400 bg-neutral-50 border border-neutral-200 px-2 py-0.5 rounded shadow-sm">
                   Active Placement: {activeTab === 'sleeve' ? (isSleeveMirrored ? 'SLEEVE (MIRRORED)' : 'SLEEVE') : activeTab.toUpperCase()}
                 </span>
@@ -2619,7 +2620,6 @@ export function GarmentCustomizerModal({
               )}
             </div>
           </div>
-        </div>
 
         {/* Right Panel: Controls */}
         <div className="w-full md:w-[420px] md:h-full md:min-h-0 overflow-y-auto p-8 flex flex-col gap-6 shrink-0 border-l border-neutral-150 bg-white shadow-sm">
