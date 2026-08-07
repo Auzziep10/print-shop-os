@@ -291,47 +291,91 @@ export const resolveGarmentPlacementData = (
   const placements = logoPlacements || catalogSettings?.logoPlacements;
   if (!placements) return null;
 
-  const styleCode = (
-    itemOrGarment.style ||
-    itemOrGarment.itemNum ||
-    itemOrGarment.product?.style ||
-    itemOrGarment.product?.itemNum ||
-    ''
-  ).toLowerCase().trim();
+  // Extract style candidates (prioritizing true SKU / style code e.g. "BC3001CVC" over display names like "Athleisure — SHIRT")
+  const styleCandidates: string[] = [];
+  if (itemOrGarment.itemNum) styleCandidates.push(String(itemOrGarment.itemNum));
+  if (itemOrGarment.product?.style) styleCandidates.push(String(itemOrGarment.product.style));
+  if (itemOrGarment.product?.itemNum) styleCandidates.push(String(itemOrGarment.product.itemNum));
+  if (itemOrGarment.style) {
+    const s = String(itemOrGarment.style).trim();
+    if (!s.includes(' ') && s.length <= 15) {
+      styleCandidates.push(s);
+    }
+  }
+  const cleanCandidates = styleCandidates.map(c => c.toLowerCase().trim()).filter(Boolean);
 
-  const slot = (
+  // Extract slot variations (e.g. ["shirt", "tshirt", "t-shirt"])
+  const rawSlot = (
     itemOrGarment.slot ||
     itemOrGarment.garmentType ||
     itemOrGarment.product?.slot ||
     ''
   ).toLowerCase().trim();
 
+  const slotVariations: string[] = [rawSlot];
+  if (rawSlot === 'shirt' || rawSlot === 'tshirt' || rawSlot === 't-shirt') {
+    slotVariations.push('shirt', 'tshirt', 't-shirt');
+  } else if (rawSlot === 'longsleeve' || rawSlot === 'long-sleeve' || rawSlot === 'ls') {
+    slotVariations.push('longsleeve', 'long-sleeve', 'ls');
+  } else if (rawSlot === 'hoodie' || rawSlot === 'sweatshirt' || rawSlot === 'crewneck') {
+    slotVariations.push('hoodie', 'sweatshirt', 'crewneck');
+  }
+  const cleanSlots = Array.from(new Set(slotVariations.filter(Boolean)));
+
   const themeCategory = itemOrGarment.themeCategory || catalogSettings?.selectedThemeCategory;
   const basicsCategory = itemOrGarment.basicsCategory || catalogSettings?.selectedBasicsCategory;
   const tier = itemOrGarment.tier;
 
-  // 2. Direct lookup by themeCategory + slot in racks
-  if (themeCategory && slot && placements.racks?.[themeCategory]?.[slot]) {
-    return placements.racks[themeCategory][slot];
+  const isStyleMatch = (styleA: string, styleB: string): boolean => {
+    const cleanA = styleA.toLowerCase().replace(/[\s-]/g, '');
+    const cleanB = styleB.toLowerCase().replace(/[\s-]/g, '');
+    if (cleanA === cleanB) return true;
+    const baseA = cleanA.replace(/^(bc|nl|dt)/i, '').replace(/cvc$/i, '');
+    const baseB = cleanB.replace(/^(bc|nl|dt)/i, '').replace(/cvc$/i, '');
+    if (baseA && baseB && baseA === baseB) return true;
+    if (cleanA.length >= 3 && cleanB.length >= 3) {
+      if (cleanA.includes(cleanB) || cleanB.includes(cleanA)) return true;
+    }
+    return false;
+  };
+
+  // 2. Direct lookup by themeCategory + slot variations in placements.racks
+  if (themeCategory && placements.racks?.[themeCategory]) {
+    for (const s of cleanSlots) {
+      if (placements.racks[themeCategory][s]) {
+        return placements.racks[themeCategory][s];
+      }
+    }
+    const matchCat = Object.keys(placements.racks).find(k => k.toLowerCase() === themeCategory.toLowerCase());
+    if (matchCat && placements.racks[matchCat]) {
+      for (const s of cleanSlots) {
+        if (placements.racks[matchCat][s]) {
+          return placements.racks[matchCat][s];
+        }
+      }
+    }
   }
 
-  // 3. Direct lookup by basicsCategory + tier/slot in basics
-  if (basicsCategory) {
-    if (tier && placements.basics?.[basicsCategory]?.[tier]) {
+  // 3. Direct lookup by basicsCategory + tier/slot in placements.basics
+  if (basicsCategory && placements.basics?.[basicsCategory]) {
+    if (tier && placements.basics[basicsCategory][tier]) {
       return placements.basics[basicsCategory][tier];
     }
-    if (slot && placements.basics?.[basicsCategory]?.[slot]) {
-      return placements.basics[basicsCategory][slot];
+    for (const s of cleanSlots) {
+      if (placements.basics[basicsCategory][s]) {
+        return placements.basics[basicsCategory][s];
+      }
     }
   }
 
-  // 4. Search by product style code matching in catalogSettings.racks
-  if (styleCode && catalogSettings?.racks) {
+  // 4. Search by product style candidate matching in catalogSettings.racks
+  if (cleanCandidates.length > 0 && catalogSettings?.racks) {
     for (const catName of Object.keys(catalogSettings.racks)) {
       const rackSlots = catalogSettings.racks[catName];
       if (rackSlots) {
         for (const sKey of Object.keys(rackSlots)) {
-          if (String(rackSlots[sKey]).toLowerCase().trim() === styleCode) {
+          const rackStyle = String(rackSlots[sKey]);
+          if (cleanCandidates.some(cand => isStyleMatch(cand, rackStyle))) {
             const placement = placements.racks?.[catName]?.[sKey];
             if (placement) return placement;
           }
@@ -340,13 +384,14 @@ export const resolveGarmentPlacementData = (
     }
   }
 
-  // 5. Search by product style code matching in catalogSettings.basics
-  if (styleCode && catalogSettings?.basics) {
+  // 5. Search by product style candidate matching in catalogSettings.basics
+  if (cleanCandidates.length > 0 && catalogSettings?.basics) {
     for (const catName of Object.keys(catalogSettings.basics)) {
       const basicsTiers = catalogSettings.basics[catName];
       if (basicsTiers) {
         for (const tKey of Object.keys(basicsTiers)) {
-          if (String(basicsTiers[tKey]).toLowerCase().trim() === styleCode) {
+          const basicStyle = String(basicsTiers[tKey]);
+          if (cleanCandidates.some(cand => isStyleMatch(cand, basicStyle))) {
             const placement = placements.basics?.[catName]?.[tKey];
             if (placement) return placement;
           }
@@ -355,20 +400,24 @@ export const resolveGarmentPlacementData = (
     }
   }
 
-  // 6. Search across all categories in placements.racks for matching slot
-  if (slot && placements.racks) {
+  // 6. Search across all categories in placements.racks for matching slot variation
+  if (placements.racks) {
     for (const catName of Object.keys(placements.racks)) {
-      if (placements.racks[catName]?.[slot]) {
-        return placements.racks[catName][slot];
+      for (const s of cleanSlots) {
+        if (placements.racks[catName]?.[s]) {
+          return placements.racks[catName][s];
+        }
       }
     }
   }
 
-  // 7. Search across all categories in placements.basics for matching slot/tier
-  if (slot && placements.basics) {
+  // 7. Search across all categories in placements.basics for matching slot variation
+  if (placements.basics) {
     for (const catName of Object.keys(placements.basics)) {
-      if (placements.basics[catName]?.[slot]) {
-        return placements.basics[catName][slot];
+      for (const s of cleanSlots) {
+        if (placements.basics[catName]?.[s]) {
+          return placements.basics[catName][s];
+        }
       }
     }
   }
