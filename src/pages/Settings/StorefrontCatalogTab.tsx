@@ -1157,42 +1157,59 @@ export function StorefrontCatalogTab() {
     }));
   };
 
-  const handleApplyPlacement = (box: MultiLogoBoxes | LogoBox) => {
+  const handleApplyPlacement = async (box: MultiLogoBoxes | LogoBox) => {
     if (!placementTarget) return;
     const { mode, category, slot } = placementTarget;
-    setLogoPlacements(prev => {
-      const modeMap = prev[mode] || {};
-      const cat = modeMap[category] || {};
-      return {
-        ...prev,
-        [mode]: {
-          ...modeMap,
-          [category]: {
-            ...cat,
-            [slot]: box
-          }
+    const nextPlacements = {
+      ...logoPlacements,
+      [mode]: {
+        ...(logoPlacements[mode] || {}),
+        [category]: {
+          ...((logoPlacements[mode] || {})[category] || {}),
+          [slot]: box
         }
-      };
-    });
+      }
+    };
+    setLogoPlacements(nextPlacements);
     setPlacementTarget(null);
+
+    try {
+      const docRef = doc(db, 'settings', 'storefront-catalog');
+      await setDoc(docRef, {
+        logoPlacements: nextPlacements,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+    } catch (err) {
+      console.error("Error auto-persisting logo placement to Firestore:", err);
+    }
   };
 
-  const handleClearPlacement = () => {
+  const handleClearPlacement = async () => {
     if (!placementTarget) return;
     const { mode, category, slot } = placementTarget;
-    setLogoPlacements(prev => {
-      const modeMap = prev[mode] || {};
-      const cat = { ...(modeMap[category] || {}) };
-      delete cat[slot];
-      return {
-        ...prev,
-        [mode]: {
-          ...modeMap,
-          [category]: cat
-        }
-      };
-    });
+    const modeMap = logoPlacements[mode] || {};
+    const cat = { ...(modeMap[category] || {}) };
+    delete cat[slot];
+
+    const nextPlacements = {
+      ...logoPlacements,
+      [mode]: {
+        ...modeMap,
+        [category]: cat
+      }
+    };
+    setLogoPlacements(nextPlacements);
     setPlacementTarget(null);
+
+    try {
+      const docRef = doc(db, 'settings', 'storefront-catalog');
+      await setDoc(docRef, {
+        logoPlacements: nextPlacements,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+    } catch (err) {
+      console.error("Error auto-persisting cleared placement to Firestore:", err);
+    }
   };
 
   // Merge built-in catalog with imported custom non-SanMar items

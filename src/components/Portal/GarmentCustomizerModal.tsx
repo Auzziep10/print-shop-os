@@ -2296,27 +2296,36 @@ export function GarmentCustomizerModal({
                   )}
 
                   {/* Admin Placement Bounding Box Guides for Customer Guidance */}
-                  {showPlacementGuides && currentPlacementGuides && currentPlacementGuides.map((guide) => (
-                    <div
-                      key={guide.key}
-                      className="absolute border-2 border-dashed rounded-md pointer-events-none z-10 transition-opacity duration-300"
-                      style={{
-                        left: `${guide.box.x}%`,
-                        top: `${guide.box.y}%`,
-                        width: `${guide.box.w}%`,
-                        height: `${guide.box.h}%`,
-                        borderColor: guide.borderColor,
-                        backgroundColor: 'transparent',
-                        transform: `translate(-50%, -50%) rotate(${guide.box.r ?? 0}deg)`,
-                      }}
-                    >
-                      <span 
-                        className={`absolute -top-5 left-1 text-[8px] font-extrabold uppercase tracking-widest px-1.5 py-0.5 rounded shadow-2xs select-none pointer-events-none whitespace-nowrap opacity-90 ${guide.badgeBg}`}
+                  {showPlacementGuides && currentPlacementGuides && currentPlacementGuides.map((guide) => {
+                    const box = guide.box;
+                    const w = box.w;
+                    const h = box.h;
+                    const left = box.x - w / 2;
+                    const top = box.y - h / 2;
+                    const r = box.r ?? 0;
+
+                    return (
+                      <div
+                        key={guide.key}
+                        className="absolute border-2 border-dashed rounded-md pointer-events-none z-10 transition-opacity duration-300"
+                        style={{
+                          left: `${left}%`,
+                          top: `${top}%`,
+                          width: `${w}%`,
+                          height: `${h}%`,
+                          borderColor: guide.borderColor,
+                          backgroundColor: 'transparent',
+                          transform: r ? `rotate(${r}deg)` : 'none',
+                        }}
                       >
-                        {guide.label}
-                      </span>
-                    </div>
-                  ))}
+                        <span 
+                          className={`absolute -top-5 left-1 text-[8px] font-extrabold uppercase tracking-widest px-1.5 py-0.5 rounded shadow-2xs select-none pointer-events-none whitespace-nowrap opacity-90 ${guide.badgeBg}`}
+                        >
+                          {guide.label}
+                        </span>
+                      </div>
+                    );
+                  })}
 
                   {/* Logo Overlay */}
                   {(!needsGeneration || isGenerated) && selectedLogo && (selectedLogo.isText || isImageFile(selectedLogo.name)) && (
