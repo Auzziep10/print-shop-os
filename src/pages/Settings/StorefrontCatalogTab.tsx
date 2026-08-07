@@ -469,12 +469,12 @@ function LogoPlacementModal({
           })}
         </div>
 
-        <div className="relative flex-1 flex flex-col items-center justify-center bg-neutral-50 p-4 rounded-2xl border border-neutral-200 min-h-[420px] max-h-[600px] overflow-hidden">
+        <div className="relative flex-1 flex flex-col items-center justify-center bg-neutral-50 p-4 rounded-2xl border border-neutral-200 min-h-[420px]">
           <div
             ref={frameRef}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
-            className="relative h-full max-h-full max-w-full aspect-[4/5] bg-checkerboard border-2 border-neutral-300 rounded-2xl overflow-hidden select-none touch-none shadow-lg"
+            className="relative w-full max-w-[560px] aspect-[4/5] bg-checkerboard border-2 border-neutral-300 rounded-2xl overflow-hidden select-none touch-none shadow-lg"
           >
             <img
               src={currentMockUrl}
