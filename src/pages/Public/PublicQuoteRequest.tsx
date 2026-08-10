@@ -2038,8 +2038,15 @@ export function PublicQuoteRequest() {
         };
         const updated = updater(tempRackItem);
         const hasBack = Boolean(updated.backLogoScale && updated.backLogoScale > 0);
+        // Re-detect the pricing tier from the edited geometry so the quote
+        // reprices when the logo moves between placement boxes
+        const detectedFront = (updated as any).detectedPrintSizeFront ?? detectItemPrintSize(updated, 'front');
+        const detectedBack = hasBack ? ((updated as any).detectedPrintSizeBack ?? detectItemPrintSize(updated, 'back')) : null;
         return {
           ...cartItem,
+          detectedPrintSizeFront: detectedFront,
+          detectedPrintSizeBack: detectedBack,
+          frontPrintSize: detectedFront ?? cartItem.frontPrintSize,
           color: updated.color,
           logoPos: updated.logoPos,
           logoScale: updated.logoScale,
@@ -2144,6 +2151,10 @@ export function PublicQuoteRequest() {
           setSelectedGarmentTypeColor(updated.color);
           return {
             ...item,
+            detectedPrintSizeFront: (updated as any).detectedPrintSizeFront ?? detectItemPrintSize(updated, 'front'),
+            detectedPrintSizeBack: (updated.backLogoScale && updated.backLogoScale > 0)
+              ? ((updated as any).detectedPrintSizeBack ?? detectItemPrintSize(updated, 'back'))
+              : null,
             color: updated.color,
             logoPos: updated.logoPos,
             logoScale: updated.logoScale,
@@ -4567,8 +4578,14 @@ export function PublicQuoteRequest() {
                         <p className="text-[10px] text-neutral-500 mt-0.5">Color: <span className="font-bold text-neutral-800">{item.color}</span> | Decoration: <span className="font-bold text-neutral-800">{item.decorationMethod}</span></p>
                         {(() => {
                           const activePlacements = [];
-                          if (item.frontLogoUrl || item.customLogoUrl || item.logoUrl) activePlacements.push("Front");
-                          if (item.backLogoUrl || item.customBackLogoUrl || (item.backLogoScale && item.backLogoScale > 0)) activePlacements.push("Back");
+                          if (item.frontLogoUrl || item.customLogoUrl || item.logoUrl) {
+                            const sizeF = (item as any).detectedPrintSizeFront;
+                            activePlacements.push(`Front${sizeF ? ` — ${sizeF}` : ''}`);
+                          }
+                          if (item.backLogoUrl || item.customBackLogoUrl || (item.backLogoScale && item.backLogoScale > 0)) {
+                            const sizeB = (item as any).detectedPrintSizeBack;
+                            activePlacements.push(`Back${sizeB ? ` — ${sizeB}` : ''}`);
+                          }
                           if (item.logoUrlTag || (item as any).compiledTagMockupUrl || (item as any).customizedTagImage || (item as any).tagLayout) activePlacements.push("Size Tag");
                           const count = activePlacements.length;
                           return (
