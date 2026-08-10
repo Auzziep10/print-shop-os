@@ -2453,7 +2453,13 @@ export function PublicQuoteRequest() {
 
       await setDoc(doc(db, 'customers', customerId), customerPayload, { merge: true });
 
-      if (firebaseUid) {
+      // Never overwrite a staff account's profile — an admin placing a test
+      // order must not be demoted to Client (this locks them out of the
+      // dashboard). Only provision/refresh genuine client user profiles.
+      const STAFF_ROLES = ['Admin', 'Leadership', 'Manager', 'Staff', 'Printer'];
+      const isStaffUser = userData?.role ? STAFF_ROLES.includes(userData.role) : false;
+
+      if (firebaseUid && !isStaffUser) {
         const userPayload = JSON.parse(JSON.stringify({
           id: firebaseUid,
           uid: firebaseUid,
