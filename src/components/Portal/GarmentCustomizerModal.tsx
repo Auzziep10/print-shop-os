@@ -2705,9 +2705,10 @@ export function GarmentCustomizerModal({
                   Active Placement: {activeTab === 'sleeve' ? (isSleeveMirrored ? 'SLEEVE (MIRRORED)' : 'SLEEVE') : activeTab.toUpperCase()}
                 </span>
                 {activeTab !== 'tag' && (() => {
-                  const detected = (activeTab === 'front' || activeTab === 'back')
-                    ? detectSidePrintSize(activeTab)
-                    : null;
+                  // Sleeves are always small prints (no placement boxes needed)
+                  const detected = activeTab === 'sleeve'
+                    ? 'Small'
+                    : detectSidePrintSize(activeTab);
                   return (
                     <span className={`text-[9px] font-bold uppercase tracking-widest border px-2 py-0.5 rounded shadow-sm transition-colors ${
                       detected
