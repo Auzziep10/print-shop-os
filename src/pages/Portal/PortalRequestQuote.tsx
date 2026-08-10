@@ -1349,8 +1349,16 @@ export function PortalRequestQuote() {
                           {product.color && <span className="uppercase tracking-wide text-[10px] bg-neutral-50 px-1.5 py-0.5 rounded border border-neutral-200 font-bold">{product.color}</span>}
                           {(() => {
                             const activePlacements = [];
-                            if (product.logoUrl) activePlacements.push("Front");
-                            if (product.logoUrlBack) activePlacements.push("Back");
+                            if (product.logoUrl) {
+                              const w = product.logoWidthFront ? parseFloat(product.logoWidthFront) : 0;
+                              const sizeF = w > 0 ? `${w}" wide` : (product as any).detectedPrintSizeFront;
+                              activePlacements.push(`Front${sizeF ? ` — ${sizeF}` : ''}`);
+                            }
+                            if (product.logoUrlBack) {
+                              const w = product.logoWidthBack ? parseFloat(product.logoWidthBack) : 0;
+                              const sizeB = w > 0 ? `${w}" wide` : (product as any).detectedPrintSizeBack;
+                              activePlacements.push(`Back${sizeB ? ` — ${sizeB}` : ''}`);
+                            }
                             if (product.logoUrlLeftSleeve) activePlacements.push("Left Sleeve");
                             if (product.logoUrlRightSleeve) activePlacements.push("Right Sleeve");
                             if (product.logoUrlTag) activePlacements.push("Size Tag");

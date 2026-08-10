@@ -2133,8 +2133,16 @@ export function PortalCreateOrder() {
                               </div>
                               {(() => {
                                 const activePlacements = [];
-                                if (item.logoUrl) activePlacements.push("Front");
-                                if (item.logoUrlBack) activePlacements.push("Back");
+                                if (item.logoUrl) {
+                                  const w = item.logoWidthFront ? parseFloat(item.logoWidthFront) : 0;
+                                  const sizeF = w > 0 ? `${w}" wide` : (item as any).detectedPrintSizeFront;
+                                  activePlacements.push(`Front${sizeF ? ` — ${sizeF}` : ''}`);
+                                }
+                                if (item.logoUrlBack) {
+                                  const w = item.logoWidthBack ? parseFloat(item.logoWidthBack) : 0;
+                                  const sizeB = w > 0 ? `${w}" wide` : (item as any).detectedPrintSizeBack;
+                                  activePlacements.push(`Back${sizeB ? ` — ${sizeB}` : ''}`);
+                                }
                                 if (item.logoUrlLeftSleeve) activePlacements.push("Left Sleeve");
                                 if (item.logoUrlRightSleeve) activePlacements.push("Right Sleeve");
                                 if (item.logoUrlTag) activePlacements.push("Size Tag");
