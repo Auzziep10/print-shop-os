@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ChevronRight, Loader2, PackageOpen, Building2, X, Trash2, ChevronDown, Box, Printer, ExternalLink, Truck, Download, Check, RotateCcw } from 'lucide-react';
+import { ChevronRight, Loader2, PackageOpen, Building2, X, Trash2, ChevronDown, Box, Printer, ExternalLink, Truck, Download, Check, RotateCcw, Send, Pencil, Sparkles } from 'lucide-react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useOrders } from '../../hooks/useOrders';
@@ -8,6 +8,7 @@ import QRCode from 'react-qr-code';
 import { doc, getDoc, setDoc, deleteDoc, writeBatch } from 'firebase/firestore';
 import { getTrackingLink } from '../../lib/utils';
 import { StripePaymentModal } from '../../components/Orders/StripePaymentModal';
+import { fetchDtfPricingSettings, autoQuoteItem } from '../../lib/dtfAutoQuoting';
 
 const sortSizes = (a: string, b: string) => {
   const orderMap: Record<string, number> = { 
@@ -224,6 +225,9 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
   const [payingOrder, setPayingOrder] = useState<any | null>(null);
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
 
+  const [modifiedOrderIds, setModifiedOrderIds] = useState<Set<string>>(new Set());
+  const [submittingOrderIds, setSubmittingOrderIds] = useState<Set<string>>(new Set());
+  const [resubmitSuccessIds, setResubmitSuccessIds] = useState<Set<string>>(new Set());
 
   const getActiveSidesCountForOrderItem = (item: any) => {
     if (!item.customized) return 1;
@@ -235,6 +239,173 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
     return count || 1;
   };
 
+  const handleSizeChange = (orderId: string, itemId: any, sizeKey: string, rawVal: string) => {
+    const val = rawVal === '' ? 0 : Math.max(0, parseInt(rawVal, 10) || 0);
+
+    setLocalOrders(prevOrders => {
+      return prevOrders.map(ord => {
+        if (ord.id !== orderId) return ord;
+
+        const updatedItems = ord.items.map((it: any) => {
+          if (String(it.id) !== String(itemId)) return it;
+
+          const defaultSizes = { XS: 0, S: 0, M: 0, L: 0, XL: 0, '2XL': 0 };
+          const currentSizes = (it.sizes && Object.keys(it.sizes).length > 0) ? it.sizes : defaultSizes;
+          const updatedSizes = {
+            ...currentSizes,
+            [sizeKey]: val
+          };
+
+          const newTotalQty = Object.values(updatedSizes).reduce((acc: number, v: any) => acc + (parseInt(v as any, 10) || 0), 0);
+
+          let priceNum = parseFloat(it.price) || 0;
+          let totalStr = (newTotalQty * priceNum).toFixed(2);
+
+          if (it.dtfAutoQuoted) {
+            try {
+              const autoQuote = autoQuoteItem({ ...it, sizes: updatedSizes, qty: newTotalQty });
+              if (autoQuote.ok && autoQuote.pricePerPiece > 0) {
+                priceNum = autoQuote.pricePerPiece;
+                totalStr = autoQuote.orderTotal.toFixed(2);
+              }
+            } catch (e) {
+              console.error("Auto quote recalc error:", e);
+            }
+          }
+
+          return {
+            ...it,
+            sizes: updatedSizes,
+            qty: newTotalQty,
+            price: priceNum > 0 ? priceNum.toFixed(2) : it.price,
+            total: totalStr
+          };
+        });
+
+        return {
+          ...ord,
+          items: updatedItems,
+          isModified: true
+        };
+      });
+    });
+
+    setModifiedOrderIds(prev => new Set(prev).add(orderId));
+  };
+
+  const handleResubmitOrder = async (order: any, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+
+    let totalGarments = 0;
+    order.items?.forEach((item: any) => {
+      if (item.sizes) {
+        totalGarments += Object.values(item.sizes).reduce((a: number, b: any) => a + (parseInt(b as any, 10) || 0), 0);
+      } else if (item.qty) {
+        totalGarments += parseInt(item.qty, 10) || 0;
+      }
+    });
+
+    if (totalGarments <= 0) {
+      alert("Please enter at least 1 garment quantity before resubmitting.");
+      return;
+    }
+
+    setSubmittingOrderIds(prev => new Set(prev).add(order.id));
+
+    try {
+      const dtfSettings = await fetchDtfPricingSettings(currentCustomerId);
+
+      let calculatedSubtotal = 0;
+      const finalItems = (order.items || []).map((item: any) => {
+        const itemQty = item.sizes 
+          ? Object.values(item.sizes).reduce((acc: number, val: any) => acc + (parseInt(val as any, 10) || 0), 0)
+          : (parseInt(item.qty, 10) || 0);
+
+        let priceEach = parseFloat(item.price) || 0;
+        let dtfAutoQuoted = item.dtfAutoQuoted;
+
+        if (dtfSettings.autoQuotingEnabled || dtfAutoQuoted) {
+          const autoQuote = autoQuoteItem({ ...item, qty: itemQty }, dtfSettings.costs, dtfSettings.ladder);
+          if (autoQuote.ok && autoQuote.pricePerPiece > 0) {
+            priceEach = autoQuote.pricePerPiece;
+            dtfAutoQuoted = true;
+          }
+        }
+
+        const itemTotal = priceEach * itemQty;
+        calculatedSubtotal += itemTotal;
+
+        return {
+          ...item,
+          qty: itemQty,
+          price: priceEach > 0 ? priceEach.toFixed(2) : (item.price || '0.00'),
+          total: itemTotal.toFixed(2),
+          dtfAutoQuoted
+        };
+      });
+
+      const newStatusIndex = dtfSettings.autoQuotingEnabled ? 2 : 0;
+      const newStatus = dtfSettings.autoQuotingEnabled ? 'Action Required' : 'Requested';
+
+      const newActivity = {
+        id: `act-${Date.now()}`,
+        type: 'quote_resubmitted',
+        message: `Customer updated garment quantities (${totalGarments} garments total, $${calculatedSubtotal.toFixed(2)}) and resubmitted quote.`,
+        user: customer?.company || customer?.name || 'Customer',
+        timestamp: new Date().toISOString()
+      };
+
+      const orderRef = doc(db, 'orders', order.id);
+      const updatePayload: any = {
+        items: finalItems,
+        totalGarments: totalGarments,
+        subtotal: calculatedSubtotal,
+        total: calculatedSubtotal,
+        totalAmount: calculatedSubtotal,
+        statusIndex: newStatusIndex,
+        status: newStatus,
+        updatedAt: new Date().toISOString(),
+        hasUnreadCustomerUpdate: true,
+        activities: [newActivity, ...(order.activities || [])]
+      };
+
+      await setDoc(orderRef, updatePayload, { merge: true });
+
+      setLocalOrders(prev => prev.map(o => {
+        if (o.id !== order.id) return o;
+        return {
+          ...o,
+          ...updatePayload,
+          isModified: false
+        };
+      }));
+
+      setModifiedOrderIds(prev => {
+        const next = new Set(prev);
+        next.delete(order.id);
+        return next;
+      });
+
+      setResubmitSuccessIds(prev => new Set(prev).add(order.id));
+      setTimeout(() => {
+        setResubmitSuccessIds(prev => {
+          const next = new Set(prev);
+          next.delete(order.id);
+          return next;
+        });
+      }, 3500);
+
+    } catch (err) {
+      console.error("Error resubmitting order:", err);
+      alert("Failed to resubmit quote. Please try again.");
+    } finally {
+      setSubmittingOrderIds(prev => {
+        const next = new Set(prev);
+        next.delete(order.id);
+        return next;
+      });
+    }
+  };
 
   useEffect(() => {
     if (orders) {
@@ -242,7 +413,6 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
       if (filterType === 'quotes') {
           filtered = filtered.filter(o => o.statusIndex <= 2);
       } else if (filterType === 'orders') {
-          // Both active orders and completed orders can go here, or we can filter out quotes
           filtered = filtered.filter(o => o.statusIndex > 2);
       }
       
@@ -284,7 +454,14 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
         };
         setLocalOrders([mockOrder]);
       } else {
-        setLocalOrders(sorted);
+        setLocalOrders(prev => {
+          if (!prev || prev.length === 0) return sorted;
+          return sorted.map(newOrd => {
+            const existingModified = prev.find(p => p.id === newOrd.id && p.isModified);
+            if (existingModified) return existingModified;
+            return newOrd;
+          });
+        });
       }
     }
   }, [orders, filterType]);
@@ -803,6 +980,12 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                         <span className="text-xs font-bold text-neutral-400 uppercase tracking-widest">Items in this order</span>
                         <span className="bg-neutral-100 text-neutral-600 text-[10px] font-bold px-2 py-0.5 rounded-full">{filteredItems.length}</span>
                       </div>
+                      {order.statusIndex < 3 && (
+                        <div className="flex items-center gap-1.5 text-[11px] font-semibold text-amber-700 bg-amber-50 px-3 py-1 rounded-full border border-amber-200 shadow-2xs">
+                          <Pencil size={12} className="shrink-0 text-amber-600" />
+                          <span>Editable Quote — type quantities to update & resubmit</span>
+                        </div>
+                      )}
                     </div>
                     {filteredItems.map((item: any) => (
                     <div key={item.id} className="flex flex-col gap-0 border-b border-brand-border/40 last:border-b-0 pb-6 mb-4">
@@ -906,14 +1089,31 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                       <div className="flex flex-wrap lg:flex-nowrap items-end lg:items-center gap-4 shrink-0">
                         {/* Sizing Grid Area */}
                         <div className="flex items-stretch gap-[2px] bg-neutral-200 p-[3px] rounded-xl font-sans">
-                          {item.sizes && Object.entries(item.sizes).sort(([a], [b]) => sortSizes(a, b)).map(([size, qty]: [string, any]) => (
-                            <div key={size} className="w-10 text-center flex flex-col">
-                              <div className="bg-neutral-300 text-neutral-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center">{size}</div>
-                              <div className={`text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center bg-white ${qty > 0 ? 'text-neutral-800' : 'text-neutral-400'}`}>
-                                {qty}
+                          {(() => {
+                            const defaultSizes = { XS: 0, S: 0, M: 0, L: 0, XL: 0, '2XL': 0 };
+                            const sizesToRender = (item.sizes && Object.keys(item.sizes).length > 0) ? item.sizes : defaultSizes;
+                            return Object.entries(sizesToRender).sort(([a], [b]) => sortSizes(a, b)).map(([size, qty]: [string, any]) => (
+                              <div key={size} className="w-10 sm:w-11 text-center flex flex-col">
+                                <div className="bg-neutral-300 text-neutral-600 text-[10px] font-bold py-1.5 rounded-t-[8px] uppercase tracking-wide h-6 flex items-center justify-center select-none">{size}</div>
+                                {order.statusIndex < 3 ? (
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    value={qty === 0 || qty === '0' ? '' : qty}
+                                    placeholder="0"
+                                    onClick={(e) => e.stopPropagation()}
+                                    onChange={(e) => handleSizeChange(order.id, item.id, size, e.target.value)}
+                                    className="w-10 sm:w-11 h-8 text-[12px] font-bold py-1 rounded-b-[8px] bg-white text-center text-neutral-900 border border-transparent hover:border-neutral-300 focus:border-black focus:ring-2 focus:ring-black/10 focus:outline-none focus:z-10 transition-all placeholder:text-neutral-300 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                    title={`Edit quantity for ${size}`}
+                                  />
+                                ) : (
+                                  <div className={`text-[12px] font-bold py-2 rounded-b-[8px] h-8 flex items-center justify-center bg-white ${qty > 0 ? 'text-neutral-800' : 'text-neutral-400'}`}>
+                                    {qty}
+                                  </div>
+                                )}
                               </div>
-                            </div>
-                          ))}
+                            ));
+                          })()}
                         </div>
 
                         {/* Pricing Summary */}
@@ -1057,6 +1257,40 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                     </div>
                   ))}
                   
+                  {/* Resubmit Quote Callout Banner (when order has modified quantities) */}
+                  {order.statusIndex < 3 && (modifiedOrderIds.has(order.id) || order.isModified) && (
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-neutral-900 text-white rounded-2xl p-4 mt-6 shadow-lg border border-neutral-800 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+                          <Sparkles size={16} />
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-white">Quantities Updated ({totalGarments} Garments Total)</p>
+                          <p className="text-[11px] text-neutral-400">Resubmit to send your updated size quantities to our team.</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={(e) => handleResubmitOrder(order, e)}
+                        disabled={submittingOrderIds.has(order.id)}
+                        className="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-extrabold px-6 py-2.5 rounded-full transition-all shadow-md flex items-center justify-center gap-2 shrink-0 cursor-pointer"
+                      >
+                        {submittingOrderIds.has(order.id) ? (
+                          <>
+                            <Loader2 className="animate-spin" size={14} /> Resubmitting...
+                          </>
+                        ) : resubmitSuccessIds.has(order.id) ? (
+                          <>
+                            <Check size={14} strokeWidth={3} /> Quote Resubmitted!
+                          </>
+                        ) : (
+                          <>
+                            <Send size={14} /> Resubmit Quote Now
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
+
                   {/* Shipments Overview Accordion - Replaces Open Packing Slips */}
                   {order.boxes && order.boxes.length > 0 && (
                     <div className="mt-8 border-t border-brand-border pt-6 pb-2">
@@ -1209,13 +1443,43 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
                       Local Pickup
                     </button>
                    );
-                 } else if (order.statusIndex === 2) {
+                 } else if (order.statusIndex < 3) {
+                    const isModified = modifiedOrderIds.has(order.id) || order.isModified;
+                    const isSubmitting = submittingOrderIds.has(order.id);
+                    const isSuccess = resubmitSuccessIds.has(order.id);
+
                     return (
                       <button 
-                        className="flex-1 xl:flex-none bg-black border border-black hover:bg-neutral-800 text-white text-[12px] font-bold rounded-full py-3 xl:py-4 transition-all tracking-wide text-center shadow-md animate-pulse-black cursor-pointer"
-                        onClick={(e) => { e.stopPropagation(); setPayingOrder(order); }}
-                     >
-                       View Quote
+                        className={`flex-1 xl:flex-none text-[12px] font-bold rounded-full py-3 xl:py-4 transition-all tracking-wide text-center shadow-md cursor-pointer flex items-center justify-center gap-1.5 ${
+                          isModified 
+                            ? 'bg-emerald-600 border border-emerald-600 hover:bg-emerald-700 text-white animate-pulse'
+                            : 'bg-black border border-black hover:bg-neutral-800 text-white animate-pulse-black'
+                        }`}
+                        onClick={(e) => {
+                          if (isModified) {
+                            handleResubmitOrder(order, e);
+                          } else {
+                            e.stopPropagation();
+                            setPayingOrder(order);
+                          }
+                        }}
+                        disabled={isSubmitting}
+                      >
+                       {isSubmitting ? (
+                         <>
+                           <Loader2 className="animate-spin" size={14} /> Resubmitting...
+                         </>
+                       ) : isSuccess ? (
+                         <>
+                           <Check size={14} strokeWidth={3} /> Resubmitted!
+                         </>
+                       ) : isModified ? (
+                         <>
+                           <Send size={14} /> Resubmit Quote
+                         </>
+                       ) : (
+                         <span>View Quote</span>
+                       )}
                      </button>
                     );
                   } else if (order.statusIndex === 3) {
