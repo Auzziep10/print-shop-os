@@ -280,16 +280,7 @@ export const resolveGarmentPlacementData = (
 ): any => {
   if (!itemOrGarment) return null;
 
-  // 1. Explicit placementData attached to itemOrGarment
-  if (itemOrGarment.placementData) {
-    const pd = itemOrGarment.placementData;
-    if (pd && (pd.large || pd.medium || pd.small || pd.front || pd.back || typeof pd.x === 'number')) {
-      return pd;
-    }
-  }
-
   const placements = logoPlacements || catalogSettings?.logoPlacements;
-  if (!placements) return null;
 
   // Extract style candidates (prioritizing true SKU / style code e.g. "BC3001CVC" over display names like "Athleisure — SHIRT")
   const styleCandidates: string[] = [];
@@ -303,6 +294,45 @@ export const resolveGarmentPlacementData = (
     }
   }
   const cleanCandidates = styleCandidates.map(c => c.toLowerCase().trim()).filter(Boolean);
+
+  const isStyleMatch = (styleA: string, styleB: string): boolean => {
+    const cleanA = styleA.toLowerCase().replace(/[\s-]/g, '');
+    const cleanB = styleB.toLowerCase().replace(/[\s-]/g, '');
+    if (cleanA === cleanB) return true;
+    const baseA = cleanA.replace(/^(bc|nl|dt)/i, '').replace(/cvc$/i, '');
+    const baseB = cleanB.replace(/^(bc|nl|dt)/i, '').replace(/cvc$/i, '');
+    if (baseA && baseB && baseA === baseB) return true;
+    if (cleanA.length >= 3 && cleanB.length >= 3) {
+      if (cleanA.includes(cleanB) || cleanB.includes(cleanA)) return true;
+    }
+    return false;
+  };
+
+  // 0. Canonical per-style placement (admin's "main mock" record). This is the
+  // single source of truth: it wins over stale placementData snapshots on items
+  // and over per-category records, so one edit applies everywhere.
+  if (placements?.byStyle && cleanCandidates.length > 0) {
+    const byStyleKeys = Object.keys(placements.byStyle);
+    // Exact (case-insensitive) match first, then fuzzy (BC3001 ↔ BC3001CVC)
+    for (const cand of cleanCandidates) {
+      const exact = byStyleKeys.find(k => k.toLowerCase().trim() === cand);
+      if (exact && placements.byStyle[exact]) return placements.byStyle[exact];
+    }
+    for (const cand of cleanCandidates) {
+      const fuzzy = byStyleKeys.find(k => isStyleMatch(cand, k));
+      if (fuzzy && placements.byStyle[fuzzy]) return placements.byStyle[fuzzy];
+    }
+  }
+
+  // 1. Explicit placementData attached to itemOrGarment
+  if (itemOrGarment.placementData) {
+    const pd = itemOrGarment.placementData;
+    if (pd && (pd.large || pd.medium || pd.small || pd.front || pd.back || typeof pd.x === 'number')) {
+      return pd;
+    }
+  }
+
+  if (!placements) return null;
 
   // Extract slot variations (e.g. ["shirt", "tshirt", "t-shirt"])
   const rawSlot = (
@@ -325,19 +355,6 @@ export const resolveGarmentPlacementData = (
   const themeCategory = itemOrGarment.themeCategory || catalogSettings?.selectedThemeCategory;
   const basicsCategory = itemOrGarment.basicsCategory || catalogSettings?.selectedBasicsCategory;
   const tier = itemOrGarment.tier;
-
-  const isStyleMatch = (styleA: string, styleB: string): boolean => {
-    const cleanA = styleA.toLowerCase().replace(/[\s-]/g, '');
-    const cleanB = styleB.toLowerCase().replace(/[\s-]/g, '');
-    if (cleanA === cleanB) return true;
-    const baseA = cleanA.replace(/^(bc|nl|dt)/i, '').replace(/cvc$/i, '');
-    const baseB = cleanB.replace(/^(bc|nl|dt)/i, '').replace(/cvc$/i, '');
-    if (baseA && baseB && baseA === baseB) return true;
-    if (cleanA.length >= 3 && cleanB.length >= 3) {
-      if (cleanA.includes(cleanB) || cleanB.includes(cleanA)) return true;
-    }
-    return false;
-  };
 
   // 2. Direct lookup by themeCategory + slot variations in placements.racks
   if (themeCategory && placements.racks?.[themeCategory]) {
@@ -425,3 +442,128 @@ export const resolveGarmentPlacementData = (
   return null;
 };
 
+
+// ---------------------------------------------------------------------------
+// Garment-anchored placement remapping
+//
+// Placement boxes are stored as percentages of the artboard they were drawn
+// on. If the mock displayed to a customer is cropped, letterboxed, or framed
+// differently than the mock the admin drew on, frame-relative boxes drift off
+// the garment. These helpers detect the garment's actual pixel bounds inside
+// an image and remap boxes so they track the garment across any artboard.
+// ---------------------------------------------------------------------------
+
+export interface FrameContentBounds { x: number; y: number; w: number; h: number }
+
+interface ImageContentInfo extends FrameContentBounds { aspect: number }
+
+const imageContentCache = new Map<string, Promise<ImageContentInfo | null>>();
+
+/**
+ * Bounding box of the garment pixels within an image, as fractions (0-1) of
+ * the image's natural dimensions. Transparent and near-white pixels count as
+ * background. Returns null when the image can't be read (e.g. CORS-tainted),
+ * in which case callers fall back to frame-relative behavior.
+ */
+export const getImageContentInfo = (url: string): Promise<ImageContentInfo | null> => {
+  if (!url || typeof document === 'undefined') return Promise.resolve(null);
+  const cached = imageContentCache.get(url);
+  if (cached) return cached;
+
+  const promise = new Promise<ImageContentInfo | null>((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      try {
+        const SCAN_W = 256;
+        const scale = SCAN_W / (img.naturalWidth || 1);
+        const w = SCAN_W;
+        const h = Math.max(1, Math.round((img.naturalHeight || 1) * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        if (!ctx) return resolve(null);
+        ctx.drawImage(img, 0, 0, w, h);
+        const data = ctx.getImageData(0, 0, w, h).data;
+        let minX = w, minY = h, maxX = -1, maxY = -1;
+        for (let y = 0; y < h; y++) {
+          for (let x = 0; x < w; x++) {
+            const i = (y * w + x) * 4;
+            const a = data[i + 3];
+            if (a < 16) continue; // transparent background
+            const r = data[i], g = data[i + 1], b = data[i + 2];
+            if (r > 244 && g > 244 && b > 244) continue; // white studio background
+            if (x < minX) minX = x;
+            if (x > maxX) maxX = x;
+            if (y < minY) minY = y;
+            if (y > maxY) maxY = y;
+          }
+        }
+        if (maxX < 0 || maxY < 0) return resolve(null);
+        resolve({
+          x: minX / w,
+          y: minY / h,
+          w: (maxX - minX + 1) / w,
+          h: (maxY - minY + 1) / h,
+          aspect: (img.naturalWidth || 1) / (img.naturalHeight || 1),
+        });
+      } catch {
+        resolve(null); // tainted canvas (no CORS) — caller uses identity fallback
+      }
+    };
+    img.onerror = () => resolve(null);
+    img.src = url;
+  });
+  imageContentCache.set(url, promise);
+  return promise;
+};
+
+/**
+ * Garment content bounds mapped into an artboard (percent units, 0-100),
+ * accounting for object-contain letterboxing. frameAspect = width / height of
+ * the artboard the image is rendered in.
+ */
+export const getFrameContentBounds = async (
+  url: string,
+  frameAspect: number
+): Promise<FrameContentBounds | null> => {
+  const info = await getImageContentInfo(url);
+  if (!info || !frameAspect || frameAspect <= 0) return null;
+  let drawnW: number, drawnH: number;
+  if (info.aspect > frameAspect) {
+    drawnW = 100;
+    drawnH = (100 * frameAspect) / info.aspect;
+  } else {
+    drawnH = 100;
+    drawnW = (100 * info.aspect) / frameAspect;
+  }
+  const offsetX = (100 - drawnW) / 2;
+  const offsetY = (100 - drawnH) / 2;
+  return {
+    x: offsetX + info.x * drawnW,
+    y: offsetY + info.y * drawnH,
+    w: info.w * drawnW,
+    h: info.h * drawnH,
+  };
+};
+
+/**
+ * Remap a placement box (percent units, center-based x/y) drawn relative to
+ * one garment's frame bounds onto another frame where the garment occupies
+ * different bounds. Identity when either bounds set is missing/degenerate.
+ */
+export const remapBoxToFrame = <T extends { x: number; y: number; w: number; h: number }>(
+  box: T,
+  ref: FrameContentBounds | null | undefined,
+  disp: FrameContentBounds | null | undefined
+): T => {
+  if (!box || !ref || !disp || !ref.w || !ref.h || !disp.w || !disp.h) return box;
+  return {
+    ...box,
+    x: disp.x + ((box.x - ref.x) / ref.w) * disp.w,
+    y: disp.y + ((box.y - ref.y) / ref.h) * disp.h,
+    w: box.w * (disp.w / ref.w),
+    h: box.h * (disp.h / ref.h),
+  };
+};

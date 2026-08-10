@@ -6,7 +6,7 @@ import { Loader2, Save, Search, Check, Info, Crosshair, X, Trash2, Plus, Edit2, 
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
-import { getOrderedKeys, GARMENT_TYPES, detectGarmentTypeTag, getFilteredProductColors, type GarmentTypeId } from '../../lib/garmentUtils';
+import { getOrderedKeys, GARMENT_TYPES, detectGarmentTypeTag, getFilteredProductColors, getFrameContentBounds, type GarmentTypeId } from '../../lib/garmentUtils';
 import { ImportGarmentModal } from '../../components/shared/ImportGarmentModal';
 
 interface SanMarProduct {
@@ -303,7 +303,7 @@ function LogoPlacementModal({
     gestureRef.current = null;
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const primaryFront = frontBoxes.large || frontBoxes.medium || frontBoxes.small || PRINT_SIZE_CONFIGS[0].defaultBox;
     const primaryBack = backBoxes.large || backBoxes.medium || backBoxes.small || PRINT_SIZE_CONFIGS[0].defaultBox;
 
@@ -325,6 +325,24 @@ function LogoPlacementModal({
         ...primaryBack
       }
     };
+
+    // Stamp where the garment's pixels sit inside this artboard so consumers
+    // can remap the boxes onto any differently-framed mock (garment-anchored
+    // placements). Best-effort: if the image can't be read, boxes still save
+    // and consumers fall back to frame-relative rendering.
+    try {
+      const frameEl = frameRef.current;
+      const frameAspect = frameEl && frameEl.offsetHeight > 0
+        ? frameEl.offsetWidth / frameEl.offsetHeight
+        : 4 / 5;
+      const frontRefBounds = await getFrameContentBounds(imageUrl, frameAspect);
+      if (frontRefBounds) (payload as any).frontRef = frontRefBounds;
+      if (backImageUrl) {
+        const backRefBounds = await getFrameContentBounds(backImageUrl, frameAspect);
+        if (backRefBounds) (payload as any).backRef = backRefBounds;
+      }
+    } catch { /* refs are optional */ }
+
     onApply(payload);
   };
 
@@ -1160,7 +1178,7 @@ export function StorefrontCatalogTab() {
   const handleApplyPlacement = async (box: MultiLogoBoxes | LogoBox) => {
     if (!placementTarget) return;
     const { mode, category, slot } = placementTarget;
-    const nextPlacements = {
+    const nextPlacements: any = {
       ...logoPlacements,
       [mode]: {
         ...(logoPlacements[mode] || {}),
@@ -1170,6 +1188,17 @@ export function StorefrontCatalogTab() {
         }
       }
     };
+    // Also stamp the canonical per-style record: one placement per garment
+    // style, applied everywhere that style appears (all categories + colors).
+    const styleForSlot = mode === 'racks'
+      ? (racks as any)?.[category]?.[slot]
+      : (basics as any)?.[category]?.[slot];
+    if (styleForSlot) {
+      nextPlacements.byStyle = {
+        ...((logoPlacements as any).byStyle || {}),
+        [String(styleForSlot).toUpperCase()]: box
+      };
+    }
     setLogoPlacements(nextPlacements);
     setPlacementTarget(null);
 
@@ -1191,13 +1220,22 @@ export function StorefrontCatalogTab() {
     const cat = { ...(modeMap[category] || {}) };
     delete cat[slot];
 
-    const nextPlacements = {
+    const nextPlacements: any = {
       ...logoPlacements,
       [mode]: {
         ...modeMap,
         [category]: cat
       }
     };
+    // Clear the canonical per-style record too so it doesn't resurrect the boxes
+    const styleForSlot = mode === 'racks'
+      ? (racks as any)?.[category]?.[slot]
+      : (basics as any)?.[category]?.[slot];
+    if (styleForSlot && (logoPlacements as any).byStyle) {
+      const nextByStyle = { ...(logoPlacements as any).byStyle };
+      delete nextByStyle[String(styleForSlot).toUpperCase()];
+      nextPlacements.byStyle = nextByStyle;
+    }
     setLogoPlacements(nextPlacements);
     setPlacementTarget(null);
 
@@ -2290,7 +2328,15 @@ export function StorefrontCatalogTab() {
         const style = (mode === 'racks' ? racks : basics)[category]?.[slot] || '';
         const p = getProductDetails(style) as any;
         const chosenColor = (mode === 'racks' ? defaultColors.racks : defaultColors.basics)?.[category]?.[slot];
-        const existing = logoPlacements[mode]?.[category]?.[slot] as MultiLogoBoxes | undefined;
+        // Prefer the canonical per-style record (the "main mock" placements shared
+        // by every category/color this style appears in), fall back to per-slot.
+        const styleKeyForSlot = mode === 'racks'
+          ? (racks as any)?.[category]?.[slot]
+          : (basics as any)?.[category]?.[slot];
+        const canonical = styleKeyForSlot
+          ? ((logoPlacements as any).byStyle?.[String(styleKeyForSlot).toUpperCase()] as MultiLogoBoxes | undefined)
+          : undefined;
+        const existing = canonical ?? (logoPlacements[mode]?.[category]?.[slot] as MultiLogoBoxes | undefined);
         return (
           <LogoPlacementModal
              title={`${category} — ${slot.replace('longsleeve', 'long sleeve').toUpperCase()} (${p.brand} ${p.style})`}

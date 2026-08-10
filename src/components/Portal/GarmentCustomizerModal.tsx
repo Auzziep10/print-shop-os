@@ -7,7 +7,7 @@ import { generateRotatedGarment } from '../../lib/geminiService';
 import { getSwatchColor } from '../shared/GarmentBrowser';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
 import { saveDesignToLibrary } from '../../lib/savedDesignsUtils';
-import { getFilteredProductColors, resolveGarmentPlacementData } from '../../lib/garmentUtils';
+import { getFilteredProductColors, resolveGarmentPlacementData, getFrameContentBounds, remapBoxToFrame, type FrameContentBounds } from '../../lib/garmentUtils';
 
 const sanmarCatalog = sanmarCatalogJson as any[];
 
@@ -757,19 +757,26 @@ export function GarmentCustomizerModal({
     const sideData = activeTab === 'back' ? (rawPlacement.back || (rawPlacement && !rawPlacement.front ? rawPlacement : null)) : (rawPlacement.front || rawPlacement);
     if (!sideData) return null;
 
-    const guides: { key: string; label: string; badgeBg: string; borderColor: string; box: any }[] = [];
+    // Where the garment sat in the artboard these boxes were drawn on (stamped
+    // at save time by the admin placement editor). Used to remap boxes onto
+    // the mock actually displayed here, so placements track the garment even
+    // when the two images are cropped/framed differently.
+    const refBounds: FrameContentBounds | null =
+      (activeTab === 'back' ? rawPlacement.backRef : rawPlacement.frontRef) || null;
+
+    const guides: { key: string; label: string; badgeBg: string; borderColor: string; box: any; refBounds: FrameContentBounds | null }[] = [];
     if (sideData.large) {
-      guides.push({ key: 'large', label: 'LARGE PRINT (11×14")', badgeBg: 'bg-red-100 text-red-800 border border-red-300', borderColor: 'rgba(239, 68, 68, 0.75)', box: sideData.large });
+      guides.push({ key: 'large', label: 'LARGE PRINT (11×14")', badgeBg: 'bg-red-100 text-red-800 border border-red-300', borderColor: 'rgba(239, 68, 68, 0.75)', box: sideData.large, refBounds });
     }
     if (sideData.medium) {
-      guides.push({ key: 'medium', label: 'MEDIUM PRINT (7×9")', badgeBg: 'bg-blue-100 text-blue-800 border border-blue-300', borderColor: 'rgba(59, 130, 246, 0.75)', box: sideData.medium });
+      guides.push({ key: 'medium', label: 'MEDIUM PRINT (7×9")', badgeBg: 'bg-blue-100 text-blue-800 border border-blue-300', borderColor: 'rgba(59, 130, 246, 0.75)', box: sideData.medium, refBounds });
     }
     if (sideData.small) {
-      guides.push({ key: 'small', label: 'SMALL PRINT (4×4")', badgeBg: 'bg-emerald-100 text-emerald-800 border border-emerald-300', borderColor: 'rgba(16, 185, 129, 0.75)', box: sideData.small });
+      guides.push({ key: 'small', label: 'SMALL PRINT (4×4")', badgeBg: 'bg-emerald-100 text-emerald-800 border border-emerald-300', borderColor: 'rgba(16, 185, 129, 0.75)', box: sideData.small, refBounds });
     }
 
     if (guides.length === 0 && typeof sideData.x === 'number') {
-      guides.push({ key: 'large', label: 'PRINT AREA', badgeBg: 'bg-neutral-800 text-white border border-neutral-700', borderColor: 'rgba(0, 0, 0, 0.75)', box: sideData });
+      guides.push({ key: 'large', label: 'PRINT AREA', badgeBg: 'bg-neutral-800 text-white border border-neutral-700', borderColor: 'rgba(0, 0, 0, 0.75)', box: sideData, refBounds });
     }
 
     return guides;
@@ -939,6 +946,22 @@ export function GarmentCustomizerModal({
       ? `/api/sanmar/proxy-image?url=${encodeURIComponent(activeMockupImage)}`
       : activeMockupImage;
   }, [activeMockupImage]);
+
+  // Where the garment's pixels sit inside THIS artboard for the currently
+  // displayed mock — used to remap admin placement boxes (drawn on a possibly
+  // differently-framed mock) onto the garment shown here.
+  const [dispFrameBounds, setDispFrameBounds] = useState<FrameContentBounds | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    setDispFrameBounds(null);
+    if (!proxiedActiveMockupImage || (activeTab !== 'front' && activeTab !== 'back')) return;
+    const el = previewRef.current;
+    const frameAspect = el && el.offsetHeight > 0 ? el.offsetWidth / el.offsetHeight : 4 / 5;
+    getFrameContentBounds(proxiedActiveMockupImage, frameAspect).then(b => {
+      if (!cancelled) setDispFrameBounds(b);
+    });
+    return () => { cancelled = true; };
+  }, [proxiedActiveMockupImage, activeTab]);
 
   const needsGeneration = useMemo(() => {
     if (activeTab === 'front') return false;
@@ -2297,7 +2320,8 @@ export function GarmentCustomizerModal({
 
                   {/* Admin Placement Bounding Box Guides for Customer Guidance */}
                   {showPlacementGuides && currentPlacementGuides && currentPlacementGuides.map((guide) => {
-                    const box = guide.box;
+                    // Garment-anchored remap: identity when either bounds set is unavailable
+                    const box = remapBoxToFrame(guide.box, guide.refBounds, dispFrameBounds);
                     const w = box.w;
                     const h = box.h;
                     const left = box.x - w / 2;
