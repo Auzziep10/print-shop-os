@@ -31,7 +31,7 @@ export function PortalHelpDrawer({ isOpen, onClose, onStartTour }: PortalHelpDra
       icon: <BookOpen size={20} className="text-violet-500" />,
       steps: [
         'Click the "+ Create Order" or "Request Quote" buttons.',
-        'Choose items from your "WOVN Library" collections, "Suggested Items" (curated by us), or "Past Garments".',
+        'Choose items from your "INKTHEORY Library" collections, "Suggested Items" (curated by us), or "Past Garments".',
         'Click on any garment card image to open the Interactive Lightbox. Hover over the large image to zoom in and inspect details.',
         'Specify your required quantities by size (XS, S, M, L, XL, etc.) and color.',
         'Upload your design mockup or select an artwork file from your Asset Vault.',
