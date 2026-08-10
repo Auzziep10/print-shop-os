@@ -740,7 +740,7 @@ export function StorefrontCatalogTab() {
   const handleSaveSettings = async () => {
     setSaving(true);
     try {
-      await setDoc(doc(db, 'settings', 'storefront-catalog'), {
+      await setDoc(doc(db, 'settings', 'storefront-catalog'), pruneUndefinedDeep({
         racks,
         basics,
         customNames,
@@ -756,7 +756,7 @@ export function StorefrontCatalogTab() {
         colorMockups,
         allowedColors,
         updatedAt: new Date().toISOString()
-      }, { merge: true });
+      }), { merge: true });
       alert('Storefront catalog settings saved successfully!');
     } catch (err) {
       console.error("Error saving storefront catalog settings:", err);
@@ -1175,6 +1175,21 @@ export function StorefrontCatalogTab() {
     }));
   };
 
+  // Firestore rejects any write containing `undefined` (the placement modal
+  // marks absent box sizes as undefined). Strip them deeply before persisting.
+  const pruneUndefinedDeep = (val: any): any => {
+    if (Array.isArray(val)) return val.map(pruneUndefinedDeep);
+    if (val && typeof val === 'object') {
+      const out: any = {};
+      Object.entries(val).forEach(([k, v]) => {
+        if (v === undefined) return;
+        out[k] = pruneUndefinedDeep(v);
+      });
+      return out;
+    }
+    return val;
+  };
+
   const handleApplyPlacement = async (box: MultiLogoBoxes | LogoBox) => {
     if (!placementTarget) return;
     const { mode, category, slot } = placementTarget;
@@ -1199,17 +1214,19 @@ export function StorefrontCatalogTab() {
         [String(styleForSlot).toUpperCase()]: box
       };
     }
-    setLogoPlacements(nextPlacements);
+    const cleanPlacements = pruneUndefinedDeep(nextPlacements);
+    setLogoPlacements(cleanPlacements);
     setPlacementTarget(null);
 
     try {
       const docRef = doc(db, 'settings', 'storefront-catalog');
       await setDoc(docRef, {
-        logoPlacements: nextPlacements,
+        logoPlacements: cleanPlacements,
         updatedAt: new Date().toISOString()
       }, { merge: true });
     } catch (err) {
       console.error("Error auto-persisting logo placement to Firestore:", err);
+      alert('Failed to save placement boxes — please try again. (See console for details.)');
     }
   };
 
@@ -1236,17 +1253,19 @@ export function StorefrontCatalogTab() {
       delete nextByStyle[String(styleForSlot).toUpperCase()];
       nextPlacements.byStyle = nextByStyle;
     }
-    setLogoPlacements(nextPlacements);
+    const cleanPlacements = pruneUndefinedDeep(nextPlacements);
+    setLogoPlacements(cleanPlacements);
     setPlacementTarget(null);
 
     try {
       const docRef = doc(db, 'settings', 'storefront-catalog');
       await setDoc(docRef, {
-        logoPlacements: nextPlacements,
+        logoPlacements: cleanPlacements,
         updatedAt: new Date().toISOString()
       }, { merge: true });
     } catch (err) {
       console.error("Error auto-persisting cleared placement to Firestore:", err);
+      alert('Failed to clear placement boxes — please try again. (See console for details.)');
     }
   };
 

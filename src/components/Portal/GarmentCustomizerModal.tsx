@@ -764,19 +764,19 @@ export function GarmentCustomizerModal({
     const refBounds: FrameContentBounds | null =
       (activeTab === 'back' ? rawPlacement.backRef : rawPlacement.frontRef) || null;
 
-    const guides: { key: string; label: string; badgeBg: string; borderColor: string; box: any; refBounds: FrameContentBounds | null }[] = [];
+    const guides: { key: string; label: string; legend: string; borderColor: string; softColor: string; box: any; refBounds: FrameContentBounds | null }[] = [];
     if (sideData.large) {
-      guides.push({ key: 'large', label: 'LARGE PRINT (11×14")', badgeBg: 'bg-red-100 text-red-800 border border-red-300', borderColor: 'rgba(239, 68, 68, 0.75)', box: sideData.large, refBounds });
+      guides.push({ key: 'large', label: 'Large', legend: 'Large — 11×14"', borderColor: 'rgba(225, 72, 72, 0.85)', softColor: 'rgba(225, 72, 72, 0.28)', box: sideData.large, refBounds });
     }
     if (sideData.medium) {
-      guides.push({ key: 'medium', label: 'MEDIUM PRINT (7×9")', badgeBg: 'bg-blue-100 text-blue-800 border border-blue-300', borderColor: 'rgba(59, 130, 246, 0.75)', box: sideData.medium, refBounds });
+      guides.push({ key: 'medium', label: 'Medium', legend: 'Medium — 7×9"', borderColor: 'rgba(59, 130, 246, 0.85)', softColor: 'rgba(59, 130, 246, 0.28)', box: sideData.medium, refBounds });
     }
     if (sideData.small) {
-      guides.push({ key: 'small', label: 'SMALL PRINT (4×4")', badgeBg: 'bg-emerald-100 text-emerald-800 border border-emerald-300', borderColor: 'rgba(16, 185, 129, 0.75)', box: sideData.small, refBounds });
+      guides.push({ key: 'small', label: 'Small', legend: 'Small — 4×4"', borderColor: 'rgba(16, 185, 129, 0.85)', softColor: 'rgba(16, 185, 129, 0.28)', box: sideData.small, refBounds });
     }
 
     if (guides.length === 0 && typeof sideData.x === 'number') {
-      guides.push({ key: 'large', label: 'PRINT AREA', badgeBg: 'bg-neutral-800 text-white border border-neutral-700', borderColor: 'rgba(0, 0, 0, 0.75)', box: sideData, refBounds });
+      guides.push({ key: 'large', label: 'Print', legend: 'Print Area', borderColor: 'rgba(23, 23, 23, 0.7)', softColor: 'rgba(23, 23, 23, 0.22)', box: sideData, refBounds });
     }
 
     return guides;
@@ -2369,38 +2369,38 @@ export function GarmentCustomizerModal({
                     />
                   )}
 
-                  {/* Admin Placement Bounding Box Guides for Customer Guidance */}
-                  {showPlacementGuides && currentPlacementGuides && currentPlacementGuides.map((guide) => {
-                    // Garment-anchored remap: identity when either bounds set is unavailable
-                    const box = remapBoxToFrame(guide.box, guide.refBounds, dispFrameBounds);
-                    const w = box.w;
-                    const h = box.h;
-                    const left = box.x - w / 2;
-                    const top = box.y - h / 2;
-                    const r = box.r ?? 0;
+                  {/* Placement area guides — subtle dashed outlines; the box the
+                      logo currently sits in highlights gently. Color key renders
+                      below the artboard. */}
+                  {showPlacementGuides && currentPlacementGuides && (() => {
+                    const detectedTier = (activeTab === 'front' || activeTab === 'back') ? detectSidePrintSize(activeTab) : null;
+                    return currentPlacementGuides.map((guide) => {
+                      // Garment-anchored remap: identity when either bounds set is unavailable
+                      const box = remapBoxToFrame(guide.box, guide.refBounds, dispFrameBounds);
+                      const w = box.w;
+                      const h = box.h;
+                      const left = box.x - w / 2;
+                      const top = box.y - h / 2;
+                      const r = box.r ?? 0;
+                      const isActive = detectedTier?.toLowerCase() === guide.key;
 
-                    return (
-                      <div
-                        key={guide.key}
-                        className="absolute border-2 border-dashed rounded-md pointer-events-none z-10 transition-opacity duration-300"
-                        style={{
-                          left: `${left}%`,
-                          top: `${top}%`,
-                          width: `${w}%`,
-                          height: `${h}%`,
-                          borderColor: guide.borderColor,
-                          backgroundColor: 'transparent',
-                          transform: r ? `rotate(${r}deg)` : 'none',
-                        }}
-                      >
-                        <span 
-                          className={`absolute -top-5 left-1 text-[8px] font-extrabold uppercase tracking-widest px-1.5 py-0.5 rounded shadow-2xs select-none pointer-events-none whitespace-nowrap opacity-90 ${guide.badgeBg}`}
-                        >
-                          {guide.label}
-                        </span>
-                      </div>
-                    );
-                  })}
+                      return (
+                        <div
+                          key={guide.key}
+                          className="absolute rounded-lg pointer-events-none z-10 transition-all duration-300"
+                          style={{
+                            left: `${left}%`,
+                            top: `${top}%`,
+                            width: `${w}%`,
+                            height: `${h}%`,
+                            border: `1.5px dashed ${isActive ? guide.borderColor : guide.softColor}`,
+                            backgroundColor: isActive ? guide.borderColor.replace(/[\d.]+\)$/, '0.05)') : 'transparent',
+                            transform: r ? `rotate(${r}deg)` : 'none',
+                          }}
+                        />
+                      );
+                    });
+                  })()}
 
                   {/* Logo Overlay */}
                   {(!needsGeneration || isGenerated) && selectedLogo && (selectedLogo.isText || isImageFile(selectedLogo.name)) && (
@@ -2670,6 +2670,33 @@ export function GarmentCustomizerModal({
                 </div>
               )}
             </div>
+
+            {/* Placement color key */}
+            {activeTab !== 'tag' && showPlacementGuides && currentPlacementGuides && currentPlacementGuides.length > 0 && (() => {
+              const detectedTier = (activeTab === 'front' || activeTab === 'back') ? detectSidePrintSize(activeTab) : null;
+              return (
+                <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 w-full max-w-[560px] shrink-0 select-none">
+                  {currentPlacementGuides.map(g => {
+                    const isActive = detectedTier?.toLowerCase() === g.key;
+                    return (
+                      <span
+                        key={g.key}
+                        className={`flex items-center gap-1.5 text-[9px] font-semibold uppercase tracking-wider transition-colors ${
+                          isActive ? 'text-neutral-800' : 'text-neutral-400'
+                        }`}
+                      >
+                        <span
+                          className="inline-block h-2.5 w-2.5 rounded-[3px]"
+                          style={{ border: `1.5px dashed ${g.borderColor}` }}
+                        />
+                        {g.legend}
+                        {isActive && <span className="font-bold text-emerald-600">· your logo</span>}
+                      </span>
+                    );
+                  })}
+                </div>
+              );
+            })()}
 
             {/* Bottom Bar: Badges & Controls */}
             <div className="flex flex-wrap items-center justify-between gap-3 w-full max-w-[560px] px-2 shrink-0">
