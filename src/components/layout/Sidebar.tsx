@@ -176,7 +176,9 @@ export function Sidebar({ onClose }: SidebarProps) {
     <aside className="w-[280px] lg:w-64 border-r border-brand-border bg-brand-bg flex flex-col h-[100dvh] lg:sticky top-0 bg-white shadow-2xl lg:shadow-none overflow-hidden">
       <div className="p-6 flex justify-between items-start">
         <Link to="/dashboard" className="flex-1 mr-4 hover:opacity-80 transition-opacity">
-          <img src="/inktheory-wovn-logo.png" alt="WOVN Logo" className="w-full h-auto" />
+          <span className="font-sans text-2xl font-black tracking-tighter uppercase text-neutral-900 select-none">
+            INKTHEORY
+          </span>
         </Link>
         {onClose && (
           <button onClick={onClose} className="lg:hidden p-1 -mr-2 -mt-2 text-brand-secondary hover:text-brand-primary transition-colors hover:bg-black/5 rounded-lg">
