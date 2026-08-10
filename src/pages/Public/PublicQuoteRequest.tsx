@@ -636,8 +636,9 @@ export function PublicQuoteRequest() {
   const [isCalculatingTax, setIsCalculatingTax] = useState(false);
 
   useEffect(() => {
-    fetchDtfPricingSettings().then(setDtfSettings).catch(console.error);
-  }, []);
+    const custId = userData?.customerId || user?.uid;
+    fetchDtfPricingSettings(custId).then(setDtfSettings).catch(console.error);
+  }, [userData?.customerId, user?.uid]);
 
   // Helper to ensure cart item properties are normalized for autoQuoteItem
   const getNormalizedAutoQuote = (item: any, overrideQty?: number) => {

@@ -78,6 +78,13 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
   const navigate = useNavigate();
   const { hasPermission } = useAuth();
   const currentCustomerId = overrideCustomerId || customerId || 'CUS-001';
+  const [dtfSettings, setDtfSettings] = useState<any>(null);
+
+  useEffect(() => {
+    if (currentCustomerId) {
+      fetchDtfPricingSettings(currentCustomerId).then(setDtfSettings).catch(console.error);
+    }
+  }, [currentCustomerId]);
   
   // If no customerId is in the URL, fallback to Wayne Enterprises 'CUS-001' to demo it!
   const { orders, loading } = useOrders(currentCustomerId);
@@ -263,7 +270,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
 
           if (it.dtfAutoQuoted) {
             try {
-              const autoQuote = autoQuoteItem({ ...it, sizes: updatedSizes, qty: newTotalQty });
+              const autoQuote = autoQuoteItem({ ...it, sizes: updatedSizes, qty: newTotalQty }, dtfSettings?.costs, dtfSettings?.ladder);
               if (autoQuote.ok && autoQuote.pricePerPiece > 0) {
                 priceNum = autoQuote.pricePerPiece;
                 totalStr = autoQuote.orderTotal.toFixed(2);
@@ -313,7 +320,7 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
     setSubmittingOrderIds(prev => new Set(prev).add(order.id));
 
     try {
-      const dtfSettings = await fetchDtfPricingSettings(currentCustomerId);
+      const resubmitDtfSettings = await fetchDtfPricingSettings(order.customerId || currentCustomerId);
 
       let calculatedSubtotal = 0;
       const finalItems = (order.items || []).map((item: any) => {
@@ -324,8 +331,8 @@ export function PortalOrders({ overrideCustomerId, hideHeader = false, filterTyp
         let priceEach = parseFloat(item.price) || 0;
         let dtfAutoQuoted = item.dtfAutoQuoted;
 
-        if (dtfSettings.autoQuotingEnabled || dtfAutoQuoted) {
-          const autoQuote = autoQuoteItem({ ...item, qty: itemQty }, dtfSettings.costs, dtfSettings.ladder);
+        if (resubmitDtfSettings.autoQuotingEnabled || dtfAutoQuoted) {
+          const autoQuote = autoQuoteItem({ ...item, qty: itemQty }, resubmitDtfSettings.costs, resubmitDtfSettings.ladder);
           if (autoQuote.ok && autoQuote.pricePerPiece > 0) {
             priceEach = autoQuote.pricePerPiece;
             dtfAutoQuoted = true;

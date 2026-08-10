@@ -1,6 +1,6 @@
 // @ts-ignore
 import DTFPricing from '../../dtf-pricing-engine.js';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from './firebase';
 
 /**
@@ -183,9 +183,25 @@ export async function fetchDtfPricingSettings(customerId?: string): Promise<{ co
   // Check customer-specific override if customerId is passed
   if (customerId) {
     try {
+      let custData: any = null;
       const custSnap = await getDoc(doc(db, 'customers', customerId));
       if (custSnap.exists()) {
-        const custData = custSnap.data();
+        custData = custSnap.data();
+      } else {
+        const q1 = query(collection(db, 'customers'), where('customerId', '==', customerId));
+        const q1Snap = await getDocs(q1);
+        if (!q1Snap.empty) {
+          custData = q1Snap.docs[0].data();
+        } else {
+          const q2 = query(collection(db, 'customers'), where('uid', '==', customerId));
+          const q2Snap = await getDocs(q2);
+          if (!q2Snap.empty) {
+            custData = q2Snap.docs[0].data();
+          }
+        }
+      }
+
+      if (custData) {
         if (custData.autoQuotingEnabled === 'enabled' || custData.autoQuotingEnabled === true) {
           autoQuotingEnabled = true;
         } else if (custData.autoQuotingEnabled === 'disabled' || custData.autoQuotingEnabled === false) {
@@ -200,7 +216,7 @@ export async function fetchDtfPricingSettings(customerId?: string): Promise<{ co
           if (custData.customPricing.ladder) {
             ladder = { ...ladder, ...custData.customPricing.ladder };
           }
-          if (custData.customPricing.autoQuotingEnabled !== undefined) {
+          if (custData.customPricing.autoQuotingEnabled !== undefined && custData.customPricing.autoQuotingEnabled !== 'inherit') {
             autoQuotingEnabled = custData.customPricing.autoQuotingEnabled === 'enabled' || custData.customPricing.autoQuotingEnabled === true;
           }
         }

@@ -23,6 +23,7 @@ import { sendOrderStatusSMS } from '../../lib/smsService';
 import { sendOrderStatusEmail } from '../../lib/emailService';
 // @ts-ignore
 import DTFPricing from '../../../dtf-pricing-engine.js';
+import { fetchDtfPricingSettings } from '../../lib/dtfAutoQuoting';
 const sanmarCatalog = sanmarCatalogJson as any[];
 
 const SIZE_ORDER = ['XXS', 'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL', 'OSFA'];
@@ -1280,6 +1281,7 @@ export function OrderDetail() {
   };
 
   const [timelineMembers, setTimelineMembers] = useState<any[]>([]);
+  const order = orders.find(o => o.id === id);
 
   useEffect(() => {
     getDocs(collection(db, 'users')).then(snap => {
@@ -1290,33 +1292,10 @@ export function OrderDetail() {
   useEffect(() => {
     const fetchDtfSettings = async () => {
       try {
-        const docRef = doc(db, 'settings', 'dtf_pricing');
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          if (data.costs) {
-            setDtfCosts({
-              ...DTFPricing.DEFAULT_COSTS,
-              ...data.costs
-            });
-          } else {
-            setDtfCosts(DTFPricing.DEFAULT_COSTS);
-          }
-          if (data.ladder) {
-            setDtfLadder({
-              ...DEFAULT_LADDER_FALLBACK,
-              ...data.ladder
-            });
-          } else {
-            setDtfLadder(DEFAULT_LADDER_FALLBACK);
-          }
-          if (data.autoQuotingEnabled !== undefined) {
-            setAutoQuotingEnabled(!!data.autoQuotingEnabled);
-          }
-        } else {
-          setDtfCosts(DTFPricing.DEFAULT_COSTS);
-          setDtfLadder(DEFAULT_LADDER_FALLBACK);
-        }
+        const settings = await fetchDtfPricingSettings(order?.customerId);
+        setDtfCosts(settings.costs || DTFPricing.DEFAULT_COSTS);
+        setDtfLadder(settings.ladder || DEFAULT_LADDER_FALLBACK);
+        setAutoQuotingEnabled(settings.autoQuotingEnabled);
       } catch (err) {
         console.error("Error fetching DTF pricing settings:", err);
         setDtfCosts(DTFPricing.DEFAULT_COSTS);
@@ -1324,7 +1303,7 @@ export function OrderDetail() {
       }
     };
     fetchDtfSettings();
-  }, []);
+  }, [order?.customerId]);
 
   useEffect(() => {
      if (!id || allUsers.length === 0) return;
@@ -1502,8 +1481,6 @@ export function OrderDetail() {
   const [isSearchingShopify, setIsSearchingShopify] = useState(false);
   const [isShopifySearchOpen, setIsShopifySearchOpen] = useState(false);
 
-  const order = orders.find(o => o.id === id); // Need order reference earlier
-  
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [tempTitle, setTempTitle] = useState('');
   const [customizingItem, setCustomizingItem] = useState<any | null>(null);
