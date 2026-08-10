@@ -172,13 +172,13 @@ export function HeroSection({
           ))}
         </h1>
 
-        <div className="mt-8 flex flex-col gap-8 md:flex-row md:items-end md:justify-between">
+        <div className="mt-8 flex flex-col items-start gap-6">
           <p className="hero-fade-in font-inter max-w-md text-sm font-light leading-relaxed text-zinc-300">
             {settings.heroSubtitle ||
               'Choose a themed collection to design a cohesive line, or start from our curated basics.'}
           </p>
 
-          <div className="hero-fade-in flex items-center gap-3">
+          <div className="hero-fade-in flex flex-wrap items-center gap-3">
             <button
               data-cursor
               onClick={() => onScrollTo('#start-cta')}
