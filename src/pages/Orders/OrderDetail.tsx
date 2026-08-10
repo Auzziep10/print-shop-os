@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { PillButton } from '../../components/ui/PillButton';
 import { PackingSlipsManager } from '../../components/Orders/PackingSlipsManager';
 import { TrackingModal } from '../../components/Orders/TrackingModal';
-import { ArrowLeft, MessageSquare, QrCode, Clock, Users, Download, Loader2, X, Edit3, Upload, Trash2, Plus, ChevronDown, Image as ImageIcon, Box, Printer, ExternalLink, ShoppingBag, Search, Check, Truck, Calculator, GripVertical, Pause, Play, DollarSign, PackagePlus, Layers, CreditCard, Copy, RotateCcw, Sparkles, FileText, TriangleAlert, Zap } from 'lucide-react';
+import { ArrowLeft, MessageSquare, QrCode, Clock, Users, Download, Loader2, X, Edit3, Upload, Trash2, Plus, ChevronDown, Image as ImageIcon, Box, Printer, ExternalLink, ShoppingBag, Search, Check, Truck, Calculator, GripVertical, Pause, Play, DollarSign, PackagePlus, Layers, CreditCard, Copy, RotateCcw, Sparkles, FileText, TriangleAlert, Zap, RefreshCw } from 'lucide-react';
 import ReactQRCode from 'react-qr-code';
 import QRCodeLib from 'qrcode';
 import JSZip from 'jszip';
@@ -3126,6 +3126,17 @@ export function OrderDetail() {
     }
   };
 
+  const handleAcknowledgeResubmit = async () => {
+    if (!id || !order) return;
+    try {
+      await setDoc(doc(db, 'orders', id), {
+        hasUnreadCustomerUpdate: false
+      }, { merge: true });
+    } catch (err) {
+      console.error("Error clearing resubmitted quote notification:", err);
+    }
+  };
+
   const handleApproveAndSave = async () => {
     if (!id || !order) return;
     setIsSaving(true);
@@ -3281,6 +3292,34 @@ export function OrderDetail() {
         {/* Top Section: Order Information */}
         <div className="space-y-8">
           
+          {/* Resubmitted Quote Notification Banner */}
+          {order.hasUnreadCustomerUpdate && (
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
+              <div className="flex items-center gap-3.5">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/15 text-amber-700 flex items-center justify-center shrink-0 border border-amber-200">
+                  <RefreshCw className="animate-spin-slow" size={20} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h4 className="font-bold text-amber-950 text-base">Customer Resubmitted Quote with New Quantities!</h4>
+                    <span className="bg-amber-200 text-amber-900 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                      Action Required
+                    </span>
+                  </div>
+                  <p className="text-xs text-amber-800 font-medium mt-1">
+                    The customer updated size quantities for this quote to <strong className="text-amber-950 font-bold">{order.totalGarments || order.quoteResubmittedGarments || 0} garments total</strong>. Review the item sizing breakdown below and confirm pricing or re-quote.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={handleAcknowledgeResubmit}
+                className="bg-amber-900 hover:bg-amber-800 text-white text-xs font-bold px-5 py-2.5 rounded-full transition-all shrink-0 cursor-pointer shadow-xs flex items-center gap-1.5"
+              >
+                <Check size={14} strokeWidth={2.5} /> Mark Reviewed
+              </button>
+            </div>
+          )}
+
           {/* Header */}
           <div className="bg-white p-8 rounded-card border border-brand-border shadow-sm">
             <div className="flex flex-col lg:flex-row justify-between lg:items-start mb-6 gap-6">

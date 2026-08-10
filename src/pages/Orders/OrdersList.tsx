@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
-import { Search, Filter, Plus, FileDown, MoreHorizontal, Loader2, Check, FileBox } from 'lucide-react';
+import { Search, Filter, Plus, FileDown, MoreHorizontal, Loader2, Check, FileBox, RefreshCw } from 'lucide-react';
 import { StatusBadge, type StatusType } from '../../components/ui/StatusBadge';
 import { useOrders } from '../../hooks/useOrders';
 import { doc, updateDoc, collection, getDocs } from 'firebase/firestore';
@@ -279,7 +279,14 @@ export function OrdersList() {
                 >
                   <div className="px-2 text-xs font-semibold text-brand-secondary">{order.portalId || order.id}</div>
                   <div className="font-serif text-lg text-brand-primary truncate pr-4">{customerName}</div>
-                  <div className="text-sm text-brand-secondary truncate pr-4">{order.title}</div>
+                  <div className="text-sm text-brand-secondary truncate pr-4 flex items-center gap-2">
+                    <span className="truncate">{order.title}</span>
+                    {order.hasUnreadCustomerUpdate && (
+                      <span className="bg-amber-100 border border-amber-300 text-amber-900 text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider shrink-0 flex items-center gap-1 animate-pulse" title="Customer resubmitted new size quantities">
+                        <RefreshCw size={10} className="text-amber-600" /> Updated Qty
+                      </span>
+                    )}
+                  </div>
                   <div onClick={(e) => handleNextStatus(e, order.id, order.statusIndex)} className="group/badge" title="Click to bump status!">
                     <div className="group-hover/badge:scale-105 transition-transform origin-left">
                        <StatusBadge status={badgeStatus} />

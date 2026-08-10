@@ -1,4 +1,4 @@
-import { Search, Bell, LogOut, Menu, Check, Rocket } from 'lucide-react';
+import { Search, Bell, LogOut, Menu, Check, Rocket, RefreshCw } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useOrders } from '../../hooks/useOrders';
 import { useState, useEffect, useRef } from 'react';
@@ -21,7 +21,8 @@ export function TopBar({ onOpenSidebar }: TopBarProps) {
   const notificationRef = useRef<HTMLDivElement>(null);
 
   const unreadPayments = orders.filter(o => o.paymentStatus === 'paid' && o.paymentRead === false);
-  const totalUnreadCount = unreadPayments.length + unreadSupportCustomers.length;
+  const unreadResubmittedQuotes = orders.filter(o => o.hasUnreadCustomerUpdate === true);
+  const totalUnreadCount = unreadPayments.length + unreadSupportCustomers.length + unreadResubmittedQuotes.length;
 
   useEffect(() => {
     const q = query(
@@ -137,6 +138,35 @@ export function TopBar({ onOpenSidebar }: TopBarProps) {
                       <div key={order.id} className="p-3 hover:bg-neutral-50 transition-colors cursor-pointer" onClick={() => handleMarkAsRead(order.id)}>
                         <p className="text-xs font-medium text-brand-primary mb-1">Payment Received! <span className="text-emerald-500"><Check size={12} className="inline animate-in zoom-in duration-200" /></span></p>
                         <p className="text-[11px] text-brand-secondary line-clamp-1">{order.title}</p>
+                      </div>
+                    ))}
+
+                    {/* Resubmitted Quotes */}
+                    {unreadResubmittedQuotes.map(order => (
+                      <div 
+                        key={order.id} 
+                        className="p-3 hover:bg-amber-50/60 transition-colors cursor-pointer" 
+                        onClick={async () => {
+                          setShowNotifications(false);
+                          try {
+                            await updateDoc(doc(db, 'orders', order.id), { hasUnreadCustomerUpdate: false });
+                          } catch (err) {
+                            console.error(err);
+                          }
+                          navigate(`/orders/${order.id}`);
+                        }}
+                      >
+                        <p className="text-[11px] font-bold text-amber-950 mb-1 flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 bg-amber-500 rounded-full shrink-0 animate-ping" />
+                          <RefreshCw size={12} className="text-amber-600 shrink-0" />
+                          <span>Quote Resubmitted with New Qty</span>
+                        </p>
+                        <p className="text-[11px] text-neutral-800 line-clamp-1 font-semibold">
+                          {order.title || `Order #${order.portalId || order.id.substring(0,8)}`}
+                        </p>
+                        <p className="text-[9px] text-neutral-500 mt-1">
+                          {order.totalGarments || order.quoteResubmittedGarments || 0} Garments • Order #{order.portalId || order.id.substring(0,8)}
+                        </p>
                       </div>
                     ))}
 
