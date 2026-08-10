@@ -500,6 +500,36 @@ export function DtfPricingSettingsTab() {
                 />
               </div>
             </div>
+
+            {/* Loaded transfer costs per print size — these are the material
+                costs the pricing engine uses for each placement tier */}
+            <div className="col-span-full border-t border-brand-border/40 pt-4 mt-1">
+              <span className="text-[10px] uppercase font-bold tracking-wider text-brand-secondary">
+                Loaded Transfer Costs (per print, by size)
+              </span>
+            </div>
+
+            {([
+              { key: 'transferLarge', label: 'Large Transfer — Full Front/Back 11×14" ($)' },
+              { key: 'transferMedium', label: 'Medium Transfer — Chest/Torso 7×9" ($)' },
+              { key: 'transferSmall', label: 'Small Transfer — Left Chest/Sleeve ~4" ($)' },
+              { key: 'transferTag', label: 'Neck Tag Transfer ~2×3" ($)' },
+              { key: 'transferPatch', label: 'Cap Front Patch ($)' },
+            ] as const).map(field => (
+              <div key={field.key} className="space-y-1.5">
+                <label className="text-[10px] uppercase font-bold text-gray-400 pl-1">{field.label}</label>
+                <div className="relative">
+                  <DollarSign size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="number"
+                    step="0.05"
+                    value={costs[field.key] ?? ''}
+                    onChange={(e) => setCosts({ ...costs, [field.key]: parseFloat(e.target.value) || 0 })}
+                    className="w-full bg-neutral-50 border border-neutral-200 rounded-xl pl-8 pr-3 py-2 text-xs font-bold text-brand-primary"
+                  />
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
