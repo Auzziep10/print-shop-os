@@ -901,6 +901,51 @@ export function PublicQuoteRequest() {
     return () => clearTimeout(timer);
   }, [shippingAddress, cartAutoQuotes, cartSubtotal, estimatedShipping, discountAmount]);
 
+  // ------------------------------------------------------------------
+  // Leave-page guard: once the customer has meaningful design progress,
+  // warn before the browser Back button / refresh / tab close wipes it.
+  // ------------------------------------------------------------------
+  const guardBypassRef = useRef(false); // set before intentional redirects (Stripe)
+  const designDirty = step >= 3 || (step >= 2 && Boolean(logoUrl));
+  const designDirtyRef = useRef(designDirty);
+  designDirtyRef.current = designDirty;
+
+  // Browser Back button (SPA history pop): trap with a sentinel entry + confirm
+  useEffect(() => {
+    if (!designDirty) return;
+    let armed = true;
+    window.history.pushState({ startDesignGuard: true }, '');
+    const onPop = () => {
+      if (!armed || guardBypassRef.current) return;
+      const leave = window.confirm(
+        'Are you sure you want to go back? Your garment designs and progress will be lost.'
+      );
+      if (leave) {
+        armed = false;
+        window.removeEventListener('popstate', onPop);
+        window.history.back();
+      } else {
+        window.history.pushState({ startDesignGuard: true }, '');
+      }
+    };
+    window.addEventListener('popstate', onPop);
+    return () => {
+      armed = false;
+      window.removeEventListener('popstate', onPop);
+    };
+  }, [designDirty]);
+
+  // Refresh / tab close / navigation to another site: native browser prompt
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (!designDirtyRef.current || guardBypassRef.current) return;
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, []);
+
   // Autofill user details when authenticated
   useEffect(() => {
     if (user || userData) {
@@ -2632,7 +2677,8 @@ export function PublicQuoteRequest() {
 
         const data = await res.json();
         if (res.ok && data.url) {
-          window.location.href = data.url; 
+          guardBypassRef.current = true; // intentional redirect to Stripe — skip the leave-page warning
+          window.location.href = data.url;
         } else {
           alert("Failed to initiate secure checkout session. Redirecting to your portal...");
           navigate(`/portal/${customerId}`);
