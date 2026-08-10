@@ -611,6 +611,39 @@ function StorefrontSection() {
           <label className={tokens.typography.label}>Cart shipping note</label>
           <input className={tokens.components.input + ' mt-1.5'} value={settings.shippingNote || ''} onChange={e => set({ shippingNote: e.target.value })} />
         </div>
+        <div>
+          <label className={tokens.typography.label}>Flat shipping rate (USD)</label>
+          <input
+            className={tokens.components.input + ' mt-1.5'}
+            inputMode="decimal"
+            placeholder="0 = free shipping"
+            value={String(settings.shippingFlatRate ?? 0)}
+            onChange={e => set({ shippingFlatRate: Math.max(0, parseFloat(e.target.value) || 0) })}
+          />
+        </div>
+        <div>
+          <label className={tokens.typography.label}>Free shipping over (USD, 0 = off)</label>
+          <input
+            className={tokens.components.input + ' mt-1.5'}
+            inputMode="decimal"
+            placeholder="e.g. 100"
+            value={String(settings.freeShippingOver ?? 0)}
+            onChange={e => set({ freeShippingOver: Math.max(0, parseFloat(e.target.value) || 0) })}
+          />
+        </div>
+        <div className="md:col-span-2">
+          <button
+            onClick={() => set({ collectTax: !(settings.collectTax !== false) })}
+            className={`flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-medium transition-colors ${
+              settings.collectTax !== false
+                ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                : 'border-brand-border text-brand-secondary'
+            }`}
+          >
+            <Check size={13} />
+            {settings.collectTax !== false ? 'Sales tax collected at checkout (Stripe Tax)' : 'Sales tax NOT collected at checkout'}
+          </button>
+        </div>
         {bannerTile('hero', 'Hero image (wide, moody)', settings.heroImageUrl)}
         {bannerTile('footer', 'Footer banner image', settings.footerImageUrl)}
         <div className="md:col-span-2 flex items-center gap-3 border-t border-brand-border pt-4">

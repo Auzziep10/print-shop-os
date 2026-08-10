@@ -53,7 +53,7 @@ export default async function handler(req: Request) {
     }
 
     // action === 'create'
-    const { orderId, email, lineItems, successUrl, cancelUrl } = body;
+    const { orderId, email, lineItems, successUrl, cancelUrl, shippingCents = 0, collectTax = false } = body;
 
     if (!Array.isArray(lineItems) || lineItems.length === 0) {
       return new Response(JSON.stringify({ error: 'Missing line items' }), { status: 400 });
@@ -64,20 +64,51 @@ export default async function handler(req: Request) {
 
     // No payment_method_types — Stripe shows every method enabled in the
     // Dashboard (cards, Apple Pay, Google Pay, Link, ...), like a standard shop.
-    const session = await stripe.checkout.sessions.create({
+    const shipAmount = Math.max(0, Math.round(shippingCents));
+    const sessionParams: any = {
       mode: 'payment',
       customer_email: email || undefined,
       line_items: lineItems,
       shipping_address_collection: {
         allowed_countries: ['US'],
       },
+      shipping_options: [
+        {
+          shipping_rate_data: {
+            type: 'fixed_amount',
+            fixed_amount: { amount: shipAmount, currency: 'usd' },
+            display_name: shipAmount > 0 ? 'Standard Shipping' : 'Free Shipping',
+            delivery_estimate: {
+              minimum: { unit: 'business_day', value: 3 },
+              maximum: { unit: 'business_day', value: 7 },
+            },
+            tax_behavior: 'exclusive',
+            tax_code: 'txcd_92010001', // shipping — same code the portal's tax calc uses
+          },
+        },
+      ],
       metadata: {
         shopOrderId: orderId || '',
         source: 'brand_shop',
       },
       success_url: successUrl,
       cancel_url: cancelUrl,
-    });
+    };
+    if (collectTax) {
+      sessionParams.automatic_tax = { enabled: true };
+    }
+
+    let session;
+    try {
+      session = await stripe.checkout.sessions.create(sessionParams);
+    } catch (err: any) {
+      // If automatic tax isn't available on the account, don't kill checkout —
+      // retry without it so the sale still goes through.
+      if (!collectTax) throw err;
+      console.warn('Checkout with automatic tax failed, retrying without:', err.message);
+      delete sessionParams.automatic_tax;
+      session = await stripe.checkout.sessions.create(sessionParams);
+    }
 
     return new Response(JSON.stringify({
       id: session.id,

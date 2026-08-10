@@ -53,6 +53,7 @@ const InventoryScan = safeLazy(() => import('./pages/Inventory/InventoryScan').t
 const MobileUpload = safeLazy(() => import('./pages/MobileUpload/MobileUpload').then(m => ({ default: m.MobileUpload })));
 const ImmersiveLandingPage = safeLazy(() => import('./pages/Public/Landing/ImmersiveLandingPage').then(m => ({ default: m.ImmersiveLandingPage })));
 const ShopPage = safeLazy(() => import('./pages/Shop/ShopPage').then(m => ({ default: m.ShopPage })));
+const ShopProductPage = safeLazy(() => import('./pages/Shop/ShopProductPage').then(m => ({ default: m.ShopProductPage })));
 const ShopSuccess = safeLazy(() => import('./pages/Shop/ShopSuccess').then(m => ({ default: m.ShopSuccess })));
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -125,6 +126,7 @@ function App() {
           <Route path="/sms-opt-in" element={<SmsConsent />} />
           {/* Brand Shop — public merch storefront */}
           <Route path="/shop" element={<ShopPage />} />
+          <Route path="/shop/product/:id" element={<ShopProductPage />} />
           <Route path="/shop/success" element={<ShopSuccess />} />
           
           {/* Temp Seed Route */}

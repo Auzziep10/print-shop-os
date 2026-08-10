@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { addDoc, collection, doc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { Minus, Plus, ShoppingBag, X } from 'lucide-react';
@@ -9,7 +10,6 @@ import {
   SHOP_SETTINGS_DOC,
   cartItemKey,
   formatShopPrice,
-  type CartItem,
   type ShopProduct,
   type ShopSettings,
 } from './shopTypes';
@@ -63,9 +63,9 @@ function useShopProducts(): { products: ShopProduct[]; loading: boolean } {
 /* Product card                                                       */
 /* ------------------------------------------------------------------ */
 
-function ProductCard({ product, onOpen }: { product: ShopProduct; onOpen: () => void }) {
+function ProductCard({ product }: { product: ShopProduct }) {
   return (
-    <button onClick={onOpen} className="shop-card group block w-full cursor-pointer text-left">
+    <Link to={`/shop/product/${product.id}`} className="shop-card group block w-full cursor-pointer text-left">
       <div className="aspect-[4/5] w-full overflow-hidden bg-[#f2f2f0]">
         {product.images[0] ? (
           <img
@@ -93,144 +93,7 @@ function ProductCard({ product, onOpen }: { product: ShopProduct; onOpen: () => 
           {product.colorway}
         </div>
       )}
-    </button>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* Product detail modal                                               */
-/* ------------------------------------------------------------------ */
-
-function ProductModal({
-  product,
-  onClose,
-  onAdd,
-}: {
-  product: ShopProduct;
-  onClose: () => void;
-  onAdd: (item: CartItem) => void;
-}) {
-  const [imageIdx, setImageIdx] = useState(0);
-  const [size, setSize] = useState<string>(product.sizes.length === 1 ? product.sizes[0] : '');
-  const [qty, setQty] = useState(1);
-  const [error, setError] = useState('');
-  const needsSize = product.sizes.length > 0;
-
-  const handleAdd = () => {
-    if (needsSize && !size) {
-      setError('Select a size');
-      return;
-    }
-    onAdd({
-      productId: product.id,
-      name: product.name,
-      colorway: product.colorway,
-      size: needsSize ? size : '',
-      price: product.price,
-      image: product.images[0],
-      qty,
-    });
-    onClose();
-  };
-
-  return (
-    <div className="shop-fade-in fixed inset-0 z-[80] flex items-end justify-center bg-black/50 p-0 md:items-center md:p-8" onClick={onClose}>
-      <div
-        className="shop-pop-in relative max-h-[92vh] w-full max-w-4xl overflow-y-auto bg-white md:grid md:grid-cols-2"
-        onClick={e => e.stopPropagation()}
-      >
-        <button
-          onClick={onClose}
-          className="absolute right-4 top-4 z-10 flex h-9 w-9 items-center justify-center bg-white/80 text-neutral-900 backdrop-blur transition-colors hover:bg-neutral-900 hover:text-white"
-          aria-label="Close"
-        >
-          <X size={16} />
-        </button>
-
-        {/* Images */}
-        <div className="bg-[#f2f2f0]">
-          <div className="aspect-[4/5] w-full overflow-hidden">
-            {product.images[imageIdx] ? (
-              <img src={product.images[imageIdx]} alt={product.name} className="h-full w-full object-cover" />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center text-[9px] uppercase tracking-[0.3em] text-neutral-400">
-                No image
-              </div>
-            )}
-          </div>
-          {product.images.length > 1 && (
-            <div className="flex gap-2 p-3">
-              {product.images.map((img, i) => (
-                <button
-                  key={i}
-                  onClick={() => setImageIdx(i)}
-                  className={`h-16 w-14 overflow-hidden border transition-colors ${
-                    i === imageIdx ? 'border-neutral-900' : 'border-transparent opacity-60 hover:opacity-100'
-                  }`}
-                >
-                  <img src={img} alt="" className="h-full w-full object-cover" />
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Details */}
-        <div className="flex flex-col p-8 md:p-10">
-          <h2 className="text-sm font-bold uppercase tracking-[0.18em] text-neutral-900">{product.name}</h2>
-          {product.colorway && (
-            <div className="mt-2 text-[9px] font-semibold uppercase tracking-[0.25em] text-neutral-400">
-              {product.colorway}
-            </div>
-          )}
-          <div className="mt-4 text-sm font-medium tracking-wide">{formatShopPrice(product.price)}</div>
-
-          {product.description && (
-            <p className="mt-6 text-xs leading-relaxed text-neutral-500">{product.description}</p>
-          )}
-
-          {needsSize && (
-            <div className="mt-8">
-              <div className="mb-3 text-[9px] font-bold uppercase tracking-[0.25em] text-neutral-500">Size</div>
-              <div className="flex flex-wrap gap-2">
-                {product.sizes.map(s => (
-                  <button
-                    key={s}
-                    onClick={() => { setSize(s); setError(''); }}
-                    className={`min-w-[44px] border px-3 py-2 text-[10px] font-semibold uppercase tracking-widest transition-colors ${
-                      size === s
-                        ? 'border-neutral-900 bg-neutral-900 text-white'
-                        : 'border-neutral-300 text-neutral-700 hover:border-neutral-900'
-                    }`}
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
-              {error && <div className="mt-2 text-[10px] uppercase tracking-widest text-red-600">{error}</div>}
-            </div>
-          )}
-
-          <div className="mt-8 flex items-center gap-4">
-            <div className="flex items-center border border-neutral-300">
-              <button onClick={() => setQty(q => Math.max(1, q - 1))} className="flex h-10 w-10 items-center justify-center hover:bg-neutral-100" aria-label="Decrease quantity">
-                <Minus size={12} />
-              </button>
-              <span className="w-8 text-center text-xs font-semibold">{qty}</span>
-              <button onClick={() => setQty(q => q + 1)} className="flex h-10 w-10 items-center justify-center hover:bg-neutral-100" aria-label="Increase quantity">
-                <Plus size={12} />
-              </button>
-            </div>
-            <button
-              onClick={handleAdd}
-              className="h-10 flex-1 bg-neutral-900 text-[10px] font-bold uppercase tracking-[0.25em] text-white transition-colors hover:bg-black"
-            >
-              Add to cart
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+    </Link>
   );
 }
 
@@ -238,7 +101,7 @@ function ProductModal({
 /* Cart drawer + checkout                                             */
 /* ------------------------------------------------------------------ */
 
-function CartDrawer({
+export function CartDrawer({
   cart,
   settings,
   onClose,
@@ -278,11 +141,18 @@ function CartDrawer({
           product_data: {
             name: i.size ? `${i.name} — ${i.size}` : i.name,
             ...(i.image ? { images: [i.image] } : {}),
+            tax_code: 'txcd_30011000', // apparel — same code the portal's tax calc uses
           },
           unit_amount: Math.round(i.price * 100),
+          tax_behavior: 'exclusive',
         },
         quantity: i.qty,
       }));
+
+      const flatRate = settings.shippingFlatRate ?? 0;
+      const freeOver = settings.freeShippingOver ?? 0;
+      const shipsFree = freeOver > 0 && cart.subtotal >= freeOver;
+      const shippingCents = shipsFree ? 0 : Math.max(0, Math.round(flatRate * 100));
 
       const res = await fetch('/api/stripe/shop-checkout', {
         method: 'POST',
@@ -291,6 +161,8 @@ function CartDrawer({
           action: 'create',
           orderId: orderRef.id,
           lineItems,
+          shippingCents,
+          collectTax: settings.collectTax !== false,
           successUrl: `${origin}/shop/success?order=${orderRef.id}&session_id={CHECKOUT_SESSION_ID}`,
           cancelUrl: `${origin}/shop`,
         }),
@@ -400,7 +272,6 @@ export function ShopPage() {
   const settings = useShopSettings();
   const { products, loading } = useShopProducts();
   const cart = useCart();
-  const [openProduct, setOpenProduct] = useState<ShopProduct | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
 
   const activeProducts = useMemo(() => products.filter(p => p.active), [products]);
@@ -411,9 +282,9 @@ export function ShopPage() {
   }, [settings.brandLine, settings.collectionTitle]);
 
   useEffect(() => {
-    document.body.style.overflow = openProduct || cartOpen ? 'hidden' : '';
+    document.body.style.overflow = cartOpen ? 'hidden' : '';
     return () => { document.body.style.overflow = ''; };
-  }, [openProduct, cartOpen]);
+  }, [cartOpen]);
 
   if (!settings.storeEnabled) {
     return (
@@ -478,7 +349,7 @@ export function ShopPage() {
         ) : (
           <div className="grid grid-cols-2 gap-x-6 gap-y-12 md:grid-cols-4 md:gap-x-8 md:gap-y-16">
             {activeProducts.map(p => (
-              <ProductCard key={p.id} product={p} onOpen={() => setOpenProduct(p)} />
+              <ProductCard key={p.id} product={p} />
             ))}
           </div>
         )}
@@ -502,16 +373,6 @@ export function ShopPage() {
         )}
       </div>
 
-      {openProduct && (
-        <ProductModal
-          product={openProduct}
-          onClose={() => setOpenProduct(null)}
-          onAdd={item => {
-            cart.addItem(item);
-            setCartOpen(true);
-          }}
-        />
-      )}
       {cartOpen && <CartDrawer cart={cart} settings={settings} onClose={() => setCartOpen(false)} />}
     </div>
   );

@@ -33,6 +33,9 @@ export interface ShopSettings {
   footerVertical: string;    // vertical text on the footer banner's right edge
   shippingNote?: string;     // shown in the cart drawer
   storeEnabled: boolean;
+  shippingFlatRate: number;  // dollars; 0 = free shipping
+  freeShippingOver: number;  // dollars; subtotal at/above this ships free (0 = disabled)
+  collectTax: boolean;       // Stripe automatic tax on the hosted checkout
 }
 
 export const DEFAULT_SHOP_SETTINGS: ShopSettings = {
@@ -44,6 +47,9 @@ export const DEFAULT_SHOP_SETTINGS: ShopSettings = {
   footerVertical: 'DESERT MADE',
   shippingNote: 'Shipping + taxes calculated at checkout.',
   storeEnabled: true,
+  shippingFlatRate: 0,
+  freeShippingOver: 0,
+  collectTax: true,
 };
 
 export interface CartItem {
