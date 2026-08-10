@@ -461,15 +461,43 @@ export function ShowcaseSection({
           </span>
           <div>
             <h3 className="font-serif text-3xl leading-tight tracking-tight lg:text-4xl">
-              Or design the <span className="italic font-light">entire rack</span> at once.
+              {(() => {
+                const titleStr = settings?.rackCardTitle || 'Or design the *entire rack* at once.';
+                if (titleStr.includes('*')) {
+                  const parts = titleStr.split('*');
+                  return parts.map((part, idx) =>
+                    idx % 2 === 1 ? (
+                      <span key={idx} className="italic font-light">
+                        {part}
+                      </span>
+                    ) : (
+                      part
+                    )
+                  );
+                }
+                if (titleStr.toLowerCase().includes('entire rack')) {
+                  const index = titleStr.toLowerCase().indexOf('entire rack');
+                  const before = titleStr.slice(0, index);
+                  const match = titleStr.slice(index, index + 11);
+                  const after = titleStr.slice(index + 11);
+                  return (
+                    <>
+                      {before}
+                      <span className="italic font-light">{match}</span>
+                      {after}
+                    </>
+                  );
+                }
+                return titleStr;
+              })()}
             </h3>
             <p className="font-inter mt-4 max-w-xs text-xs font-light leading-relaxed text-zinc-500">
-              Hat, tee, polo, crewneck, hoodie and long sleeve — one cohesive collection, your
-              branding on every piece.
+              {settings?.rackCardBody ||
+                'Hat, tee, polo, crewneck, hoodie and long sleeve — one cohesive collection, your branding on every piece.'}
             </p>
           </div>
           <span className="font-inter flex items-center gap-3 rounded-full bg-zinc-950 px-6 py-3 text-[10px] font-bold uppercase tracking-[0.2em] text-white transition-colors group-hover:bg-zinc-800">
-            Design a cohesive line <ArrowRight size={13} />
+            {settings?.rackCardBtnText || 'Design a cohesive line'} <ArrowRight size={13} />
           </span>
         </button>
       </div>

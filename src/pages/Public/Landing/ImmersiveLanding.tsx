@@ -43,6 +43,9 @@ export interface StorefrontSettingsShape {
   showcaseBadge?: string;
   showcaseBadges?: Record<string, string>;
   showcaseImages?: Record<string, string>;
+  rackCardTitle?: string;
+  rackCardBody?: string;
+  rackCardBtnText?: string;
 
   // Process
   processLabel?: string;

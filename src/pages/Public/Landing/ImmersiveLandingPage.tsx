@@ -21,6 +21,9 @@ const DEFAULT_SETTINGS: StorefrontSettingsShape = {
   showcaseTitle: 'Built on premium blanks',
   showcaseSubtitle: 'Every category is curated Good / Better / Best — compare options side by side, then make them yours.',
   showcaseBadge: 'Good · Better · Best',
+  rackCardTitle: 'Or design the *entire rack* at once.',
+  rackCardBody: 'Hat, tee, polo, crewneck, hoodie and long sleeve — one cohesive collection, your branding on every piece.',
+  rackCardBtnText: 'Design a cohesive line',
   processLabel: '( The process )',
   processTitle: 'From logo to loading dock',
   processSubtitle: 'Four steps. One portal. A human checks every order before it ever hits a press.',
@@ -596,6 +599,49 @@ export function ImmersiveLandingPage() {
                           </div>
                         );
                       })}
+                    </div>
+                  </div>
+
+                  {/* Terminal Rack Card Customization */}
+                  <div className="pt-2">
+                    <div className="p-4 bg-amber-50/50 border border-amber-200/80 rounded-2xl space-y-3">
+                      <div>
+                        <span className="text-xs font-bold text-amber-950 block">Terminal Card (Full Rack CTA Card)</span>
+                        <span className="text-[10px] text-amber-700">Customize the last card in the catalog carousel. Use *word* in title for italic accent.</span>
+                      </div>
+
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-bold text-zinc-900">Card Title</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Or design the *entire rack* at once."
+                          value={editSettings.rackCardTitle || DEFAULT_SETTINGS.rackCardTitle || ''}
+                          onChange={e => setEditSettings({ ...editSettings, rackCardTitle: e.target.value })}
+                          className="w-full bg-white border border-neutral-200 rounded-xl px-3.5 py-2 text-xs font-medium text-zinc-900"
+                        />
+                      </div>
+
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-bold text-zinc-900">Card Description</label>
+                        <textarea
+                          rows={2}
+                          placeholder="e.g. Hat, tee, polo, crewneck, hoodie and long sleeve — one cohesive collection..."
+                          value={editSettings.rackCardBody || DEFAULT_SETTINGS.rackCardBody || ''}
+                          onChange={e => setEditSettings({ ...editSettings, rackCardBody: e.target.value })}
+                          className="w-full bg-white border border-neutral-200 rounded-xl px-3.5 py-2 text-xs font-medium text-zinc-900 resize-none"
+                        />
+                      </div>
+
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-bold text-zinc-900">Card Button CTA Label</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Design a cohesive line"
+                          value={editSettings.rackCardBtnText || DEFAULT_SETTINGS.rackCardBtnText || ''}
+                          onChange={e => setEditSettings({ ...editSettings, rackCardBtnText: e.target.value })}
+                          className="w-full bg-white border border-neutral-200 rounded-xl px-3.5 py-2 text-xs font-medium text-zinc-900"
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
