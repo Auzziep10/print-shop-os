@@ -4201,9 +4201,9 @@ export function PublicQuoteRequest() {
                           </div>
 
                           <div className="flex gap-3">
-                            {/* Color Selector */}
+                            {/* Color Selector — only admin-enabled colors (Storefront Catalog) */}
                             <div className="flex-1 flex gap-1 items-center overflow-x-auto scrollbar-none">
-                              {item.product.colors.slice(0, 5).map(c => {
+                              {getFilteredProductColors(item.product, catalogSettings.allowedColors).slice(0, 5).map(c => {
                                 const swatchHex = getSwatchColor(c, true);
                                 const isColorActive = item.color === c;
                                 return (
@@ -4421,7 +4421,7 @@ export function PublicQuoteRequest() {
 
                               <div className="flex gap-3 items-center justify-between">
                                 <div className="flex-1 flex gap-1 items-center overflow-x-auto scrollbar-none py-1">
-                                  {item.product.colors.slice(0, 5).map(c => {
+                                  {getFilteredProductColors(item.product, catalogSettings.allowedColors).slice(0, 5).map(c => {
                                     const swatchHex = getSwatchColor(c, true);
                                     const isColorActive = colorKey === c;
                                     return (
