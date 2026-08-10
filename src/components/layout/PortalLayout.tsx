@@ -566,7 +566,9 @@ export function PortalLayout() {
             ) : customer?.logo ? (
               <img src={customer.logo} alt={customer.company || "Customer Logo"} className="h-16 object-contain max-w-[260px]" />
             ) : (
-              <img src="/logo.png" alt="WOVN" className="h-8" />
+              <span className="font-sans text-2xl font-black tracking-tighter uppercase text-neutral-900 select-none">
+                INKTHEORY
+              </span>
             )}
           </div>
 
