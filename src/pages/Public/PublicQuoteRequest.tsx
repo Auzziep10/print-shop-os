@@ -29,6 +29,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { PillButton } from '../../components/ui/PillButton';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
 import { getGarmentWeightAndFabric, getOrderedKeys, GARMENT_TYPES, detectGarmentTypeTag, getFilteredProductColors, resolveGarmentPlacementData, detectPrintSizeFromPlacement, type GarmentTypeId } from '../../lib/garmentUtils';
+import { validateDiscountCode, discountAmountFor, formatDiscountLabel, type AppliedDiscount } from '../../lib/discountUtils';
 import { GarmentCustomizerModal } from '../../components/Portal/GarmentCustomizerModal';
 import { fetchDtfPricingSettings, autoQuoteItem } from '../../lib/dtfAutoQuoting';
 import colorHexMapJson from '../../data/color-hex-map.json';
@@ -718,6 +719,25 @@ export function PublicQuoteRequest() {
 
   const cartTotalUnits = useMemo(() => cart.reduce((acc, item) => acc + (item.qty || 0), 0), [cart]);
   const cartSubtotal = useMemo(() => cartAutoQuotes.reduce((acc, item) => acc + item.itemTotal, 0), [cartAutoQuotes]);
+  // Discount code (managed in Settings → Discount Codes)
+  const [discountInput, setDiscountInput] = useState('');
+  const [appliedDiscount, setAppliedDiscount] = useState<AppliedDiscount | null>(null);
+  const [discountError, setDiscountError] = useState('');
+  const [isApplyingDiscount, setIsApplyingDiscount] = useState(false);
+
+  const applyDiscountCode = async () => {
+    setIsApplyingDiscount(true);
+    setDiscountError('');
+    const result = await validateDiscountCode(discountInput);
+    if (result.ok) {
+      setAppliedDiscount(result.discount);
+      setDiscountInput('');
+    } else {
+      setDiscountError(result.error);
+    }
+    setIsApplyingDiscount(false);
+  };
+
   // Live EasyPost shipping rates (same API the portal payment flow uses).
   // Falls back to the flat ground estimate until the address is complete.
   const [shippingRates, setShippingRates] = useState<any[]>([]);
@@ -786,7 +806,8 @@ export function PublicQuoteRequest() {
     if (selectedShippingRate && typeof selectedShippingRate.rate === 'number') return selectedShippingRate.rate;
     return cartTotalUnits > 0 ? (15 + cartTotalUnits * 0.35) : 0;
   }, [cartTotalUnits, selectedShippingRate]);
-  const grandTotal = useMemo(() => (cartSubtotal + estimatedShipping + taxAmount), [cartSubtotal, estimatedShipping, taxAmount]);
+  const discountAmount = useMemo(() => discountAmountFor(appliedDiscount, cartSubtotal), [appliedDiscount, cartSubtotal]);
+  const grandTotal = useMemo(() => (cartSubtotal - discountAmount + estimatedShipping + taxAmount), [cartSubtotal, discountAmount, estimatedShipping, taxAmount]);
 
   useEffect(() => {
     if (!shippingAddress.street || !shippingAddress.city || !shippingAddress.state || !shippingAddress.zip) {
@@ -796,9 +817,11 @@ export function PublicQuoteRequest() {
     const calcTax = async () => {
       setIsCalculatingTax(true);
       try {
-        const items = cartAutoQuotes.map((cq, idx) => ({
+        // Tax on the discounted subtotal: scale item amounts by the discount ratio
+      const discountFactor = cartSubtotal > 0 ? Math.max(0, (cartSubtotal - discountAmount) / cartSubtotal) : 1;
+      const items = cartAutoQuotes.map((cq, idx) => ({
           id: cq.item.id || `item_${idx}`,
-          amount: cq.itemTotal
+          amount: Math.round(cq.itemTotal * discountFactor * 100) / 100
         }));
         const res = await fetch('/api/stripe/calculate-tax', {
           method: 'POST',
@@ -820,13 +843,13 @@ export function PublicQuoteRequest() {
           if (typeof data.taxAmount === 'number') {
             setTaxAmount(data.taxAmount);
           } else {
-            setTaxAmount(Math.round((cartSubtotal + estimatedShipping) * 0.065 * 100) / 100);
+            setTaxAmount(Math.round((cartSubtotal - discountAmount + estimatedShipping) * 0.065 * 100) / 100);
           }
         } else {
-          setTaxAmount(Math.round((cartSubtotal + estimatedShipping) * 0.065 * 100) / 100);
+          setTaxAmount(Math.round((cartSubtotal - discountAmount + estimatedShipping) * 0.065 * 100) / 100);
         }
       } catch (err) {
-        setTaxAmount(Math.round((cartSubtotal + estimatedShipping) * 0.065 * 100) / 100);
+        setTaxAmount(Math.round((cartSubtotal - discountAmount + estimatedShipping) * 0.065 * 100) / 100);
       } finally {
         setIsCalculatingTax(false);
       }
@@ -834,7 +857,7 @@ export function PublicQuoteRequest() {
 
     const timer = setTimeout(calcTax, 600);
     return () => clearTimeout(timer);
-  }, [shippingAddress, cartAutoQuotes, cartSubtotal, estimatedShipping]);
+  }, [shippingAddress, cartAutoQuotes, cartSubtotal, estimatedShipping, discountAmount]);
 
   // Autofill user details when authenticated
   useEffect(() => {
@@ -2443,6 +2466,8 @@ export function PublicQuoteRequest() {
           : 'Ground (estimated)',
         // Persisted so the portal payment modal reuses these instead of refetching
         shippingOptions: shippingRates,
+        discountCode: appliedDiscount?.code || '',
+        discountAmount: discountAmount,
         taxAmount: taxAmount,
         subtotal: cartSubtotal,
         orderTotal: finalTotalPrice,
@@ -2542,7 +2567,10 @@ export function PublicQuoteRequest() {
             email: customerInfo.emailAddress,
             successUrl,
             cancelUrl,
-            lineItems
+            lineItems,
+            ...(appliedDiscount && discountAmount > 0
+              ? { discount: { cents: Math.round(discountAmount * 100), label: `${appliedDiscount.code} (${formatDiscountLabel(appliedDiscount)})` } }
+              : {})
           })
         });
 
@@ -5005,6 +5033,49 @@ export function PublicQuoteRequest() {
                       <div className="py-2.5 flex justify-between">
                         <span className="text-neutral-500 font-semibold">Items Subtotal</span>
                         <span className="text-neutral-800 font-bold">${cartSubtotal.toFixed(2)}</span>
+                      </div>
+                      <div className="py-2.5">
+                        {appliedDiscount ? (
+                          <div className="flex justify-between items-center">
+                            <span className="text-emerald-700 font-semibold flex items-center gap-1.5">
+                              Discount
+                              <span className="font-mono text-[9px] font-bold bg-emerald-50 border border-emerald-200 text-emerald-800 px-1.5 py-0.5 rounded tracking-widest">
+                                {appliedDiscount.code}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => { setAppliedDiscount(null); setDiscountError(''); }}
+                                className="text-neutral-400 hover:text-red-600 text-[10px] font-bold cursor-pointer"
+                                title="Remove code"
+                              >
+                                ✕
+                              </button>
+                            </span>
+                            <span className="text-emerald-700 font-bold">−${discountAmount.toFixed(2)}</span>
+                          </div>
+                        ) : (
+                          <div>
+                            <div className="flex gap-1.5">
+                              <input
+                                type="text"
+                                value={discountInput}
+                                onChange={(e) => { setDiscountInput(e.target.value.toUpperCase()); setDiscountError(''); }}
+                                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyDiscountCode(); } }}
+                                placeholder="Discount code"
+                                className="flex-1 min-w-0 bg-neutral-50 border border-neutral-200 rounded-lg px-2.5 py-1.5 text-[10px] font-bold tracking-widest uppercase placeholder:normal-case placeholder:font-medium placeholder:tracking-normal focus:outline-none focus:border-neutral-400"
+                              />
+                              <button
+                                type="button"
+                                onClick={applyDiscountCode}
+                                disabled={isApplyingDiscount || !discountInput.trim()}
+                                className="shrink-0 bg-neutral-900 hover:bg-black text-white px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                              >
+                                {isApplyingDiscount ? '…' : 'Apply'}
+                              </button>
+                            </div>
+                            {discountError && <p className="text-[9px] text-red-600 font-semibold mt-1">{discountError}</p>}
+                          </div>
+                        )}
                       </div>
                       <div className="py-2.5">
                         <div className="flex justify-between items-center">

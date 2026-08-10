@@ -5,6 +5,7 @@ import { X, CreditCard, ShoppingCart, Package, MapPin, Building2, ChevronDown } 
 import { doc, updateDoc, arrayUnion, getDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../contexts/AuthContext';
+import { validateDiscountCode, discountAmountFor, type AppliedDiscount } from '../../lib/discountUtils';
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY || 'pk_test_TYooMQauvdEDq54NiTphI7jx');
 
@@ -106,6 +107,17 @@ const CheckoutForm = ({ order, onSuccess, onCancel }: { order: any, onSuccess: (
           });
         }
 
+        if (order.discountAmount > 0) {
+          cleanItems.push({
+            id: `discount-${Date.now()}`,
+            style: `Discount${order.discountCode ? ` (${order.discountCode})` : ''}`,
+            itemType: 'service',
+            qty: 1,
+            price: -order.discountAmount,
+            total: -order.discountAmount
+          });
+        }
+
         const updatePayload: any = {
           statusIndex: 4, // Move to Sourcing
           paymentStatus: 'paid',
@@ -115,6 +127,8 @@ const CheckoutForm = ({ order, onSuccess, onCancel }: { order: any, onSuccess: (
           items: cleanItems,
           tax: finalTaxAmount,
           total: order.calculatedTotal || 0,
+          discountCode: order.discountCode || '',
+          discountAmount: order.discountAmount || 0,
           activities: arrayUnion({
             id: `act-${Date.now()}`,
             type: 'system',
@@ -213,6 +227,30 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
   const [ratesError, setRatesError] = useState<string | null>(null);
   const [isCustomerTaxExempt, setIsCustomerTaxExempt] = useState<boolean>(false);
   const [selectedDeliveryOption, setSelectedDeliveryOption] = useState<string>(order.deliveryOption || 'Shipping');
+
+  // Discount code (managed in Settings → Discount Codes). Pre-applied if the
+  // order already carries one (e.g. entered on the public storefront checkout).
+  const [appliedDiscount, setAppliedDiscount] = useState<AppliedDiscount | null>(
+    order.discountCode && order.discountAmount > 0
+      ? { code: order.discountCode, type: 'fixed', value: order.discountAmount }
+      : null
+  );
+  const [discountInput, setDiscountInput] = useState('');
+  const [discountError, setDiscountError] = useState('');
+  const [isApplyingDiscount, setIsApplyingDiscount] = useState(false);
+
+  const applyDiscountCode = async () => {
+    setIsApplyingDiscount(true);
+    setDiscountError('');
+    const result = await validateDiscountCode(discountInput);
+    if (result.ok) {
+      setAppliedDiscount(result.discount);
+      setDiscountInput('');
+    } else {
+      setDiscountError(result.error);
+    }
+    setIsApplyingDiscount(false);
+  };
 
   useEffect(() => {
     if (!order.customerId) return;
@@ -421,10 +459,15 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             shippingAddress: order.shippingAddress,
-            items: regularItems.map(item => ({
-              id: item.id || item.style || 'item',
-              amount: item.total,
-            })),
+            items: (() => {
+              // Tax on the discounted subtotal: scale item amounts by the discount ratio
+              const dAmt = discountAmountFor(appliedDiscount, itemsSubtotal);
+              const factor = itemsSubtotal > 0 ? Math.max(0, (itemsSubtotal - dAmt) / itemsSubtotal) : 1;
+              return regularItems.map(item => ({
+                id: item.id || item.style || 'item',
+                amount: Math.round((parseFloat(item.total) || 0) * factor * 100) / 100,
+              }));
+            })(),
             shippingAmount: currentShippingAmount,
           }),
         });
@@ -445,23 +488,26 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
     };
 
     calculateStripeTax();
-  }, [order.id, hasShippingAddress, order.items, currentShippingAmount, isCustomerTaxExempt]);
+  }, [order.id, hasShippingAddress, order.items, currentShippingAmount, isCustomerTaxExempt, appliedDiscount]);
 
   const finalTaxAmount = isCustomerTaxExempt ? 0 : (calculatedTax !== null ? calculatedTax : taxAmount);
-  const finalTotal = itemsSubtotal + finalTaxAmount + currentShippingAmount;
+  const discountAmount = discountAmountFor(appliedDiscount, itemsSubtotal);
+  const finalTotal = Math.max(0, itemsSubtotal - discountAmount + finalTaxAmount + currentShippingAmount);
 
   const formattedSubtotal = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(itemsSubtotal);
   const formattedTax = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(finalTaxAmount);
   const formattedShipping = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(currentShippingAmount);
   const formattedTotal = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(finalTotal);
 
-  const orderWithTotal = { 
-    ...order, 
+  const orderWithTotal = {
+    ...order,
     deliveryOption: selectedDeliveryOption,
     totalFormatted: formattedTotal,
     calculatedTax: finalTaxAmount,
     calculatedTotal: finalTotal,
-    selectedShippingOption: selectedShippingOption
+    selectedShippingOption: selectedShippingOption,
+    discountCode: appliedDiscount?.code || '',
+    discountAmount: discountAmount
   };
 
   return (
@@ -670,7 +716,53 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
                 <span>Items Subtotal</span>
                 <span className="font-bold text-neutral-800">{formattedSubtotal}</span>
               </div>
-              
+
+              {appliedDiscount ? (
+                <div className="flex justify-between items-center text-xs font-semibold uppercase tracking-wider">
+                  <span className="text-emerald-700 flex items-center gap-1.5 normal-case">
+                    Discount
+                    <span className="font-mono text-[9px] font-bold bg-emerald-50 border border-emerald-200 text-emerald-800 px-1.5 py-0.5 rounded tracking-widest">
+                      {appliedDiscount.code}
+                    </span>
+                    {!order.discountCode && (
+                      <button
+                        type="button"
+                        onClick={() => { setAppliedDiscount(null); setDiscountError(''); }}
+                        className="text-neutral-400 hover:text-red-600 text-[10px] font-bold cursor-pointer"
+                        title="Remove code"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </span>
+                  <span className="font-bold text-emerald-700">
+                    −{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(discountAmount)}
+                  </span>
+                </div>
+              ) : (
+                <div>
+                  <div className="flex gap-1.5">
+                    <input
+                      type="text"
+                      value={discountInput}
+                      onChange={(e) => { setDiscountInput(e.target.value.toUpperCase()); setDiscountError(''); }}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyDiscountCode(); } }}
+                      placeholder="Discount code"
+                      className="flex-1 min-w-0 bg-neutral-50 border border-neutral-200 rounded-lg px-2.5 py-1.5 text-[10px] font-bold tracking-widest uppercase placeholder:normal-case placeholder:font-medium placeholder:tracking-normal focus:outline-none focus:border-neutral-400"
+                    />
+                    <button
+                      type="button"
+                      onClick={applyDiscountCode}
+                      disabled={isApplyingDiscount || !discountInput.trim()}
+                      className="shrink-0 bg-neutral-900 hover:bg-black text-white px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      {isApplyingDiscount ? '…' : 'Apply'}
+                    </button>
+                  </div>
+                  {discountError && <p className="text-[9px] text-red-600 font-semibold mt-1">{discountError}</p>}
+                </div>
+              )}
+
               <div className="flex justify-between items-center text-xs font-semibold text-neutral-500 uppercase tracking-wider">
                 <span>Shipping & Handling</span>
                 <span className="font-bold text-neutral-800">

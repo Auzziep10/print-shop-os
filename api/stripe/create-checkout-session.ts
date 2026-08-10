@@ -20,7 +20,8 @@ export default async function handler(req: Request) {
       email,
       successUrl,
       cancelUrl,
-      lineItems
+      lineItems,
+      discount
     } = body;
 
     const secretKey = process.env.STRIPE_SECRET_KEY?.trim();
@@ -46,6 +47,19 @@ export default async function handler(req: Request) {
       },
     ];
 
+    // Optional discount code: applied as a one-off Stripe coupon so the
+    // hosted checkout shows the discount as its own line
+    let discounts: Array<{ coupon: string }> | undefined;
+    if (discount && typeof discount.cents === 'number' && discount.cents > 0) {
+      const coupon = await stripe.coupons.create({
+        amount_off: Math.round(discount.cents),
+        currency: 'usd',
+        duration: 'once',
+        name: (discount.label || 'Discount').toString().slice(0, 40),
+      });
+      discounts = [{ coupon: coupon.id }];
+    }
+
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       customer_email: email || undefined,
@@ -55,6 +69,7 @@ export default async function handler(req: Request) {
         orderId,
         customerId,
       },
+      ...(discounts ? { discounts } : {}),
       success_url: successUrl,
       cancel_url: cancelUrl,
     });
