@@ -247,6 +247,9 @@ interface LogoBox {
 // the given aspect ratio (w/h) inside the box, centered on the box.
 const FRAME_H_OVER_W = 5 / 4; // aspect-[4/5] placement frame
 
+// "GroundAdvantage" / "FEDEX_GROUND" → "Ground Advantage" / "FEDEX GROUND"
+const formatShippingService = (s: string) => (s || '').replace(/_/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2');
+
 // GarmentCustomizerModal renders its 0-100 scale slider as `v * 0.36`% of the
 // artboard width, while lookbook items store logoScale as a 0-1 fraction of
 // the artboard width. These convert between the two so the logo looks the
@@ -715,7 +718,74 @@ export function PublicQuoteRequest() {
 
   const cartTotalUnits = useMemo(() => cart.reduce((acc, item) => acc + (item.qty || 0), 0), [cart]);
   const cartSubtotal = useMemo(() => cartAutoQuotes.reduce((acc, item) => acc + item.itemTotal, 0), [cartAutoQuotes]);
-  const estimatedShipping = useMemo(() => (cartTotalUnits > 0 ? (15 + cartTotalUnits * 0.35) : 0), [cartTotalUnits]);
+  // Live EasyPost shipping rates (same API the portal payment flow uses).
+  // Falls back to the flat ground estimate until the address is complete.
+  const [shippingRates, setShippingRates] = useState<any[]>([]);
+  const [selectedShippingRate, setSelectedShippingRate] = useState<any | null>(null);
+  const [isFetchingShippingRates, setIsFetchingShippingRates] = useState(false);
+
+  useEffect(() => {
+    const addressComplete = shippingAddress.street && shippingAddress.city && shippingAddress.state && shippingAddress.zip && shippingAddress.zip.length >= 5;
+    if (!addressComplete || cart.length === 0) {
+      setShippingRates([]);
+      setSelectedShippingRate(null);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      setIsFetchingShippingRates(true);
+      try {
+        const res = await fetch('/api/easypost/rates', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            to_address: {
+              name: customerInfo.contactName || 'Customer',
+              street1: shippingAddress.street,
+              city: shippingAddress.city,
+              state: shippingAddress.state,
+              zip: shippingAddress.zip,
+              country: 'US'
+            },
+            items: cart.map(item => ({
+              style: item.product?.title || item.product?.style || '',
+              itemNum: item.product?.style || '',
+              sizes: item.sizes,
+              qty: item.qty
+            })),
+            totalQty: cartTotalUnits,
+            isTest: true
+          })
+        });
+        const data = await res.json();
+        if (res.ok && Array.isArray(data.rates) && data.rates.length > 0) {
+          setShippingRates(data.rates);
+          setSelectedShippingRate((prev: any) => {
+            if (prev) {
+              const match = data.rates.find((r: any) => r.carrier === prev.carrier && r.service === prev.service);
+              if (match) return match;
+            }
+            return data.rates[0]; // cheapest (API returns sorted)
+          });
+        } else {
+          setShippingRates([]);
+          setSelectedShippingRate(null);
+        }
+      } catch (err) {
+        console.warn('Live shipping rates unavailable, using flat estimate:', err);
+        setShippingRates([]);
+        setSelectedShippingRate(null);
+      } finally {
+        setIsFetchingShippingRates(false);
+      }
+    }, 900);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shippingAddress.street, shippingAddress.city, shippingAddress.state, shippingAddress.zip, cart, cartTotalUnits]);
+
+  const estimatedShipping = useMemo(() => {
+    if (selectedShippingRate && typeof selectedShippingRate.rate === 'number') return selectedShippingRate.rate;
+    return cartTotalUnits > 0 ? (15 + cartTotalUnits * 0.35) : 0;
+  }, [cartTotalUnits, selectedShippingRate]);
   const grandTotal = useMemo(() => (cartSubtotal + estimatedShipping + taxAmount), [cartSubtotal, estimatedShipping, taxAmount]);
 
   useEffect(() => {
@@ -2368,6 +2438,11 @@ export function PublicQuoteRequest() {
         },
         shippingAddress: shippingAddress,
         shippingCost: estimatedShipping,
+        shippingService: selectedShippingRate
+          ? `${selectedShippingRate.carrier} ${formatShippingService(selectedShippingRate.service)}`
+          : 'Ground (estimated)',
+        // Persisted so the portal payment modal reuses these instead of refetching
+        shippingOptions: shippingRates,
         taxAmount: taxAmount,
         subtotal: cartSubtotal,
         orderTotal: finalTotalPrice,
@@ -2430,8 +2505,10 @@ export function PublicQuoteRequest() {
             price_data: {
               currency: 'usd',
               product_data: {
-                name: 'Estimated Shipping & Delivery',
-                description: 'Standard Ground Delivery'
+                name: 'Shipping & Delivery',
+                description: selectedShippingRate
+                  ? `${selectedShippingRate.carrier} ${formatShippingService(selectedShippingRate.service)}`
+                  : 'Standard Ground Delivery'
               },
               unit_amount: Math.round(estimatedShipping * 100)
             },
@@ -4929,9 +5006,52 @@ export function PublicQuoteRequest() {
                         <span className="text-neutral-500 font-semibold">Items Subtotal</span>
                         <span className="text-neutral-800 font-bold">${cartSubtotal.toFixed(2)}</span>
                       </div>
-                      <div className="py-2.5 flex justify-between">
-                        <span className="text-neutral-500 font-semibold">Est. Ground Shipping</span>
-                        <span className="text-neutral-800 font-bold">${estimatedShipping.toFixed(2)}</span>
+                      <div className="py-2.5">
+                        <div className="flex justify-between items-center">
+                          <span className="text-neutral-500 font-semibold flex items-center gap-1.5">
+                            {shippingRates.length > 0 ? 'Shipping Method' : 'Est. Ground Shipping'}
+                            {isFetchingShippingRates && <Loader2 className="animate-spin text-neutral-400" size={11} />}
+                          </span>
+                          <span className="text-neutral-800 font-bold">${estimatedShipping.toFixed(2)}</span>
+                        </div>
+                        {shippingRates.length === 0 && !isFetchingShippingRates && (
+                          <p className="text-[9px] text-neutral-400 mt-1">
+                            Enter your delivery address to choose from live carrier rates.
+                          </p>
+                        )}
+                        {shippingRates.length > 0 && (
+                          <div className="mt-2 space-y-1.5">
+                            {shippingRates.slice(0, 5).map((rate: any) => {
+                              const isSelected = selectedShippingRate?.id === rate.id;
+                              return (
+                                <button
+                                  key={rate.id}
+                                  type="button"
+                                  onClick={() => setSelectedShippingRate(rate)}
+                                  className={`w-full flex items-center justify-between gap-2 rounded-lg border px-2.5 py-1.5 text-left transition-all cursor-pointer ${
+                                    isSelected
+                                      ? 'border-emerald-600 bg-emerald-50/60 shadow-3xs'
+                                      : 'border-neutral-200 hover:border-neutral-400'
+                                  }`}
+                                >
+                                  <span className="min-w-0">
+                                    <span className={`block text-[10px] font-bold truncate ${isSelected ? 'text-emerald-800' : 'text-neutral-700'}`}>
+                                      {rate.carrier} {formatShippingService(rate.service)}
+                                    </span>
+                                    {rate.deliveryDays && (
+                                      <span className="block text-[9px] text-neutral-400">
+                                        Est. {rate.deliveryDays} business day{rate.deliveryDays === 1 ? '' : 's'}
+                                      </span>
+                                    )}
+                                  </span>
+                                  <span className={`text-[10px] font-extrabold shrink-0 ${isSelected ? 'text-emerald-700' : 'text-neutral-700'}`}>
+                                    ${rate.rate.toFixed(2)}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                       <div className="py-2.5 flex justify-between">
                         <span className="text-neutral-500 font-semibold">Est. Sales Tax</span>
