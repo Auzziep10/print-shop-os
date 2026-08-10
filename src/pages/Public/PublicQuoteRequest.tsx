@@ -251,6 +251,38 @@ const FRAME_H_OVER_W = 5 / 4; // aspect-[4/5] placement frame
 // "GroundAdvantage" / "FEDEX_GROUND" → "Ground Advantage" / "FEDEX GROUND"
 const formatShippingService = (s: string) => (s || '').replace(/_/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2');
 
+// Grid tile shown after the garment cards in the lookbook — adds another
+// garment style to the collection in one click.
+function AddGarmentTile({ onPick }: { onPick: (typeId: GarmentTypeId) => void }) {
+  return (
+    <div className="rounded-2xl border-2 border-dashed border-neutral-250 bg-neutral-50/70 hover:bg-neutral-50 transition-colors flex flex-col items-center justify-center gap-3.5 p-6 min-h-[360px]">
+      <div className="w-11 h-11 rounded-full bg-neutral-900 text-white flex items-center justify-center shadow-sm">
+        <Plus size={18} />
+      </div>
+      <div className="text-center">
+        <h4 className="text-xs font-extrabold uppercase tracking-wider text-neutral-900">
+          Add Another Garment
+        </h4>
+        <p className="text-[10px] text-neutral-500 font-medium mt-0.5 max-w-[220px]">
+          Project your logo onto additional garment styles in 1 click
+        </p>
+      </div>
+      <div className="flex flex-wrap justify-center gap-1.5 pt-1">
+        {GARMENT_TYPES.map(gt => (
+          <button
+            key={gt.id}
+            type="button"
+            onClick={() => onPick(gt.id as GarmentTypeId)}
+            className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold border bg-white hover:bg-neutral-950 text-neutral-800 hover:text-white border-neutral-250 shadow-3xs transition-all cursor-pointer"
+          >
+            {gt.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // GarmentCustomizerModal renders its 0-100 scale slider as `v * 0.36`% of the
 // artboard width, while lookbook items store logoScale as a 0-1 fraction of
 // the artboard width. These convert between the two so the logo looks the
@@ -4211,6 +4243,7 @@ export function PublicQuoteRequest() {
                     );
                   });
                 })()}
+                <AddGarmentTile onPick={(id) => setGarmentPickerType(id)} />
                 </div>
               ) : flowMode === 'types' ? (
                 // Garment Types lookbook grid with multi-item collection support
@@ -4437,6 +4470,7 @@ export function PublicQuoteRequest() {
                           </div>
                         );
                       })}
+                      <AddGarmentTile onPick={(id) => setGarmentPickerType(id)} />
                     </div>
                   );
                 })()
@@ -4518,34 +4552,37 @@ export function PublicQuoteRequest() {
               )}
             </div>
 
-            {/* Quick-Add Garment Bar in Lookbook */}
-            <div className="bg-neutral-50 border border-neutral-200/80 rounded-2xl p-5 space-y-3 shadow-3xs">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <div>
-                  <h4 className="text-xs font-extrabold uppercase tracking-wider text-neutral-950 flex items-center gap-1.5">
-                    <Plus size={14} className="text-neutral-700" /> Add Another Garment to Collection
-                  </h4>
-                  <p className="text-[11px] text-neutral-500 font-medium mt-0.5">
-                    Project your logo onto additional garment styles in 1 click
-                  </p>
+            {/* Quick-Add Garment Bar — racks/types modes have the in-grid tile
+                instead; basics keeps the bar since it renders a single card */}
+            {flowMode === 'basics' && (
+              <div className="bg-neutral-50 border border-neutral-200/80 rounded-2xl p-5 space-y-3 shadow-3xs">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <h4 className="text-xs font-extrabold uppercase tracking-wider text-neutral-950 flex items-center gap-1.5">
+                      <Plus size={14} className="text-neutral-700" /> Add Another Garment to Collection
+                    </h4>
+                    <p className="text-[11px] text-neutral-500 font-medium mt-0.5">
+                      Project your logo onto additional garment styles in 1 click
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {GARMENT_TYPES.map(gt => {
+                    return (
+                      <button
+                        key={gt.id}
+                        type="button"
+                        onClick={() => setGarmentPickerType(gt.id)}
+                        className="px-3.5 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 cursor-pointer bg-white hover:bg-neutral-950 text-neutral-800 hover:text-white border-neutral-250 shadow-3xs hover:shadow-xs hover:-translate-y-0.5"
+                      >
+                        <Plus size={12} /> {gt.label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
-
-              <div className="flex flex-wrap gap-2 pt-1">
-                {GARMENT_TYPES.map(gt => {
-                  return (
-                    <button
-                      key={gt.id}
-                      type="button"
-                      onClick={() => setGarmentPickerType(gt.id)}
-                      className="px-3.5 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 cursor-pointer bg-white hover:bg-neutral-950 text-neutral-800 hover:text-white border-neutral-250 shadow-3xs hover:shadow-xs hover:-translate-y-0.5"
-                    >
-                      <Plus size={12} /> {gt.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+            )}
 
             {/* Actions Footer */}
             <div className="pt-8 border-t border-neutral-200/50 flex justify-between items-center">
