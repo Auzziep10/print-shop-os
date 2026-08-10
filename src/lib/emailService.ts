@@ -91,7 +91,7 @@ export async function sendOrderStatusEmail(orderId: string, newStatusIndex: numb
           <h2 style="font-size: 20px; color: #111; margin-top: 0; margin-bottom: 20px; border-bottom: 1px solid #f0f0ed; padding-bottom: 12px; font-weight: 700;">Status Update</h2>
           <div style="font-size: 15px; color: #444; white-space: pre-wrap;">${bodyText}</div>
           <hr style="border: 0; border-top: 1px solid #f0f0ed; margin: 32px 0 20px 0;" />
-          <p style="font-size: 11px; color: #999; text-align: center; margin: 0;">This is an automated notification from your WOVN Client Portal.</p>
+          <p style="font-size: 11px; color: #999; text-align: center; margin: 0;">This is an automated notification from your INKTHEORY Client Portal.</p>
         </div>
       </div>
     `;
@@ -141,7 +141,7 @@ export async function sendCustomerWelcomeEmail(customerId: string) {
     const welcomeConfig = ahasendData.welcome || {
       enabled: true,
       subject: 'Welcome to your Client Portal',
-      template: 'Hi {customerName},\n\nWelcome! A customer account has been created for you.\n\nYou can access your client portal and view all your orders, invoices, and designs by logging in with your email ({customerEmail}) here:\n{portalUrl}\n\nBest regards,\nWOVN Team'
+      template: 'Hi {customerName},\n\nWelcome! A customer account has been created for you.\n\nYou can access your client portal and view all your orders, invoices, and designs by logging in with your email ({customerEmail}) here:\n{portalUrl}\n\nBest regards,\nINKTHEORY Team'
     };
 
     if (!welcomeConfig.enabled || !welcomeConfig.template) {
@@ -183,10 +183,10 @@ export async function sendCustomerWelcomeEmail(customerId: string) {
     const htmlBody = `
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; color: #333; line-height: 1.6; background-color: #f7f7f5;">
         <div style="background-color: #ffffff; border: 1px solid #e5e5e0; border-radius: 16px; padding: 32px; box-shadow: 0 4px 12px rgba(0,0,0,0.025);">
-          <h2 style="font-size: 20px; color: #111; margin-top: 0; margin-bottom: 20px; border-bottom: 1px solid #f0f0ed; padding-bottom: 12px; font-weight: 700;">Welcome to WOVN</h2>
+          <h2 style="font-size: 20px; color: #111; margin-top: 0; margin-bottom: 20px; border-bottom: 1px solid #f0f0ed; padding-bottom: 12px; font-weight: 700;">Welcome to INKTHEORY</h2>
           <div style="font-size: 15px; color: #444; white-space: pre-wrap;">${bodyText}</div>
           <hr style="border: 0; border-top: 1px solid #f0f0ed; margin: 32px 0 20px 0;" />
-          <p style="font-size: 11px; color: #999; text-align: center; margin: 0;">This is an automated notification from your WOVN Client Portal.</p>
+          <p style="font-size: 11px; color: #999; text-align: center; margin: 0;">This is an automated notification from your INKTHEORY Client Portal.</p>
         </div>
       </div>
     `;

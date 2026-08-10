@@ -144,11 +144,9 @@ export function Login() {
         
         {/* Glowing Logo */}
         <div className="mb-14 scale-150 transform transition-transform duration-700 hover:scale-[1.55]">
-          <img 
-            src="/logo.png" 
-            alt="WOVN" 
-            className="h-10 w-auto object-contain brightness-0 invert opacity-100 mx-auto drop-shadow-[0_0_35px_rgba(255,255,255,0.85)]" 
-          />
+          <span className="font-sans text-3xl font-black tracking-tighter uppercase text-white select-none drop-shadow-[0_0_35px_rgba(255,255,255,0.85)]">
+            INKTHEORY
+          </span>
         </div>
 
         <div className="backdrop-blur-md bg-black/40 border border-white/5 p-10 sm:p-12 rounded-3xl shadow-2xl transition-all duration-500 w-full relative overflow-hidden group">

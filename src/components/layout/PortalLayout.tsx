@@ -1138,11 +1138,11 @@ export function PortalLayout() {
               <div className="bg-white border-b border-neutral-100 p-5 flex items-center justify-between shrink-0">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-full bg-neutral-100 flex items-center justify-center font-bold text-sm text-neutral-700 relative border border-neutral-200">
-                    W
+                    I
                     <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-white" />
                   </div>
                   <div>
-                    <h3 className="text-xs font-bold text-neutral-900 tracking-wide uppercase">WOVN Support</h3>
+                    <h3 className="text-xs font-bold text-neutral-900 tracking-wide uppercase">INKTHEORY Support</h3>
                     <p className="text-[10px] text-emerald-600 font-bold mt-0.5">Admins & Managers online</p>
                   </div>
                 </div>
