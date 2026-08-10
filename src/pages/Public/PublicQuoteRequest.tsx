@@ -246,6 +246,22 @@ interface LogoBox {
 // Largest logoScale (logo width as a fraction of frame width) that keeps a logo of
 // the given aspect ratio (w/h) inside the box, centered on the box.
 const FRAME_H_OVER_W = 5 / 4; // aspect-[4/5] placement frame
+
+// GarmentCustomizerModal renders its 0-100 scale slider as `v * 0.36`% of the
+// artboard width, while lookbook items store logoScale as a 0-1 fraction of
+// the artboard width. These convert between the two so the logo looks the
+// same size on the lookbook card and inside the Edit Design customizer.
+const CUSTOMIZER_SCALE_BASIS = 0.36;
+const itemScaleToCustomizer = (s: number | null | undefined, fallback: number): number => {
+  if (s === undefined || s === null || !(s > 0)) return fallback;
+  const frac = s <= 1 ? s : s / 100;
+  return Math.min(100, Math.round((frac * 100) / CUSTOMIZER_SCALE_BASIS));
+};
+const customizerScaleToItem = (v: number | null | undefined, fallback: number): number => {
+  if (v === undefined || v === null || !(v >= 0)) return fallback;
+  const frac = v > 1 ? v / 100 : v;
+  return frac * CUSTOMIZER_SCALE_BASIS;
+};
 const resolveBoxForSize = (boxOrBoxes: any, printSize?: string, side: 'front' | 'back' = 'front'): LogoBox => {
   if (!boxOrBoxes) return { x: 50, y: 38, w: 50, h: 40 };
   const targetSideMap = side === 'back' ? (boxOrBoxes.back || (boxOrBoxes && !boxOrBoxes.front ? boxOrBoxes : null)) : (boxOrBoxes.front || boxOrBoxes);
@@ -1908,11 +1924,11 @@ export function PublicQuoteRequest() {
           backLogoPos: item.backLogoPos || { x: 50, y: 35 },
           backLogoScale: item.backLogoScale ?? 0,
           backLogoRotation: item.backLogoRotation ?? 0,
-          customScaleFront: (item as any).customScaleFront ?? (item.logoScale ? (item.logoScale <= 1 ? Math.round(item.logoScale * 100) : item.logoScale) : 30),
+          customScaleFront: (item as any).customScaleFront ?? itemScaleToCustomizer(item.logoScale, 30),
           customOffsetXFront: item.logoPos?.x ?? 50,
           customOffsetYFront: item.logoPos?.y ?? 45,
           customRotationFront: item.logoRotation ?? 0,
-          customScaleBack: (item as any).customScaleBack ?? (item.backLogoScale ? (item.backLogoScale <= 1 ? Math.round(item.backLogoScale * 100) : item.backLogoScale) : 0),
+          customScaleBack: (item as any).customScaleBack ?? itemScaleToCustomizer(item.backLogoScale, 0),
           customOffsetXBack: item.backLogoPos?.x ?? 50,
           customOffsetYBack: item.backLogoPos?.y ?? 40,
           customRotationBack: item.backLogoRotation ?? 0,
@@ -2502,10 +2518,10 @@ export function PublicQuoteRequest() {
         color: cartMatch.color,
         selected: true,
         logoPos: cartMatch.logoPos || { x: cartMatch.customOffsetXFront ?? 50, y: cartMatch.customOffsetYFront ?? 45 },
-        logoScale: cartMatch.logoScale ?? (cartMatch.customScaleFront ? cartMatch.customScaleFront / 100 : 0.30),
+        logoScale: cartMatch.logoScale ?? (cartMatch.customScaleFront ? customizerScaleToItem(cartMatch.customScaleFront, 0.30) : 0.30),
         logoRotation: cartMatch.logoRotation ?? cartMatch.customRotationFront ?? 0,
         backLogoPos: cartMatch.backLogoPos || { x: cartMatch.customOffsetXBack ?? 50, y: cartMatch.customOffsetYBack ?? 40 },
-        backLogoScale: cartMatch.backLogoScale ?? (cartMatch.customScaleBack ? cartMatch.customScaleBack / 100 : 0),
+        backLogoScale: cartMatch.backLogoScale ?? (cartMatch.customScaleBack ? customizerScaleToItem(cartMatch.customScaleBack, 0) : 0),
         backLogoRotation: cartMatch.backLogoRotation ?? cartMatch.customRotationBack ?? 0,
         customLogoUrl: cartMatch.frontLogoUrl || cartMatch.customLogoUrl,
         customBackLogoUrl: cartMatch.backLogoUrl || cartMatch.customBackLogoUrl,
@@ -3956,7 +3972,7 @@ export function PublicQuoteRequest() {
                             {/* Overlay Projected Logo (only if NOT compiled into single image) */}
                             {!isCompiled && activeLogoScale > 0 && activeArtwork && (() => {
                               const normVal = activeLogoScale > 1 ? activeLogoScale / 100 : activeLogoScale;
-                              const normCardScale = Math.min(60, Math.max(5, normVal * 36));
+                              const normCardScale = Math.min(90, Math.max(5, normVal * 100));
                               return (
                                 <div
                                   style={{
@@ -4175,7 +4191,7 @@ export function PublicQuoteRequest() {
                                 {/* Projected logo (only if NOT compiled) */}
                                 {!isCompiled && activeLogoScale > 0 && activeArtwork && (() => {
                                   const normVal = activeLogoScale > 1 ? activeLogoScale / 100 : activeLogoScale;
-                                  const normCardScale = Math.min(60, Math.max(5, normVal * 36));
+                                  const normCardScale = Math.min(90, Math.max(5, normVal * 100));
                                   return (
                                     <div
                                       style={{
@@ -5074,11 +5090,11 @@ export function PublicQuoteRequest() {
             logoNameBack: (editingProduct as any).logoNameBack || 'Back_Logo.png',
             customOffsetXFront: editingProduct.customOffsetXFront ?? editingProduct.logoPos?.x ?? 50,
             customOffsetYFront: editingProduct.customOffsetYFront ?? editingProduct.logoPos?.y ?? 45,
-            customScaleFront: editingProduct.customScaleFront ?? (editingProduct.logoScale ? (editingProduct.logoScale <= 1 ? Math.round(editingProduct.logoScale * 100) : editingProduct.logoScale) : 30),
+            customScaleFront: editingProduct.customScaleFront ?? itemScaleToCustomizer(editingProduct.logoScale, 30),
             customRotationFront: editingProduct.customRotationFront ?? editingProduct.logoRotation ?? 0,
             customOffsetXBack: editingProduct.customOffsetXBack ?? editingProduct.backLogoPos?.x ?? 50,
             customOffsetYBack: editingProduct.customOffsetYBack ?? editingProduct.backLogoPos?.y ?? 40,
-            customScaleBack: editingProduct.customScaleBack ?? (editingProduct.backLogoScale ? (editingProduct.backLogoScale <= 1 ? Math.round(editingProduct.backLogoScale * 100) : editingProduct.backLogoScale) : 0),
+            customScaleBack: editingProduct.customScaleBack ?? itemScaleToCustomizer(editingProduct.backLogoScale, 0),
             customRotationBack: editingProduct.customRotationBack ?? editingProduct.backLogoRotation ?? 0,
           }}
           customerId="PUBLIC_VISITOR"
@@ -5093,10 +5109,14 @@ export function PublicQuoteRequest() {
             const hasTagLogo = Boolean(cleanTagLogo || customizedData.tagLayout);
 
             updateEditingItem(item => {
-              const rawFrontScale = customizedData.customScaleFront ?? (item.logoScale ? item.logoScale * 100 : 30);
-              const normFrontScale = rawFrontScale > 1 ? rawFrontScale / 100 : rawFrontScale;
-              const rawBackScale = customizedData.customScaleBack ?? (item.backLogoScale ? item.backLogoScale * 100 : 30);
-              const normBackScale = hasBackLogo ? (rawBackScale > 1 ? rawBackScale / 100 : rawBackScale) : 0;
+              const normFrontScale = customizedData.customScaleFront != null
+                ? customizerScaleToItem(customizedData.customScaleFront, item.logoScale ?? 0.30)
+                : (item.logoScale ?? 0.30);
+              const normBackScale = hasBackLogo
+                ? (customizedData.customScaleBack != null
+                    ? customizerScaleToItem(customizedData.customScaleBack, item.backLogoScale ?? 0.30)
+                    : (item.backLogoScale ?? 0.30))
+                : 0;
 
               const frontX = customizedData.customOffsetXFront ?? customizedData.logoPlacementFront?.xPct ?? item.logoPos?.x ?? 50;
               const frontY = customizedData.customOffsetYFront ?? customizedData.logoPlacementFront?.yPct ?? item.logoPos?.y ?? 45;
