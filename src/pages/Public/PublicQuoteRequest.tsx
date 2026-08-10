@@ -28,7 +28,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { PillButton } from '../../components/ui/PillButton';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
-import { getGarmentWeightAndFabric, getOrderedKeys, GARMENT_TYPES, detectGarmentTypeTag, getFilteredProductColors, resolveGarmentPlacementData, type GarmentTypeId } from '../../lib/garmentUtils';
+import { getGarmentWeightAndFabric, getOrderedKeys, GARMENT_TYPES, detectGarmentTypeTag, getFilteredProductColors, resolveGarmentPlacementData, detectPrintSizeFromPlacement, type GarmentTypeId } from '../../lib/garmentUtils';
 import { GarmentCustomizerModal } from '../../components/Portal/GarmentCustomizerModal';
 import { fetchDtfPricingSettings, autoQuoteItem } from '../../lib/dtfAutoQuoting';
 import colorHexMapJson from '../../data/color-hex-map.json';
@@ -655,6 +655,23 @@ export function PublicQuoteRequest() {
     const custId = userData?.customerId || user?.uid;
     fetchDtfPricingSettings(custId).then(setDtfSettings).catch(console.error);
   }, [userData?.customerId, user?.uid]);
+
+  // Which admin placement box (Small/Medium/Large) an item's logo sits in.
+  // Drives the pricing tier (lc/mf/ff, sb/mb/fb) in the DTF auto-quote.
+  const detectItemPrintSize = (item: any, side: 'front' | 'back'): 'Small' | 'Medium' | 'Large' | null => {
+    const placement = resolveGarmentPlacementData(
+      { themeCategory: selectedThemeCategory, basicsCategory: selectedBasicsCategory, slot: (item as any).slot, product: item.product },
+      catalogSettings.logoPlacements,
+      catalogSettings
+    );
+    if (!placement) return null;
+    const scaleFrac = side === 'back' ? (item.backLogoScale ?? 0) : (item.logoScale ?? 0);
+    if (!(scaleFrac > 0)) return null;
+    const pos = side === 'back' ? (item.backLogoPos || { x: 50, y: 40 }) : (item.logoPos || { x: 50, y: 45 });
+    const wPct = (scaleFrac <= 1 ? scaleFrac : scaleFrac / 100) * 100;
+    const hPct = wPct / (FRAME_H_OVER_W * (logoAspect > 0 ? logoAspect : 1));
+    return detectPrintSizeFromPlacement(placement, side, { x: pos.x, y: pos.y, wPct, hPct });
+  };
 
   // Helper to ensure cart item properties are normalized for autoQuoteItem
   const getNormalizedAutoQuote = (item: any, overrideQty?: number) => {
@@ -1911,7 +1928,11 @@ export function PublicQuoteRequest() {
           frontLogoUrl: frontArtwork,
           frontOriginalFileUrl: originalFileUrl,
           frontArtworkName: artworkName,
-          frontPrintSize: item.printSize,
+          frontPrintSize: (item as any).detectedPrintSizeFront ?? detectItemPrintSize(item, 'front') ?? item.printSize,
+          detectedPrintSizeFront: (item as any).detectedPrintSizeFront ?? detectItemPrintSize(item, 'front'),
+          detectedPrintSizeBack: item.backLogoScale > 0
+            ? ((item as any).detectedPrintSizeBack ?? detectItemPrintSize(item, 'back'))
+            : null,
           frontMockupUrl: fMockup,
           backLogoUrl: item.backLogoScale > 0 ? backArtwork : null,
           backMockupUrl: bMockup,
@@ -5143,6 +5164,8 @@ export function PublicQuoteRequest() {
                 customOffsetXFront: frontX,
                 customOffsetYFront: frontY,
                 customRotationFront: customizedData.customRotationFront ?? 0,
+                detectedPrintSizeFront: customizedData.detectedPrintSizeFront ?? (item as any).detectedPrintSizeFront,
+                detectedPrintSizeBack: hasBackLogo ? (customizedData.detectedPrintSizeBack ?? (item as any).detectedPrintSizeBack) : null,
                 customScaleBack: hasBackLogo ? customizedData.customScaleBack : 0,
                 customOffsetXBack: backX,
                 customOffsetYBack: backY,

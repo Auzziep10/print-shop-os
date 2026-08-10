@@ -7,7 +7,7 @@ import { generateRotatedGarment } from '../../lib/geminiService';
 import { getSwatchColor } from '../shared/GarmentBrowser';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
 import { saveDesignToLibrary } from '../../lib/savedDesignsUtils';
-import { getFilteredProductColors, resolveGarmentPlacementData, getFrameContentBounds, remapBoxToFrame, type FrameContentBounds } from '../../lib/garmentUtils';
+import { getFilteredProductColors, resolveGarmentPlacementData, getFrameContentBounds, getImageContentInfo, remapBoxToFrame, detectPrintSizeFromPlacement, type FrameContentBounds } from '../../lib/garmentUtils';
 
 const sanmarCatalog = sanmarCatalogJson as any[];
 
@@ -962,6 +962,55 @@ export function GarmentCustomizerModal({
     });
     return () => { cancelled = true; };
   }, [proxiedActiveMockupImage, activeTab]);
+
+  // Natural aspect (w/h) of the selected logo images, for print-size detection
+  const [logoAspects, setLogoAspects] = useState<Record<string, number>>({});
+  useEffect(() => {
+    [selectedLogoFront?.url, selectedLogoBack?.url].forEach(url => {
+      if (!url || logoAspects[url]) return;
+      getImageContentInfo(url).then(info => {
+        if (info?.aspect) {
+          setLogoAspects(prev => (prev[url] ? prev : { ...prev, [url]: info.aspect }));
+        }
+      });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedLogoFront?.url, selectedLogoBack?.url]);
+
+  // Which admin placement box (Small/Medium/Large) a side's logo currently
+  // sits in — drives the Size chip and the pricing tier saved with the design.
+  const detectSidePrintSize = (side: 'front' | 'back'): 'Small' | 'Medium' | 'Large' | null => {
+    const targetGarment = activeGarment || garment;
+    const rawPlacement = resolveGarmentPlacementData(targetGarment, fetchedLogoPlacements, fetchedCatalogSettings);
+    if (!rawPlacement) return null;
+    const sideData = side === 'back'
+      ? (rawPlacement.back || (rawPlacement && !rawPlacement.front ? rawPlacement : null))
+      : (rawPlacement.front || rawPlacement);
+    if (!sideData) return null;
+
+    const logoSel = side === 'back' ? selectedLogoBack : selectedLogoFront;
+    const scaleVal = side === 'back' ? scaleBack : scaleFront;
+    if (!logoSel || !(scaleVal > 0)) return null;
+
+    // Compare in display space: remap boxes the same way the guides render
+    // (identity when bounds are unavailable or this isn't the active side).
+    const refBounds = (side === 'back' ? rawPlacement.backRef : rawPlacement.frontRef) || null;
+    const disp = side === activeTab ? dispFrameBounds : null;
+    const remap = (b: any) => (b && typeof b.x === 'number' ? remapBoxToFrame(b, refBounds, disp) : null);
+    const sideMap = {
+      small: remap(sideData.small),
+      medium: remap(sideData.medium),
+      large: remap(sideData.large),
+    };
+
+    const aspect = logoAspects[logoSel.url] || 1;
+    const wPct = scaleVal * 0.36;              // overlay renders width as scale * 0.36% of the artboard
+    const hPct = (wPct * 4) / (5 * aspect);    // 4:5 artboard: h% = w% * (frameW/frameH) / (logoW/logoH)
+    const offX = side === 'back' ? offsetXBack : offsetXFront;
+    const offY = side === 'back' ? offsetYBack : offsetYFront;
+
+    return detectPrintSizeFromPlacement({ front: sideMap }, 'front', { x: offX, y: offY, wPct, hPct });
+  };
 
   const needsGeneration = useMemo(() => {
     if (activeTab === 'front') return false;
@@ -2131,6 +2180,8 @@ export function GarmentCustomizerModal({
         customOffsetXFront: offsetXFront,
         customOffsetYFront: offsetYFront,
         customRotationFront: rotationFront,
+        detectedPrintSizeFront: hasFront ? detectSidePrintSize('front') : null,
+        detectedPrintSizeBack: hasBack ? detectSidePrintSize('back') : null,
         customScaleBack: hasBack ? scaleBack : 0,
         customOffsetXBack: offsetXBack,
         customOffsetYBack: offsetYBack,
@@ -2626,11 +2677,20 @@ export function GarmentCustomizerModal({
                 <span className="text-[9px] font-bold uppercase tracking-widest text-neutral-400 bg-neutral-50 border border-neutral-200 px-2 py-0.5 rounded shadow-sm">
                   Active Placement: {activeTab === 'sleeve' ? (isSleeveMirrored ? 'SLEEVE (MIRRORED)' : 'SLEEVE') : activeTab.toUpperCase()}
                 </span>
-                {activeTab !== 'tag' && (
-                  <span className="text-[9px] font-bold uppercase tracking-widest text-neutral-400 bg-neutral-50 border border-neutral-200 px-2 py-0.5 rounded shadow-sm">
-                    Size: Large
-                  </span>
-                )}
+                {activeTab !== 'tag' && (() => {
+                  const detected = (activeTab === 'front' || activeTab === 'back')
+                    ? detectSidePrintSize(activeTab)
+                    : null;
+                  return (
+                    <span className={`text-[9px] font-bold uppercase tracking-widest border px-2 py-0.5 rounded shadow-sm transition-colors ${
+                      detected
+                        ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                        : 'text-neutral-400 bg-neutral-50 border-neutral-200'
+                    }`}>
+                      Size: {detected ?? 'Large'}
+                    </span>
+                  );
+                })()}
                 {currentPlacementGuides && currentPlacementGuides.length > 0 && activeTab !== 'tag' && (
                   <button
                     type="button"

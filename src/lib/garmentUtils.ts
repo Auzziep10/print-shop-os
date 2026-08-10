@@ -567,3 +567,45 @@ export const remapBoxToFrame = <T extends { x: number; y: number; w: number; h: 
     h: box.h * (disp.h / ref.h),
   };
 };
+
+/**
+ * Determine which admin placement box (Small / Medium / Large) a logo
+ * currently fits inside, for pricing. `logo` is the rendered logo rect in
+ * artboard percent units (x/y = center). Checks smallest box first and
+ * requires the logo to both fit the box dimensions (with slack) and be
+ * centered inside it. Returns 'Large' when boxes exist but none contain the
+ * logo, and null when no placement data is available for that side.
+ */
+export const detectPrintSizeFromPlacement = (
+  placement: any,
+  side: 'front' | 'back',
+  logo: { x: number; y: number; wPct: number; hPct: number }
+): 'Small' | 'Medium' | 'Large' | null => {
+  if (!placement || !logo || !(logo.wPct > 0)) return null;
+  const sideMap = side === 'back'
+    ? (placement.back || (placement && !placement.front ? placement : null))
+    : (placement.front || placement);
+  if (!sideMap) return null;
+
+  const SIZE_SLACK = 1.12; // allow ~12% overhang before bumping to the next tier
+  const POS_SLACK = 2;     // percent units of center drift tolerance
+
+  const candidates: Array<['Small' | 'Medium' | 'Large', any]> = [
+    ['Small', sideMap.small],
+    ['Medium', sideMap.medium],
+    ['Large', sideMap.large],
+  ];
+
+  let sawBox = false;
+  for (const [label, box] of candidates) {
+    if (!box || typeof box.x !== 'number' || !(box.w > 0) || !(box.h > 0)) continue;
+    sawBox = true;
+    const fitsSize = logo.wPct <= box.w * SIZE_SLACK && logo.hPct <= box.h * SIZE_SLACK;
+    const centerInside =
+      logo.x >= box.x - box.w / 2 - POS_SLACK && logo.x <= box.x + box.w / 2 + POS_SLACK &&
+      logo.y >= box.y - box.h / 2 - POS_SLACK && logo.y <= box.y + box.h / 2 + POS_SLACK;
+    if (fitsSize && centerInside) return label;
+  }
+
+  return sawBox ? 'Large' : null;
+};

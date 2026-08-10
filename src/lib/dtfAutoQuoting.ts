@@ -19,8 +19,10 @@ export function detectGarmentId(styleStr?: string, categoryStr?: string): string
 
 export const PLACEMENT_LABELS: Record<string, string> = {
   ff: 'Full Front',
+  mf: 'Medium Front',
   lc: 'Left Chest / Small Front',
   fb: 'Full Back',
+  mb: 'Medium Back',
   sb: 'Small Upper Back',
   sl: 'Left Sleeve',
   sr: 'Right Sleeve',
@@ -42,17 +44,33 @@ export function detectPlacementIds(item: any, garmentId: string): string[] {
   const hasFront = !!(item.logoUrlFront || item.logoUrl || item.customizedFrontImage || lp.includes('front'));
   if (hasFront) {
     const w = item.logoWidthFront ? parseFloat(item.logoWidthFront) : 0;
-    // Left chest if explicitly <= 5" wide or positioned top-left chest
-    const isLeftChest = (w > 0 && w <= 5) || (w === 0 && (item.customScaleFront || 30) < 25 && (item.customOffsetXFront || 50) < 45);
-    placements.push(isLeftChest ? 'lc' : 'ff');
+    const detected = String(item.detectedPrintSizeFront || '').toLowerCase();
+    if (w > 0) {
+      // Explicit inches always win: ≤5" small, ≤8" medium (7×9 area), else full
+      placements.push(w <= 5 ? 'lc' : w <= 8 ? 'mf' : 'ff');
+    } else if (detected === 'small' || detected === 'medium' || detected === 'large') {
+      // Which admin placement box the logo actually sits in (from /start lookbook)
+      placements.push(detected === 'small' ? 'lc' : detected === 'medium' ? 'mf' : 'ff');
+    } else {
+      // Legacy heuristic: left chest if scaled small and positioned top-left
+      const isLeftChest = (item.customScaleFront || 30) < 25 && (item.customOffsetXFront || 50) < 45;
+      placements.push(isLeftChest ? 'lc' : 'ff');
+    }
   }
 
   // 2. BACK ARTWORK
   const hasBack = !!(item.logoUrlBack || item.customizedBackImage || lp.includes('back'));
   if (hasBack) {
     const w = item.logoWidthBack ? parseFloat(item.logoWidthBack) : 0;
-    const isSmallBack = (w > 0 && w <= 5) || (w === 0 && (item.customScaleBack || 30) < 25 && (item.customOffsetXBack || 50) !== 50);
-    placements.push(isSmallBack ? 'sb' : 'fb');
+    const detected = String(item.detectedPrintSizeBack || '').toLowerCase();
+    if (w > 0) {
+      placements.push(w <= 5 ? 'sb' : w <= 8 ? 'mb' : 'fb');
+    } else if (detected === 'small' || detected === 'medium' || detected === 'large') {
+      placements.push(detected === 'small' ? 'sb' : detected === 'medium' ? 'mb' : 'fb');
+    } else {
+      const isSmallBack = (item.customScaleBack || 30) < 25 && (item.customOffsetXBack || 50) !== 50;
+      placements.push(isSmallBack ? 'sb' : 'fb');
+    }
   }
 
   // 3. LEFT SLEEVE
