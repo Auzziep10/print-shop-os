@@ -66,23 +66,28 @@ function estimateParcelFromItems(items: any[], totalQty: number) {
     return acc + qty;
   }, 0) || totalQty;
 
+  // Split large orders into multiple boxes: one giant 50lb+ carton quotes at
+  // heavy/dimensional retail tiers (or fails carrier weight caps entirely).
+  // Rates are quoted per representative box and multiplied by box count.
+  const MAX_GARMENTS_PER_BOX = 40;
+  const boxes = Math.max(1, Math.ceil(totalGarments / MAX_GARMENTS_PER_BOX));
+  const perBoxGarments = Math.ceil(totalGarments / boxes);
+  const perBoxWeightOz = totalWeightOz / boxes;
+
   let length = 12, width = 9, height = 4, boxWeightOz = 6;
-  
-  if (totalGarments <= 15) {
+
+  if (perBoxGarments <= 15) {
     length = 12; width = 9; height = 4; boxWeightOz = 6;
-  } else if (totalGarments <= 40) {
-    length = 15; width = 12; height = 8; boxWeightOz = 12;
-  } else if (totalGarments <= 80) {
-    length = 18; width = 14; height = 12; boxWeightOz = 18;
   } else {
-    length = 24; width = 16; height = 12; boxWeightOz = 24;
+    length = 15; width = 12; height = 8; boxWeightOz = 12;
   }
 
   return {
     length,
     width,
     height,
-    weight: totalWeightOz + boxWeightOz
+    weight: perBoxWeightOz + boxWeightOz,
+    boxes
   };
 }
 
@@ -130,6 +135,7 @@ export default async function handler(req: Request) {
     } : default_from_address;
 
     const parcel = estimateParcelFromItems(items, totalQty);
+    const { boxes: _boxCount, ...parcelDims } = parcel as any;
 
     const shipmentPayload: any = {
       to_address: {
@@ -144,7 +150,7 @@ export default async function handler(req: Request) {
         phone: to_address.phone || '555-555-5555'
       },
       from_address,
-      parcel,
+      parcel: parcelDims,
       options: {
         label_format: 'PNG',
         label_size: '4x6'
@@ -171,19 +177,23 @@ export default async function handler(req: Request) {
       return new Response(JSON.stringify({ error: 'No shipping rates found for this destination.' }), { status: 400 });
     }
 
-    // Sort rates cheapest first
+    // Sort rates cheapest first; multi-box orders pay the per-box rate × boxes
+    const boxCount = (parcel as any).boxes || 1;
     const sortedRates = shipmentData.rates.map((r: any) => ({
       id: r.id,
       carrier: r.carrier,
       service: r.service,
-      rate: parseFloat(r.rate),
+      rate: Math.round(parseFloat(r.rate) * boxCount * 100) / 100,
+      perBoxRate: parseFloat(r.rate),
+      boxes: boxCount,
       deliveryDays: r.delivery_days,
       deliveryDate: r.delivery_date
     })).sort((a: any, b: any) => a.rate - b.rate);
 
-    return new Response(JSON.stringify({ 
+    return new Response(JSON.stringify({
       rates: sortedRates,
-      parcel
+      parcel,
+      boxes: boxCount
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }

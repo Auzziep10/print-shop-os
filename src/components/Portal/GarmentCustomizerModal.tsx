@@ -1640,7 +1640,13 @@ export function GarmentCustomizerModal({
 
       const rawName = asset.name || 'asset';
       const filename = `recolored_${hexColor.replace('#', '')}_${rawName.split('.').slice(0, -1).join('.') || 'asset'}.png`;
-      const storageRef = ref(storage, `portal/${customerId}/vault/${Date.now()}_${filename}`);
+      // Public visitors can't write to customer vaults (Firestore rules), so
+      // their recolors go to the same public path /start logo uploads use.
+      const isPublicVisitor = !customerId || customerId === 'PUBLIC_VISITOR';
+      const storagePath = isPublicVisitor
+        ? `public_quotes/logos/recolor_${Date.now()}/${filename}`
+        : `portal/${customerId}/vault/${Date.now()}_${filename}`;
+      const storageRef = ref(storage, storagePath);
       await uploadBytes(storageRef, blob);
       const downloadUrl = await getDownloadURL(storageRef);
 
@@ -1652,17 +1658,25 @@ export function GarmentCustomizerModal({
       };
 
       const updatedAssets = [...assets, newAsset];
-      
-      await updateDoc(doc(db, 'customers', customerId), {
-        assets: updatedAssets
-      });
+
+      if (!isPublicVisitor) {
+        // Persist to the customer's Asset Vault; non-fatal if it fails —
+        // the recolored logo is already usable for this design either way.
+        try {
+          await updateDoc(doc(db, 'customers', customerId), {
+            assets: updatedAssets
+          });
+        } catch (persistErr) {
+          console.warn('Could not save recolored asset to customer vault:', persistErr);
+        }
+      }
 
       setAssets(updatedAssets);
       setSelectedLogo(newAsset);
-      alert('Recolored copy added to Asset Vault and selected!');
+      alert(isPublicVisitor ? 'Recolored copy created and selected!' : 'Recolored copy added to Asset Vault and selected!');
     } catch (err) {
       console.error(err);
-      alert('Failed to recolor asset. Ensure image origin supports CORS.');
+      alert('Failed to recolor this logo. The image could not be processed — try re-uploading it, or contact us if it keeps happening.');
     } finally {
       if (isCreatedBlob && safeUrl.startsWith('blob:')) {
         URL.revokeObjectURL(safeUrl);

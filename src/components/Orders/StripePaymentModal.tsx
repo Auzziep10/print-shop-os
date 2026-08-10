@@ -304,6 +304,13 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
 
         if (totalItems === 0) totalItems = 1;
 
+        // Ship-from = the shop's Business Profile address (Settings → Business Profile)
+        let shipFrom: any = null;
+        try {
+          const bizSnap = await getDoc(doc(db, 'settings', 'business'));
+          if (bizSnap.exists()) shipFrom = bizSnap.data();
+        } catch { /* origin falls back to API default */ }
+
         const response = await fetch('/api/easypost/rates', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -311,6 +318,7 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
             to_address: order.shippingAddress,
             items: order.items || [],
             totalQty: totalItems,
+            ...(shipFrom?.street1 ? { from_address: shipFrom } : {}),
             isTest: true
           })
         });

@@ -744,6 +744,15 @@ export function PublicQuoteRequest() {
   const [selectedShippingRate, setSelectedShippingRate] = useState<any | null>(null);
   const [isFetchingShippingRates, setIsFetchingShippingRates] = useState(false);
 
+  // Ship-from = the shop's Business Profile address (Settings → Business
+  // Profile). Without it the rates API falls back to a placeholder origin.
+  const [shipFromProfile, setShipFromProfile] = useState<any | null>(null);
+  useEffect(() => {
+    getDoc(doc(db, 'settings', 'business'))
+      .then(snap => { if (snap.exists()) setShipFromProfile(snap.data()); })
+      .catch(() => { /* origin falls back to API default */ });
+  }, []);
+
   useEffect(() => {
     const addressComplete = shippingAddress.street && shippingAddress.city && shippingAddress.state && shippingAddress.zip && shippingAddress.zip.length >= 5;
     if (!addressComplete || cart.length === 0) {
@@ -773,6 +782,7 @@ export function PublicQuoteRequest() {
               qty: item.qty
             })),
             totalQty: cartTotalUnits,
+            ...(shipFromProfile?.street1 ? { from_address: shipFromProfile } : {}),
             isTest: true
           })
         });
@@ -869,6 +879,20 @@ export function PublicQuoteRequest() {
         companyName: prev.companyName || userData?.companyName || '',
         phone: prev.phone || userData?.phone || ''
       }));
+      // Company/phone usually live on the linked customer record, not the user doc
+      const custId = (userData as any)?.customerId;
+      if (custId) {
+        getDoc(doc(db, 'customers', custId)).then(snap => {
+          if (!snap.exists()) return;
+          const c: any = snap.data();
+          setCustomerInfo(prev => ({
+            ...prev,
+            companyName: prev.companyName || c.company || c.name || '',
+            phone: prev.phone || c.phone || c.contactPhone || '',
+            contactName: prev.contactName || c.contactName || ''
+          }));
+        }).catch(() => { /* prefill is best-effort */ });
+      }
     }
   }, [user, userData]);
 
