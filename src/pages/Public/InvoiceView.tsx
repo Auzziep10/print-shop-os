@@ -309,10 +309,10 @@ export function InvoiceView() {
                   {/* Table Rows: Standard Complimentary Services */}
                   {customServices && customServices.length > 0 && (
                     <div className="flex flex-col gap-2.5 py-4 border-b border-neutral-100">
-                      <p className="text-[9px] font-bold tracking-widest text-neutral-400 uppercase mb-1">INCLUDED SERVICES & QUALITY CONTROL</p>
+                      <p className="text-[9px] font-bold tracking-widest text-neutral-400 uppercase mb-1">SERVICES & QUALITY CONTROL</p>
                       {customServices.map((srv: any, sIdx: number) => {
                         const priceVal = parseFloat(srv.price || 0);
-                        const priceFormatted = priceVal === 0 ? 'INCLUDED' : new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(priceVal);
+                        const priceFormatted = priceVal === 0 ? '$0.00' : new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(priceVal);
 
                         return (
                           <div key={sIdx} className="flex w-full text-[11px] text-neutral-700 leading-snug">
