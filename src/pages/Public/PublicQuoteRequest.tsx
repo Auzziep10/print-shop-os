@@ -18,7 +18,8 @@ import {
   Eye,
   EyeOff,
   ExternalLink,
-  Sparkles
+  Sparkles,
+  Scissors
 } from 'lucide-react';
 import { db, storage, auth } from '../../lib/firebase';
 import { doc, getDoc, setDoc, getDocs, collection, query, where } from 'firebase/firestore';
@@ -1570,6 +1571,46 @@ export function PublicQuoteRequest() {
       }
     };
   }, [isColorRemoverOpen, originalArtworkUrl, removerColorsToRemove, removerTolerance]);
+
+  // Crop the remover canvas tight to the artwork's opaque pixels. Empty space
+  // around a logo counts as part of the print, so a tight crop = accurate
+  // sizing and pricing.
+  const autoTrimRemoverCanvas = () => {
+    const canvas = removerCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const { width, height } = canvas;
+    const data = ctx.getImageData(0, 0, width, height).data;
+    let minX = width, minY = height, maxX = -1, maxY = -1;
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const a = data[(y * width + x) * 4 + 3];
+        if (a < 8) continue;
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+    }
+    if (maxX < 0) {
+      alert('The image appears fully transparent — nothing to crop.');
+      return;
+    }
+    if (minX === 0 && minY === 0 && maxX === width - 1 && maxY === height - 1) {
+      alert('Your logo has an opaque background, so there are no edges to trim. Remove the background color first, then crop.');
+      return;
+    }
+    const PAD = 2; // px safety margin
+    const sx = Math.max(0, minX - PAD);
+    const sy = Math.max(0, minY - PAD);
+    const sw = Math.min(width, maxX + PAD + 1) - sx;
+    const sh = Math.min(height, maxY + PAD + 1) - sy;
+    const trimmed = ctx.getImageData(sx, sy, sw, sh);
+    canvas.width = sw;
+    canvas.height = sh;
+    canvas.getContext('2d')?.putImageData(trimmed, 0, 0);
+  };
 
   const applyColorRemoverChanges = () => {
     const canvas = removerCanvasRef.current;
@@ -5861,6 +5902,22 @@ export function PublicQuoteRequest() {
                       );
                     })}
                   </div>
+                </div>
+
+                {/* Tight crop */}
+                <div className="space-y-2">
+                  <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest block">Crop</span>
+                  <button
+                    onClick={autoTrimRemoverCanvas}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-neutral-250 hover:border-neutral-900 hover:bg-neutral-50 rounded-xl text-xs font-bold text-neutral-800 transition-all cursor-pointer shadow-3xs"
+                  >
+                    <Scissors size={13} /> Auto-Crop Tight
+                  </button>
+                  <p className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200/70 rounded-lg p-2.5 leading-relaxed">
+                    <span className="font-bold">For the most accurate print:</span> crop your logo as tight as
+                    possible. Empty space around the artwork counts as part of your print size — a tight crop
+                    means true-to-size placement and pricing.
+                  </p>
                 </div>
 
                 {/* Tolerance slider */}
