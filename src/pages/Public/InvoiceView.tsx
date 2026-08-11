@@ -60,6 +60,78 @@ export function InvoiceView() {
      );
   }
 
+  const [autoShippingFee, setAutoShippingFee] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!order) return;
+    const explicitShipping = parseFloat(String(order.shippingFee || order.freight || order.shippingCost || 0));
+    if (explicitShipping > 0 || order.deliveryOption === 'Local Delivery') {
+      setAutoShippingFee(null);
+      return;
+    }
+
+    if (order.shippingOptions && order.shippingOptions.length > 0) {
+      const cheapest = parseFloat(String(order.shippingOptions[0]?.rate || 0)) || 0;
+      setAutoShippingFee(cheapest);
+      return;
+    }
+
+    const hasZip = order.shippingAddress?.zip || order.shippingAddress?.postalCode;
+    const hasCity = order.shippingAddress?.city;
+    if (!hasZip || !hasCity) return;
+
+    const fetchInvoiceShipping = async () => {
+      try {
+        let totalItems = 0;
+        order.items?.forEach((item: any) => {
+          const styleLower = (item.style || '').toLowerCase();
+          const isShipping = styleLower.includes('shipping') || styleLower.includes('delivery') || (item.id && item.id.toString().startsWith('ship-')) || item.itemType === 'shipping';
+          const isTax = styleLower.includes('tax');
+          if (!isShipping && !isTax) {
+            let qty = 0;
+            if (item.itemType === 'service' || !item.sizes || Object.keys(item.sizes).length === 0) {
+              qty = parseInt(item.qty || 1);
+            } else {
+              qty = Object.values(item.sizes || {}).reduce((a: any, b: any) => a + (parseInt(b) || 0), 0) as number;
+            }
+            totalItems += qty;
+          }
+        });
+
+        let shipFrom: any = null;
+        try {
+          const bizSnap = await getDoc(doc(db, 'settings', 'business'));
+          if (bizSnap.exists()) shipFrom = bizSnap.data();
+        } catch { /* fallback */ }
+
+        const res = await fetch('/api/easypost/rates', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            to_address: order.shippingAddress,
+            items: order.items || [],
+            totalQty: totalItems || 1,
+            customBoxCount: order.estimatedBoxCount || order.boxCountOverride || order.invoiceSettings?.estimatedBoxCount,
+            ...(shipFrom?.street1 ? { from_address: shipFrom } : {}),
+            isTest: true
+          })
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          if (data.rates && data.rates.length > 0) {
+            const cheapestRate = parseFloat(String(data.rates[0].rate || 0)) || 0;
+            setAutoShippingFee(cheapestRate);
+          }
+        }
+      } catch (err) {
+        console.error("Auto invoice shipping calculation error:", err);
+      }
+    };
+
+    fetchInvoiceShipping();
+  }, [order]);
+
   const cust = customer || { company: 'Unknown Customer', name: 'Unknown' };
 
   // Calculate items subtotal
@@ -79,8 +151,9 @@ export function InvoiceView() {
   });
 
   // Calculate shipping & tax
-  const shippingFee = parseFloat(order.shippingFee || order.freight || order.shippingCost || 0);
-  const taxAmount = parseFloat(order.taxAmount || order.tax || 0);
+  const explicitShipping = parseFloat(String(order.shippingFee || order.freight || order.shippingCost || 0));
+  const shippingFee = explicitShipping > 0 ? explicitShipping : (autoShippingFee || 0);
+  const taxAmount = parseFloat(String(order.taxAmount || order.tax || 0));
   const grandTotal = itemsSubtotal + shippingFee + taxAmount;
 
   const formattedItemsSubtotal = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(itemsSubtotal);
