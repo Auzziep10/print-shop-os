@@ -5450,8 +5450,27 @@ export function PublicQuoteRequest() {
                             {weightAndFabric?.formatted && <p className="text-[10px] text-neutral-500 line-clamp-1">{weightAndFabric.formatted}</p>}
                           </div>
                           <div className="pt-3 mt-3 border-t border-neutral-100 flex items-center justify-between">
-                            <span className="text-xs font-bold text-neutral-900">${prod.price?.toFixed(2)}</span>
-                            <span className="text-[10px] font-bold text-neutral-900 bg-neutral-100 group-hover:bg-neutral-900 group-hover:text-white px-3 py-1 rounded-full transition-colors">
+                            {/* Available colors (admin-enabled) instead of blank garment cost */}
+                            <div className="flex items-center gap-1 min-w-0">
+                              {colors.slice(0, 5).map(c => {
+                                const swatchHex = getSwatchColor(c, true);
+                                return (
+                                  <span
+                                    key={c}
+                                    className="w-4 h-4 rounded-full border border-neutral-300 shrink-0"
+                                    style={{
+                                      backgroundColor: swatchHex.startsWith('linear-gradient') ? 'transparent' : swatchHex,
+                                      backgroundImage: swatchHex.startsWith('linear-gradient') ? swatchHex : 'none'
+                                    }}
+                                    title={c}
+                                  />
+                                );
+                              })}
+                              {colors.length > 5 && (
+                                <span className="text-[9px] font-bold text-neutral-400 shrink-0">+{colors.length - 5}</span>
+                              )}
+                            </div>
+                            <span className="text-[10px] font-bold text-neutral-900 bg-neutral-100 group-hover:bg-neutral-900 group-hover:text-white px-3 py-1 rounded-full transition-colors shrink-0">
                               Add to Lookbook +
                             </span>
                           </div>
