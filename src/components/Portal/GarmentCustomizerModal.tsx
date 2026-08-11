@@ -2389,7 +2389,7 @@ export function GarmentCustomizerModal({
                       ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
                       : 'text-neutral-400 bg-white border-neutral-200'
                   }`}>
-                    <span className="text-[10px] font-bold uppercase tracking-widest">Size: {detected ?? 'Large'}</span>
+                    <span className="text-[10px] font-bold uppercase tracking-widest">Print Size: {detected ?? 'Large'}</span>
                   </div>
                 );
               })()}
