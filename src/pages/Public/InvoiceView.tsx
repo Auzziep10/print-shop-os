@@ -132,6 +132,9 @@ export function InvoiceView() {
     ...(order?.invoiceSettings || {})
   };
 
+  const accountManagerName = invSettings.accountManager || order.accountManager || cust.accountManager || order.assignedTo;
+  const accountManagerEmail = invSettings.accountManagerEmail || order.accountManagerEmail || cust.accountManagerEmail;
+
   const hasSeparateShipping = order.shippingAddress && (
     order.shippingAddress.street1 !== cust.shippingStreet ||
     order.shippingAddress.city !== cust.shippingCity
@@ -187,6 +190,19 @@ export function InvoiceView() {
            <div className="flex gap-12 flex-1">
              {/* Left Column Data */}
              <div className="w-1/3 flex flex-col gap-6">
+                {/* Account Manager */}
+                {accountManagerName && (
+                  <div className="flex flex-col gap-0.5 text-[11px] font-bold tracking-widest text-neutral-800 uppercase leading-relaxed pb-3 border-b border-neutral-100">
+                    <p className="text-neutral-500 text-[9px]">ACCOUNT MANAGER:</p>
+                    <p className="text-xs text-black font-bold">{accountManagerName}</p>
+                    {accountManagerEmail && (
+                      <p className="lowercase normal-case text-neutral-500 font-medium tracking-normal text-[10px]">
+                        {accountManagerEmail}
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 {/* Billing Contact */}
                 <div className="flex flex-col gap-1 text-[11px] font-bold tracking-widest text-neutral-800 uppercase leading-relaxed">
                    <p className="text-neutral-500">TO (CLIENT):</p>
