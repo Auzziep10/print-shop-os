@@ -1582,25 +1582,46 @@ export function PublicQuoteRequest() {
     if (!ctx) return;
     const { width, height } = canvas;
     const data = ctx.getImageData(0, 0, width, height).data;
-    let minX = width, minY = height, maxX = -1, maxY = -1;
-    for (let y = 0; y < height; y++) {
-      for (let x = 0; x < width; x++) {
-        const a = data[(y * width + x) * 4 + 3];
-        if (a < 8) continue;
-        if (x < minX) minX = x;
-        if (x > maxX) maxX = x;
-        if (y < minY) minY = y;
-        if (y > maxY) maxY = y;
+
+    // Multi-pass scan: exporters often leave a faint invisible alpha haze (or
+    // soft shadow) across the whole canvas, and some logos sit on white. Each
+    // pass ignores near-white pixels and requires progressively stronger
+    // alpha, so we see through haze before concluding there's nothing to trim.
+    const scan = (alphaThresh: number) => {
+      let minX = width, minY = height, maxX = -1, maxY = -1;
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          const i = (y * width + x) * 4;
+          const a = data[i + 3];
+          if (a < alphaThresh) continue;
+          if (data[i] > 244 && data[i + 1] > 244 && data[i + 2] > 244) continue; // near-white background
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+        }
       }
+      return { minX, minY, maxX, maxY };
+    };
+
+    let box = { minX: 0, minY: 0, maxX: -1, maxY: -1 };
+    let found = false;
+    for (const alphaThresh of [24, 96, 176]) {
+      box = scan(alphaThresh);
+      if (box.maxX < 0) break; // nothing visible at this strength — stop
+      const fullCanvas = box.minX === 0 && box.minY === 0 && box.maxX === width - 1 && box.maxY === height - 1;
+      if (!fullCanvas) { found = true; break; }
     }
-    if (maxX < 0) {
+
+    if (box.maxX < 0) {
       alert('The image appears fully transparent — nothing to crop.');
       return;
     }
-    if (minX === 0 && minY === 0 && maxX === width - 1 && maxY === height - 1) {
-      alert('Your logo has an opaque background, so there are no edges to trim. Remove the background color first, then crop.');
+    if (!found) {
+      alert('Your logo has an opaque background covering the whole image, so there are no edges to trim. Remove the background color first, then crop.');
       return;
     }
+    const { minX, minY, maxX, maxY } = box;
     const PAD = 2; // px safety margin
     const sx = Math.max(0, minX - PAD);
     const sy = Math.max(0, minY - PAD);
