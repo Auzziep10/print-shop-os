@@ -101,6 +101,7 @@ export function CustomerDetail() {
     taxExempt: false,
     bypassMinimumRequirement: false,
     autoQuotingEnabled: 'inherit' as 'inherit' | 'enabled' | 'disabled',
+    allowLocalDelivery: true,
     resaleCertificateUrl: '',
     resaleCertificateName: ''
   });
@@ -951,6 +952,7 @@ export function CustomerDetail() {
             taxExempt: data.taxExempt ?? false,
             bypassMinimumRequirement: data.bypassMinimumRequirement ?? false,
             autoQuotingEnabled: data.autoQuotingEnabled || 'inherit',
+            allowLocalDelivery: data.allowLocalDelivery ?? true,
             resaleCertificateUrl: data.resaleCertificateUrl || '',
             resaleCertificateName: data.resaleCertificateName || ''
           });
@@ -1037,6 +1039,7 @@ export function CustomerDetail() {
         taxExempt: editCompanyForm.taxExempt,
         bypassMinimumRequirement: editCompanyForm.bypassMinimumRequirement,
         autoQuotingEnabled: editCompanyForm.autoQuotingEnabled,
+        allowLocalDelivery: editCompanyForm.allowLocalDelivery ?? true,
         resaleCertificateUrl: editCompanyForm.resaleCertificateUrl,
         resaleCertificateName: editCompanyForm.resaleCertificateName
       }, { merge: true });
@@ -1054,6 +1057,7 @@ export function CustomerDetail() {
         taxExempt: editCompanyForm.taxExempt,
         bypassMinimumRequirement: editCompanyForm.bypassMinimumRequirement,
         autoQuotingEnabled: editCompanyForm.autoQuotingEnabled,
+        allowLocalDelivery: editCompanyForm.allowLocalDelivery ?? true,
         resaleCertificateUrl: editCompanyForm.resaleCertificateUrl,
         resaleCertificateName: editCompanyForm.resaleCertificateName
       });
@@ -2654,6 +2658,10 @@ export function CustomerDetail() {
                     <div className="flex items-center gap-3">
                       <input type="checkbox" id="net30" checked={editCompanyForm.net30Terms} onChange={e => setEditCompanyForm({...editCompanyForm, net30Terms: e.target.checked})} className="w-4 h-4 accent-brand-primary cursor-pointer" />
                       <label htmlFor="net30" className="text-xs font-bold text-brand-primary uppercase tracking-widest cursor-pointer mt-0.5">ALLOW NET 30 TERMS</label>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <input type="checkbox" id="allowLocalDelivery" checked={editCompanyForm.allowLocalDelivery ?? true} onChange={e => setEditCompanyForm({...editCompanyForm, allowLocalDelivery: e.target.checked})} className="w-4 h-4 accent-brand-primary cursor-pointer" />
+                      <label htmlFor="allowLocalDelivery" className="text-xs font-bold text-brand-primary uppercase tracking-widest cursor-pointer mt-0.5">ALLOW LOCAL DELIVERY OPTION IN CART & CHECKOUT</label>
                     </div>
                     <div className="flex items-center gap-3">
                       <input type="checkbox" id="disableRack" checked={editCompanyForm.disableRack} onChange={e => setEditCompanyForm({...editCompanyForm, disableRack: e.target.checked})} className="w-4 h-4 accent-brand-primary cursor-pointer" />

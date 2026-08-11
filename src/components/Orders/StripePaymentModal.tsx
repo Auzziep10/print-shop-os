@@ -252,6 +252,8 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
     setIsApplyingDiscount(false);
   };
 
+  const [customerData, setCustomerData] = useState<any>(null);
+
   useEffect(() => {
     if (!order.customerId) return;
     const fetchCustomerTaxStatus = async () => {
@@ -259,6 +261,7 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
         const customerSnap = await getDoc(doc(db, 'customers', order.customerId));
         if (customerSnap.exists()) {
           const custData = customerSnap.data();
+          setCustomerData(custData);
           setIsCustomerTaxExempt(!!custData.taxExempt);
         }
       } catch (err) {
@@ -267,6 +270,14 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
     };
     fetchCustomerTaxStatus();
   }, [order.customerId]);
+
+  const isLocalDeliveryAllowed = customerData ? (customerData.allowLocalDelivery !== false) : (order.allowLocalDelivery !== false);
+
+  useEffect(() => {
+    if (isLocalDeliveryAllowed === false && selectedDeliveryOption === 'Local Delivery') {
+      setSelectedDeliveryOption('Shipping');
+    }
+  }, [isLocalDeliveryAllowed, selectedDeliveryOption]);
 
   // Dynamic fetcher if shippingOptions is missing/empty on order document in Firestore
   useEffect(() => {
@@ -607,8 +618,8 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
             <h3 className="text-[10px] font-bold tracking-widest text-neutral-450 uppercase mb-1">Delivery Details</h3>
             
             {/* Delivery Option Toggle Grid */}
-            <div className="grid grid-cols-2 gap-2 bg-neutral-100 p-1 rounded-xl border border-neutral-200/50">
-              {['Local Delivery', 'Shipping'].map((opt) => (
+            <div className={`grid ${isLocalDeliveryAllowed !== false ? 'grid-cols-2' : 'grid-cols-1'} gap-2 bg-neutral-100 p-1 rounded-xl border border-neutral-200/50`}>
+              {(isLocalDeliveryAllowed !== false ? ['Local Delivery', 'Shipping'] : ['Shipping']).map((opt) => (
                 <button
                   key={opt}
                   type="button"

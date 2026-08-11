@@ -212,6 +212,9 @@ export function PortalCreateOrder() {
       if (customer.taxExempt) {
         setOrderType('Wholesale');
       }
+      if (customer.allowLocalDelivery === false) {
+        setDeliveryOption('Shipping');
+      }
     }
   }, [customer]);  const [isCartOpen, setIsCartOpen] = useState(false);
   const [isGarmentBrowserOpen, setIsGarmentBrowserOpen] = useState(false);
@@ -2424,8 +2427,8 @@ export function PortalCreateOrder() {
                     {/* Delivery Options */}
                     <div className="flex flex-col gap-1.5">
                       <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider pl-1">Delivery Option</label>
-                      <div className="grid grid-cols-2 gap-2 bg-neutral-100 p-1 rounded-xl border border-neutral-200">
-                        {['Local Delivery', 'Shipping'].map((opt) => (
+                      <div className={`grid ${customer?.allowLocalDelivery !== false ? 'grid-cols-2' : 'grid-cols-1'} gap-2 bg-neutral-100 p-1 rounded-xl border border-neutral-200`}>
+                        {(customer?.allowLocalDelivery !== false ? ['Local Delivery', 'Shipping'] : ['Shipping']).map((opt) => (
                           <button
                             key={opt}
                             type="button"
