@@ -31,6 +31,7 @@ import { PillButton } from '../../components/ui/PillButton';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
 import { getGarmentWeightAndFabric, getOrderedKeys, GARMENT_TYPES, detectGarmentTypeTag, getFilteredProductColors, resolveGarmentPlacementData, detectPrintSizeFromPlacement, type GarmentTypeId } from '../../lib/garmentUtils';
 import { validateDiscountCode, discountAmountFor, formatDiscountLabel, type AppliedDiscount } from '../../lib/discountUtils';
+import { getImageContentInfo } from '../../lib/garmentUtils';
 import { GarmentCustomizerModal } from '../../components/Portal/GarmentCustomizerModal';
 import { fetchDtfPricingSettings, autoQuoteItem } from '../../lib/dtfAutoQuoting';
 import colorHexMapJson from '../../data/color-hex-map.json';
@@ -693,6 +694,17 @@ export function PublicQuoteRequest() {
     fetchDtfPricingSettings(custId).then(setDtfSettings).catch(console.error);
   }, [userData?.customerId, user?.uid]);
 
+  // Visible-content geometry of the uploaded logo (bounds within the file +
+  // natural aspect) so transparent padding never inflates detected print size
+  const [logoContentDims, setLogoContentDims] = useState<{ aspect: number; w: number; h: number } | null>(null);
+  useEffect(() => {
+    setLogoContentDims(null);
+    if (!logoUrl) return;
+    getImageContentInfo(logoUrl).then(info => {
+      if (info?.aspect) setLogoContentDims({ aspect: info.aspect, w: info.w, h: info.h });
+    });
+  }, [logoUrl]);
+
   // Which admin placement box (Small/Medium/Large) an item's logo sits in.
   // Drives the pricing tier (lc/mf/ff, sb/mb/fb) in the DTF auto-quote.
   const detectItemPrintSize = (item: any, side: 'front' | 'back'): 'Small' | 'Medium' | 'Large' | null => {
@@ -705,8 +717,12 @@ export function PublicQuoteRequest() {
     const scaleFrac = side === 'back' ? (item.backLogoScale ?? 0) : (item.logoScale ?? 0);
     if (!(scaleFrac > 0)) return null;
     const pos = side === 'back' ? (item.backLogoPos || { x: 50, y: 40 }) : (item.logoPos || { x: 50, y: 45 });
-    const wPct = (scaleFrac <= 1 ? scaleFrac : scaleFrac / 100) * 100;
-    const hPct = wPct / (FRAME_H_OVER_W * (logoAspect > 0 ? logoAspect : 1));
+    const aspect = logoContentDims?.aspect || (logoAspect > 0 ? logoAspect : 1);
+    const wPctFull = (scaleFrac <= 1 ? scaleFrac : scaleFrac / 100) * 100;
+    const hPctFull = wPctFull / (FRAME_H_OVER_W * aspect);
+    // Measure the visible artwork, not the file rectangle
+    const wPct = wPctFull * (logoContentDims?.w ?? 1);
+    const hPct = hPctFull * (logoContentDims?.h ?? 1);
     return detectPrintSizeFromPlacement(placement, side, { x: pos.x, y: pos.y, wPct, hPct });
   };
 

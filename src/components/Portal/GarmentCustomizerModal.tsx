@@ -967,14 +967,17 @@ export function GarmentCustomizerModal({
     return () => { cancelled = true; };
   }, [proxiedActiveMockupImage, activeTab]);
 
-  // Natural aspect (w/h) of the selected logo images, for print-size detection
-  const [logoAspects, setLogoAspects] = useState<Record<string, number>>({});
+  // Content geometry of the selected logo images (visible-pixel bounds +
+  // natural aspect) for print-size detection. Using the visible artwork
+  // instead of the full file means transparent padding never inflates the
+  // detected print size.
+  const [logoContentInfo, setLogoContentInfo] = useState<Record<string, { aspect: number; w: number; h: number }>>({});
   useEffect(() => {
     [selectedLogoFront?.url, selectedLogoBack?.url].forEach(url => {
-      if (!url || logoAspects[url]) return;
+      if (!url || logoContentInfo[url]) return;
       getImageContentInfo(url).then(info => {
         if (info?.aspect) {
-          setLogoAspects(prev => (prev[url] ? prev : { ...prev, [url]: info.aspect }));
+          setLogoContentInfo(prev => (prev[url] ? prev : { ...prev, [url]: { aspect: info.aspect, w: info.w, h: info.h } }));
         }
       });
     });
@@ -1007,9 +1010,14 @@ export function GarmentCustomizerModal({
       large: remap(sideData.large),
     };
 
-    const aspect = logoAspects[logoSel.url] || 1;
-    const wPct = scaleVal * 0.36;              // overlay renders width as scale * 0.36% of the artboard
-    const hPct = (wPct * 4) / (5 * aspect);    // 4:5 artboard: h% = w% * (frameW/frameH) / (logoW/logoH)
+    const info = logoContentInfo[logoSel.url];
+    const aspect = info?.aspect || 1;
+    const wPctFull = scaleVal * 0.36;               // overlay renders width as scale * 0.36% of the artboard
+    const hPctFull = (wPctFull * 4) / (5 * aspect); // 4:5 artboard: h% = w% * (frameW/frameH) / (logoW/logoH)
+    // Measure the VISIBLE artwork, not the file rectangle — transparent
+    // padding around a logo must not inflate its detected print size.
+    const wPct = wPctFull * (info?.w ?? 1);
+    const hPct = hPctFull * (info?.h ?? 1);
     const offX = side === 'back' ? offsetXBack : offsetXFront;
     const offY = side === 'back' ? offsetYBack : offsetYFront;
 
@@ -2370,7 +2378,7 @@ export function GarmentCustomizerModal({
           </div>
 
           {/* Garment Preview Container */}
-          <div className="flex-1 min-h-0 w-full flex flex-col items-center justify-center gap-3 p-2">
+          <div className="flex-1 min-h-0 w-full flex flex-col items-center justify-center gap-2 p-0">
             <div
               ref={previewRef}
               className={`relative w-full ${activeTab === 'tag' ? 'aspect-square' : 'aspect-[4/5]'} bg-white rounded-[2rem] border border-neutral-200/50 shadow-lg flex items-center justify-center overflow-hidden transition-all duration-300 hover:shadow-xl select-none`}
@@ -2379,8 +2387,8 @@ export function GarmentCustomizerModal({
                 // 4:5 artboard is as tall as the available space allows.
                 // Percent-based placements/pricing are unaffected by scale.
                 width: activeTab === 'tag'
-                  ? 'min(100%, calc(100dvh - 250px), 920px)'
-                  : 'min(100%, calc((100dvh - 250px) * 0.8), 920px)'
+                  ? 'min(100%, calc(100dvh - 185px), 920px)'
+                  : 'min(100%, calc((100dvh - 185px) * 0.8), 920px)'
               }}
             >
               {activeTab !== 'tag' && (
