@@ -91,7 +91,7 @@ function PermissionGuard({ permission, children }: { permission: PermissionKey; 
             You do not have permission to view this section of the workspace. Please contact your system administrator to adjust your role settings.
           </p>
           <a
-            href="/"
+            href="/dashboard"
             className="inline-flex items-center justify-center px-6 py-2.5 bg-brand-primary text-white rounded-full text-sm font-medium hover:bg-black transition-colors"
           >
             Return to Dashboard
@@ -118,6 +118,7 @@ function App() {
       }>
         <Routes>
           {/* Public Routes */}
+          <Route path="/" element={<Navigate to="/start2" replace />} />
           <Route path="/login" element={<Login />} />
           <Route path="/waiting" element={<WaitingRoom />} />
           <Route path="/start" element={<PublicQuoteRequest />} />
@@ -193,17 +194,12 @@ function App() {
           </Route>
 
           {/* Protected Application Routes */}
-          <Route path="/" element={
+          <Route element={
             <PrivateRoute>
               <AppLayout />
             </PrivateRoute>
           }>
             {/* Main Dashboard Index */}
-            <Route index element={
-              <PermissionGuard permission="viewDashboard">
-                <Dashboard />
-              </PermissionGuard>
-            } />
             <Route path="dashboard" element={
               <PermissionGuard permission="viewDashboard">
                 <Dashboard />

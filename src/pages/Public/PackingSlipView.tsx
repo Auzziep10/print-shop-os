@@ -185,7 +185,7 @@ export function PackingSlipView() {
                  </div>
                  
                  <div className="mt-8 pt-8 text-center border-t border-neutral-100 print:hidden relative z-10 flex flex-col items-center gap-4">
-                    <a href="/" className="inline-flex items-center justify-center bg-black hover:bg-neutral-800 transition-colors text-white text-xs font-bold uppercase tracking-widest px-10 py-4 rounded-full shadow-lg cursor-pointer w-full sm:w-auto">
+                    <a href="/login" className="inline-flex items-center justify-center bg-black hover:bg-neutral-800 transition-colors text-white text-xs font-bold uppercase tracking-widest px-10 py-4 rounded-full shadow-lg cursor-pointer w-full sm:w-auto">
                         Login to Portal
                     </a>
                     <img src="/logo.png" alt="WOVN" className="h-6 object-contain opacity-40 mt-2" />
@@ -289,7 +289,7 @@ export function PackingSlipView() {
                  </div>
                  
                  <div className="mt-8 pt-8 text-center border-t border-neutral-100 print:hidden relative z-10 flex flex-col items-center gap-4">
-                    <a href="/" className="inline-flex items-center justify-center bg-black hover:bg-neutral-800 transition-colors text-white text-xs font-bold uppercase tracking-widest px-10 py-4 rounded-full shadow-lg cursor-pointer w-full sm:w-auto">
+                    <a href="/login" className="inline-flex items-center justify-center bg-black hover:bg-neutral-800 transition-colors text-white text-xs font-bold uppercase tracking-widest px-10 py-4 rounded-full shadow-lg cursor-pointer w-full sm:w-auto">
                         Login to Portal
                     </a>
                     <img src="/logo.png" alt="WOVN" className="h-6 object-contain opacity-40 mt-2" />

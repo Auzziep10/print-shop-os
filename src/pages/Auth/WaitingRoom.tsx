@@ -26,7 +26,7 @@ export function WaitingRoom() {
   }
 
   if (userData && userData.role !== 'Pending') {
-    return <Navigate to="/" />;
+    return <Navigate to="/dashboard" />;
   }
 
   return (
