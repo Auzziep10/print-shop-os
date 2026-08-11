@@ -153,6 +153,49 @@ export function CustomerDetail() {
       setSavingCustomPricing(false);
     }
   };
+
+  const [invoiceForm, setInvoiceForm] = useState({
+    subtitle: "For your Consideration",
+    categoryTag: "VCG • ADHOC ORDERS",
+    statementOfWork: "This invoice represents the agreed upon deliverables and services as outlined in the project scope.",
+    feeSchedule: "Payment is due upon receipt unless otherwise specified in your terms.",
+    confidentiality: "Pricing and terms contained within are confidential and intended only for the recipient.",
+    footerTagline: "YOUR TRUST IS OUR HIGHEST PRIORITY",
+    wireBankName: "Pinnacle Bank",
+    wireBankAddress: "2300 West End Avenue\nNashville, TN 37203",
+    wireRoutingNumber: "XXXXXXXX",
+    wireSwiftCode: "XXXXXXXX",
+    wireAccountName: "Catalyst",
+    wireAccountNumber: "XXXXXXXX",
+    showPayButton: true,
+    payButtonText: "CLICK TO PAY BY CREDIT CARD +3.5%",
+    payButtonUrl: "https://stripe.com"
+  });
+  const [savingInvoiceSettings, setSavingInvoiceSettings] = useState(false);
+
+  const handleSaveInvoiceSettings = async () => {
+    if (!id) return;
+    setSavingInvoiceSettings(true);
+    try {
+      const custRef = doc(db, 'customers', id);
+      await setDoc(custRef, {
+        invoiceSettings: invoiceForm,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+
+      setLiveCustomerData((prev: any) => ({
+        ...prev,
+        invoiceSettings: invoiceForm
+      }));
+
+      alert('Company invoice template & defaults saved successfully!');
+    } catch (err) {
+      console.error("Error saving customer invoice settings:", err);
+      alert("Failed to save company invoice defaults.");
+    } finally {
+      setSavingInvoiceSettings(false);
+    }
+  };
   
   const [contacts, setContacts] = useState<any[]>([]);
   const [isAddingContact, setIsAddingContact] = useState(false);
@@ -872,6 +915,26 @@ export function CustomerDetail() {
             }));
           }
           
+          if (data.invoiceSettings) {
+            setInvoiceForm({
+              subtitle: data.invoiceSettings.subtitle ?? "For your Consideration",
+              categoryTag: data.invoiceSettings.categoryTag ?? "VCG • ADHOC ORDERS",
+              statementOfWork: data.invoiceSettings.statementOfWork ?? "This invoice represents the agreed upon deliverables and services as outlined in the project scope.",
+              feeSchedule: data.invoiceSettings.feeSchedule ?? "Payment is due upon receipt unless otherwise specified in your terms.",
+              confidentiality: data.invoiceSettings.confidentiality ?? "Pricing and terms contained within are confidential and intended only for the recipient.",
+              footerTagline: data.invoiceSettings.footerTagline ?? "YOUR TRUST IS OUR HIGHEST PRIORITY",
+              wireBankName: data.invoiceSettings.wireBankName ?? "Pinnacle Bank",
+              wireBankAddress: data.invoiceSettings.wireBankAddress ?? "2300 West End Avenue\nNashville, TN 37203",
+              wireRoutingNumber: data.invoiceSettings.wireRoutingNumber ?? "XXXXXXXX",
+              wireSwiftCode: data.invoiceSettings.wireSwiftCode ?? "XXXXXXXX",
+              wireAccountName: data.invoiceSettings.wireAccountName ?? "Catalyst",
+              wireAccountNumber: data.invoiceSettings.wireAccountNumber ?? "XXXXXXXX",
+              showPayButton: data.invoiceSettings.showPayButton ?? true,
+              payButtonText: data.invoiceSettings.payButtonText ?? "CLICK TO PAY BY CREDIT CARD +3.5%",
+              payButtonUrl: data.invoiceSettings.payButtonUrl ?? "https://stripe.com"
+            });
+          }
+
           setEditCompanyForm({
             name: data.company || data.contactName || '',
             email: data.email || '',
@@ -1509,6 +1572,259 @@ export function CustomerDetail() {
                     </div>
                   </div>
                 </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Company Invoice Template & Defaults Card */}
+        <div className="bg-white rounded-card border border-brand-border shadow-xs p-6 space-y-5">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-brand-border/40 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-blue-500/10 text-blue-600 rounded-xl shrink-0">
+                <FileText size={20} />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-brand-primary flex items-center gap-2">
+                  Company Invoice Template & Defaults
+                </h3>
+                <p className="text-xs text-brand-secondary mt-0.5">
+                  Configure custom invoice terms, branding headers, wire transfer info, and payment buttons for {liveCustomerData.company || editCompanyForm.name || 'this customer'}.
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleSaveInvoiceSettings}
+              disabled={savingInvoiceSettings}
+              className="px-5 py-2.5 bg-brand-primary hover:bg-black text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-2 cursor-pointer disabled:opacity-50"
+            >
+              {savingInvoiceSettings ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+              <span>Save Invoice Defaults</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Header & Branding Defaults */}
+            <div className="space-y-4 bg-neutral-50/70 p-4 rounded-2xl border border-neutral-200">
+              <h4 className="text-xs font-bold text-brand-primary uppercase tracking-wider">Header & Branding</h4>
+              
+              <div>
+                <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                  Header Subtitle Tagline
+                </label>
+                <input
+                  type="text"
+                  value={invoiceForm.subtitle}
+                  onChange={(e) => setInvoiceForm({ ...invoiceForm, subtitle: e.target.value })}
+                  placeholder="e.g. For your Consideration"
+                  className="w-full bg-white border border-neutral-300 rounded-xl px-3.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                  Category Tag (Vertical Bar)
+                </label>
+                <input
+                  type="text"
+                  value={invoiceForm.categoryTag}
+                  onChange={(e) => setInvoiceForm({ ...invoiceForm, categoryTag: e.target.value })}
+                  placeholder="e.g. VCG • ADHOC ORDERS"
+                  className="w-full bg-white border border-neutral-300 rounded-xl px-3.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                  Footer Tagline
+                </label>
+                <input
+                  type="text"
+                  value={invoiceForm.footerTagline}
+                  onChange={(e) => setInvoiceForm({ ...invoiceForm, footerTagline: e.target.value })}
+                  placeholder="e.g. YOUR TRUST IS OUR HIGHEST PRIORITY"
+                  className="w-full bg-white border border-neutral-300 rounded-xl px-3.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
+                />
+              </div>
+            </div>
+
+            {/* Terms & Statements */}
+            <div className="space-y-4 bg-neutral-50/70 p-4 rounded-2xl border border-neutral-200">
+              <h4 className="text-xs font-bold text-brand-primary uppercase tracking-wider">Statements & Terms</h4>
+
+              <div>
+                <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                  Statement of Work
+                </label>
+                <textarea
+                  rows={2}
+                  value={invoiceForm.statementOfWork}
+                  onChange={(e) => setInvoiceForm({ ...invoiceForm, statementOfWork: e.target.value })}
+                  placeholder="Scope of work statement..."
+                  className="w-full bg-white border border-neutral-300 rounded-xl px-3.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                  Fee Schedule / Payment Terms
+                </label>
+                <textarea
+                  rows={2}
+                  value={invoiceForm.feeSchedule}
+                  onChange={(e) => setInvoiceForm({ ...invoiceForm, feeSchedule: e.target.value })}
+                  placeholder="Payment due upon receipt..."
+                  className="w-full bg-white border border-neutral-300 rounded-xl px-3.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                  Confidentiality Notice
+                </label>
+                <textarea
+                  rows={2}
+                  value={invoiceForm.confidentiality}
+                  onChange={(e) => setInvoiceForm({ ...invoiceForm, confidentiality: e.target.value })}
+                  placeholder="Pricing and terms contained within are confidential..."
+                  className="w-full bg-white border border-neutral-300 rounded-xl px-3.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary resize-none"
+                />
+              </div>
+            </div>
+
+            {/* Bank Wire & ACH Info */}
+            <div className="space-y-4 bg-neutral-50/70 p-4 rounded-2xl border border-neutral-200">
+              <h4 className="text-xs font-bold text-brand-primary uppercase tracking-wider">Bank Wire & ACH Transfer Info</h4>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                    Bank Name
+                  </label>
+                  <input
+                    type="text"
+                    value={invoiceForm.wireBankName}
+                    onChange={(e) => setInvoiceForm({ ...invoiceForm, wireBankName: e.target.value })}
+                    placeholder="e.g. Pinnacle Bank"
+                    className="w-full bg-white border border-neutral-300 rounded-xl px-3 py-1.5 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                    Account Name
+                  </label>
+                  <input
+                    type="text"
+                    value={invoiceForm.wireAccountName}
+                    onChange={(e) => setInvoiceForm({ ...invoiceForm, wireAccountName: e.target.value })}
+                    placeholder="e.g. Catalyst"
+                    className="w-full bg-white border border-neutral-300 rounded-xl px-3 py-1.5 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                  Bank Address
+                </label>
+                <textarea
+                  rows={2}
+                  value={invoiceForm.wireBankAddress}
+                  onChange={(e) => setInvoiceForm({ ...invoiceForm, wireBankAddress: e.target.value })}
+                  placeholder="2300 West End Avenue, Nashville, TN 37203"
+                  className="w-full bg-white border border-neutral-300 rounded-xl px-3 py-1.5 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary resize-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                    Routing #
+                  </label>
+                  <input
+                    type="text"
+                    value={invoiceForm.wireRoutingNumber}
+                    onChange={(e) => setInvoiceForm({ ...invoiceForm, wireRoutingNumber: e.target.value })}
+                    className="w-full bg-white border border-neutral-300 rounded-xl px-2.5 py-1.5 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                    SWIFT Code
+                  </label>
+                  <input
+                    type="text"
+                    value={invoiceForm.wireSwiftCode}
+                    onChange={(e) => setInvoiceForm({ ...invoiceForm, wireSwiftCode: e.target.value })}
+                    className="w-full bg-white border border-neutral-300 rounded-xl px-2.5 py-1.5 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                    Account #
+                  </label>
+                  <input
+                    type="text"
+                    value={invoiceForm.wireAccountNumber}
+                    onChange={(e) => setInvoiceForm({ ...invoiceForm, wireAccountNumber: e.target.value })}
+                    className="w-full bg-white border border-neutral-300 rounded-xl px-2.5 py-1.5 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Credit Card Payment Settings */}
+            <div className="space-y-4 bg-neutral-50/70 p-4 rounded-2xl border border-neutral-200">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold text-brand-primary uppercase tracking-wider">Credit Card Payment Button</h4>
+                <button
+                  type="button"
+                  onClick={() => setInvoiceForm({ ...invoiceForm, showPayButton: !invoiceForm.showPayButton })}
+                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                    invoiceForm.showPayButton ? 'bg-emerald-500' : 'bg-neutral-300'
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                      invoiceForm.showPayButton ? 'translate-x-4' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
+
+              {invoiceForm.showPayButton && (
+                <>
+                  <div>
+                    <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                      Pay Button Label
+                    </label>
+                    <input
+                      type="text"
+                      value={invoiceForm.payButtonText}
+                      onChange={(e) => setInvoiceForm({ ...invoiceForm, payButtonText: e.target.value })}
+                      placeholder="e.g. CLICK TO PAY BY CREDIT CARD +3.5%"
+                      className="w-full bg-white border border-neutral-300 rounded-xl px-3.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                      Direct Payment Link / Stripe URL
+                    </label>
+                    <input
+                      type="text"
+                      value={invoiceForm.payButtonUrl}
+                      onChange={(e) => setInvoiceForm({ ...invoiceForm, payButtonUrl: e.target.value })}
+                      placeholder="https://buy.stripe.com/..."
+                      className="w-full bg-white border border-neutral-300 rounded-xl px-3.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
+                    />
+                  </div>
+                </>
               )}
             </div>
           </div>

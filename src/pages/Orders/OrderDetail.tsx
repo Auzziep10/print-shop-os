@@ -963,6 +963,83 @@ export function OrderDetail() {
     thirdPartyBilling: { account: '', zip: '' }
   });
 
+  const [isInvoiceEditorOpen, setIsInvoiceEditorOpen] = useState(false);
+  const [isSavingOrderInvoice, setIsSavingOrderInvoice] = useState(false);
+  const [orderInvoiceForm, setOrderInvoiceForm] = useState({
+    subtitle: "For your Consideration",
+    categoryTag: "VCG • ADHOC ORDERS",
+    statementOfWork: "This invoice represents the agreed upon deliverables and services as outlined in the project scope.",
+    feeSchedule: "Payment is due upon receipt unless otherwise specified in your terms.",
+    confidentiality: "Pricing and terms contained within are confidential and intended only for the recipient.",
+    footerTagline: "YOUR TRUST IS OUR HIGHEST PRIORITY",
+    wireBankName: "Pinnacle Bank",
+    wireBankAddress: "2300 West End Avenue\nNashville, TN 37203",
+    wireRoutingNumber: "XXXXXXXX",
+    wireSwiftCode: "XXXXXXXX",
+    wireAccountName: "Catalyst",
+    wireAccountNumber: "XXXXXXXX",
+    showPayButton: true,
+    payButtonText: "CLICK TO PAY BY CREDIT CARD +3.5%",
+    payButtonUrl: "https://stripe.com"
+  });
+
+  useEffect(() => {
+    if (order && isInvoiceEditorOpen) {
+      const loadDefaults = async () => {
+        let custSettings: any = {};
+        if (order.customerId) {
+          try {
+            const custSnap = await getDoc(doc(db, 'customers', order.customerId));
+            if (custSnap.exists()) {
+              custSettings = custSnap.data().invoiceSettings || {};
+            }
+          } catch (err) {
+            console.error("Error loading customer invoice settings:", err);
+          }
+        }
+        const merged = {
+          subtitle: "For your Consideration",
+          categoryTag: "VCG • ADHOC ORDERS",
+          statementOfWork: "This invoice represents the agreed upon deliverables and services as outlined in the project scope.",
+          feeSchedule: "Payment is due upon receipt unless otherwise specified in your terms.",
+          confidentiality: "Pricing and terms contained within are confidential and intended only for the recipient.",
+          footerTagline: "YOUR TRUST IS OUR HIGHEST PRIORITY",
+          wireBankName: "Pinnacle Bank",
+          wireBankAddress: "2300 West End Avenue\nNashville, TN 37203",
+          wireRoutingNumber: "XXXXXXXX",
+          wireSwiftCode: "XXXXXXXX",
+          wireAccountName: "Catalyst",
+          wireAccountNumber: "XXXXXXXX",
+          showPayButton: true,
+          payButtonText: "CLICK TO PAY BY CREDIT CARD +3.5%",
+          payButtonUrl: "https://stripe.com",
+          ...custSettings,
+          ...(order.invoiceSettings || {})
+        };
+        setOrderInvoiceForm(merged);
+      };
+      loadDefaults();
+    }
+  }, [order, isInvoiceEditorOpen]);
+
+  const handleSaveOrderInvoice = async () => {
+    if (!order?.id) return;
+    setIsSavingOrderInvoice(true);
+    try {
+      await updateDoc(doc(db, 'orders', order.id), {
+        invoiceSettings: orderInvoiceForm,
+        updatedAt: new Date().toISOString()
+      });
+      alert("Order invoice customized successfully!");
+      setIsInvoiceEditorOpen(false);
+    } catch (err) {
+      console.error("Failed to save order invoice settings:", err);
+      alert("Failed to save invoice customization.");
+    } finally {
+      setIsSavingOrderInvoice(false);
+    }
+  };
+
   const [isCalculatingRates, setIsCalculatingRates] = useState(false);
   const [shippingRates, setShippingRates] = useState<any[]>([]);
   const [ratesError, setRatesError] = useState<string | null>(null);
@@ -3249,6 +3326,10 @@ export function OrderDetail() {
           <PillButton variant="outline" className="gap-2" onClick={() => window.open(`/invoice/${order.id}`, '_blank')}>
             <DollarSign size={16} />
             Invoice
+          </PillButton>
+          <PillButton variant="outline" className="gap-2" onClick={() => setIsInvoiceEditorOpen(true)}>
+            <Edit3 size={16} />
+            Edit Invoice
           </PillButton>
           <PillButton variant="outline" className="gap-2 border-green-200 text-green-700 bg-green-50 hover:bg-green-600 hover:text-white hover:border-green-600" onClick={() => setIsPalletOptimizerOpen(true)}>
             <Layers size={16} />
@@ -6038,6 +6119,276 @@ export function OrderDetail() {
                 )}
                 <PillButton variant="filled" onClick={handleSaveEdit} className="px-8 py-3" disabled={isSaving || isDeleting}>
                   {isSaving ? <Loader2 className="animate-spin" size={18} /> : <span>Save All Changes</span>}
+                </PillButton>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* Customize Order Invoice Dialog */}
+      {isInvoiceEditorOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 md:p-6 overflow-y-auto">
+          <div className="bg-brand-bg max-w-[95vw] xl:max-w-[1000px] w-full rounded-2xl overflow-hidden shadow-2xl flex flex-col border border-brand-border my-auto">
+            <div className="p-6 border-b border-brand-border flex justify-between items-center bg-white sticky top-0 z-10">
+              <div>
+                <h3 className="font-serif text-2xl text-brand-primary flex items-center gap-2">
+                  <FileText className="text-blue-600" size={24} />
+                  Customize Order Invoice
+                </h3>
+                <p className="text-xs text-brand-secondary mt-1">
+                  Adjust invoice branding, terms, and wire details for Order #{order.portalId || order.id.slice(0, 8)} ({order.title}). Pre-populated from company defaults.
+                </p>
+              </div>
+              <button 
+                onClick={() => setIsInvoiceEditorOpen(false)} 
+                className="text-brand-secondary hover:text-brand-primary transition-colors bg-brand-bg border border-brand-border rounded-md p-1"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-6 overflow-y-auto max-h-[75vh] custom-scrollbar flex-1 bg-white">
+              {/* Header & Taglines */}
+              <div className="space-y-4 bg-neutral-50/70 p-4 rounded-2xl border border-neutral-200">
+                <h4 className="text-xs font-bold text-brand-primary uppercase tracking-wider">Branding & Taglines</h4>
+                
+                <div>
+                  <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                    Header Subtitle Tagline
+                  </label>
+                  <input
+                    type="text"
+                    value={orderInvoiceForm.subtitle}
+                    onChange={(e) => setOrderInvoiceForm({ ...orderInvoiceForm, subtitle: e.target.value })}
+                    placeholder="e.g. For your Consideration"
+                    className="w-full bg-white border border-neutral-300 rounded-xl px-3.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                    Category Tag (Vertical Bar)
+                  </label>
+                  <input
+                    type="text"
+                    value={orderInvoiceForm.categoryTag}
+                    onChange={(e) => setOrderInvoiceForm({ ...orderInvoiceForm, categoryTag: e.target.value })}
+                    placeholder="e.g. VCG • ADHOC ORDERS"
+                    className="w-full bg-white border border-neutral-300 rounded-xl px-3.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                    Footer Tagline
+                  </label>
+                  <input
+                    type="text"
+                    value={orderInvoiceForm.footerTagline}
+                    onChange={(e) => setOrderInvoiceForm({ ...orderInvoiceForm, footerTagline: e.target.value })}
+                    placeholder="e.g. YOUR TRUST IS OUR HIGHEST PRIORITY"
+                    className="w-full bg-white border border-neutral-300 rounded-xl px-3.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
+                  />
+                </div>
+              </div>
+
+              {/* Terms & Statements */}
+              <div className="space-y-4 bg-neutral-50/70 p-4 rounded-2xl border border-neutral-200">
+                <h4 className="text-xs font-bold text-brand-primary uppercase tracking-wider">Statements & Terms</h4>
+
+                <div>
+                  <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                    Statement of Work
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={orderInvoiceForm.statementOfWork}
+                    onChange={(e) => setOrderInvoiceForm({ ...orderInvoiceForm, statementOfWork: e.target.value })}
+                    placeholder="Scope of work statement..."
+                    className="w-full bg-white border border-neutral-300 rounded-xl px-3.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary resize-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                    Fee Schedule / Payment Terms
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={orderInvoiceForm.feeSchedule}
+                    onChange={(e) => setOrderInvoiceForm({ ...orderInvoiceForm, feeSchedule: e.target.value })}
+                    placeholder="Payment due upon receipt..."
+                    className="w-full bg-white border border-neutral-300 rounded-xl px-3.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary resize-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                    Confidentiality Notice
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={orderInvoiceForm.confidentiality}
+                    onChange={(e) => setOrderInvoiceForm({ ...orderInvoiceForm, confidentiality: e.target.value })}
+                    placeholder="Pricing and terms contained within are confidential..."
+                    className="w-full bg-white border border-neutral-300 rounded-xl px-3.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary resize-none"
+                  />
+                </div>
+              </div>
+
+              {/* Wire Info */}
+              <div className="space-y-4 bg-neutral-50/70 p-4 rounded-2xl border border-neutral-200">
+                <h4 className="text-xs font-bold text-brand-primary uppercase tracking-wider">Bank Wire & ACH Transfer Info</h4>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                      Bank Name
+                    </label>
+                    <input
+                      type="text"
+                      value={orderInvoiceForm.wireBankName}
+                      onChange={(e) => setOrderInvoiceForm({ ...orderInvoiceForm, wireBankName: e.target.value })}
+                      placeholder="e.g. Pinnacle Bank"
+                      className="w-full bg-white border border-neutral-300 rounded-xl px-3 py-1.5 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                      Account Name
+                    </label>
+                    <input
+                      type="text"
+                      value={orderInvoiceForm.wireAccountName}
+                      onChange={(e) => setOrderInvoiceForm({ ...orderInvoiceForm, wireAccountName: e.target.value })}
+                      placeholder="e.g. Catalyst"
+                      className="w-full bg-white border border-neutral-300 rounded-xl px-3 py-1.5 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                    Bank Address
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={orderInvoiceForm.wireBankAddress}
+                    onChange={(e) => setOrderInvoiceForm({ ...orderInvoiceForm, wireBankAddress: e.target.value })}
+                    placeholder="2300 West End Avenue, Nashville, TN 37203"
+                    className="w-full bg-white border border-neutral-300 rounded-xl px-3 py-1.5 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary resize-none"
+                  />
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                      Routing #
+                    </label>
+                    <input
+                      type="text"
+                      value={orderInvoiceForm.wireRoutingNumber}
+                      onChange={(e) => setOrderInvoiceForm({ ...orderInvoiceForm, wireRoutingNumber: e.target.value })}
+                      className="w-full bg-white border border-neutral-300 rounded-xl px-2.5 py-1.5 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                      SWIFT Code
+                    </label>
+                    <input
+                      type="text"
+                      value={orderInvoiceForm.wireSwiftCode}
+                      onChange={(e) => setOrderInvoiceForm({ ...orderInvoiceForm, wireSwiftCode: e.target.value })}
+                      className="w-full bg-white border border-neutral-300 rounded-xl px-2.5 py-1.5 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                      Account #
+                    </label>
+                    <input
+                      type="text"
+                      value={orderInvoiceForm.wireAccountNumber}
+                      onChange={(e) => setOrderInvoiceForm({ ...orderInvoiceForm, wireAccountNumber: e.target.value })}
+                      className="w-full bg-white border border-neutral-300 rounded-xl px-2.5 py-1.5 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Payment Link Settings */}
+              <div className="space-y-4 bg-neutral-50/70 p-4 rounded-2xl border border-neutral-200">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-brand-primary uppercase tracking-wider">Credit Card Pay Button</h4>
+                  <button
+                    type="button"
+                    onClick={() => setOrderInvoiceForm({ ...orderInvoiceForm, showPayButton: !orderInvoiceForm.showPayButton })}
+                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                      orderInvoiceForm.showPayButton ? 'bg-emerald-500' : 'bg-neutral-300'
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                        orderInvoiceForm.showPayButton ? 'translate-x-4' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {orderInvoiceForm.showPayButton && (
+                  <>
+                    <div>
+                      <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                        Pay Button Label
+                      </label>
+                      <input
+                        type="text"
+                        value={orderInvoiceForm.payButtonText}
+                        onChange={(e) => setOrderInvoiceForm({ ...orderInvoiceForm, payButtonText: e.target.value })}
+                        placeholder="e.g. CLICK TO PAY BY CREDIT CARD +3.5%"
+                        className="w-full bg-white border border-neutral-300 rounded-xl px-3.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                        Direct Payment Link / Stripe URL
+                      </label>
+                      <input
+                        type="text"
+                        value={orderInvoiceForm.payButtonUrl}
+                        onChange={(e) => setOrderInvoiceForm({ ...orderInvoiceForm, payButtonUrl: e.target.value })}
+                        placeholder="https://buy.stripe.com/..."
+                        className="w-full bg-white border border-neutral-300 rounded-xl px-3.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+
+            <div className="p-6 bg-brand-bg flex justify-between gap-4 border-t border-brand-border sticky bottom-0">
+              <PillButton 
+                variant="outline" 
+                onClick={() => window.open(`/invoice/${order.id}`, '_blank')} 
+                className="px-6 py-3 flex items-center gap-2"
+              >
+                <Eye size={16} />
+                <span>Preview Invoice</span>
+              </PillButton>
+              
+              <div className="flex gap-4 flex-1 justify-end">
+                <PillButton variant="outline" onClick={() => setIsInvoiceEditorOpen(false)} className="px-8 py-3">
+                  Cancel
+                </PillButton>
+                <PillButton variant="filled" onClick={handleSaveOrderInvoice} className="px-8 py-3" disabled={isSavingOrderInvoice}>
+                  {isSavingOrderInvoice ? <Loader2 className="animate-spin" size={18} /> : <span>Save Order Invoice</span>}
                 </PillButton>
               </div>
             </div>

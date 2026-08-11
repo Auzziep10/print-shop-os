@@ -77,7 +77,34 @@ export function InvoiceView() {
   const clientName = order.shippingAddress?.name || cust.contactName || cust.name || 'CLIENT';
   const companyName = order.shippingAddress?.company || cust.company;
   const clientEmail = cust.email || order.shippingAddress?.email;
+  const clientName = order.shippingAddress?.name || cust.contactName || cust.name || 'CLIENT';
+  const companyName = order.shippingAddress?.company || cust.company;
+  const clientEmail = cust.email || order.shippingAddress?.email;
   const clientPhone = cust.phone || order.shippingAddress?.phone;
+
+  const defaultInvoiceSettings = {
+    subtitle: "For your Consideration",
+    categoryTag: "VCG • ADHOC ORDERS",
+    statementOfWork: "This invoice represents the agreed upon deliverables and services as outlined in the project scope.",
+    feeSchedule: "Payment is due upon receipt unless otherwise specified in your terms.",
+    confidentiality: "Pricing and terms contained within are confidential and intended only for the recipient.",
+    footerTagline: "YOUR TRUST IS OUR HIGHEST PRIORITY",
+    wireBankName: "Pinnacle Bank",
+    wireBankAddress: "2300 West End Avenue\nNashville, TN 37203",
+    wireRoutingNumber: "XXXXXXXX",
+    wireSwiftCode: "XXXXXXXX",
+    wireAccountName: "Catalyst",
+    wireAccountNumber: "XXXXXXXX",
+    showPayButton: true,
+    payButtonText: "CLICK TO PAY BY CREDIT CARD +3.5%",
+    payButtonUrl: "https://stripe.com"
+  };
+
+  const invSettings = {
+    ...defaultInvoiceSettings,
+    ...(customer?.invoiceSettings || {}),
+    ...(order?.invoiceSettings || {})
+  };
 
   return (
     <div className="min-h-screen bg-[#f1efe9] flex justify-center py-10 font-sans text-neutral-900 w-full overflow-x-auto">
@@ -86,7 +113,7 @@ export function InvoiceView() {
         <div className="w-[120px] bg-[#f5f3ef] border-r border-neutral-200 flex flex-col justify-between py-10 items-center shrink-0">
           <div className="flex items-center" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>
             <span className="text-[10px] font-bold tracking-[0.2em] text-neutral-500 mb-8 whitespace-nowrap">ISSUED {issueDate}</span>
-            <span className="text-[10px] font-bold tracking-[0.2em] text-neutral-800 whitespace-nowrap">VCG • ADHOC ORDERS</span>
+            <span className="text-[10px] font-bold tracking-[0.2em] text-neutral-800 whitespace-nowrap">{invSettings.categoryTag}</span>
           </div>
           
           <div className="flex flex-col items-center justify-end pb-2">
@@ -98,7 +125,7 @@ export function InvoiceView() {
         <div className="flex-1 p-12 md:p-16 flex flex-col relative">
            {/* Top Header */}
            <div className="flex justify-between items-center mb-8">
-              <span className="text-neutral-400 italic text-lg font-serif">For your Consideration</span>
+              <span className="text-neutral-400 italic text-lg font-serif">{invSettings.subtitle}</span>
               <span className="text-5xl tracking-tight text-neutral-900" style={{ fontFamily: 'Times New Roman, Times, serif' }}>INVOICE</span>
            </div>
 
@@ -154,22 +181,28 @@ export function InvoiceView() {
                 </div>
 
                 <div className="mt-8 flex flex-col gap-6 text-[10px] text-neutral-500 leading-relaxed max-w-[200px]">
-                   <div>
-                     <p className="font-bold text-neutral-800 tracking-widest uppercase mb-1">STATEMENT OF WORK</p>
-                     <p>This invoice represents the agreed upon deliverables and services as outlined in the project scope.</p>
-                   </div>
-                   <div>
-                     <p className="font-bold text-neutral-800 tracking-widest uppercase mb-1">FEE SCHEDULE</p>
-                     <p>Payment is due upon receipt unless otherwise specified in your terms.</p>
-                   </div>
-                   <div>
-                     <p className="font-bold text-neutral-800 tracking-widest uppercase mb-1">CONFIDENTIALITY</p>
-                     <p>Pricing and terms contained within are confidential and intended only for the recipient.</p>
-                   </div>
+                   {invSettings.statementOfWork && (
+                     <div>
+                       <p className="font-bold text-neutral-800 tracking-widest uppercase mb-1">STATEMENT OF WORK</p>
+                       <p className="whitespace-pre-line">{invSettings.statementOfWork}</p>
+                     </div>
+                   )}
+                   {invSettings.feeSchedule && (
+                     <div>
+                       <p className="font-bold text-neutral-800 tracking-widest uppercase mb-1">FEE SCHEDULE</p>
+                       <p className="whitespace-pre-line">{invSettings.feeSchedule}</p>
+                     </div>
+                   )}
+                   {invSettings.confidentiality && (
+                     <div>
+                       <p className="font-bold text-neutral-800 tracking-widest uppercase mb-1">CONFIDENTIALITY</p>
+                       <p className="whitespace-pre-line">{invSettings.confidentiality}</p>
+                     </div>
+                   )}
                 </div>
 
                 <div className="mt-auto pt-8">
-                  <p className="text-[9px] font-bold tracking-widest uppercase text-neutral-400">YOUR TRUST IS OUR HIGHEST PRIORITY</p>
+                  <p className="text-[9px] font-bold tracking-widest uppercase text-neutral-400">{invSettings.footerTagline}</p>
                 </div>
              </div>
 
@@ -235,27 +268,28 @@ export function InvoiceView() {
                      <p className="text-[10px] font-bold tracking-widest text-neutral-800 uppercase mb-2">WIRE INFO</p>
                      <div className="text-[11px] text-neutral-600 leading-relaxed grid grid-cols-2 gap-x-4 gap-y-2">
                        <div>
-                         <span className="font-bold text-neutral-800">Bank:</span> Pinnacle Bank<br/>
-                         2300 West End Avenue<br/>
-                         Nashville, TN 37203
+                         <span className="font-bold text-neutral-800">Bank:</span> {invSettings.wireBankName}<br/>
+                         <span className="whitespace-pre-line">{invSettings.wireBankAddress}</span>
                        </div>
                        <div>
-                         <span className="font-bold text-neutral-800">Wire Routing #:</span> XXXXXXXX<br/>
-                         <span className="font-bold text-neutral-800">SWIFT Code:</span> XXXXXXXX<br/>
-                         <span className="font-bold text-neutral-800">Account Name:</span> Catalyst<br/>
-                         <span className="font-bold text-neutral-800">Account Number:</span> XXXXXXXX
+                         <span className="font-bold text-neutral-800">Wire Routing #:</span> {invSettings.wireRoutingNumber}<br/>
+                         <span className="font-bold text-neutral-800">SWIFT Code:</span> {invSettings.wireSwiftCode}<br/>
+                         <span className="font-bold text-neutral-800">Account Name:</span> {invSettings.wireAccountName}<br/>
+                         <span className="font-bold text-neutral-800">Account Number:</span> {invSettings.wireAccountNumber}
                        </div>
                      </div>
                    </div>
 
-                   <a 
-                     href={`https://stripe.com`} // We will link to an actual stripe payment link later or add a payment intent
-                     target="_blank"
-                     rel="noreferrer"
-                     className="w-full py-4 bg-black text-white text-center text-[11px] font-bold tracking-widest uppercase rounded-lg hover:bg-neutral-800 transition-colors shadow-lg"
-                   >
-                     CLICK TO PAY BY CREDIT CARD +3.5%
-                   </a>
+                   {invSettings.showPayButton !== false && (
+                     <a 
+                       href={invSettings.payButtonUrl || 'https://stripe.com'}
+                       target="_blank"
+                       rel="noreferrer"
+                       className="w-full py-4 bg-black text-white text-center text-[11px] font-bold tracking-widest uppercase rounded-lg hover:bg-neutral-800 transition-colors shadow-lg"
+                     >
+                       {invSettings.payButtonText}
+                     </a>
+                   )}
                 </div>
              </div>
            </div>
