@@ -134,6 +134,7 @@ export function InvoiceView() {
 
   const accountManagerName = invSettings.accountManager || order.accountManager || cust.accountManager || order.assignedTo;
   const accountManagerEmail = invSettings.accountManagerEmail || order.accountManagerEmail || cust.accountManagerEmail;
+  const accountManagerPhone = invSettings.accountManagerPhone || order.accountManagerPhone || cust.accountManagerPhone;
 
   const hasSeparateShipping = order.shippingAddress && (
     order.shippingAddress.street1 !== cust.shippingStreet ||
@@ -198,6 +199,11 @@ export function InvoiceView() {
                     {accountManagerEmail && (
                       <p className="lowercase normal-case text-neutral-500 font-medium tracking-normal text-[10px]">
                         {accountManagerEmail}
+                      </p>
+                    )}
+                    {accountManagerPhone && (
+                      <p className="normal-case text-neutral-500 font-medium tracking-normal text-[10px]">
+                        {accountManagerPhone}
                       </p>
                     )}
                   </div>

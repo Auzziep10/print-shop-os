@@ -1636,30 +1636,43 @@ export function CustomerDetail() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-2.5">
                 <div>
-                  <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
-                    Default Account Manager
+                  <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                    Default Manager
                   </label>
                   <input
                     type="text"
                     value={(invoiceForm as any).accountManager || ''}
                     onChange={(e) => setInvoiceForm({ ...invoiceForm, accountManager: e.target.value } as any)}
                     placeholder="e.g. Sarah Jenkins"
-                    className="w-full bg-white border border-neutral-300 rounded-xl px-3 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
+                    className="w-full bg-white border border-neutral-300 rounded-xl px-2.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
                   />
                 </div>
 
                 <div>
-                  <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
-                    Account Manager Email
+                  <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                    Manager Email
                   </label>
                   <input
                     type="email"
                     value={(invoiceForm as any).accountManagerEmail || ''}
                     onChange={(e) => setInvoiceForm({ ...invoiceForm, accountManagerEmail: e.target.value } as any)}
-                    placeholder="e.g. sarah@ourcompany.com"
-                    className="w-full bg-white border border-neutral-300 rounded-xl px-3 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
+                    placeholder="e.g. sarah@company.com"
+                    className="w-full bg-white border border-neutral-300 rounded-xl px-2.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                    Manager Phone
+                  </label>
+                  <input
+                    type="text"
+                    value={(invoiceForm as any).accountManagerPhone || ''}
+                    onChange={(e) => setInvoiceForm({ ...invoiceForm, accountManagerPhone: e.target.value } as any)}
+                    placeholder="e.g. 555-0192"
+                    className="w-full bg-white border border-neutral-300 rounded-xl px-2.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
                   />
                 </div>
               </div>

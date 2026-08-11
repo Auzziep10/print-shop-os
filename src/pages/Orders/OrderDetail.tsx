@@ -1323,6 +1323,9 @@ export function OrderDetail() {
           }
         }
         const merged = {
+          accountManager: order.accountManager || custSettings.accountManager || order.invoiceSettings?.accountManager || '',
+          accountManagerEmail: order.accountManagerEmail || custSettings.accountManagerEmail || order.invoiceSettings?.accountManagerEmail || '',
+          accountManagerPhone: order.accountManagerPhone || custSettings.accountManagerPhone || order.invoiceSettings?.accountManagerPhone || '',
           poNumber: order.poNumber || '',
           dueDate: order.dueDate || '',
           shippingFee: order.shippingFee || order.freight || 0,
@@ -1358,6 +1361,9 @@ export function OrderDetail() {
     try {
       await updateDoc(doc(db, 'orders', order.id), {
         invoiceSettings: orderInvoiceForm,
+        accountManager: (orderInvoiceForm as any).accountManager || '',
+        accountManagerEmail: (orderInvoiceForm as any).accountManagerEmail || '',
+        accountManagerPhone: (orderInvoiceForm as any).accountManagerPhone || '',
         poNumber: orderInvoiceForm.poNumber,
         dueDate: orderInvoiceForm.dueDate,
         shippingFee: parseFloat(String(orderInvoiceForm.shippingFee)) || 0,
@@ -6195,30 +6201,43 @@ export function OrderDetail() {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-3 gap-2.5">
                   <div>
-                    <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
-                      Account Manager Name
+                    <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                      Manager Name
                     </label>
                     <input
                       type="text"
                       value={(orderInvoiceForm as any).accountManager || ''}
                       onChange={(e) => setOrderInvoiceForm({ ...orderInvoiceForm, accountManager: e.target.value } as any)}
                       placeholder="e.g. Sarah Jenkins"
-                      className="w-full bg-white border border-neutral-300 rounded-xl px-3 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
+                      className="w-full bg-white border border-neutral-300 rounded-xl px-2.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
                     />
                   </div>
 
                   <div>
-                    <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
-                      Account Manager Email
+                    <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                      Manager Email
                     </label>
                     <input
                       type="email"
                       value={(orderInvoiceForm as any).accountManagerEmail || ''}
                       onChange={(e) => setOrderInvoiceForm({ ...orderInvoiceForm, accountManagerEmail: e.target.value } as any)}
-                      placeholder="e.g. sarah@ourcompany.com"
-                      className="w-full bg-white border border-neutral-300 rounded-xl px-3 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
+                      placeholder="e.g. sarah@company.com"
+                      className="w-full bg-white border border-neutral-300 rounded-xl px-2.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                      Manager Phone
+                    </label>
+                    <input
+                      type="text"
+                      value={(orderInvoiceForm as any).accountManagerPhone || ''}
+                      onChange={(e) => setOrderInvoiceForm({ ...orderInvoiceForm, accountManagerPhone: e.target.value } as any)}
+                      placeholder="e.g. 555-0192"
+                      className="w-full bg-white border border-neutral-300 rounded-xl px-2.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
                     />
                   </div>
                 </div>
