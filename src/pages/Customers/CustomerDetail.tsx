@@ -138,6 +138,8 @@ export function CustomerDetail() {
 
   const [isPricingSectionCollapsed, setIsPricingSectionCollapsed] = useState(true);
   const [isInvoiceSectionCollapsed, setIsInvoiceSectionCollapsed] = useState(true);
+  const [isGarmentsSectionCollapsed, setIsGarmentsSectionCollapsed] = useState(false);
+  const [isVaultSectionCollapsed, setIsVaultSectionCollapsed] = useState(false);
 
   const [contacts, setContacts] = useState<any[]>([]);
   const [isAddingContact, setIsAddingContact] = useState(false);
@@ -1525,27 +1527,42 @@ export function CustomerDetail() {
                       </span>
                     </button>
                   </div>
-                  {activeGarmentTab === 'suggested' && (
-                    <PillButton variant="outline" className="px-4 text-xs font-bold gap-1 cursor-pointer" onClick={() => { setSuggestedModalType('suggested'); setIsAddingSuggestedModalOpen(true); }}>
-                      <Plus size={14} /> Add Suggestion
-                    </PillButton>
-                  )}
-                  {activeGarmentTab === 'samples' && (
-                    <PillButton variant="outline" className="px-4 text-xs font-bold gap-1 cursor-pointer" onClick={() => { setSuggestedModalType('sample'); setIsAddingSuggestedModalOpen(true); }}>
-                      <Plus size={14} /> Add Sample Item
-                    </PillButton>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {!isGarmentsSectionCollapsed && activeGarmentTab === 'suggested' && (
+                      <PillButton variant="outline" className="px-4 text-xs font-bold gap-1 cursor-pointer" onClick={() => { setSuggestedModalType('suggested'); setIsAddingSuggestedModalOpen(true); }}>
+                        <Plus size={14} /> Add Suggestion
+                      </PillButton>
+                    )}
+                    {!isGarmentsSectionCollapsed && activeGarmentTab === 'samples' && (
+                      <PillButton variant="outline" className="px-4 text-xs font-bold gap-1 cursor-pointer" onClick={() => { setSuggestedModalType('sample'); setIsAddingSuggestedModalOpen(true); }}>
+                        <Plus size={14} /> Add Sample Item
+                      </PillButton>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setIsGarmentsSectionCollapsed(!isGarmentsSectionCollapsed)}
+                      className="p-1.5 rounded-lg text-neutral-400 hover:text-brand-primary hover:bg-neutral-100 transition-colors cursor-pointer"
+                      title={isGarmentsSectionCollapsed ? "Expand section" : "Collapse section"}
+                    >
+                      {isGarmentsSectionCollapsed ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
+                    </button>
+                  </div>
                 </div>
-                <p className="text-xs text-brand-secondary">
-                  {activeGarmentTab === 'suggested' 
-                    ? 'Items recommended for this customer to order or quote.' 
-                    : activeGarmentTab === 'samples'
-                    ? 'Blank or sample garments available to client portal.'
-                    : 'Garments previously ordered by this customer.'}
-                </p>
+
+                {!isGarmentsSectionCollapsed && (
+                  <p className="text-xs text-brand-secondary">
+                    {activeGarmentTab === 'suggested' 
+                      ? 'Items recommended for this customer to order or quote.' 
+                      : activeGarmentTab === 'samples'
+                      ? 'Blank or sample garments available to client portal.'
+                      : 'Garments previously ordered by this customer.'}
+                  </p>
+                )}
               </div>
 
-              {activeGarmentTab === 'suggested' && (
+              {!isGarmentsSectionCollapsed && (
+                <>
+                  {activeGarmentTab === 'suggested' && (
                 suggestedItems.length === 0 ? (
                   <div className="bg-brand-bg/50 rounded-xl p-8 text-center text-sm font-medium text-brand-secondary border border-dashed border-brand-border/60 my-4">
                     No recommended garments yet. Click above to suggest some.
@@ -1730,11 +1747,13 @@ export function CustomerDetail() {
                   </div>
                 )
               )}
+                </>
+              )}
             </div>
           </div>
 
           {/* Customer Asset Vault & Chat Card */}
-          <div className="bg-white rounded-card border border-brand-border shadow-sm p-6 flex flex-col justify-between min-h-[450px]">
+          <div className={`bg-white rounded-card border border-brand-border shadow-sm p-6 flex flex-col justify-between ${!isVaultSectionCollapsed ? 'min-h-[450px]' : ''}`}>
             <div>
               {/* Header Tabs */}
               <div className="flex items-center justify-between border-b border-brand-border/60 pb-4 mb-4">
@@ -1771,20 +1790,33 @@ export function CustomerDetail() {
                   </button>
                 </div>
 
-                {activeRightTab === 'vault' && (
-                  <label className="bg-white border border-brand-border hover:bg-neutral-50 px-4 py-2 rounded-xl text-xs font-bold text-neutral-900 shadow-sm transition-all flex items-center gap-1.5 cursor-pointer">
-                    <input type="file" className="hidden" onChange={handleUploadLogoVault} accept="image/*,application/pdf,.ai,.eps,.svg" />
-                    {isUploadingLogoVault ? (
-                      <Loader2 className="animate-spin" size={14} />
-                    ) : (
-                      <Upload size={14} />
-                    )}
-                    {isUploadingLogoVault ? "Uploading..." : "Upload Logo"}
-                  </label>
-                )}
+                <div className="flex items-center gap-2">
+                  {!isVaultSectionCollapsed && activeRightTab === 'vault' && (
+                    <label className="bg-white border border-brand-border hover:bg-neutral-50 px-4 py-2 rounded-xl text-xs font-bold text-neutral-900 shadow-sm transition-all flex items-center gap-1.5 cursor-pointer">
+                      <input type="file" className="hidden" onChange={handleUploadLogoVault} accept="image/*,application/pdf,.ai,.eps,.svg" />
+                      {isUploadingLogoVault ? (
+                        <Loader2 className="animate-spin" size={14} />
+                      ) : (
+                        <Upload size={14} />
+                      )}
+                      {isUploadingLogoVault ? "Uploading..." : "Upload Logo"}
+                    </label>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => setIsVaultSectionCollapsed(!isVaultSectionCollapsed)}
+                    className="p-1.5 rounded-lg text-neutral-400 hover:text-brand-primary hover:bg-neutral-100 transition-colors cursor-pointer"
+                    title={isVaultSectionCollapsed ? "Expand section" : "Collapse section"}
+                  >
+                    {isVaultSectionCollapsed ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
+                  </button>
+                </div>
               </div>
 
-              {activeRightTab === 'vault' ? (
+              {!isVaultSectionCollapsed && (
+                <>
+                  {activeRightTab === 'vault' ? (
                 /* Asset Vault Content */
                 <>
                   {assets.length === 0 ? (
@@ -1940,6 +1972,8 @@ export function CustomerDetail() {
                     </button>
                   </form>
                 </div>
+              )}
+                </>
               )}
             </div>
           </div>
