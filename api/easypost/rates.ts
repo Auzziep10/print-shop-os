@@ -98,7 +98,7 @@ export default async function handler(req: Request) {
 
   try {
     const body = await req.json();
-    const { to_address, from_address: fromAddressOverride, items = [], totalQty = 1, isTest = true } = body;
+    const { to_address, from_address: fromAddressOverride, items = [], totalQty = 1, customBoxCount, isTest = true } = body;
 
     let apiKey = (isTest ? process.env.EASYPOST_TEST_KEY : process.env.EASYPOST_PROD_KEY)?.trim() || '';
     if (!apiKey) {
@@ -178,7 +178,7 @@ export default async function handler(req: Request) {
     }
 
     // Sort rates cheapest first; multi-box orders pay the per-box rate × boxes
-    const boxCount = (parcel as any).boxes || 1;
+    const boxCount = (customBoxCount && parseInt(String(customBoxCount)) > 0) ? parseInt(String(customBoxCount)) : ((parcel as any).boxes || 1);
     const sortedRates = shipmentData.rates.map((r: any) => ({
       id: r.id,
       carrier: r.carrier,

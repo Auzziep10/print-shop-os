@@ -329,6 +329,7 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
             to_address: order.shippingAddress,
             items: order.items || [],
             totalQty: totalItems,
+            customBoxCount: order.estimatedBoxCount || order.boxCountOverride || order.invoiceSettings?.estimatedBoxCount,
             ...(shipFrom?.street1 ? { from_address: shipFrom } : {}),
             isTest: true
           })

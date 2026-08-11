@@ -1327,6 +1327,7 @@ export function OrderDetail() {
           accountManagerEmail: order.accountManagerEmail || custSettings.accountManagerEmail || order.invoiceSettings?.accountManagerEmail || '',
           accountManagerPhone: order.accountManagerPhone || custSettings.accountManagerPhone || order.invoiceSettings?.accountManagerPhone || '',
           additionalEmails: order.additionalEmails || custSettings.additionalEmails || order.invoiceSettings?.additionalEmails || '',
+          estimatedBoxCount: order.estimatedBoxCount || order.invoiceSettings?.estimatedBoxCount || '',
           poNumber: order.poNumber || '',
           dueDate: order.dueDate || '',
           shippingFee: order.shippingFee || order.freight || 0,
@@ -1366,6 +1367,7 @@ export function OrderDetail() {
         accountManagerEmail: (orderInvoiceForm as any).accountManagerEmail || '',
         accountManagerPhone: (orderInvoiceForm as any).accountManagerPhone || '',
         additionalEmails: (orderInvoiceForm as any).additionalEmails || '',
+        estimatedBoxCount: parseInt(String((orderInvoiceForm as any).estimatedBoxCount)) || 0,
         poNumber: orderInvoiceForm.poNumber,
         dueDate: orderInvoiceForm.dueDate,
         shippingFee: parseFloat(String(orderInvoiceForm.shippingFee)) || 0,
@@ -6287,10 +6289,10 @@ export function OrderDetail() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-3 gap-2.5">
                   <div>
-                    <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
-                      Freight / Shipping Fee ($)
+                    <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                      Freight Fee ($)
                     </label>
                     <input
                       type="number"
@@ -6299,13 +6301,27 @@ export function OrderDetail() {
                       value={orderInvoiceForm.shippingFee}
                       onChange={(e) => setOrderInvoiceForm({ ...orderInvoiceForm, shippingFee: parseFloat(e.target.value) || 0 })}
                       placeholder="0.00"
-                      className="w-full bg-white border border-neutral-300 rounded-xl px-3 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
+                      className="w-full bg-white border border-neutral-300 rounded-xl px-2.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
                     />
                   </div>
 
                   <div>
-                    <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
-                      Sales Tax Amount ($)
+                    <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                      Box Count Override
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={(orderInvoiceForm as any).estimatedBoxCount || ''}
+                      onChange={(e) => setOrderInvoiceForm({ ...orderInvoiceForm, estimatedBoxCount: parseInt(e.target.value) || 0 } as any)}
+                      placeholder="Auto (e.g. 2)"
+                      className="w-full bg-white border border-neutral-300 rounded-xl px-2.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                      Sales Tax ($)
                     </label>
                     <input
                       type="number"
@@ -6314,7 +6330,7 @@ export function OrderDetail() {
                       value={orderInvoiceForm.taxAmount}
                       onChange={(e) => setOrderInvoiceForm({ ...orderInvoiceForm, taxAmount: parseFloat(e.target.value) || 0 })}
                       placeholder="0.00"
-                      className="w-full bg-white border border-neutral-300 rounded-xl px-3 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
+                      className="w-full bg-white border border-neutral-300 rounded-xl px-2.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
                     />
                   </div>
                 </div>
