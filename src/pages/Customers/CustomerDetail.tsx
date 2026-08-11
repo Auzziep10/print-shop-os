@@ -117,43 +117,6 @@ export function CustomerDetail() {
     ladder: { priceAtLowTier: 5.50, priceAtHighTier: 3.00, marginFloor: 0.35 },
     costs: {}
   });
-  const [savingCustomPricing, setSavingCustomPricing] = useState(false);
-
-  const handleSaveCustomPricing = async () => {
-    if (!id) return;
-    setSavingCustomPricing(true);
-    try {
-      const custRef = doc(db, 'customers', id);
-      await setDoc(custRef, {
-        autoQuotingEnabled: customPricing.autoQuotingEnabled,
-        customPricing: {
-          enabled: customPricing.enabled,
-          autoQuotingEnabled: customPricing.autoQuotingEnabled,
-          ladder: customPricing.ladder,
-          costs: customPricing.costs || {}
-        },
-        updatedAt: new Date().toISOString()
-      }, { merge: true });
-
-      setLiveCustomerData((prev: any) => ({
-        ...prev,
-        autoQuotingEnabled: customPricing.autoQuotingEnabled,
-        customPricing: {
-          enabled: customPricing.enabled,
-          autoQuotingEnabled: customPricing.autoQuotingEnabled,
-          ladder: customPricing.ladder,
-          costs: customPricing.costs || {}
-        }
-      }));
-
-      alert('Customer auto-quoting & pricing overrides saved successfully!');
-    } catch (err) {
-      console.error("Error saving customer pricing overrides:", err);
-      alert("Failed to save custom pricing overrides.");
-    } finally {
-      setSavingCustomPricing(false);
-    }
-  };
 
   const [invoiceForm, setInvoiceForm] = useState({
     subtitle: "For your Consideration",
@@ -172,32 +135,7 @@ export function CustomerDetail() {
     payButtonText: "CLICK TO PAY BY CREDIT CARD +3.5%",
     payButtonUrl: "https://stripe.com"
   });
-  const [savingInvoiceSettings, setSavingInvoiceSettings] = useState(false);
 
-  const handleSaveInvoiceSettings = async () => {
-    if (!id) return;
-    setSavingInvoiceSettings(true);
-    try {
-      const custRef = doc(db, 'customers', id);
-      await setDoc(custRef, {
-        invoiceSettings: invoiceForm,
-        updatedAt: new Date().toISOString()
-      }, { merge: true });
-
-      setLiveCustomerData((prev: any) => ({
-        ...prev,
-        invoiceSettings: invoiceForm
-      }));
-
-      alert('Company invoice template & defaults saved successfully!');
-    } catch (err) {
-      console.error("Error saving customer invoice settings:", err);
-      alert("Failed to save company invoice defaults.");
-    } finally {
-      setSavingInvoiceSettings(false);
-    }
-  };
-  
   const [contacts, setContacts] = useState<any[]>([]);
   const [isAddingContact, setIsAddingContact] = useState(false);
   const [isUploadingResaleCert, setIsUploadingResaleCert] = useState(false);
@@ -1041,7 +979,9 @@ export function CustomerDetail() {
         autoQuotingEnabled: editCompanyForm.autoQuotingEnabled,
         allowLocalDelivery: editCompanyForm.allowLocalDelivery ?? true,
         resaleCertificateUrl: editCompanyForm.resaleCertificateUrl,
-        resaleCertificateName: editCompanyForm.resaleCertificateName
+        resaleCertificateName: editCompanyForm.resaleCertificateName,
+        customPricing: customPricing,
+        invoiceSettings: invoiceForm
       }, { merge: true });
       
       setLiveCustomerData({
@@ -1059,7 +999,9 @@ export function CustomerDetail() {
         autoQuotingEnabled: editCompanyForm.autoQuotingEnabled,
         allowLocalDelivery: editCompanyForm.allowLocalDelivery ?? true,
         resaleCertificateUrl: editCompanyForm.resaleCertificateUrl,
-        resaleCertificateName: editCompanyForm.resaleCertificateName
+        resaleCertificateName: editCompanyForm.resaleCertificateName,
+        customPricing: customPricing,
+        invoiceSettings: invoiceForm
       });
       setIsEditDialogOpen(false);
     } catch (e) {
@@ -1435,464 +1377,6 @@ export function CustomerDetail() {
 
       {/* Main Content Area */}
       <div className="flex flex-col gap-8">
-
-        {/* Customer Custom Auto-Quoting & Pricing Overrides Card */}
-        <div className="bg-white rounded-card border border-brand-border shadow-xs p-6 space-y-5">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-brand-border/40 pb-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-amber-500/10 text-amber-600 rounded-xl shrink-0">
-                <Zap size={20} />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-brand-primary flex items-center gap-2">
-                  Customer Auto-Quoting & Pricing Overrides
-                  <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-extrabold uppercase tracking-wider ${
-                    customPricing.enabled 
-                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' 
-                      : 'bg-neutral-100 text-neutral-600 border border-neutral-250'
-                  }`}>
-                    {customPricing.enabled ? 'Custom Pricing Active' : 'Inheriting Shop Defaults'}
-                  </span>
-                </h3>
-                <p className="text-xs text-brand-secondary mt-0.5">
-                  Override global shop auto-quoting behavior and custom price ladder anchors specifically for {liveCustomerData.company || editCompanyForm.name || 'this customer'}.
-                </p>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={handleSaveCustomPricing}
-              disabled={savingCustomPricing}
-              className="px-5 py-2.5 bg-brand-primary hover:bg-black text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-2 cursor-pointer disabled:opacity-50"
-            >
-              {savingCustomPricing ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
-              <span>Save Customer Pricing</span>
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* 1. Auto-Quoting Behavior */}
-            <div className="space-y-2 bg-neutral-50/70 p-4 rounded-2xl border border-neutral-200">
-              <label className="text-xs font-bold text-brand-primary uppercase tracking-wider flex items-center gap-1.5">
-                <Zap size={14} className="text-amber-500" />
-                <span>Portal Auto-Quoting Behavior</span>
-              </label>
-              <select
-                value={customPricing.autoQuotingEnabled}
-                onChange={(e) => setCustomPricing({ ...customPricing, autoQuotingEnabled: e.target.value as any })}
-                className="w-full bg-white border border-neutral-300 rounded-xl px-3.5 py-2 text-xs font-bold text-brand-primary focus:outline-none focus:border-brand-primary transition-colors cursor-pointer"
-              >
-                <option value="inherit">⚡ Shop Default (Inherit Global Settings)</option>
-                <option value="enabled">✅ Always Auto-Quote Portal Orders (Forced ON)</option>
-                <option value="disabled">❌ Require Manual Shop Review (Forced OFF)</option>
-              </select>
-              <p className="text-[11px] text-neutral-500 font-medium italic">
-                Determines if quote requests submitted by this customer skip manual review and present instant prices.
-              </p>
-            </div>
-
-            {/* 2. Custom Price Ladder Overrides */}
-            <div className="space-y-2 bg-neutral-50/70 p-4 rounded-2xl border border-neutral-200 flex flex-col justify-between">
-              <div>
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-brand-primary uppercase tracking-wider flex items-center gap-1.5">
-                    <Zap size={14} className="text-brand-secondary" />
-                    <span>Custom Price Ladder & Margin Floor</span>
-                  </label>
-
-                  <button
-                    type="button"
-                    onClick={() => setCustomPricing({ ...customPricing, enabled: !customPricing.enabled })}
-                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                      customPricing.enabled ? 'bg-emerald-500' : 'bg-neutral-300'
-                    }`}
-                  >
-                    <span
-                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
-                        customPricing.enabled ? 'translate-x-5' : 'translate-x-0'
-                      }`}
-                    />
-                  </button>
-                </div>
-                <p className="text-[11px] text-neutral-500 font-medium italic mt-1">
-                  {customPricing.enabled 
-                    ? 'Custom pricing rules are active for this customer.' 
-                    : 'Toggle ON to set custom tier pricing anchors or margin floors different from shop defaults.'}
-                </p>
-              </div>
-
-              {customPricing.enabled && (
-                <div className="grid grid-cols-3 gap-2 pt-2 border-t border-neutral-200 mt-2">
-                  <div>
-                    <span className="text-[9px] font-bold text-neutral-400 uppercase block">1-24 Tier Anchor</span>
-                    <div className="relative mt-1">
-                      <DollarSign size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-neutral-400" />
-                      <input
-                        type="number"
-                        step="0.25"
-                        value={customPricing.ladder?.priceAtLowTier ?? 5.50}
-                        onChange={(e) => setCustomPricing({
-                          ...customPricing,
-                          ladder: { ...customPricing.ladder, priceAtLowTier: parseFloat(e.target.value) || 0 }
-                        })}
-                        className="w-full pl-5 pr-1 py-1 text-xs bg-white border border-neutral-300 rounded-lg font-bold text-brand-primary"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <span className="text-[9px] font-bold text-neutral-400 uppercase block">500+ Tier Anchor</span>
-                    <div className="relative mt-1">
-                      <DollarSign size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-neutral-400" />
-                      <input
-                        type="number"
-                        step="0.25"
-                        value={customPricing.ladder?.priceAtHighTier ?? 3.00}
-                        onChange={(e) => setCustomPricing({
-                          ...customPricing,
-                          ladder: { ...customPricing.ladder, priceAtHighTier: parseFloat(e.target.value) || 0 }
-                        })}
-                        className="w-full pl-5 pr-1 py-1 text-xs bg-white border border-neutral-300 rounded-lg font-bold text-brand-primary"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <span className="text-[9px] font-bold text-neutral-400 uppercase block">Margin Floor</span>
-                    <div className="relative mt-1">
-                      <input
-                        type="number"
-                        step="1"
-                        min="0"
-                        max="60"
-                        value={Math.round((customPricing.ladder?.marginFloor ?? 0.35) * 100)}
-                        onChange={(e) => setCustomPricing({
-                          ...customPricing,
-                          ladder: { ...customPricing.ladder, marginFloor: (parseInt(e.target.value) || 0) / 100 }
-                        })}
-                        className="w-full px-2 py-1 text-xs bg-white border border-neutral-300 rounded-lg font-bold text-brand-primary text-center"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Company Invoice Template & Defaults Card */}
-        <div className="bg-white rounded-card border border-brand-border shadow-xs p-6 space-y-5">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-brand-border/40 pb-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-blue-500/10 text-blue-600 rounded-xl shrink-0">
-                <FileText size={20} />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-brand-primary flex items-center gap-2">
-                  Company Invoice Template & Defaults
-                </h3>
-                <p className="text-xs text-brand-secondary mt-0.5">
-                  Configure custom invoice terms, branding headers, wire transfer info, and payment buttons for {liveCustomerData.company || editCompanyForm.name || 'this customer'}.
-                </p>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={handleSaveInvoiceSettings}
-              disabled={savingInvoiceSettings}
-              className="px-5 py-2.5 bg-brand-primary hover:bg-black text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-2 cursor-pointer disabled:opacity-50"
-            >
-              {savingInvoiceSettings ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
-              <span>Save Invoice Defaults</span>
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Header & Branding Defaults */}
-            <div className="space-y-4 bg-neutral-50/70 p-4 rounded-2xl border border-neutral-200">
-              <h4 className="text-xs font-bold text-brand-primary uppercase tracking-wider">Header & Branding</h4>
-              
-              <div>
-                <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
-                  Header Subtitle Tagline
-                </label>
-                <input
-                  type="text"
-                  value={invoiceForm.subtitle}
-                  onChange={(e) => setInvoiceForm({ ...invoiceForm, subtitle: e.target.value })}
-                  placeholder="e.g. For your Consideration"
-                  className="w-full bg-white border border-neutral-300 rounded-xl px-3.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
-                />
-              </div>
-
-              <div>
-                <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
-                  Category Tag (Vertical Bar)
-                </label>
-                <input
-                  type="text"
-                  value={invoiceForm.categoryTag}
-                  onChange={(e) => setInvoiceForm({ ...invoiceForm, categoryTag: e.target.value })}
-                  placeholder="e.g. VCG • ADHOC ORDERS"
-                  className="w-full bg-white border border-neutral-300 rounded-xl px-3.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
-                />
-              </div>
-
-              <div className="grid grid-cols-3 gap-2.5">
-                <div>
-                  <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
-                    Default Manager
-                  </label>
-                  <input
-                    type="text"
-                    value={(invoiceForm as any).accountManager || ''}
-                    onChange={(e) => setInvoiceForm({ ...invoiceForm, accountManager: e.target.value } as any)}
-                    placeholder="e.g. Sarah Jenkins"
-                    className="w-full bg-white border border-neutral-300 rounded-xl px-2.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
-                    Manager Email
-                  </label>
-                  <input
-                    type="email"
-                    value={(invoiceForm as any).accountManagerEmail || ''}
-                    onChange={(e) => setInvoiceForm({ ...invoiceForm, accountManagerEmail: e.target.value } as any)}
-                    placeholder="e.g. sarah@company.com"
-                    className="w-full bg-white border border-neutral-300 rounded-xl px-2.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
-                    Manager Phone
-                  </label>
-                  <input
-                    type="text"
-                    value={(invoiceForm as any).accountManagerPhone || ''}
-                    onChange={(e) => setInvoiceForm({ ...invoiceForm, accountManagerPhone: e.target.value } as any)}
-                    placeholder="e.g. 555-0192"
-                    className="w-full bg-white border border-neutral-300 rounded-xl px-2.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
-                  Default Additional Billing / CC Emails
-                </label>
-                <input
-                  type="text"
-                  value={(invoiceForm as any).additionalEmails || ''}
-                  onChange={(e) => setInvoiceForm({ ...invoiceForm, additionalEmails: e.target.value } as any)}
-                  placeholder="e.g. ap@mcevoyranch.com, accounting@mcevoyranch.com"
-                  className="w-full bg-white border border-neutral-300 rounded-xl px-3.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
-                />
-                <p className="text-[10px] text-brand-secondary mt-1">
-                  Separate multiple emails with commas. All additional emails will populate by default on invoices for this customer.
-                </p>
-              </div>
-
-              <div>
-                <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
-                  Footer Tagline
-                </label>
-                <input
-                  type="text"
-                  value={invoiceForm.footerTagline}
-                  onChange={(e) => setInvoiceForm({ ...invoiceForm, footerTagline: e.target.value })}
-                  placeholder="e.g. YOUR TRUST IS OUR HIGHEST PRIORITY"
-                  className="w-full bg-white border border-neutral-300 rounded-xl px-3.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
-                />
-              </div>
-            </div>
-
-            {/* Terms & Statements */}
-            <div className="space-y-4 bg-neutral-50/70 p-4 rounded-2xl border border-neutral-200">
-              <h4 className="text-xs font-bold text-brand-primary uppercase tracking-wider">Statements & Terms</h4>
-
-              <div>
-                <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
-                  Statement of Work
-                </label>
-                <textarea
-                  rows={2}
-                  value={invoiceForm.statementOfWork}
-                  onChange={(e) => setInvoiceForm({ ...invoiceForm, statementOfWork: e.target.value })}
-                  placeholder="Scope of work statement..."
-                  className="w-full bg-white border border-neutral-300 rounded-xl px-3.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary resize-none"
-                />
-              </div>
-
-              <div>
-                <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
-                  Fee Schedule / Payment Terms
-                </label>
-                <textarea
-                  rows={2}
-                  value={invoiceForm.feeSchedule}
-                  onChange={(e) => setInvoiceForm({ ...invoiceForm, feeSchedule: e.target.value })}
-                  placeholder="Payment due upon receipt..."
-                  className="w-full bg-white border border-neutral-300 rounded-xl px-3.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary resize-none"
-                />
-              </div>
-
-              <div>
-                <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
-                  Confidentiality Notice
-                </label>
-                <textarea
-                  rows={2}
-                  value={invoiceForm.confidentiality}
-                  onChange={(e) => setInvoiceForm({ ...invoiceForm, confidentiality: e.target.value })}
-                  placeholder="Pricing and terms contained within are confidential..."
-                  className="w-full bg-white border border-neutral-300 rounded-xl px-3.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary resize-none"
-                />
-              </div>
-            </div>
-
-            {/* Bank Wire & ACH Info */}
-            <div className="space-y-4 bg-neutral-50/70 p-4 rounded-2xl border border-neutral-200">
-              <h4 className="text-xs font-bold text-brand-primary uppercase tracking-wider">Bank Wire & ACH Transfer Info</h4>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
-                    Bank Name
-                  </label>
-                  <input
-                    type="text"
-                    value={invoiceForm.wireBankName}
-                    onChange={(e) => setInvoiceForm({ ...invoiceForm, wireBankName: e.target.value })}
-                    placeholder="e.g. Pinnacle Bank"
-                    className="w-full bg-white border border-neutral-300 rounded-xl px-3 py-1.5 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
-                    Account Name
-                  </label>
-                  <input
-                    type="text"
-                    value={invoiceForm.wireAccountName}
-                    onChange={(e) => setInvoiceForm({ ...invoiceForm, wireAccountName: e.target.value })}
-                    placeholder="e.g. Catalyst"
-                    className="w-full bg-white border border-neutral-300 rounded-xl px-3 py-1.5 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
-                  Bank Address
-                </label>
-                <textarea
-                  rows={2}
-                  value={invoiceForm.wireBankAddress}
-                  onChange={(e) => setInvoiceForm({ ...invoiceForm, wireBankAddress: e.target.value })}
-                  placeholder="2300 West End Avenue, Nashville, TN 37203"
-                  className="w-full bg-white border border-neutral-300 rounded-xl px-3 py-1.5 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary resize-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-3 gap-2">
-                <div>
-                  <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
-                    Routing #
-                  </label>
-                  <input
-                    type="text"
-                    value={invoiceForm.wireRoutingNumber}
-                    onChange={(e) => setInvoiceForm({ ...invoiceForm, wireRoutingNumber: e.target.value })}
-                    className="w-full bg-white border border-neutral-300 rounded-xl px-2.5 py-1.5 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
-                    SWIFT Code
-                  </label>
-                  <input
-                    type="text"
-                    value={invoiceForm.wireSwiftCode}
-                    onChange={(e) => setInvoiceForm({ ...invoiceForm, wireSwiftCode: e.target.value })}
-                    className="w-full bg-white border border-neutral-300 rounded-xl px-2.5 py-1.5 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
-                    Account #
-                  </label>
-                  <input
-                    type="text"
-                    value={invoiceForm.wireAccountNumber}
-                    onChange={(e) => setInvoiceForm({ ...invoiceForm, wireAccountNumber: e.target.value })}
-                    className="w-full bg-white border border-neutral-300 rounded-xl px-2.5 py-1.5 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Credit Card Payment Settings */}
-            <div className="space-y-4 bg-neutral-50/70 p-4 rounded-2xl border border-neutral-200">
-              <div className="flex items-center justify-between">
-                <h4 className="text-xs font-bold text-brand-primary uppercase tracking-wider">Credit Card Payment Button</h4>
-                <button
-                  type="button"
-                  onClick={() => setInvoiceForm({ ...invoiceForm, showPayButton: !invoiceForm.showPayButton })}
-                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                    invoiceForm.showPayButton ? 'bg-emerald-500' : 'bg-neutral-300'
-                  }`}
-                >
-                  <span
-                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
-                      invoiceForm.showPayButton ? 'translate-x-4' : 'translate-x-0'
-                    }`}
-                  />
-                </button>
-              </div>
-
-              {invoiceForm.showPayButton && (
-                <>
-                  <div>
-                    <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
-                      Pay Button Label
-                    </label>
-                    <input
-                      type="text"
-                      value={invoiceForm.payButtonText}
-                      onChange={(e) => setInvoiceForm({ ...invoiceForm, payButtonText: e.target.value })}
-                      placeholder="e.g. CLICK TO PAY BY CREDIT CARD +3.5%"
-                      className="w-full bg-white border border-neutral-300 rounded-xl px-3.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
-                      Direct Payment Link / Stripe URL
-                    </label>
-                    <input
-                      type="text"
-                      value={invoiceForm.payButtonUrl}
-                      onChange={(e) => setInvoiceForm({ ...invoiceForm, payButtonUrl: e.target.value })}
-                      placeholder="Leave blank for native Stripe payment modal or enter custom link"
-                      className="w-full bg-white border border-neutral-300 rounded-xl px-3.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
-                    />
-                    <p className="text-[10px] text-brand-secondary mt-1">
-                      If left empty or default, clicking the invoice payment button automatically launches the app's native Stripe credit card modal!
-                    </p>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
 
         {/* Active Catalogs */}
         {isLoadingCustomerDecks ? (
@@ -2584,7 +2068,7 @@ export function CustomerDetail() {
       {/* Edit Company Dialog */}
       {isEditDialogOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-6 overflow-y-auto">
-          <div className="bg-brand-bg max-w-2xl w-full rounded-2xl overflow-hidden shadow-2xl flex flex-col border border-brand-border my-auto">
+          <div className="bg-brand-bg max-w-4xl w-full rounded-2xl overflow-hidden shadow-2xl flex flex-col border border-brand-border my-auto">
             <div className="p-6 border-b border-brand-border flex justify-between items-center bg-white">
               <h3 className="font-serif text-2xl text-brand-primary">Edit Company</h3>
               <button onClick={() => setIsEditDialogOpen(false)} className="text-brand-secondary hover:text-brand-primary transition-colors bg-brand-bg border border-brand-border rounded-md p-1">
@@ -2592,7 +2076,7 @@ export function CustomerDetail() {
               </button>
             </div>
             
-            <div className="p-6 space-y-6 overflow-y-auto max-h-[70vh]">
+            <div className="p-6 space-y-6 overflow-y-auto max-h-[75vh]">
                {/* Contact Information Form */}
                <div className="bg-white p-6 rounded-card border border-brand-border shadow-[0_2px_10px_-4px_rgba(0,0,0,0.02)] grid grid-cols-2 gap-4">
                  <div className="col-span-2">
@@ -2769,6 +2253,444 @@ export function CustomerDetail() {
                       )}
                     </div>
                   </div>
+               </div>
+
+               {/* Customer Custom Auto-Quoting & Pricing Overrides Card */}
+               <div className="bg-white p-6 rounded-card border border-brand-border shadow-[0_2px_10px_-4px_rgba(0,0,0,0.02)] space-y-5">
+                 <div className="flex items-center justify-between border-b border-brand-border/40 pb-4">
+                   <div className="flex items-center gap-3">
+                     <div className="p-2.5 bg-amber-500/10 text-amber-600 rounded-xl shrink-0">
+                       <Zap size={20} />
+                     </div>
+                     <div>
+                       <h3 className="text-base font-bold text-brand-primary flex items-center gap-2">
+                         Customer Auto-Quoting & Pricing Overrides
+                         <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-extrabold uppercase tracking-wider ${
+                           customPricing.enabled 
+                             ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' 
+                             : 'bg-neutral-100 text-neutral-600 border border-neutral-250'
+                         }`}>
+                           {customPricing.enabled ? 'Custom Pricing Active' : 'Inheriting Shop Defaults'}
+                         </span>
+                       </h3>
+                       <p className="text-xs text-brand-secondary mt-0.5">
+                         Override global shop auto-quoting behavior and custom price ladder anchors specifically for {liveCustomerData.company || editCompanyForm.name || 'this customer'}.
+                       </p>
+                     </div>
+                   </div>
+                 </div>
+
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                   {/* 1. Auto-Quoting Behavior */}
+                   <div className="space-y-2 bg-neutral-50/70 p-4 rounded-2xl border border-neutral-200">
+                     <label className="text-xs font-bold text-brand-primary uppercase tracking-wider flex items-center gap-1.5">
+                       <Zap size={14} className="text-amber-500" />
+                       <span>Portal Auto-Quoting Behavior</span>
+                     </label>
+                     <select
+                       value={customPricing.autoQuotingEnabled}
+                       onChange={(e) => setCustomPricing({ ...customPricing, autoQuotingEnabled: e.target.value as any })}
+                       className="w-full bg-white border border-neutral-300 rounded-xl px-3.5 py-2 text-xs font-bold text-brand-primary focus:outline-none focus:border-brand-primary transition-colors cursor-pointer"
+                     >
+                       <option value="inherit">⚡ Shop Default (Inherit Global Settings)</option>
+                       <option value="enabled">✅ Always Auto-Quote Portal Orders (Forced ON)</option>
+                       <option value="disabled">❌ Require Manual Shop Review (Forced OFF)</option>
+                     </select>
+                     <p className="text-[11px] text-neutral-500 font-medium italic">
+                       Determines if quote requests submitted by this customer skip manual review and present instant prices.
+                     </p>
+                   </div>
+
+                   {/* 2. Custom Price Ladder Overrides */}
+                   <div className="space-y-2 bg-neutral-50/70 p-4 rounded-2xl border border-neutral-200 flex flex-col justify-between">
+                     <div>
+                       <div className="flex items-center justify-between">
+                         <label className="text-xs font-bold text-brand-primary uppercase tracking-wider flex items-center gap-1.5">
+                           <Zap size={14} className="text-brand-secondary" />
+                           <span>Custom Price Ladder & Margin Floor</span>
+                         </label>
+
+                         <button
+                           type="button"
+                           onClick={() => setCustomPricing({ ...customPricing, enabled: !customPricing.enabled })}
+                           className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                             customPricing.enabled ? 'bg-emerald-500' : 'bg-neutral-300'
+                           }`}
+                         >
+                           <span
+                             className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                               customPricing.enabled ? 'translate-x-5' : 'translate-x-0'
+                             }`}
+                           />
+                         </button>
+                       </div>
+                       <p className="text-[11px] text-neutral-500 font-medium italic mt-1">
+                         {customPricing.enabled 
+                           ? 'Custom pricing rules are active for this customer.' 
+                           : 'Toggle ON to set custom tier pricing anchors or margin floors different from shop defaults.'}
+                       </p>
+                     </div>
+
+                     {customPricing.enabled && (
+                       <div className="grid grid-cols-3 gap-2 pt-2 border-t border-neutral-200 mt-2">
+                         <div>
+                           <span className="text-[9px] font-bold text-neutral-400 uppercase block">1-24 Tier Anchor</span>
+                           <div className="relative mt-1">
+                             <DollarSign size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-neutral-400" />
+                             <input
+                               type="number"
+                               step="0.25"
+                               value={customPricing.ladder?.priceAtLowTier ?? 5.50}
+                               onChange={(e) => setCustomPricing({
+                                 ...customPricing,
+                                 ladder: { ...customPricing.ladder, priceAtLowTier: parseFloat(e.target.value) || 0 }
+                               })}
+                               className="w-full pl-5 pr-1 py-1 text-xs bg-white border border-neutral-300 rounded-lg font-bold text-brand-primary"
+                             />
+                           </div>
+                         </div>
+
+                         <div>
+                           <span className="text-[9px] font-bold text-neutral-400 uppercase block">500+ Tier Anchor</span>
+                           <div className="relative mt-1">
+                             <DollarSign size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-neutral-400" />
+                             <input
+                               type="number"
+                               step="0.25"
+                               value={customPricing.ladder?.priceAtHighTier ?? 3.00}
+                               onChange={(e) => setCustomPricing({
+                                 ...customPricing,
+                                 ladder: { ...customPricing.ladder, priceAtHighTier: parseFloat(e.target.value) || 0 }
+                               })}
+                               className="w-full pl-5 pr-1 py-1 text-xs bg-white border border-neutral-300 rounded-lg font-bold text-brand-primary"
+                             />
+                           </div>
+                         </div>
+
+                         <div>
+                           <span className="text-[9px] font-bold text-neutral-400 uppercase block">Margin Floor</span>
+                           <div className="relative mt-1">
+                             <input
+                               type="number"
+                               step="1"
+                               min="0"
+                               max="60"
+                               value={Math.round((customPricing.ladder?.marginFloor ?? 0.35) * 100)}
+                               onChange={(e) => setCustomPricing({
+                                 ...customPricing,
+                                 ladder: { ...customPricing.ladder, marginFloor: (parseInt(e.target.value) || 0) / 100 }
+                               })}
+                               className="w-full px-2 py-1 text-xs bg-white border border-neutral-300 rounded-lg font-bold text-brand-primary text-center"
+                             />
+                           </div>
+                         </div>
+                       </div>
+                     )}
+                   </div>
+                 </div>
+               </div>
+
+               {/* Company Invoice Template & Defaults Card */}
+               <div className="bg-white p-6 rounded-card border border-brand-border shadow-[0_2px_10px_-4px_rgba(0,0,0,0.02)] space-y-5">
+                 <div className="flex items-center justify-between border-b border-brand-border/40 pb-4">
+                   <div className="flex items-center gap-3">
+                     <div className="p-2.5 bg-blue-500/10 text-blue-600 rounded-xl shrink-0">
+                       <FileText size={20} />
+                     </div>
+                     <div>
+                       <h3 className="text-base font-bold text-brand-primary flex items-center gap-2">
+                         Company Invoice Template & Defaults
+                       </h3>
+                       <p className="text-xs text-brand-secondary mt-0.5">
+                         Configure custom invoice terms, branding headers, wire transfer info, and payment buttons for {liveCustomerData.company || editCompanyForm.name || 'this customer'}.
+                       </p>
+                     </div>
+                   </div>
+                 </div>
+
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                   {/* Header & Branding Defaults */}
+                   <div className="space-y-4 bg-neutral-50/70 p-4 rounded-2xl border border-neutral-200">
+                     <h4 className="text-xs font-bold text-brand-primary uppercase tracking-wider">Header & Branding</h4>
+                     
+                     <div>
+                       <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                         Header Subtitle Tagline
+                       </label>
+                       <input
+                         type="text"
+                         value={invoiceForm.subtitle}
+                         onChange={(e) => setInvoiceForm({ ...invoiceForm, subtitle: e.target.value })}
+                         placeholder="e.g. For your Consideration"
+                         className="w-full bg-white border border-neutral-300 rounded-xl px-3.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
+                       />
+                     </div>
+
+                     <div>
+                       <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                         Category Tag (Vertical Bar)
+                       </label>
+                       <input
+                         type="text"
+                         value={invoiceForm.categoryTag}
+                         onChange={(e) => setInvoiceForm({ ...invoiceForm, categoryTag: e.target.value })}
+                         placeholder="e.g. VCG • ADHOC ORDERS"
+                         className="w-full bg-white border border-neutral-300 rounded-xl px-3.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
+                       />
+                     </div>
+
+                     <div className="grid grid-cols-3 gap-2.5">
+                       <div>
+                         <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                           Default Manager
+                         </label>
+                         <input
+                           type="text"
+                           value={(invoiceForm as any).accountManager || ''}
+                           onChange={(e) => setInvoiceForm({ ...invoiceForm, accountManager: e.target.value } as any)}
+                           placeholder="e.g. Sarah Jenkins"
+                           className="w-full bg-white border border-neutral-300 rounded-xl px-2.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
+                         />
+                       </div>
+
+                       <div>
+                         <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                           Manager Email
+                         </label>
+                         <input
+                           type="email"
+                           value={(invoiceForm as any).accountManagerEmail || ''}
+                           onChange={(e) => setInvoiceForm({ ...invoiceForm, accountManagerEmail: e.target.value } as any)}
+                           placeholder="e.g. sarah@company.com"
+                           className="w-full bg-white border border-neutral-300 rounded-xl px-2.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
+                         />
+                       </div>
+
+                       <div>
+                         <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                           Manager Phone
+                         </label>
+                         <input
+                           type="text"
+                           value={(invoiceForm as any).accountManagerPhone || ''}
+                           onChange={(e) => setInvoiceForm({ ...invoiceForm, accountManagerPhone: e.target.value } as any)}
+                           placeholder="e.g. 555-0192"
+                           className="w-full bg-white border border-neutral-300 rounded-xl px-2.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
+                         />
+                       </div>
+                     </div>
+
+                     <div>
+                       <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                         Default Additional Billing / CC Emails
+                       </label>
+                       <input
+                         type="text"
+                         value={(invoiceForm as any).additionalEmails || ''}
+                         onChange={(e) => setInvoiceForm({ ...invoiceForm, additionalEmails: e.target.value } as any)}
+                         placeholder="e.g. ap@mcevoyranch.com, accounting@mcevoyranch.com"
+                         className="w-full bg-white border border-neutral-300 rounded-xl px-3.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
+                       />
+                       <p className="text-[10px] text-brand-secondary mt-1">
+                         Separate multiple emails with commas. All additional emails will populate by default on invoices for this customer.
+                       </p>
+                     </div>
+
+                     <div>
+                       <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                         Footer Tagline
+                       </label>
+                       <input
+                         type="text"
+                         value={invoiceForm.footerTagline}
+                         onChange={(e) => setInvoiceForm({ ...invoiceForm, footerTagline: e.target.value })}
+                         placeholder="e.g. YOUR TRUST IS OUR HIGHEST PRIORITY"
+                         className="w-full bg-white border border-neutral-300 rounded-xl px-3.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
+                       />
+                     </div>
+                   </div>
+
+                   {/* Terms & Statements */}
+                   <div className="space-y-4 bg-neutral-50/70 p-4 rounded-2xl border border-neutral-200">
+                     <h4 className="text-xs font-bold text-brand-primary uppercase tracking-wider">Statements & Terms</h4>
+
+                     <div>
+                       <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                         Statement of Work
+                       </label>
+                       <textarea
+                         rows={2}
+                         value={invoiceForm.statementOfWork}
+                         onChange={(e) => setInvoiceForm({ ...invoiceForm, statementOfWork: e.target.value })}
+                         placeholder="Scope of work statement..."
+                         className="w-full bg-white border border-neutral-300 rounded-xl px-3.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary resize-none"
+                       />
+                     </div>
+
+                     <div>
+                       <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                         Fee Schedule / Payment Terms
+                       </label>
+                       <textarea
+                         rows={2}
+                         value={invoiceForm.feeSchedule}
+                         onChange={(e) => setInvoiceForm({ ...invoiceForm, feeSchedule: e.target.value })}
+                         placeholder="Payment due upon receipt..."
+                         className="w-full bg-white border border-neutral-300 rounded-xl px-3.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary resize-none"
+                       />
+                     </div>
+
+                     <div>
+                       <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                         Confidentiality Notice
+                       </label>
+                       <textarea
+                         rows={2}
+                         value={invoiceForm.confidentiality}
+                         onChange={(e) => setInvoiceForm({ ...invoiceForm, confidentiality: e.target.value })}
+                         placeholder="Pricing and terms contained within are confidential..."
+                         className="w-full bg-white border border-neutral-300 rounded-xl px-3.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary resize-none"
+                       />
+                     </div>
+                   </div>
+
+                   {/* Bank Wire & ACH Info */}
+                   <div className="space-y-4 bg-neutral-50/70 p-4 rounded-2xl border border-neutral-200">
+                     <h4 className="text-xs font-bold text-brand-primary uppercase tracking-wider">Bank Wire & ACH Transfer Info</h4>
+
+                     <div className="grid grid-cols-2 gap-3">
+                       <div>
+                         <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                           Bank Name
+                         </label>
+                         <input
+                           type="text"
+                           value={invoiceForm.wireBankName}
+                           onChange={(e) => setInvoiceForm({ ...invoiceForm, wireBankName: e.target.value })}
+                           placeholder="e.g. Pinnacle Bank"
+                           className="w-full bg-white border border-neutral-300 rounded-xl px-3 py-1.5 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
+                         />
+                       </div>
+
+                       <div>
+                         <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                           Account Name
+                         </label>
+                         <input
+                           type="text"
+                           value={invoiceForm.wireAccountName}
+                           onChange={(e) => setInvoiceForm({ ...invoiceForm, wireAccountName: e.target.value })}
+                           placeholder="e.g. Catalyst"
+                           className="w-full bg-white border border-neutral-300 rounded-xl px-3 py-1.5 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
+                         />
+                       </div>
+                     </div>
+
+                     <div>
+                       <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                         Bank Address
+                       </label>
+                       <textarea
+                         rows={2}
+                         value={invoiceForm.wireBankAddress}
+                         onChange={(e) => setInvoiceForm({ ...invoiceForm, wireBankAddress: e.target.value })}
+                         placeholder="2300 West End Avenue, Nashville, TN 37203"
+                         className="w-full bg-white border border-neutral-300 rounded-xl px-3 py-1.5 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary resize-none"
+                       />
+                     </div>
+
+                     <div className="grid grid-cols-3 gap-2">
+                       <div>
+                         <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                           Routing #
+                         </label>
+                         <input
+                           type="text"
+                           value={invoiceForm.wireRoutingNumber}
+                           onChange={(e) => setInvoiceForm({ ...invoiceForm, wireRoutingNumber: e.target.value })}
+                           className="w-full bg-white border border-neutral-300 rounded-xl px-2.5 py-1.5 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
+                         />
+                       </div>
+
+                       <div>
+                         <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                           SWIFT Code
+                         </label>
+                         <input
+                           type="text"
+                           value={invoiceForm.wireSwiftCode}
+                           onChange={(e) => setInvoiceForm({ ...invoiceForm, wireSwiftCode: e.target.value })}
+                           className="w-full bg-white border border-neutral-300 rounded-xl px-2.5 py-1.5 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
+                         />
+                       </div>
+
+                       <div>
+                         <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                           Account #
+                         </label>
+                         <input
+                           type="text"
+                           value={invoiceForm.wireAccountNumber}
+                           onChange={(e) => setInvoiceForm({ ...invoiceForm, wireAccountNumber: e.target.value })}
+                           className="w-full bg-white border border-neutral-300 rounded-xl px-2.5 py-1.5 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
+                         />
+                       </div>
+                     </div>
+                   </div>
+
+                   {/* Credit Card Payment Settings */}
+                   <div className="space-y-4 bg-neutral-50/70 p-4 rounded-2xl border border-neutral-200">
+                     <div className="flex items-center justify-between">
+                       <h4 className="text-xs font-bold text-brand-primary uppercase tracking-wider">Credit Card Payment Button</h4>
+                       <button
+                         type="button"
+                         onClick={() => setInvoiceForm({ ...invoiceForm, showPayButton: !invoiceForm.showPayButton })}
+                         className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                           invoiceForm.showPayButton ? 'bg-emerald-500' : 'bg-neutral-300'
+                         }`}
+                       >
+                         <span
+                           className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                             invoiceForm.showPayButton ? 'translate-x-4' : 'translate-x-0'
+                           }`}
+                         />
+                       </button>
+                     </div>
+
+                     {invoiceForm.showPayButton && (
+                       <>
+                         <div>
+                           <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                             Pay Button Label
+                           </label>
+                           <input
+                             type="text"
+                             value={invoiceForm.payButtonText}
+                             onChange={(e) => setInvoiceForm({ ...invoiceForm, payButtonText: e.target.value })}
+                             placeholder="e.g. CLICK TO PAY BY CREDIT CARD +3.5%"
+                             className="w-full bg-white border border-neutral-300 rounded-xl px-3.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
+                           />
+                         </div>
+
+                         <div>
+                           <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                             Direct Payment Link / Stripe URL
+                           </label>
+                           <input
+                             type="text"
+                             value={invoiceForm.payButtonUrl}
+                             onChange={(e) => setInvoiceForm({ ...invoiceForm, payButtonUrl: e.target.value })}
+                             placeholder="Leave blank for native Stripe payment modal or enter custom link"
+                             className="w-full bg-white border border-neutral-300 rounded-xl px-3.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
+                           />
+                           <p className="text-[10px] text-brand-secondary mt-1">
+                             If left empty or default, clicking the invoice payment button automatically launches the app's native Stripe credit card modal!
+                           </p>
+                         </div>
+                       </>
+                     )}
+                   </div>
+                 </div>
                </div>
 
                {/* WOVN Catalog Link */}
