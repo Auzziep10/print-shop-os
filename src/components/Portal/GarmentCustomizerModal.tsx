@@ -2335,47 +2335,7 @@ export function GarmentCustomizerModal({
       <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
         
         {/* Left Panel: Preview Workspace */}
-        <div className="flex-1 bg-neutral-50 flex flex-col items-center justify-center p-4 md:p-6 relative overflow-y-auto border-b md:border-b-0 md:border-r border-neutral-100 gap-4 md:gap-6 animate-in fade-in duration-300">
-          
-          {/* Segmented View Selector + Mirror Toggle */}
-          <div className="flex items-center gap-4 shrink-0 flex-wrap justify-center">
-            <div className="flex bg-neutral-200/50 p-1 rounded-2xl gap-1 shadow-inner">
-              {[
-                { id: 'front', label: 'Front View' },
-                { id: 'back', label: 'Back View' },
-                { id: 'sleeve', label: 'Sleeve' },
-                { id: 'tag', label: 'Size Tag' }
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setActiveTab(tab.id as any)}
-                  className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    activeTab === tab.id
-                      ? 'bg-white text-black shadow-sm'
-                      : 'text-neutral-500 hover:text-black'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-
-            {activeTab === 'sleeve' && (
-              <button
-                type="button"
-                onClick={() => setIsSleeveMirrored(prev => !prev)}
-                className={`px-4 py-2.5 rounded-2xl border text-xs font-bold flex items-center gap-2 transition-all cursor-pointer shadow-sm ${
-                  isSleeveMirrored 
-                    ? 'bg-black text-white border-black hover:bg-neutral-800' 
-                    : 'bg-white text-neutral-700 border-neutral-200 hover:bg-neutral-50'
-                }`}
-              >
-                <RefreshCw size={13} className={isSleeveMirrored ? "animate-spin" : ""} style={{ animationIterationCount: 1, animationDuration: '0.4s' }} />
-                <span>Flip</span>
-              </button>
-            )}
-          </div>
+        <div className="flex-1 bg-neutral-50 flex flex-col items-center justify-center p-2 md:p-3 relative overflow-y-auto border-b md:border-b-0 md:border-r border-neutral-100 gap-2 animate-in fade-in duration-300">
 
           {/* Garment Preview Container */}
           <div className="flex-1 min-h-0 w-full flex flex-col items-center justify-center gap-2 p-0">
@@ -2387,10 +2347,50 @@ export function GarmentCustomizerModal({
                 // 4:5 artboard is as tall as the available space allows.
                 // Percent-based placements/pricing are unaffected by scale.
                 width: activeTab === 'tag'
-                  ? 'min(100%, calc(100dvh - 185px), 920px)'
-                  : 'min(100%, calc((100dvh - 185px) * 0.8), 920px)'
+                  ? 'min(100%, calc(100dvh - 130px), 1000px)'
+                  : 'min(100%, calc((100dvh - 130px) * 0.8), 1000px)'
               }}
             >
+              {/* View selector overlay — floats on the artboard so the mockup
+                  can use the full window height */}
+              <div className="absolute top-3 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 flex-wrap justify-center pointer-events-none">
+                <div className="flex bg-white/85 backdrop-blur-sm border border-neutral-200/70 p-1 rounded-2xl gap-1 shadow-md pointer-events-auto">
+                  {[
+                    { id: 'front', label: 'Front View' },
+                    { id: 'back', label: 'Back View' },
+                    { id: 'sleeve', label: 'Sleeve' },
+                    { id: 'tag', label: 'Size Tag' }
+                  ].map((tab) => (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setActiveTab(tab.id as any)}
+                      className={`px-3.5 py-2 rounded-xl text-[11px] font-bold transition-all cursor-pointer ${
+                        activeTab === tab.id
+                          ? 'bg-neutral-900 text-white shadow-sm'
+                          : 'text-neutral-500 hover:text-black'
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+
+                {activeTab === 'sleeve' && (
+                  <button
+                    type="button"
+                    onClick={() => setIsSleeveMirrored(prev => !prev)}
+                    className={`px-3.5 py-2 rounded-2xl border text-[11px] font-bold flex items-center gap-2 transition-all cursor-pointer shadow-md pointer-events-auto ${
+                      isSleeveMirrored
+                        ? 'bg-black text-white border-black hover:bg-neutral-800'
+                        : 'bg-white/85 backdrop-blur-sm text-neutral-700 border-neutral-200/70 hover:bg-white'
+                    }`}
+                  >
+                    <RefreshCw size={13} className={isSleeveMirrored ? "animate-spin" : ""} style={{ animationIterationCount: 1, animationDuration: '0.4s' }} />
+                    <span>Flip</span>
+                  </button>
+                )}
+              </div>
               {activeTab !== 'tag' && (
                 <>
                   {/* Main Garment Image */}
@@ -2703,78 +2703,81 @@ export function GarmentCustomizerModal({
                   })()}
                 </div>
               )}
-            </div>
-
-            {/* Placement color key */}
-            {publicGuidesEnabled && activeTab !== 'tag' && showPlacementGuides && currentPlacementGuides && currentPlacementGuides.length > 0 && (() => {
-              const detectedTier = (activeTab === 'front' || activeTab === 'back') ? detectSidePrintSize(activeTab) : null;
-              return (
-                <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 w-full max-w-[920px] shrink-0 select-none">
-                  {currentPlacementGuides.map(g => {
-                    const isActive = detectedTier?.toLowerCase() === g.key;
-                    return (
-                      <span
-                        key={g.key}
-                        className={`flex items-center gap-1.5 text-[9px] font-semibold uppercase tracking-wider transition-colors ${
-                          isActive ? 'text-neutral-800' : 'text-neutral-400'
-                        }`}
-                      >
-                        <span
-                          className="inline-block h-2.5 w-2.5 rounded-[3px]"
-                          style={{ border: `1.5px dashed ${g.borderColor}` }}
-                        />
-                        {g.legend}
-                        {isActive && <span className="font-bold text-emerald-600">· your logo</span>}
-                      </span>
-                    );
-                  })}
-                </div>
-              );
-            })()}
-
-            {/* Bottom Bar: Badges & Controls */}
-            <div className="flex flex-wrap items-center justify-between gap-3 w-full max-w-[920px] px-2 shrink-0">
-              <div className="flex items-center gap-2">
-                <span className="text-[9px] font-bold uppercase tracking-widest text-neutral-400 bg-neutral-50 border border-neutral-200 px-2 py-0.5 rounded shadow-sm">
-                  Active Placement: {activeTab === 'sleeve' ? (isSleeveMirrored ? 'SLEEVE (MIRRORED)' : 'SLEEVE') : activeTab.toUpperCase()}
-                </span>
-                {activeTab !== 'tag' && (() => {
-                  // Sleeves are always small prints (no placement boxes needed)
-                  const detected = activeTab === 'sleeve'
-                    ? 'Small'
-                    : detectSidePrintSize(activeTab);
+              {/* Status overlays — legend + chips float over the artboard so
+                  the mockup keeps the full window height */}
+              <div className="absolute inset-x-0 bottom-0 z-30 flex flex-col items-center gap-1.5 px-3 pb-2.5 pointer-events-none select-none">
+                {/* Placement color key */}
+                {publicGuidesEnabled && activeTab !== 'tag' && showPlacementGuides && currentPlacementGuides && currentPlacementGuides.length > 0 && (() => {
+                  const detectedTier = (activeTab === 'front' || activeTab === 'back') ? detectSidePrintSize(activeTab) : null;
                   return (
-                    <span className={`text-[9px] font-bold uppercase tracking-widest border px-2 py-0.5 rounded shadow-sm transition-colors ${
-                      detected
-                        ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
-                        : 'text-neutral-400 bg-neutral-50 border-neutral-200'
-                    }`}>
-                      Size: {detected ?? 'Large'}
-                    </span>
+                    <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 bg-white/85 backdrop-blur-sm border border-neutral-200/70 rounded-full px-4 py-1 shadow-sm">
+                      {currentPlacementGuides.map(g => {
+                        const isActive = detectedTier?.toLowerCase() === g.key;
+                        return (
+                          <span
+                            key={g.key}
+                            className={`flex items-center gap-1.5 text-[9px] font-semibold uppercase tracking-wider transition-colors ${
+                              isActive ? 'text-neutral-800' : 'text-neutral-400'
+                            }`}
+                          >
+                            <span
+                              className="inline-block h-2.5 w-2.5 rounded-[3px]"
+                              style={{ border: `1.5px dashed ${g.borderColor}` }}
+                            />
+                            {g.legend}
+                            {isActive && <span className="font-bold text-emerald-600">· your logo</span>}
+                          </span>
+                        );
+                      })}
+                    </div>
                   );
                 })()}
-                {publicGuidesEnabled && currentPlacementGuides && currentPlacementGuides.length > 0 && activeTab !== 'tag' && (
-                  <button
-                    type="button"
-                    onClick={() => setShowPlacementGuides(prev => !prev)}
-                    className="text-[9px] font-extrabold uppercase tracking-wider text-neutral-700 hover:text-black bg-white border border-neutral-200 px-2.5 py-0.5 rounded-md shadow-sm flex items-center gap-1 transition-all cursor-pointer hover:bg-neutral-50"
-                    title="Toggle print placement area boundaries"
-                  >
-                    <Eye size={11} className={showPlacementGuides ? "text-emerald-600" : "text-neutral-400"} />
-                    <span>{showPlacementGuides ? "Placement Areas On" : "Show Placement Areas"}</span>
-                  </button>
-                )}
+
+                {/* Badges & controls */}
+                <div className="w-full flex flex-wrap items-end justify-between gap-2">
+                  <div className="flex items-center gap-2 flex-wrap pointer-events-auto">
+                    <span className="text-[9px] font-bold uppercase tracking-widest text-neutral-500 bg-white/85 backdrop-blur-sm border border-neutral-200/70 px-2 py-0.5 rounded shadow-sm">
+                      Active Placement: {activeTab === 'sleeve' ? (isSleeveMirrored ? 'SLEEVE (MIRRORED)' : 'SLEEVE') : activeTab.toUpperCase()}
+                    </span>
+                    {activeTab !== 'tag' && (() => {
+                      // Sleeves are always small prints (no placement boxes needed)
+                      const detected = activeTab === 'sleeve'
+                        ? 'Small'
+                        : detectSidePrintSize(activeTab);
+                      return (
+                        <span className={`text-[9px] font-bold uppercase tracking-widest border px-2 py-0.5 rounded shadow-sm transition-colors backdrop-blur-sm ${
+                          detected
+                            ? 'text-emerald-700 bg-emerald-50/90 border-emerald-200'
+                            : 'text-neutral-400 bg-white/85 border-neutral-200/70'
+                        }`}>
+                          Size: {detected ?? 'Large'}
+                        </span>
+                      );
+                    })()}
+                    {publicGuidesEnabled && currentPlacementGuides && currentPlacementGuides.length > 0 && activeTab !== 'tag' && (
+                      <button
+                        type="button"
+                        onClick={() => setShowPlacementGuides(prev => !prev)}
+                        className="text-[9px] font-extrabold uppercase tracking-wider text-neutral-700 hover:text-black bg-white/85 backdrop-blur-sm border border-neutral-200/70 px-2.5 py-0.5 rounded-md shadow-sm flex items-center gap-1 transition-all cursor-pointer hover:bg-white"
+                        title="Toggle print placement area boundaries"
+                      >
+                        <Eye size={11} className={showPlacementGuides ? "text-emerald-600" : "text-neutral-400"} />
+                        <span>{showPlacementGuides ? "Placement Areas On" : "Show Placement Areas"}</span>
+                      </button>
+                    )}
+                  </div>
+                  {activeTab === 'tag' && (
+                    <span className="text-[9px] font-bold uppercase tracking-widest text-amber-700 bg-amber-50/90 backdrop-blur-sm border border-amber-200 px-2 py-0.5 rounded shadow-sm animate-in slide-in-from-bottom-2 duration-200">
+                      Art Board Dimensions: 2.5" W x 2.5" H (300 DPI)
+                    </span>
+                  )}
+                  {activeTab !== 'tag' && (
+                    <span className="text-[9px] font-semibold text-neutral-500 leading-normal max-w-[240px] text-right bg-white/70 backdrop-blur-sm rounded px-1.5 py-0.5">
+                      * Standard print dimensions will be applied based off the image unless specified in Optional Width.
+                    </span>
+                  )}
+                </div>
               </div>
-              {activeTab === 'tag' && (
-                <span className="text-[9px] font-bold uppercase tracking-widest text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded shadow-sm animate-in slide-in-from-bottom-2 duration-200">
-                  Art Board Dimensions: 2.5" W x 2.5" H (300 DPI)
-                </span>
-              )}
-              {activeTab !== 'tag' && (
-                <span className="text-[9px] font-semibold text-neutral-450 leading-normal max-w-[280px] select-none">
-                  * Standard print dimensions will be applied based off the image unless specified in Optional Width.
-                </span>
-              )}
             </div>
           </div>
         </div>
