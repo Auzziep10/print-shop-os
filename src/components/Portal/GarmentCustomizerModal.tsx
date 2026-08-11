@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../../lib/firebase';
-import { X, Upload, Loader2, Check, FileText, Sparkles, RefreshCw, Type, Image as ImageIcon, Sliders, Trash2, Bold, Italic, Search, Shirt, Plus, Palette, AlertCircle, Eye } from 'lucide-react';
+import { X, Upload, Loader2, Check, FileText, Sparkles, RefreshCw, Type, Image as ImageIcon, Sliders, Trash2, Bold, Italic, Search, Shirt, Plus, Palette, AlertCircle, Eye, FlipHorizontal2, Hand, Tag } from 'lucide-react';
 import { generateRotatedGarment } from '../../lib/geminiService';
 import { getSwatchColor } from '../shared/GarmentBrowser';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
@@ -2338,7 +2338,47 @@ export function GarmentCustomizerModal({
         <div className="flex-1 bg-neutral-50 flex flex-col items-center justify-center p-2 md:p-3 relative overflow-y-auto border-b md:border-b-0 md:border-r border-neutral-100 gap-2 animate-in fade-in duration-300">
 
           {/* Garment Preview Container */}
-          <div className="flex-1 min-h-0 w-full flex flex-col items-center justify-center gap-2 p-0">
+          <div className="flex-1 min-h-0 w-full flex flex-row items-center justify-center gap-3 p-0">
+            {/* Vertical view rail — icons in the whitespace left of the artboard */}
+            <div className="flex flex-col gap-2 shrink-0 self-center">
+              {([
+                { id: 'front', label: 'Front View', short: 'Front', Icon: Shirt },
+                { id: 'back', label: 'Back View', short: 'Back', Icon: FlipHorizontal2 },
+                { id: 'sleeve', label: 'Sleeve', short: 'Sleeve', Icon: Hand },
+                { id: 'tag', label: 'Size Tag', short: 'Tag', Icon: Tag }
+              ] as const).map(v => (
+                <button
+                  key={v.id}
+                  type="button"
+                  onClick={() => setActiveTab(v.id as any)}
+                  title={v.label}
+                  className={`w-14 h-14 rounded-2xl border flex flex-col items-center justify-center gap-1 transition-all cursor-pointer shadow-sm ${
+                    activeTab === v.id
+                      ? 'bg-neutral-900 text-white border-neutral-900 shadow-md'
+                      : 'bg-white text-neutral-500 border-neutral-200 hover:text-black hover:border-neutral-400 hover:-translate-y-0.5'
+                  }`}
+                >
+                  <v.Icon size={18} strokeWidth={1.75} />
+                  <span className="text-[8px] font-bold uppercase tracking-wider leading-none">{v.short}</span>
+                </button>
+              ))}
+
+              {activeTab === 'sleeve' && (
+                <button
+                  type="button"
+                  onClick={() => setIsSleeveMirrored(prev => !prev)}
+                  title="Mirror to the other sleeve"
+                  className={`w-14 h-11 rounded-2xl border flex flex-col items-center justify-center gap-0.5 transition-all cursor-pointer shadow-sm animate-in fade-in duration-200 ${
+                    isSleeveMirrored
+                      ? 'bg-black text-white border-black'
+                      : 'bg-white text-neutral-500 border-neutral-200 hover:text-black hover:border-neutral-400'
+                  }`}
+                >
+                  <RefreshCw size={14} className={isSleeveMirrored ? "animate-spin" : ""} style={{ animationIterationCount: 1, animationDuration: '0.4s' }} />
+                  <span className="text-[8px] font-bold uppercase tracking-wider leading-none">Flip</span>
+                </button>
+              )}
+            </div>
             <div
               ref={previewRef}
               className={`relative w-full ${activeTab === 'tag' ? 'aspect-square' : 'aspect-[4/5]'} bg-white rounded-[2rem] border border-neutral-200/50 shadow-lg flex items-center justify-center overflow-hidden transition-all duration-300 hover:shadow-xl select-none`}
@@ -2351,46 +2391,6 @@ export function GarmentCustomizerModal({
                   : 'min(100%, calc((100dvh - 130px) * 0.8), 1000px)'
               }}
             >
-              {/* View selector overlay — floats on the artboard so the mockup
-                  can use the full window height */}
-              <div className="absolute top-3 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 flex-wrap justify-center pointer-events-none">
-                <div className="flex bg-white/85 backdrop-blur-sm border border-neutral-200/70 p-1 rounded-2xl gap-1 shadow-md pointer-events-auto">
-                  {[
-                    { id: 'front', label: 'Front View' },
-                    { id: 'back', label: 'Back View' },
-                    { id: 'sleeve', label: 'Sleeve' },
-                    { id: 'tag', label: 'Size Tag' }
-                  ].map((tab) => (
-                    <button
-                      key={tab.id}
-                      type="button"
-                      onClick={() => setActiveTab(tab.id as any)}
-                      className={`px-3.5 py-2 rounded-xl text-[11px] font-bold transition-all cursor-pointer ${
-                        activeTab === tab.id
-                          ? 'bg-neutral-900 text-white shadow-sm'
-                          : 'text-neutral-500 hover:text-black'
-                      }`}
-                    >
-                      {tab.label}
-                    </button>
-                  ))}
-                </div>
-
-                {activeTab === 'sleeve' && (
-                  <button
-                    type="button"
-                    onClick={() => setIsSleeveMirrored(prev => !prev)}
-                    className={`px-3.5 py-2 rounded-2xl border text-[11px] font-bold flex items-center gap-2 transition-all cursor-pointer shadow-md pointer-events-auto ${
-                      isSleeveMirrored
-                        ? 'bg-black text-white border-black hover:bg-neutral-800'
-                        : 'bg-white/85 backdrop-blur-sm text-neutral-700 border-neutral-200/70 hover:bg-white'
-                    }`}
-                  >
-                    <RefreshCw size={13} className={isSleeveMirrored ? "animate-spin" : ""} style={{ animationIterationCount: 1, animationDuration: '0.4s' }} />
-                    <span>Flip</span>
-                  </button>
-                )}
-              </div>
               {activeTab !== 'tag' && (
                 <>
                   {/* Main Garment Image */}
