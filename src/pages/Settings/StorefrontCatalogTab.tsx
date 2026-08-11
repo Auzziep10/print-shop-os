@@ -621,6 +621,8 @@ export function StorefrontCatalogTab() {
   const [colorMockups, setColorMockups] = useState<Record<string, Record<string, any>>>({});
   const [allowedColors, setAllowedColors] = useState<Record<string, string[]>>({});
   const [activeGarmentType, setActiveGarmentType] = useState<GarmentTypeId>('t-shirt');
+  // Whether placement area boxes are shown to customers in the garment customizer
+  const [showPublicPlacementGuides, setShowPublicPlacementGuides] = useState(true);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [uploadingSlotKey, setUploadingSlotKey] = useState<string | null>(null);
   const [activeColorModalItem, setActiveColorModalItem] = useState<any | null>(null);
@@ -698,6 +700,9 @@ export function StorefrontCatalogTab() {
           if (data.customCatalogItems && Array.isArray(data.customCatalogItems)) {
             setCustomProducts(data.customCatalogItems);
           }
+          if (data.showPublicPlacementGuides !== undefined) {
+            setShowPublicPlacementGuides(data.showPublicPlacementGuides !== false);
+          }
           if (data.racksOrder) {
             setRacksOrder(data.racksOrder);
           } else {
@@ -755,6 +760,7 @@ export function StorefrontCatalogTab() {
         removeNeckTag,
         colorMockups,
         allowedColors,
+        showPublicPlacementGuides,
         updatedAt: new Date().toISOString()
       }), { merge: true });
       alert('Storefront catalog settings saved successfully!');
@@ -1416,6 +1422,33 @@ export function StorefrontCatalogTab() {
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0 self-start sm:self-center">
+          <button
+            type="button"
+            onClick={async () => {
+              const next = !showPublicPlacementGuides;
+              setShowPublicPlacementGuides(next);
+              try {
+                await setDoc(doc(db, 'settings', 'storefront-catalog'), {
+                  showPublicPlacementGuides: next,
+                  updatedAt: new Date().toISOString()
+                }, { merge: true });
+              } catch (err) {
+                console.error('Failed to save placement guide visibility:', err);
+                alert('Failed to save setting — please try again.');
+                setShowPublicPlacementGuides(!next);
+              }
+            }}
+            className={`flex items-center gap-1.5 px-3 py-2 border rounded-xl text-xs font-bold transition-all cursor-pointer shadow-2xs ${
+              showPublicPlacementGuides
+                ? 'bg-emerald-50 hover:bg-emerald-100 border-emerald-200 text-emerald-800'
+                : 'bg-neutral-100 hover:bg-neutral-200 border-brand-border text-brand-secondary'
+            }`}
+            title="Show or hide the print placement area boxes on the public-facing garment customizer"
+          >
+            {showPublicPlacementGuides ? <Eye size={14} /> : <EyeOff size={14} />}
+            <span>{showPublicPlacementGuides ? 'Customer Placement Guides: On' : 'Customer Placement Guides: Off'}</span>
+          </button>
+
           <button
             type="button"
             onClick={() => {

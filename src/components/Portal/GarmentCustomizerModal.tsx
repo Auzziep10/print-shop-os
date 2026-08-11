@@ -747,6 +747,10 @@ export function GarmentCustomizerModal({
     }
   }, [isOpen]);
 
+  // Admin master switch (Settings → Storefront Catalog): whether customers
+  // see the placement area boxes at all. Pricing detection is unaffected.
+  const publicGuidesEnabled = fetchedCatalogSettings?.showPublicPlacementGuides !== false;
+
   const currentPlacementGuides = useMemo(() => {
     if (activeTab !== 'front' && activeTab !== 'back') return null;
     const targetGarment = activeGarment || garment;
@@ -2386,7 +2390,7 @@ export function GarmentCustomizerModal({
                   {/* Placement area guides — subtle dashed outlines; the box the
                       logo currently sits in highlights gently. Color key renders
                       below the artboard. */}
-                  {showPlacementGuides && currentPlacementGuides && (() => {
+                  {publicGuidesEnabled && showPlacementGuides && currentPlacementGuides && (() => {
                     const detectedTier = (activeTab === 'front' || activeTab === 'back') ? detectSidePrintSize(activeTab) : null;
                     return currentPlacementGuides.map((guide) => {
                       // Garment-anchored remap: identity when either bounds set is unavailable
@@ -2686,7 +2690,7 @@ export function GarmentCustomizerModal({
             </div>
 
             {/* Placement color key */}
-            {activeTab !== 'tag' && showPlacementGuides && currentPlacementGuides && currentPlacementGuides.length > 0 && (() => {
+            {publicGuidesEnabled && activeTab !== 'tag' && showPlacementGuides && currentPlacementGuides && currentPlacementGuides.length > 0 && (() => {
               const detectedTier = (activeTab === 'front' || activeTab === 'back') ? detectSidePrintSize(activeTab) : null;
               return (
                 <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 w-full max-w-[560px] shrink-0 select-none">
@@ -2733,7 +2737,7 @@ export function GarmentCustomizerModal({
                     </span>
                   );
                 })()}
-                {currentPlacementGuides && currentPlacementGuides.length > 0 && activeTab !== 'tag' && (
+                {publicGuidesEnabled && currentPlacementGuides && currentPlacementGuides.length > 0 && activeTab !== 'tag' && (
                   <button
                     type="button"
                     onClick={() => setShowPlacementGuides(prev => !prev)}
