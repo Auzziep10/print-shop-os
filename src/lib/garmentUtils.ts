@@ -453,68 +453,105 @@ export const resolveGarmentPlacementData = (
 // an image and remap boxes so they track the garment across any artboard.
 // ---------------------------------------------------------------------------
 
-export interface FrameContentBounds { x: number; y: number; w: number; h: number }
+// `measured: false` means the pixel scan was unavailable (tainted canvas) and
+// the bounds are just the full image. Stored refs predate this flag and were
+// only ever written from real scans, so `undefined` counts as measured.
+export interface FrameContentBounds { x: number; y: number; w: number; h: number; measured?: boolean }
 
 interface ImageContentInfo extends FrameContentBounds { aspect: number }
 
 const imageContentCache = new Map<string, Promise<ImageContentInfo | null>>();
 
 /**
- * Bounding box of the garment pixels within an image, as fractions (0-1) of
- * the image's natural dimensions. Transparent and near-white pixels count as
- * background. Returns null when the image can't be read (e.g. CORS-tainted),
- * in which case callers fall back to frame-relative behavior.
+ * Bounding box of the artwork/garment pixels within an image, as fractions
+ * (0-1) of the image's natural dimensions, plus the image's natural aspect.
+ *
+ * Loading strategy matters: reading pixels from a cross-origin image taints
+ * the canvas and throws. We therefore fetch the bytes first and scan through
+ * a same-origin blob URL. If pixels still can't be read, we return full-image
+ * bounds with the CORRECT aspect rather than null — aspect drives print-size
+ * detection, and defaulting it to 1 would badly misjudge wide/tall logos.
  */
 export const getImageContentInfo = (url: string): Promise<ImageContentInfo | null> => {
   if (!url || typeof document === 'undefined') return Promise.resolve(null);
   const cached = imageContentCache.get(url);
   if (cached) return cached;
 
-  const promise = new Promise<ImageContentInfo | null>((resolve) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      try {
-        const SCAN_W = 256;
-        const scale = SCAN_W / (img.naturalWidth || 1);
-        const w = SCAN_W;
-        const h = Math.max(1, Math.round((img.naturalHeight || 1) * scale));
-        const canvas = document.createElement('canvas');
-        canvas.width = w;
-        canvas.height = h;
-        const ctx = canvas.getContext('2d', { willReadFrequently: true });
-        if (!ctx) return resolve(null);
-        ctx.drawImage(img, 0, 0, w, h);
-        const data = ctx.getImageData(0, 0, w, h).data;
-        let minX = w, minY = h, maxX = -1, maxY = -1;
-        for (let y = 0; y < h; y++) {
-          for (let x = 0; x < w; x++) {
-            const i = (y * w + x) * 4;
-            const a = data[i + 3];
-            if (a < 16) continue; // transparent background
-            const r = data[i], g = data[i + 1], b = data[i + 2];
-            if (r > 244 && g > 244 && b > 244) continue; // white studio background
-            if (x < minX) minX = x;
-            if (x > maxX) maxX = x;
-            if (y < minY) minY = y;
-            if (y > maxY) maxY = y;
-          }
-        }
-        if (maxX < 0 || maxY < 0) return resolve(null);
-        resolve({
-          x: minX / w,
-          y: minY / h,
-          w: (maxX - minX + 1) / w,
-          h: (maxY - minY + 1) / h,
-          aspect: (img.naturalWidth || 1) / (img.naturalHeight || 1),
-        });
-      } catch {
-        resolve(null); // tainted canvas (no CORS) — caller uses identity fallback
+  const loadImg = (src: string, useCors: boolean): Promise<HTMLImageElement | null> =>
+    new Promise(resolve => {
+      const img = new Image();
+      if (useCors) img.crossOrigin = 'anonymous';
+      img.onload = () => resolve(img);
+      img.onerror = () => resolve(null);
+      img.src = src;
+    });
+
+  const promise = (async (): Promise<ImageContentInfo | null> => {
+    let img: HTMLImageElement | null = null;
+    let objectUrl: string | null = null;
+
+    // 1. Preferred: fetch bytes → blob URL. Same-origin, so scanning is always allowed.
+    try {
+      const res = await fetch(url, { mode: 'cors' });
+      if (res.ok) {
+        objectUrl = URL.createObjectURL(await res.blob());
+        img = await loadImg(objectUrl, false);
       }
-    };
-    img.onerror = () => resolve(null);
-    img.src = url;
-  });
+    } catch { /* fall through to direct loads */ }
+
+    // 2. Direct load with CORS, then without (aspect works either way)
+    if (!img) img = await loadImg(url, true);
+    if (!img) img = await loadImg(url, false);
+    if (!img) {
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      return null;
+    }
+
+    const aspect = (img.naturalWidth || 1) / (img.naturalHeight || 1);
+    const fullImage: ImageContentInfo = { x: 0, y: 0, w: 1, h: 1, aspect, measured: false };
+
+    try {
+      const SCAN_W = 256;
+      const scale = SCAN_W / (img.naturalWidth || 1);
+      const w = SCAN_W;
+      const h = Math.max(1, Math.round((img.naturalHeight || 1) * scale));
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      if (!ctx) return fullImage;
+      ctx.drawImage(img, 0, 0, w, h);
+      const data = ctx.getImageData(0, 0, w, h).data;
+      let minX = w, minY = h, maxX = -1, maxY = -1;
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const i = (y * w + x) * 4;
+          const a = data[i + 3];
+          if (a < 16) continue; // transparent background
+          const r = data[i], g = data[i + 1], b = data[i + 2];
+          if (r > 244 && g > 244 && b > 244) continue; // white studio background
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+        }
+      }
+      if (maxX < 0 || maxY < 0) return fullImage;
+      return {
+        x: minX / w,
+        y: minY / h,
+        w: (maxX - minX + 1) / w,
+        h: (maxY - minY + 1) / h,
+        aspect,
+        measured: true,
+      };
+    } catch {
+      return fullImage; // tainted canvas — aspect is still accurate
+    } finally {
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    }
+  })();
+
   imageContentCache.set(url, promise);
   return promise;
 };
@@ -545,6 +582,7 @@ export const getFrameContentBounds = async (
     y: offsetY + info.y * drawnH,
     w: info.w * drawnW,
     h: info.h * drawnH,
+    measured: info.measured !== false,
   };
 };
 
@@ -559,6 +597,9 @@ export const remapBoxToFrame = <T extends { x: number; y: number; w: number; h: 
   disp: FrameContentBounds | null | undefined
 ): T => {
   if (!box || !ref || !disp || !ref.w || !ref.h || !disp.w || !disp.h) return box;
+  // Never remap against un-scanned (fallback) bounds — that would move boxes
+  // based on a guess. Stored refs without the flag are real measurements.
+  if (ref.measured === false || disp.measured === false) return box;
   return {
     ...box,
     x: disp.x + ((box.x - ref.x) / ref.w) * disp.w,
