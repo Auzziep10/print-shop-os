@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
-import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
-import { X, CreditCard, ShoppingCart, Package, MapPin, Building2, ChevronDown } from 'lucide-react';
+import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
+import { X, CreditCard, ShoppingCart, Package, MapPin, Building2, ChevronDown, Loader2 } from 'lucide-react';
 import { doc, updateDoc, arrayUnion, getDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -9,63 +9,34 @@ import { validateDiscountCode, discountAmountFor, type AppliedDiscount } from '.
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY || 'pk_test_TYooMQauvdEDq54NiTphI7jx');
 
-const CheckoutForm = ({ order, onSuccess, onCancel }: { order: any, onSuccess: () => void, onCancel: () => void }) => {
+const PaymentElementCheckoutForm = ({ order, onSuccess, onCancel }: { order: any, onSuccess: () => void, onCancel: () => void }) => {
   const stripe = useStripe();
   const elements = useElements();
-  const { user } = useAuth();
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-
-    if (!stripe || !elements) {
-      return;
-    }
+    if (!stripe || !elements) return;
 
     setIsProcessing(true);
     setError(null);
 
     try {
-      const amount = order.totalFormatted 
-        ? parseFloat(order.totalFormatted.replace(/[^0-9.]/g, ''))
-        : 0;
-
-      if (amount <= 0) {
-        throw new Error("Invalid order amount for payment.");
-      }
-
-      // 1. Fetch Payment Intent from backend
-      const response = await fetch('/api/stripe/create-payment-intent', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount, orderId: order.id, currency: 'usd', receiptEmail: user?.email || order.customerEmail })
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to initialize payment.');
-      }
-
-      const clientSecret = data.clientSecret;
-      const cardElement = elements.getElement(CardElement);
-      if (!cardElement) throw new Error("Card element not found.");
-
-      // 2. Confirm card payment with Stripe
-      const { error: stripeError, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
-        payment_method: {
-          card: cardElement,
-        }
+      const { error: stripeError, paymentIntent } = await stripe.confirmPayment({
+        elements,
+        confirmParams: {
+          return_url: window.location.href,
+        },
+        redirect: 'if_required',
       });
 
       if (stripeError) {
         throw new Error(stripeError.message || 'Payment failed.');
       }
 
-      if (paymentIntent && paymentIntent.status === 'succeeded') {
-        // 3. Update Firestore
+      if (paymentIntent && (paymentIntent.status === 'succeeded' || paymentIntent.status === 'processing')) {
         const orderRef = doc(db, 'orders', order.id);
-        
         const selectedShipping = order.selectedShippingOption;
         const finalTaxAmount = order.calculatedTax || 0;
         
@@ -86,16 +57,8 @@ const CheckoutForm = ({ order, onSuccess, onCancel }: { order: any, onSuccess: (
             price: formattedCost,
             total: formattedCost
           });
-        } else {
-          const origShipping = (order.items || []).find((item: any) => {
-            const styleLower = (item.style || '').toLowerCase();
-            return styleLower.includes('shipping') || styleLower.includes('delivery') || (item.id && item.id.toString().startsWith('ship-')) || item.itemType === 'shipping';
-          });
-          if (origShipping) {
-            cleanItems.push(origShipping);
-          }
         }
-        
+
         if (finalTaxAmount > 0) {
           cleanItems.push({
             id: `tax-${Date.now()}`,
@@ -118,9 +81,10 @@ const CheckoutForm = ({ order, onSuccess, onCancel }: { order: any, onSuccess: (
           });
         }
 
+        const isAchProcessing = paymentIntent.status === 'processing';
         const updatePayload: any = {
           statusIndex: 4, // Move to Sourcing
-          paymentStatus: 'paid',
+          paymentStatus: isAchProcessing ? 'processing' : 'paid',
           paymentDate: new Date().toISOString(),
           paymentRead: false,
           deliveryOption: order.deliveryOption,
@@ -132,7 +96,9 @@ const CheckoutForm = ({ order, onSuccess, onCancel }: { order: any, onSuccess: (
           activities: arrayUnion({
             id: `act-${Date.now()}`,
             type: 'system',
-            message: `Payment of ${order.totalFormatted || 'balance'} processed successfully via Stripe (Method: ${order.deliveryOption}${selectedShipping ? `, Shipping: ${selectedShipping.carrier} ${selectedShipping.service}` : ''}).`,
+            message: isAchProcessing
+              ? `ACH Direct Debit payment initiated for ${order.totalFormatted || 'balance'}. Processing bank transfer...`
+              : `Payment of ${order.totalFormatted || 'balance'} processed successfully via Stripe (Method: ${order.deliveryOption}${selectedShipping ? `, Shipping: ${selectedShipping.carrier} ${selectedShipping.service}` : ''}).`,
             user: order.customerId || 'Customer',
             timestamp: new Date().toISOString()
           })
@@ -147,53 +113,40 @@ const CheckoutForm = ({ order, onSuccess, onCancel }: { order: any, onSuccess: (
         }
 
         await updateDoc(orderRef, updatePayload);
-
         setIsProcessing(false);
         onSuccess();
       } else {
-        throw new Error("Payment could not be verified.");
+        throw new Error("Payment status could not be verified.");
       }
-
     } catch (err: any) {
       console.error(err);
-      setError(err.message || "An error occurred while processing payment.");
+      setError(err.message || 'An error occurred while processing payment.');
       setIsProcessing(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <div className="bg-neutral-50 p-4 rounded-2xl border border-neutral-200/60">
-        <label className="text-[10px] font-bold text-neutral-500 mb-3 block uppercase tracking-widest">Card Information</label>
-        <div className="bg-white p-3 rounded-xl border border-neutral-300 shadow-sm">
-          <CardElement options={{
-            style: {
-              base: {
-                fontSize: '15px',
-                color: '#1a1a1a',
-                '::placeholder': {
-                  color: '#aab7c4',
-                },
-              },
-              invalid: {
-                color: '#dc2626',
-              },
-            },
-          }} />
+        <label className="text-[10px] font-bold text-neutral-500 mb-3 block uppercase tracking-widest">
+          Select Payment Method (Card or ACH Bank)
+        </label>
+        <div className="bg-white p-3.5 rounded-xl border border-neutral-300 shadow-sm">
+          <PaymentElement />
         </div>
       </div>
-      
+
       {error && (
-        <div className="text-sm text-red-500 font-semibold bg-red-50 p-3 rounded-xl border border-red-100">
+        <div className="text-xs text-red-600 font-bold bg-red-50 p-3 rounded-xl border border-red-100">
           {error}
         </div>
       )}
 
-      <div className="flex gap-3">
+      <div className="flex gap-3 pt-1">
         <button
           type="button"
           onClick={onCancel}
-          className="flex-1 bg-white border border-neutral-200 text-neutral-900 py-3.5 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-neutral-50 transition-all shadow-sm"
+          className="flex-1 bg-white border border-neutral-200 text-neutral-900 py-3 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-neutral-50 transition-all shadow-sm cursor-pointer"
           disabled={isProcessing}
         >
           Cancel
@@ -201,17 +154,92 @@ const CheckoutForm = ({ order, onSuccess, onCancel }: { order: any, onSuccess: (
         <button
           type="submit"
           disabled={!stripe || isProcessing}
-          className="flex-1 bg-[#635BFF] text-white py-3.5 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-[#5249e5] transition-all shadow-md flex justify-center items-center gap-2 animate-pulse-purple cursor-pointer"
+          className="flex-1 bg-[#635BFF] hover:bg-[#5249e0] text-white py-3 rounded-xl text-xs font-bold uppercase tracking-widest transition-all shadow-md flex justify-center items-center gap-2 cursor-pointer disabled:opacity-40"
         >
           {isProcessing ? (
             <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div>
           ) : (
-            <CreditCard size={14} />
+            <span>Pay {order.totalFormatted}</span>
           )}
-          {isProcessing ? "Processing..." : `Pay ${order.totalFormatted || 'Now'}`}
         </button>
       </div>
     </form>
+  );
+};
+
+const StripePaymentContainer = ({ order, onSuccess, onCancel }: { order: any, onSuccess: () => void, onCancel: () => void }) => {
+  const { user } = useAuth();
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [initError, setInitError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const initIntent = async () => {
+      setIsLoading(true);
+      setInitError(null);
+      try {
+        const amount = order.totalFormatted 
+          ? parseFloat(order.totalFormatted.replace(/[^0-9.]/g, ''))
+          : 0;
+
+        if (amount <= 0) {
+          throw new Error("Invalid order amount for payment.");
+        }
+
+        const response = await fetch('/api/stripe/create-payment-intent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ amount, orderId: order.id, currency: 'usd', receiptEmail: user?.email || order.customerEmail })
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to initialize payment.');
+        }
+
+        setClientSecret(data.clientSecret);
+      } catch (err: any) {
+        setInitError(err.message || 'Failed to initialize payment gateway.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    initIntent();
+  }, [order.id, order.totalFormatted, user?.email, order.customerEmail]);
+
+  if (isLoading) {
+    return (
+      <div className="bg-neutral-50 p-6 rounded-2xl border border-neutral-200/60 flex flex-col items-center justify-center gap-2">
+        <Loader2 className="animate-spin text-[#635BFF]" size={24} />
+        <p className="text-[10px] font-bold tracking-widest text-neutral-500 uppercase">Initializing Card & ACH Payment Gateway...</p>
+      </div>
+    );
+  }
+
+  if (initError || !clientSecret) {
+    return (
+      <div className="bg-red-50 p-4 rounded-2xl border border-red-100 text-xs font-bold text-red-600">
+        ⚠️ {initError || 'Unable to connect to Stripe payment gateway.'}
+      </div>
+    );
+  }
+
+  const options = {
+    clientSecret,
+    appearance: {
+      theme: 'stripe' as const,
+      variables: {
+        colorPrimary: '#635BFF',
+        borderRadius: '12px',
+      }
+    }
+  };
+
+  return (
+    <Elements stripe={stripePromise} options={options}>
+      <PaymentElementCheckoutForm order={order} onSuccess={onSuccess} onCancel={onCancel} />
+    </Elements>
   );
 };
 
@@ -858,11 +886,9 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
             <div className="flex flex-col gap-3 animate-in fade-in duration-300">
               <div className="flex items-center gap-2 pb-2 border-b border-neutral-100 mb-1">
                 <CreditCard size={15} className="text-[#635BFF]" />
-                <span className="text-[10px] font-extrabold text-neutral-500 uppercase tracking-widest">Pay Securely with Card</span>
+                <span className="text-[10px] font-extrabold text-neutral-500 uppercase tracking-widest">Pay Securely (Card & ACH Bank Transfer)</span>
               </div>
-              <Elements stripe={stripePromise}>
-                <CheckoutForm order={orderWithTotal} onSuccess={onSuccess} onCancel={onClose} />
-              </Elements>
+              <StripePaymentContainer order={orderWithTotal} onSuccess={onSuccess} onCancel={onClose} />
             </div>
           )}
         </div>

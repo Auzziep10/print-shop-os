@@ -26,6 +26,9 @@ export default async function handler(req: Request) {
     const paymentIntentConfig: any = {
       amount: Math.round(amount * 100), // Stripe requires the amount in cents
       currency: currency,
+      automatic_payment_methods: {
+        enabled: true,
+      },
       metadata: {
         orderId: orderId,
       },
