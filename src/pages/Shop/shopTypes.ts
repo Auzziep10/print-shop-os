@@ -16,6 +16,7 @@ export interface ShopProduct {
   images: string[];        // Firebase Storage URLs; first image shows in the grid
   sizes: string[];         // e.g. ["S","M","L","XL","2XL"]; empty for one-size items
   category?: string;
+  section?: 'main' | 'secondary' | string;
   active: boolean;
   sortOrder: number;
   createdAt?: number;

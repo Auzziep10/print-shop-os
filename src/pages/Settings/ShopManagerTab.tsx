@@ -69,6 +69,7 @@ interface ProductDraft {
   images: string[];
   sizes: string[];
   category: string;
+  section: 'main' | 'secondary';
   active: boolean;
 }
 
@@ -80,6 +81,7 @@ const EMPTY_DRAFT: ProductDraft = {
   images: [],
   sizes: ['S', 'M', 'L', 'XL', '2XL'],
   category: '',
+  section: 'main',
   active: true,
 };
 
@@ -173,6 +175,17 @@ function ProductEditor({
             value={draft.category}
             onChange={e => set({ category: e.target.value })}
           />
+        </div>
+        <div>
+          <label className={tokens.typography.label}>Grid Section</label>
+          <select
+            className={tokens.components.input + ' mt-1.5 bg-white cursor-pointer'}
+            value={draft.section || 'main'}
+            onChange={e => set({ section: e.target.value as 'main' | 'secondary' })}
+          >
+            <option value="main">Top Grid (Above Banner)</option>
+            <option value="secondary">Bottom Grid (Below NM Original Banner)</option>
+          </select>
         </div>
         <div className="md:col-span-2">
           <label className={tokens.typography.label}>Description (optional)</label>
@@ -309,6 +322,7 @@ function ProductsSection() {
         images: draft.images,
         sizes: draft.sizes,
         category: draft.category.trim(),
+        section: draft.section || 'main',
         active: draft.active,
         updatedAt: Date.now(),
       };
@@ -402,6 +416,7 @@ function ProductsSection() {
                   images: editingProduct.images || [],
                   sizes: editingProduct.sizes || [],
                   category: editingProduct.category || '',
+                  section: (editingProduct.section as any) || 'main',
                   active: editingProduct.active,
                 }}
                 onSave={saveProduct}
@@ -434,8 +449,17 @@ function ProductsSection() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm font-semibold text-brand-primary">{p.name}</div>
-                  <div className="truncate text-xs text-brand-secondary">
-                    {[p.colorway, p.sizes?.length ? p.sizes.join(' ') : 'One size'].filter(Boolean).join(' · ')}
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="truncate text-xs text-brand-secondary">
+                      {[p.colorway, p.sizes?.length ? p.sizes.join(' ') : 'One size'].filter(Boolean).join(' · ')}
+                    </span>
+                    <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                      p.section === 'secondary'
+                        ? 'bg-purple-100 text-purple-800 border border-purple-250'
+                        : 'bg-neutral-100 text-neutral-600 border border-neutral-200'
+                    }`}>
+                      {p.section === 'secondary' ? 'Bottom Grid (NM Original)' : 'Top Grid'}
+                    </span>
                   </div>
                 </div>
                 <div className="text-sm font-semibold text-brand-primary">{formatShopPrice(p.price)}</div>

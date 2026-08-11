@@ -276,6 +276,27 @@ export function ShopPage() {
 
   const activeProducts = useMemo(() => products.filter(p => p.active), [products]);
 
+  const { mainProducts, secondaryProducts } = useMemo(() => {
+    const hasExplicitSecondary = activeProducts.some(p => p.section === 'secondary');
+    if (hasExplicitSecondary) {
+      return {
+        mainProducts: activeProducts.filter(p => p.section !== 'secondary'),
+        secondaryProducts: activeProducts.filter(p => p.section === 'secondary'),
+      };
+    }
+    if (activeProducts.length >= 8) {
+      const splitPoint = Math.min(8, activeProducts.length - 4);
+      return {
+        mainProducts: activeProducts.slice(0, splitPoint),
+        secondaryProducts: activeProducts.slice(splitPoint),
+      };
+    }
+    return {
+      mainProducts: activeProducts,
+      secondaryProducts: [],
+    };
+  }, [activeProducts]);
+
   useEffect(() => {
     document.title = `${settings.brandLine} — ${settings.collectionTitle}`;
     return () => { document.title = 'INKTHEORY'; };
@@ -313,7 +334,7 @@ export function ShopPage() {
         </button>
       </div>
 
-      {/* Hero */}
+      {/* Hero 1 */}
       <div className="relative flex h-[300px] items-center justify-center overflow-hidden bg-neutral-900 md:h-[380px]">
         {settings.heroImageUrl && (
           <img
@@ -336,33 +357,33 @@ export function ShopPage() {
         </div>
       </div>
 
-      {/* Product grid */}
+      {/* Top Product grid */}
       <div className="mx-auto max-w-[1240px] px-5 py-14 md:px-8 md:py-20">
         {loading ? (
           <div className="py-24 text-center text-[10px] uppercase tracking-[0.3em] text-neutral-400">
             Loading…
           </div>
-        ) : activeProducts.length === 0 ? (
+        ) : mainProducts.length === 0 && secondaryProducts.length === 0 ? (
           <div className="py-24 text-center text-[10px] uppercase tracking-[0.3em] text-neutral-400">
             New drop loading — check back soon
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-x-6 gap-y-12 md:grid-cols-4 md:gap-x-8 md:gap-y-16">
-            {activeProducts.map(p => (
+            {mainProducts.map(p => (
               <ProductCard key={p.id} product={p} />
             ))}
           </div>
         )}
       </div>
 
-      {/* Footer banner */}
+      {/* Second Banner (NM Original) */}
       <div className="relative h-[260px] overflow-hidden bg-neutral-800 md:h-[340px]">
         {settings.footerImageUrl && (
           <img src={settings.footerImageUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
         )}
         <div className="absolute inset-0 bg-black/10" />
         <div className="absolute inset-0 flex items-center justify-center">
-          <span className="shop-script -rotate-3 text-6xl text-white drop-shadow-lg md:text-8xl">
+          <span className="shop-script -rotate-3 text-6xl text-white drop-shadow-lg md:text-8xl select-none">
             {settings.footerScript}
           </span>
         </div>
@@ -371,6 +392,24 @@ export function ShopPage() {
             {settings.footerVertical}
           </span>
         )}
+      </div>
+
+      {/* Bottom Product grid (Under second banner) */}
+      {secondaryProducts.length > 0 && (
+        <div className="mx-auto max-w-[1240px] px-5 py-14 md:px-8 md:py-20">
+          <div className="grid grid-cols-2 gap-x-6 gap-y-12 md:grid-cols-4 md:gap-x-8 md:gap-y-16">
+            {secondaryProducts.map(p => (
+              <ProductCard key={p.id} product={p} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Bottom footer strip */}
+      <div className="bg-neutral-950 py-8 text-center border-t border-white/5">
+        <span className="text-[9px] font-semibold uppercase tracking-[0.4em] text-neutral-500">
+          © {new Date().getFullYear()} {settings.brandLine || 'NM ORIGINAL'} · ALL RIGHTS RESERVED
+        </span>
       </div>
 
       {cartOpen && <CartDrawer cart={cart} settings={settings} onClose={() => setCartOpen(false)} />}
