@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { PillButton } from '../../components/ui/PillButton';
 import { PackingSlipsManager } from '../../components/Orders/PackingSlipsManager';
 import { TrackingModal } from '../../components/Orders/TrackingModal';
-import { ArrowLeft, MessageSquare, QrCode, Clock, Users, Download, Loader2, X, Edit3, Upload, Trash2, Plus, ChevronDown, Image as ImageIcon, Box, Printer, ExternalLink, ShoppingBag, Search, Check, Truck, Calculator, GripVertical, Pause, Play, DollarSign, PackagePlus, Layers, CreditCard, Copy, RotateCcw, Sparkles, FileText, TriangleAlert, Zap, RefreshCw } from 'lucide-react';
+import { ArrowLeft, MessageSquare, QrCode, Clock, Users, Download, Loader2, X, Edit3, Upload, Trash2, Plus, ChevronDown, Image as ImageIcon, Box, Printer, ExternalLink, ShoppingBag, Search, Check, Truck, Calculator, GripVertical, Pause, Play, DollarSign, PackagePlus, Layers, CreditCard, Copy, RotateCcw, Sparkles, FileText, TriangleAlert, Zap, RefreshCw, Eye } from 'lucide-react';
 import ReactQRCode from 'react-qr-code';
 import QRCodeLib from 'qrcode';
 import JSZip from 'jszip';
@@ -983,63 +983,6 @@ export function OrderDetail() {
     payButtonUrl: "https://stripe.com"
   });
 
-  useEffect(() => {
-    if (order && isInvoiceEditorOpen) {
-      const loadDefaults = async () => {
-        let custSettings: any = {};
-        if (order.customerId) {
-          try {
-            const custSnap = await getDoc(doc(db, 'customers', order.customerId));
-            if (custSnap.exists()) {
-              custSettings = custSnap.data().invoiceSettings || {};
-            }
-          } catch (err) {
-            console.error("Error loading customer invoice settings:", err);
-          }
-        }
-        const merged = {
-          subtitle: "For your Consideration",
-          categoryTag: "VCG • ADHOC ORDERS",
-          statementOfWork: "This invoice represents the agreed upon deliverables and services as outlined in the project scope.",
-          feeSchedule: "Payment is due upon receipt unless otherwise specified in your terms.",
-          confidentiality: "Pricing and terms contained within are confidential and intended only for the recipient.",
-          footerTagline: "YOUR TRUST IS OUR HIGHEST PRIORITY",
-          wireBankName: "Pinnacle Bank",
-          wireBankAddress: "2300 West End Avenue\nNashville, TN 37203",
-          wireRoutingNumber: "XXXXXXXX",
-          wireSwiftCode: "XXXXXXXX",
-          wireAccountName: "Catalyst",
-          wireAccountNumber: "XXXXXXXX",
-          showPayButton: true,
-          payButtonText: "CLICK TO PAY BY CREDIT CARD +3.5%",
-          payButtonUrl: "https://stripe.com",
-          ...custSettings,
-          ...(order.invoiceSettings || {})
-        };
-        setOrderInvoiceForm(merged);
-      };
-      loadDefaults();
-    }
-  }, [order, isInvoiceEditorOpen]);
-
-  const handleSaveOrderInvoice = async () => {
-    if (!order?.id) return;
-    setIsSavingOrderInvoice(true);
-    try {
-      await updateDoc(doc(db, 'orders', order.id), {
-        invoiceSettings: orderInvoiceForm,
-        updatedAt: new Date().toISOString()
-      });
-      alert("Order invoice customized successfully!");
-      setIsInvoiceEditorOpen(false);
-    } catch (err) {
-      console.error("Failed to save order invoice settings:", err);
-      alert("Failed to save invoice customization.");
-    } finally {
-      setIsSavingOrderInvoice(false);
-    }
-  };
-
   const [isCalculatingRates, setIsCalculatingRates] = useState(false);
   const [shippingRates, setShippingRates] = useState<any[]>([]);
   const [ratesError, setRatesError] = useState<string | null>(null);
@@ -1359,6 +1302,63 @@ export function OrderDetail() {
 
   const [timelineMembers, setTimelineMembers] = useState<any[]>([]);
   const order = orders.find(o => o.id === id);
+
+  useEffect(() => {
+    if (order && isInvoiceEditorOpen) {
+      const loadDefaults = async () => {
+        let custSettings: any = {};
+        if (order.customerId) {
+          try {
+            const custSnap = await getDoc(doc(db, 'customers', order.customerId));
+            if (custSnap.exists()) {
+              custSettings = custSnap.data().invoiceSettings || {};
+            }
+          } catch (err) {
+            console.error("Error loading customer invoice settings:", err);
+          }
+        }
+        const merged = {
+          subtitle: "For your Consideration",
+          categoryTag: "VCG • ADHOC ORDERS",
+          statementOfWork: "This invoice represents the agreed upon deliverables and services as outlined in the project scope.",
+          feeSchedule: "Payment is due upon receipt unless otherwise specified in your terms.",
+          confidentiality: "Pricing and terms contained within are confidential and intended only for the recipient.",
+          footerTagline: "YOUR TRUST IS OUR HIGHEST PRIORITY",
+          wireBankName: "Pinnacle Bank",
+          wireBankAddress: "2300 West End Avenue\nNashville, TN 37203",
+          wireRoutingNumber: "XXXXXXXX",
+          wireSwiftCode: "XXXXXXXX",
+          wireAccountName: "Catalyst",
+          wireAccountNumber: "XXXXXXXX",
+          showPayButton: true,
+          payButtonText: "CLICK TO PAY BY CREDIT CARD +3.5%",
+          payButtonUrl: "https://stripe.com",
+          ...custSettings,
+          ...(order.invoiceSettings || {})
+        };
+        setOrderInvoiceForm(merged);
+      };
+      loadDefaults();
+    }
+  }, [order, isInvoiceEditorOpen]);
+
+  const handleSaveOrderInvoice = async () => {
+    if (!order?.id) return;
+    setIsSavingOrderInvoice(true);
+    try {
+      await updateDoc(doc(db, 'orders', order.id), {
+        invoiceSettings: orderInvoiceForm,
+        updatedAt: new Date().toISOString()
+      });
+      alert("Order invoice customized successfully!");
+      setIsInvoiceEditorOpen(false);
+    } catch (err) {
+      console.error("Failed to save order invoice settings:", err);
+      alert("Failed to save invoice customization.");
+    } finally {
+      setIsSavingOrderInvoice(false);
+    }
+  };
 
   useEffect(() => {
     getDocs(collection(db, 'users')).then(snap => {

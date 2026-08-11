@@ -77,9 +77,6 @@ export function InvoiceView() {
   const clientName = order.shippingAddress?.name || cust.contactName || cust.name || 'CLIENT';
   const companyName = order.shippingAddress?.company || cust.company;
   const clientEmail = cust.email || order.shippingAddress?.email;
-  const clientName = order.shippingAddress?.name || cust.contactName || cust.name || 'CLIENT';
-  const companyName = order.shippingAddress?.company || cust.company;
-  const clientEmail = cust.email || order.shippingAddress?.email;
   const clientPhone = cust.phone || order.shippingAddress?.phone;
 
   const defaultInvoiceSettings = {
