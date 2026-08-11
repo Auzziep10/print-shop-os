@@ -138,8 +138,8 @@ export function CustomerDetail() {
 
   const [isPricingSectionCollapsed, setIsPricingSectionCollapsed] = useState(true);
   const [isInvoiceSectionCollapsed, setIsInvoiceSectionCollapsed] = useState(true);
-  const [isGarmentsSectionCollapsed, setIsGarmentsSectionCollapsed] = useState(false);
-  const [isVaultSectionCollapsed, setIsVaultSectionCollapsed] = useState(false);
+  const [isGarmentsSectionCollapsed, setIsGarmentsSectionCollapsed] = useState(true);
+  const [isVaultSectionCollapsed, setIsVaultSectionCollapsed] = useState(true);
 
   const [contacts, setContacts] = useState<any[]>([]);
   const [isAddingContact, setIsAddingContact] = useState(false);
