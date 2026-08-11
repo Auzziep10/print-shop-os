@@ -94,7 +94,6 @@ export function InvoiceView() {
   // Client billing vs shipping address details
   const clientName = cust.contactName || cust.name || order.shippingAddress?.name || 'CLIENT';
   const companyName = cust.company || order.shippingAddress?.company || 'COMPANY';
-  const clientEmail = cust.email || order.shippingAddress?.email;
   const clientPhone = cust.phone || order.shippingAddress?.phone;
 
   // Standard complimentary service deliverables
@@ -135,6 +134,20 @@ export function InvoiceView() {
   const accountManagerName = invSettings.accountManager || order.accountManager || cust.accountManager || order.assignedTo;
   const accountManagerEmail = invSettings.accountManagerEmail || order.accountManagerEmail || cust.accountManagerEmail;
   const accountManagerPhone = invSettings.accountManagerPhone || order.accountManagerPhone || cust.accountManagerPhone;
+
+  // Resolve all client billing emails
+  const allClientEmails: string[] = [];
+  if (cust.email) allClientEmails.push(cust.email);
+  if (order.shippingAddress?.email && !allClientEmails.includes(order.shippingAddress.email)) {
+    allClientEmails.push(order.shippingAddress.email);
+  }
+  const rawAdditional = invSettings.additionalEmails || order.additionalEmails || cust.additionalEmails;
+  if (rawAdditional) {
+    const extraList = String(rawAdditional).split(/[,;\n]+/).map((e: string) => e.trim()).filter(Boolean);
+    extraList.forEach((e: string) => {
+      if (!allClientEmails.includes(e)) allClientEmails.push(e);
+    });
+  }
 
   const hasSeparateShipping = order.shippingAddress && (
     order.shippingAddress.street1 !== cust.shippingStreet ||
@@ -213,10 +226,12 @@ export function InvoiceView() {
                 <div className="flex flex-col gap-1 text-[11px] font-bold tracking-widest text-neutral-800 uppercase leading-relaxed">
                    <p className="text-neutral-500">TO (CLIENT):</p>
                    <p className="text-xs text-black">{companyName}</p>
-                   <p className="text-neutral-600 font-medium">{clientName}</p>
-                   {clientEmail && (
-                     <p className="lowercase normal-case text-neutral-500 font-medium tracking-normal">{clientEmail}</p>
+                   {clientName && clientName !== companyName && (
+                     <p className="text-neutral-600 font-medium">{clientName}</p>
                    )}
+                   {allClientEmails.map((emailStr: string, eIdx: number) => (
+                     <p key={eIdx} className="lowercase normal-case text-neutral-500 font-medium tracking-normal">{emailStr}</p>
+                   ))}
                    {clientPhone && (
                      <p className="normal-case text-neutral-500 font-medium tracking-normal">{clientPhone}</p>
                    )}

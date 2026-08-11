@@ -1679,6 +1679,22 @@ export function CustomerDetail() {
 
               <div>
                 <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                  Default Additional Billing / CC Emails
+                </label>
+                <input
+                  type="text"
+                  value={(invoiceForm as any).additionalEmails || ''}
+                  onChange={(e) => setInvoiceForm({ ...invoiceForm, additionalEmails: e.target.value } as any)}
+                  placeholder="e.g. ap@mcevoyranch.com, accounting@mcevoyranch.com"
+                  className="w-full bg-white border border-neutral-300 rounded-xl px-3.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
+                />
+                <p className="text-[10px] text-brand-secondary mt-1">
+                  Separate multiple emails with commas. All additional emails will populate by default on invoices for this customer.
+                </p>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
                   Footer Tagline
                 </label>
                 <input

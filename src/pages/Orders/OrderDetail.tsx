@@ -1326,6 +1326,7 @@ export function OrderDetail() {
           accountManager: order.accountManager || custSettings.accountManager || order.invoiceSettings?.accountManager || '',
           accountManagerEmail: order.accountManagerEmail || custSettings.accountManagerEmail || order.invoiceSettings?.accountManagerEmail || '',
           accountManagerPhone: order.accountManagerPhone || custSettings.accountManagerPhone || order.invoiceSettings?.accountManagerPhone || '',
+          additionalEmails: order.additionalEmails || custSettings.additionalEmails || order.invoiceSettings?.additionalEmails || '',
           poNumber: order.poNumber || '',
           dueDate: order.dueDate || '',
           shippingFee: order.shippingFee || order.freight || 0,
@@ -1364,6 +1365,7 @@ export function OrderDetail() {
         accountManager: (orderInvoiceForm as any).accountManager || '',
         accountManagerEmail: (orderInvoiceForm as any).accountManagerEmail || '',
         accountManagerPhone: (orderInvoiceForm as any).accountManagerPhone || '',
+        additionalEmails: (orderInvoiceForm as any).additionalEmails || '',
         poNumber: orderInvoiceForm.poNumber,
         dueDate: orderInvoiceForm.dueDate,
         shippingFee: parseFloat(String(orderInvoiceForm.shippingFee)) || 0,
@@ -6240,6 +6242,22 @@ export function OrderDetail() {
                       className="w-full bg-white border border-neutral-300 rounded-xl px-2.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
                     />
                   </div>
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                    Additional Billing / CC Emails
+                  </label>
+                  <input
+                    type="text"
+                    value={(orderInvoiceForm as any).additionalEmails || ''}
+                    onChange={(e) => setOrderInvoiceForm({ ...orderInvoiceForm, additionalEmails: e.target.value } as any)}
+                    placeholder="e.g. ap@mcevoyranch.com, accounting@mcevoyranch.com"
+                    className="w-full bg-white border border-neutral-300 rounded-xl px-3.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
+                  />
+                  <p className="text-[10px] text-neutral-400 mt-1">
+                    Separate multiple emails with commas. All additional emails will render on the invoice under TO (CLIENT).
+                  </p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
