@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { db } from '../../lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { Loader2 } from 'lucide-react';
+import { StripePaymentModal } from '../../components/Orders/StripePaymentModal';
 
 export function InvoiceView() {
   const { orderId } = useParams();
@@ -10,6 +11,7 @@ export function InvoiceView() {
   const [customer, setCustomer] = useState<any>(null);
   const [globalSettings, setGlobalSettings] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [isPayModalOpen, setIsPayModalOpen] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -389,14 +391,28 @@ export function InvoiceView() {
                    </div>
 
                    {invSettings.showPayButton !== false && (
-                     <a 
-                       href={invSettings.payButtonUrl || 'https://stripe.com'}
-                       target="_blank"
-                       rel="noreferrer"
-                       className="w-full py-4 bg-black text-white text-center text-[11px] font-bold tracking-widest uppercase rounded-lg hover:bg-neutral-800 transition-colors shadow-lg"
-                     >
-                       {invSettings.payButtonText}
-                     </a>
+                     order.paymentStatus === 'paid' ? (
+                       <div className="w-full py-4 bg-emerald-600 text-white text-center text-[11px] font-bold tracking-widest uppercase rounded-lg shadow-sm">
+                         ✓ INVOICE PAID IN FULL
+                       </div>
+                     ) : invSettings.payButtonUrl && invSettings.payButtonUrl !== 'https://stripe.com' && !invSettings.payButtonUrl.includes('stripe.com/checkout') ? (
+                       <a 
+                         href={invSettings.payButtonUrl}
+                         target="_blank"
+                         rel="noreferrer"
+                         className="w-full py-4 bg-black text-white text-center text-[11px] font-bold tracking-widest uppercase rounded-lg hover:bg-neutral-800 transition-colors shadow-lg block"
+                       >
+                         {invSettings.payButtonText}
+                       </a>
+                     ) : (
+                       <button 
+                         type="button"
+                         onClick={() => setIsPayModalOpen(true)}
+                         className="w-full py-4 bg-black text-white text-center text-[11px] font-bold tracking-widest uppercase rounded-lg hover:bg-neutral-800 transition-colors shadow-lg cursor-pointer"
+                       >
+                         {invSettings.payButtonText}
+                       </button>
+                     )
                    )}
                 </div>
 
@@ -408,6 +424,24 @@ export function InvoiceView() {
            </div>
         </div>
       </div>
+
+      {/* Native Stripe Credit Card Checkout Modal */}
+      {isPayModalOpen && (
+        <StripePaymentModal
+          order={{
+            ...order,
+            totalFormatted: formattedGrandTotal,
+            calculatedTotal: grandTotal,
+            calculatedTax: taxAmount
+          }}
+          onClose={() => setIsPayModalOpen(false)}
+          onSuccess={() => {
+            setIsPayModalOpen(false);
+            setOrder((prev: any) => ({ ...prev, paymentStatus: 'paid' }));
+            alert("Payment processed successfully! Thank you.");
+          }}
+        />
+      )}
     </div>
   );
 }

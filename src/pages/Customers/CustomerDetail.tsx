@@ -1820,9 +1820,12 @@ export function CustomerDetail() {
                       type="text"
                       value={invoiceForm.payButtonUrl}
                       onChange={(e) => setInvoiceForm({ ...invoiceForm, payButtonUrl: e.target.value })}
-                      placeholder="https://buy.stripe.com/..."
+                      placeholder="Leave blank for native Stripe payment modal or enter custom link"
                       className="w-full bg-white border border-neutral-300 rounded-xl px-3.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
                     />
+                    <p className="text-[10px] text-brand-secondary mt-1">
+                      If left empty or default, clicking the invoice payment button automatically launches the app's native Stripe credit card modal!
+                    </p>
                   </div>
                 </>
               )}
