@@ -966,6 +966,11 @@ export function OrderDetail() {
   const [isInvoiceEditorOpen, setIsInvoiceEditorOpen] = useState(false);
   const [isSavingOrderInvoice, setIsSavingOrderInvoice] = useState(false);
   const [orderInvoiceForm, setOrderInvoiceForm] = useState({
+    poNumber: '',
+    dueDate: '',
+    shippingFee: 0,
+    taxAmount: 0,
+    stripePaymentUrl: '',
     subtitle: "For your Consideration",
     categoryTag: "VCG • ADHOC ORDERS",
     statementOfWork: "This invoice represents the agreed upon deliverables and services as outlined in the project scope.",
@@ -1318,6 +1323,11 @@ export function OrderDetail() {
           }
         }
         const merged = {
+          poNumber: order.poNumber || '',
+          dueDate: order.dueDate || '',
+          shippingFee: order.shippingFee || order.freight || 0,
+          taxAmount: order.taxAmount || order.tax || 0,
+          stripePaymentUrl: order.stripePaymentUrl || '',
           subtitle: "For your Consideration",
           categoryTag: "VCG • ADHOC ORDERS",
           statementOfWork: "This invoice represents the agreed upon deliverables and services as outlined in the project scope.",
@@ -1348,6 +1358,11 @@ export function OrderDetail() {
     try {
       await updateDoc(doc(db, 'orders', order.id), {
         invoiceSettings: orderInvoiceForm,
+        poNumber: orderInvoiceForm.poNumber,
+        dueDate: orderInvoiceForm.dueDate,
+        shippingFee: parseFloat(String(orderInvoiceForm.shippingFee)) || 0,
+        taxAmount: parseFloat(String(orderInvoiceForm.taxAmount)) || 0,
+        stripePaymentUrl: orderInvoiceForm.stripePaymentUrl,
         updatedAt: new Date().toISOString()
       });
       alert("Order invoice customized successfully!");
@@ -6178,6 +6193,65 @@ export function OrderDetail() {
                     placeholder="e.g. VCG • ADHOC ORDERS"
                     className="w-full bg-white border border-neutral-300 rounded-xl px-3.5 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
                   />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                      P.O. Number
+                    </label>
+                    <input
+                      type="text"
+                      value={orderInvoiceForm.poNumber}
+                      onChange={(e) => setOrderInvoiceForm({ ...orderInvoiceForm, poNumber: e.target.value })}
+                      placeholder="e.g. PO-94820"
+                      className="w-full bg-white border border-neutral-300 rounded-xl px-3 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                      Payment Due Date
+                    </label>
+                    <input
+                      type="date"
+                      value={orderInvoiceForm.dueDate}
+                      onChange={(e) => setOrderInvoiceForm({ ...orderInvoiceForm, dueDate: e.target.value })}
+                      className="w-full bg-white border border-neutral-300 rounded-xl px-3 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                      Freight / Shipping Fee ($)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={orderInvoiceForm.shippingFee}
+                      onChange={(e) => setOrderInvoiceForm({ ...orderInvoiceForm, shippingFee: parseFloat(e.target.value) || 0 })}
+                      placeholder="0.00"
+                      className="w-full bg-white border border-neutral-300 rounded-xl px-3 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-bold text-neutral-600 uppercase tracking-wider block mb-1">
+                      Sales Tax Amount ($)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={orderInvoiceForm.taxAmount}
+                      onChange={(e) => setOrderInvoiceForm({ ...orderInvoiceForm, taxAmount: parseFloat(e.target.value) || 0 })}
+                      placeholder="0.00"
+                      className="w-full bg-white border border-neutral-300 rounded-xl px-3 py-2 text-xs font-medium text-brand-primary focus:outline-none focus:border-brand-primary"
+                    />
+                  </div>
                 </div>
 
                 <div>

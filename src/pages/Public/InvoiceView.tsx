@@ -8,12 +8,18 @@ export function InvoiceView() {
   const { orderId } = useParams();
   const [order, setOrder] = useState<any>(null);
   const [customer, setCustomer] = useState<any>(null);
+  const [globalSettings, setGlobalSettings] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       if (!orderId) return;
       try {
+        const busSnap = await getDoc(doc(db, 'settings', 'business'));
+        if (busSnap.exists()) {
+          setGlobalSettings(busSnap.data());
+        }
+
         const orderDoc = await getDoc(doc(db, 'orders', orderId));
         if (orderDoc.exists()) {
           const orderData = orderDoc.data();
@@ -54,8 +60,8 @@ export function InvoiceView() {
 
   const cust = customer || { company: 'Unknown Customer', name: 'Unknown' };
 
-  // Calculate totals
-  let subtotal = 0;
+  // Calculate items subtotal
+  let itemsSubtotal = 0;
   order.items?.forEach((item: any) => {
     const priceStr = String(item.price || '0').replace(/[^0-9.]/g, '');
     const price = parseFloat(priceStr) || 0;
@@ -67,17 +73,38 @@ export function InvoiceView() {
       qty = Object.values(item.sizes || {}).reduce((a: any, b: any) => a + (parseInt(b) || 0), 0) as number;
     }
     
-    subtotal += price * qty;
+    itemsSubtotal += price * qty;
   });
 
-  const formattedTotal = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(subtotal);
-  const issueDate = order.date ? new Date(order.date).toLocaleDateString('en-US', { year: '2-digit', month: '2-digit', day: '2-digit' }).replace(/\//g, '.') : new Date().toLocaleDateString('en-US', { year: '2-digit', month: '2-digit', day: '2-digit' }).replace(/\//g, '.');
+  // Calculate shipping & tax
+  const shippingFee = parseFloat(order.shippingFee || order.freight || order.shippingCost || 0);
+  const taxAmount = parseFloat(order.taxAmount || order.tax || 0);
+  const grandTotal = itemsSubtotal + shippingFee + taxAmount;
 
-  // Resolve customer/client details to display "everything"
-  const clientName = order.shippingAddress?.name || cust.contactName || cust.name || 'CLIENT';
-  const companyName = order.shippingAddress?.company || cust.company;
+  const formattedItemsSubtotal = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(itemsSubtotal);
+  const formattedShippingFee = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(shippingFee);
+  const formattedTaxAmount = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(taxAmount);
+  const formattedGrandTotal = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(grandTotal);
+
+  const issueDate = order.date ? new Date(order.date).toLocaleDateString('en-US', { year: '2-digit', month: '2-digit', day: '2-digit' }).replace(/\//g, '.') : new Date().toLocaleDateString('en-US', { year: '2-digit', month: '2-digit', day: '2-digit' }).replace(/\//g, '.');
+  const dueDateStr = order.dueDate ? new Date(order.dueDate).toLocaleDateString('en-US', { year: '2-digit', month: '2-digit', day: '2-digit' }).replace(/\//g, '.') : issueDate;
+
+  // Client billing vs shipping address details
+  const clientName = cust.contactName || cust.name || order.shippingAddress?.name || 'CLIENT';
+  const companyName = cust.company || order.shippingAddress?.company || 'COMPANY';
   const clientEmail = cust.email || order.shippingAddress?.email;
   const clientPhone = cust.phone || order.shippingAddress?.phone;
+
+  // Standard complimentary service deliverables
+  const defaultServices = [
+    { name: 'Collection Design', price: 0 },
+    { name: 'Artwork Preparation', price: 0 },
+    { name: 'Pantone Color Matching', price: 0 },
+    { name: 'Production Management', price: 0 },
+    { name: 'Quality Control', price: 0 }
+  ];
+
+  const customServices = order.customServices || (order.includeStandardDeliverables !== false ? defaultServices : []);
 
   const defaultInvoiceSettings = {
     subtitle: "For your Consideration",
@@ -86,15 +113,15 @@ export function InvoiceView() {
     feeSchedule: "Payment is due upon receipt unless otherwise specified in your terms.",
     confidentiality: "Pricing and terms contained within are confidential and intended only for the recipient.",
     footerTagline: "YOUR TRUST IS OUR HIGHEST PRIORITY",
-    wireBankName: "Pinnacle Bank",
-    wireBankAddress: "2300 West End Avenue\nNashville, TN 37203",
-    wireRoutingNumber: "XXXXXXXX",
-    wireSwiftCode: "XXXXXXXX",
-    wireAccountName: "Catalyst",
-    wireAccountNumber: "XXXXXXXX",
+    wireBankName: globalSettings?.wireBankName || "Pinnacle Bank",
+    wireBankAddress: globalSettings?.wireBankAddress || "2300 West End Avenue\nNashville, TN 37203",
+    wireRoutingNumber: globalSettings?.wireRoutingNumber || "XXXXXXXX",
+    wireSwiftCode: globalSettings?.wireSwiftCode || "XXXXXXXX",
+    wireAccountName: globalSettings?.wireAccountName || "Catalyst",
+    wireAccountNumber: globalSettings?.wireAccountNumber || "XXXXXXXX",
     showPayButton: true,
     payButtonText: "CLICK TO PAY BY CREDIT CARD +3.5%",
-    payButtonUrl: "https://stripe.com"
+    payButtonUrl: order.stripePaymentUrl || globalSettings?.stripePaymentUrl || "https://stripe.com"
   };
 
   const invSettings = {
@@ -102,6 +129,11 @@ export function InvoiceView() {
     ...(customer?.invoiceSettings || {}),
     ...(order?.invoiceSettings || {})
   };
+
+  const hasSeparateShipping = order.shippingAddress && (
+    order.shippingAddress.street1 !== cust.shippingStreet ||
+    order.shippingAddress.city !== cust.shippingCity
+  );
 
   return (
     <div className="min-h-screen bg-[#f1efe9] flex justify-center py-10 font-sans text-neutral-900 w-full overflow-x-auto">
@@ -121,63 +153,87 @@ export function InvoiceView() {
         {/* Main Content */}
         <div className="flex-1 p-12 md:p-16 flex flex-col relative">
            {/* Top Header */}
-           <div className="flex justify-between items-center mb-8">
-              <span className="text-neutral-400 italic text-lg font-serif">{invSettings.subtitle}</span>
-              <span className="text-5xl tracking-tight text-neutral-900" style={{ fontFamily: 'Times New Roman, Times, serif' }}>INVOICE</span>
+           <div className="flex justify-between items-start mb-6">
+              <span className="text-neutral-400 italic text-lg font-serif mt-1">{invSettings.subtitle}</span>
+              <div className="flex flex-col items-end">
+                <span className="text-5xl tracking-tight text-neutral-900" style={{ fontFamily: 'Times New Roman, Times, serif' }}>INVOICE</span>
+                <span className="text-xs font-bold tracking-[0.2em] text-neutral-500 uppercase mt-1"># {order.portalId || order.id.slice(0, 8)}</span>
+              </div>
            </div>
 
-           {/* Banner */}
-           <div className="w-full bg-[#f5f3ef] py-3 px-6 mb-10 flex justify-between items-center border border-neutral-200">
-             <span className="text-[10px] font-bold tracking-[0.2em] text-neutral-800 uppercase">{cust.company} • {order.title}</span>
+           {/* Banner & Terms Bar */}
+           <div className="w-full bg-[#f5f3ef] py-3 px-6 mb-4 flex justify-between items-center border border-neutral-200">
+             <span className="text-[10px] font-bold tracking-[0.2em] text-neutral-800 uppercase">{companyName} • {order.title}</span>
+           </div>
+
+           {/* Header Meta Info Bar */}
+           <div className="w-full bg-neutral-50 py-2.5 px-6 mb-8 flex justify-between items-center border border-neutral-200/60 text-[10px] font-bold tracking-widest text-neutral-600 uppercase">
+             <div>
+               <span className="text-neutral-400">TERMS / DUE: </span> 
+               <span>{invSettings.feeSchedule || 'DUE UPON RECEIPT'} ({dueDateStr})</span>
+             </div>
+             <div>
+               <span className="text-neutral-400">P.O. #: </span> 
+               <span>{order.poNumber || 'N/A'}</span>
+             </div>
+             <div>
+               <span className="text-neutral-400">ORDER #: </span> 
+               <span>{order.portalId || order.id.slice(0, 8)}</span>
+             </div>
            </div>
 
            <div className="flex gap-12 flex-1">
              {/* Left Column Data */}
-             <div className="w-1/3 flex flex-col gap-8">
+             <div className="w-1/3 flex flex-col gap-6">
+                {/* Billing Contact */}
                 <div className="flex flex-col gap-1 text-[11px] font-bold tracking-widest text-neutral-800 uppercase leading-relaxed">
-                   <p className="text-neutral-500">TO:</p>
-                   <p>{clientName}</p>
-                   {companyName && companyName !== clientName && (
-                     <p>{companyName}</p>
-                   )}
+                   <p className="text-neutral-500">TO (CLIENT):</p>
+                   <p className="text-xs text-black">{companyName}</p>
+                   <p className="text-neutral-600 font-medium">{clientName}</p>
                    {clientEmail && (
                      <p className="lowercase normal-case text-neutral-500 font-medium tracking-normal">{clientEmail}</p>
                    )}
                    {clientPhone && (
                      <p className="normal-case text-neutral-500 font-medium tracking-normal">{clientPhone}</p>
                    )}
-                   {order.shippingAddress && order.shippingAddress.street1 ? (
-                     <>
-                       <p>{order.shippingAddress.street1}</p>
-                       {order.shippingAddress.street2 && <p>{order.shippingAddress.street2}</p>}
-                       <p>{order.shippingAddress.city}, {order.shippingAddress.state} {order.shippingAddress.zip}</p>
-                     </>
-                   ) : cust.shippingStreet ? (
-                     <>
+                   {cust.shippingStreet ? (
+                     <div className="mt-1 text-neutral-500 font-medium tracking-normal normal-case">
+                       <p className="font-bold tracking-widest uppercase text-[9px] text-neutral-400">BILLING ADDRESS:</p>
                        <p>{cust.shippingStreet}</p>
                        <p>{cust.shippingCity}, {cust.shippingState} {cust.shippingZip}</p>
-                     </>
+                     </div>
                    ) : cust.location ? (
-                     <p>{cust.location}</p>
+                     <p className="normal-case text-neutral-500 font-medium tracking-normal">{cust.location}</p>
                    ) : null}
                 </div>
 
-                <div className="flex flex-col gap-4 text-[11px] font-bold tracking-widest text-neutral-800 uppercase">
+                {/* Separate Shipping Address if different */}
+                {hasSeparateShipping && (
+                  <div className="flex flex-col gap-1 text-[11px] font-bold tracking-widest text-neutral-800 uppercase leading-relaxed pt-3 border-t border-neutral-100">
+                    <p className="text-neutral-500 text-[9px]">SHIPPING ADDRESS:</p>
+                    <p className="normal-case font-medium text-neutral-600 tracking-normal">{order.shippingAddress.name}</p>
+                    <p className="normal-case font-medium text-neutral-600 tracking-normal">{order.shippingAddress.street1}</p>
+                    {order.shippingAddress.street2 && <p className="normal-case font-medium text-neutral-600 tracking-normal">{order.shippingAddress.street2}</p>}
+                    <p className="normal-case font-medium text-neutral-600 tracking-normal">{order.shippingAddress.city}, {order.shippingAddress.state} {order.shippingAddress.zip}</p>
+                  </div>
+                )}
+
+                <div className="flex flex-col gap-3 text-[11px] font-bold tracking-widest text-neutral-800 uppercase pt-2">
                    <div>
-                     <p className="text-neutral-500">ORDER:</p>
+                     <p className="text-neutral-500 text-[9px]">ORDER TITLE:</p>
                      <p>{order.title}</p>
                    </div>
                    <div>
-                     <p className="text-neutral-500">COMPANY:</p>
-                     <p>{cust.company}</p>
+                     <p className="text-neutral-500 text-[9px]">COMPANY:</p>
+                     <p>{companyName}</p>
                    </div>
                    <div>
-                     <p className="text-neutral-500">INVOICE #</p>
+                     <p className="text-neutral-500 text-[9px]">INVOICE #</p>
                      <p>{order.portalId || order.id.slice(0, 8)}</p>
                    </div>
                 </div>
 
-                <div className="mt-8 flex flex-col gap-6 text-[10px] text-neutral-500 leading-relaxed max-w-[200px]">
+                <div className="mt-4 flex flex-col gap-5 text-[10px] text-neutral-500 leading-relaxed max-w-[220px]">
                    {invSettings.statementOfWork && (
                      <div>
                        <p className="font-bold text-neutral-800 tracking-widest uppercase mb-1">STATEMENT OF WORK</p>
@@ -198,7 +254,7 @@ export function InvoiceView() {
                    )}
                 </div>
 
-                <div className="mt-auto pt-8">
+                <div className="mt-auto pt-6">
                   <p className="text-[9px] font-bold tracking-widest uppercase text-neutral-400">{invSettings.footerTagline}</p>
                 </div>
              </div>
@@ -207,7 +263,7 @@ export function InvoiceView() {
              <div className="w-2/3 flex flex-col">
                 <h3 className="text-[10px] font-bold tracking-[0.2em] text-neutral-800 uppercase mb-6 pb-2 border-b border-neutral-200">DELIVERABLES</h3>
 
-                <div className="w-full mb-8">
+                <div className="w-full mb-6">
                   {/* Table Header */}
                   <div className="flex w-full text-[9px] font-bold tracking-widest text-neutral-500 uppercase pb-3 border-b border-neutral-100">
                     <div className="w-1/2">ITEM</div>
@@ -215,8 +271,8 @@ export function InvoiceView() {
                     <div className="w-1/3 text-right">PRICE</div>
                   </div>
 
-                  {/* Table Rows */}
-                  <div className="flex flex-col gap-4 py-4">
+                  {/* Table Rows: Order Items */}
+                  <div className="flex flex-col gap-4 py-4 border-b border-neutral-100">
                     {order.items?.map((item: any, idx: number) => {
                        const priceStr = String(item.price || '0').replace(/[^0-9.]/g, '');
                        const price = parseFloat(priceStr) || 0;
@@ -246,17 +302,72 @@ export function InvoiceView() {
                          </div>
                        );
                     })}
-                    {(!order.items || order.items.length === 0) && (
-                      <div className="text-center py-4 text-[10px] text-neutral-400 font-bold tracking-widest uppercase">
-                        No items added to this order yet.
-                      </div>
-                    )}
                   </div>
+
+                  {/* Table Rows: Standard Complimentary Services */}
+                  {customServices && customServices.length > 0 && (
+                    <div className="flex flex-col gap-2.5 py-4 border-b border-neutral-100">
+                      <p className="text-[9px] font-bold tracking-widest text-neutral-400 uppercase mb-1">INCLUDED SERVICES & QUALITY CONTROL</p>
+                      {customServices.map((srv: any, sIdx: number) => {
+                        const priceVal = parseFloat(srv.price || 0);
+                        const priceFormatted = priceVal === 0 ? 'INCLUDED' : new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(priceVal);
+
+                        return (
+                          <div key={sIdx} className="flex w-full text-[11px] text-neutral-700 leading-snug">
+                            <div className="w-1/2 pr-4 font-medium uppercase tracking-wide">
+                              {srv.name}
+                            </div>
+                            <div className="w-1/6 text-center text-neutral-400 text-[10px]">
+                              1
+                            </div>
+                            <div className="w-1/3 text-right font-bold text-neutral-600 text-[10px]">
+                              {priceFormatted}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Kitting, Packaging & Logistics line item if specified */}
+                  {order.logisticsFee && (
+                    <div className="flex w-full text-[11px] text-neutral-800 leading-snug py-3 border-b border-neutral-100">
+                      <div className="w-1/2 pr-4 font-bold uppercase tracking-wide">
+                        Logistics (Kitting & Packaging)
+                      </div>
+                      <div className="w-1/6 text-center font-medium">1</div>
+                      <div className="w-1/3 text-right font-bold">
+                        {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(parseFloat(order.logisticsFee || 0))}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                <div className="mt-auto border-t border-neutral-200 pt-6 flex justify-between items-end mb-12">
-                   <span className="text-sm font-serif italic text-neutral-400">Total</span>
-                   <span className="text-4xl font-serif text-neutral-900 tracking-tight">{formattedTotal}</span>
+                {/* Subtotal & Totals Breakdown */}
+                <div className="mt-auto border-t border-neutral-200 pt-4 flex flex-col gap-2 mb-8 text-[11px]">
+                   <div className="flex justify-between items-center text-neutral-500">
+                     <span>Deliverables Subtotal</span>
+                     <span className="font-medium text-neutral-800">{formattedItemsSubtotal}</span>
+                   </div>
+
+                   {shippingFee > 0 && (
+                     <div className="flex justify-between items-center text-neutral-500">
+                       <span>Freight / Shipping & Handling</span>
+                       <span className="font-medium text-neutral-800">{formattedShippingFee}</span>
+                     </div>
+                   )}
+
+                   {taxAmount > 0 && (
+                     <div className="flex justify-between items-center text-neutral-500">
+                       <span>Estimated Sales Tax</span>
+                       <span className="font-medium text-neutral-800">{formattedTaxAmount}</span>
+                     </div>
+                   )}
+
+                   <div className="flex justify-between items-end pt-3 border-t border-neutral-200 mt-1">
+                      <span className="text-sm font-serif italic text-neutral-400">Total Amount Due</span>
+                      <span className="text-4xl font-serif text-neutral-900 tracking-tight">{formattedGrandTotal}</span>
+                   </div>
                 </div>
 
                 {/* Wire Info & Payment */}
@@ -287,6 +398,11 @@ export function InvoiceView() {
                        {invSettings.payButtonText}
                      </a>
                    )}
+                </div>
+
+                {/* Small Legal Protections Disclaimer Footer */}
+                <div className="mt-6 pt-4 border-t border-neutral-100 text-[9px] text-neutral-400 leading-normal italic text-center">
+                  Quantities, freight, and applicable taxes are subject to final reconciliation. Custom merchandise is produced specifically for the client and is non-returnable after production is approved and production begins upon required approval and payment.
                 </div>
              </div>
            </div>

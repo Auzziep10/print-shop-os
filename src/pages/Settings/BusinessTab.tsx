@@ -159,6 +159,96 @@ export function BusinessTab() {
             </div>
           </div>
         </div>
+
+        {/* Global Invoice & Bank Wire Settings */}
+        <div className="pt-6 border-t border-brand-border mt-6">
+          <h3 className="text-sm font-bold text-brand-primary mb-4 flex items-center gap-2">
+            <Building2 size={16} className="text-blue-500" /> Global Bank Wire & Invoice Payment Settings
+          </h3>
+          <p className="text-xs text-brand-secondary mb-4">
+            Default wire details and credit card payment links rendered on customer invoices.
+          </p>
+
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-2">Bank Name</label>
+                <input 
+                  type="text" 
+                  value={(settings as any).wireBankName || ''}
+                  onChange={(e) => setSettings(prev => ({ ...prev, wireBankName: e.target.value }))}
+                  className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
+                  placeholder="e.g. Pinnacle Bank"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-2">Account Name</label>
+                <input 
+                  type="text" 
+                  value={(settings as any).wireAccountName || ''}
+                  onChange={(e) => setSettings(prev => ({ ...prev, wireAccountName: e.target.value }))}
+                  className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
+                  placeholder="e.g. Catalyst"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-2">Bank Address</label>
+              <input 
+                type="text" 
+                value={(settings as any).wireBankAddress || ''}
+                onChange={(e) => setSettings(prev => ({ ...prev, wireBankAddress: e.target.value }))}
+                className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
+                placeholder="e.g. 2300 West End Avenue, Nashville, TN 37203"
+              />
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-2">Routing #</label>
+                <input 
+                  type="text" 
+                  value={(settings as any).wireRoutingNumber || ''}
+                  onChange={(e) => setSettings(prev => ({ ...prev, wireRoutingNumber: e.target.value }))}
+                  className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
+                  placeholder="Routing #"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-2">SWIFT Code</label>
+                <input 
+                  type="text" 
+                  value={(settings as any).wireSwiftCode || ''}
+                  onChange={(e) => setSettings(prev => ({ ...prev, wireSwiftCode: e.target.value }))}
+                  className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
+                  placeholder="SWIFT Code"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-2">Account #</label>
+                <input 
+                  type="text" 
+                  value={(settings as any).wireAccountNumber || ''}
+                  onChange={(e) => setSettings(prev => ({ ...prev, wireAccountNumber: e.target.value }))}
+                  className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
+                  placeholder="Account #"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-2">Default Stripe Credit Card Payment URL</label>
+              <input 
+                type="text" 
+                value={(settings as any).stripePaymentUrl || ''}
+                onChange={(e) => setSettings(prev => ({ ...prev, stripePaymentUrl: e.target.value }))}
+                className="w-full bg-brand-bg/50 border border-brand-border rounded-lg px-4 py-3 text-sm focus:border-brand-primary focus:outline-none transition-colors"
+                placeholder="e.g. https://buy.stripe.com/..."
+              />
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="pt-6 border-t border-brand-border">
