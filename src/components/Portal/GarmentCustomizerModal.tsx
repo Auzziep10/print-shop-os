@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../../lib/firebase';
-import { X, Upload, Loader2, Check, FileText, Sparkles, RefreshCw, Type, Image as ImageIcon, Sliders, Trash2, Bold, Italic, Search, Shirt, Plus, Palette, AlertCircle, Eye } from 'lucide-react';
+import { X, Upload, Loader2, Check, FileText, Sparkles, RefreshCw, Type, Image as ImageIcon, Sliders, Trash2, Bold, Italic, Search, Shirt, Plus, Palette, Eye } from 'lucide-react';
 import { generateRotatedGarment } from '../../lib/geminiService';
 import { getSwatchColor } from '../shared/GarmentBrowser';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
@@ -3619,49 +3619,7 @@ export function GarmentCustomizerModal({
             </div>
           )}
 
-          {/* Required Placement Width Input */}
-          {((activeTab === 'front' && selectedLogoFront) ||
-            (activeTab === 'back' && selectedLogoBack) ||
-            (activeTab === 'sleeve' && !isSleeveMirrored && selectedLogoLeftSleeve) ||
-            (activeTab === 'sleeve' && isSleeveMirrored && selectedLogoRightSleeve)) && (
-            <div className="flex flex-col gap-2 border-t border-neutral-100 pt-6 animate-in fade-in duration-200">
-              <label className="text-xs font-bold uppercase tracking-widest text-neutral-600">
-                Print Width (Inches)
-              </label>
 
-              <input
-                type="number"
-                step="0.1"
-                min="0.5"
-                max="22"
-                placeholder="e.g. 10.5 for Full Front, 3.5 for Left Chest (leave blank for standard)"
-                value={
-                  activeTab === 'front'
-                    ? widthFront
-                    : activeTab === 'back'
-                    ? widthBack
-                    : isSleeveMirrored
-                    ? widthRightSleeve
-                    : widthLeftSleeve
-                }
-                onChange={(e) => {
-                  const val = e.target.value;
-                  if (activeTab === 'front') setWidthFront(val);
-                  else if (activeTab === 'back') setWidthBack(val);
-                  else if (isSleeveMirrored) setWidthRightSleeve(val);
-                  else setWidthLeftSleeve(val);
-                }}
-                className="w-full bg-white border border-neutral-300 hover:border-black focus:border-black focus:ring-1 focus:ring-black rounded-xl px-4 py-2.5 text-sm font-bold transition-all outline-none shadow-xs text-neutral-900"
-              />
-
-              <div className="bg-amber-50/70 border border-amber-250/70 text-amber-900 rounded-2xl p-3 flex gap-2 mt-1">
-                <AlertCircle size={16} className="text-amber-600 shrink-0 mt-0.5" />
-                <span className="text-[10.5px] leading-relaxed font-medium">
-                  <strong>Print Dimensions:</strong> Type your desired print width in inches above. When you set your order quantities in the cart, your auto-quote will be calculated automatically based on your dimensions and tier quantity!
-                </span>
-              </div>
-            </div>
-          )}
 
           {/* Save Tag Design to Asset Vault Section */}
           {activeTab === 'tag' && (
