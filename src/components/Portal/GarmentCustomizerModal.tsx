@@ -2371,9 +2371,17 @@ export function GarmentCustomizerModal({
 
           {/* Garment Preview Container */}
           <div className="flex-1 min-h-0 w-full flex flex-col items-center justify-center gap-3 p-2">
-            <div 
+            <div
               ref={previewRef}
-              className={`relative w-full max-w-[560px] ${activeTab === 'tag' ? 'aspect-square' : 'aspect-[4/5]'} bg-white rounded-[2rem] border border-neutral-200/50 shadow-lg flex items-center justify-center overflow-hidden transition-all duration-300 hover:shadow-xl select-none`}
+              className={`relative w-full ${activeTab === 'tag' ? 'aspect-square' : 'aspect-[4/5]'} bg-white rounded-[2rem] border border-neutral-200/50 shadow-lg flex items-center justify-center overflow-hidden transition-all duration-300 hover:shadow-xl select-none`}
+              style={{
+                // Fill the window: width derived from viewport height so the
+                // 4:5 artboard is as tall as the available space allows.
+                // Percent-based placements/pricing are unaffected by scale.
+                width: activeTab === 'tag'
+                  ? 'min(100%, calc(100dvh - 250px), 920px)'
+                  : 'min(100%, calc((100dvh - 250px) * 0.8), 920px)'
+              }}
             >
               {activeTab !== 'tag' && (
                 <>
@@ -2693,7 +2701,7 @@ export function GarmentCustomizerModal({
             {publicGuidesEnabled && activeTab !== 'tag' && showPlacementGuides && currentPlacementGuides && currentPlacementGuides.length > 0 && (() => {
               const detectedTier = (activeTab === 'front' || activeTab === 'back') ? detectSidePrintSize(activeTab) : null;
               return (
-                <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 w-full max-w-[560px] shrink-0 select-none">
+                <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 w-full max-w-[920px] shrink-0 select-none">
                   {currentPlacementGuides.map(g => {
                     const isActive = detectedTier?.toLowerCase() === g.key;
                     return (
@@ -2717,7 +2725,7 @@ export function GarmentCustomizerModal({
             })()}
 
             {/* Bottom Bar: Badges & Controls */}
-            <div className="flex flex-wrap items-center justify-between gap-3 w-full max-w-[560px] px-2 shrink-0">
+            <div className="flex flex-wrap items-center justify-between gap-3 w-full max-w-[920px] px-2 shrink-0">
               <div className="flex items-center gap-2">
                 <span className="text-[9px] font-bold uppercase tracking-widest text-neutral-400 bg-neutral-50 border border-neutral-200 px-2 py-0.5 rounded shadow-sm">
                   Active Placement: {activeTab === 'sleeve' ? (isSleeveMirrored ? 'SLEEVE (MIRRORED)' : 'SLEEVE') : activeTab.toUpperCase()}
