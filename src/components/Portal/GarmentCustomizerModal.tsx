@@ -987,41 +987,45 @@ export function GarmentCustomizerModal({
   // Which admin placement box (Small/Medium/Large) a side's logo currently
   // sits in — drives the Size chip and the pricing tier saved with the design.
   const detectSidePrintSize = (side: 'front' | 'back'): 'Small' | 'Medium' | 'Large' | null => {
-    const targetGarment = activeGarment || garment;
-    const rawPlacement = resolveGarmentPlacementData(targetGarment, fetchedLogoPlacements, fetchedCatalogSettings);
-    if (!rawPlacement) return null;
-    const sideData = side === 'back'
-      ? (rawPlacement.back || (rawPlacement && !rawPlacement.front ? rawPlacement : null))
-      : (rawPlacement.front || rawPlacement);
-    if (!sideData) return null;
-
     const logoSel = side === 'back' ? selectedLogoBack : selectedLogoFront;
     const scaleVal = side === 'back' ? scaleBack : scaleFront;
     if (!logoSel || !(scaleVal > 0)) return null;
 
-    // Compare in display space: remap boxes the same way the guides render
-    // (identity when bounds are unavailable or this isn't the active side).
-    const refBounds = (side === 'back' ? rawPlacement.backRef : rawPlacement.frontRef) || null;
-    const disp = side === activeTab ? dispFrameBounds : null;
-    const remap = (b: any) => (b && typeof b.x === 'number' ? remapBoxToFrame(b, refBounds, disp) : null);
-    const sideMap = {
-      small: remap(sideData.small),
-      medium: remap(sideData.medium),
-      large: remap(sideData.large),
-    };
-
-    const info = logoContentInfo[logoSel.url];
-    const aspect = info?.aspect || 1;
-    const wPctFull = scaleVal * 0.36;               // overlay renders width as scale * 0.36% of the artboard
-    const hPctFull = (wPctFull * 4) / (5 * aspect); // 4:5 artboard: h% = w% * (frameW/frameH) / (logoW/logoH)
-    // Measure the VISIBLE artwork, not the file rectangle — transparent
-    // padding around a logo must not inflate its detected print size.
-    const wPct = wPctFull * (info?.w ?? 1);
-    const hPct = hPctFull * (info?.h ?? 1);
     const offX = side === 'back' ? offsetXBack : offsetXFront;
     const offY = side === 'back' ? offsetYBack : offsetYFront;
 
-    return detectPrintSizeFromPlacement({ front: sideMap }, 'front', { x: offX, y: offY, wPct, hPct });
+    const targetGarment = activeGarment || garment;
+    const rawPlacement = resolveGarmentPlacementData(targetGarment, fetchedLogoPlacements, fetchedCatalogSettings);
+    if (rawPlacement) {
+      const sideData = side === 'back'
+        ? (rawPlacement.back || (rawPlacement && !rawPlacement.front ? rawPlacement : null))
+        : (rawPlacement.front || rawPlacement);
+      if (sideData) {
+        const refBounds = (side === 'back' ? rawPlacement.backRef : rawPlacement.frontRef) || null;
+        const disp = side === activeTab ? dispFrameBounds : null;
+        const remap = (b: any) => (b && typeof b.x === 'number' ? remapBoxToFrame(b, refBounds, disp) : null);
+        const sideMap = {
+          small: remap(sideData.small),
+          medium: remap(sideData.medium),
+          large: remap(sideData.large),
+        };
+
+        const info = logoContentInfo[logoSel.url];
+        const aspect = info?.aspect || 1;
+        const wPctFull = scaleVal * 0.36;               // overlay renders width as scale * 0.36% of the artboard
+        const hPctFull = (wPctFull * 4) / (5 * aspect); // 4:5 artboard: h% = w% * (frameW/frameH) / (logoW/logoH)
+        const wPct = wPctFull * (info?.w ?? 1);
+        const hPct = hPctFull * (info?.h ?? 1);
+
+        const detected = detectPrintSizeFromPlacement({ front: sideMap }, 'front', { x: offX, y: offY, wPct, hPct });
+        if (detected) return detected;
+      }
+    }
+
+    // Heuristic fallback when bounding box templates are missing or logo is placed without placement boxes
+    const isSmall = (offX < 48 && scaleVal <= 38) || scaleVal <= 28;
+    const isMedium = scaleVal > 28 && scaleVal <= 38;
+    return isSmall ? 'Small' : isMedium ? 'Medium' : 'Large';
   };
 
   const needsGeneration = useMemo(() => {

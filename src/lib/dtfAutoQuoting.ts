@@ -44,17 +44,23 @@ export function detectPlacementIds(item: any, garmentId: string): string[] {
   const hasFront = !!(item.logoUrlFront || item.logoUrl || item.customizedFrontImage || lp.includes('front'));
   if (hasFront) {
     const w = item.logoWidthFront ? parseFloat(item.logoWidthFront) : 0;
-    const detected = String(item.detectedPrintSizeFront || '').toLowerCase();
+    const detected = String(item.detectedPrintSizeFront || item.printSizeFront || item.printSize || item.frontPrintSize || '').toLowerCase();
     if (w > 0) {
       // Explicit inches always win: ≤5" small, ≤8" medium (7×9 area), else full
       placements.push(w <= 5 ? 'lc' : w <= 8 ? 'mf' : 'ff');
-    } else if (detected === 'small' || detected === 'medium' || detected === 'large') {
-      // Which admin placement box the logo actually sits in (from /start lookbook)
-      placements.push(detected === 'small' ? 'lc' : detected === 'medium' ? 'mf' : 'ff');
+    } else if (detected.includes('small') || detected === 'lc') {
+      placements.push('lc');
+    } else if (detected.includes('medium') || detected === 'mf') {
+      placements.push('mf');
+    } else if (detected.includes('large') || detected === 'ff') {
+      placements.push('ff');
     } else {
-      // Legacy heuristic: left chest if scaled small and positioned top-left
-      const isLeftChest = (item.customScaleFront || 30) < 25 && (item.customOffsetXFront || 50) < 45;
-      placements.push(isLeftChest ? 'lc' : 'ff');
+      // Scale & position heuristic
+      const scale = item.customScaleFront || (item.logoScale ? (item.logoScale <= 1 ? item.logoScale * 100 : item.logoScale) : 30);
+      const offX = item.customOffsetXFront !== undefined ? item.customOffsetXFront : (item.logoPos?.x !== undefined ? item.logoPos.x : 50);
+      const isLeftChest = (offX < 48 && scale <= 38) || scale <= 28;
+      const isMedium = scale > 28 && scale <= 38;
+      placements.push(isLeftChest ? 'lc' : isMedium ? 'mf' : 'ff');
     }
   }
 
@@ -62,14 +68,21 @@ export function detectPlacementIds(item: any, garmentId: string): string[] {
   const hasBack = !!(item.logoUrlBack || item.customizedBackImage || lp.includes('back'));
   if (hasBack) {
     const w = item.logoWidthBack ? parseFloat(item.logoWidthBack) : 0;
-    const detected = String(item.detectedPrintSizeBack || '').toLowerCase();
+    const detected = String(item.detectedPrintSizeBack || item.printSizeBack || '').toLowerCase();
     if (w > 0) {
       placements.push(w <= 5 ? 'sb' : w <= 8 ? 'mb' : 'fb');
-    } else if (detected === 'small' || detected === 'medium' || detected === 'large') {
-      placements.push(detected === 'small' ? 'sb' : detected === 'medium' ? 'mb' : 'fb');
+    } else if (detected.includes('small') || detected === 'sb') {
+      placements.push('sb');
+    } else if (detected.includes('medium') || detected === 'mb') {
+      placements.push('mb');
+    } else if (detected.includes('large') || detected === 'fb') {
+      placements.push('fb');
     } else {
-      const isSmallBack = (item.customScaleBack || 30) < 25 && (item.customOffsetXBack || 50) !== 50;
-      placements.push(isSmallBack ? 'sb' : 'fb');
+      const scale = item.customScaleBack || (item.backLogoScale ? (item.backLogoScale <= 1 ? item.backLogoScale * 100 : item.backLogoScale) : 30);
+      const offX = item.customOffsetXBack !== undefined ? item.customOffsetXBack : (item.backLogoPos?.x !== undefined ? item.backLogoPos.x : 50);
+      const isSmallBack = (offX !== 50 && scale <= 38) || scale <= 28;
+      const isMedium = scale > 28 && scale <= 38;
+      placements.push(isSmallBack ? 'sb' : isMedium ? 'mb' : 'fb');
     }
   }
 

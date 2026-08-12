@@ -4890,8 +4890,11 @@ export function PublicQuoteRequest() {
                             } else if (detected.includes('large') || detected === 'ff') {
                               sizeF = 'Full Front (11×14")';
                             } else {
-                              const isLeftChest = (item.customScaleFront || 30) < 25 && (item.customOffsetXFront || 50) < 45;
-                              sizeF = isLeftChest ? 'Left Chest (4×4")' : 'Full Front (11×14")';
+                              const scale = item.customScaleFront || (item.logoScale ? (item.logoScale <= 1 ? item.logoScale * 100 : item.logoScale) : 30);
+                              const offX = item.customOffsetXFront !== undefined ? item.customOffsetXFront : (item.logoPos?.x !== undefined ? item.logoPos.x : 50);
+                              const isLeftChest = (offX < 48 && scale <= 38) || scale <= 28;
+                              const isMedium = scale > 28 && scale <= 38;
+                              sizeF = isLeftChest ? 'Left Chest (4×4")' : isMedium ? 'Medium Front (7×9")' : 'Full Front (11×14")';
                             }
                             activePlacements.push(`Front — ${sizeF}`);
                           }
@@ -4910,8 +4913,11 @@ export function PublicQuoteRequest() {
                             } else if (detected.includes('large') || detected === 'fb') {
                               sizeB = 'Full Back (11×14")';
                             } else {
-                              const isSmallBack = (item.customScaleBack || 30) < 25 && (item.customOffsetXBack || 50) !== 50;
-                              sizeB = isSmallBack ? 'Small Upper Back (4×4")' : 'Full Back (11×14")';
+                              const scale = item.customScaleBack || (item.backLogoScale ? (item.backLogoScale <= 1 ? item.backLogoScale * 100 : item.backLogoScale) : 30);
+                              const offX = item.customOffsetXBack !== undefined ? item.customOffsetXBack : (item.backLogoPos?.x !== undefined ? item.backLogoPos.x : 50);
+                              const isSmallBack = (offX !== 50 && scale <= 38) || scale <= 28;
+                              const isMedium = scale > 28 && scale <= 38;
+                              sizeB = isSmallBack ? 'Small Upper Back (4×4")' : isMedium ? 'Medium Back (7×9")' : 'Full Back (11×14")';
                             }
                             activePlacements.push(`Back — ${sizeB}`);
                           }
