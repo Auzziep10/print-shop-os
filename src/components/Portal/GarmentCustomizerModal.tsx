@@ -1023,8 +1023,8 @@ export function GarmentCustomizerModal({
     }
 
     // Heuristic fallback when bounding box templates are missing or logo is placed without placement boxes
-    const isSmall = (offX < 48 && scaleVal <= 38) || scaleVal <= 28;
-    const isMedium = scaleVal > 28 && scaleVal <= 38;
+    const isSmall = (offX < 48 && scaleVal <= 42) || scaleVal <= 35;
+    const isMedium = scaleVal > 35 && scaleVal <= 50;
     return isSmall ? 'Small' : isMedium ? 'Medium' : 'Large';
   };
 

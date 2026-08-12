@@ -2154,8 +2154,8 @@ export function PortalCreateOrder() {
                                   } else {
                                     const scale = item.customScaleFront || (item.logoScale ? (item.logoScale <= 1 ? item.logoScale * 100 : item.logoScale) : 30);
                                     const offX = item.customOffsetXFront !== undefined ? item.customOffsetXFront : (item.logoPos?.x !== undefined ? item.logoPos.x : 50);
-                                    const isLeftChest = (offX < 48 && scale <= 38) || scale <= 28;
-                                    const isMedium = scale > 28 && scale <= 38;
+                                    const isLeftChest = (offX < 48 && scale <= 42) || scale <= 35;
+                                    const isMedium = scale > 35 && scale <= 50;
                                     sizeF = isLeftChest ? 'Left Chest (4×4")' : isMedium ? 'Medium Front (7×9")' : 'Full Front (11×14")';
                                   }
                                   activePlacements.push(`Front — ${sizeF}`);
@@ -2177,8 +2177,8 @@ export function PortalCreateOrder() {
                                   } else {
                                     const scale = item.customScaleBack || (item.backLogoScale ? (item.backLogoScale <= 1 ? item.backLogoScale * 100 : item.backLogoScale) : 30);
                                     const offX = item.customOffsetXBack !== undefined ? item.customOffsetXBack : (item.backLogoPos?.x !== undefined ? item.backLogoPos.x : 50);
-                                    const isSmallBack = (offX !== 50 && scale <= 38) || scale <= 28;
-                                    const isMedium = scale > 28 && scale <= 38;
+                                    const isSmallBack = (offX !== 50 && scale <= 42) || scale <= 35;
+                                    const isMedium = scale > 35 && scale <= 50;
                                     sizeB = isSmallBack ? 'Small Upper Back (4×4")' : isMedium ? 'Medium Back (7×9")' : 'Full Back (11×14")';
                                   }
                                   activePlacements.push(`Back — ${sizeB}`);
@@ -2853,6 +2853,8 @@ export function PortalCreateOrder() {
             customOffsetXFront: customizingItem.customOffsetXFront,
             customOffsetYFront: customizingItem.customOffsetYFront,
             customRotationFront: customizingItem.customRotationFront,
+            detectedPrintSizeFront: customizingItem.detectedPrintSizeFront,
+            detectedPrintSizeBack: customizingItem.detectedPrintSizeBack,
             customScaleBack: customizingItem.customScaleBack,
             customOffsetXBack: customizingItem.customOffsetXBack,
             customOffsetYBack: customizingItem.customOffsetYBack,
@@ -2909,6 +2911,8 @@ export function PortalCreateOrder() {
               customOffsetXFront: customizedData.customOffsetXFront,
               customOffsetYFront: customizedData.customOffsetYFront,
               customRotationFront: customizedData.customRotationFront,
+              detectedPrintSizeFront: customizedData.detectedPrintSizeFront,
+              detectedPrintSizeBack: customizedData.detectedPrintSizeBack,
               customScaleBack: customizedData.customScaleBack,
               customOffsetXBack: customizedData.customOffsetXBack,
               customOffsetYBack: customizedData.customOffsetYBack,

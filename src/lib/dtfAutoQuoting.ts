@@ -58,8 +58,8 @@ export function detectPlacementIds(item: any, garmentId: string): string[] {
       // Scale & position heuristic
       const scale = item.customScaleFront || (item.logoScale ? (item.logoScale <= 1 ? item.logoScale * 100 : item.logoScale) : 30);
       const offX = item.customOffsetXFront !== undefined ? item.customOffsetXFront : (item.logoPos?.x !== undefined ? item.logoPos.x : 50);
-      const isLeftChest = (offX < 48 && scale <= 38) || scale <= 28;
-      const isMedium = scale > 28 && scale <= 38;
+      const isLeftChest = (offX < 48 && scale <= 42) || scale <= 35;
+      const isMedium = scale > 35 && scale <= 50;
       placements.push(isLeftChest ? 'lc' : isMedium ? 'mf' : 'ff');
     }
   }
@@ -80,8 +80,8 @@ export function detectPlacementIds(item: any, garmentId: string): string[] {
     } else {
       const scale = item.customScaleBack || (item.backLogoScale ? (item.backLogoScale <= 1 ? item.backLogoScale * 100 : item.backLogoScale) : 30);
       const offX = item.customOffsetXBack !== undefined ? item.customOffsetXBack : (item.backLogoPos?.x !== undefined ? item.backLogoPos.x : 50);
-      const isSmallBack = (offX !== 50 && scale <= 38) || scale <= 28;
-      const isMedium = scale > 28 && scale <= 38;
+      const isSmallBack = (offX !== 50 && scale <= 42) || scale <= 35;
+      const isMedium = scale > 35 && scale <= 50;
       placements.push(isSmallBack ? 'sb' : isMedium ? 'mb' : 'fb');
     }
   }

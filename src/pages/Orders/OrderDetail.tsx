@@ -7913,6 +7913,8 @@ export function OrderDetail() {
               customOffsetXFront: customizedData.customOffsetXFront,
               customOffsetYFront: customizedData.customOffsetYFront,
               customRotationFront: customizedData.customRotationFront,
+              detectedPrintSizeFront: customizedData.detectedPrintSizeFront,
+              detectedPrintSizeBack: customizedData.detectedPrintSizeBack,
               customScaleBack: customizedData.customScaleBack,
               customOffsetXBack: customizedData.customOffsetXBack,
               customOffsetYBack: customizedData.customOffsetYBack,

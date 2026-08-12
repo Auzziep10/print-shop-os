@@ -1367,8 +1367,8 @@ export function PortalRequestQuote() {
                               } else {
                                 const scale = product.customScaleFront || (product.logoScale ? (product.logoScale <= 1 ? product.logoScale * 100 : product.logoScale) : 30);
                                 const offX = product.customOffsetXFront !== undefined ? product.customOffsetXFront : (product.logoPos?.x !== undefined ? product.logoPos.x : 50);
-                                const isLeftChest = (offX < 48 && scale <= 38) || scale <= 28;
-                                const isMedium = scale > 28 && scale <= 38;
+                                const isLeftChest = (offX < 48 && scale <= 42) || scale <= 35;
+                                const isMedium = scale > 35 && scale <= 50;
                                 sizeF = isLeftChest ? 'Left Chest (4×4")' : isMedium ? 'Medium Front (7×9")' : 'Full Front (11×14")';
                               }
                               activePlacements.push(`Front — ${sizeF}`);
@@ -1390,8 +1390,8 @@ export function PortalRequestQuote() {
                               } else {
                                 const scale = product.customScaleBack || (product.backLogoScale ? (product.backLogoScale <= 1 ? product.backLogoScale * 100 : product.backLogoScale) : 30);
                                 const offX = product.customOffsetXBack !== undefined ? product.customOffsetXBack : (product.backLogoPos?.x !== undefined ? product.backLogoPos.x : 50);
-                                const isSmallBack = (offX !== 50 && scale <= 38) || scale <= 28;
-                                const isMedium = scale > 28 && scale <= 38;
+                                const isSmallBack = (offX !== 50 && scale <= 42) || scale <= 35;
+                                const isMedium = scale > 35 && scale <= 50;
                                 sizeB = isSmallBack ? 'Small Upper Back (4×4")' : isMedium ? 'Medium Back (7×9")' : 'Full Back (11×14")';
                               }
                               activePlacements.push(`Back — ${sizeB}`);
@@ -1745,6 +1745,8 @@ export function PortalRequestQuote() {
               customOffsetXFront: customizedData.customOffsetXFront,
               customOffsetYFront: customizedData.customOffsetYFront,
               customRotationFront: customizedData.customRotationFront,
+              detectedPrintSizeFront: customizedData.detectedPrintSizeFront,
+              detectedPrintSizeBack: customizedData.detectedPrintSizeBack,
               customScaleBack: customizedData.customScaleBack,
               customOffsetXBack: customizedData.customOffsetXBack,
               customOffsetYBack: customizedData.customOffsetYBack,
