@@ -235,11 +235,12 @@ function LandingNav({
   onCustomize,
   onPortal,
   onAdminPanel,
-  onScrollTo,
+  onStart,
 }: Omit<ImmersiveLandingProps, 'onStart'> & {
   scrolled: boolean;
   visible: boolean;
-  onScrollTo: (id: string) => void;
+  onScrollTo?: (id: string) => void;
+  onStart: (mode: 'racks' | 'basics') => void;
 }) {
   const dark = !scrolled; // over hero = light text, after hero = ink on cream
   const role = userData?.role;
@@ -348,7 +349,7 @@ function LandingNav({
             Shop
           </a>
 
-          <button data-cursor onClick={() => onScrollTo('#start-cta')} className={solidBtn}>
+          <button data-cursor onClick={() => onStart('racks')} className={solidBtn}>
             Start
           </button>
         </div>
@@ -437,7 +438,7 @@ export function ImmersiveLanding(props: ImmersiveLandingProps) {
       />
 
       <main>
-        <HeroSection settings={settings} introPlay={introDone} onScrollTo={scrollToId} />
+        <HeroSection settings={settings} introPlay={introDone} onScrollTo={scrollToId} onStart={onStart} />
         {settings.announcement && <AnnouncementMarquee text={settings.announcement} />}
         <ManifestoSection settings={settings} />
         <ShowcaseSection settings={settings} onStart={onStart} />
@@ -453,6 +454,7 @@ export function ImmersiveLanding(props: ImmersiveLandingProps) {
         onPortal={props.onPortal}
         onLogin={props.onLogin}
         onScrollTo={scrollToId}
+        onStart={onStart}
       />
     </div>
   );

@@ -30,10 +30,12 @@ export function HeroSection({
   settings,
   introPlay,
   onScrollTo,
+  onStart,
 }: {
   settings: StorefrontSettingsShape;
   introPlay: boolean;
   onScrollTo: (id: string) => void;
+  onStart: (mode: 'racks' | 'basics') => void;
 }) {
   const sectionRef = useRef<HTMLElement>(null);
   const [slideIdx, setSlideIdx] = useState(0);
@@ -181,7 +183,7 @@ export function HeroSection({
           <div className="hero-fade-in flex flex-wrap items-center gap-3">
             <button
               data-cursor
-              onClick={() => onScrollTo('#start-cta')}
+              onClick={() => onStart('racks')}
               className="font-inter group flex cursor-pointer items-center gap-3 rounded-full bg-white px-7 py-3.5 text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-950 transition-colors hover:bg-zinc-200"
             >
               {settings.heroPrimaryCta || 'Start your project'}
@@ -198,12 +200,16 @@ export function HeroSection({
         </div>
 
         {/* Bottom meta row */}
-        <div className="hero-fade-in font-inter mt-10 flex items-center justify-between border-t border-white/15 pt-5 text-[10px] font-semibold uppercase tracking-[0.25em] text-zinc-400">
+        <div className="hero-fade-in font-inter mt-10 relative flex items-center justify-between border-t border-white/15 pt-5 text-[10px] font-semibold uppercase tracking-[0.25em] text-zinc-400">
           <span className="hidden md:inline">Print · Embroidery · Cut &amp; Sew</span>
-          <span className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => onScrollTo('#manifesto')}
+            className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2 cursor-pointer transition-colors hover:text-white"
+          >
             <ArrowDown size={12} className="animate-bounce" />
             Scroll
-          </span>
+          </button>
           <span className="font-mono tracking-[0.3em]">
             {String(slideIdx + 1).padStart(2, '0')} / {String(HERO_SLIDES.length).padStart(2, '0')}
           </span>
@@ -278,7 +284,7 @@ export function ManifestoSection({ settings }: { settings?: StorefrontSettingsSh
   }, [manifestoText]);
 
   return (
-    <section ref={sectionRef} className="bg-[#faf9f5] px-6 py-28 md:px-12 md:py-44">
+    <section id="manifesto" ref={sectionRef} className="bg-[#faf9f5] px-6 py-28 md:px-12 md:py-44">
       <div className="mx-auto max-w-5xl">
         <p className="manifesto-label font-inter mb-10 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400">
           {settings?.manifestoLabel || '( Our promise )'}
@@ -736,7 +742,7 @@ export function LandingFooter({
   isClient,
   onPortal,
   onLogin,
-  onScrollTo,
+  onStart,
   hasUser,
 }: {
   settings: StorefrontSettingsShape;
@@ -745,7 +751,8 @@ export function LandingFooter({
   hasUser: boolean;
   onPortal: () => void;
   onLogin: () => void;
-  onScrollTo: (id: string) => void;
+  onScrollTo?: (id: string) => void;
+  onStart: (mode: 'racks' | 'basics') => void;
 }) {
   const year = new Date().getFullYear();
   return (
@@ -789,7 +796,7 @@ export function LandingFooter({
           <div className="flex flex-wrap items-center gap-6 text-[11px] font-bold uppercase tracking-[0.2em]">
             <button
               data-cursor
-              onClick={() => onScrollTo('#start-cta')}
+              onClick={() => onStart('racks')}
               className="cursor-pointer text-zinc-300 transition-colors hover:text-white"
             >
               Start a project
