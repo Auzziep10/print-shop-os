@@ -1349,19 +1349,44 @@ export function PortalRequestQuote() {
                           {product.color && <span className="uppercase tracking-wide text-[10px] bg-neutral-50 px-1.5 py-0.5 rounded border border-neutral-200 font-bold">{product.color}</span>}
                           {(() => {
                             const activePlacements = [];
-                            if (product.logoUrl) {
+                            const lp = (product.logoPlacement || '').toLowerCase();
+                            if (product.logoUrl || product.logoUrlFront || lp.includes('front')) {
                               const w = product.logoWidthFront ? parseFloat(product.logoWidthFront) : 0;
-                              const sizeF = w > 0 ? `${w}" wide` : (product as any).detectedPrintSizeFront;
-                              activePlacements.push(`Front${sizeF ? ` — ${sizeF}` : ''}`);
+                              const detected = (product as any).detectedPrintSizeFront;
+                              let sizeF = '';
+                              if (w > 0) {
+                                const plCat = w <= 5 ? 'Left Chest (4×4")' : w <= 8 ? 'Medium Front (7×9")' : 'Full Front (11×14")';
+                                sizeF = `${plCat} — ${w}" wide`;
+                              } else if (detected === 'small' || detected === 'medium' || detected === 'large') {
+                                sizeF = detected === 'small' ? 'Left Chest (4×4")' : detected === 'medium' ? 'Medium Front (7×9")' : 'Full Front (11×14")';
+                              } else {
+                                sizeF = 'Full Front (11×14")';
+                              }
+                              activePlacements.push(`Front — ${sizeF}`);
                             }
-                            if (product.logoUrlBack) {
+                            if (product.logoUrlBack || lp.includes('back')) {
                               const w = product.logoWidthBack ? parseFloat(product.logoWidthBack) : 0;
-                              const sizeB = w > 0 ? `${w}" wide` : (product as any).detectedPrintSizeBack;
-                              activePlacements.push(`Back${sizeB ? ` — ${sizeB}` : ''}`);
+                              const detected = (product as any).detectedPrintSizeBack;
+                              let sizeB = '';
+                              if (w > 0) {
+                                const plCat = w <= 5 ? 'Small Upper Back (4×4")' : w <= 8 ? 'Medium Back (7×9")' : 'Full Back (11×14")';
+                                sizeB = `${plCat} — ${w}" wide`;
+                              } else if (detected === 'small' || detected === 'medium' || detected === 'large') {
+                                sizeB = detected === 'small' ? 'Small Upper Back (4×4")' : detected === 'medium' ? 'Medium Back (7×9")' : 'Full Back (11×14")';
+                              } else {
+                                sizeB = 'Full Back (11×14")';
+                              }
+                              activePlacements.push(`Back — ${sizeB}`);
                             }
-                            if (product.logoUrlLeftSleeve) activePlacements.push("Left Sleeve");
-                            if (product.logoUrlRightSleeve) activePlacements.push("Right Sleeve");
-                            if (product.logoUrlTag) activePlacements.push("Size Tag");
+                            if (product.logoUrlLeftSleeve || lp.includes('left sleeve')) {
+                              const w = product.logoWidthLeftSleeve ? parseFloat(product.logoWidthLeftSleeve) : 0;
+                              activePlacements.push(`Left Sleeve (4×4" max)${w > 0 ? ` — ${w}" wide` : ''}`);
+                            }
+                            if (product.logoUrlRightSleeve || lp.includes('right sleeve')) {
+                              const w = product.logoWidthRightSleeve ? parseFloat(product.logoWidthRightSleeve) : 0;
+                              activePlacements.push(`Right Sleeve (4×4" max)${w > 0 ? ` — ${w}" wide` : ''}`);
+                            }
+                            if (product.logoUrlTag || lp.includes('tag')) activePlacements.push('Neck Tag (2×3")');
                             const count = activePlacements.length;
                             return (
                               <span className="text-[10px] bg-neutral-100 text-neutral-800 px-1.5 py-0.5 rounded border border-neutral-200 font-bold">

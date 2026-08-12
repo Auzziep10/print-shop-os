@@ -4874,15 +4874,44 @@ export function PublicQuoteRequest() {
                         <p className="text-[10px] text-neutral-500 mt-0.5">Color: <span className="font-bold text-neutral-800">{item.color}</span> | Decoration: <span className="font-bold text-neutral-800">{item.decorationMethod}</span></p>
                         {(() => {
                           const activePlacements = [];
-                          if (item.frontLogoUrl || item.customLogoUrl || item.logoUrl) {
-                            const sizeF = (item as any).detectedPrintSizeFront;
-                            activePlacements.push(`Front${sizeF ? ` — ${sizeF}` : ''}`);
+                          const lp = (item.logoPlacement || '').toLowerCase();
+                          if (item.frontLogoUrl || item.customLogoUrl || item.logoUrl || item.logoUrlFront || lp.includes('front')) {
+                            const w = item.logoWidthFront ? parseFloat(item.logoWidthFront) : 0;
+                            const detected = (item as any).detectedPrintSizeFront;
+                            let sizeF = '';
+                            if (w > 0) {
+                              const plCat = w <= 5 ? 'Left Chest (4×4")' : w <= 8 ? 'Medium Front (7×9")' : 'Full Front (11×14")';
+                              sizeF = `${plCat} — ${w}" wide`;
+                            } else if (detected === 'small' || detected === 'medium' || detected === 'large') {
+                              sizeF = detected === 'small' ? 'Left Chest (4×4")' : detected === 'medium' ? 'Medium Front (7×9")' : 'Full Front (11×14")';
+                            } else {
+                              sizeF = 'Full Front (11×14")';
+                            }
+                            activePlacements.push(`Front — ${sizeF}`);
                           }
-                          if (item.backLogoUrl || item.customBackLogoUrl || (item.backLogoScale && item.backLogoScale > 0)) {
-                            const sizeB = (item as any).detectedPrintSizeBack;
-                            activePlacements.push(`Back${sizeB ? ` — ${sizeB}` : ''}`);
+                          if (item.backLogoUrl || item.customBackLogoUrl || (item.backLogoScale && item.backLogoScale > 0) || lp.includes('back')) {
+                            const w = item.logoWidthBack ? parseFloat(item.logoWidthBack) : 0;
+                            const detected = (item as any).detectedPrintSizeBack;
+                            let sizeB = '';
+                            if (w > 0) {
+                              const plCat = w <= 5 ? 'Small Upper Back (4×4")' : w <= 8 ? 'Medium Back (7×9")' : 'Full Back (11×14")';
+                              sizeB = `${plCat} — ${w}" wide`;
+                            } else if (detected === 'small' || detected === 'medium' || detected === 'large') {
+                              sizeB = detected === 'small' ? 'Small Upper Back (4×4")' : detected === 'medium' ? 'Medium Back (7×9")' : 'Full Back (11×14")';
+                            } else {
+                              sizeB = 'Full Back (11×14")';
+                            }
+                            activePlacements.push(`Back — ${sizeB}`);
                           }
-                          if (item.logoUrlTag || (item as any).compiledTagMockupUrl || (item as any).customizedTagImage || (item as any).tagLayout) activePlacements.push("Size Tag");
+                          if (item.logoUrlLeftSleeve || lp.includes('left sleeve')) {
+                            const w = item.logoWidthLeftSleeve ? parseFloat(item.logoWidthLeftSleeve) : 0;
+                            activePlacements.push(`Left Sleeve (4×4" max)${w > 0 ? ` — ${w}" wide` : ''}`);
+                          }
+                          if (item.logoUrlRightSleeve || lp.includes('right sleeve')) {
+                            const w = item.logoWidthRightSleeve ? parseFloat(item.logoWidthRightSleeve) : 0;
+                            activePlacements.push(`Right Sleeve (4×4" max)${w > 0 ? ` — ${w}" wide` : ''}`);
+                          }
+                          if (item.logoUrlTag || (item as any).compiledTagMockupUrl || (item as any).customizedTagImage || (item as any).tagLayout || lp.includes('tag')) activePlacements.push('Neck Tag (2×3")');
                           const count = activePlacements.length;
                           return (
                             <div className="flex flex-col gap-1.5 mt-0.5">

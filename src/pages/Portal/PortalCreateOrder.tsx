@@ -2136,19 +2136,46 @@ export function PortalCreateOrder() {
                               </div>
                               {(() => {
                                 const activePlacements = [];
-                                if (item.logoUrl) {
+                                const lp = (item.logoPlacement || '').toLowerCase();
+                                if (item.logoUrlFront || item.logoUrl || item.customizedFrontImage || lp.includes('front')) {
                                   const w = item.logoWidthFront ? parseFloat(item.logoWidthFront) : 0;
-                                  const sizeF = w > 0 ? `${w}" wide` : (item as any).detectedPrintSizeFront;
-                                  activePlacements.push(`Front${sizeF ? ` — ${sizeF}` : ''}`);
+                                  const detected = (item as any).detectedPrintSizeFront;
+                                  let sizeF = '';
+                                  if (w > 0) {
+                                    const plCat = w <= 5 ? 'Left Chest (4×4")' : w <= 8 ? 'Medium Front (7×9")' : 'Full Front (11×14")';
+                                    sizeF = `${plCat} — ${w}" wide`;
+                                  } else if (detected === 'small' || detected === 'medium' || detected === 'large') {
+                                    sizeF = detected === 'small' ? 'Left Chest (4×4")' : detected === 'medium' ? 'Medium Front (7×9")' : 'Full Front (11×14")';
+                                  } else {
+                                    sizeF = 'Full Front (11×14")';
+                                  }
+                                  activePlacements.push(`Front — ${sizeF}`);
                                 }
-                                if (item.logoUrlBack) {
+                                if (item.logoUrlBack || item.customizedBackImage || lp.includes('back')) {
                                   const w = item.logoWidthBack ? parseFloat(item.logoWidthBack) : 0;
-                                  const sizeB = w > 0 ? `${w}" wide` : (item as any).detectedPrintSizeBack;
-                                  activePlacements.push(`Back${sizeB ? ` — ${sizeB}` : ''}`);
+                                  const detected = (item as any).detectedPrintSizeBack;
+                                  let sizeB = '';
+                                  if (w > 0) {
+                                    const plCat = w <= 5 ? 'Small Upper Back (4×4")' : w <= 8 ? 'Medium Back (7×9")' : 'Full Back (11×14")';
+                                    sizeB = `${plCat} — ${w}" wide`;
+                                  } else if (detected === 'small' || detected === 'medium' || detected === 'large') {
+                                    sizeB = detected === 'small' ? 'Small Upper Back (4×4")' : detected === 'medium' ? 'Medium Back (7×9")' : 'Full Back (11×14")';
+                                  } else {
+                                    sizeB = 'Full Back (11×14")';
+                                  }
+                                  activePlacements.push(`Back — ${sizeB}`);
                                 }
-                                if (item.logoUrlLeftSleeve) activePlacements.push("Left Sleeve");
-                                if (item.logoUrlRightSleeve) activePlacements.push("Right Sleeve");
-                                if (item.logoUrlTag) activePlacements.push("Size Tag");
+                                if (item.logoUrlLeftSleeve || item.customizedSleeveImage || lp.includes('left sleeve')) {
+                                  const w = item.logoWidthLeftSleeve ? parseFloat(item.logoWidthLeftSleeve) : 0;
+                                  activePlacements.push(`Left Sleeve (4×4" max)${w > 0 ? ` — ${w}" wide` : ''}`);
+                                }
+                                if (item.logoUrlRightSleeve || lp.includes('right sleeve')) {
+                                  const w = item.logoWidthRightSleeve ? parseFloat(item.logoWidthRightSleeve) : 0;
+                                  activePlacements.push(`Right Sleeve (4×4" max)${w > 0 ? ` — ${w}" wide` : ''}`);
+                                }
+                                if (item.logoUrlTag || (item as any).compiledTagMockupUrl || (item as any).customizedTagImage || (item as any).tagLayout || lp.includes('tag')) {
+                                  activePlacements.push('Neck Tag (2×3")');
+                                }
                                 const count = activePlacements.length;
                                 return (
                                   <div className="flex flex-col gap-1.5 mt-1.5">
@@ -2286,12 +2313,26 @@ export function PortalCreateOrder() {
                                 </span>
                                 <div className="flex flex-wrap gap-1.5">
                                   {(q.autoQuote?.placementIds || []).length > 0 ? (
-                                    (q.autoQuote?.placementIds || []).map((pid, idx) => (
-                                      <span key={idx} className="inline-flex items-center gap-1.5 bg-neutral-100 text-neutral-800 text-xs font-semibold px-2.5 py-1 rounded-xl border border-neutral-200">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-neutral-800 shrink-0" />
-                                        <span>{PLACEMENT_LABELS[pid] || pid}</span>
-                                      </span>
-                                    ))
+                                    (q.autoQuote?.placementIds || []).map((pid, idx) => {
+                                      let customDimStr = '';
+                                      if ((pid === 'ff' || pid === 'mf' || pid === 'lc') && item.logoWidthFront) {
+                                        customDimStr = `${item.logoWidthFront}" wide`;
+                                      } else if ((pid === 'fb' || pid === 'mb' || pid === 'sb') && item.logoWidthBack) {
+                                        customDimStr = `${item.logoWidthBack}" wide`;
+                                      } else if (pid === 'sl' && item.logoWidthLeftSleeve) {
+                                        customDimStr = `${item.logoWidthLeftSleeve}" wide`;
+                                      } else if (pid === 'sr' && item.logoWidthRightSleeve) {
+                                        customDimStr = `${item.logoWidthRightSleeve}" wide`;
+                                      }
+                                      const label = PLACEMENT_LABELS[pid] || pid;
+                                      const displayLabel = customDimStr ? `${label} — ${customDimStr}` : label;
+                                      return (
+                                        <span key={idx} className="inline-flex items-center gap-1.5 bg-neutral-100 text-neutral-800 text-xs font-semibold px-2.5 py-1 rounded-xl border border-neutral-200">
+                                          <span className="w-1.5 h-1.5 rounded-full bg-neutral-800 shrink-0" />
+                                          <span>{displayLabel}</span>
+                                        </span>
+                                      );
+                                    })
                                   ) : (
                                     <span className="text-neutral-500 text-xs italic pl-0.5">Blank Garment (No Artwork)</span>
                                   )}
