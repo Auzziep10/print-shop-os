@@ -1352,29 +1352,41 @@ export function PortalRequestQuote() {
                             const lp = (product.logoPlacement || '').toLowerCase();
                             if (product.logoUrl || product.logoUrlFront || lp.includes('front')) {
                               const w = product.logoWidthFront ? parseFloat(product.logoWidthFront) : 0;
-                              const detected = (product as any).detectedPrintSizeFront;
+                              const rawDetected = (product as any).detectedPrintSizeFront || (product as any).printSizeFront || (product as any).printSize || (product as any).frontPrintSize;
+                              const detected = String(rawDetected || '').toLowerCase();
                               let sizeF = '';
                               if (w > 0) {
                                 const plCat = w <= 5 ? 'Left Chest (4×4")' : w <= 8 ? 'Medium Front (7×9")' : 'Full Front (11×14")';
                                 sizeF = `${plCat} — ${w}" wide`;
-                              } else if (detected === 'small' || detected === 'medium' || detected === 'large') {
-                                sizeF = detected === 'small' ? 'Left Chest (4×4")' : detected === 'medium' ? 'Medium Front (7×9")' : 'Full Front (11×14")';
-                              } else {
+                              } else if (detected.includes('small') || detected === 'lc') {
+                                sizeF = 'Left Chest (4×4")';
+                              } else if (detected.includes('medium') || detected === 'mf') {
+                                sizeF = 'Medium Front (7×9")';
+                              } else if (detected.includes('large') || detected === 'ff') {
                                 sizeF = 'Full Front (11×14")';
+                              } else {
+                                const isLeftChest = (product.customScaleFront || 30) < 25 && (product.customOffsetXFront || 50) < 45;
+                                sizeF = isLeftChest ? 'Left Chest (4×4")' : 'Full Front (11×14")';
                               }
                               activePlacements.push(`Front — ${sizeF}`);
                             }
                             if (product.logoUrlBack || lp.includes('back')) {
                               const w = product.logoWidthBack ? parseFloat(product.logoWidthBack) : 0;
-                              const detected = (product as any).detectedPrintSizeBack;
+                              const rawDetected = (product as any).detectedPrintSizeBack || (product as any).printSizeBack;
+                              const detected = String(rawDetected || '').toLowerCase();
                               let sizeB = '';
                               if (w > 0) {
                                 const plCat = w <= 5 ? 'Small Upper Back (4×4")' : w <= 8 ? 'Medium Back (7×9")' : 'Full Back (11×14")';
                                 sizeB = `${plCat} — ${w}" wide`;
-                              } else if (detected === 'small' || detected === 'medium' || detected === 'large') {
-                                sizeB = detected === 'small' ? 'Small Upper Back (4×4")' : detected === 'medium' ? 'Medium Back (7×9")' : 'Full Back (11×14")';
-                              } else {
+                              } else if (detected.includes('small') || detected === 'sb') {
+                                sizeB = 'Small Upper Back (4×4")';
+                              } else if (detected.includes('medium') || detected === 'mb') {
+                                sizeB = 'Medium Back (7×9")';
+                              } else if (detected.includes('large') || detected === 'fb') {
                                 sizeB = 'Full Back (11×14")';
+                              } else {
+                                const isSmallBack = (product.customScaleBack || 30) < 25 && (product.customOffsetXBack || 50) !== 50;
+                                sizeB = isSmallBack ? 'Small Upper Back (4×4")' : 'Full Back (11×14")';
                               }
                               activePlacements.push(`Back — ${sizeB}`);
                             }

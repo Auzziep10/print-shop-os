@@ -4877,29 +4877,41 @@ export function PublicQuoteRequest() {
                           const lp = (item.logoPlacement || '').toLowerCase();
                           if (item.frontLogoUrl || item.customLogoUrl || item.logoUrl || item.logoUrlFront || lp.includes('front')) {
                             const w = item.logoWidthFront ? parseFloat(item.logoWidthFront) : 0;
-                            const detected = (item as any).detectedPrintSizeFront;
+                            const rawDetected = (item as any).detectedPrintSizeFront || (item as any).printSizeFront || (item as any).printSize || (item as any).frontPrintSize;
+                            const detected = String(rawDetected || '').toLowerCase();
                             let sizeF = '';
                             if (w > 0) {
                               const plCat = w <= 5 ? 'Left Chest (4×4")' : w <= 8 ? 'Medium Front (7×9")' : 'Full Front (11×14")';
                               sizeF = `${plCat} — ${w}" wide`;
-                            } else if (detected === 'small' || detected === 'medium' || detected === 'large') {
-                              sizeF = detected === 'small' ? 'Left Chest (4×4")' : detected === 'medium' ? 'Medium Front (7×9")' : 'Full Front (11×14")';
-                            } else {
+                            } else if (detected.includes('small') || detected === 'lc') {
+                              sizeF = 'Left Chest (4×4")';
+                            } else if (detected.includes('medium') || detected === 'mf') {
+                              sizeF = 'Medium Front (7×9")';
+                            } else if (detected.includes('large') || detected === 'ff') {
                               sizeF = 'Full Front (11×14")';
+                            } else {
+                              const isLeftChest = (item.customScaleFront || 30) < 25 && (item.customOffsetXFront || 50) < 45;
+                              sizeF = isLeftChest ? 'Left Chest (4×4")' : 'Full Front (11×14")';
                             }
                             activePlacements.push(`Front — ${sizeF}`);
                           }
                           if (item.backLogoUrl || item.customBackLogoUrl || (item.backLogoScale && item.backLogoScale > 0) || lp.includes('back')) {
                             const w = item.logoWidthBack ? parseFloat(item.logoWidthBack) : 0;
-                            const detected = (item as any).detectedPrintSizeBack;
+                            const rawDetected = (item as any).detectedPrintSizeBack || (item as any).printSizeBack;
+                            const detected = String(rawDetected || '').toLowerCase();
                             let sizeB = '';
                             if (w > 0) {
                               const plCat = w <= 5 ? 'Small Upper Back (4×4")' : w <= 8 ? 'Medium Back (7×9")' : 'Full Back (11×14")';
                               sizeB = `${plCat} — ${w}" wide`;
-                            } else if (detected === 'small' || detected === 'medium' || detected === 'large') {
-                              sizeB = detected === 'small' ? 'Small Upper Back (4×4")' : detected === 'medium' ? 'Medium Back (7×9")' : 'Full Back (11×14")';
-                            } else {
+                            } else if (detected.includes('small') || detected === 'sb') {
+                              sizeB = 'Small Upper Back (4×4")';
+                            } else if (detected.includes('medium') || detected === 'mb') {
+                              sizeB = 'Medium Back (7×9")';
+                            } else if (detected.includes('large') || detected === 'fb') {
                               sizeB = 'Full Back (11×14")';
+                            } else {
+                              const isSmallBack = (item.customScaleBack || 30) < 25 && (item.customOffsetXBack || 50) !== 50;
+                              sizeB = isSmallBack ? 'Small Upper Back (4×4")' : 'Full Back (11×14")';
                             }
                             activePlacements.push(`Back — ${sizeB}`);
                           }
