@@ -2143,10 +2143,10 @@ export function PortalCreateOrder() {
                                   const detected = String(rawDetected || '').toLowerCase();
                                   let sizeF = '';
                                   if (w > 0) {
-                                    const plCat = w <= 5 ? 'Left Chest (4×4")' : w <= 8 ? 'Medium Front (7×9")' : 'Full Front (11×14")';
+                                    const plCat = w <= 5 ? 'Small Front (4×4")' : w <= 8 ? 'Medium Front (7×9")' : 'Full Front (11×14")';
                                     sizeF = `${plCat} — ${w}" wide`;
                                   } else if (detected.includes('small') || detected === 'lc') {
-                                    sizeF = 'Left Chest (4×4")';
+                                    sizeF = 'Small Front (4×4")';
                                   } else if (detected.includes('medium') || detected === 'mf') {
                                     sizeF = 'Medium Front (7×9")';
                                   } else if (detected.includes('large') || detected === 'ff') {
@@ -2156,7 +2156,7 @@ export function PortalCreateOrder() {
                                     const offX = item.customOffsetXFront !== undefined ? item.customOffsetXFront : (item.logoPos?.x !== undefined ? item.logoPos.x : 50);
                                     const isLeftChest = (offX < 48 && scale <= 42) || scale <= 35;
                                     const isMedium = scale > 35 && scale <= 50;
-                                    sizeF = isLeftChest ? 'Left Chest (4×4")' : isMedium ? 'Medium Front (7×9")' : 'Full Front (11×14")';
+                                    sizeF = isLeftChest ? 'Small Front (4×4")' : isMedium ? 'Medium Front (7×9")' : 'Full Front (11×14")';
                                   }
                                   activePlacements.push(`Front — ${sizeF}`);
                                 }

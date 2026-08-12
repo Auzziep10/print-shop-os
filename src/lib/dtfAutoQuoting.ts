@@ -20,7 +20,7 @@ export function detectGarmentId(styleStr?: string, categoryStr?: string): string
 export const PLACEMENT_LABELS: Record<string, string> = {
   ff: 'Full Front (11×14")',
   mf: 'Medium Front (7×9")',
-  lc: 'Left Chest (4×4")',
+  lc: 'Small Front (4×4")',
   fb: 'Full Back (11×14")',
   mb: 'Medium Back (7×9")',
   sb: 'Small Upper Back (4×4")',
