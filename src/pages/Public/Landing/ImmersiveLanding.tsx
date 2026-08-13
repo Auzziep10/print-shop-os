@@ -247,12 +247,12 @@ function LandingNav({
   const isClient = role === 'Client';
   const isStaff = role ? ['Admin', 'Leadership', 'Manager', 'Staff', 'Printer'].includes(role) : false;
 
-  const ghostBtn = `font-inter cursor-pointer rounded-full border px-4 py-2 text-[10px] font-bold uppercase tracking-[0.2em] transition-colors ${
+  const ghostBtn = `font-inter cursor-pointer rounded-full border px-2.5 py-1 sm:px-4 sm:py-2 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider sm:tracking-[0.2em] transition-colors whitespace-nowrap shrink-0 ${
     dark
       ? 'border-white/30 text-white hover:border-white hover:bg-white/10'
       : 'border-zinc-300 text-zinc-700 hover:border-zinc-950 hover:text-zinc-950'
   }`;
-  const solidBtn = `font-inter cursor-pointer rounded-full px-5 py-2 text-[10px] font-bold uppercase tracking-[0.2em] transition-colors ${
+  const solidBtn = `font-inter cursor-pointer rounded-full px-3 py-1 sm:px-5 sm:py-2 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider sm:tracking-[0.2em] transition-colors whitespace-nowrap shrink-0 ${
     dark
       ? 'bg-white text-zinc-950 hover:bg-zinc-200'
       : 'bg-zinc-950 text-white hover:bg-zinc-800'
@@ -264,17 +264,17 @@ function LandingNav({
         visible ? 'translate-y-0' : '-translate-y-full'
       } ${scrolled ? 'border-b border-zinc-200/60 bg-[#faf9f5]/90 backdrop-blur-md' : 'bg-transparent'}`}
     >
-      <div className="flex items-center justify-between px-6 py-4 md:px-12">
-        <div className="flex items-center gap-4">
+      <div className="flex items-center justify-between px-3 py-2.5 sm:px-6 sm:py-4 md:px-12">
+        <div className="flex items-center gap-2 sm:gap-4 shrink-0">
           {settings.logoImageUrl ? (
             <img
               src={settings.logoImageUrl}
               alt={settings.logoText || 'Logo'}
-              className="h-8 max-w-[180px] object-contain"
+              className="h-6 sm:h-8 max-w-[110px] sm:max-w-[180px] object-contain"
             />
           ) : settings.logoText === 'INKTHEORY' ? (
             <span
-              className={`font-sans text-xl font-black tracking-tighter uppercase ${
+              className={`font-sans text-lg sm:text-xl font-black tracking-tighter uppercase ${
                 dark ? 'text-white' : 'text-zinc-950'
               }`}
             >
@@ -282,7 +282,7 @@ function LandingNav({
             </span>
           ) : (
             <span
-              className={`font-serif text-lg font-bold tracking-tight ${
+              className={`font-serif text-base sm:text-lg font-bold tracking-tight ${
                 dark ? 'text-white' : 'text-zinc-950'
               }`}
             >
@@ -303,7 +303,7 @@ function LandingNav({
           </span>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-1.5 sm:gap-2.5 overflow-x-auto scrollbar-none py-0.5 max-w-[calc(100vw-130px)] sm:max-w-none justify-end">
           <span
             className={`font-mono mr-2 hidden text-[10px] font-semibold tracking-[0.2em] lg:block ${
               dark ? 'text-zinc-300' : 'text-zinc-500'
@@ -314,7 +314,7 @@ function LandingNav({
 
           {canCustomize && (
             <button data-cursor onClick={onCustomize} className={ghostBtn}>
-              Customize Store
+              <span className="hidden sm:inline">Customize </span>Store
             </button>
           )}
 
@@ -322,15 +322,15 @@ function LandingNav({
             <>
               {isClient ? (
                 <button data-cursor onClick={onPortal} className={solidBtn}>
-                  Your portal
+                  <span className="hidden sm:inline">Your </span>portal
                 </button>
               ) : isStaff ? (
                 <button data-cursor onClick={onAdminPanel} className={solidBtn}>
-                  Admin panel
+                  Admin<span className="hidden sm:inline"> panel</span>
                 </button>
               ) : (
                 <span
-                  className={`font-inter rounded-full border border-amber-300 bg-amber-50 px-4 py-2 text-[9px] font-bold uppercase tracking-[0.2em] text-amber-600`}
+                  className={`font-inter rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 sm:px-4 sm:py-2 text-[9px] font-bold uppercase tracking-wider sm:tracking-[0.2em] text-amber-600 whitespace-nowrap shrink-0`}
                 >
                   Pending
                 </span>
