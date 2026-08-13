@@ -3343,7 +3343,7 @@ export function PublicQuoteRequest() {
                       <span className="italic font-light">Better.</span>
                     </h1>
                     <p className="text-[10px] font-sans font-extrabold uppercase tracking-[0.2em] text-neutral-400 pt-1">
-                      Select your items into your custom rack below
+                      Add items below to start designing.
                     </p>
                   </div>
 
@@ -3628,7 +3628,7 @@ export function PublicQuoteRequest() {
                       <span className="italic font-light">Better.</span>
                     </h1>
                     <p className="text-[10px] font-sans font-extrabold uppercase tracking-[0.2em] text-neutral-400 pt-1">
-                      Select your items into your custom rack below
+                      Add items below to start designing.
                     </p>
                   </div>
 
