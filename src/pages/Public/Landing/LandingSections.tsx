@@ -627,8 +627,8 @@ export function StartCTASection({
 
   return (
     <section id="start-cta" ref={sectionRef} className="bg-zinc-950">
-      <div className="px-6 pt-20 pb-10 text-center md:px-12 md:pt-28">
-        <p className="font-inter mb-4 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-500">
+      <div className="px-6 pt-16 pb-6 text-center sm:pt-20 sm:pb-10 md:px-12 md:pt-28">
+        <p className="font-inter mb-3 sm:mb-4 text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-500">
           {settings?.ctaSectionLabel || '( Choose your path )'}
         </p>
         <h2 className="font-serif text-[clamp(2.2rem,5vw,4.5rem)] leading-none tracking-tight text-[#faf9f5]">
@@ -676,8 +676,8 @@ export function StartCTASection({
               />
             </div>
 
-            <div className="relative z-10 flex h-full min-h-[70vh] flex-col justify-between p-8 md:p-12">
-              <div className="flex items-start justify-between">
+            <div className="relative z-10 flex h-full min-h-[70vh] flex-col justify-between p-6 pb-20 sm:p-8 md:p-12">
+              <div className="flex items-start justify-between pt-1 sm:pt-0">
                 <span
                   className={`font-mono text-[10px] font-semibold tracking-[0.3em] uppercase ${
                     panel.dark ? 'text-zinc-200 drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]' : 'text-zinc-500'
@@ -696,17 +696,17 @@ export function StartCTASection({
                 </span>
               </div>
 
-              <div className="max-w-lg">
-                <h3 className="font-serif text-4xl tracking-tight md:text-5xl drop-shadow-[0_2px_6px_rgba(0,0,0,0.8)]">{panel.title}</h3>
+              <div className="max-w-lg mb-2 sm:mb-0">
+                <h3 className="font-serif text-3xl sm:text-4xl tracking-tight md:text-5xl drop-shadow-[0_2px_6px_rgba(0,0,0,0.8)]">{panel.title}</h3>
                 <p
-                  className={`font-inter mt-4 text-sm font-light leading-relaxed ${
+                  className={`font-inter mt-3 sm:mt-4 text-sm font-light leading-relaxed ${
                     panel.dark ? 'text-zinc-100 drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]' : 'text-zinc-600'
                   }`}
                 >
                   {panel.body}
                 </p>
                 <span
-                  className={`font-inter mt-8 flex w-fit items-center gap-3 rounded-full px-7 py-3.5 text-[11px] font-bold uppercase tracking-[0.2em] transition-colors ${
+                  className={`font-inter mt-6 sm:mt-8 flex w-fit items-center gap-3 rounded-full px-7 py-3.5 text-[11px] font-bold uppercase tracking-[0.2em] transition-colors ${
                     panel.dark
                       ? 'bg-white text-zinc-950 group-hover:bg-zinc-200'
                       : 'bg-zinc-950 text-white group-hover:bg-zinc-800'
