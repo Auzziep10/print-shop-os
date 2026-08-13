@@ -3426,6 +3426,11 @@ export function PublicQuoteRequest() {
                         ? specs.description 
                         : (weightAndFabric.formatted || item.product.description || '');
                       const colors = getFilteredProductColors(item.product, catalogSettings.allowedColors);
+                      const configuredDefaultColor = resolveProductDefaultColor(item.product, catalogSettings, colors);
+                      const colorKey = item.color && colors.includes(item.color) ? item.color : configuredDefaultColor;
+                      const orderedColors = colorKey && colors.includes(colorKey)
+                        ? [colorKey, ...colors.filter(c => c !== colorKey)]
+                        : colors;
 
                       return (
                         <div 
@@ -3482,13 +3487,23 @@ export function PublicQuoteRequest() {
                             {colors.length > 0 && (
                               <div className="flex items-center justify-center gap-1.5 pt-1 mt-0.5">
                                 <div className="flex items-center gap-1">
-                                  {colors.slice(0, 5).map((col: string, cIdx: number) => {
-                                    const hex = colorHexMap[col.toLowerCase().trim()] || '#a3a3a3';
+                                  {orderedColors.slice(0, 5).map((col: string, cIdx: number) => {
+                                    const swatchBg = getSwatchColor(col, true);
+                                    const isSelectedColor = col === colorKey;
                                     return (
                                       <span 
                                         key={cIdx} 
-                                        className="w-3.5 h-3.5 rounded-full border border-neutral-300 shadow-3xs shrink-0" 
-                                        style={{ backgroundColor: hex }}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setRackItems(prev => prev.map(ri => ri.id === item.id ? { ...ri, color: col, compiledMockupUrl: undefined, compiledBackMockupUrl: undefined } : ri));
+                                        }}
+                                        className={`w-3.5 h-3.5 rounded-full border shadow-3xs shrink-0 inline-block transition-transform hover:scale-125 ${
+                                          isSelectedColor ? 'ring-1.5 ring-neutral-900 ring-offset-1 border-neutral-900 scale-110' : 'border-neutral-300/80'
+                                        }`} 
+                                        style={{
+                                          backgroundColor: swatchBg.startsWith('linear-gradient') ? 'transparent' : swatchBg,
+                                          backgroundImage: swatchBg.startsWith('linear-gradient') ? swatchBg : 'none'
+                                        }}
                                         title={col}
                                       />
                                     );
@@ -3737,7 +3752,11 @@ export function PublicQuoteRequest() {
                               return `${item.brand} ${item.style}`;
                             })();
 
-                            return (
+                             const orderedColors = colorKey && colors.includes(colorKey)
+                                ? [colorKey, ...colors.filter(c => c !== colorKey)]
+                                : colors;
+
+                             return (
                               <div
                                 key={item.style}
                                 onClick={() => {
@@ -3800,13 +3819,24 @@ export function PublicQuoteRequest() {
                                   {colors.length > 0 && (
                                     <div className="flex items-center justify-center gap-1.5 pt-1 mt-0.5">
                                       <div className="flex items-center gap-1">
-                                        {colors.slice(0, 5).map((col: string, cIdx: number) => {
-                                          const hex = colorHexMap[col.toLowerCase().trim()] || '#a3a3a3';
+                                        {orderedColors.slice(0, 5).map((col: string, cIdx: number) => {
+                                          const swatchBg = getSwatchColor(col, true);
+                                          const isSelectedColor = col === colorKey;
                                           return (
                                             <span 
                                               key={cIdx} 
-                                              className="w-3.5 h-3.5 rounded-full border border-neutral-300 shadow-3xs shrink-0" 
-                                              style={{ backgroundColor: hex }}
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setSelectedGarmentTypeItem(item);
+                                                setSelectedGarmentTypeColor(col);
+                                              }}
+                                              className={`w-3.5 h-3.5 rounded-full border shadow-3xs shrink-0 inline-block transition-transform hover:scale-125 ${
+                                                isSelectedColor ? 'ring-1.5 ring-neutral-900 ring-offset-1 border-neutral-900 scale-110' : 'border-neutral-300/80'
+                                              }`} 
+                                              style={{
+                                                backgroundColor: swatchBg.startsWith('linear-gradient') ? 'transparent' : swatchBg,
+                                                backgroundImage: swatchBg.startsWith('linear-gradient') ? swatchBg : 'none'
+                                              }}
                                               title={col}
                                             />
                                           );
