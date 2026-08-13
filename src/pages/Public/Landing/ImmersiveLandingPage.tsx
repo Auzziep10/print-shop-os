@@ -10,7 +10,7 @@ import { ImmersiveLanding, type StorefrontSettingsShape } from './ImmersiveLandi
 const DEFAULT_SETTINGS: StorefrontSettingsShape = {
   logoText: 'INKTHEORY',
   announcement: '🔥 Free Standard Shipping on all orders above 50 units!',
-  heroBadge: 'Design portals open — custom merch, made properly',
+  heroBadge: '',
   heroTitle: 'Better Apparel',
   heroSubtitle: 'Choose a themed collection to design a cohesive line, or start from our curated basics.',
   heroPrimaryCta: 'Start your project',
@@ -323,17 +323,6 @@ export function ImmersiveLandingPage() {
               {/* TAB 2: HERO MEDIA & COPY */}
               {activeTab === 'hero' && (
                 <div className="space-y-4">
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-bold text-zinc-900">Hero Eyebrow Badge</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Design portals open — custom merch, made properly"
-                      value={editSettings.heroBadge || DEFAULT_SETTINGS.heroBadge || ''}
-                      onChange={e => setEditSettings({ ...editSettings, heroBadge: e.target.value })}
-                      className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-2 text-sm font-medium"
-                    />
-                  </div>
-
                   <div className="flex flex-col gap-1.5">
                     <label className="text-xs font-bold text-zinc-900">Hero Title</label>
                     <input

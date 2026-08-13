@@ -156,14 +156,6 @@ export function HeroSection({
 
       {/* Content */}
       <div className="hero-content relative z-10 flex h-full flex-col justify-end px-6 pb-10 md:px-12 md:pb-14">
-        <div className="hero-fade-in font-inter mb-6 flex items-center gap-3 text-[10px] font-bold uppercase tracking-[0.25em] text-zinc-300">
-          <span className="relative flex h-2 w-2">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-          </span>
-          {settings.heroBadge || 'Design portals open — custom merch, made properly'}
-        </div>
-
         <h1 className="font-serif font-normal leading-[0.98] tracking-tight text-[clamp(3rem,9.5vw,9rem)]">
           {lines.map((line, i) => (
             <span key={i} className="hero-line">
