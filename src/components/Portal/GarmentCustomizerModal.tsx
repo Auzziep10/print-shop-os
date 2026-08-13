@@ -1129,25 +1129,38 @@ export function GarmentCustomizerModal({
   const dragStartPos = useRef({ x: 0, y: 0, offsetX: 50, offsetY: 45 });
   const resizeStartPos = useRef({ x: 0, scale: 30, containerWidth: 500 });
 
-  const handleDragMouseDown = (e: React.MouseEvent) => {
+  const getClientPos = (e: MouseEvent | TouchEvent | React.MouseEvent | React.TouchEvent) => {
+    if ('touches' in e && e.touches && e.touches.length > 0) {
+      return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    }
+    if ('changedTouches' in e && e.changedTouches && e.changedTouches.length > 0) {
+      return { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
+    }
+    const me = e as MouseEvent | React.MouseEvent;
+    return { x: me.clientX, y: me.clientY };
+  };
+
+  const handleDragMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
     e.stopPropagation();
-    e.preventDefault();
+    if (e.cancelable) e.preventDefault();
     setIsDragging(true);
+    const pos = getClientPos(e);
     dragStartPos.current = {
-      x: e.clientX,
-      y: e.clientY,
+      x: pos.x,
+      y: pos.y,
       offsetX,
       offsetY
     };
   };
 
-  const handleResizeMouseDown = (e: React.MouseEvent) => {
+  const handleResizeMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
     e.stopPropagation();
-    e.preventDefault();
+    if (e.cancelable) e.preventDefault();
     setIsResizing(true);
+    const pos = getClientPos(e);
     const containerWidth = previewRef.current?.getBoundingClientRect().width || 500;
     resizeStartPos.current = {
-      x: e.clientX,
+      x: pos.x,
       scale,
       containerWidth
     };
@@ -1213,9 +1226,9 @@ export function GarmentCustomizerModal({
     }
   }, [selectedTagElementId, activeTab, tagSize, tagBlend, tagTexts]);
 
-  const handleElementMouseDown = (e: React.MouseEvent, id: string, type: 'logo' | 'text' | 'size' | 'care_symbols' | 'blend') => {
+  const handleElementMouseDown = (e: React.MouseEvent | React.TouchEvent, id: string, type: 'logo' | 'text' | 'size' | 'care_symbols' | 'blend') => {
     e.stopPropagation();
-    e.preventDefault();
+    if (e.cancelable) e.preventDefault();
     setSelectedTagElementId(id);
     setActiveElementDrag({ id, type });
 
@@ -1256,17 +1269,18 @@ export function GarmentCustomizerModal({
       currentY = tagBlend.y;
     }
 
+    const pos = getClientPos(e);
     dragStartPos.current = {
-      x: e.clientX,
-      y: e.clientY,
+      x: pos.x,
+      y: pos.y,
       offsetX: currentX,
       offsetY: currentY
     };
   };
 
-  const handleElementResizeMouseDown = (e: React.MouseEvent, id: string, type: 'logo' | 'text' | 'size' | 'care_symbols' | 'blend') => {
+  const handleElementResizeMouseDown = (e: React.MouseEvent | React.TouchEvent, id: string, type: 'logo' | 'text' | 'size' | 'care_symbols' | 'blend') => {
     e.stopPropagation();
-    e.preventDefault();
+    if (e.cancelable) e.preventDefault();
     setActiveElementResize({ id, type });
 
     let currentScale = 30;
@@ -1283,21 +1297,27 @@ export function GarmentCustomizerModal({
       currentScale = tagBlend.scale;
     }
 
+    const pos = getClientPos(e);
     resizeStartPos.current = {
-      x: e.clientX,
+      x: pos.x,
       scale: currentScale,
       containerWidth
     };
   };
 
   useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
+    const handleMove = (e: MouseEvent | TouchEvent) => {
+      const pos = getClientPos(e);
+      if ((isDragging || isResizing || activeElementDrag || activeElementResize) && e.cancelable) {
+        e.preventDefault();
+      }
+
       if (isDragging && previewRef.current) {
         const rect = previewRef.current.getBoundingClientRect();
         const centerXPct = 50;
         const centerYPct = 50;
-        const xPercentOfCard = ((e.clientX - rect.left) / rect.width) * 100;
-        const yPercentOfCard = ((e.clientY - rect.top) / rect.height) * 100;
+        const xPercentOfCard = ((pos.x - rect.left) / rect.width) * 100;
+        const yPercentOfCard = ((pos.y - rect.top) / rect.height) * 100;
         
         const scaleFactor = 1.1;
         const valX = Math.max(0, Math.min(100, Math.round(centerXPct + (xPercentOfCard - centerXPct) / scaleFactor)));
@@ -1321,7 +1341,7 @@ export function GarmentCustomizerModal({
       }
 
       if (isResizing) {
-        const deltaX = e.clientX - resizeStartPos.current.x;
+        const deltaX = pos.x - resizeStartPos.current.x;
         const containerWidth = resizeStartPos.current.containerWidth || 500;
         const scaleFactor = 1.1;
         const newScale = resizeStartPos.current.scale + (((2 * deltaX) / scaleFactor) / (containerWidth * 0.0036));
@@ -1342,8 +1362,8 @@ export function GarmentCustomizerModal({
 
       if (activeElementDrag && previewRef.current) {
         const rect = previewRef.current.getBoundingClientRect();
-        const valX = Math.max(0, Math.min(100, Math.round(((e.clientX - rect.left) / rect.width) * 100)));
-        const valY = Math.max(0, Math.min(100, Math.round(((e.clientY - rect.top) / rect.height) * 100)));
+        const valX = Math.max(0, Math.min(100, Math.round(((pos.x - rect.left) / rect.width) * 100)));
+        const valY = Math.max(0, Math.min(100, Math.round(((pos.y - rect.top) / rect.height) * 100)));
 
         const { id, type } = activeElementDrag;
         if (type === 'logo') {
@@ -1360,7 +1380,7 @@ export function GarmentCustomizerModal({
       }
 
       if (activeElementResize) {
-        const deltaX = e.clientX - resizeStartPos.current.x;
+        const deltaX = pos.x - resizeStartPos.current.x;
         const containerWidth = resizeStartPos.current.containerWidth || 320;
         const valScale = Math.max(10, Math.min(150, Math.round(resizeStartPos.current.scale + (deltaX / containerWidth) * 100)));
 
@@ -1379,7 +1399,7 @@ export function GarmentCustomizerModal({
       }
     };
 
-    const handleMouseUp = () => {
+    const handleEnd = () => {
       setIsDragging(false);
       setIsResizing(false);
       setActiveElementDrag(null);
@@ -1387,13 +1407,19 @@ export function GarmentCustomizerModal({
     };
 
     if (isDragging || isResizing || activeElementDrag || activeElementResize) {
-      window.addEventListener('mousemove', handleMouseMove);
-      window.addEventListener('mouseup', handleMouseUp);
+      window.addEventListener('mousemove', handleMove);
+      window.addEventListener('mouseup', handleEnd);
+      window.addEventListener('touchmove', handleMove, { passive: false });
+      window.addEventListener('touchend', handleEnd);
+      window.addEventListener('touchcancel', handleEnd);
     }
 
     return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('mouseup', handleEnd);
+      window.removeEventListener('touchmove', handleMove);
+      window.removeEventListener('touchend', handleEnd);
+      window.removeEventListener('touchcancel', handleEnd);
     };
   }, [isDragging, isResizing, activeElementDrag, activeElementResize, scale, offsetX, offsetY, activeTab]);
 
@@ -2321,30 +2347,29 @@ export function GarmentCustomizerModal({
     <div className="fixed inset-0 z-[120] flex flex-col bg-white animate-in fade-in duration-300 font-sans">
       
       {/* Header */}
-      <div className="px-8 py-5 border-b border-neutral-100 flex items-center justify-between bg-neutral-50/50 shrink-0">
+      <div className="px-4 py-3 sm:px-6 sm:py-4 md:px-8 md:py-5 border-b border-neutral-100 flex items-center justify-between bg-neutral-50/50 shrink-0">
         <div>
-          <h2 className="text-xl font-serif text-neutral-900">Garment Customizer</h2>
-          <p className="text-xs font-semibold text-neutral-500 mt-0.5">Customize {activeGarment.style || 'style'}</p>
-
+          <h2 className="text-lg md:text-xl font-serif text-neutral-900">Garment Customizer</h2>
+          <p className="text-[11px] md:text-xs font-semibold text-neutral-500 mt-0.5">Customize {activeGarment.style || 'style'}</p>
         </div>
         <button 
           onClick={onClose} 
-          className="w-10 h-10 rounded-full bg-white border border-neutral-200 flex items-center justify-center text-neutral-500 hover:text-black hover:border-black transition-all shadow-sm cursor-pointer animate-in zoom-in duration-200"
+          className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-white border border-neutral-200 flex items-center justify-center text-neutral-500 hover:text-black hover:border-black transition-all shadow-sm cursor-pointer animate-in zoom-in duration-200"
         >
-          <X size={20} />
+          <X size={18} className="md:w-5 md:h-5" />
         </button>
       </div>
 
       {/* Content Body */}
-      <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+      <div className="flex-1 flex flex-col md:flex-row overflow-y-auto md:overflow-hidden">
         
         {/* Left Panel: Preview Workspace */}
-        <div className="flex-1 bg-neutral-50 flex flex-col items-center justify-center p-2 md:p-3 relative overflow-y-auto border-b md:border-b-0 md:border-r border-neutral-100 gap-2 animate-in fade-in duration-300">
+        <div className="w-full md:flex-1 bg-neutral-50 flex flex-col items-center justify-center p-2 sm:p-3 relative border-b md:border-b-0 md:border-r border-neutral-100 gap-2 shrink-0 md:shrink animate-in fade-in duration-300">
 
           {/* Garment Preview Container */}
-          <div className="flex-1 min-h-0 w-full flex flex-row items-center justify-center gap-3 p-0">
-            {/* Vertical view rail + status column in the whitespace left of the artboard */}
-            <div className="flex flex-col gap-2 shrink-0 self-center w-[150px]">
+          <div className="w-full flex flex-col md:flex-row items-center justify-center gap-2 sm:gap-3 p-0">
+            {/* View rail + status column (Horizontal bar on mobile, vertical sidebar on desktop) */}
+            <div className="flex flex-row overflow-x-auto scrollbar-none w-full md:w-[150px] md:flex-col gap-1.5 md:gap-2 shrink-0 py-1 md:py-0 px-1 md:px-0 items-center md:items-stretch justify-start md:justify-center">
               {([
                 { id: 'front', label: 'Front View', short: 'Front' },
                 { id: 'back', label: 'Back View', short: 'Back' },
@@ -2356,13 +2381,13 @@ export function GarmentCustomizerModal({
                   type="button"
                   onClick={() => setActiveTab(v.id as any)}
                   title={v.label}
-                  className={`w-full py-3 rounded-2xl border flex items-center justify-center transition-all cursor-pointer shadow-sm ${
+                  className={`flex-1 min-w-[65px] md:min-w-0 md:w-full py-2 md:py-3 px-2 rounded-xl md:rounded-2xl border flex items-center justify-center transition-all cursor-pointer shadow-sm ${
                     activeTab === v.id
                       ? 'bg-neutral-900 text-white border-neutral-900 shadow-md'
-                      : 'bg-white text-neutral-500 border-neutral-200 hover:text-black hover:border-neutral-400 hover:-translate-y-0.5'
+                      : 'bg-white text-neutral-500 border-neutral-200 hover:text-black hover:border-neutral-400'
                   }`}
                 >
-                  <span className="text-[10px] font-bold uppercase tracking-wider leading-none">{v.short}</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider leading-none whitespace-nowrap">{v.short}</span>
                 </button>
               ))}
 
@@ -2371,24 +2396,24 @@ export function GarmentCustomizerModal({
                   type="button"
                   onClick={() => setIsSleeveMirrored(prev => !prev)}
                   title="Mirror to the other sleeve"
-                  className={`w-full py-2.5 rounded-2xl border flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm animate-in fade-in duration-200 ${
+                  className={`py-2 md:py-2.5 px-2.5 rounded-xl md:rounded-2xl border flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm animate-in fade-in duration-200 ${
                     isSleeveMirrored
                       ? 'bg-black text-white border-black'
                       : 'bg-white text-neutral-500 border-neutral-200 hover:text-black hover:border-neutral-400'
                   }`}
                 >
                   <RefreshCw size={12} className={isSleeveMirrored ? "animate-spin" : ""} style={{ animationIterationCount: 1, animationDuration: '0.4s' }} />
-                  <span className="text-[10px] font-bold uppercase tracking-wider leading-none">Flip</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider leading-none whitespace-nowrap">Flip</span>
                 </button>
               )}
 
-              <div className="h-px bg-neutral-200 my-1.5" />
+              <div className="hidden md:block h-px bg-neutral-200 my-1.5" />
 
               {/* Status: detected size + active placement */}
               {activeTab !== 'tag' && (() => {
                 const detected = activeTab === 'sleeve' ? 'Small' : detectSidePrintSize(activeTab);
                 return (
-                  <div className={`w-full py-2 rounded-xl border text-center shadow-sm transition-colors ${
+                  <div className={`hidden md:block w-full py-2 rounded-xl border text-center shadow-sm transition-colors ${
                     detected
                       ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
                       : 'text-neutral-400 bg-white border-neutral-200'
@@ -2398,7 +2423,7 @@ export function GarmentCustomizerModal({
                 );
               })()}
               {activeTab === 'tag' && (
-                <div className="w-full py-2 px-1.5 rounded-xl border border-amber-200 bg-amber-50 text-amber-700 text-center shadow-sm">
+                <div className="hidden md:block w-full py-2 px-1.5 rounded-xl border border-amber-200 bg-amber-50 text-amber-700 text-center shadow-sm">
                   <span className="text-[9px] font-bold uppercase tracking-widest leading-tight">Art Board: 2.5" × 2.5" (300 DPI)</span>
                 </div>
               )}
@@ -2407,7 +2432,7 @@ export function GarmentCustomizerModal({
                 <button
                   type="button"
                   onClick={() => setShowPlacementGuides(prev => !prev)}
-                  className="w-full py-2 rounded-xl border border-neutral-200 bg-white text-neutral-700 hover:text-black hover:bg-neutral-50 shadow-sm flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                  className="hidden md:flex w-full py-2 rounded-xl border border-neutral-200 bg-white text-neutral-700 hover:text-black hover:bg-neutral-50 shadow-sm items-center justify-center gap-1.5 transition-all cursor-pointer"
                   title="Toggle print placement area boundaries"
                 >
                   <Eye size={11} className={showPlacementGuides ? "text-emerald-600" : "text-neutral-400"} />
@@ -2419,7 +2444,7 @@ export function GarmentCustomizerModal({
               {publicGuidesEnabled && activeTab !== 'tag' && showPlacementGuides && currentPlacementGuides && currentPlacementGuides.length > 0 && (() => {
                 const detectedTier = (activeTab === 'front' || activeTab === 'back') ? detectSidePrintSize(activeTab) : null;
                 return (
-                  <div className="w-full flex flex-col gap-1 rounded-xl border border-neutral-200 bg-white px-2.5 py-2 shadow-sm select-none">
+                  <div className="hidden md:flex w-full flex-col gap-1 rounded-xl border border-neutral-200 bg-white px-2.5 py-2 shadow-sm select-none">
                     {currentPlacementGuides.map(g => {
                       const isActive = detectedTier?.toLowerCase() === g.key;
                       return (
@@ -2443,21 +2468,19 @@ export function GarmentCustomizerModal({
               })()}
 
               {activeTab !== 'tag' && (
-                <p className="text-[8px] font-semibold text-neutral-400 leading-snug px-0.5 select-none">
+                <p className="hidden md:block text-[8px] font-semibold text-neutral-400 leading-snug px-0.5 select-none">
                   * Standard print dimensions are applied from the image unless specified in Optional Width.
                 </p>
               )}
             </div>
             <div
               ref={previewRef}
-              className={`relative w-full ${activeTab === 'tag' ? 'aspect-square' : 'aspect-[4/5]'} bg-white rounded-[2rem] border border-neutral-200/50 shadow-lg flex items-center justify-center overflow-hidden transition-all duration-300 hover:shadow-xl select-none`}
+              className={`relative w-full ${activeTab === 'tag' ? 'aspect-square' : 'aspect-[4/5]'} bg-white rounded-[1.5rem] md:rounded-[2rem] border border-neutral-200/50 shadow-lg flex items-center justify-center overflow-hidden transition-all duration-300 hover:shadow-xl select-none`}
               style={{
-                // Fill the window: width derived from viewport height so the
-                // 4:5 artboard is as tall as the available space allows.
-                // Percent-based placements/pricing are unaffected by scale.
                 width: activeTab === 'tag'
                   ? 'min(100%, calc(100dvh - 130px), 1000px)'
-                  : 'min(100%, calc((100dvh - 130px) * 0.8), 1000px)'
+                  : 'min(100%, calc((100dvh - 130px) * 0.8), 1000px)',
+                maxHeight: 'min(55vh, 600px)',
               }}
             >
               {activeTab !== 'tag' && (
@@ -2509,6 +2532,7 @@ export function GarmentCustomizerModal({
                   {(!needsGeneration || isGenerated) && selectedLogo && (selectedLogo.isText || isImageFile(selectedLogo.name)) && (
                     <div 
                       onMouseDown={handleDragMouseDown}
+                      onTouchStart={handleDragMouseDown}
                       style={{
                         width: `${scale * 0.36}%`,
                         left: `${offsetX}%`,
@@ -2516,7 +2540,7 @@ export function GarmentCustomizerModal({
                         transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
                         zIndex: 20
                       }}
-                      className="absolute flex items-center justify-center border border-dashed border-black/40 group/logo select-none cursor-move p-1 bg-transparent"
+                      className="absolute flex items-center justify-center border border-dashed border-black/40 group/logo select-none cursor-move p-1 bg-transparent touch-none"
                     >
                       <img 
                         src={selectedLogo.url} 
@@ -2525,7 +2549,8 @@ export function GarmentCustomizerModal({
                       />
                       <div 
                         onMouseDown={handleResizeMouseDown}
-                        className="absolute bottom-[-6px] right-[-6px] w-3.5 h-3.5 bg-black border-2 border-white rounded-full cursor-se-resize shadow-md hover:scale-125 transition-transform z-30"
+                        onTouchStart={handleResizeMouseDown}
+                        className="absolute bottom-[-6px] right-[-6px] w-3.5 h-3.5 bg-black border-2 border-white rounded-full cursor-se-resize shadow-md hover:scale-125 transition-transform z-30 touch-none"
                       />
                     </div>
                   )}
@@ -2533,19 +2558,21 @@ export function GarmentCustomizerModal({
                   {(!needsGeneration || isGenerated) && selectedLogo && !(selectedLogo.isText || isImageFile(selectedLogo.name)) && (
                     <div 
                       onMouseDown={handleDragMouseDown}
+                      onTouchStart={handleDragMouseDown}
                       style={{
                         left: `${offsetX}%`,
                         top: `${offsetY}%`,
                         transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
                         zIndex: 20
                       }}
-                      className="absolute bg-neutral-900/80 text-white rounded-xl px-3.5 py-2 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-md border border-white/20 cursor-move select-none p-1 group/logo"
+                      className="absolute bg-neutral-900/80 text-white rounded-xl px-3.5 py-2 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-md border border-white/20 cursor-move select-none p-1 group/logo touch-none"
                     >
                       <FileText size={12} />
                       <span>{selectedLogo.name.split('.').pop() || 'FILE'}</span>
                       <div 
                         onMouseDown={handleResizeMouseDown}
-                        className="absolute bottom-[-6px] right-[-6px] w-3.5 h-3.5 bg-black border-2 border-white rounded-full cursor-se-resize shadow-md hover:scale-125 transition-transform z-30"
+                        onTouchStart={handleResizeMouseDown}
+                        className="absolute bottom-[-6px] right-[-6px] w-3.5 h-3.5 bg-black border-2 border-white rounded-full cursor-se-resize shadow-md hover:scale-125 transition-transform z-30 touch-none"
                       />
                     </div>
                   )}
@@ -2777,7 +2804,7 @@ export function GarmentCustomizerModal({
         </div>
 
         {/* Right Panel: Controls */}
-        <div className="w-full md:w-[420px] md:h-full md:min-h-0 overflow-y-auto p-8 flex flex-col gap-6 shrink-0 border-l border-neutral-150 bg-white shadow-sm">
+        <div className="w-full md:w-[420px] md:h-full md:min-h-0 overflow-y-auto p-4 sm:p-6 md:p-8 flex flex-col gap-5 md:gap-6 shrink-0 border-t md:border-t-0 md:border-l border-neutral-150 bg-white shadow-sm">
           
           {showCatalogSearch && (
             <div ref={searchContainerRef} className="flex flex-col gap-2 border-b border-neutral-100 pb-6 relative">
@@ -3713,7 +3740,7 @@ export function GarmentCustomizerModal({
       </div>
 
       {/* Footer Actions */}
-      <div className="px-8 py-5 border-t border-neutral-100 flex items-center justify-between bg-neutral-50/50 shrink-0">
+      <div className="px-4 py-3 sm:px-6 sm:py-4 md:px-8 md:py-5 border-t border-neutral-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-neutral-50/50 shrink-0">
         {(() => {
           const activePlacements: string[] = [];
           if (selectedLogoFront) activePlacements.push("Front");
@@ -3729,7 +3756,7 @@ export function GarmentCustomizerModal({
             </div>
           );
         })()}
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto">
           <button
             type="button"
             disabled={isSaving || isUploading || isSavingToLibrary}
@@ -3737,15 +3764,15 @@ export function GarmentCustomizerModal({
               setLibraryDesignName(`${activeGarment.brand || ''} ${activeGarment.style || ''} ${selectedColor !== 'Custom Color' ? selectedColor : ''}`.trim() || 'My Custom Design');
               setIsSaveToLibraryOpen(true);
             }}
-            className="bg-white border border-neutral-200 hover:bg-neutral-50 text-neutral-800 px-4 py-3 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+            className="flex-1 sm:flex-initial justify-center bg-white border border-neutral-200 hover:bg-neutral-50 text-neutral-800 px-3.5 py-2.5 sm:px-4 sm:py-3 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
           >
-            <Sparkles size={14} className="text-amber-500" />
-            <span>Save to My Saved Designs</span>
+            <Sparkles size={14} className="text-amber-500 shrink-0" />
+            <span className="whitespace-nowrap">Save to Library</span>
           </button>
 
           <button 
             onClick={onClose}
-            className="bg-white border border-neutral-200 text-neutral-900 px-5 py-3 rounded-xl text-xs font-bold hover:bg-neutral-100 transition-all shadow-xs cursor-pointer"
+            className="bg-white border border-neutral-200 text-neutral-900 px-4 py-2.5 sm:px-5 sm:py-3 rounded-xl text-xs font-bold hover:bg-neutral-100 transition-all shadow-xs cursor-pointer"
           >
             Cancel
           </button>
@@ -3754,14 +3781,14 @@ export function GarmentCustomizerModal({
             data-tour="save-customization-btn"
             disabled={isSaving || isUploading || isSavingToLibrary}
             onClick={() => handleSave()}
-            className="bg-black text-white px-6 py-3 rounded-xl text-xs font-bold hover:bg-neutral-800 transition-all shadow-md flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 sm:flex-initial justify-center bg-black text-white px-4 py-2.5 sm:px-6 sm:py-3 rounded-xl text-xs font-bold hover:bg-neutral-800 transition-all shadow-md flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
           >
             {isSaving ? (
-              <Loader2 className="animate-spin" size={14} />
+              <Loader2 className="animate-spin shrink-0" size={14} />
             ) : (
-              <Check size={14} strokeWidth={3} />
+              <Check size={14} strokeWidth={3} className="shrink-0" />
             )}
-            {isSaving ? "Saving Mockup..." : "Save & Add to Cart"}
+            <span>{isSaving ? "Saving..." : "Save & Add to Cart"}</span>
           </button>
         </div>
       </div>
