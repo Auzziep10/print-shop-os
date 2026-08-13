@@ -659,7 +659,7 @@ export function StartCTASection({
               <img
                 src={panel.img}
                 alt={panel.title}
-                className="h-full w-full object-cover opacity-100"
+                className="h-full w-full object-cover object-left sm:object-center opacity-100"
                 loading="lazy"
               />
               <div
