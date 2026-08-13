@@ -468,7 +468,7 @@ export function PublicQuoteRequest() {
   // 4: Size spreadsheets & details
   // 5: Contact Details & checkout/submit
   const [step, setStep] = useState(0);
-  const [flowMode, setFlowMode] = useState<'racks' | 'basics' | 'types' | null>('racks');
+  const [flowMode, setFlowMode] = useState<'racks' | 'basics' | 'types' | null>('types');
   const [currentTime, setCurrentTime] = useState('');
   const [hoveredPlatform, setHoveredPlatform] = useState<'racks' | 'basics' | 'types' | null>(null);
 
@@ -490,7 +490,8 @@ export function PublicQuoteRequest() {
       setFlowMode(modeParam);
       setStep(1);
     } else {
-      navigate('/start2', { replace: true });
+      setFlowMode('types');
+      setStep(1);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

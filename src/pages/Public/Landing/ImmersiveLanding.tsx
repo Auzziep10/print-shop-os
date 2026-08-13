@@ -80,7 +80,7 @@ export interface ImmersiveLandingProps {
   onCustomize: () => void;
   onPortal: () => void;
   onAdminPanel: () => void;
-  onStart: (mode: 'racks' | 'basics') => void;
+  onStart: (mode?: 'racks' | 'basics' | 'types') => void;
 }
 
 const INTRO_SEEN_KEY = 'wovn_landing_intro_seen';
@@ -240,7 +240,7 @@ function LandingNav({
   scrolled: boolean;
   visible: boolean;
   onScrollTo?: (id: string) => void;
-  onStart: (mode: 'racks' | 'basics') => void;
+  onStart: (mode?: 'racks' | 'basics' | 'types') => void;
 }) {
   const dark = !scrolled; // over hero = light text, after hero = ink on cream
   const role = userData?.role;
@@ -349,7 +349,7 @@ function LandingNav({
             Shop
           </a>
 
-          <button data-cursor onClick={() => onStart('racks')} className={solidBtn}>
+          <button data-cursor onClick={() => onStart('types')} className={solidBtn}>
             Start
           </button>
         </div>

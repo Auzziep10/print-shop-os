@@ -35,7 +35,7 @@ export function HeroSection({
   settings: StorefrontSettingsShape;
   introPlay: boolean;
   onScrollTo: (id: string) => void;
-  onStart: (mode: 'racks' | 'basics') => void;
+  onStart: (mode?: 'racks' | 'basics' | 'types') => void;
 }) {
   const sectionRef = useRef<HTMLElement>(null);
   const [slideIdx, setSlideIdx] = useState(0);
@@ -183,7 +183,7 @@ export function HeroSection({
           <div className="hero-fade-in flex flex-wrap items-center gap-3">
             <button
               data-cursor
-              onClick={() => onStart('racks')}
+              onClick={() => onStart('types')}
               className="font-inter group flex cursor-pointer items-center gap-3 rounded-full bg-white px-7 py-3.5 text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-950 transition-colors hover:bg-zinc-200"
             >
               {settings.heroPrimaryCta || 'Start your project'}
@@ -319,7 +319,7 @@ export function ShowcaseSection({
   onStart,
 }: {
   settings?: StorefrontSettingsShape;
-  onStart: (mode: 'racks' | 'basics') => void;
+  onStart: (mode?: 'racks' | 'basics' | 'types') => void;
 }) {
   const sectionRef = useRef<HTMLElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
@@ -369,7 +369,7 @@ export function ShowcaseSection({
       );
       if (dist > 10) return; // User dragged/swiped to scroll, ignore click
     }
-    onStart('racks');
+    onStart('types');
   };
 
   return (
@@ -599,7 +599,7 @@ export function StartCTASection({
   onStart,
 }: {
   settings?: StorefrontSettingsShape;
-  onStart: (mode: 'racks' | 'basics') => void;
+  onStart: (mode?: 'racks' | 'basics' | 'types') => void;
 }) {
   const sectionRef = useRef<HTMLElement>(null);
 
@@ -739,7 +739,7 @@ export function LandingFooter({
   onPortal: () => void;
   onLogin: () => void;
   onScrollTo?: (id: string) => void;
-  onStart: (mode: 'racks' | 'basics') => void;
+  onStart: (mode?: 'racks' | 'basics' | 'types') => void;
 }) {
   const year = new Date().getFullYear();
   return (
