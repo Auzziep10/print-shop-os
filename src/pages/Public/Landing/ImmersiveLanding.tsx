@@ -67,6 +67,7 @@ export interface StorefrontSettingsShape {
   ctaCardBody?: string;
   ctaCardBtnText?: string;
   ctaCardImageUrl?: string;
+  ctaCardMobileImageUrl?: string;
 }
 
 export interface ImmersiveLandingProps {

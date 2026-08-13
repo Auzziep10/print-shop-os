@@ -40,6 +40,8 @@ const DEFAULT_SETTINGS: StorefrontSettingsShape = {
   ctaCardTitle: 'Design Your Rack',
   ctaCardBody: 'Configure a unified apparel collection with our standard 6-item rack — hat, tee, polo, crewneck, hoodie and long sleeve — all overlayed with your branding instantly.',
   ctaCardBtnText: 'Design a cohesive line',
+  ctaCardImageUrl: '',
+  ctaCardMobileImageUrl: '',
   contactPhone: '(888) 896-8607',
   email: 'hello@inktheory.studio',
 };
@@ -758,8 +760,8 @@ export function ImmersiveLandingPage() {
 
                     <div className="flex items-center justify-between pt-2 border-t border-zinc-200">
                       <div>
-                        <span className="text-xs font-bold text-zinc-900 block">CTA Card Background Image</span>
-                        <span className="text-[10px] text-zinc-500">Upload a custom image for the CTA card background.</span>
+                        <span className="text-xs font-bold text-zinc-900 block">CTA Card Background Image (Desktop)</span>
+                        <span className="text-[10px] text-zinc-500">Upload a custom image for the CTA card background on desktop screens.</span>
                       </div>
                       <label className="px-3.5 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-bold rounded-xl cursor-pointer flex items-center gap-1.5 shadow-xs transition-all">
                         {uploadingField === 'ctaCardImageUrl' ? (
@@ -795,6 +797,49 @@ export function ImmersiveLandingPage() {
                           className="text-xs text-red-500 hover:underline font-bold"
                         >
                           Remove Image
+                        </button>
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between pt-2 border-t border-zinc-200">
+                      <div>
+                        <span className="text-xs font-bold text-zinc-900 block">CTA Card Background Image (Mobile)</span>
+                        <span className="text-[10px] text-zinc-500">Upload a custom image for the CTA card background on mobile screens.</span>
+                      </div>
+                      <label className="px-3.5 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-bold rounded-xl cursor-pointer flex items-center gap-1.5 shadow-xs transition-all">
+                        {uploadingField === 'ctaCardMobileImageUrl' ? (
+                          <>
+                            <Loader2 className="animate-spin" size={12} />
+                            <span>Uploading...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Upload size={12} />
+                            <span>Upload Mobile Image</span>
+                          </>
+                        )}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          disabled={uploadingField === 'ctaCardMobileImageUrl'}
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f) handleFileUpload(f, 'ctaCardMobileImageUrl');
+                          }}
+                        />
+                      </label>
+                    </div>
+
+                    {editSettings.ctaCardMobileImageUrl && (
+                      <div className="flex items-center justify-between p-2 bg-white border border-zinc-200 rounded-xl">
+                        <img src={editSettings.ctaCardMobileImageUrl} alt="CTA card mobile bg" className="h-12 w-20 object-cover rounded-lg" />
+                        <button
+                          type="button"
+                          onClick={() => setEditSettings({ ...editSettings, ctaCardMobileImageUrl: '' })}
+                          className="text-xs text-red-500 hover:underline font-bold"
+                        >
+                          Remove Mobile Image
                         </button>
                       </div>
                     )}

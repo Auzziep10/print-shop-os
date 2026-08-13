@@ -620,6 +620,7 @@ export function StartCTASection({
       body: settings?.ctaCardBody || 'Configure a unified apparel collection with our standard 6-item rack — hat, tee, polo, crewneck, hoodie and long sleeve — all overlayed with your branding instantly.',
       cta: settings?.ctaCardBtnText || 'Design a cohesive line',
       img: settings?.ctaCardImageUrl || '/images/apparel_rack_hero.png',
+      mobileImg: settings?.ctaCardMobileImageUrl || undefined,
       dark: true,
     },
   ];
@@ -648,12 +649,24 @@ export function StartCTASection({
             }`}
           >
             <div className="absolute inset-0 overflow-hidden">
-              <img
-                src={panel.img}
-                alt={panel.title}
-                className="h-full w-full object-cover object-left sm:object-center opacity-100"
-                loading="lazy"
-              />
+              {panel.mobileImg ? (
+                <picture className="contents">
+                  <source media="(max-width: 639px)" srcSet={panel.mobileImg} />
+                  <img
+                    src={panel.img}
+                    alt={panel.title}
+                    className="h-full w-full object-cover object-left sm:object-center opacity-100"
+                    loading="lazy"
+                  />
+                </picture>
+              ) : (
+                <img
+                  src={panel.img}
+                  alt={panel.title}
+                  className="h-full w-full object-cover object-left sm:object-center opacity-100"
+                  loading="lazy"
+                />
+              )}
               <div
                 className={`absolute inset-0 ${
                   panel.dark
