@@ -695,6 +695,23 @@ export function PublicQuoteRequest() {
     });
   }, [catalogSettings.racks, catalogSettings.hiddenCollections, catalogSettings.customNames, catalogSettings.basics]);
 
+  // Garment type tabs are only shown when that category actually has curated
+  // garments — empty tabs lead customers to a blank grid.
+  const availableGarmentTypes = useMemo(() => {
+    const withProducts = GARMENT_TYPES.filter(gt =>
+      curatedStorefrontProducts.some(p => detectGarmentTypeTag(p, catalogSettings.garmentTypeTags) === gt.id)
+    );
+    return withProducts.length > 0 ? withProducts : GARMENT_TYPES;
+  }, [curatedStorefrontProducts, catalogSettings.garmentTypeTags]);
+
+  // Keep the active tab on a type that still exists
+  useEffect(() => {
+    if (availableGarmentTypes.length === 0) return;
+    if (!availableGarmentTypes.some(gt => gt.id === selectedGarmentType)) {
+      setSelectedGarmentType(availableGarmentTypes[0].id as GarmentTypeId);
+    }
+  }, [availableGarmentTypes, selectedGarmentType]);
+
   // Checkout inputs
   const [customerInfo, setCustomerInfo] = useState({
     companyName: '',
@@ -3782,9 +3799,10 @@ export function PublicQuoteRequest() {
                   </div>
                 </div>
 
-                {/* Quince-Style Centered Navigation for Garment Types */}
+                {/* Quince-Style Centered Navigation for Garment Types —
+                    only types that actually have curated garments are shown */}
                 <div className="flex flex-wrap items-center justify-center gap-6 sm:gap-8 md:gap-10 py-3 border-b border-neutral-200/60 font-sans">
-                  {GARMENT_TYPES.map(gt => {
+                  {availableGarmentTypes.map(gt => {
                     const isSelected = selectedGarmentType === gt.id;
                     return (
                       <button
