@@ -1431,6 +1431,22 @@ export function PublicQuoteRequest() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Only accept artwork the browser can actually render — anything else
+    // (PDF, EPS, AI, PSD, ZIP…) shows as a placeholder chip in the customizer
+    // and can't be positioned or mocked up.
+    const ext = file.name.split('.').pop()?.toLowerCase() || '';
+    const RENDERABLE = ['png', 'jpg', 'jpeg', 'jfif', 'webp', 'gif', 'svg', 'avif', 'bmp'];
+    if (!RENDERABLE.includes(ext)) {
+      alert(
+        `"${file.name}" can't be previewed on a garment.\n\n` +
+        `Please upload an image file: PNG, JPG, WEBP, GIF, SVG, AVIF, or BMP. ` +
+        `PNG with a transparent background gives the best print result.\n\n` +
+        `Have vector art (PDF/AI/EPS)? Export it as a PNG, or send it to us after checkout and we'll set it up for you.`
+      );
+      e.target.value = '';
+      return;
+    }
+
     setIsUploadingLogo(true);
     try {
       const dataUrl = await new Promise<string>((resolve) => {
@@ -3984,7 +4000,7 @@ export function PublicQuoteRequest() {
                           </div>
                           <label className="text-xs text-neutral-900 hover:underline font-bold cursor-pointer shrink-0">
                             Replace
-                            <input type="file" accept="image/*,.pdf,.eps,.ai,.psd,.cdr,.zip" onChange={handleLogoUpload} className="hidden" />
+                            <input type="file" accept=".png,.jpg,.jpeg,.jfif,.webp,.gif,.svg,.avif,.bmp,image/png,image/jpeg,image/webp,image/gif,image/svg+xml,image/avif,image/bmp" onChange={handleLogoUpload} className="hidden" />
                           </label>
                         </div>
                       </div>
@@ -3992,8 +4008,8 @@ export function PublicQuoteRequest() {
                       <label className="border-2 border-dashed border-neutral-200 hover:border-neutral-400 rounded-xl p-8 flex flex-col items-center justify-center gap-2 bg-white/40 hover:bg-white transition-all cursor-pointer group text-center">
                         <Upload size={24} className="text-neutral-400 group-hover:text-neutral-900 transition-colors" />
                         <span className="text-xs font-bold text-neutral-700 group-hover:text-neutral-900">Select Artwork File</span>
-                        <span className="text-[10px] text-neutral-400">PNG, SVG, JPG, PDF, EPS, AI, PSD, CDR, ZIP up to 20MB</span>
-                        <input type="file" accept="image/*,.pdf,.eps,.ai,.psd,.cdr,.zip" onChange={handleLogoUpload} className="hidden" />
+                        <span className="text-[10px] text-neutral-400">PNG, JPG, WEBP, SVG, GIF up to 20MB — transparent PNG recommended</span>
+                        <input type="file" accept=".png,.jpg,.jpeg,.jfif,.webp,.gif,.svg,.avif,.bmp,image/png,image/jpeg,image/webp,image/gif,image/svg+xml,image/avif,image/bmp" onChange={handleLogoUpload} className="hidden" />
                       </label>
                     )}
                   </div>

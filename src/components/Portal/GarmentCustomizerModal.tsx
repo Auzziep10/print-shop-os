@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../../lib/firebase';
-import { X, Upload, Loader2, Check, FileText, Sparkles, RefreshCw, Type, Image as ImageIcon, Sliders, Trash2, Bold, Italic, Search, Shirt, Plus, Palette, Eye } from 'lucide-react';
+import { X, Loader2, Check, FileText, Sparkles, RefreshCw, Type, Image as ImageIcon, Sliders, Trash2, Bold, Italic, Search, Shirt, Plus, Palette, Eye } from 'lucide-react';
 import { generateRotatedGarment } from '../../lib/geminiService';
 import { getSwatchColor } from '../shared/GarmentBrowser';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
@@ -950,6 +950,34 @@ export function GarmentCustomizerModal({
       ? `/api/sanmar/proxy-image?url=${encodeURIComponent(activeMockupImage)}`
       : activeMockupImage;
   }, [activeMockupImage]);
+
+  // Artboard sizing: measure the real available area and size the board in px
+  // so it always fills the window height (CSS aspect-ratio inside nested flex
+  // containers gets clamped unpredictably).
+  const boardWrapRef = useRef<HTMLDivElement | null>(null);
+  const [boardSize, setBoardSize] = useState<{ w: number; h: number } | null>(null);
+  useEffect(() => {
+    if (!isOpen) return;
+    const el = boardWrapRef.current;
+    if (!el) return;
+    const ratio = activeTab === 'tag' ? 1 : 0.8; // width / height
+    const measure = () => {
+      const availW = el.clientWidth;
+      let availH = el.clientHeight;
+      if (!availW) return;
+      // Stacked (mobile) layout: wrapper is content-height, so derive from width
+      if (availH < 200) availH = Math.min(window.innerHeight * 0.62, availW / ratio);
+      const h = Math.max(220, Math.min(availH, availW / ratio));
+      setBoardSize(prev => {
+        const next = { w: Math.round(h * ratio), h: Math.round(h) };
+        return prev && prev.w === next.w && prev.h === next.h ? prev : next;
+      });
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [isOpen, activeTab]);
 
   // Where the garment's pixels sit inside THIS artboard for the currently
   // displayed mock — used to remap admin placement boxes (drawn on a possibly
@@ -2333,7 +2361,7 @@ export function GarmentCustomizerModal({
     if (!name) return true;
     if (name.startsWith('http') || name.startsWith('data:image')) return true;
     const ext = name.split('.').pop()?.toLowerCase();
-    if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext || '')) return true;
+    if (['jpg', 'jpeg', 'jfif', 'png', 'gif', 'webp', 'svg', 'avif', 'bmp'].includes(ext || '')) return true;
     if (!name.includes('.')) return true;
     return false;
   };
@@ -2367,47 +2395,9 @@ export function GarmentCustomizerModal({
         <div className="w-full md:flex-1 bg-neutral-50 flex flex-col items-center justify-center p-2 sm:p-3 relative border-b md:border-b-0 md:border-r border-neutral-100 gap-2 shrink-0 md:shrink animate-in fade-in duration-300">
 
           {/* Garment Preview Container */}
-          <div className="w-full flex flex-col md:flex-row items-center justify-center gap-2 sm:gap-3 p-0">
+          <div className="w-full md:flex-1 md:min-h-0 flex flex-col md:flex-row items-center justify-center gap-2 sm:gap-3 p-0">
             {/* View rail + status column (Horizontal bar on mobile, vertical sidebar on desktop) */}
             <div className="flex flex-row overflow-x-auto scrollbar-none w-full md:w-[150px] md:flex-col gap-1.5 md:gap-2 shrink-0 py-1 md:py-0 px-1 md:px-0 items-center md:items-stretch justify-start md:justify-center">
-              {([
-                { id: 'front', label: 'Front View', short: 'Front' },
-                { id: 'back', label: 'Back View', short: 'Back' },
-                { id: 'sleeve', label: 'Sleeve', short: 'Sleeve' },
-                { id: 'tag', label: 'Size Tag', short: 'Tag' }
-              ] as const).map(v => (
-                <button
-                  key={v.id}
-                  type="button"
-                  onClick={() => setActiveTab(v.id as any)}
-                  title={v.label}
-                  className={`flex-1 min-w-[65px] md:min-w-0 md:w-full py-2 md:py-3 px-2 rounded-xl md:rounded-2xl border flex items-center justify-center transition-all cursor-pointer shadow-sm ${
-                    activeTab === v.id
-                      ? 'bg-neutral-900 text-white border-neutral-900 shadow-md'
-                      : 'bg-white text-neutral-500 border-neutral-200 hover:text-black hover:border-neutral-400'
-                  }`}
-                >
-                  <span className="text-[10px] font-bold uppercase tracking-wider leading-none whitespace-nowrap">{v.short}</span>
-                </button>
-              ))}
-
-              {activeTab === 'sleeve' && (
-                <button
-                  type="button"
-                  onClick={() => setIsSleeveMirrored(prev => !prev)}
-                  title="Mirror to the other sleeve"
-                  className={`py-2 md:py-2.5 px-2.5 rounded-xl md:rounded-2xl border flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm animate-in fade-in duration-200 ${
-                    isSleeveMirrored
-                      ? 'bg-black text-white border-black'
-                      : 'bg-white text-neutral-500 border-neutral-200 hover:text-black hover:border-neutral-400'
-                  }`}
-                >
-                  <RefreshCw size={12} className={isSleeveMirrored ? "animate-spin" : ""} style={{ animationIterationCount: 1, animationDuration: '0.4s' }} />
-                  <span className="text-[10px] font-bold uppercase tracking-wider leading-none whitespace-nowrap">Flip</span>
-                </button>
-              )}
-
-              <div className="hidden md:block h-px bg-neutral-200 my-1.5" />
 
               {/* Status: detected size + active placement */}
               {activeTab !== 'tag' && (() => {
@@ -2473,15 +2463,15 @@ export function GarmentCustomizerModal({
                 </p>
               )}
             </div>
+            {/* Measuring wrapper: the artboard is sized in px from the real
+                available space, so it always fills the window height. */}
+            <div ref={boardWrapRef} className="w-full md:flex-1 min-w-0 md:h-full flex items-center justify-center">
             <div
               ref={previewRef}
-              className={`relative w-full ${activeTab === 'tag' ? 'aspect-square' : 'aspect-[4/5]'} bg-white rounded-[1.5rem] md:rounded-[2rem] border border-neutral-200/50 shadow-lg flex items-center justify-center overflow-hidden transition-all duration-300 hover:shadow-xl select-none`}
-              style={{
-                width: activeTab === 'tag'
-                  ? 'min(100%, calc(100dvh - 130px), 1000px)'
-                  : 'min(100%, calc((100dvh - 130px) * 0.8), 1000px)',
-                maxHeight: 'min(55vh, 600px)',
-              }}
+              className={`relative bg-white rounded-[1.5rem] md:rounded-[2rem] border border-neutral-200/50 shadow-lg flex items-center justify-center overflow-hidden transition-shadow duration-300 hover:shadow-xl select-none ${
+                boardSize ? '' : `w-full ${activeTab === 'tag' ? 'aspect-square' : 'aspect-[4/5]'}`
+              }`}
+              style={boardSize ? { width: boardSize.w, height: boardSize.h } : undefined}
             >
               {activeTab !== 'tag' && (
                 <>
@@ -2800,6 +2790,7 @@ export function GarmentCustomizerModal({
                 </div>
               )}
             </div>
+            </div>
           </div>
         </div>
 
@@ -2906,6 +2897,48 @@ export function GarmentCustomizerModal({
             </div>
           )}
 
+          {/* View selector — which side of the garment you're designing */}
+          <div className="flex flex-col gap-2 border-b border-neutral-100 pb-6">
+            <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">View</label>
+            <div className="grid grid-cols-4 gap-1.5">
+              {([
+                { id: 'front', label: 'Front View', short: 'Front' },
+                { id: 'back', label: 'Back View', short: 'Back' },
+                { id: 'sleeve', label: 'Sleeve', short: 'Sleeve' },
+                { id: 'tag', label: 'Size Tag', short: 'Tag' }
+              ] as const).map(v => (
+                <button
+                  key={v.id}
+                  type="button"
+                  onClick={() => setActiveTab(v.id as any)}
+                  title={v.label}
+                  className={`py-2.5 px-1 rounded-xl border flex items-center justify-center transition-all cursor-pointer shadow-sm ${
+                    activeTab === v.id
+                      ? 'bg-neutral-900 text-white border-neutral-900 shadow-md'
+                      : 'bg-white text-neutral-500 border-neutral-200 hover:text-black hover:border-neutral-400'
+                  }`}
+                >
+                  <span className="text-[10px] font-bold uppercase tracking-wider leading-none">{v.short}</span>
+                </button>
+              ))}
+            </div>
+            {activeTab === 'sleeve' && (
+              <button
+                type="button"
+                onClick={() => setIsSleeveMirrored(prev => !prev)}
+                title="Mirror to the other sleeve"
+                className={`mt-1 py-2 px-3 rounded-xl border flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm animate-in fade-in duration-200 ${
+                  isSleeveMirrored
+                    ? 'bg-black text-white border-black'
+                    : 'bg-white text-neutral-500 border-neutral-200 hover:text-black hover:border-neutral-400'
+                }`}
+              >
+                <RefreshCw size={12} className={isSleeveMirrored ? "animate-spin" : ""} style={{ animationIterationCount: 1, animationDuration: '0.4s' }} />
+                <span className="text-[10px] font-bold uppercase tracking-wider leading-none">{isSleeveMirrored ? 'Mirrored' : 'Flip Sleeve'}</span>
+              </button>
+            )}
+          </div>
+
           {/* Garment Color Selection Dropdown */}
           {displayColors && displayColors.length > 0 && (
             <div className="flex flex-col gap-2 border-b border-neutral-100 pb-6">
@@ -2983,7 +3016,33 @@ export function GarmentCustomizerModal({
             </div>
           )}
 
-
+          {/* Recolor Logo — sits with the color controls */}
+          {selectedLogo && isImageFile(selectedLogo.name) && (
+            <div className="flex flex-col gap-2 border-b border-neutral-100 pb-6 animate-in fade-in duration-300">
+              <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Recolor Logo</label>
+              <div className="flex items-center gap-2">
+                <div className="relative w-9 h-9 shrink-0 group rounded-xl overflow-hidden border border-neutral-300 shadow-inner">
+                  <input
+                    type="color"
+                    value={recolorColor}
+                    onChange={(e) => setRecolorColor(e.target.value)}
+                    className="absolute -inset-4 opacity-0 w-20 h-20 cursor-pointer z-10"
+                    title="Pick a color"
+                  />
+                  <div className="absolute inset-0 pointer-events-none" style={{ backgroundColor: recolorColor }} />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleRecolorAsset(selectedLogo, recolorColor)}
+                  disabled={isRecoloring}
+                  className="flex-1 py-2.5 px-3 bg-zinc-900 text-white hover:bg-zinc-800 rounded-xl font-bold text-[10px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                >
+                  {isRecoloring ? <Loader2 className="animate-spin" size={11} /> : <Palette size={11} />}
+                  <span>Recolor &amp; Apply</span>
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Logo / Text Mode Tabs */}
           <div className="flex flex-col gap-4 border-t border-neutral-100 pt-6">
@@ -3051,28 +3110,24 @@ export function GarmentCustomizerModal({
             {/* Upload/Vault Content */}
             {activeDesignerTab === 'upload' && (
               <div className="flex flex-col gap-3">
-                <div className="flex justify-between items-center">
-                  <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Asset Vault</label>
-                  <label className="text-xs font-bold text-neutral-600 hover:text-black cursor-pointer flex items-center gap-1">
-                    <input type="file" className="hidden" onChange={handleFileUpload} accept="image/*,application/pdf,.ai,.eps,.svg" />
-                    <Upload size={12} /> Upload New
-                  </label>
-                </div>
+                <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Asset Vault</label>
 
                 {isLoadingAssets ? (
                   <div className="flex justify-center py-6 text-neutral-400">
                     <Loader2 className="animate-spin" size={20} />
                   </div>
-                ) : assets.length === 0 ? (
-                  <div className="bg-neutral-50 rounded-2xl p-4 text-center border border-dashed border-neutral-200">
-                    <p className="text-xs font-semibold text-neutral-500">No assets saved in your Asset Vault.</p>
-                    <label className="text-xs font-bold text-black hover:underline cursor-pointer mt-1 inline-block">
-                      <input type="file" className="hidden" onChange={handleFileUpload} accept="image/*,application/pdf,.ai,.eps,.svg" />
-                      Upload logo to begin
-                    </label>
-                  </div>
                 ) : (
                   <div className="grid grid-cols-3 gap-3 max-h-[220px] overflow-y-auto pr-1">
+                    {/* Upload tile — same footprint as an asset thumbnail */}
+                    <label
+                      className="w-full h-20 rounded-xl border border-dashed border-neutral-300 hover:border-neutral-900 hover:bg-neutral-50 flex flex-col items-center justify-center gap-1 cursor-pointer transition-all text-neutral-500 hover:text-black"
+                      title="Upload new artwork"
+                    >
+                      <input type="file" className="hidden" onChange={handleFileUpload} accept=".png,.jpg,.jpeg,.jfif,.webp,.gif,.svg,.avif,.bmp,image/png,image/jpeg,image/webp,image/gif,image/svg+xml,image/avif,image/bmp" />
+                      <Plus size={18} strokeWidth={2.5} />
+                      <span className="text-[8px] font-bold uppercase tracking-wider leading-none">Upload</span>
+                    </label>
+
                     {assets.filter((asset) => asset.type !== 'folder').map((asset) => {
                        const isSelected = activeTab === 'tag'
                          ? selectedTagElementId === asset.id
@@ -3707,32 +3762,6 @@ export function GarmentCustomizerModal({
                 </div>
               </div>
 
-              {isImageFile(selectedLogo.name) && (
-                <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-3 flex flex-col gap-2 text-[11px] animate-in fade-in duration-300">
-                  <span className="font-extrabold uppercase tracking-widest text-[9px] text-neutral-400">Recolor Logo</span>
-                  <div className="flex items-center gap-2">
-                    <div className="relative w-5 h-5 shrink-0 group rounded-full overflow-hidden border border-neutral-350 shadow-inner">
-                      <input
-                        type="color"
-                        value={recolorColor}
-                        onChange={(e) => setRecolorColor(e.target.value)}
-                        className="absolute -inset-4 opacity-0 w-16 h-16 cursor-pointer z-10"
-                        title="Pick a color"
-                      />
-                      <div className="absolute inset-0 pointer-events-none" style={{ backgroundColor: recolorColor }} />
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleRecolorAsset(selectedLogo, recolorColor)}
-                      disabled={isRecoloring}
-                      className="flex-1 py-1.5 px-3 bg-zinc-900 text-white hover:bg-zinc-800 rounded-lg font-bold text-[10px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
-                    >
-                      {isRecoloring ? <Loader2 className="animate-spin" size={10} /> : <Palette size={10} />}
-                      <span>Recolor & Apply</span>
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
           )}
 
