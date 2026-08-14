@@ -628,6 +628,7 @@ export function StorefrontCatalogTab() {
   const [activeColorModalItem, setActiveColorModalItem] = useState<any | null>(null);
   const [colorSearchQuery, setColorSearchQuery] = useState('');
   const [colorFilterTab, setColorFilterTab] = useState<'all' | 'enabled' | 'hidden' | 'custom'>('all');
+  const [hideUsedGarments, setHideUsedGarments] = useState(false);
 
   // Logo placement editor modal state
   const [placementTarget, setPlacementTarget] = useState<{
@@ -1273,6 +1274,36 @@ export function StorefrontCatalogTab() {
       console.error("Error auto-persisting cleared placement to Firestore:", err);
       alert('Failed to clear placement boxes — please try again. (See console for details.)');
     }
+  };
+
+  // Where each garment style is already assigned (rack slots + basics tiers),
+  // so the selector can flag duplicates across collections.
+  const garmentUsageMap = useMemo(() => {
+    const map = new Map<string, { mode: 'racks' | 'basics'; category: string; slot: string }[]>();
+    const add = (style: any, entry: { mode: 'racks' | 'basics'; category: string; slot: string }) => {
+      const key = String(style || '').toLowerCase().trim();
+      if (!key) return;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(entry);
+    };
+    Object.entries(racks || {}).forEach(([cat, slots]: [string, any]) => {
+      Object.entries(slots || {}).forEach(([slot, style]) => add(style, { mode: 'racks', category: cat, slot }));
+    });
+    Object.entries(basics || {}).forEach(([cat, tiers]: [string, any]) => {
+      Object.entries(tiers || {}).forEach(([tier, style]) => add(style, { mode: 'basics', category: cat, slot: tier }));
+    });
+    return map;
+  }, [racks, basics]);
+
+  const getGarmentUsage = (style: string) => {
+    const all = garmentUsageMap.get(String(style || '').toLowerCase().trim()) || [];
+    if (!activeSelectTarget) return all;
+    // Don't flag the slot currently being edited
+    return all.filter(u => !(
+      u.mode === activeSelectTarget.mode &&
+      u.category === activeSelectTarget.category &&
+      u.slot === activeSelectTarget.slot
+    ));
   };
 
   // Merge built-in catalog with imported custom non-SanMar items
@@ -2434,6 +2465,18 @@ export function StorefrontCatalogTab() {
                 <p className="text-xs text-brand-secondary mt-1">
                   Select one of the {allCatalogProducts.length} premium products or import a non-SanMar item.
                 </p>
+                <button
+                  type="button"
+                  onClick={() => setHideUsedGarments(prev => !prev)}
+                  className={`mt-2.5 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-colors cursor-pointer ${
+                    hideUsedGarments
+                      ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                      : 'bg-neutral-50 border-brand-border text-brand-secondary hover:text-brand-primary'
+                  }`}
+                >
+                  {hideUsedGarments ? <EyeOff size={11} /> : <Eye size={11} />}
+                  {hideUsedGarments ? 'Hiding garments already in use' : 'Hide garments already in use'}
+                </button>
               </div>
               <button
                 type="button"
@@ -2472,30 +2515,49 @@ export function StorefrontCatalogTab() {
                   </button>
                 </div>
               ) : (
-                filteredProducts.map(p => (
-                  <div
-                    key={p.style}
-                    onClick={() => handleSelectProduct(p.style)}
-                    className="flex justify-between items-center py-3.5 px-2 hover:bg-neutral-50 rounded-lg cursor-pointer transition-colors"
-                  >
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs bg-neutral-100 px-2 py-0.5 rounded font-bold uppercase">{p.style}</span>
-                        <span className="text-xs font-bold text-brand-primary">{p.brand}</span>
-                        {(p as any).isCustom && (
-                          <span className="text-[9px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Custom</span>
-                        )}
+                filteredProducts
+                  .filter(p => !hideUsedGarments || getGarmentUsage(p.style).length === 0)
+                  .map(p => {
+                    const usage = getGarmentUsage(p.style);
+                    const inUse = usage.length > 0;
+                    return (
+                      <div
+                        key={p.style}
+                        onClick={() => handleSelectProduct(p.style)}
+                        className={`flex justify-between items-center py-3.5 px-2 rounded-lg cursor-pointer transition-colors ${
+                          inUse ? 'bg-amber-50/40 hover:bg-amber-50' : 'hover:bg-neutral-50'
+                        }`}
+                      >
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs bg-neutral-100 px-2 py-0.5 rounded font-bold uppercase">{p.style}</span>
+                            <span className="text-xs font-bold text-brand-primary">{p.brand}</span>
+                            {(p as any).isCustom && (
+                              <span className="text-[9px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Custom</span>
+                            )}
+                            {inUse && (
+                              <span className="text-[9px] bg-amber-100 text-amber-900 border border-amber-300 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
+                                In use ×{usage.length}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-brand-secondary mt-1 truncate max-w-lg">{p.title} - {p.category}</p>
+                          {inUse && (
+                            <p className="text-[10px] text-amber-800 mt-1 font-semibold truncate max-w-lg">
+                              Already assigned to {usage.slice(0, 3).map(u => `${u.category} · ${u.slot.toUpperCase()}`).join(', ')}
+                              {usage.length > 3 ? ` +${usage.length - 3} more` : ''}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-4 shrink-0">
+                          <span className="text-xs font-bold text-brand-primary">${p.price.toFixed(2)}</span>
+                          <div className="w-6 h-6 rounded-full bg-neutral-50 border border-brand-border flex items-center justify-center text-brand-secondary hover:bg-brand-primary hover:text-white transition-colors">
+                            <Check size={12} />
+                          </div>
+                        </div>
                       </div>
-                      <p className="text-[11px] text-brand-secondary mt-1 truncate max-w-lg">{p.title} - {p.category}</p>
-                    </div>
-                    <div className="flex items-center gap-4 shrink-0">
-                      <span className="text-xs font-bold text-brand-primary">${p.price.toFixed(2)}</span>
-                      <div className="w-6 h-6 rounded-full bg-neutral-50 border border-brand-border flex items-center justify-center text-brand-secondary hover:bg-brand-primary hover:text-white transition-colors">
-                        <Check size={12} />
-                      </div>
-                    </div>
-                  </div>
-                ))
+                    );
+                  })
               )}
             </div>
 
