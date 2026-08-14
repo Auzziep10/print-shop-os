@@ -629,6 +629,11 @@ export function StorefrontCatalogTab() {
   const [colorSearchQuery, setColorSearchQuery] = useState('');
   const [colorFilterTab, setColorFilterTab] = useState<'all' | 'enabled' | 'hidden' | 'custom'>('all');
   const [hideUsedGarments, setHideUsedGarments] = useState(false);
+  // Optional storefront browse-card photo per style. Purely cosmetic: color
+  // mockups, placement boxes, and pricing are untouched by this.
+  const [cardImages, setCardImages] = useState<Record<string, string>>({});
+  // Fit shown on storefront cards: Fitted · Standard · Loose (selected one bold)
+  const [garmentFits, setGarmentFits] = useState<Record<string, string>>({});
 
   // Logo placement editor modal state
   const [placementTarget, setPlacementTarget] = useState<{
@@ -704,6 +709,8 @@ export function StorefrontCatalogTab() {
           if (data.showPublicPlacementGuides !== undefined) {
             setShowPublicPlacementGuides(data.showPublicPlacementGuides !== false);
           }
+          if (data.cardImages) setCardImages(data.cardImages);
+          if (data.garmentFits) setGarmentFits(data.garmentFits);
           if (data.racksOrder) {
             setRacksOrder(data.racksOrder);
           } else {
@@ -762,6 +769,8 @@ export function StorefrontCatalogTab() {
         colorMockups,
         allowedColors,
         showPublicPlacementGuides,
+        cardImages,
+        garmentFits,
         updatedAt: new Date().toISOString()
       }), { merge: true });
       alert('Storefront catalog settings saved successfully!');
@@ -1195,6 +1204,126 @@ export function StorefrontCatalogTab() {
       return out;
     }
     return val;
+  };
+
+  // Storefront card photo (display only — never used for mockups/pricing)
+  const persistCardImages = async (next: Record<string, string>) => {
+    setCardImages(next);
+    try {
+      await setDoc(doc(db, 'settings', 'storefront-catalog'), {
+        cardImages: next,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+    } catch (err) {
+      console.error('Error saving storefront card photo:', err);
+      alert('Failed to save the card photo — please try again.');
+    }
+  };
+
+  const handleCardImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, style: string) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const styleKey = style.toLowerCase().trim();
+    setUploadingSlotKey(`card_${styleKey}`);
+    try {
+      const storageRef = ref(storage, `storefront_card_images/${styleKey}/${Date.now()}_${file.name}`);
+      await uploadBytes(storageRef, file);
+      const url = await getDownloadURL(storageRef);
+      await persistCardImages({ ...cardImages, [styleKey]: url });
+    } catch (err) {
+      console.error('Card photo upload failed:', err);
+      alert('Upload failed. Please try again.');
+    } finally {
+      setUploadingSlotKey(null);
+      e.target.value = '';
+    }
+  };
+
+  const renderCardPhotoControl = (style: string) => {
+    const styleKey = style.toLowerCase().trim();
+    const current = cardImages[styleKey];
+    const isUploading = uploadingSlotKey === `card_${styleKey}`;
+    return (
+      <div>
+        <label className="text-[9px] font-extrabold uppercase tracking-wider text-neutral-400 block mb-1">
+          Storefront Card Photo (optional)
+        </label>
+        <div className="flex items-center gap-2">
+          <div className="w-12 h-12 shrink-0 rounded-lg border border-brand-border bg-checkerboard overflow-hidden flex items-center justify-center">
+            {current ? (
+              <img src={current} alt="Card" className="max-w-full max-h-full object-contain" />
+            ) : (
+              <ImageIcon size={14} className="text-neutral-400" />
+            )}
+          </div>
+          <label className="flex-1 cursor-pointer">
+            <input type="file" accept="image/*" className="hidden" onChange={(e) => handleCardImageUpload(e, style)} />
+            <div className="w-full text-center bg-white border border-brand-border hover:border-brand-primary rounded-xl py-1.5 text-[10px] font-bold text-brand-primary transition-colors">
+              {isUploading ? 'Uploading…' : current ? 'Replace Photo' : 'Upload Photo'}
+            </div>
+          </label>
+          {current && (
+            <button
+              type="button"
+              onClick={() => {
+                const next = { ...cardImages };
+                delete next[styleKey];
+                persistCardImages(next);
+              }}
+              className="p-1.5 text-neutral-400 hover:text-red-600 transition-colors cursor-pointer"
+              title="Remove card photo (revert to mockup)"
+            >
+              <Trash2 size={13} />
+            </button>
+          )}
+        </div>
+        <p className="text-[9px] text-neutral-400 mt-1 leading-snug">
+          Shown only on the storefront browse cards. Colors, placement boxes, and pricing keep using the real mockups.
+        </p>
+      </div>
+    );
+  };
+
+  // Garment fit shown on the storefront cards (Fitted · Standard · Loose)
+  const persistGarmentFits = async (next: Record<string, string>) => {
+    setGarmentFits(next);
+    try {
+      await setDoc(doc(db, 'settings', 'storefront-catalog'), {
+        garmentFits: next,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+    } catch (err) {
+      console.error('Error saving garment fit:', err);
+      alert('Failed to save the fit — please try again.');
+    }
+  };
+
+  const renderFitControl = (style: string) => {
+    const styleKey = style.toLowerCase().trim();
+    const current = garmentFits[styleKey] || 'Standard';
+    return (
+      <div>
+        <label className="text-[9px] font-extrabold uppercase tracking-wider text-neutral-400 block mb-1">
+          Garment Fit
+        </label>
+        <div className="grid grid-cols-3 gap-1.5">
+          {(['Fitted', 'Standard', 'Loose'] as const).map(fit => (
+            <button
+              key={fit}
+              type="button"
+              onClick={() => persistGarmentFits({ ...garmentFits, [styleKey]: fit })}
+              className={`py-1.5 rounded-xl border text-[10px] font-bold transition-colors cursor-pointer ${
+                current === fit
+                  ? 'bg-brand-primary text-white border-brand-primary'
+                  : 'bg-white text-brand-secondary border-brand-border hover:border-brand-primary hover:text-brand-primary'
+              }`}
+            >
+              {fit}
+            </button>
+          ))}
+        </div>
+      </div>
+    );
   };
 
   const handleApplyPlacement = async (box: MultiLogoBoxes | LogoBox) => {
@@ -1812,6 +1941,10 @@ export function StorefrontCatalogTab() {
                       />
                     </div>
 
+                    {renderCardPhotoControl(p.style)}
+
+                    {renderFitControl(p.style)}
+
                     <div>
                       <label className="text-[9px] font-extrabold uppercase tracking-wider text-neutral-400 block mb-1">
                         Garment Type Tag
@@ -2126,6 +2259,10 @@ export function StorefrontCatalogTab() {
                         className="w-full bg-white border border-brand-border rounded-xl px-3 py-1.5 text-xs text-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary transition-all placeholder:text-neutral-400 placeholder:italic"
                       />
                     </div>
+
+                    {renderCardPhotoControl(p.style)}
+
+                    {renderFitControl(p.style)}
 
                     <div>
                       <label className="text-[9px] font-extrabold uppercase tracking-wider text-neutral-400 block mb-1">

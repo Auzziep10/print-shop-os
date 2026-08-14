@@ -250,6 +250,23 @@ interface LogoBox {
 // the given aspect ratio (w/h) inside the box, centered on the box.
 const FRAME_H_OVER_W = 5 / 4; // aspect-[4/5] placement frame
 
+// Fit scale shown on storefront cards — the configured fit is bold, the
+// others sit back in italic so customers read the garment's cut at a glance.
+const FIT_OPTIONS = ['Fitted', 'Standard', 'Loose'] as const;
+function GarmentFitScale({ fit }: { fit?: string }) {
+  const active = FIT_OPTIONS.includes(fit as any) ? fit : 'Standard';
+  return (
+    <p className="text-[11px] text-neutral-500 flex items-center justify-center gap-1.5 select-none">
+      {FIT_OPTIONS.map((opt, i) => (
+        <span key={opt} className="flex items-center gap-1.5">
+          {i > 0 && <span className="text-neutral-300">·</span>}
+          <span className={opt === active ? 'font-bold text-neutral-900' : 'italic text-neutral-400'}>{opt}</span>
+        </span>
+      ))}
+    </p>
+  );
+}
+
 // "GroundAdvantage" / "FEDEX_GROUND" → "Ground Advantage" / "FEDEX GROUND"
 const formatShippingService = (s: string) => (s || '').replace(/_/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2');
 
@@ -503,6 +520,10 @@ export function PublicQuoteRequest() {
     garmentTypeTags?: Record<string, string>;
     removeNeckTag?: Record<string, boolean>;
     colorMockups?: Record<string, Record<string, string>>;
+    /** Optional storefront browse-card photo per style — display only */
+    cardImages?: Record<string, string>;
+    /** Fit per style: Fitted | Standard | Loose — display only */
+    garmentFits?: Record<string, string>;
     customNames?: {
       racks?: Record<string, Record<string, string>>;
       basics?: Record<string, Record<string, string>>;
@@ -1097,6 +1118,8 @@ export function PublicQuoteRequest() {
             garmentTypeTags: cData.garmentTypeTags || {},
             removeNeckTag: cData.removeNeckTag || {},
             colorMockups: cData.colorMockups || {},
+            cardImages: cData.cardImages || {},
+            garmentFits: cData.garmentFits || {},
             customMockups: cData.customMockups || { racks: {}, basics: {} },
             customNames: cData.customNames || { racks: {}, basics: {} },
             customSpecs: cData.customSpecs || { racks: {}, basics: {} },
@@ -3524,7 +3547,11 @@ export function PublicQuoteRequest() {
 
                           <div className="h-72 md:h-[24rem] flex items-center justify-center p-0 overflow-hidden mb-3">
                             {(() => {
-                              const imgSrc = getGarmentMockupImage(item.product, item.color, 'front', catalogSettings, selectedThemeCategory, item.slot);
+                              // Optional storefront card photo (Settings → Storefront
+                              // Catalog). Display only — colors, placements and
+                              // pricing all still use the real mockups.
+                              const imgSrc = catalogSettings.cardImages?.[item.product.style?.toLowerCase()]
+                                || getGarmentMockupImage(item.product, item.color, 'front', catalogSettings, selectedThemeCategory, item.slot);
                               return (
                                 <img 
                                   src={imgSrc} 
@@ -3539,6 +3566,8 @@ export function PublicQuoteRequest() {
                             <h4 className="text-base font-sans font-bold text-neutral-800 leading-tight truncate" title={customName}>
                               {customName}
                             </h4>
+
+                            <GarmentFitScale fit={catalogSettings.garmentFits?.[item.product.style?.toLowerCase()]} />
 
                             {fabricText ? (
                               <p className="text-[11.5px] text-neutral-500 font-medium font-inter leading-relaxed line-clamp-2 min-h-[2.25rem] flex items-center justify-center px-1" title={fabricText}>
@@ -3797,7 +3826,9 @@ export function PublicQuoteRequest() {
                             const colors = getFilteredProductColors(item, catalogSettings.allowedColors);
                             const configuredDefaultColor = resolveProductDefaultColor(item, catalogSettings, colors);
                             const colorKey = selectedGarmentTypeColor && colors.includes(selectedGarmentTypeColor) ? selectedGarmentTypeColor : configuredDefaultColor;
-                            const previewImg = getGarmentMockupImage(item, colorKey, 'front', catalogSettings);
+                            // Optional storefront card photo — display only
+                            const previewImg = catalogSettings.cardImages?.[item.style?.toLowerCase()]
+                              || getGarmentMockupImage(item, colorKey, 'front', catalogSettings);
                             const weightAndFabric = getGarmentWeightAndFabric(item);
                             const customName = (() => {
                               if (catalogSettings.customNames?.racks) {
@@ -3871,6 +3902,8 @@ export function PublicQuoteRequest() {
                                   <h4 className="text-base font-sans font-bold text-neutral-800 leading-tight truncate" title={customName}>
                                     {customName}
                                   </h4>
+
+                                  <GarmentFitScale fit={catalogSettings.garmentFits?.[item.style?.toLowerCase()]} />
 
                                   {weightAndFabric.formatted ? (
                                     <p className="text-[11.5px] text-neutral-500 font-medium font-inter leading-relaxed line-clamp-2 min-h-[2.25rem] flex items-center justify-center px-1" title={weightAndFabric.formatted}>
