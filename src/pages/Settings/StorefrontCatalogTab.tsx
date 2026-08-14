@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { doc, getDocFromServer, setDoc } from 'firebase/firestore';
+import { doc, getDocFromServer, setDoc, updateDoc } from 'firebase/firestore';
 import { db, storage } from '../../lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Loader2, Save, Search, Check, Info, Crosshair, X, Trash2, Plus, Edit2, ImageIcon, ArrowLeft, ArrowRight, Eye, EyeOff, Scissors, Upload } from 'lucide-react';
@@ -763,13 +763,11 @@ export function StorefrontCatalogTab() {
   ) => {
     if (!assertCatalogLoaded('save color settings')) return;
     try {
-      const docRef = doc(db, 'settings', 'storefront-catalog');
-      await setDoc(docRef, {
+      await writeCatalog({
         allowedColors: nextAllowed ?? allowedColors,
         colorMockups: nextMockups ?? colorMockups,
         removeNeckTag: nextNeckTag ?? removeNeckTag,
-        updatedAt: new Date().toISOString()
-      }, { merge: true });
+      });
     } catch (err) {
       console.error("Error auto-persisting color settings to Firestore:", err);
     }
@@ -788,10 +786,7 @@ export function StorefrontCatalogTab() {
     )) return;
     setSaving(true);
     try {
-      await setDoc(doc(db, 'settings', 'storefront-catalog'), {
-        ...b,
-        updatedAt: new Date().toISOString()
-      }, { merge: true });
+      await writeCatalog({ ...b });
       alert('Catalog restored. Reloading…');
       window.location.reload();
     } catch (err) {
@@ -813,7 +808,7 @@ export function StorefrontCatalogTab() {
     }
     setSaving(true);
     try {
-      await setDoc(doc(db, 'settings', 'storefront-catalog'), pruneUndefinedDeep({
+      await writeCatalog(({
         racks,
         basics,
         customNames,
@@ -831,8 +826,7 @@ export function StorefrontCatalogTab() {
         showPublicPlacementGuides,
         cardImages,
         garmentFits,
-        updatedAt: new Date().toISOString()
-      }), { merge: true });
+      }));
       alert('Storefront catalog settings saved successfully!');
     } catch (err) {
       console.error("Error saving storefront catalog settings:", err);
@@ -867,10 +861,7 @@ export function StorefrontCatalogTab() {
       // Write ONLY what changed, merged. Writing the whole doc without
       // merge here previously DELETED colorMockups, allowedColors,
       // garmentTypeTags, removeNeckTag, cardImages and garmentFits.
-      await setDoc(doc(db, 'settings', 'storefront-catalog'), {
-        customMockups: updatedMockups,
-        updatedAt: new Date().toISOString()
-      }, { merge: true });
+      await writeCatalog({ customMockups: updatedMockups });
 
       setCustomMockups(updatedMockups);
       alert("Mockup uploaded and saved successfully!");
@@ -896,10 +887,7 @@ export function StorefrontCatalogTab() {
       // Write ONLY what changed, merged. Writing the whole doc without
       // merge here previously DELETED colorMockups, allowedColors,
       // garmentTypeTags, removeNeckTag, cardImages and garmentFits.
-      await setDoc(doc(db, 'settings', 'storefront-catalog'), {
-        customMockups: updatedMockups,
-        updatedAt: new Date().toISOString()
-      }, { merge: true });
+      await writeCatalog({ customMockups: updatedMockups });
 
       setCustomMockups(updatedMockups);
       alert("Mockup override removed successfully!");
@@ -951,11 +939,7 @@ export function StorefrontCatalogTab() {
 
     // Auto-persist slot garment replacement to Firestore
     try {
-      await setDoc(doc(db, 'settings', 'storefront-catalog'), {
-        racks: nextRacks,
-        basics: nextBasics,
-        updatedAt: new Date().toISOString()
-      }, { merge: true });
+      await writeCatalog({ racks: nextRacks, basics: nextBasics });
     } catch (err) {
       console.error("Error auto-persisting replaced garment slot to Firestore:", err);
     }
@@ -1261,10 +1245,7 @@ export function StorefrontCatalogTab() {
     if (!assertCatalogLoaded('save the card photo')) return;
     setCardImages(next);
     try {
-      await setDoc(doc(db, 'settings', 'storefront-catalog'), {
-        cardImages: next,
-        updatedAt: new Date().toISOString()
-      }, { merge: true });
+      await writeCatalog({ cardImages: next });
     } catch (err) {
       console.error('Error saving storefront card photo:', err);
       alert('Failed to save the card photo — please try again.');
@@ -1340,10 +1321,7 @@ export function StorefrontCatalogTab() {
     if (!assertCatalogLoaded('save the fit')) return;
     setGarmentFits(next);
     try {
-      await setDoc(doc(db, 'settings', 'storefront-catalog'), {
-        garmentFits: next,
-        updatedAt: new Date().toISOString()
-      }, { merge: true });
+      await writeCatalog({ garmentFits: next });
     } catch (err) {
       console.error('Error saving garment fit:', err);
       alert('Failed to save the fit — please try again.');
@@ -1378,6 +1356,26 @@ export function StorefrontCatalogTab() {
     );
   };
 
+  // Single writer for the catalog doc.
+  //
+  // updateDoc REPLACES each named top-level field, so removing a rack slot,
+  // color mockup or placement actually sticks — setDoc({merge:true}) deep-
+  // merges maps and would silently resurrect deleted keys. Fields we don't
+  // name are left untouched, so this can't wipe unrelated settings.
+  const writeCatalog = async (fields: Record<string, any>) => {
+    const refDoc = doc(db, 'settings', 'storefront-catalog');
+    const payload = pruneUndefinedDeep({ ...fields, updatedAt: new Date().toISOString() });
+    try {
+      await updateDoc(refDoc, payload);
+    } catch (err: any) {
+      if (err?.code === 'not-found') {
+        await setDoc(refDoc, payload, { merge: true });
+      } else {
+        throw err;
+      }
+    }
+  };
+
   const handleApplyPlacement = async (box: MultiLogoBoxes | LogoBox) => {
     if (!placementTarget) return;
     if (!assertCatalogLoaded('save placements')) return;
@@ -1408,11 +1406,7 @@ export function StorefrontCatalogTab() {
     setPlacementTarget(null);
 
     try {
-      const docRef = doc(db, 'settings', 'storefront-catalog');
-      await setDoc(docRef, {
-        logoPlacements: cleanPlacements,
-        updatedAt: new Date().toISOString()
-      }, { merge: true });
+      await writeCatalog({ logoPlacements: cleanPlacements });
     } catch (err) {
       console.error("Error auto-persisting logo placement to Firestore:", err);
       alert('Failed to save placement boxes — please try again. (See console for details.)');
@@ -1448,11 +1442,7 @@ export function StorefrontCatalogTab() {
     setPlacementTarget(null);
 
     try {
-      const docRef = doc(db, 'settings', 'storefront-catalog');
-      await setDoc(docRef, {
-        logoPlacements: cleanPlacements,
-        updatedAt: new Date().toISOString()
-      }, { merge: true });
+      await writeCatalog({ logoPlacements: cleanPlacements });
     } catch (err) {
       console.error("Error auto-persisting cleared placement to Firestore:", err);
       alert('Failed to clear placement boxes — please try again. (See console for details.)');
@@ -1642,10 +1632,7 @@ export function StorefrontCatalogTab() {
               const next = !showPublicPlacementGuides;
               setShowPublicPlacementGuides(next);
               try {
-                await setDoc(doc(db, 'settings', 'storefront-catalog'), {
-                  showPublicPlacementGuides: next,
-                  updatedAt: new Date().toISOString()
-                }, { merge: true });
+                await writeCatalog({ showPublicPlacementGuides: next });
               } catch (err) {
                 console.error('Failed to save placement guide visibility:', err);
                 alert('Failed to save setting — please try again.');
