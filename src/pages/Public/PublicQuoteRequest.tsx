@@ -3972,18 +3972,21 @@ export function PublicQuoteRequest() {
                         <span className="text-xs text-neutral-500 font-semibold">Uploading artwork to server...</span>
                       </div>
                     ) : logoUrl ? (
-                      <div className="flex items-center justify-between gap-6 bg-white border border-neutral-200 rounded-xl p-4 max-w-md mx-auto shadow-3xs">
-                        <div className="w-16 h-16 bg-checkerboard border border-neutral-200 rounded-lg flex items-center justify-center p-1.5 overflow-hidden shrink-0">
-                          <img src={logoUrl} alt="Logo active" className="max-h-full max-w-full object-contain" />
+                      <div className="bg-white border border-neutral-200 rounded-2xl p-5 max-w-2xl mx-auto shadow-3xs space-y-4">
+                        {/* Large artwork preview so customers can actually inspect it */}
+                        <div className="bg-checkerboard border border-neutral-200 rounded-xl flex items-center justify-center p-4 overflow-hidden h-[300px] md:h-[380px]">
+                          <img src={logoUrl} alt="Uploaded artwork" className="max-h-full max-w-full object-contain" />
                         </div>
-                        <div className="flex-1 text-left min-w-0">
-                          <span className="text-xs font-bold text-neutral-800 block truncate">{artworkName}</span>
-                          <span className="text-[10px] text-neutral-500 block mt-0.5">Success! Custom artwork loaded.</span>
+                        <div className="flex items-center justify-between gap-4">
+                          <div className="flex-1 text-left min-w-0">
+                            <span className="text-xs font-bold text-neutral-800 block truncate">{artworkName}</span>
+                            <span className="text-[10px] text-emerald-600 font-semibold block mt-0.5">Success! Custom artwork loaded.</span>
+                          </div>
+                          <label className="text-xs text-neutral-900 hover:underline font-bold cursor-pointer shrink-0">
+                            Replace
+                            <input type="file" accept="image/*,.pdf,.eps,.ai,.psd,.cdr,.zip" onChange={handleLogoUpload} className="hidden" />
+                          </label>
                         </div>
-                        <label className="text-xs text-neutral-900 hover:underline font-bold cursor-pointer shrink-0">
-                          Replace
-                          <input type="file" accept="image/*,.pdf,.eps,.ai,.psd,.cdr,.zip" onChange={handleLogoUpload} className="hidden" />
-                        </label>
                       </div>
                     ) : (
                       <label className="border-2 border-dashed border-neutral-200 hover:border-neutral-400 rounded-xl p-8 flex flex-col items-center justify-center gap-2 bg-white/40 hover:bg-white transition-all cursor-pointer group text-center">
@@ -4197,7 +4200,7 @@ export function PublicQuoteRequest() {
                   disabled={!logoUrl || isUploadingLogo}
                   className="gap-2"
                 >
-                  Proceed to Lookbook <ArrowRight size={14} />
+                  Next <ArrowRight size={14} />
                 </PillButton>
               </div>
             </div>
