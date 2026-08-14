@@ -1653,23 +1653,39 @@ export function PublicQuoteRequest() {
   const applyColorRemoverChanges = () => {
     const canvas = removerCanvasRef.current;
     if (!canvas) return;
-    canvas.toBlob(async (blob) => {
-      if (!blob) return;
-      const file = new File([blob], `remover_${Date.now()}.png`, { type: 'image/png' });
-      setIsUploadingLogo(true);
-      try {
-        const tempId = `remover_${Date.now()}`;
-        const storageRef = ref(storage, `public_quotes/logos/${tempId}/${file.name}`);
-        await uploadBytes(storageRef, file);
-        const url = await getDownloadURL(storageRef);
-        setLogoUrl(url);
-        setIsColorRemoverOpen(false);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setIsUploadingLogo(false);
-      }
-    }, 'image/png');
+
+    try {
+      // 1. Instantly get PNG data URL from canvas
+      const dataUrl = canvas.toDataURL('image/png');
+      
+      // 2. Immediately update UI state so user sees transparent logo on garment mockup
+      setLogoUrl(dataUrl);
+      setOriginalArtworkUrl(dataUrl);
+      setOriginalFileUrl(dataUrl);
+      
+      // 3. Immediately close the color remover modal
+      setIsColorRemoverOpen(false);
+
+      // 4. Perform background upload to Firebase Storage asynchronously
+      canvas.toBlob(async (blob) => {
+        if (!blob) return;
+        const file = new File([blob], `remover_${Date.now()}.png`, { type: 'image/png' });
+        try {
+          const tempId = `remover_${Date.now()}`;
+          const storageRef = ref(storage, `public_quotes/logos/${tempId}/${file.name}`);
+          await uploadBytes(storageRef, file);
+          const url = await getDownloadURL(storageRef);
+          setLogoUrl(url);
+          setOriginalArtworkUrl(url);
+          setOriginalFileUrl(url);
+        } catch (err) {
+          console.warn('Background color remover storage upload failed/skipped, using dataUrl fallback', err);
+        }
+      }, 'image/png');
+    } catch (err) {
+      console.error('Failed to apply color remover changes:', err);
+      setIsColorRemoverOpen(false);
+    }
   };
 
   const resolveColorMockup = (style?: string, color?: string, side: 'front' | 'back' | 'sleeve' = 'front', itemObj?: any): string | null => {
