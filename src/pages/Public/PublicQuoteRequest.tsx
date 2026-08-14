@@ -5464,8 +5464,14 @@ export function PublicQuoteRequest() {
         const typeLabel = GARMENT_TYPES.find(gt => gt.id === garmentPickerType)?.label || garmentPickerType;
 
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
-            <div className="bg-white border border-neutral-200 rounded-3xl shadow-2xl max-w-4xl w-full p-6 space-y-6 overflow-hidden max-h-[85vh] flex flex-col">
+          <div 
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200 overflow-y-auto"
+            onClick={() => setGarmentPickerType(null)}
+          >
+            <div 
+              className="bg-white border border-neutral-200 rounded-3xl shadow-2xl max-w-4xl w-full p-6 space-y-6 overflow-hidden max-h-[85vh] flex flex-col my-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
               {/* Header */}
               <div className="flex justify-between items-center border-b border-neutral-100 pb-4">
                 <div>
@@ -5935,11 +5941,17 @@ export function PublicQuoteRequest() {
 
       {/* BACKGROUND COLOR REMOVER preset MODAL */}
       {isColorRemoverOpen && originalArtworkUrl && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-6 z-[110] animate-in fade-in duration-200">
-          <div className="bg-white border border-neutral-200 rounded-3xl p-8 max-w-3xl w-full space-y-6 shadow-2xl animate-in zoom-in-95 duration-200">
-            <div className="flex justify-between items-start border-b border-neutral-100 pb-3">
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 z-[110] animate-in fade-in duration-200 overflow-y-auto"
+          onClick={() => setIsColorRemoverOpen(false)}
+        >
+          <div 
+            className="bg-white border border-neutral-200 rounded-2xl sm:rounded-3xl p-4 sm:p-6 max-w-3xl w-full space-y-4 sm:space-y-6 shadow-2xl animate-in zoom-in-95 duration-200 my-auto max-h-[90vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-start border-b border-neutral-100 pb-3 shrink-0">
               <div>
-                <h3 className="text-2xl font-serif text-neutral-900">
+                <h3 className="text-xl sm:text-2xl font-serif text-neutral-900">
                   Manual Background & Color Remover
                 </h3>
                 <p className="text-brand-secondary text-xs mt-1">
@@ -5947,152 +5959,159 @@ export function PublicQuoteRequest() {
                 </p>
               </div>
               <button 
+                type="button"
                 onClick={() => setIsColorRemoverOpen(false)}
-                className="p-1 border border-neutral-100 rounded-full text-neutral-400 hover:text-neutral-900 transition-all cursor-pointer bg-neutral-50"
+                className="p-2 border border-neutral-200 rounded-full text-neutral-500 hover:text-neutral-900 transition-all cursor-pointer bg-neutral-50 shrink-0 ml-2"
+                title="Close"
               >
-                <X size={16} />
+                <X size={18} />
               </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-              {/* Canvas viewport */}
-              <div className="md:col-span-8 flex items-center justify-center p-4 bg-checkerboard rounded-2xl border border-neutral-200/60 overflow-hidden select-none min-h-[320px]">
-                <canvas 
-                  ref={removerCanvasRef} 
-                  onClick={(e) => {
-                    const canvas = removerCanvasRef.current;
-                    if (!canvas || !originalArtworkUrl) return;
-                    const rect = canvas.getBoundingClientRect();
-                    const xRatio = (e.clientX - rect.left) / rect.width;
-                    const yRatio = (e.clientY - rect.top) / rect.height;
-                    const x = Math.floor(xRatio * canvas.width);
-                    const y = Math.floor(yRatio * canvas.height);
-                    const img = new Image();
-                    img.crossOrigin = 'anonymous';
-                    img.src = originalArtworkUrl;
-                    img.onload = () => {
-                      const offscreen = document.createElement('canvas');
-                      offscreen.width = canvas.width;
-                      offscreen.height = canvas.height;
-                      const offscreenCtx = offscreen.getContext('2d');
-                      if (!offscreenCtx) return;
-                      offscreenCtx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                      const pixel = offscreenCtx.getImageData(x, y, 1, 1).data;
-                      const hex = rgbToHex(pixel[0], pixel[1], pixel[2]);
-                      if (!removerColorsToRemove.includes(hex)) {
-                        setRemoverColorsToRemove(prev => [...prev, hex]);
-                      }
-                    };
-                  }}
-                  className="max-h-[380px] max-w-full object-contain cursor-crosshair shadow-sm rounded-lg"
-                />
-              </div>
-
-              {/* Remover Options */}
-              <div className="md:col-span-4 space-y-6">
-                {/* Removed list */}
-                <div className="space-y-2">
-                  <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest block">Active Removal List</span>
-                  {removerColorsToRemove.length === 0 ? (
-                    <p className="text-xs text-neutral-500 italic">No colors selected for removal.</p>
-                  ) : (
-                    <div className="flex flex-wrap gap-2">
-                      {removerColorsToRemove.map(hex => (
-                        <div 
-                          key={hex} 
-                          onClick={() => setRemoverColorsToRemove(prev => prev.filter(c => c !== hex))}
-                          className="flex items-center gap-1.5 px-2.5 py-1 bg-neutral-100 hover:bg-red-50 hover:text-red-600 rounded-lg text-[10px] font-bold border border-neutral-200 transition-all cursor-pointer group"
-                        >
-                          <span className="w-2.5 h-2.5 rounded-full border border-black/15 shrink-0" style={{ backgroundColor: hex }} />
-                          <span className="font-mono">{hex}</span>
-                          <span className="text-neutral-400 group-hover:text-red-500 font-normal">✕</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Dominant presets */}
-                <div className="space-y-2">
-                  <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest block">Dominant Palette</span>
-                  <div className="flex flex-wrap gap-2">
-                    {removerExtracted.map(hex => {
-                      const isActive = removerColorsToRemove.includes(hex);
-                      return (
-                        <button
-                          key={hex}
-                          onClick={() => {
-                            if (isActive) setRemoverColorsToRemove(prev => prev.filter(c => c !== hex));
-                            else setRemoverColorsToRemove(prev => [...prev, hex]);
-                          }}
-                          className={`w-8 h-8 rounded-full border shadow-3xs relative flex items-center justify-center transition-all ${
-                            isActive ? 'ring-2 ring-neutral-900 ring-offset-2 scale-110' : 'border-neutral-300 hover:scale-105'
-                          }`}
-                          style={{ backgroundColor: hex }}
-                          title={`Click to toggle removal of ${hex}`}
-                        >
-                          {isActive && <span className="text-[10px] text-white">✕</span>}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Tight crop */}
-                <div className="space-y-2">
-                  <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest block">Crop</span>
-                  <button
-                    onClick={autoTrimRemoverCanvas}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-neutral-250 hover:border-neutral-900 hover:bg-neutral-50 rounded-xl text-xs font-bold text-neutral-800 transition-all cursor-pointer shadow-3xs"
-                  >
-                    <Scissors size={13} /> Auto-Crop Tight
-                  </button>
-                  <p className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200/70 rounded-lg p-2.5 leading-relaxed">
-                    <span className="font-bold">For the most accurate print:</span> crop your logo as tight as
-                    possible. Empty space around the artwork counts as part of your print size — a tight crop
-                    means true-to-size placement and pricing.
-                  </p>
-                </div>
-
-                {/* Tolerance slider */}
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="font-semibold text-neutral-600">Color Fuzziness Tolerance</span>
-                    <span className="font-bold text-neutral-900">{removerTolerance}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="5"
-                    max="80"
-                    step="1"
-                    value={removerTolerance}
-                    onChange={e => setRemoverTolerance(parseInt(e.target.value))}
-                    className="w-full h-1 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-neutral-900"
+            <div className="flex-1 overflow-y-auto pr-1">
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-4 sm:gap-6">
+                {/* Canvas viewport */}
+                <div className="md:col-span-8 flex items-center justify-center p-3 sm:p-4 bg-checkerboard rounded-2xl border border-neutral-200/60 overflow-hidden select-none min-h-[200px] sm:min-h-[320px] max-h-[260px] sm:max-h-[380px]">
+                  <canvas 
+                    ref={removerCanvasRef} 
+                    onClick={(e) => {
+                      const canvas = removerCanvasRef.current;
+                      if (!canvas || !originalArtworkUrl) return;
+                      const rect = canvas.getBoundingClientRect();
+                      const xRatio = (e.clientX - rect.left) / rect.width;
+                      const yRatio = (e.clientY - rect.top) / rect.height;
+                      const x = Math.floor(xRatio * canvas.width);
+                      const y = Math.floor(yRatio * canvas.height);
+                      const img = new Image();
+                      img.crossOrigin = 'anonymous';
+                      img.src = originalArtworkUrl;
+                      img.onload = () => {
+                        const offscreen = document.createElement('canvas');
+                        offscreen.width = canvas.width;
+                        offscreen.height = canvas.height;
+                        const offscreenCtx = offscreen.getContext('2d');
+                        if (!offscreenCtx) return;
+                        offscreenCtx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        const pixel = offscreenCtx.getImageData(x, y, 1, 1).data;
+                        const hex = rgbToHex(pixel[0], pixel[1], pixel[2]);
+                        if (!removerColorsToRemove.includes(hex)) {
+                          setRemoverColorsToRemove(prev => [...prev, hex]);
+                        }
+                      };
+                    }}
+                    className="max-h-full max-w-full object-contain cursor-crosshair shadow-sm rounded-lg"
                   />
+                </div>
+
+                {/* Remover Options */}
+                <div className="md:col-span-4 space-y-4 sm:space-y-6">
+                  {/* Removed list */}
+                  <div className="space-y-2">
+                    <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest block">Active Removal List</span>
+                    {removerColorsToRemove.length === 0 ? (
+                      <p className="text-xs text-neutral-500 italic">No colors selected for removal.</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-2">
+                        {removerColorsToRemove.map(hex => (
+                          <div 
+                            key={hex} 
+                            onClick={() => setRemoverColorsToRemove(prev => prev.filter(c => c !== hex))}
+                            className="flex items-center gap-1.5 px-2.5 py-1 bg-neutral-100 hover:bg-red-50 hover:text-red-600 rounded-lg text-[10px] font-bold border border-neutral-200 transition-all cursor-pointer group"
+                          >
+                            <span className="w-2.5 h-2.5 rounded-full border border-black/15 shrink-0" style={{ backgroundColor: hex }} />
+                            <span className="font-mono">{hex}</span>
+                            <span className="text-neutral-400 group-hover:text-red-500 font-normal">✕</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Dominant presets */}
+                  <div className="space-y-2">
+                    <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest block">Dominant Palette</span>
+                    <div className="flex flex-wrap gap-2">
+                      {removerExtracted.map(hex => {
+                        const isActive = removerColorsToRemove.includes(hex);
+                        return (
+                          <button
+                            key={hex}
+                            onClick={() => {
+                              if (isActive) setRemoverColorsToRemove(prev => prev.filter(c => c !== hex));
+                              else setRemoverColorsToRemove(prev => [...prev, hex]);
+                            }}
+                            className={`w-8 h-8 rounded-full border shadow-3xs relative flex items-center justify-center transition-all ${
+                              isActive ? 'ring-2 ring-neutral-900 ring-offset-2 scale-110' : 'border-neutral-300 hover:scale-105'
+                            }`}
+                            style={{ backgroundColor: hex }}
+                            title={`Click to toggle removal of ${hex}`}
+                          >
+                            {isActive && <span className="text-[10px] text-white">✕</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Tight crop */}
+                  <div className="space-y-2">
+                    <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest block">Crop</span>
+                    <button
+                      onClick={autoTrimRemoverCanvas}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-neutral-250 hover:border-neutral-900 hover:bg-neutral-50 rounded-xl text-xs font-bold text-neutral-800 transition-all cursor-pointer shadow-3xs"
+                    >
+                      <Scissors size={13} /> Auto-Crop Tight
+                    </button>
+                    <p className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200/70 rounded-lg p-2.5 leading-relaxed">
+                      <span className="font-bold">For the most accurate print:</span> crop your logo as tight as
+                      possible. Empty space around the artwork counts as part of your print size — a tight crop
+                      means true-to-size placement and pricing.
+                    </p>
+                  </div>
+
+                  {/* Tolerance slider */}
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="font-semibold text-neutral-600">Color Fuzziness Tolerance</span>
+                      <span className="font-bold text-neutral-900">{removerTolerance}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="5"
+                      max="80"
+                      step="1"
+                      value={removerTolerance}
+                      onChange={e => setRemoverTolerance(parseInt(e.target.value))}
+                      className="w-full h-1 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-neutral-900"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div className="pt-4 border-t border-neutral-100 flex items-center justify-between gap-3">
+            <div className="pt-4 border-t border-neutral-100 flex items-center justify-between gap-2 sm:gap-3 shrink-0 flex-wrap sm:flex-nowrap">
               <button 
+                type="button"
                 onClick={() => {
                   setRemoverColorsToRemove([]);
                   setRemoverTolerance(30);
                 }}
-                className="px-4 py-2 border border-neutral-200 text-xs font-bold hover:bg-neutral-50 rounded-xl"
+                className="px-3.5 sm:px-4 py-2 border border-neutral-200 text-xs font-bold hover:bg-neutral-50 rounded-xl"
               >
                 Clear All
               </button>
               <div className="flex gap-2">
                 <button 
+                  type="button"
                   onClick={() => setIsColorRemoverOpen(false)}
-                  className="px-4 py-2 border border-neutral-200 text-xs font-bold hover:bg-neutral-50 rounded-xl"
+                  className="px-3.5 sm:px-4 py-2 border border-neutral-200 text-xs font-bold hover:bg-neutral-50 rounded-xl"
                 >
                   Cancel
                 </button>
                 <button 
+                  type="button"
                   onClick={applyColorRemoverChanges}
-                  className="px-6 py-2 bg-neutral-900 text-white text-xs font-bold hover:bg-neutral-800 rounded-xl shadow-xs"
+                  className="px-4 sm:px-6 py-2 bg-neutral-900 text-white text-xs font-bold hover:bg-neutral-800 rounded-xl shadow-xs"
                 >
                   Apply & Save Transparency
                 </button>
