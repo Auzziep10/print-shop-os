@@ -3545,7 +3545,7 @@ export function PublicQuoteRequest() {
                             </div>
                           </div>
 
-                          <div className="w-full aspect-square rounded-xl overflow-hidden bg-neutral-50/60 flex items-center justify-center mb-3">
+                          <div className="w-full aspect-square overflow-hidden bg-neutral-50/60 flex items-center justify-center mb-3">
                             {(() => {
                               // Optional storefront card photo (Settings → Storefront
                               // Catalog). Display only — colors, placements and
@@ -3596,15 +3596,15 @@ export function PublicQuoteRequest() {
                               )}
                             </div>
 
-                            <GarmentFitScale fit={catalogSettings.garmentFits?.[item.product.style?.toLowerCase()]} />
-
-                            {fabricText ? (
-                              <p className="text-[11.5px] text-neutral-500 font-medium font-inter leading-relaxed line-clamp-2 min-h-[2.25rem] flex items-center px-0" title={fabricText}>
-                                {fabricText}
-                              </p>
-                            ) : (
-                              <div className="min-h-[2.25rem]" />
-                            )}
+                            {/* Fit left, fabric makeup right (under the colors) */}
+                            <div className="flex items-start justify-between gap-3 min-h-[1.5rem]">
+                              <GarmentFitScale fit={catalogSettings.garmentFits?.[item.product.style?.toLowerCase()]} />
+                              {fabricText && (
+                                <p className="text-[11.5px] text-neutral-500 font-medium font-inter leading-relaxed line-clamp-2 text-right min-w-0" title={fabricText}>
+                                  {fabricText}
+                                </p>
+                              )}
+                            </div>
                           </div>
                         </div>
                       );
@@ -3888,7 +3888,7 @@ export function PublicQuoteRequest() {
                                   </div>
                                 </div>
 
-                                <div className="w-full aspect-square rounded-xl overflow-hidden bg-neutral-50/60 flex items-center justify-center mb-3">
+                                <div className="w-full aspect-square overflow-hidden bg-neutral-50/60 flex items-center justify-center mb-3">
                                   <img
                                     src={previewImg}
                                     className={`group-hover:scale-[1.03] transition-transform duration-300 ease-out ${
@@ -3929,15 +3929,15 @@ export function PublicQuoteRequest() {
                                     )}
                                   </div>
 
-                                  <GarmentFitScale fit={catalogSettings.garmentFits?.[item.style?.toLowerCase()]} />
-
-                                  {weightAndFabric.formatted ? (
-                                    <p className="text-[11.5px] text-neutral-500 font-medium font-inter leading-relaxed line-clamp-2 min-h-[2.25rem] flex items-center px-0" title={weightAndFabric.formatted}>
-                                      {weightAndFabric.formatted}
-                                    </p>
-                                  ) : (
-                                    <div className="min-h-[2.25rem]" />
-                                  )}
+                                  {/* Fit left, fabric makeup right (under the colors) */}
+                                  <div className="flex items-start justify-between gap-3 min-h-[1.5rem]">
+                                    <GarmentFitScale fit={catalogSettings.garmentFits?.[item.style?.toLowerCase()]} />
+                                    {weightAndFabric.formatted && (
+                                      <p className="text-[11.5px] text-neutral-500 font-medium font-inter leading-relaxed line-clamp-2 text-right min-w-0" title={weightAndFabric.formatted}>
+                                        {weightAndFabric.formatted}
+                                      </p>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
                             );
