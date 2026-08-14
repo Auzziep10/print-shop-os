@@ -634,6 +634,8 @@ export function StorefrontCatalogTab() {
   const [cardImages, setCardImages] = useState<Record<string, string>>({});
   // Fit shown on storefront cards: Fitted · Standard · Loose (selected one bold)
   const [garmentFits, setGarmentFits] = useState<Record<string, string>>({});
+  // True when the catalog failed to load — saving would wipe live data
+  const [loadFailed, setLoadFailed] = useState(false);
 
   // Logo placement editor modal state
   const [placementTarget, setPlacementTarget] = useState<{
@@ -723,8 +725,11 @@ export function StorefrontCatalogTab() {
             setRacksOrder(defaultOrder);
           }
         }
+        setLoadFailed(false);
       } catch (err) {
         console.error("Error fetching storefront catalog settings:", err);
+        // Saving now would overwrite the real catalog with empty defaults
+        setLoadFailed(true);
       } finally {
         setLoading(false);
       }
@@ -751,6 +756,13 @@ export function StorefrontCatalogTab() {
   };
 
   const handleSaveSettings = async () => {
+    if (loadFailed) {
+      alert(
+        'This page could not load your saved catalog, so saving now would overwrite it with blank defaults.\n\n' +
+        'Please reload the page and try again.'
+      );
+      return;
+    }
     setSaving(true);
     try {
       await setDoc(doc(db, 'settings', 'storefront-catalog'), pruneUndefinedDeep({
@@ -803,19 +815,13 @@ export function StorefrontCatalogTab() {
         }
       };
 
+      // Write ONLY what changed, merged. Writing the whole doc without
+      // merge here previously DELETED colorMockups, allowedColors,
+      // garmentTypeTags, removeNeckTag, cardImages and garmentFits.
       await setDoc(doc(db, 'settings', 'storefront-catalog'), {
-        racks,
-        basics,
-        customNames,
-        customSpecs,
-        customPrices,
-        hiddenCollections,
-        defaultColors,
-        logoPlacements,
         customMockups: updatedMockups,
-        racksOrder,
         updatedAt: new Date().toISOString()
-      });
+      }, { merge: true });
 
       setCustomMockups(updatedMockups);
       alert("Mockup uploaded and saved successfully!");
@@ -837,19 +843,13 @@ export function StorefrontCatalogTab() {
         delete updatedMockups[mode][category][slot];
       }
 
+      // Write ONLY what changed, merged. Writing the whole doc without
+      // merge here previously DELETED colorMockups, allowedColors,
+      // garmentTypeTags, removeNeckTag, cardImages and garmentFits.
       await setDoc(doc(db, 'settings', 'storefront-catalog'), {
-        racks,
-        basics,
-        customNames,
-        customSpecs,
-        customPrices,
-        hiddenCollections,
-        defaultColors,
-        logoPlacements,
         customMockups: updatedMockups,
-        racksOrder,
         updatedAt: new Date().toISOString()
-      });
+      }, { merge: true });
 
       setCustomMockups(updatedMockups);
       alert("Mockup override removed successfully!");
