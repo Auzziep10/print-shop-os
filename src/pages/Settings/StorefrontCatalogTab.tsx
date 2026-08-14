@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDocFromServer, setDoc } from 'firebase/firestore';
 import { db, storage } from '../../lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Loader2, Save, Search, Check, Info, Crosshair, X, Trash2, Plus, Edit2, ImageIcon, ArrowLeft, ArrowRight, Eye, EyeOff, Scissors, Upload } from 'lucide-react';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
+import catalogBackup from '../../data/catalog-backup.json';
 import { getOrderedKeys, GARMENT_TYPES, detectGarmentTypeTag, getFilteredProductColors, getFrameContentBounds, type GarmentTypeId } from '../../lib/garmentUtils';
 import { ImportGarmentModal } from '../../components/shared/ImportGarmentModal';
 
@@ -636,6 +637,20 @@ export function StorefrontCatalogTab() {
   const [garmentFits, setGarmentFits] = useState<Record<string, string>>({});
   // True when the catalog failed to load — saving would wipe live data
   const [loadFailed, setLoadFailed] = useState(false);
+  // Hard gate: no write may leave this page until the existing catalog has
+  // been read back from the SERVER. Without this, a page that rendered
+  // built-in defaults (offline, stale cache, failed read) can overwrite the
+  // real catalog with empty maps.
+  const catalogLoadedRef = useRef(false);
+  const assertCatalogLoaded = (action: string) => {
+    if (catalogLoadedRef.current) return true;
+    alert(
+      `Can't ${action} yet — your saved catalog hasn't loaded on this page.\n\n` +
+      `Saving now would erase your color mockups and settings. Please check your ` +
+      `internet connection, reload the page, and try again.`
+    );
+    return false;
+  };
 
   // Logo placement editor modal state
   const [placementTarget, setPlacementTarget] = useState<{
@@ -661,7 +676,9 @@ export function StorefrontCatalogTab() {
     const fetchCatalogSettings = async () => {
       try {
         const docRef = doc(db, 'settings', 'storefront-catalog');
-        const docSnap = await getDoc(docRef);
+        // Read from the SERVER, never the offline cache — a stale/empty cache
+        // would render defaults that could then be saved over the real catalog
+        const docSnap = await getDocFromServer(docRef);
         if (docSnap.exists()) {
           const data = docSnap.data();
           if (data.racks) setRacks(data.racks);
@@ -726,10 +743,12 @@ export function StorefrontCatalogTab() {
           }
         }
         setLoadFailed(false);
+        catalogLoadedRef.current = true; // writes are now safe
       } catch (err) {
         console.error("Error fetching storefront catalog settings:", err);
         // Saving now would overwrite the real catalog with empty defaults
         setLoadFailed(true);
+        catalogLoadedRef.current = false;
       } finally {
         setLoading(false);
       }
@@ -742,6 +761,7 @@ export function StorefrontCatalogTab() {
     nextMockups?: Record<string, Record<string, any>>,
     nextNeckTag?: Record<string, boolean>
   ) => {
+    if (!assertCatalogLoaded('save color settings')) return;
     try {
       const docRef = doc(db, 'settings', 'storefront-catalog');
       await setDoc(docRef, {
@@ -755,7 +775,35 @@ export function StorefrontCatalogTab() {
     }
   };
 
+  // One-click recovery from the bundled snapshot (src/data/catalog-backup.json),
+  // captured 2026-08-14 before the destructive-write bug erased colorMockups.
+  const handleRestoreBackup = async () => {
+    const b: any = catalogBackup as any;
+    const styleCount = Object.keys(b.colorMockups || {}).length;
+    if (!confirm(
+      `Restore the catalog backup?\n\n` +
+      `This writes back ${styleCount} styles of color mockups, allowed colors, ` +
+      `placements, prices, names and specs from the 2026-08-14 snapshot.\n\n` +
+      `Anything you changed after that snapshot will be replaced.`
+    )) return;
+    setSaving(true);
+    try {
+      await setDoc(doc(db, 'settings', 'storefront-catalog'), {
+        ...b,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+      alert('Catalog restored. Reloading…');
+      window.location.reload();
+    } catch (err) {
+      console.error('Catalog restore failed:', err);
+      alert('Restore failed. See console for details.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleSaveSettings = async () => {
+    if (!assertCatalogLoaded('save the catalog')) return;
     if (loadFailed) {
       alert(
         'This page could not load your saved catalog, so saving now would overwrite it with blank defaults.\n\n' +
@@ -797,6 +845,7 @@ export function StorefrontCatalogTab() {
   const handleMockupUpload = async (e: React.ChangeEvent<HTMLInputElement>, mode: 'racks' | 'basics', category: string, slot: string) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (!assertCatalogLoaded('upload a mockup')) return;
     const slotKey = `${mode}_${category}_${slot}`;
     setUploadingSlotKey(slotKey);
     try {
@@ -834,6 +883,7 @@ export function StorefrontCatalogTab() {
   };
 
   const handleRemoveMockup = async (mode: 'racks' | 'basics', category: string, slot: string) => {
+    if (!assertCatalogLoaded('remove a mockup')) return;
     if (!window.confirm("Restore original catalog image for this slot?")) return;
     const slotKey = `${mode}_${category}_${slot}`;
     setUploadingSlotKey(slotKey);
@@ -1208,6 +1258,7 @@ export function StorefrontCatalogTab() {
 
   // Storefront card photo (display only — never used for mockups/pricing)
   const persistCardImages = async (next: Record<string, string>) => {
+    if (!assertCatalogLoaded('save the card photo')) return;
     setCardImages(next);
     try {
       await setDoc(doc(db, 'settings', 'storefront-catalog'), {
@@ -1286,6 +1337,7 @@ export function StorefrontCatalogTab() {
 
   // Garment fit shown on the storefront cards (Fitted · Standard · Loose)
   const persistGarmentFits = async (next: Record<string, string>) => {
+    if (!assertCatalogLoaded('save the fit')) return;
     setGarmentFits(next);
     try {
       await setDoc(doc(db, 'settings', 'storefront-catalog'), {
@@ -1328,6 +1380,7 @@ export function StorefrontCatalogTab() {
 
   const handleApplyPlacement = async (box: MultiLogoBoxes | LogoBox) => {
     if (!placementTarget) return;
+    if (!assertCatalogLoaded('save placements')) return;
     const { mode, category, slot } = placementTarget;
     const nextPlacements: any = {
       ...logoPlacements,
@@ -1368,6 +1421,7 @@ export function StorefrontCatalogTab() {
 
   const handleClearPlacement = async () => {
     if (!placementTarget) return;
+    if (!assertCatalogLoaded('clear placements')) return;
     const { mode, category, slot } = placementTarget;
     const modeMap = logoPlacements[mode] || {};
     const cat = { ...(modeMap[category] || {}) };
@@ -1626,9 +1680,20 @@ export function StorefrontCatalogTab() {
             <span>Tagless All Mockups</span>
           </button>
 
-          <PillButton 
-            variant="filled" 
-            onClick={handleSaveSettings} 
+          <button
+            type="button"
+            onClick={handleRestoreBackup}
+            disabled={saving}
+            className="flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-amber-50 border border-amber-300 text-amber-800 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-2xs disabled:opacity-50"
+            title="Restore color mockups, allowed colors and placements from the 2026-08-14 snapshot"
+          >
+            <ArrowLeft size={14} />
+            <span>Restore Backup</span>
+          </button>
+
+          <PillButton
+            variant="filled"
+            onClick={handleSaveSettings}
             disabled={saving}
             className="gap-2 shrink-0 min-w-[140px]"
           >
