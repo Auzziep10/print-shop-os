@@ -3531,7 +3531,7 @@ export function PublicQuoteRequest() {
                               : 'opacity-90 hover:opacity-100'
                           }`}
                         >
-                          <div className="absolute top-0 right-0 z-10">
+                          <div className="absolute top-3 right-3 z-10">
                             <div className={`w-7 h-7 rounded-full border flex items-center justify-center transition-all duration-200 shadow-3xs ${
                               item.selected 
                                 ? 'bg-neutral-900 border-neutral-900 text-white scale-105 shadow-xs' 
@@ -3874,7 +3874,7 @@ export function PublicQuoteRequest() {
                                   isSelected ? 'opacity-100' : 'opacity-90 hover:opacity-100'
                                 }`}
                               >
-                                <div className="absolute top-0 right-0 z-10">
+                                <div className="absolute top-3 right-3 z-10">
                                   <div className={`w-7 h-7 rounded-full border flex items-center justify-center transition-all duration-200 shadow-3xs ${
                                     isSelected 
                                       ? 'bg-neutral-900 border-neutral-900 text-white scale-105 shadow-xs' 
