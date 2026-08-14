@@ -3472,7 +3472,7 @@ export function PublicQuoteRequest() {
 
                 {/* Pre-selected garments rack representation */}
                 <div className="space-y-4 pt-4 border-t border-neutral-200/50">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-8 gap-y-12">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-10 gap-y-14">
                     {rackItems.map(item => {
                       const customName = catalogSettings.customNames?.racks?.[selectedThemeCategory]?.[item.slot] || `${item.product.brand} ${item.product.style}`;
                       const weightAndFabric = getGarmentWeightAndFabric(item.product);
@@ -3782,7 +3782,7 @@ export function PublicQuoteRequest() {
                           <p className="text-xs font-bold text-neutral-500">No products available in this category.</p>
                         </div>
                       ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-8 gap-y-12">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-10 gap-y-14">
                           {matching.slice(0, 32).map(item => {
                             const isSelected = selectedGarmentTypeItems.some(g => g.product.style === item.style);
                             const colors = getFilteredProductColors(item, catalogSettings.allowedColors);

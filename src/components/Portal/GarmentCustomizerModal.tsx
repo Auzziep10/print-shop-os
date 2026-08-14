@@ -2399,19 +2399,6 @@ export function GarmentCustomizerModal({
             {/* View rail + status column (Horizontal bar on mobile, vertical sidebar on desktop) */}
             <div className="flex flex-row overflow-x-auto scrollbar-none w-full md:w-[150px] md:flex-col gap-1.5 md:gap-2 shrink-0 py-1 md:py-0 px-1 md:px-0 items-center md:items-stretch justify-start md:justify-center">
 
-              {/* Status: detected size + active placement */}
-              {activeTab !== 'tag' && (() => {
-                const detected = activeTab === 'sleeve' ? 'Small' : detectSidePrintSize(activeTab);
-                return (
-                  <div className={`hidden md:block w-full py-2 rounded-xl border text-center shadow-sm transition-colors ${
-                    detected
-                      ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
-                      : 'text-neutral-400 bg-white border-neutral-200'
-                  }`}>
-                    <span className="text-[10px] font-bold uppercase tracking-widest">Print Size: {detected ?? 'Large'}</span>
-                  </div>
-                );
-              })()}
               {activeTab === 'tag' && (
                 <div className="hidden md:block w-full py-2 px-1.5 rounded-xl border border-amber-200 bg-amber-50 text-amber-700 text-center shadow-sm">
                   <span className="text-[9px] font-bold uppercase tracking-widest leading-tight">Art Board: 2.5" × 2.5" (300 DPI)</span>
@@ -3778,10 +3765,24 @@ export function GarmentCustomizerModal({
           if (selectedLogoRightSleeve) activePlacements.push("Right Sleeve");
           if (tagLogos.length > 0 || tagTexts.length > 0) activePlacements.push("Size Tag");
           const count = activePlacements.length;
+          const detectedSize = activeTab === 'tag'
+            ? null
+            : (activeTab === 'sleeve' ? 'Small' : detectSidePrintSize(activeTab));
           return (
-            <div className="flex flex-col items-start gap-0.5">
-              <span className="text-xs font-bold text-neutral-800">Total Placements: {count}</span>
-              <span className="text-[10px] text-neutral-500 font-medium">{count > 0 ? activePlacements.join(', ') : 'None selected'}</span>
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex flex-col items-start gap-0.5">
+                <span className="text-xs font-bold text-neutral-800">Total Placements: {count}</span>
+                <span className="text-[10px] text-neutral-500 font-medium">{count > 0 ? activePlacements.join(', ') : 'None selected'}</span>
+              </div>
+              {activeTab !== 'tag' && (
+                <span className={`px-3 py-1.5 rounded-xl border text-[10px] font-bold uppercase tracking-widest shadow-sm transition-colors ${
+                  detectedSize
+                    ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                    : 'text-neutral-400 bg-white border-neutral-200'
+                }`}>
+                  Print Size: {detectedSize ?? 'Large'}
+                </span>
+              )}
             </div>
           );
         })()}
