@@ -256,7 +256,7 @@ const FIT_OPTIONS = ['Fitted', 'Standard', 'Loose'] as const;
 function GarmentFitScale({ fit }: { fit?: string }) {
   const active = FIT_OPTIONS.includes(fit as any) ? fit : 'Standard';
   return (
-    <p className="text-[11px] text-neutral-500 flex items-center justify-center gap-1.5 select-none">
+    <p className="text-[11px] text-neutral-500 flex items-center gap-1.5 select-none">
       {FIT_OPTIONS.map((opt, i) => (
         <span key={opt} className="flex items-center gap-1.5">
           {i > 0 && <span className="text-neutral-300">·</span>}
@@ -3504,7 +3504,7 @@ export function PublicQuoteRequest() {
 
                 {/* Pre-selected garments rack representation */}
                 <div className="space-y-4 pt-4 border-t border-neutral-200/50">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-10">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-3 gap-y-8">
                     {rackItems.map(item => {
                       const customName = catalogSettings.customNames?.racks?.[selectedThemeCategory]?.[item.slot] || `${item.product.brand} ${item.product.style}`;
                       const weightAndFabric = getGarmentWeightAndFabric(item.product);
@@ -3525,7 +3525,7 @@ export function PublicQuoteRequest() {
                           onClick={() => {
                             setRackItems(prev => prev.map(ri => ri.id === item.id ? { ...ri, selected: !ri.selected } : ri));
                           }}
-                          className={`group bg-transparent flex flex-col justify-between text-center cursor-pointer relative w-full p-0 transition-all duration-300 ${
+                          className={`group bg-transparent flex flex-col justify-between text-left cursor-pointer relative w-full p-0 transition-all duration-300 ${
                             item.selected 
                               ? 'opacity-100' 
                               : 'opacity-90 hover:opacity-100'
@@ -3545,54 +3545,42 @@ export function PublicQuoteRequest() {
                             </div>
                           </div>
 
-                          <div className="h-72 md:h-[24rem] flex items-center justify-center p-0 overflow-hidden mb-3">
+                          <div className="w-full aspect-square rounded-xl overflow-hidden bg-neutral-50/60 flex items-center justify-center mb-3">
                             {(() => {
                               // Optional storefront card photo (Settings → Storefront
                               // Catalog). Display only — colors, placements and
                               // pricing all still use the real mockups.
-                              const imgSrc = catalogSettings.cardImages?.[item.product.style?.toLowerCase()]
+                              const cardPhoto = catalogSettings.cardImages?.[item.product.style?.toLowerCase()];
+                              const imgSrc = cardPhoto
                                 || getGarmentMockupImage(item.product, item.color, 'front', catalogSettings, selectedThemeCategory, item.slot);
                               return (
-                                <img 
-                                  src={imgSrc} 
-                                  className="max-h-full max-w-full object-contain mix-blend-multiply group-hover:scale-[1.03] transition-transform duration-300 ease-out" 
-                                  alt={item.product.style} 
+                                <img
+                                  src={imgSrc}
+                                  className={`group-hover:scale-[1.03] transition-transform duration-300 ease-out ${
+                                    cardPhoto
+                                      ? 'w-full h-full object-cover'
+                                      : 'max-h-full max-w-full object-contain mix-blend-multiply p-3'
+                                  }`}
+                                  alt={item.product.style}
                                 />
                               );
                             })()}
                           </div>
 
-                          <div className="flex flex-col flex-1 justify-between gap-1.5 mt-auto">
-                            <h4 className="text-base font-sans font-bold text-neutral-800 leading-tight truncate" title={customName}>
-                              {customName}
-                            </h4>
-
-                            <GarmentFitScale fit={catalogSettings.garmentFits?.[item.product.style?.toLowerCase()]} />
-
-                            {fabricText ? (
-                              <p className="text-[11.5px] text-neutral-500 font-medium font-inter leading-relaxed line-clamp-2 min-h-[2.25rem] flex items-center justify-center px-1" title={fabricText}>
-                                {fabricText}
-                              </p>
-                            ) : (
-                              <div className="min-h-[2.25rem]" />
-                            )}
-
-                            {colors.length > 0 && (
-                              <div className="flex items-center justify-center gap-1.5 pt-1 mt-0.5">
-                                <div className="flex items-center gap-1">
-                                  {orderedColors.slice(0, 5).map((col: string, cIdx: number) => {
+                          <div className="flex flex-col flex-1 justify-between gap-1.5 mt-auto text-left">
+                            {/* Title left, colors right on the same line (display only) */}
+                            <div className="flex items-center justify-between gap-2">
+                              <h4 className="text-base font-sans font-bold text-neutral-800 leading-tight truncate min-w-0" title={customName}>
+                                {customName}
+                              </h4>
+                              {colors.length > 0 && (
+                                <div className="flex items-center gap-1 shrink-0 pointer-events-none">
+                                  {orderedColors.slice(0, 4).map((col: string, cIdx: number) => {
                                     const swatchBg = getSwatchColor(col, true);
-                                    const isSelectedColor = col === colorKey;
                                     return (
-                                      <span 
-                                        key={cIdx} 
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setRackItems(prev => prev.map(ri => ri.id === item.id ? { ...ri, color: col, compiledMockupUrl: undefined, compiledBackMockupUrl: undefined } : ri));
-                                        }}
-                                        className={`w-3.5 h-3.5 rounded-full border shadow-3xs shrink-0 inline-block transition-transform hover:scale-125 ${
-                                          isSelectedColor ? 'ring-1.5 ring-neutral-900 ring-offset-1 border-neutral-900 scale-110' : 'border-neutral-300/80'
-                                        }`} 
+                                      <span
+                                        key={cIdx}
+                                        className="w-3.5 h-3.5 rounded-full border border-neutral-300/80 shadow-3xs shrink-0 inline-block"
                                         style={{
                                           backgroundColor: swatchBg.startsWith('linear-gradient') ? 'transparent' : swatchBg,
                                           backgroundImage: swatchBg.startsWith('linear-gradient') ? swatchBg : 'none'
@@ -3601,11 +3589,21 @@ export function PublicQuoteRequest() {
                                       />
                                     );
                                   })}
+                                  <span className="text-[10.5px] font-semibold text-neutral-500 font-inter ml-1 whitespace-nowrap">
+                                    {colors.length}
+                                  </span>
                                 </div>
-                                <span className="text-[10.5px] font-semibold text-neutral-500 font-inter ml-1">
-                                  {colors.length} {colors.length === 1 ? 'Color' : 'Colors'}
-                                </span>
-                              </div>
+                              )}
+                            </div>
+
+                            <GarmentFitScale fit={catalogSettings.garmentFits?.[item.product.style?.toLowerCase()]} />
+
+                            {fabricText ? (
+                              <p className="text-[11.5px] text-neutral-500 font-medium font-inter leading-relaxed line-clamp-2 min-h-[2.25rem] flex items-center px-0" title={fabricText}>
+                                {fabricText}
+                              </p>
+                            ) : (
+                              <div className="min-h-[2.25rem]" />
                             )}
                           </div>
                         </div>
@@ -3820,7 +3818,7 @@ export function PublicQuoteRequest() {
                           <p className="text-xs font-bold text-neutral-500">No products available in this category.</p>
                         </div>
                       ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-10">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-3 gap-y-8">
                           {matching.slice(0, 32).map(item => {
                             const isSelected = selectedGarmentTypeItems.some(g => g.product.style === item.style);
                             const colors = getFilteredProductColors(item, catalogSettings.allowedColors);
@@ -3872,7 +3870,7 @@ export function PublicQuoteRequest() {
                                   setSelectedGarmentTypeItem(item);
                                   setSelectedGarmentTypeColor(colorKey);
                                 }}
-                                className={`group bg-transparent flex flex-col justify-between text-center cursor-pointer relative w-full p-0 transition-all duration-300 ${
+                                className={`group bg-transparent flex flex-col justify-between text-left cursor-pointer relative w-full p-0 transition-all duration-300 ${
                                   isSelected ? 'opacity-100' : 'opacity-90 hover:opacity-100'
                                 }`}
                               >
@@ -3890,46 +3888,32 @@ export function PublicQuoteRequest() {
                                   </div>
                                 </div>
 
-                                <div className="h-72 md:h-[24rem] flex items-center justify-center p-0 overflow-hidden mb-3">
-                                  <img 
-                                    src={previewImg} 
-                                    className="max-h-full max-w-full object-contain mix-blend-multiply group-hover:scale-[1.03] transition-transform duration-300 ease-out" 
-                                    alt={customName} 
+                                <div className="w-full aspect-square rounded-xl overflow-hidden bg-neutral-50/60 flex items-center justify-center mb-3">
+                                  <img
+                                    src={previewImg}
+                                    className={`group-hover:scale-[1.03] transition-transform duration-300 ease-out ${
+                                      catalogSettings.cardImages?.[item.style?.toLowerCase()]
+                                        ? 'w-full h-full object-cover'
+                                        : 'max-h-full max-w-full object-contain mix-blend-multiply p-3'
+                                    }`}
+                                    alt={customName}
                                   />
                                 </div>
 
-                                <div className="flex flex-col flex-1 justify-between gap-1.5 mt-auto">
-                                  <h4 className="text-base font-sans font-bold text-neutral-800 leading-tight truncate" title={customName}>
-                                    {customName}
-                                  </h4>
-
-                                  <GarmentFitScale fit={catalogSettings.garmentFits?.[item.style?.toLowerCase()]} />
-
-                                  {weightAndFabric.formatted ? (
-                                    <p className="text-[11.5px] text-neutral-500 font-medium font-inter leading-relaxed line-clamp-2 min-h-[2.25rem] flex items-center justify-center px-1" title={weightAndFabric.formatted}>
-                                      {weightAndFabric.formatted}
-                                    </p>
-                                  ) : (
-                                    <div className="min-h-[2.25rem]" />
-                                  )}
-
-                                  {colors.length > 0 && (
-                                    <div className="flex items-center justify-center gap-1.5 pt-1 mt-0.5">
-                                      <div className="flex items-center gap-1">
-                                        {orderedColors.slice(0, 5).map((col: string, cIdx: number) => {
+                                <div className="flex flex-col flex-1 justify-between gap-1.5 mt-auto text-left">
+                                  {/* Title left, colors right on the same line (display only) */}
+                                  <div className="flex items-center justify-between gap-2">
+                                    <h4 className="text-base font-sans font-bold text-neutral-800 leading-tight truncate min-w-0" title={customName}>
+                                      {customName}
+                                    </h4>
+                                    {colors.length > 0 && (
+                                      <div className="flex items-center gap-1 shrink-0 pointer-events-none">
+                                        {orderedColors.slice(0, 4).map((col: string, cIdx: number) => {
                                           const swatchBg = getSwatchColor(col, true);
-                                          const isSelectedColor = col === colorKey;
                                           return (
-                                            <span 
-                                              key={cIdx} 
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                setSelectedGarmentTypeItem(item);
-                                                setSelectedGarmentTypeColor(col);
-                                              }}
-                                              className={`w-3.5 h-3.5 rounded-full border shadow-3xs shrink-0 inline-block transition-transform hover:scale-125 ${
-                                                isSelectedColor ? 'ring-1.5 ring-neutral-900 ring-offset-1 border-neutral-900 scale-110' : 'border-neutral-300/80'
-                                              }`} 
+                                            <span
+                                              key={cIdx}
+                                              className="w-3.5 h-3.5 rounded-full border border-neutral-300/80 shadow-3xs shrink-0 inline-block"
                                               style={{
                                                 backgroundColor: swatchBg.startsWith('linear-gradient') ? 'transparent' : swatchBg,
                                                 backgroundImage: swatchBg.startsWith('linear-gradient') ? swatchBg : 'none'
@@ -3938,11 +3922,21 @@ export function PublicQuoteRequest() {
                                             />
                                           );
                                         })}
+                                        <span className="text-[10.5px] font-semibold text-neutral-500 font-inter ml-1 whitespace-nowrap">
+                                          {colors.length}
+                                        </span>
                                       </div>
-                                      <span className="text-[10.5px] font-semibold text-neutral-500 font-inter ml-1">
-                                        {colors.length} {colors.length === 1 ? 'Color' : 'Colors'}
-                                      </span>
-                                    </div>
+                                    )}
+                                  </div>
+
+                                  <GarmentFitScale fit={catalogSettings.garmentFits?.[item.style?.toLowerCase()]} />
+
+                                  {weightAndFabric.formatted ? (
+                                    <p className="text-[11.5px] text-neutral-500 font-medium font-inter leading-relaxed line-clamp-2 min-h-[2.25rem] flex items-center px-0" title={weightAndFabric.formatted}>
+                                      {weightAndFabric.formatted}
+                                    </p>
+                                  ) : (
+                                    <div className="min-h-[2.25rem]" />
                                   )}
                                 </div>
                               </div>
