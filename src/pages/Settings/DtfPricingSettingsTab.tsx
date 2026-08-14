@@ -31,6 +31,31 @@ export function DtfPricingSettingsTab() {
   const [simQty, setSimQty] = useState<number>(50);
   const [simPlacements, setSimPlacements] = useState<Record<string, boolean>>({ ff: true });
   const [simBlankCost, setSimBlankCost] = useState<number>(2.50);
+  const [simGarmentStyle, setSimGarmentStyle] = useState<string>('');
+  // Garments configured in the Storefront Catalog, with the admin's garment
+  // price — the same blank cost customers are quoted on.
+  const [storefrontGarments, setStorefrontGarments] = useState<{ style: string; name: string; cost: number }[]>([]);
+  useEffect(() => {
+    getDoc(doc(db, 'settings', 'storefront-catalog')).then(snap => {
+      if (!snap.exists()) return;
+      const data: any = snap.data();
+      const found = new Map<string, { style: string; name: string; cost: number }>();
+      (['racks', 'basics'] as const).forEach(mode => {
+        const styleMap: any = data[mode] || {};
+        const priceMap: any = data.customPrices?.[mode] || {};
+        const nameMap: any = data.customNames?.[mode] || {};
+        Object.keys(styleMap).forEach(cat => {
+          Object.keys(styleMap[cat] || {}).forEach(slot => {
+            const style = String(styleMap[cat][slot] || '').trim();
+            const cost = parseFloat(priceMap[cat]?.[slot]);
+            if (!style || !(cost > 0) || found.has(style)) return;
+            found.set(style, { style, name: nameMap[cat]?.[slot] || slot, cost });
+          });
+        });
+      });
+      setStorefrontGarments(Array.from(found.values()).sort((a, b) => a.name.localeCompare(b.name)));
+    }).catch(() => { /* selector is optional */ });
+  }, []);
   const [showBreakdown, setShowBreakdown] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
 
@@ -635,12 +660,39 @@ export function DtfPricingSettingsTab() {
             </div>
 
             <div className="space-y-1.5">
+              <label className="text-[10px] uppercase font-bold text-gray-400">Shirt / Blank Garment</label>
+              <select
+                value={simGarmentStyle}
+                onChange={(e) => {
+                  const style = e.target.value;
+                  setSimGarmentStyle(style);
+                  const g = storefrontGarments.find(x => x.style === style);
+                  if (g) setSimBlankCost(g.cost);
+                }}
+                className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-2 text-xs font-bold text-brand-primary cursor-pointer"
+              >
+                <option value="">Custom cost (enter below)</option>
+                {storefrontGarments.map(g => (
+                  <option key={g.style} value={g.style}>
+                    {g.name} — {g.style} (${g.cost.toFixed(2)})
+                  </option>
+                ))}
+              </select>
+              <p className="text-[9px] text-gray-400 leading-snug">
+                Pulls the garment price you set in Settings → Storefront Catalog, so the simulator matches what customers are quoted.
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
               <label className="text-[10px] uppercase font-bold text-gray-400">Blank Garment Cost ($)</label>
               <input
                 type="number"
                 step="0.50"
                 value={simBlankCost}
-                onChange={(e) => setSimBlankCost(Math.max(0, parseFloat(e.target.value) || 0))}
+                onChange={(e) => {
+                  setSimBlankCost(Math.max(0, parseFloat(e.target.value) || 0));
+                  setSimGarmentStyle('');
+                }}
                 className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-2 text-xs font-bold text-brand-primary"
               />
             </div>

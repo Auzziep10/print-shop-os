@@ -727,11 +727,34 @@ export function PublicQuoteRequest() {
     return detectPrintSizeFromPlacement(placement, side, { x: pos.x, y: pos.y, wPct, hPct });
   };
 
+  // Admin-set blank cost for a style (Settings → Storefront Catalog → Garment
+  // Price). Searched across racks and basics, mirroring getCustomGarmentName —
+  // garments added via the picker or types flow don't carry the override on
+  // their product object, and quoting them at SanMar list price inflates
+  // every quote.
+  const resolveCustomBlankCost = (product: any): number | null => {
+    const target = String(product?.style || '').toLowerCase().trim();
+    if (!target || !catalogSettings.customPrices) return null;
+    for (const mode of ['racks', 'basics'] as const) {
+      const priceMap: any = (catalogSettings.customPrices as any)[mode] || {};
+      const styleMap: any = (catalogSettings as any)[mode] || {};
+      for (const cat of Object.keys(priceMap)) {
+        for (const slot of Object.keys(priceMap[cat] || {})) {
+          const assigned = String(styleMap[cat]?.[slot] || '').toLowerCase().trim();
+          const val = parseFloat(priceMap[cat][slot]);
+          if (assigned && assigned === target && !isNaN(val) && val > 0) return val;
+        }
+      }
+    }
+    return null;
+  };
+
   // Helper to ensure cart item properties are normalized for autoQuoteItem
   const getNormalizedAutoQuote = (item: any, overrideQty?: number) => {
     const product = item.product || {};
     const qty = overrideQty || Object.values(item.sizes || item.quantities || {}).reduce((s: number, q: any) => s + (parseFloat(q as any) || 0), 0) || parseFloat(item.qty) || 1;
-    const blankCost = parseFloat(product.price) || parseFloat(product.blankCost) || parseFloat(item.blankCost) || parseFloat(item.price) || 0;
+    const blankCost = resolveCustomBlankCost(product)
+      ?? (parseFloat(product.price) || parseFloat(product.blankCost) || parseFloat(item.blankCost) || parseFloat(item.price) || 0);
 
     const normalizedItem = {
       ...item,
@@ -5522,16 +5545,19 @@ export function PublicQuoteRequest() {
                         <div
                           key={prod.style}
                           onClick={() => {
+                            // Carry the admin's custom garment price, not SanMar list
+                            const customBlank = resolveCustomBlankCost(prod);
+                            const prodPriced: any = customBlank !== null ? { ...prod, price: customBlank } : prod;
                             if (flowMode === 'racks') {
                               setRackItems(prev => {
                                 const existing = prev.find(ri => ri.product.style === prod.style || ri.slot.toLowerCase().includes(garmentPickerType));
                                 if (existing) {
-                                  return prev.map(ri => ri.id === existing.id ? { ...ri, selected: true, product: prod, color: colorKey } : ri);
+                                  return prev.map(ri => ri.id === existing.id ? { ...ri, selected: true, product: prodPriced, color: colorKey } : ri);
                                 }
                                 return [...prev, {
                                   id: `${garmentPickerType}-${Date.now()}`,
                                   slot: garmentPickerType,
-                                  product: prod,
+                                  product: prodPriced,
                                   color: colorKey,
                                   selected: true,
                                   logoPos: { x: 50, y: 35 },
@@ -5547,7 +5573,7 @@ export function PublicQuoteRequest() {
                             } else {
                               const newItem = {
                                 id: `${garmentPickerType}-${Date.now()}`,
-                                product: prod,
+                                product: prodPriced,
                                 color: colorKey,
                                 garmentType: garmentPickerType
                               };
