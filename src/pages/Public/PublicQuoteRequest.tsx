@@ -660,10 +660,19 @@ export function PublicQuoteRequest() {
     }
 
     const allProds = (sanmarCatalogJson as SanMarProduct[]);
-    return Array.from(stylesSet)
+    const found = Array.from(stylesSet)
       .map(style => allProds.find(p => p.style.toLowerCase() === style))
       .filter(Boolean) as SanMarProduct[];
-  }, [catalogSettings.racks, catalogSettings.hiddenCollections]);
+
+    // Firestore does not guarantee the key order of map fields, so the raw
+    // rack traversal above can come back in a different order on every load.
+    // Sort by display name for a stable, predictable storefront.
+    return found.sort((a, b) => {
+      const an = getCustomGarmentName(a, catalogSettings) || a.style;
+      const bn = getCustomGarmentName(b, catalogSettings) || b.style;
+      return an.localeCompare(bn) || a.style.localeCompare(b.style);
+    });
+  }, [catalogSettings.racks, catalogSettings.hiddenCollections, catalogSettings.customNames, catalogSettings.basics]);
 
   // Checkout inputs
   const [customerInfo, setCustomerInfo] = useState({
@@ -3472,7 +3481,7 @@ export function PublicQuoteRequest() {
 
                 {/* Pre-selected garments rack representation */}
                 <div className="space-y-4 pt-4 border-t border-neutral-200/50">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-10 gap-y-14">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-10">
                     {rackItems.map(item => {
                       const customName = catalogSettings.customNames?.racks?.[selectedThemeCategory]?.[item.slot] || `${item.product.brand} ${item.product.style}`;
                       const weightAndFabric = getGarmentWeightAndFabric(item.product);
@@ -3513,7 +3522,7 @@ export function PublicQuoteRequest() {
                             </div>
                           </div>
 
-                          <div className="h-64 flex items-center justify-center p-2 overflow-hidden mb-3">
+                          <div className="h-72 md:h-[24rem] flex items-center justify-center p-0 overflow-hidden mb-3">
                             {(() => {
                               const imgSrc = getGarmentMockupImage(item.product, item.color, 'front', catalogSettings, selectedThemeCategory, item.slot);
                               return (
@@ -3782,7 +3791,7 @@ export function PublicQuoteRequest() {
                           <p className="text-xs font-bold text-neutral-500">No products available in this category.</p>
                         </div>
                       ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-10 gap-y-14">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-10">
                           {matching.slice(0, 32).map(item => {
                             const isSelected = selectedGarmentTypeItems.some(g => g.product.style === item.style);
                             const colors = getFilteredProductColors(item, catalogSettings.allowedColors);
@@ -3850,7 +3859,7 @@ export function PublicQuoteRequest() {
                                   </div>
                                 </div>
 
-                                <div className="h-64 flex items-center justify-center p-2 overflow-hidden mb-3">
+                                <div className="h-72 md:h-[24rem] flex items-center justify-center p-0 overflow-hidden mb-3">
                                   <img 
                                     src={previewImg} 
                                     className="max-h-full max-w-full object-contain mix-blend-multiply group-hover:scale-[1.03] transition-transform duration-300 ease-out" 
