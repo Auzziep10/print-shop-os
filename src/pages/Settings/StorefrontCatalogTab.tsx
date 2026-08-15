@@ -488,18 +488,18 @@ function LogoPlacementModal({
           })}
         </div>
 
-        <div className="relative flex-1 flex flex-col items-center justify-center bg-neutral-50 p-4 rounded-2xl border border-neutral-200 min-h-[420px]">
+        <div className="relative flex-1 flex flex-col items-center justify-center bg-neutral-50 p-3 sm:p-4 rounded-2xl border border-neutral-200">
           <div
             ref={frameRef}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
-            className="relative w-full max-w-[560px] aspect-[4/5] bg-checkerboard border-2 border-neutral-300 rounded-2xl overflow-hidden select-none touch-none shadow-lg"
+            className="relative w-full max-w-[480px] aspect-[4/5] max-h-[50vh] bg-checkerboard border-2 border-neutral-300 rounded-2xl overflow-hidden select-none touch-none shadow-lg"
           >
             <img
               src={currentMockUrl}
               alt="Garment mock"
               draggable="false"
-              className="absolute inset-0 w-full h-full object-contain mix-blend-multiply pointer-events-none"
+              className="absolute inset-0 w-full h-full object-contain p-4 mix-blend-multiply pointer-events-none"
             />
 
             {PRINT_SIZE_CONFIGS.map((cfg) => {
