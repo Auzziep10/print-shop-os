@@ -11,18 +11,11 @@ import {
   CheckCircle2, 
   UserCheck, 
   Search, 
-  Clock, 
   Monitor, 
   Smartphone, 
   Tablet, 
-  ArrowRight, 
   X, 
-  Filter, 
-  Activity, 
-  ExternalLink,
-  ChevronRight,
-  ShieldCheck,
-  AlertCircle
+  ChevronRight
 } from 'lucide-react';
 
 const FUNNEL_STAGES = [
@@ -321,8 +314,6 @@ export function VisitorFunnelPage() {
               </thead>
               <tbody className="divide-y divide-brand-border text-xs">
                 {filteredSessions.map((session) => {
-                  const isConverted = session.convertedQuote || session.convertedAccount;
-
                   return (
                     <tr 
                       key={session.visitorId} 
