@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { doc, getDocFromServer, setDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDocFromServer, setDoc, updateDoc, deleteDoc, query, where, getDocs, collection } from 'firebase/firestore';
 import { db, storage } from '../../lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Loader2, Save, Search, Check, Info, Crosshair, X, Trash2, Plus, Edit2, ImageIcon, ArrowLeft, ArrowRight, Eye, EyeOff, Scissors, Upload } from 'lucide-react';
@@ -2770,8 +2770,32 @@ export function StorefrontCatalogTab() {
                             </p>
                           )}
                         </div>
-                        <div className="flex items-center gap-4 shrink-0">
+                        <div className="flex items-center gap-2 sm:gap-4 shrink-0">
                           <span className="text-xs font-bold text-brand-primary">${p.price.toFixed(2)}</span>
+                          {(p as any).isCustom && (
+                            <button
+                              type="button"
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                if (!confirm(`Delete custom item "${p.style} - ${p.title}" from the database?`)) return;
+                                const updated = customProducts.filter(cp => cp.style.toLowerCase() !== p.style.toLowerCase());
+                                setCustomProducts(updated);
+                                try {
+                                  await writeCatalog({ customCatalogItems: updated });
+                                  const qSnap = await getDocs(query(collection(db, 'custom-catalog-items'), where('style', '==', p.style)));
+                                  for (const docSnap of qSnap.docs) {
+                                    await deleteDoc(docSnap.ref);
+                                  }
+                                } catch (err) {
+                                  console.error("Error deleting custom product from database:", err);
+                                }
+                              }}
+                              className="p-1.5 text-neutral-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                              title="Delete custom item from database"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          )}
                           <div className="w-6 h-6 rounded-full bg-neutral-50 border border-brand-border flex items-center justify-center text-brand-secondary hover:bg-brand-primary hover:text-white transition-colors">
                             <Check size={12} />
                           </div>
