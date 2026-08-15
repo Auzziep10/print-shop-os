@@ -5258,8 +5258,10 @@ export function OrderDetail() {
                    )}
                 </div>
              </div>
-          </div>
-          )}
+                </div>
+              )}
+           </div>
+           )}
           
           {/* Bottom Grid: Team and Activity Feed */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
