@@ -21,6 +21,8 @@ export interface VisitorSession {
   referrer: string;
   landingPage: string;
   currentPath: string;
+  lastEventName: string;
+  lastStepName: string;
   furthestStep: number;
   furthestStepName: string;
   convertedQuote: boolean;
@@ -139,6 +141,8 @@ export async function trackVisitorEvent(
       const updateData: Record<string, any> = {
         lastSeen: nowIso,
         currentPath: path,
+        lastEventName: eventName,
+        lastStepName: stepName,
         furthestStep: newFurthestStep,
         furthestStepName: STEP_NAMES[newFurthestStep] || `Step ${newFurthestStep}`,
         eventsCount: (data.eventsCount || 0) + 1,
@@ -163,6 +167,8 @@ export async function trackVisitorEvent(
         referrer: document.referrer || 'Direct',
         landingPage: path,
         currentPath: path,
+        lastEventName: eventName,
+        lastStepName: stepName,
         furthestStep: step,
         furthestStepName: stepName,
         convertedQuote: Boolean(options?.convertedQuote),
