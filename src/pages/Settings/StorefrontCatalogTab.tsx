@@ -1542,11 +1542,23 @@ export function StorefrontCatalogTab() {
   }, [racks, hiddenCollections, allCatalogProducts]);
 
   // Filter products by search query
-  const filteredProducts = allCatalogProducts.filter(p => 
-    p.style.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.brand.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredProducts = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return allCatalogProducts;
+    const cleanQ = q.replace(/[\s-]/g, '');
+    return allCatalogProducts.filter(p => {
+      const style = (p.style || '').toLowerCase();
+      const cleanStyle = style.replace(/[\s-]/g, '');
+      const title = (p.title || '').toLowerCase();
+      const brand = (p.brand || '').toLowerCase();
+      return (
+        style.includes(q) ||
+        cleanStyle.includes(cleanQ) ||
+        title.includes(q) ||
+        brand.includes(q)
+      );
+    });
+  }, [allCatalogProducts, searchQuery]);
 
   const getGarmentImage = (p: any, chosenColor?: string, mode?: 'racks' | 'basics', category?: string, slot?: string) => {
     // 1. Explicit slot mockup override
