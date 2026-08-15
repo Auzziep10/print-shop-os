@@ -28,6 +28,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { PillButton } from '../../components/ui/PillButton';
+import { trackVisitorEvent } from '../../lib/visitorTracking';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
 import { getGarmentWeightAndFabric, getOrderedKeys, GARMENT_TYPES, detectGarmentTypeTag, getFilteredProductColors, resolveGarmentPlacementData, detectPrintSizeFromPlacement, type GarmentTypeId } from '../../lib/garmentUtils';
 import { validateDiscountCode, discountAmountFor, formatDiscountLabel, type AppliedDiscount } from '../../lib/discountUtils';
@@ -512,6 +513,22 @@ export function PublicQuoteRequest() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    const stepNames: Record<number, string> = {
+      0: 'Quote Landing Choice',
+      1: 'Category & Garment Selection',
+      2: 'Upload Artwork / Logo',
+      3: 'Placement & Proof Configurator',
+      4: 'Sizing & Quantities Spreadsheet',
+      5: 'Contact Info & Checkout',
+    };
+    trackVisitorEvent(`Quote Builder Step ${step}: ${stepNames[step] || 'Active'}`, {
+      step,
+      stepName: stepNames[step] || `Step ${step}`,
+      metadata: { flowMode }
+    });
+  }, [step]);
 
   // Firestore dynamic curations (loaded on mount)
   const [catalogSettings, setCatalogSettings] = useState<{
@@ -2788,6 +2805,15 @@ export function PublicQuoteRequest() {
 
       const payload = JSON.parse(JSON.stringify(rawPayload));
       await setDoc(doc(db, 'orders', orderId), payload);
+
+      trackVisitorEvent('Submitted Quote Request', {
+        step: 5,
+        stepName: 'Quote Submitted',
+        convertedQuote: true,
+        userEmail: customerInfo.emailAddress || '',
+        userName: customerInfo.contactName || '',
+        metadata: { orderId, isPayNow, totalPrice: finalTotalPrice }
+      });
 
       // 4. Redirecting
       setSubmittingStepIndex(4);

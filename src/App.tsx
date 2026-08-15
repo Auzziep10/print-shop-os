@@ -26,6 +26,7 @@ const safeLazy = (importFunc: () => Promise<any>) => {
 const Dashboard = safeLazy(() => import('./pages/Dashboard/Dashboard').then(m => ({ default: m.Dashboard })));
 const Team = safeLazy(() => import('./pages/Team/Team').then(m => ({ default: m.Team })));
 const TeamMeetingsPage = safeLazy(() => import('./pages/Team/TeamMeetingsPage').then(m => ({ default: m.TeamMeetingsPage })));
+const VisitorFunnelPage = safeLazy(() => import('./pages/Team/VisitorFunnelPage').then(m => ({ default: m.VisitorFunnelPage })));
 const OrdersList = safeLazy(() => import('./pages/Orders/OrdersList').then(m => ({ default: m.OrdersList })));
 const OrderDetail = safeLazy(() => import('./pages/Orders/OrderDetail').then(m => ({ default: m.OrderDetail })));
 const CustomersList = safeLazy(() => import('./pages/Customers/CustomersList').then(m => ({ default: m.CustomersList })));
@@ -247,6 +248,11 @@ function App() {
           <Route path="team/meetings" element={
             <PermissionGuard permission="manageTeam">
               <TeamMeetingsPage />
+            </PermissionGuard>
+          } />
+          <Route path="team/analytics" element={
+            <PermissionGuard permission="manageTeam">
+              <VisitorFunnelPage />
             </PermissionGuard>
           } />
           <Route path="signatures" element={<Navigate to="/settings?tab=signatures" replace />} />

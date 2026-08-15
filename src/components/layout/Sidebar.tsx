@@ -27,7 +27,8 @@ import {
   Boxes,
   Map,
   Droplet,
-  Truck
+  Truck,
+  TrendingUp
 } from 'lucide-react';
 
 import { cn } from '../../lib/utils';
@@ -135,6 +136,7 @@ export function Sidebar({ onClose }: SidebarProps) {
   const teamSubItems = [
     { label: 'Daily Planner', path: '/team', icon: Calendar },
     { label: 'Meetings', path: '/team/meetings', icon: MessageSquare },
+    { label: 'Visitor Funnel', path: '/team/analytics', icon: TrendingUp },
   ];
 
   const isSubItemActive = (subPath: string) => {

@@ -6,6 +6,7 @@ import { Upload, Loader2, Sparkles } from 'lucide-react';
 import { db, storage } from '../../../lib/firebase';
 import { useAuth } from '../../../contexts/AuthContext';
 import { ImmersiveLanding, type StorefrontSettingsShape } from './ImmersiveLanding';
+import { trackVisitorEvent } from '../../../lib/visitorTracking';
 
 const DEFAULT_SETTINGS: StorefrontSettingsShape = {
   logoText: 'INKTHEORY',
@@ -89,6 +90,10 @@ export function ImmersiveLandingPage() {
       }
     );
     return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    trackVisitorEvent('Visited /start2 Landing Page', { step: 0, stepName: 'Landing (/start2)' });
   }, []);
 
   useEffect(() => {
@@ -176,7 +181,10 @@ export function ImmersiveLandingPage() {
           navigate(userData?.customerId ? `/portal/${userData.customerId}` : '/portal')
         }
         onAdminPanel={() => navigate('/orders')}
-        onStart={(mode) => navigate(`/start?mode=${mode || 'types'}`)}
+        onStart={(mode) => {
+          trackVisitorEvent('Clicked Start Project CTA', { step: 1, metadata: { mode: mode || 'types' } });
+          navigate(`/start?mode=${mode || 'types'}`);
+        }}
       />
 
       {isEditingStorefront && (

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { Loader2 } from 'lucide-react';
+import { trackVisitorEvent } from '../../lib/visitorTracking';
 
 export function Login() {
   const { signInWithGoogle, signInWithEmail, signUpWithEmail, sendPasswordReset, user, userData, loading: authLoading } = useAuth();
@@ -53,6 +54,15 @@ export function Login() {
     setMessage(null);
     setIsLoading(true);
     signInWithGoogle()
+      .then((res) => {
+        trackVisitorEvent('Google Account Authentication', {
+          step: 6,
+          stepName: 'Account Created',
+          convertedAccount: true,
+          userEmail: res?.user?.email || '',
+          userName: res?.user?.displayName || '',
+        });
+      })
       .catch((err) => {
         console.error(err);
         setError('Failed to sign in with Google. Please try again.');
@@ -92,6 +102,14 @@ export function Login() {
 
     if (authMode === 'signUp') {
       signUpWithEmail(email, password)
+        .then(() => {
+          trackVisitorEvent('Signed Up New Account', {
+            step: 6,
+            stepName: 'Account Created',
+            convertedAccount: true,
+            userEmail: email,
+          });
+        })
         .catch((err) => {
           console.error(err);
           setError(err.message || 'Failed to register. Please try again.');
@@ -99,6 +117,14 @@ export function Login() {
         });
     } else {
       signInWithEmail(email, password)
+        .then(() => {
+          trackVisitorEvent('Logged In', {
+            step: 6,
+            stepName: 'Account Created',
+            convertedAccount: true,
+            userEmail: email,
+          });
+        })
         .catch((err) => {
           console.error(err);
           if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
