@@ -1560,27 +1560,102 @@ export function StorefrontCatalogTab() {
     });
   }, [allCatalogProducts, searchQuery]);
 
+  const findColorMockupEntry = (p: any, chosenColor?: string) => {
+    if (!p || !colorMockups || Object.keys(colorMockups).length === 0) return null;
+
+    const candidateStyles = [p.style, p.itemNum]
+      .filter(Boolean)
+      .map(s => String(s).toLowerCase().trim());
+
+    const mockupStyleKeys = Object.keys(colorMockups);
+    let matchedStyleKey: string | undefined;
+
+    for (const cand of candidateStyles) {
+      const cleanCand = cand.replace(/[\s-]/g, '');
+      const cleanCandNoPrefix = cleanCand.replace(/^(bc|nl|dt)/i, '');
+      const cleanCandNoCvc = cleanCand.replace(/cvc$/i, '');
+      const cleanCandBase = cleanCand.replace(/^(bc|nl|dt)|cvc$/gi, '');
+
+      matchedStyleKey = mockupStyleKeys.find(k => {
+        const cleanK = k.toLowerCase().trim().replace(/[\s-]/g, '');
+        const cleanKNoPrefix = cleanK.replace(/^(bc|nl|dt)/i, '');
+        const cleanKNoCvc = cleanK.replace(/cvc$/i, '');
+        const cleanKBase = cleanK.replace(/^(bc|nl|dt)|cvc$/gi, '');
+
+        return cleanK === cleanCand ||
+               cleanKNoPrefix === cleanCandNoPrefix ||
+               cleanKNoCvc === cleanCandNoCvc ||
+               cleanKBase === cleanCandBase ||
+               (cleanCand.length >= 3 && cleanK.includes(cleanCand)) ||
+               (cleanK.length >= 3 && cleanCand.includes(cleanK));
+      });
+
+      if (matchedStyleKey) break;
+    }
+
+    if (!matchedStyleKey) return null;
+    const styleMap = colorMockups[matchedStyleKey];
+    if (!styleMap) return null;
+
+    // If chosenColor is provided, try exact / clean match first
+    if (chosenColor) {
+      const cKey = chosenColor.toLowerCase().trim();
+      const matchingColorKey = Object.keys(styleMap).find(k => {
+        const cleanK = k.toLowerCase().trim();
+        return cleanK === cKey || cleanK.replace(/[\s-]/g, '') === cKey.replace(/[\s-]/g, '');
+      });
+      if (matchingColorKey && styleMap[matchingColorKey]) {
+        return { styleMap, colorEntry: styleMap[matchingColorKey] };
+      }
+    }
+
+    // Fallback: return the first color entry in styleMap
+    const firstColorKey = Object.keys(styleMap)[0];
+    if (firstColorKey && styleMap[firstColorKey]) {
+      return { styleMap, colorEntry: styleMap[firstColorKey] };
+    }
+
+    return { styleMap, colorEntry: null };
+  };
+
   const getGarmentImage = (p: any, chosenColor?: string, mode?: 'racks' | 'basics', category?: string, slot?: string) => {
+    if (!p) return 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
+
     // 1. Explicit slot mockup override
     if (mode && category && slot && customMockups?.[mode]?.[category]?.[slot]) {
       return customMockups[mode][category][slot];
     }
 
-    const styleKey = (p?.style || p?.itemNum || '').toLowerCase();
-
-    // 2. Color-specific custom mockup override
-    if (styleKey && chosenColor && colorMockups?.[styleKey]?.[chosenColor]) {
-      return colorMockups[styleKey][chosenColor];
+    // 2. Color-specific custom mockup override from colorMockups
+    const mockupRes = findColorMockupEntry(p, chosenColor);
+    if (mockupRes) {
+      const { styleMap, colorEntry } = mockupRes;
+      if (colorEntry) {
+        const frontUrl = typeof colorEntry === 'string' ? colorEntry : (colorEntry?.front || colorEntry?.back);
+        if (frontUrl) return frontUrl;
+      }
+      if (styleMap) {
+        for (const cKey of Object.keys(styleMap)) {
+          const entry = styleMap[cKey];
+          const frontUrl = typeof entry === 'string' ? entry : (entry?.front || entry?.back);
+          if (frontUrl) return frontUrl;
+        }
+      }
     }
 
     // 3. Search customMockups for any rack/basics slot assigned to this garment style
-    if (styleKey) {
+    const candidateStyles = [p.style, p.itemNum]
+      .filter(Boolean)
+      .map(s => String(s).toLowerCase().trim());
+
+    if (candidateStyles.length > 0) {
       if (racks) {
         for (const cat of Object.keys(racks)) {
           const catObj = racks[cat];
           if (catObj && typeof catObj === 'object') {
             for (const sKey of Object.keys(catObj)) {
-              if (catObj[sKey]?.toLowerCase() === styleKey && customMockups?.racks?.[cat]?.[sKey]) {
+              const val = String(catObj[sKey] || '').toLowerCase().trim();
+              if (candidateStyles.includes(val) && customMockups?.racks?.[cat]?.[sKey]) {
                 return customMockups.racks[cat][sKey];
               }
             }
@@ -1592,7 +1667,8 @@ export function StorefrontCatalogTab() {
           const catObj = basics[cat];
           if (catObj && typeof catObj === 'object') {
             for (const sKey of Object.keys(catObj)) {
-              if (catObj[sKey]?.toLowerCase() === styleKey && customMockups?.basics?.[cat]?.[sKey]) {
+              const val = String(catObj[sKey] || '').toLowerCase().trim();
+              if (candidateStyles.includes(val) && customMockups?.basics?.[cat]?.[sKey]) {
                 return customMockups.basics[cat][sKey];
               }
             }
@@ -1617,24 +1693,48 @@ export function StorefrontCatalogTab() {
   };
 
   const getGarmentBackImage = (p: any, chosenColor?: string, mode?: 'racks' | 'basics', category?: string, slot?: string) => {
-    const styleKey = (p?.style || p?.itemNum || '').toLowerCase();
+    if (!p) return '';
 
-    if (styleKey && chosenColor && colorMockups?.[styleKey]?.[chosenColor]) {
-      const entry = colorMockups[styleKey][chosenColor];
-      if (typeof entry === 'object' && entry !== null) {
-        const backUrl = entry.back || entry.backMockup;
+    // 1. Check colorMockups for custom back mockups
+    const mockupRes = findColorMockupEntry(p, chosenColor);
+    if (mockupRes) {
+      const { styleMap, colorEntry } = mockupRes;
+      
+      if (typeof colorEntry === 'object' && colorEntry !== null) {
+        const backUrl = (colorEntry as any).back || (colorEntry as any).backMockup;
         if (backUrl) return backUrl;
+      }
+
+      if (styleMap) {
+        for (const cKey of Object.keys(styleMap)) {
+          const entry = styleMap[cKey];
+          if (typeof entry === 'object' && entry !== null) {
+            const backUrl = (entry as any).back || (entry as any).backMockup;
+            if (backUrl) return backUrl;
+          }
+        }
       }
     }
 
+    // 2. Check catalog backImages
     if (p?.backImages) {
       if (chosenColor && typeof p.backImages === 'object') {
-        const matchKey = Object.keys(p.backImages).find(k => k.toLowerCase() === chosenColor.toLowerCase());
-        if (matchKey) return p.backImages[matchKey];
+        const matchKey = Object.keys(p.backImages).find(k => k.toLowerCase().trim() === chosenColor.toLowerCase().trim());
+        if (matchKey) {
+          const val = p.backImages[matchKey];
+          const backUrl = typeof val === 'string' ? val : (val?.back || val?.front);
+          if (backUrl) return backUrl;
+        }
+      }
+      if (typeof p.backImages === 'object') {
+        const firstVal = Object.values(p.backImages)[0] as any;
+        const backUrl = typeof firstVal === 'string' ? firstVal : (firstVal?.back || firstVal?.front);
+        if (backUrl) return backUrl;
       }
       if (typeof p.backImages === 'string') return p.backImages;
     }
 
+    // 3. Fallback to front image
     return getGarmentImage(p, chosenColor, mode, category, slot);
   };
 
