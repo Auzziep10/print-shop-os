@@ -621,6 +621,14 @@ export function StorefrontCatalogTab() {
   const [removeNeckTag, setRemoveNeckTag] = useState<Record<string, boolean>>({});
   const [colorMockups, setColorMockups] = useState<Record<string, Record<string, any>>>({});
   const [allowedColors, setAllowedColors] = useState<Record<string, string[]>>({});
+  const [customColors, setCustomColors] = useState<Record<string, string[]>>({});
+  const [isAddingCustomColor, setIsAddingCustomColor] = useState(false);
+  const [newColorName, setNewColorName] = useState('');
+  const [newColorFrontFile, setNewColorFrontFile] = useState<File | null>(null);
+  const [newColorBackFile, setNewColorBackFile] = useState<File | null>(null);
+  const [newColorFrontPreview, setNewColorFrontPreview] = useState<string | null>(null);
+  const [newColorBackPreview, setNewColorBackPreview] = useState<string | null>(null);
+  const [isSubmittingNewColor, setIsSubmittingNewColor] = useState(false);
   const [activeGarmentType, setActiveGarmentType] = useState<GarmentTypeId>('t-shirt');
   // Whether placement area boxes are shown to customers in the garment customizer
   const [showPublicPlacementGuides, setShowPublicPlacementGuides] = useState(true);
@@ -687,6 +695,7 @@ export function StorefrontCatalogTab() {
           if (data.removeNeckTag) setRemoveNeckTag(data.removeNeckTag);
           if (data.colorMockups) setColorMockups(data.colorMockups);
           if (data.allowedColors) setAllowedColors(data.allowedColors);
+          if (data.customColors) setCustomColors(data.customColors);
           if (data.customNames) {
             setCustomNames(data.customNames);
           } else {
@@ -759,7 +768,8 @@ export function StorefrontCatalogTab() {
   const persistColorSettings = async (
     nextAllowed?: Record<string, string[]>,
     nextMockups?: Record<string, Record<string, any>>,
-    nextNeckTag?: Record<string, boolean>
+    nextNeckTag?: Record<string, boolean>,
+    nextCustomColors?: Record<string, string[]>
   ) => {
     if (!assertCatalogLoaded('save color settings')) return;
     try {
@@ -767,6 +777,7 @@ export function StorefrontCatalogTab() {
         allowedColors: nextAllowed ?? allowedColors,
         colorMockups: nextMockups ?? colorMockups,
         removeNeckTag: nextNeckTag ?? removeNeckTag,
+        customColors: nextCustomColors ?? customColors,
       });
     } catch (err) {
       console.error("Error auto-persisting color settings to Firestore:", err);
@@ -823,6 +834,7 @@ export function StorefrontCatalogTab() {
         removeNeckTag,
         colorMockups,
         allowedColors,
+        customColors,
         showPublicPlacementGuides,
         cardImages,
         garmentFits,
@@ -1488,7 +1500,7 @@ export function StorefrontCatalogTab() {
   }, [customProducts]);
 
   const getProductDetails = (style: string) => {
-    return allCatalogProducts.find(p => p.style.toLowerCase() === style.toLowerCase()) || {
+    const base = allCatalogProducts.find(p => p.style.toLowerCase() === style.toLowerCase()) || {
       style,
       title: 'Unknown Garment',
       brand: 'N/A',
@@ -1496,6 +1508,14 @@ export function StorefrontCatalogTab() {
       colors: [],
       images: null
     };
+    const extra = customColors[style.toLowerCase()] || [];
+    if (extra.length > 0) {
+      return {
+        ...base,
+        colors: Array.from(new Set([...(base.colors || []), ...extra]))
+      };
+    }
+    return base;
   };
 
   // Curated products chosen across LIVE Rack collections only
@@ -2763,7 +2783,9 @@ export function StorefrontCatalogTab() {
       {/* Color Variations & Mockups Modal (Full-screen Manager) */}
       {activeColorModalItem && (() => {
         const modalStyleKey = activeColorModalItem.style.toLowerCase().trim();
-        const allItemColors: string[] = activeColorModalItem.colors || [];
+        const baseItemColors: string[] = activeColorModalItem.colors || [];
+        const extraCustomColors: string[] = customColors[modalStyleKey] || [];
+        const allItemColors: string[] = Array.from(new Set([...baseItemColors, ...extraCustomColors]));
         const currentAllowed: string[] = allowedColors[modalStyleKey] ?? allItemColors;
         const allowedCount = currentAllowed.length;
         const totalCount = allItemColors.length;
@@ -2797,6 +2819,81 @@ export function StorefrontCatalogTab() {
 
         const isTaglessActive = removeNeckTag[activeColorModalItem.style.toLowerCase()] ?? true;
 
+        const handleAddCustomColor = async () => {
+          const trimmed = newColorName.trim();
+          if (!trimmed) {
+            alert("Please enter a color name.");
+            return;
+          }
+          if (allItemColors.some(c => c.toLowerCase() === trimmed.toLowerCase())) {
+            alert(`Color "${trimmed}" already exists for this garment.`);
+            return;
+          }
+
+          setIsSubmittingNewColor(true);
+          try {
+            let frontUrl: string | undefined;
+            let backUrl: string | undefined;
+
+            if (newColorFrontFile) {
+              const storageRef = ref(storage, `storefront_color_mockups/${modalStyleKey}/${trimmed}_front_${Date.now()}_${newColorFrontFile.name}`);
+              await uploadBytes(storageRef, newColorFrontFile);
+              frontUrl = await getDownloadURL(storageRef);
+            }
+
+            if (newColorBackFile) {
+              const storageRef = ref(storage, `storefront_color_mockups/${modalStyleKey}/${trimmed}_back_${Date.now()}_${newColorBackFile.name}`);
+              await uploadBytes(storageRef, newColorBackFile);
+              backUrl = await getDownloadURL(storageRef);
+            }
+
+            const updatedCustom = {
+              ...customColors,
+              [modalStyleKey]: Array.from(new Set([...extraCustomColors, trimmed]))
+            };
+            setCustomColors(updatedCustom);
+
+            const updatedAllowed = {
+              ...allowedColors,
+              [modalStyleKey]: Array.from(new Set([...currentAllowed, trimmed]))
+            };
+            setAllowedColors(updatedAllowed);
+
+            let updatedMockups = colorMockups;
+            if (frontUrl || backUrl) {
+              updatedMockups = {
+                ...colorMockups,
+                [modalStyleKey]: {
+                  ...(colorMockups[modalStyleKey] || {}),
+                  [trimmed]: {
+                    ...(frontUrl ? { front: frontUrl } : {}),
+                    ...(backUrl ? { back: backUrl } : {})
+                  }
+                }
+              };
+              setColorMockups(updatedMockups);
+            }
+
+            await writeCatalog({
+              customColors: updatedCustom,
+              allowedColors: updatedAllowed,
+              colorMockups: updatedMockups
+            });
+
+            setIsAddingCustomColor(false);
+            setNewColorName('');
+            setNewColorFrontFile(null);
+            setNewColorBackFile(null);
+            setNewColorFrontPreview(null);
+            setNewColorBackPreview(null);
+          } catch (err) {
+            console.error("Error adding custom color:", err);
+            alert("Failed to add custom color. Please try again.");
+          } finally {
+            setIsSubmittingNewColor(false);
+          }
+        };
+
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-2 sm:p-4 md:p-6 animate-in fade-in duration-200">
             <div className="bg-white border border-brand-border rounded-3xl shadow-2xl w-full max-w-7xl h-full max-h-[95vh] flex flex-col overflow-hidden">
@@ -2819,7 +2916,7 @@ export function StorefrontCatalogTab() {
                     {activeColorModalItem.title} — Color Variations & Storefront Availability
                   </h3>
                   <p className="text-xs text-brand-secondary">
-                    Control which colors storefront customers can see, upload custom mockup overrides, and toggle tagless collar mode.
+                    Control which colors storefront customers can see, add new colors, upload custom front/back mockups, and toggle tagless collar mode.
                   </p>
                 </div>
 
@@ -2867,6 +2964,23 @@ export function StorefrontCatalogTab() {
 
                 {/* Quick Action Buttons */}
                 <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsAddingCustomColor(true);
+                      setNewColorName('');
+                      setNewColorFrontFile(null);
+                      setNewColorBackFile(null);
+                      setNewColorFrontPreview(null);
+                      setNewColorBackPreview(null);
+                    }}
+                    className="px-3.5 py-1.5 bg-black hover:bg-neutral-800 text-white rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
+                  >
+                    <Plus size={14} /> Add Color
+                  </button>
+
+                  <div className="h-4 w-px bg-neutral-300 hidden sm:block" />
+
                   <button
                     type="button"
                     onClick={() => {
@@ -2999,12 +3113,20 @@ export function StorefrontCatalogTab() {
                   <div className="h-64 flex flex-col items-center justify-center text-center p-8 bg-white border border-dashed border-neutral-300 rounded-2xl">
                     <EyeOff size={32} className="text-neutral-300 mb-2" />
                     <h4 className="text-sm font-bold text-neutral-700">No matching colors found</h4>
-                    <p className="text-xs text-neutral-400 mt-1">Try clearing your search query or filter tab.</p>
+                    <p className="text-xs text-neutral-400 mt-1">Try clearing your search query or add a new color.</p>
+                    <button
+                      type="button"
+                      onClick={() => setIsAddingCustomColor(true)}
+                      className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-black hover:bg-neutral-800 rounded-xl transition-all cursor-pointer shadow-sm"
+                    >
+                      <Plus size={13} /> Add Color
+                    </button>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-5">
                     {displayedColors.map((color: string) => {
                       const isColorAllowed = currentAllowed.includes(color);
+                      const isCustomAdded = extraCustomColors.includes(color);
 
                       const rawVal = colorMockups[modalStyleKey]?.[color];
                       const customFront = typeof rawVal === 'string' ? rawVal : (rawVal?.front || null);
@@ -3031,15 +3153,52 @@ export function StorefrontCatalogTab() {
                           <div className="space-y-2.5">
                             {/* Color Header & Badges */}
                             <div className="flex items-center justify-between gap-1.5 border-b border-neutral-100 pb-2">
-                              <span 
-                                className={`text-xs font-extrabold truncate ${isColorAllowed ? 'text-brand-primary' : 'text-neutral-500 line-through'}`} 
-                                title={color}
-                              >
-                                {color}
-                              </span>
-                              <div className="flex gap-1 shrink-0">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <span 
+                                  className={`text-xs font-extrabold truncate ${isColorAllowed ? 'text-brand-primary' : 'text-neutral-500 line-through'}`} 
+                                  title={color}
+                                >
+                                  {color}
+                                </span>
+                                {isCustomAdded && (
+                                  <span className="text-[8px] font-black uppercase text-purple-700 bg-purple-100 px-1.5 py-0.5 rounded shrink-0">
+                                    Custom
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1 shrink-0">
                                 {customFront && <span className="text-[8px] font-black uppercase text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded">Front Mock</span>}
                                 {customBack && <span className="text-[8px] font-black uppercase text-indigo-800 bg-indigo-100 px-1.5 py-0.5 rounded">Back Mock</span>}
+                                {isCustomAdded && (
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      if (!confirm(`Delete custom color "${color}" and its mockups?`)) return;
+                                      const nextCustom = (customColors[modalStyleKey] || []).filter(c => c !== color);
+                                      const updatedCustomColors = { ...customColors, [modalStyleKey]: nextCustom };
+                                      setCustomColors(updatedCustomColors);
+
+                                      const nextAllowed = (allowedColors[modalStyleKey] || allItemColors).filter(c => c !== color);
+                                      const updatedAllowed = { ...allowedColors, [modalStyleKey]: nextAllowed };
+                                      setAllowedColors(updatedAllowed);
+
+                                      const updatedMockups = { ...(colorMockups[modalStyleKey] || {}) };
+                                      delete updatedMockups[color];
+                                      const allUpdatedMockups = { ...colorMockups, [modalStyleKey]: updatedMockups };
+                                      setColorMockups(allUpdatedMockups);
+
+                                      await writeCatalog({
+                                        customColors: updatedCustomColors,
+                                        allowedColors: updatedAllowed,
+                                        colorMockups: allUpdatedMockups
+                                      });
+                                    }}
+                                    className="p-1 text-neutral-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors cursor-pointer"
+                                    title="Delete custom color"
+                                  >
+                                    <Trash2 size={13} />
+                                  </button>
+                                )}
                               </div>
                             </div>
 
@@ -3220,6 +3379,178 @@ export function StorefrontCatalogTab() {
               </div>
 
             </div>
+
+            {/* Add Custom Color Modal */}
+            {isAddingCustomColor && (
+              <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+                <div className="bg-white border border-brand-border rounded-2xl shadow-2xl max-w-lg w-full p-6 space-y-5 flex flex-col">
+                  <div className="flex items-center justify-between border-b border-neutral-150 pb-3">
+                    <div>
+                      <h4 className="text-base font-serif font-bold text-brand-primary">Add New Color Variation</h4>
+                      <p className="text-[11px] text-brand-secondary mt-0.5">
+                        Add a custom color name and upload front and back mockups for {activeColorModalItem.title}.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={isSubmittingNewColor}
+                      onClick={() => {
+                        setIsAddingCustomColor(false);
+                        setNewColorName('');
+                        setNewColorFrontFile(null);
+                        setNewColorBackFile(null);
+                        setNewColorFrontPreview(null);
+                        setNewColorBackPreview(null);
+                      }}
+                      className="text-neutral-400 hover:text-black p-1 rounded-full cursor-pointer"
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
+
+                  {/* Color Name Input */}
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-bold uppercase tracking-wider text-brand-secondary">
+                      Color Name <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={newColorName}
+                      onChange={(e) => setNewColorName(e.target.value)}
+                      placeholder="e.g. Vintage Butter, Matcha Green, Washed Clay"
+                      className="w-full bg-neutral-50 border border-neutral-250 rounded-xl px-3.5 py-2.5 text-xs font-bold text-brand-primary focus:outline-none focus:border-black focus:bg-white transition-all placeholder:text-neutral-400"
+                      autoFocus
+                    />
+                  </div>
+
+                  {/* Front and Back Mockup Uploads */}
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* Front Mockup */}
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-bold uppercase tracking-wider text-brand-secondary">
+                        Front Mockup
+                      </label>
+                      <div className="h-32 bg-neutral-50 rounded-xl border border-dashed border-neutral-300 flex flex-col items-center justify-center p-2 relative overflow-hidden bg-checkerboard group">
+                        {newColorFrontPreview ? (
+                          <>
+                            <img src={newColorFrontPreview} alt="Front preview" className="max-w-full max-h-full object-contain mix-blend-multiply" />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setNewColorFrontFile(null);
+                                setNewColorFrontPreview(null);
+                              }}
+                              className="absolute top-1.5 right-1.5 bg-rose-600 text-white p-1 rounded-full shadow-md hover:bg-rose-700 transition-colors cursor-pointer"
+                              title="Remove front image"
+                            >
+                              <X size={12} />
+                            </button>
+                          </>
+                        ) : (
+                          <label className="w-full h-full flex flex-col items-center justify-center cursor-pointer hover:bg-neutral-100/70 transition-colors rounded-lg">
+                            <Upload size={18} className="text-neutral-400 mb-1" />
+                            <span className="text-[10px] font-bold text-neutral-600">Select Front Image</span>
+                            <span className="text-[9px] text-neutral-400 mt-0.5">PNG or JPG</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  setNewColorFrontFile(file);
+                                  setNewColorFrontPreview(URL.createObjectURL(file));
+                                }
+                              }}
+                            />
+                          </label>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Back Mockup */}
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-bold uppercase tracking-wider text-brand-secondary">
+                        Back Mockup <span className="text-neutral-400 font-normal text-[10px] lowercase">(optional)</span>
+                      </label>
+                      <div className="h-32 bg-neutral-50 rounded-xl border border-dashed border-neutral-300 flex flex-col items-center justify-center p-2 relative overflow-hidden bg-checkerboard group">
+                        {newColorBackPreview ? (
+                          <>
+                            <img src={newColorBackPreview} alt="Back preview" className="max-w-full max-h-full object-contain mix-blend-multiply" />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setNewColorBackFile(null);
+                                setNewColorBackPreview(null);
+                              }}
+                              className="absolute top-1.5 right-1.5 bg-rose-600 text-white p-1 rounded-full shadow-md hover:bg-rose-700 transition-colors cursor-pointer"
+                              title="Remove back image"
+                            >
+                              <X size={12} />
+                            </button>
+                          </>
+                        ) : (
+                          <label className="w-full h-full flex flex-col items-center justify-center cursor-pointer hover:bg-neutral-100/70 transition-colors rounded-lg">
+                            <Upload size={18} className="text-neutral-400 mb-1" />
+                            <span className="text-[10px] font-bold text-neutral-600">Select Back Image</span>
+                            <span className="text-[9px] text-neutral-400 mt-0.5">PNG or JPG</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  setNewColorBackFile(file);
+                                  setNewColorBackPreview(URL.createObjectURL(file));
+                                }
+                              }}
+                            />
+                          </label>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Footer Actions */}
+                  <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-neutral-150">
+                    <button
+                      type="button"
+                      disabled={isSubmittingNewColor}
+                      onClick={() => {
+                        setIsAddingCustomColor(false);
+                        setNewColorName('');
+                        setNewColorFrontFile(null);
+                        setNewColorBackFile(null);
+                        setNewColorFrontPreview(null);
+                        setNewColorBackPreview(null);
+                      }}
+                      className="px-4 py-2 text-xs font-bold text-neutral-600 hover:bg-neutral-100 rounded-xl transition-colors cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isSubmittingNewColor || !newColorName.trim()}
+                      onClick={handleAddCustomColor}
+                      className="px-5 py-2 text-xs font-bold text-white bg-black hover:bg-neutral-800 disabled:opacity-50 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
+                    >
+                      {isSubmittingNewColor ? (
+                        <>
+                          <Loader2 size={14} className="animate-spin" />
+                          <span>Saving Color...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Check size={14} />
+                          <span>Add Color & Mockups</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         );
       })()}

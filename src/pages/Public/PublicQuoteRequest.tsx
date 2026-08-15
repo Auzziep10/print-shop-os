@@ -548,6 +548,7 @@ export function PublicQuoteRequest() {
     customMockups?: Record<string, any>;
     racksOrder?: Record<string, string[]>;
     allowedColors?: Record<string, string[]>;
+    customColors?: Record<string, string[]>;
   }>({
     racks: DEFAULT_RACKS,
     basics: DEFAULT_BASICS,
@@ -562,7 +563,8 @@ export function PublicQuoteRequest() {
     defaultColors: { racks: {}, basics: {} },
     logoPlacements: { racks: {}, basics: {} },
     racksOrder: {},
-    allowedColors: {}
+    allowedColors: {},
+    customColors: {}
   });
 
   const [cart, setCart] = useState<any[]>([]);
@@ -1145,7 +1147,8 @@ export function PublicQuoteRequest() {
             defaultColors: cData.defaultColors || { racks: {}, basics: {} },
             logoPlacements: cData.logoPlacements || { racks: {}, basics: {} },
             racksOrder: cData.racksOrder || {},
-            allowedColors: cData.allowedColors || {}
+            allowedColors: cData.allowedColors || {},
+            customColors: cData.customColors || {}
           });
         }
       } catch (err) {

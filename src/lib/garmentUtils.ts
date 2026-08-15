@@ -12,16 +12,30 @@ export const DEFAULT_SLOT_ORDER = ['hat', 'shirt', 'polo', 'crewneck', 'hoodie',
 
 export const getFilteredProductColors = (
   product: { style?: string; colors?: string[]; itemNum?: string } | null | undefined,
-  allowedColorsMap?: Record<string, string[]> | null
+  allowedColorsMap?: Record<string, string[]> | null,
+  customColorsMap?: Record<string, string[]> | null
 ): string[] => {
   if (!product) return [];
-  const allColors = product.colors || [];
-  if (!allowedColorsMap || Object.keys(allowedColorsMap).length === 0) return allColors;
+  const baseColors = product.colors || [];
 
   // Try itemNum first (SKU style code e.g. "BC3001CVC", "3001CVC"), then style
   const styleCandidates = [product.itemNum, product.style]
     .filter(Boolean)
     .map(s => String(s).toLowerCase().trim());
+
+  let extraCustom: string[] = [];
+  if (customColorsMap && Object.keys(customColorsMap).length > 0 && styleCandidates.length > 0) {
+    for (const cand of styleCandidates) {
+      const matchKey = Object.keys(customColorsMap).find(k => k.toLowerCase().trim() === cand);
+      if (matchKey && Array.isArray(customColorsMap[matchKey])) {
+        extraCustom = customColorsMap[matchKey];
+        break;
+      }
+    }
+  }
+
+  const allColors = Array.from(new Set([...baseColors, ...extraCustom]));
+  if (!allowedColorsMap || Object.keys(allowedColorsMap).length === 0) return allColors;
 
   if (styleCandidates.length === 0) return allColors;
 
@@ -54,7 +68,14 @@ export const getFilteredProductColors = (
   if (!matchingKey) return allColors;
   const allowed = allowedColorsMap[matchingKey];
   if (!allowed || !Array.isArray(allowed)) return allColors;
-  return allColors.filter(c => allowed.includes(c));
+  const allowedSet = new Set(allowed);
+  const filtered = allColors.filter(c => allowedSet.has(c));
+  for (const c of allowed) {
+    if (!filtered.includes(c)) {
+      filtered.push(c);
+    }
+  }
+  return filtered;
 };
 
 

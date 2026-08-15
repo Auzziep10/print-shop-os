@@ -158,6 +158,7 @@ export function GarmentCustomizerModal({
 }: GarmentCustomizerModalProps) {
   const [fetchedColorMockups, setFetchedColorMockups] = useState<Record<string, Record<string, string>> | null>(null);
   const [fetchedAllowedColors, setFetchedAllowedColors] = useState<Record<string, string[]> | null>(null);
+  const [fetchedCustomColors, setFetchedCustomColors] = useState<Record<string, string[]> | null>(null);
   const [fetchedLogoPlacements, setFetchedLogoPlacements] = useState<Record<string, any>>({});
   const [fetchedCatalogSettings, setFetchedCatalogSettings] = useState<any>(null);
   const [showPlacementGuides, setShowPlacementGuides] = useState(true);
@@ -737,6 +738,7 @@ export function GarmentCustomizerModal({
             setFetchedCatalogSettings(data);
             if (data.colorMockups) setFetchedColorMockups(data.colorMockups);
             if (data.allowedColors) setFetchedAllowedColors(data.allowedColors);
+            if (data.customColors) setFetchedCustomColors(data.customColors);
             if (data.logoPlacements) setFetchedLogoPlacements(data.logoPlacements);
           }
         } catch (err) {
@@ -789,8 +791,8 @@ export function GarmentCustomizerModal({
   const displayColors = useMemo(() => {
     const propAllowed = (garment as any)?.allowedColors;
     const allowed = (propAllowed && Object.keys(propAllowed).length > 0) ? propAllowed : fetchedAllowedColors;
-    return getFilteredProductColors(activeGarment, allowed);
-  }, [activeGarment, garment, fetchedAllowedColors]);
+    return getFilteredProductColors(activeGarment, allowed, fetchedCustomColors);
+  }, [activeGarment, garment, fetchedAllowedColors, fetchedCustomColors]);
 
   // Ensure selectedColor is always valid and present in displayColors
   useEffect(() => {

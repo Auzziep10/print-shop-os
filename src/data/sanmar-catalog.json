@@ -145410,6 +145410,120 @@
     }
   },
   {
+    "style": "BC6110GD",
+    "title": "BELLA+CANVAS Women's Heavyweight Garment-Dyed Tee BC6110GD",
+    "brand": "Bella + Canvas",
+    "description": "Boxy relaxed fit • Double-stitched neckband • Set-in sleeve • Side seamed • Mid-length • Tear-away label • 6.5-ounce, 100% ring spun cotton, 18 singles",
+    "category": "T-Shirts ;Women's",
+    "price": 12.98,
+    "colors": [
+      "Vintage Butter",
+      "Forest",
+      "Toast",
+      "Vintage Brown",
+      "Vintage Denim",
+      "Vintage Navy",
+      "Vintage Red",
+      "Vintage White",
+      "Vintage Black",
+      "White",
+      "Soft Pink",
+      "Natural",
+      "Navy",
+      "Maroon",
+      "Dark Grey",
+      "Athletic Heather",
+      "Black"
+    ],
+    "images": {
+      "Vintage Butter": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2025/f11/BC6110_toast_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2025/f11/BC6110_toast_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/imglib/catjpg/BC6110sw.jpg"
+      },
+      "Forest": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2025/f11/BC6110_forest_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2025/f11/BC6110_forest_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/imglib/catjpg/BC6110sw.jpg"
+      },
+      "Toast": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2025/f11/BC6110_toast_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2025/f11/BC6110_toast_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/imglib/catjpg/BC6110sw.jpg"
+      },
+      "Vintage Brown": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2025/f11/BC6110_vintagebrown_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2025/f11/BC6110_vintagebrown_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/imglib/catjpg/BC6110sw.jpg"
+      },
+      "Vintage Denim": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2025/f11/BC6110_vintagedenim_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2025/f11/BC6110_vintagedenim_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/imglib/catjpg/BC6110sw.jpg"
+      },
+      "Vintage Navy": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2025/f11/BC6110_vintagenavy_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2025/f11/BC6110_vintagenavy_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/imglib/catjpg/BC6110sw.jpg"
+      },
+      "Vintage Red": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2025/f11/BC6110_vintagered_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2025/f11/BC6110_vintagered_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/imglib/catjpg/BC6110sw.jpg"
+      },
+      "Vintage White": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2025/f11/BC6110_vintagewhite_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2025/f11/BC6110_vintagewhite_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/imglib/catjpg/BC6110sw.jpg"
+      },
+      "Vintage Black": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2025/f11/BC6110_vintageblack_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2025/f11/BC6110_vintageblack_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/imglib/catjpg/BC6110sw.jpg"
+      },
+      "White": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2025/f11/BC6110_white_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2025/f11/BC6110_white_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/imglib/catjpg/BC6110sw.jpg"
+      },
+      "Soft Pink": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2025/f11/BC6110_softpink_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2025/f11/BC6110_softpink_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/imglib/catjpg/BC6110sw.jpg"
+      },
+      "Natural": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2025/f11/BC6110_natural_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2025/f11/BC6110_natural_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/imglib/catjpg/BC6110sw.jpg"
+      },
+      "Navy": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2025/f11/BC6110_navy_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2025/f11/BC6110_navy_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/imglib/catjpg/BC6110sw.jpg"
+      },
+      "Maroon": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2025/f11/BC6110_maroon_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2025/f11/BC6110_maroon_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/imglib/catjpg/BC6110sw.jpg"
+      },
+      "Dark Grey": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2025/f11/BC6110_darkgrey_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2025/f11/BC6110_darkgrey_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/imglib/catjpg/BC6110sw.jpg"
+      },
+      "Athletic Heather": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2025/f11/BC6110_athleticheather_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2025/f11/BC6110_athleticheather_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/imglib/catjpg/BC6110sw.jpg"
+      },
+      "Black": {
+        "front": "https://cdnm.sanmar.com/imglib/mresjpg/2025/f11/BC6110_black_flat_front.jpg",
+        "back": "https://cdnm.sanmar.com/imglib/mresjpg/2025/f11/BC6110_black_flat_back.jpg",
+        "swatch": "https://cdnm.sanmar.com/imglib/catjpg/BC6110sw.jpg"
+      }
+    }
+  },
+  {
     "style": "BC3511Y",
     "title": "BELLA+CANVAS Youth 6-Ounce Heavyweight Long Sleeve Tee BC3511Y",
     "brand": "Bella + Canvas",
