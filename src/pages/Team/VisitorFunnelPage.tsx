@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { type VisitorSession } from '../../lib/visitorTracking';
 import { tokens } from '../../lib/tokens';
@@ -15,7 +15,8 @@ import {
   Smartphone, 
   Tablet, 
   X, 
-  ChevronRight
+  ChevronRight,
+  Trash2
 } from 'lucide-react';
 
 const FUNNEL_STAGES = [
@@ -55,6 +56,20 @@ export function VisitorFunnelPage() {
     );
     return () => unsub();
   }, []);
+
+  const handleDeleteSession = async (visitorId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (!window.confirm('Delete this visitor session record?')) return;
+    try {
+      await deleteDoc(doc(db, 'visitor_sessions', visitorId));
+      if (selectedVisitor?.visitorId === visitorId) {
+        setSelectedVisitor(null);
+      }
+    } catch (err) {
+      console.error('Failed to delete visitor session:', err);
+      alert('Failed to delete session log.');
+    }
+  };
 
   // Timeframe filter logic
   const filteredSessions = useMemo(() => {
@@ -396,16 +411,26 @@ export function VisitorFunnelPage() {
 
                       {/* Action */}
                       <td className="py-3.5 px-4 text-right">
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedVisitor(session);
-                          }}
-                          className="inline-flex items-center gap-1 text-xs font-medium text-brand-primary hover:text-black hover:underline"
-                        >
-                          Timeline
-                          <ChevronRight size={14} />
-                        </button>
+                        <div className="inline-flex items-center gap-2">
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedVisitor(session);
+                            }}
+                            className="inline-flex items-center gap-1 text-xs font-medium text-brand-primary hover:text-black hover:underline"
+                          >
+                            Timeline
+                            <ChevronRight size={14} />
+                          </button>
+
+                          <button
+                            onClick={(e) => handleDeleteSession(session.visitorId, e)}
+                            className="p-1 text-slate-400 hover:text-rose-600 transition-colors rounded"
+                            title="Delete visitor session log"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -492,7 +517,15 @@ export function VisitorFunnelPage() {
             </div>
 
             {/* Footer */}
-            <div className="pt-4 border-t border-brand-border flex justify-end">
+            <div className="pt-4 border-t border-brand-border flex justify-between items-center">
+              <button
+                onClick={() => handleDeleteSession(selectedVisitor.visitorId)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-lg border border-rose-200 transition-colors"
+              >
+                <Trash2 size={14} />
+                Delete Session Log
+              </button>
+
               <PillButton variant="outline" onClick={() => setSelectedVisitor(null)}>
                 Close Window
               </PillButton>

@@ -38,6 +38,12 @@ function generateId(prefix: string): string {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 }
 
+export function clearVisitorSession(): void {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem(VISITOR_ID_KEY);
+  sessionStorage.removeItem(SESSION_ID_KEY);
+}
+
 export function getOrCreateVisitorId(): string {
   if (typeof window === 'undefined') return 'server';
   let visitorId = localStorage.getItem(VISITOR_ID_KEY);

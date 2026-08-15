@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { Loader2 } from 'lucide-react';
-import { trackVisitorEvent } from '../../lib/visitorTracking';
+import { trackVisitorEvent, clearVisitorSession } from '../../lib/visitorTracking';
 
 export function Login() {
   const { signInWithGoogle, signInWithEmail, signUpWithEmail, sendPasswordReset, user, userData, loading: authLoading } = useAuth();
@@ -54,14 +54,8 @@ export function Login() {
     setMessage(null);
     setIsLoading(true);
     signInWithGoogle()
-      .then((res) => {
-        trackVisitorEvent('Google Account Authentication', {
-          step: 6,
-          stepName: 'Account Created',
-          convertedAccount: true,
-          userEmail: res?.user?.email || '',
-          userName: res?.user?.displayName || '',
-        });
+      .then(() => {
+        clearVisitorSession();
       })
       .catch((err) => {
         console.error(err);
@@ -109,6 +103,7 @@ export function Login() {
             convertedAccount: true,
             userEmail: email,
           });
+          clearVisitorSession();
         })
         .catch((err) => {
           console.error(err);
@@ -118,12 +113,7 @@ export function Login() {
     } else {
       signInWithEmail(email, password)
         .then(() => {
-          trackVisitorEvent('Logged In', {
-            step: 6,
-            stepName: 'Account Created',
-            convertedAccount: true,
-            userEmail: email,
-          });
+          clearVisitorSession();
         })
         .catch((err) => {
           console.error(err);
