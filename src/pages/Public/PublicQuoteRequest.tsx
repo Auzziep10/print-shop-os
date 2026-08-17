@@ -5725,7 +5725,17 @@ export function PublicQuoteRequest() {
                     {matchingProducts.map(prod => {
                       const colors = getFilteredProductColors(prod, catalogSettings.allowedColors);
                       const colorKey = resolveProductDefaultColor(prod, catalogSettings, colors);
-                      const previewImg = getGarmentMockupImage(prod, colorKey, 'front', catalogSettings);
+                      const styleKey = prod.style?.toLowerCase();
+                      const cardPhoto = catalogSettings.cardImages?.[styleKey];
+                      const cardHoverPhoto = catalogSettings.cardHoverImages?.[styleKey];
+                      const frontMockup = getGarmentMockupImage(prod, colorKey, 'front', catalogSettings);
+                      const backMockup = getGarmentMockupImage(prod, colorKey, 'back', catalogSettings);
+
+                      const primarySrc = cardPhoto || frontMockup;
+                      const hoverSrc = (cardHoverPhoto && cardHoverPhoto !== primarySrc)
+                        ? cardHoverPhoto
+                        : (backMockup && backMockup !== frontMockup && backMockup !== primarySrc ? backMockup : null);
+
                       const weightAndFabric = getGarmentWeightAndFabric(prod);
                       const customName = getCustomGarmentName(prod, catalogSettings);
 
@@ -5773,7 +5783,30 @@ export function PublicQuoteRequest() {
                           className="bg-white border border-neutral-200/80 hover:border-neutral-900 rounded-2xl p-4 flex flex-col justify-between group cursor-pointer transition-all shadow-3xs hover:shadow-md hover:-translate-y-0.5"
                         >
                           <div className="aspect-square w-full relative flex items-center justify-center p-2 mb-3 bg-neutral-50 rounded-xl overflow-hidden">
-                            <img src={previewImg} className="max-h-full max-w-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300" alt={prod.title} />
+                            <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
+                              <img
+                                src={primarySrc}
+                                className={`transition-all duration-300 ease-out ${
+                                  hoverSrc ? 'group-hover:opacity-0 group-hover:scale-[1.03]' : 'group-hover:scale-[1.03]'
+                                } ${
+                                  cardPhoto
+                                    ? 'w-full h-full object-cover'
+                                    : 'max-h-full max-w-full object-contain mix-blend-multiply'
+                                }`}
+                                alt={customName || prod.title}
+                              />
+                              {hoverSrc && (
+                                <img
+                                  src={hoverSrc}
+                                  className={`absolute inset-0 opacity-0 group-hover:opacity-100 group-hover:scale-[1.03] transition-all duration-300 ease-out pointer-events-none ${
+                                    hoverSrc === cardHoverPhoto
+                                      ? 'w-full h-full object-cover'
+                                      : 'max-h-full max-w-full object-contain mix-blend-multiply'
+                                  }`}
+                                  alt={`${customName || prod.title} back preview`}
+                                />
+                              )}
+                            </div>
                           </div>
                           <div className="space-y-1">
                             <h4 className="text-sm font-bold text-neutral-900 group-hover:text-neutral-950 truncate">{customName}</h4>
