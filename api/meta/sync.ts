@@ -43,11 +43,11 @@ export default async function handler(req: Request) {
 
     const projectId = 'print-shop-os-f8092';
     let leadsToProcess: any[] = [];
-    let errors: string[] = [];
+    let diagnosticLogs: string[] = [];
 
     // Helper to fetch leads for a specific form ID
     const fetchLeadsForForm = async (fId: string, token: string, formName?: string) => {
-      const url = `https://graph.facebook.com/v19.0/${fId}/leads?access_token=${encodeURIComponent(token)}&limit=50`;
+      const url = `https://graph.facebook.com/v19.0/${fId}/leads?access_token=${encodeURIComponent(token)}&limit=100`;
       const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
@@ -56,10 +56,11 @@ export default async function handler(req: Request) {
           lead._formName = formName || 'Lead Form';
           lead._formId = fId;
         });
+        diagnosticLogs.push(`Form ${fId}: ${items.length} leads found`);
         return items;
       } else {
         const errData = await res.json().catch(() => ({}));
-        errors.push(errData.error?.message || res.statusText);
+        diagnosticLogs.push(`Form ${fId} error: ${errData.error?.message || res.statusText}`);
         return [];
       }
     };
@@ -70,20 +71,25 @@ export default async function handler(req: Request) {
       const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
-        return data.data || [];
+        const forms = data.data || [];
+        diagnosticLogs.push(`Target ${targetId}: ${forms.length} forms found`);
+        return forms;
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        diagnosticLogs.push(`Target ${targetId} forms error: ${errData.error?.message || res.statusText}`);
+        return [];
       }
-      return [];
     };
 
-    // 1. Try Direct Form ID if provided (only if it doesn't look like an ad set ID error)
-    if (formId && formId !== '2160559974672615') {
+    // 1. Direct Form ID Query
+    if (formId) {
       const directLeads = await fetchLeadsForForm(formId, accessToken);
       if (directLeads.length > 0) {
         leadsToProcess.push(...directLeads);
       }
     }
 
-    // 2. Try Auto-Discovery on Page IDs ('1212784378585087', pageId, 'me')
+    // 2. Page Form Auto-Discovery
     if (leadsToProcess.length === 0) {
       const targets = Array.from(new Set([pageId, '1212784378585087', 'me'])).filter(Boolean);
       for (const target of targets) {
@@ -96,7 +102,7 @@ export default async function handler(req: Request) {
       }
     }
 
-    // 3. If User Access Token was provided, try fetching User's Pages (/me/accounts) to find Page tokens
+    // 3. User Accounts Page Fallback
     if (leadsToProcess.length === 0) {
       const accountsUrl = `https://graph.facebook.com/v19.0/me/accounts?access_token=${encodeURIComponent(accessToken)}`;
       const accountsRes = await fetch(accountsUrl);
@@ -113,13 +119,6 @@ export default async function handler(req: Request) {
           }
         }
       }
-    }
-
-    // If still no leads and we received errors from Meta, report clean message
-    if (leadsToProcess.length === 0 && errors.length > 0 && !formId.includes('2160559974672615')) {
-      return new Response(JSON.stringify({
-        error: `Meta API notice: ${errors[0]}. Please check your Page Access Token for INKTHEORY.studio.`
-      }), { status: 400 });
     }
 
     let syncedCount = 0;
@@ -177,10 +176,14 @@ export default async function handler(req: Request) {
       if (saveRes.ok) syncedCount++;
     }
 
+    const diagSummary = diagnosticLogs.join(' | ');
+
     return new Response(JSON.stringify({
       success: true,
       syncedCount,
-      message: syncedCount > 0 ? `Successfully synced ${syncedCount} leads from Meta!` : 'Sync complete! No new lead form submissions found on Meta.'
+      message: syncedCount > 0 
+        ? `Successfully synced ${syncedCount} leads from Meta!` 
+        : `Sync complete. Status: ${diagSummary || 'No lead submissions returned from Meta.'}`
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }
