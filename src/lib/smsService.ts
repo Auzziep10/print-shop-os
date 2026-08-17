@@ -1,4 +1,4 @@
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db, auth } from './firebase';
 
 function normalizePhoneNumber(phone: string): string {
@@ -194,3 +194,75 @@ export async function sendCustomerWelcomeSMS(customerId: string) {
     console.error('[SMS Service] Error in sendCustomerWelcomeSMS:', error);
   }
 }
+
+export async function sendMetaLeadSMS(lead: { leadId?: string; id?: string; phone: string; name?: string; email?: string; adName?: string }, customMessage?: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const rawPhone = lead.phone || '';
+    const normalizedPhone = normalizePhoneNumber(rawPhone);
+    if (!normalizedPhone) {
+      return { success: false, error: 'Lead does not have a valid phone number.' };
+    }
+
+    let content = customMessage || '';
+    if (!content) {
+      const metaSnap = await getDoc(doc(db, 'settings', 'meta'));
+      if (metaSnap.exists()) {
+        content = metaSnap.data().smsTemplate || '';
+      }
+      if (!content) {
+        content = 'Hi {leadName}, thank you for inquiring via our Meta ad! How can we help with your custom order?';
+      }
+    }
+
+    // Replace lead variables
+    content = content.replace(/{leadName}/g, lead.name || 'there');
+    content = content.replace(/{adName}/g, lead.adName || 'our ad');
+    content = content.replace(/{email}/g, lead.email || '');
+
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      return { success: false, error: 'You must be logged in to send SMS.' };
+    }
+    const idToken = await currentUser.getIdToken();
+
+    const response = await fetch('/api/sms/send', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${idToken}`
+      },
+      body: JSON.stringify({
+        to: normalizedPhone,
+        content
+      })
+    });
+
+    const result = await response.json();
+    if (!response.ok) {
+      const errorMsg = result.error || result.details || 'Failed to send SMS';
+      const targetId = lead.leadId || lead.id;
+      if (targetId) {
+        await updateDoc(doc(db, 'meta_leads', targetId), {
+          smsStatus: 'failed',
+          lastError: errorMsg
+        }).catch(() => {});
+      }
+      return { success: false, error: errorMsg };
+    }
+
+    const targetId = lead.leadId || lead.id;
+    if (targetId) {
+      await updateDoc(doc(db, 'meta_leads', targetId), {
+        smsStatus: 'sent',
+        smsSentAt: new Date().toISOString(),
+        lastMessage: content
+      }).catch(() => {});
+    }
+
+    return { success: true };
+  } catch (error: any) {
+    console.error('[SMS Service] Error in sendMetaLeadSMS:', error);
+    return { success: false, error: error.message || 'Unknown error sending SMS.' };
+  }
+}
+

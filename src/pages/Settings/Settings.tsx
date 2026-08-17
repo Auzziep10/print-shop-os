@@ -12,6 +12,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useSearchParams } from 'react-router-dom';
 import { AhaSendTab } from './AhaSendTab';
 import { QuoTab } from './QuoTab';
+import { MetaAdsTab } from './MetaAdsTab';
 import { DtfPricingSettingsTab } from './DtfPricingSettingsTab';
 
 export function Settings() {
@@ -101,6 +102,16 @@ export function Settings() {
               App Links & Integrations
             </button>
             <button
+              onClick={() => setActiveTab('meta-ads')}
+              className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+                activeTab === 'meta-ads' 
+                  ? 'bg-brand-primary text-white' 
+                  : 'text-brand-secondary hover:bg-brand-bg hover:text-brand-primary'
+              }`}
+            >
+              Meta Lead Ads Integration
+            </button>
+            <button
               onClick={() => setActiveTab('storefront-catalog')}
               className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
                 activeTab === 'storefront-catalog' 
@@ -170,6 +181,7 @@ export function Settings() {
           {activeTab === 'business' && <BusinessTab />}
           {activeTab === 'pricing' && <DtfPricingSettingsTab />}
           {activeTab === 'apps' && <AppsTab />}
+          {activeTab === 'meta-ads' && <MetaAdsTab />}
           {activeTab === 'storefront-catalog' && <StorefrontCatalogTab />}
           {activeTab === 'brand-shop' && <ShopManagerTab />}
           {activeTab === 'discounts' && <DiscountCodesTab />}
