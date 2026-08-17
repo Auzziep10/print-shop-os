@@ -65,9 +65,8 @@ export default async function handler(req: Request) {
       }
     };
 
-    // Helper to fetch forms for a given target ID (Page ID or 'me')
+    // Helper to fetch forms for a given target ID (Page ID or 'me') using a specific token
     const fetchFormsForTarget = async (targetId: string, token: string) => {
-      // 1. Try standard leadgen_forms endpoint
       let url = `https://graph.facebook.com/v19.0/${targetId}/leadgen_forms?access_token=${encodeURIComponent(token)}`;
       let res = await fetch(url);
       if (res.ok) {
@@ -77,7 +76,6 @@ export default async function handler(req: Request) {
         return forms;
       }
 
-      // 2. Try fields expansion endpoint (?fields=leadgen_forms)
       url = `https://graph.facebook.com/v19.0/${targetId}?fields=leadgen_forms{id,name}&access_token=${encodeURIComponent(token)}`;
       res = await fetch(url);
       if (res.ok) {
@@ -92,42 +90,42 @@ export default async function handler(req: Request) {
       }
     };
 
-    // 1. Direct Form ID Query
+    // Step 1: Query User Accounts (/me/accounts) to convert User Token into Page Access Tokens
+    const pageTokensMap: Record<string, string> = {};
+    const accountsUrl = `https://graph.facebook.com/v19.0/me/accounts?access_token=${encodeURIComponent(accessToken)}`;
+    const accountsRes = await fetch(accountsUrl);
+    if (accountsRes.ok) {
+      const accountsData = await accountsRes.json();
+      const pages = accountsData.data || [];
+      diagnosticLogs.push(`User Accounts: found ${pages.length} managed pages`);
+      for (const p of pages) {
+        if (p.id && p.access_token) {
+          pageTokensMap[p.id] = p.access_token;
+        }
+      }
+    } else {
+      const errData = await accountsRes.json().catch(() => ({}));
+      diagnosticLogs.push(`User Accounts query: ${errData.error?.message || accountsRes.statusText}`);
+    }
+
+    // Step 2: Direct Form ID query using available page token or fallback user token
     if (formId) {
-      const directLeads = await fetchLeadsForForm(formId, accessToken);
+      const activeToken = pageTokensMap[pageId] || accessToken;
+      const directLeads = await fetchLeadsForForm(formId, activeToken);
       if (directLeads.length > 0) {
         leadsToProcess.push(...directLeads);
       }
     }
 
-    // 2. Page Form Auto-Discovery
+    // Step 3: Query Page Lead Forms using Page Access Tokens
     if (leadsToProcess.length === 0) {
-      const targets = Array.from(new Set([pageId, '1212784378585087', 'me'])).filter(Boolean);
-      for (const target of targets) {
-        if (leadsToProcess.length > 0) break;
-        const forms = await fetchFormsForTarget(target, accessToken);
+      const pageTargets = Array.from(new Set([pageId, '1212784378585087', ...Object.keys(pageTokensMap)])).filter(Boolean);
+      for (const target of pageTargets) {
+        const pToken = pageTokensMap[target] || accessToken;
+        const forms = await fetchFormsForTarget(target, pToken);
         for (const f of forms) {
-          const fLeads = await fetchLeadsForForm(f.id, accessToken, f.name);
+          const fLeads = await fetchLeadsForForm(f.id, pToken, f.name);
           leadsToProcess.push(...fLeads);
-        }
-      }
-    }
-
-    // 3. User Accounts Page Fallback
-    if (leadsToProcess.length === 0) {
-      const accountsUrl = `https://graph.facebook.com/v19.0/me/accounts?access_token=${encodeURIComponent(accessToken)}`;
-      const accountsRes = await fetch(accountsUrl);
-      if (accountsRes.ok) {
-        const accountsData = await accountsRes.json();
-        const pages = accountsData.data || [];
-        for (const p of pages) {
-          if (leadsToProcess.length > 0) break;
-          const pToken = p.access_token || accessToken;
-          const pForms = await fetchFormsForTarget(p.id, pToken);
-          for (const f of pForms) {
-            const fLeads = await fetchLeadsForForm(f.id, pToken, f.name);
-            leadsToProcess.push(...fLeads);
-          }
         }
       }
     }
