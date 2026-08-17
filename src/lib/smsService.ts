@@ -210,20 +210,15 @@ export async function sendMetaLeadSMS(
     let content = customMessage || '';
     let finalMediaUrl = mediaUrl;
 
-    if (!content || finalMediaUrl === undefined) {
-      const metaSnap = await getDoc(doc(db, 'settings', 'meta'));
-      if (metaSnap.exists()) {
-        const data = metaSnap.data();
-        if (!content) {
-          content = data.smsTemplate || '';
-        }
-        if (finalMediaUrl === undefined) {
-          finalMediaUrl = data.smsMediaUrl || '';
-        }
-      }
-      if (!content) {
-        content = 'Hi {leadName}, thank you for inquiring via our Meta ad! How can we help with your custom order?';
-      }
+    const metaSnap = await getDoc(doc(db, 'settings', 'meta'));
+    const metaData = metaSnap.exists() ? metaSnap.data() : {};
+
+    if (!content) {
+      content = metaData.smsTemplate || 'Left you a VM!\n\nYou can get started with just a few clicks at www.inktheory.studio by clicking the START button.\n\nIn the meantime, I\'m here if you have any questions or need help getting started!\n\n✌️ Jason (not ai or bot)\nINKTHEORY Customer Service';
+    }
+
+    if (!finalMediaUrl) {
+      finalMediaUrl = metaData.smsMediaUrl || 'https://images.squarespace-cdn.com/content/v1/640b79f64c676766ebf04df5/1678500000000-sample/tutorial.gif';
     }
 
     // Replace lead variables

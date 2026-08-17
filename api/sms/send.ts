@@ -61,9 +61,16 @@ export default async function handler(req: Request) {
     };
 
     if (mediaUrl) {
-      openPhonePayload.media = [{ url: mediaUrl }];
+      const mediaItemObj = typeof mediaUrl === 'string' ? { url: mediaUrl } : mediaUrl;
+      const mediaItemStr = typeof mediaUrl === 'string' ? mediaUrl : (mediaUrl as any)?.url;
+
+      openPhonePayload.media = [mediaItemObj];
+      openPhonePayload.attachments = [mediaItemObj];
+      openPhonePayload.mediaUrls = [mediaItemStr];
+      openPhonePayload.mediaUrl = mediaItemStr;
     } else if (Array.isArray(media) && media.length > 0) {
       openPhonePayload.media = media;
+      openPhonePayload.attachments = media;
     }
 
     // 3. Send the request to OpenPhone/QUO API
