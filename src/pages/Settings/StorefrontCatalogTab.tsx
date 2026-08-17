@@ -690,6 +690,33 @@ export function StorefrontCatalogTab() {
     return matches;
   };
 
+  // Inline rack assignment state in Garment Types view
+  const [assigningRackStyle, setAssigningRackStyle] = useState<string | null>(null);
+  const [selectedAssignCategory, setSelectedAssignCategory] = useState('Athleisure');
+  const [selectedAssignSlot, setSelectedAssignSlot] = useState('shirt');
+
+  const handleAssignGarmentToRack = (style: string, category: string, slot: string) => {
+    setRacks(prev => {
+      const catMap = { ...(prev[category] || {}) };
+      catMap[slot] = style;
+      return {
+        ...prev,
+        [category]: catMap
+      };
+    });
+  };
+
+  const handleUnassignGarmentFromRack = (category: string, slot: string) => {
+    setRacks(prev => {
+      const catMap = { ...(prev[category] || {}) };
+      delete catMap[slot];
+      return {
+        ...prev,
+        [category]: catMap
+      };
+    });
+  };
+
   // Product selector modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeSelectTarget, setActiveSelectTarget] = useState<{
@@ -2743,25 +2770,114 @@ export function StorefrontCatalogTab() {
                               </div>
                             </div>
 
-                            {/* Rack Collections Assignment Badges */}
-                            <div className="bg-neutral-50 border border-neutral-200/80 rounded-xl p-2.5 space-y-1.5">
-                              <span className="text-[9px] font-extrabold uppercase tracking-wider text-neutral-400 block">
-                                Rack Collections Assignment
-                              </span>
+                            {/* Rack Collections Assignment Box (Interactive) */}
+                            <div className="bg-neutral-50 border border-neutral-200/80 rounded-xl p-2.5 space-y-2">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[9px] font-extrabold uppercase tracking-wider text-neutral-400 block">
+                                  Rack Collections Assignment
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (assigningRackStyle === p.style) {
+                                      setAssigningRackStyle(null);
+                                    } else {
+                                      setAssigningRackStyle(p.style);
+                                      const firstCat = Object.keys(racks)[0] || 'Athleisure';
+                                      setSelectedAssignCategory(firstCat);
+                                      const slots = Object.keys(racks[firstCat] || {});
+                                      setSelectedAssignSlot(slots[0] || 'shirt');
+                                    }
+                                  }}
+                                  className="text-[10px] font-bold text-brand-primary hover:text-neutral-900 flex items-center gap-1 cursor-pointer bg-white border border-brand-border px-1.5 py-0.5 rounded-md hover:bg-neutral-100 transition-colors shadow-3xs"
+                                >
+                                  <Plus size={10} />
+                                  <span>Assign to Rack</span>
+                                </button>
+                              </div>
+
                               {rackAssignments.length > 0 ? (
                                 <div className="flex flex-wrap gap-1.5">
                                   {rackAssignments.map((a, aIdx) => (
                                     <span
                                       key={aIdx}
-                                      className="text-[10px] font-extrabold text-brand-primary bg-white border border-brand-border px-2 py-0.5 rounded-md shadow-3xs flex items-center gap-1"
+                                      className="text-[10px] font-extrabold text-brand-primary bg-white border border-brand-border pl-2 pr-1 py-0.5 rounded-md shadow-3xs flex items-center gap-1 group/badge"
                                     >
                                       <span className="text-neutral-400">{a.category}:</span>
                                       <span>{a.slot}</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleUnassignGarmentFromRack(a.category, a.slot)}
+                                        className="text-neutral-400 hover:text-red-600 p-0.5 rounded hover:bg-red-50 transition-colors cursor-pointer"
+                                        title={`Remove from ${a.category} (${a.slot})`}
+                                      >
+                                        <X size={10} />
+                                      </button>
                                     </span>
                                   ))}
                                 </div>
                               ) : (
                                 <p className="text-[10px] text-neutral-400 italic">Not assigned to any rack collection slot</p>
+                              )}
+
+                              {/* Inline Assign to Rack Popover */}
+                              {assigningRackStyle === p.style && (
+                                <div className="pt-2 border-t border-neutral-200/80 space-y-2 animate-in fade-in duration-150">
+                                  <div className="grid grid-cols-2 gap-1.5">
+                                    <div>
+                                      <label className="text-[8.5px] font-extrabold uppercase text-neutral-400 block mb-0.5">Collection</label>
+                                      <select
+                                        value={selectedAssignCategory}
+                                        onChange={(e) => {
+                                          const cat = e.target.value;
+                                          setSelectedAssignCategory(cat);
+                                          const availableSlots = Object.keys(racks[cat] || {});
+                                          if (availableSlots.length > 0 && !availableSlots.includes(selectedAssignSlot)) {
+                                            setSelectedAssignSlot(availableSlots[0]);
+                                          }
+                                        }}
+                                        className="w-full bg-white border border-brand-border rounded-lg px-2 py-1 text-[11px] font-bold text-brand-primary focus:outline-none cursor-pointer"
+                                      >
+                                        {Object.keys(racks).map(catName => (
+                                          <option key={catName} value={catName}>{catName}</option>
+                                        ))}
+                                      </select>
+                                    </div>
+
+                                    <div>
+                                      <label className="text-[8.5px] font-extrabold uppercase text-neutral-400 block mb-0.5">Slot</label>
+                                      <select
+                                        value={selectedAssignSlot}
+                                        onChange={(e) => setSelectedAssignSlot(e.target.value)}
+                                        className="w-full bg-white border border-brand-border rounded-lg px-2 py-1 text-[11px] font-bold text-brand-primary focus:outline-none cursor-pointer"
+                                      >
+                                        {Object.keys(racks[selectedAssignCategory] || {}).map(slotName => (
+                                          <option key={slotName} value={slotName}>{slotName}</option>
+                                        ))}
+                                      </select>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex justify-end gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => setAssigningRackStyle(null)}
+                                      className="px-2 py-1 text-[10px] font-bold text-neutral-500 hover:text-neutral-700 cursor-pointer"
+                                    >
+                                      Cancel
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        handleAssignGarmentToRack(p.style, selectedAssignCategory, selectedAssignSlot);
+                                        setAssigningRackStyle(null);
+                                      }}
+                                      className="px-2.5 py-1 text-[10px] font-bold text-white bg-brand-primary hover:bg-neutral-900 rounded-lg shadow-2xs transition-colors cursor-pointer"
+                                    >
+                                      Assign Slot
+                                    </button>
+                                  </div>
+                                </div>
                               )}
                             </div>
 
