@@ -25,7 +25,8 @@ import {
   MessageSquare,
   AlertCircle,
   Mail,
-  Phone
+  Phone,
+  PhoneCall
 } from 'lucide-react';
 
 const FUNNEL_STAGES = [
@@ -250,6 +251,28 @@ export function VisitorFunnelPage() {
     } finally {
       setSendingModalSms(false);
     }
+  };
+
+  // Trigger Phone Call to Lead
+  const handleCallLead = async (lead: MetaLead, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (!lead.phone) {
+      alert('This lead does not have a valid phone number attached.');
+      return;
+    }
+
+    const cleanPhone = lead.phone.replace(/[^0-9+]/g, '');
+
+    try {
+      await setDoc(doc(db, 'meta_leads', lead.id), {
+        callStatus: 'called',
+        lastCalledAt: new Date().toISOString()
+      }, { merge: true });
+    } catch (err) {
+      console.error('Error logging call status:', err);
+    }
+
+    window.location.href = `tel:${cleanPhone}`;
   };
 
   // Web Visitor Filtering
@@ -858,10 +881,22 @@ export function VisitorFunnelPage() {
 
                         {/* Phone & Email */}
                         <td className="py-3.5 px-4 text-brand-secondary">
-                          <div className="flex items-center gap-1 text-brand-primary font-mono">
-                            <Phone size={12} className="text-brand-muted" />
-                            {lead.phone || <span className="text-brand-muted italic font-sans">No Phone</span>}
-                          </div>
+                          {lead.phone ? (
+                            <a
+                              href={`tel:${lead.phone}`}
+                              onClick={(e) => handleCallLead(lead, e)}
+                              className="inline-flex items-center gap-1.5 text-emerald-700 hover:text-emerald-800 font-semibold font-mono hover:underline group"
+                              title="Click to Call via OpenPhone / System Dialer"
+                            >
+                              <PhoneCall size={13} className="text-emerald-600 group-hover:scale-110 transition-transform" />
+                              {lead.phone}
+                            </a>
+                          ) : (
+                            <div className="flex items-center gap-1 text-brand-muted italic font-sans">
+                              <Phone size={12} />
+                              No Phone
+                            </div>
+                          )}
                           <div className="flex items-center gap-1 text-[11px] text-brand-muted mt-0.5 truncate max-w-[200px]">
                             <Mail size={12} className="shrink-0" />
                             {lead.email || 'No email'}
@@ -901,9 +936,19 @@ export function VisitorFunnelPage() {
                           )}
                         </td>
 
-                        {/* Manual SMS Action Button */}
+                        {/* Manual Action Buttons (Call & SMS) */}
                         <td className="py-3.5 px-4 text-right">
                           <div className="inline-flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              onClick={(e) => handleCallLead(lead, e)}
+                              disabled={!lead.phone}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-all shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                              title={`Call ${lead.name} (${lead.phone})`}
+                            >
+                              <PhoneCall size={13} />
+                              Call
+                            </button>
+
                             <button
                               onClick={(e) => handleOpenSmsModal(lead, e)}
                               disabled={sendingModalSms || !lead.phone}
@@ -911,14 +956,14 @@ export function VisitorFunnelPage() {
                                 lead.smsStatus === 'sent'
                                   ? 'bg-slate-100 text-brand-primary hover:bg-slate-200 border border-slate-200'
                                   : 'bg-brand-primary text-white hover:bg-black'
-                              } disabled:opacity-50 disabled:cursor-not-allowed`}
+                              } disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer`}
                             >
                               {sendingModalSms && smsModalLead?.id === lead.id ? (
                                 <Loader2 size={14} className="animate-spin" />
                               ) : (
                                 <Send size={13} />
                               )}
-                              {lead.smsStatus === 'sent' ? 'Resend SMS & GIF' : 'Send SMS & GIF via Quo'}
+                              {lead.smsStatus === 'sent' ? 'Resend Text & GIF' : 'Text & GIF'}
                             </button>
 
                             <button
@@ -1092,6 +1137,16 @@ export function VisitorFunnelPage() {
               </button>
 
               <div className="flex items-center gap-2">
+                <PillButton
+                  variant="filled"
+                  onClick={(e) => handleCallLead(selectedLead, e)}
+                  disabled={!selectedLead.phone}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                >
+                  <PhoneCall size={14} className="mr-1.5" />
+                  Call Lead
+                </PillButton>
+
                 <PillButton
                   variant="filled"
                   onClick={(e) => {
