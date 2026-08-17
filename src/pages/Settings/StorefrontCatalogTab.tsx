@@ -641,6 +641,7 @@ export function StorefrontCatalogTab() {
   // Optional storefront browse-card photo per style. Purely cosmetic: color
   // mockups, placement boxes, and pricing are untouched by this.
   const [cardImages, setCardImages] = useState<Record<string, string>>({});
+  const [cardHoverImages, setCardHoverImages] = useState<Record<string, string>>({});
   // Fit shown on storefront cards: Fitted · Standard · Loose (selected one bold)
   const [garmentFits, setGarmentFits] = useState<Record<string, string>>({});
   // True when the catalog failed to load — saving would wipe live data
@@ -738,6 +739,7 @@ export function StorefrontCatalogTab() {
             setShowPublicPlacementGuides(data.showPublicPlacementGuides !== false);
           }
           if (data.cardImages) setCardImages(data.cardImages);
+          if (data.cardHoverImages) setCardHoverImages(data.cardHoverImages);
           if (data.garmentFits) setGarmentFits(data.garmentFits);
           if (data.racksOrder) {
             setRacksOrder(data.racksOrder);
@@ -837,6 +839,7 @@ export function StorefrontCatalogTab() {
         customColors,
         showPublicPlacementGuides,
         cardImages,
+        cardHoverImages,
         garmentFits,
       }));
       alert('Storefront catalog settings saved successfully!');
@@ -1264,6 +1267,17 @@ export function StorefrontCatalogTab() {
     }
   };
 
+  const persistCardHoverImages = async (next: Record<string, string>) => {
+    if (!assertCatalogLoaded('save the secondary card photo')) return;
+    setCardHoverImages(next);
+    try {
+      await writeCatalog({ cardHoverImages: next });
+    } catch (err) {
+      console.error('Error saving storefront secondary card photo:', err);
+      alert('Failed to save the secondary card photo — please try again.');
+    }
+  };
+
   const handleCardImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, style: string) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -1283,46 +1297,112 @@ export function StorefrontCatalogTab() {
     }
   };
 
+  const handleCardHoverImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, style: string) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const styleKey = style.toLowerCase().trim();
+    setUploadingSlotKey(`card_hover_${styleKey}`);
+    try {
+      const storageRef = ref(storage, `storefront_card_hover_images/${styleKey}/${Date.now()}_${file.name}`);
+      await uploadBytes(storageRef, file);
+      const url = await getDownloadURL(storageRef);
+      await persistCardHoverImages({ ...cardHoverImages, [styleKey]: url });
+    } catch (err) {
+      console.error('Secondary card photo upload failed:', err);
+      alert('Upload failed. Please try again.');
+    } finally {
+      setUploadingSlotKey(null);
+      e.target.value = '';
+    }
+  };
+
   const renderCardPhotoControl = (style: string) => {
     const styleKey = style.toLowerCase().trim();
-    const current = cardImages[styleKey];
-    const isUploading = uploadingSlotKey === `card_${styleKey}`;
+    const currentPrimary = cardImages[styleKey];
+    const currentHover = cardHoverImages[styleKey];
+    const isUploadingPrimary = uploadingSlotKey === `card_${styleKey}`;
+    const isUploadingHover = uploadingSlotKey === `card_hover_${styleKey}`;
+
     return (
-      <div>
-        <label className="text-[9px] font-extrabold uppercase tracking-wider text-neutral-400 block mb-1">
-          Storefront Card Photo (optional)
+      <div className="space-y-1">
+        <label className="text-[9px] font-extrabold uppercase tracking-wider text-neutral-400 block">
+          Storefront Card Photos (optional)
         </label>
-        <div className="flex items-center gap-2">
-          <div className="w-12 h-12 shrink-0 rounded-lg border border-brand-border bg-checkerboard overflow-hidden flex items-center justify-center">
-            {current ? (
-              <img src={current} alt="Card" className="max-w-full max-h-full object-contain" />
-            ) : (
-              <ImageIcon size={14} className="text-neutral-400" />
-            )}
-          </div>
-          <label className="flex-1 cursor-pointer">
-            <input type="file" accept="image/*" className="hidden" onChange={(e) => handleCardImageUpload(e, style)} />
-            <div className="w-full text-center bg-white border border-brand-border hover:border-brand-primary rounded-xl py-1.5 text-[10px] font-bold text-brand-primary transition-colors">
-              {isUploading ? 'Uploading…' : current ? 'Replace Photo' : 'Upload Photo'}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {/* Primary Photo */}
+          <div>
+            <span className="text-[9px] font-semibold text-neutral-500 block mb-1">
+              Primary Photo
+            </span>
+            <div className="flex items-center gap-2">
+              <div className="w-10 h-10 shrink-0 rounded-lg border border-brand-border bg-checkerboard overflow-hidden flex items-center justify-center">
+                {currentPrimary ? (
+                  <img src={currentPrimary} alt="Primary Card" className="max-w-full max-h-full object-contain" />
+                ) : (
+                  <ImageIcon size={14} className="text-neutral-400" />
+                )}
+              </div>
+              <label className="flex-1 cursor-pointer">
+                <input type="file" accept="image/*" className="hidden" onChange={(e) => handleCardImageUpload(e, style)} />
+                <div className="w-full text-center bg-white border border-brand-border hover:border-brand-primary rounded-xl py-1.5 text-[10px] font-bold text-brand-primary transition-colors">
+                  {isUploadingPrimary ? 'Uploading…' : currentPrimary ? 'Replace' : 'Upload Primary'}
+                </div>
+              </label>
+              {currentPrimary && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = { ...cardImages };
+                    delete next[styleKey];
+                    persistCardImages(next);
+                  }}
+                  className="p-1.5 text-neutral-400 hover:text-red-600 transition-colors cursor-pointer"
+                  title="Remove primary photo"
+                >
+                  <Trash2 size={13} />
+                </button>
+              )}
             </div>
-          </label>
-          {current && (
-            <button
-              type="button"
-              onClick={() => {
-                const next = { ...cardImages };
-                delete next[styleKey];
-                persistCardImages(next);
-              }}
-              className="p-1.5 text-neutral-400 hover:text-red-600 transition-colors cursor-pointer"
-              title="Remove card photo (revert to mockup)"
-            >
-              <Trash2 size={13} />
-            </button>
-          )}
+          </div>
+
+          {/* Secondary / Hover Photo */}
+          <div>
+            <span className="text-[9px] font-semibold text-neutral-500 block mb-1">
+              Secondary / Hover Photo
+            </span>
+            <div className="flex items-center gap-2">
+              <div className="w-10 h-10 shrink-0 rounded-lg border border-brand-border bg-checkerboard overflow-hidden flex items-center justify-center">
+                {currentHover ? (
+                  <img src={currentHover} alt="Hover Card" className="max-w-full max-h-full object-contain" />
+                ) : (
+                  <ImageIcon size={14} className="text-neutral-400" />
+                )}
+              </div>
+              <label className="flex-1 cursor-pointer">
+                <input type="file" accept="image/*" className="hidden" onChange={(e) => handleCardHoverImageUpload(e, style)} />
+                <div className="w-full text-center bg-white border border-brand-border hover:border-brand-primary rounded-xl py-1.5 text-[10px] font-bold text-brand-primary transition-colors">
+                  {isUploadingHover ? 'Uploading…' : currentHover ? 'Replace' : 'Upload Secondary'}
+                </div>
+              </label>
+              {currentHover && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = { ...cardHoverImages };
+                    delete next[styleKey];
+                    persistCardHoverImages(next);
+                  }}
+                  className="p-1.5 text-neutral-400 hover:text-red-600 transition-colors cursor-pointer"
+                  title="Remove secondary photo"
+                >
+                  <Trash2 size={13} />
+                </button>
+              )}
+            </div>
+          </div>
         </div>
         <p className="text-[9px] text-neutral-400 mt-1 leading-snug">
-          Shown only on the storefront browse cards. Colors, placement boxes, and pricing keep using the real mockups.
+          Shown on storefront browse cards. On mouse hover, the card will switch to show the secondary image.
         </p>
       </div>
     );

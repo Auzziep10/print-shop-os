@@ -539,6 +539,7 @@ export function PublicQuoteRequest() {
     colorMockups?: Record<string, Record<string, string>>;
     /** Optional storefront browse-card photo per style — display only */
     cardImages?: Record<string, string>;
+    cardHoverImages?: Record<string, string>;
     /** Fit per style: Fitted | Standard | Loose — display only */
     garmentFits?: Record<string, string>;
     customNames?: {
@@ -1155,6 +1156,7 @@ export function PublicQuoteRequest() {
             removeNeckTag: cData.removeNeckTag || {},
             colorMockups: cData.colorMockups || {},
             cardImages: cData.cardImages || {},
+            cardHoverImages: cData.cardHoverImages || {},
             garmentFits: cData.garmentFits || {},
             customMockups: cData.customMockups || { racks: {}, basics: {} },
             customNames: cData.customNames || { racks: {}, basics: {} },
@@ -3591,24 +3593,42 @@ export function PublicQuoteRequest() {
                             </div>
                           </div>
 
-                          <div className="w-full aspect-square overflow-hidden bg-neutral-50/60 flex items-center justify-center mb-3">
+                          <div className="w-full aspect-square overflow-hidden bg-neutral-50/60 flex items-center justify-center mb-3 relative">
                             {(() => {
-                              // Optional storefront card photo (Settings → Storefront
-                              // Catalog). Display only — colors, placements and
-                              // pricing all still use the real mockups.
-                              const cardPhoto = catalogSettings.cardImages?.[item.product.style?.toLowerCase()];
-                              const imgSrc = cardPhoto
-                                || getGarmentMockupImage(item.product, item.color, 'front', catalogSettings, selectedThemeCategory, item.slot);
+                              const styleKey = item.product.style?.toLowerCase();
+                              const cardPhoto = catalogSettings.cardImages?.[styleKey];
+                              const cardHoverPhoto = catalogSettings.cardHoverImages?.[styleKey];
+                              const frontMockup = getGarmentMockupImage(item.product, item.color, 'front', catalogSettings, selectedThemeCategory, item.slot);
+                              const backMockup = getGarmentMockupImage(item.product, item.color, 'back', catalogSettings, selectedThemeCategory, item.slot);
+                              
+                              const primarySrc = cardPhoto || frontMockup;
+                              const hoverSrc = cardHoverPhoto || (cardPhoto ? null : (backMockup !== frontMockup ? backMockup : null));
+
                               return (
-                                <img
-                                  src={imgSrc}
-                                  className={`group-hover:scale-[1.03] transition-transform duration-300 ease-out ${
-                                    cardPhoto
-                                      ? 'w-full h-full object-cover'
-                                      : 'max-h-full max-w-full object-contain mix-blend-multiply p-3'
-                                  }`}
-                                  alt={item.product.style}
-                                />
+                                <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
+                                  <img
+                                    src={primarySrc}
+                                    className={`transition-all duration-300 ease-out ${
+                                      hoverSrc ? 'group-hover:opacity-0 group-hover:scale-[1.03]' : 'group-hover:scale-[1.03]'
+                                    } ${
+                                      cardPhoto
+                                        ? 'w-full h-full object-cover'
+                                        : 'max-h-full max-w-full object-contain mix-blend-multiply p-3'
+                                    }`}
+                                    alt={item.product.style}
+                                  />
+                                  {hoverSrc && (
+                                    <img
+                                      src={hoverSrc}
+                                      className={`absolute inset-0 opacity-0 group-hover:opacity-100 group-hover:scale-[1.03] transition-all duration-300 ease-out pointer-events-none ${
+                                        cardHoverPhoto
+                                          ? 'w-full h-full object-cover'
+                                          : 'max-h-full max-w-full object-contain mix-blend-multiply p-3'
+                                      }`}
+                                      alt={`${item.product.style} back preview`}
+                                    />
+                                  )}
+                                </div>
                               );
                             })()}
                           </div>
@@ -3733,8 +3753,44 @@ export function PublicQuoteRequest() {
                           <span className={`text-[9px] font-bold uppercase tracking-widest ${
                             slot === 'good' ? 'text-neutral-400' : slot === 'better' ? 'text-blue-500' : 'text-emerald-500'
                           }`}>{slot} Option</span>
-                          <div className="aspect-[4/5] bg-transparent rounded-xl flex items-center justify-center p-4">
-                            <img src={previewImg} alt={item.title} className="max-h-full max-w-full object-contain mix-blend-multiply" />
+                          <div className="aspect-[4/5] bg-transparent rounded-xl flex items-center justify-center p-4 relative overflow-hidden">
+                            {(() => {
+                              const styleKey = item.style?.toLowerCase();
+                              const cardPhoto = catalogSettings.cardImages?.[styleKey];
+                              const cardHoverPhoto = catalogSettings.cardHoverImages?.[styleKey];
+                              const frontMockup = getGarmentMockupImage(item, defaultColor, 'front', catalogSettings, selectedBasicsCategory, slot);
+                              const backMockup = getGarmentMockupImage(item, defaultColor, 'back', catalogSettings, selectedBasicsCategory, slot);
+
+                              const primarySrc = cardPhoto || frontMockup;
+                              const hoverSrc = cardHoverPhoto || (cardPhoto ? null : (backMockup !== frontMockup ? backMockup : null));
+
+                              return (
+                                <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
+                                  <img
+                                    src={primarySrc}
+                                    className={`transition-all duration-300 ease-out ${
+                                      hoverSrc ? 'group-hover:opacity-0 group-hover:scale-[1.03]' : 'group-hover:scale-[1.03]'
+                                    } ${
+                                      cardPhoto
+                                        ? 'w-full h-full object-cover'
+                                        : 'max-h-full max-w-full object-contain mix-blend-multiply'
+                                    }`}
+                                    alt={item.title}
+                                  />
+                                  {hoverSrc && (
+                                    <img
+                                      src={hoverSrc}
+                                      className={`absolute inset-0 opacity-0 group-hover:opacity-100 group-hover:scale-[1.03] transition-all duration-300 ease-out pointer-events-none ${
+                                        cardHoverPhoto
+                                          ? 'w-full h-full object-cover'
+                                          : 'max-h-full max-w-full object-contain mix-blend-multiply'
+                                      }`}
+                                      alt={`${item.title} back preview`}
+                                    />
+                                  )}
+                                </div>
+                              );
+                            })()}
                           </div>
                           <div>
                             <h4 className="text-sm font-bold text-neutral-800 truncate">{getCustomGarmentName(item, catalogSettings)}</h4>
@@ -3935,17 +3991,45 @@ export function PublicQuoteRequest() {
                                   </div>
                                 </div>
 
-                                <div className="w-full aspect-square overflow-hidden bg-neutral-50/60 flex items-center justify-center mb-3">
-                                  <img
-                                    src={previewImg}
-                                    className={`group-hover:scale-[1.03] transition-transform duration-300 ease-out ${
-                                      catalogSettings.cardImages?.[item.style?.toLowerCase()]
-                                        ? 'w-full h-full object-cover'
-                                        : 'max-h-full max-w-full object-contain mix-blend-multiply p-3'
-                                    }`}
-                                    alt={customName}
-                                  />
-                                </div>
+                                <div className="w-full aspect-square overflow-hidden bg-neutral-50/60 flex items-center justify-center mb-3 relative">
+                                   {(() => {
+                                     const styleKey = item.style?.toLowerCase();
+                                     const cardPhoto = catalogSettings.cardImages?.[styleKey];
+                                     const cardHoverPhoto = catalogSettings.cardHoverImages?.[styleKey];
+                                     const frontMockup = getGarmentMockupImage(item, colorKey, 'front', catalogSettings);
+                                     const backMockup = getGarmentMockupImage(item, colorKey, 'back', catalogSettings);
+
+                                     const primarySrc = cardPhoto || frontMockup;
+                                     const hoverSrc = cardHoverPhoto || (cardPhoto ? null : (backMockup !== frontMockup ? backMockup : null));
+
+                                     return (
+                                       <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
+                                         <img
+                                           src={primarySrc}
+                                           className={`transition-all duration-300 ease-out ${
+                                             hoverSrc ? 'group-hover:opacity-0 group-hover:scale-[1.03]' : 'group-hover:scale-[1.03]'
+                                           } ${
+                                             cardPhoto
+                                               ? 'w-full h-full object-cover'
+                                               : 'max-h-full max-w-full object-contain mix-blend-multiply p-3'
+                                           }`}
+                                           alt={customName}
+                                         />
+                                         {hoverSrc && (
+                                           <img
+                                             src={hoverSrc}
+                                             className={`absolute inset-0 opacity-0 group-hover:opacity-100 group-hover:scale-[1.03] transition-all duration-300 ease-out pointer-events-none ${
+                                               cardHoverPhoto
+                                                 ? 'w-full h-full object-cover'
+                                                 : 'max-h-full max-w-full object-contain mix-blend-multiply p-3'
+                                             }`}
+                                             alt={`${customName} back preview`}
+                                           />
+                                         )}
+                                       </div>
+                                     );
+                                   })()}
+                                 </div>
 
                                 <div className="flex flex-col flex-1 justify-between gap-1.5 mt-auto text-left">
                                   {/* Title left, colors right on the same line (display only) */}
