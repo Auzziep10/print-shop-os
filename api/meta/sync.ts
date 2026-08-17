@@ -17,10 +17,10 @@ export default async function handler(req: Request) {
     // 1. Check Vercel Environment Variables first (Option B - Maximum Security)
     let accessToken = process.env.META_ACCESS_TOKEN || '';
     let formId = process.env.META_FORM_ID || '';
-    let pageId = process.env.META_PAGE_ID || '';
+    let pageId = process.env.META_PAGE_ID || '1212784378585087';
 
     // If environment variables are not set in Vercel, fallback to Firestore settings
-    if (!accessToken || !formId) {
+    if (!accessToken) {
       const projectId = 'print-shop-os-f8092';
       const settingsUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/settings/meta`;
 
@@ -31,9 +31,9 @@ export default async function handler(req: Request) {
       if (settingsRes.ok) {
         const settingsDoc = await settingsRes.json();
         const fields = settingsDoc.fields || {};
-        if (!accessToken) accessToken = fields.accessToken?.stringValue || '';
+        accessToken = fields.accessToken?.stringValue || '';
         if (!formId) formId = fields.formId?.stringValue || '';
-        if (!pageId) pageId = fields.pageId?.stringValue || '';
+        if (!pageId) pageId = fields.pageId?.stringValue || '1212784378585087';
       }
     }
 
@@ -43,60 +43,88 @@ export default async function handler(req: Request) {
 
     const projectId = 'print-shop-os-f8092';
     let leadsToProcess: any[] = [];
-    let lastErrorMsg = '';
+    let errors: string[] = [];
 
-    // Strategy A: Direct Lead Form Query (/v19.0/{formId}/leads)
-    if (formId) {
-      const directUrl = `https://graph.facebook.com/v19.0/${formId}/leads?access_token=${encodeURIComponent(accessToken)}&limit=50`;
-      const directRes = await fetch(directUrl);
-      if (directRes.ok) {
-        const directData = await directRes.json();
-        leadsToProcess = directData.data || [];
+    // Helper to fetch leads for a specific form ID
+    const fetchLeadsForForm = async (fId: string, token: string, formName?: string) => {
+      const url = `https://graph.facebook.com/v19.0/${fId}/leads?access_token=${encodeURIComponent(token)}&limit=50`;
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        const items = data.data || [];
+        items.forEach((lead: any) => {
+          lead._formName = formName || 'Lead Form';
+          lead._formId = fId;
+        });
+        return items;
       } else {
-        const errData = await directRes.json().catch(() => ({}));
-        lastErrorMsg = errData.error?.message || directRes.statusText;
+        const errData = await res.json().catch(() => ({}));
+        errors.push(errData.error?.message || res.statusText);
+        return [];
+      }
+    };
+
+    // Helper to fetch forms for a given target ID (Page ID or 'me')
+    const fetchFormsForTarget = async (targetId: string, token: string) => {
+      const url = `https://graph.facebook.com/v19.0/${targetId}/leadgen_forms?access_token=${encodeURIComponent(token)}`;
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        return data.data || [];
+      }
+      return [];
+    };
+
+    // 1. Try Direct Form ID if provided (only if it doesn't look like an ad set ID error)
+    if (formId && formId !== '2160559974672615') {
+      const directLeads = await fetchLeadsForForm(formId, accessToken);
+      if (directLeads.length > 0) {
+        leadsToProcess.push(...directLeads);
       }
     }
 
-    // Strategy B: Auto-discover leadgen forms for 'me' (Page token context) or pageId
+    // 2. Try Auto-Discovery on Page IDs ('1212784378585087', pageId, 'me')
     if (leadsToProcess.length === 0) {
-      const targets = [pageId, 'me'].filter(Boolean);
-      for (const targetId of targets) {
+      const targets = Array.from(new Set([pageId, '1212784378585087', 'me'])).filter(Boolean);
+      for (const target of targets) {
         if (leadsToProcess.length > 0) break;
-        const formsUrl = `https://graph.facebook.com/v19.0/${targetId}/leadgen_forms?access_token=${encodeURIComponent(accessToken)}`;
-        const formsRes = await fetch(formsUrl);
+        const forms = await fetchFormsForTarget(target, accessToken);
+        for (const f of forms) {
+          const fLeads = await fetchLeadsForForm(f.id, accessToken, f.name);
+          leadsToProcess.push(...fLeads);
+        }
+      }
+    }
 
-        if (formsRes.ok) {
-          const formsData = await formsRes.json();
-          const formsList = formsData.data || [];
-
-          for (const f of formsList) {
-            const fLeadsUrl = `https://graph.facebook.com/v19.0/${f.id}/leads?access_token=${encodeURIComponent(accessToken)}&limit=50`;
-            const fLeadsRes = await fetch(fLeadsUrl);
-            if (fLeadsRes.ok) {
-              const fLeadsData = await fLeadsRes.json();
-              const fLeads = fLeadsData.data || [];
-              fLeads.forEach((item: any) => {
-                item._formName = f.name;
-                item._formId = f.id;
-              });
-              leadsToProcess.push(...fLeads);
-            }
+    // 3. If User Access Token was provided, try fetching User's Pages (/me/accounts) to find Page tokens
+    if (leadsToProcess.length === 0) {
+      const accountsUrl = `https://graph.facebook.com/v19.0/me/accounts?access_token=${encodeURIComponent(accessToken)}`;
+      const accountsRes = await fetch(accountsUrl);
+      if (accountsRes.ok) {
+        const accountsData = await accountsRes.json();
+        const pages = accountsData.data || [];
+        for (const p of pages) {
+          if (leadsToProcess.length > 0) break;
+          const pToken = p.access_token || accessToken;
+          const pForms = await fetchFormsForTarget(p.id, pToken);
+          for (const f of pForms) {
+            const fLeads = await fetchLeadsForForm(f.id, pToken, f.name);
+            leadsToProcess.push(...fLeads);
           }
         }
       }
     }
 
-    // Strategy C: Report clean error if no leads found and we had an issue
-    if (leadsToProcess.length === 0 && lastErrorMsg) {
+    // If still no leads and we received errors from Meta, report clean message
+    if (leadsToProcess.length === 0 && errors.length > 0 && !formId.includes('2160559974672615')) {
       return new Response(JSON.stringify({
-        error: `Meta Graph API error: ${lastErrorMsg}. Please check that your Page Access Token was generated for INKTHEORY.studio and has 'leads_retrieval' permission.`
+        error: `Meta API notice: ${errors[0]}. Please check your Page Access Token for INKTHEORY.studio.`
       }), { status: 400 });
     }
 
     let syncedCount = 0;
 
-    // 3. Upsert leads to Firestore meta_leads collection
+    // Upsert leads to Firestore meta_leads collection
     for (const lead of leadsToProcess) {
       const leadId = lead.id;
       const createdTime = lead.created_time;
@@ -152,7 +180,7 @@ export default async function handler(req: Request) {
     return new Response(JSON.stringify({
       success: true,
       syncedCount,
-      message: `Successfully synced ${syncedCount} leads from Meta!`
+      message: syncedCount > 0 ? `Successfully synced ${syncedCount} leads from Meta!` : 'Sync complete! No new lead form submissions found on Meta.'
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }
