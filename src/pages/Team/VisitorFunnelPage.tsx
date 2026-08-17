@@ -29,8 +29,6 @@ import {
   PhoneCall,
   Sparkles,
   ArrowUpDown,
-  ArrowUp,
-  ArrowDown,
   Filter,
   Package,
   Zap,
