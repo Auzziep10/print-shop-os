@@ -416,7 +416,7 @@ export function VisitorFunnelPage() {
     }
   };
 
-  // Trigger Phone Call to Lead
+  // Trigger Phone Call to Lead via OpenPhone App or System Dialer
   const handleCallLead = async (lead: MetaLead, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     if (!lead.phone) {
@@ -424,7 +424,10 @@ export function VisitorFunnelPage() {
       return;
     }
 
-    const cleanPhone = lead.phone.replace(/[^0-9+]/g, '');
+    let cleanPhone = lead.phone.replace(/[^0-9+]/g, '');
+    if (!cleanPhone.startsWith('+')) {
+      cleanPhone = cleanPhone.length === 10 ? `+1${cleanPhone}` : `+${cleanPhone}`;
+    }
 
     try {
       await setDoc(doc(db, 'meta_leads', lead.id), {
@@ -435,7 +438,14 @@ export function VisitorFunnelPage() {
       console.error('Error logging call status:', err);
     }
 
-    window.location.href = `tel:${cleanPhone}`;
+    // 1. Try launching OpenPhone / Quo desktop app via custom deep link
+    const openPhoneScheme = `openphone://dial?number=${encodeURIComponent(cleanPhone)}&action=call`;
+    window.location.href = openPhoneScheme;
+
+    // 2. Fallback to system tel: handler
+    setTimeout(() => {
+      window.location.href = `tel:${cleanPhone}`;
+    }, 400);
   };
 
   // Fetch & Open Default SMS & GIF Settings Modal
