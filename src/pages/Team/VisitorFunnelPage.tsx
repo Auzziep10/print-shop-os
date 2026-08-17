@@ -451,6 +451,16 @@ export function VisitorFunnelPage() {
     });
   }, [sessions, timeRange, statusFilter, searchQuery]);
 
+  // Helper to format raw form answers into clean human text (no raw underscores)
+  const formatBadgeText = (text: string): string => {
+    if (!text) return '';
+    return text
+      .replace(/_/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+  };
+
   // Helper to extract specific form question answers from lead.rawFields
   const getLeadAnswer = (lead: MetaLead, fieldKey: 'size' | 'urgency' | 'type'): string => {
     if (!lead.rawFields) return '';
@@ -1133,7 +1143,7 @@ export function VisitorFunnelPage() {
                     >
                       <option value="All">All Sizes</option>
                       {availableFormFilterOptions.sizes.map((s) => (
-                        <option key={s} value={s}>{s}</option>
+                        <option key={s} value={s}>{formatBadgeText(s)}</option>
                       ))}
                     </select>
                   </div>
@@ -1151,7 +1161,7 @@ export function VisitorFunnelPage() {
                     >
                       <option value="All">All Timelines</option>
                       {availableFormFilterOptions.urgencies.map((u) => (
-                        <option key={u} value={u}>{u}</option>
+                        <option key={u} value={u}>{formatBadgeText(u)}</option>
                       ))}
                     </select>
                   </div>
@@ -1169,7 +1179,7 @@ export function VisitorFunnelPage() {
                     >
                       <option value="All">All Categories</option>
                       {availableFormFilterOptions.types.map((t) => (
-                        <option key={t} value={t}>{t}</option>
+                        <option key={t} value={t}>{formatBadgeText(t)}</option>
                       ))}
                     </select>
                   </div>
@@ -1230,32 +1240,32 @@ export function VisitorFunnelPage() {
                           <div className="text-sm font-bold text-slate-900">{lead.name}</div>
                           
                           {/* Key Form Answer Pills */}
-                          <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                          <div className="flex flex-wrap items-center gap-1 mt-1">
                             {getLeadAnswer(lead, 'size') && (
-                              <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 text-[10px] font-bold rounded-md border border-indigo-200 inline-flex items-center gap-1">
-                                <Package size={10} />
-                                {getLeadAnswer(lead, 'size')}
+                              <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 text-[10px] font-bold rounded-full border border-indigo-200 inline-flex items-center gap-1 shadow-2xs">
+                                <Package size={10} className="text-indigo-500" />
+                                {formatBadgeText(getLeadAnswer(lead, 'size'))}
                               </span>
                             )}
 
                             {getLeadAnswer(lead, 'urgency') && (
-                              <span className={`px-2 py-0.5 text-[10px] font-bold rounded-md border inline-flex items-center gap-1 ${
+                              <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full border inline-flex items-center gap-1 shadow-2xs ${
                                 getLeadAnswer(lead, 'urgency').toLowerCase().includes('asap')
-                                  ? 'bg-amber-50 text-amber-800 border-amber-300 font-bold'
+                                  ? 'bg-amber-100/90 text-amber-900 border-amber-300 font-extrabold'
                                   : 'bg-slate-100 text-slate-700 border-slate-200'
                               }`}>
-                                <Zap size={10} />
-                                {getLeadAnswer(lead, 'urgency')}
+                                <Zap size={10} className={getLeadAnswer(lead, 'urgency').toLowerCase().includes('asap') ? 'text-amber-600' : 'text-slate-400'} />
+                                {formatBadgeText(getLeadAnswer(lead, 'urgency'))}
                               </span>
                             )}
 
                             {getLeadAnswer(lead, 'type') && (
-                              <span className="px-2 py-0.5 bg-blue-50 text-blue-800 text-[10px] font-medium rounded-md border border-blue-200">
-                                {getLeadAnswer(lead, 'type')}
+                              <span className="px-2 py-0.5 bg-slate-100 text-slate-700 text-[10px] font-medium rounded-full border border-slate-200 shadow-2xs">
+                                {formatBadgeText(getLeadAnswer(lead, 'type'))}
                               </span>
                             )}
                           </div>
-                          <div className="text-[11px] text-slate-500 font-mono mt-1">ID: {lead.leadId.substring(0, 10)}...</div>
+                          <div className="text-[11px] text-slate-400 font-mono mt-1">ID: {lead.leadId.substring(0, 10)}...</div>
                         </td>
 
                         {/* Phone & Email */}
@@ -1315,24 +1325,24 @@ export function VisitorFunnelPage() {
                           )}
                         </td>
 
-                        {/* Manual Action Buttons (Call & SMS) */}
+                        {/* Manual Action Buttons (Call, Send Default, Customize) */}
                         <td className="py-3.5 px-4 text-right">
-                          <div className="inline-flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                          <div className="inline-flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                             <button
                               onClick={(e) => handleCallLead(lead, e)}
                               disabled={!lead.phone}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-all shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-all shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer h-8"
                               title={`Call ${lead.name} (${lead.phone})`}
                             >
                               <PhoneCall size={13} />
                               Call
                             </button>
 
-                            {/* 1-Click Send Default Text & GIF Button */}
+                            {/* 1-Click Send Default Button */}
                             <button
                               onClick={(e) => handleSendDefaultLeadSms(lead, e)}
                               disabled={sendingLeadId === lead.id || !lead.phone}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition-all shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shrink-0"
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition-all shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shrink-0 h-8"
                               title="Send saved default text message & GIF via Quo instantly with 1-click"
                             >
                               {sendingLeadId === lead.id ? (
@@ -1343,7 +1353,7 @@ export function VisitorFunnelPage() {
                               ) : (
                                 <>
                                   <Sparkles size={13} />
-                                  Send Default Text & GIF
+                                  Send Default
                                 </>
                               )}
                             </button>
@@ -1352,7 +1362,7 @@ export function VisitorFunnelPage() {
                             <button
                               onClick={(e) => handleOpenSmsModal(lead, e)}
                               disabled={sendingModalSms || !lead.phone}
-                              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-white hover:bg-black transition-all shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shrink-0"
+                              className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-white hover:bg-black transition-all shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shrink-0 h-8"
                               title="Customize message before sending"
                             >
                               <Send size={13} />
