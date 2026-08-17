@@ -90,8 +90,21 @@ export default async function handler(req: Request) {
       }
     };
 
-    // Step 1: Query User Accounts (/me/accounts) to convert User Token into Page Access Tokens
-    const pageTokensMap: Record<string, string> = {};
+    // --- AUTOMATIC PAGE TOKEN EXTRACTION ---
+    // Try to fetch Page Access Token directly for INKTHEORY.studio (1212784378585087)
+    let pageSpecificToken = accessToken;
+    const pageTokenUrl = `https://graph.facebook.com/v19.0/${pageId}?fields=access_token,name&access_token=${encodeURIComponent(accessToken)}`;
+    const pageTokenRes = await fetch(pageTokenUrl);
+    if (pageTokenRes.ok) {
+      const pageTokenData = await pageTokenRes.json();
+      if (pageTokenData.access_token) {
+        pageSpecificToken = pageTokenData.access_token;
+        diagnosticLogs.push(`Auto-extracted Page Token for ${pageTokenData.name || pageId}`);
+      }
+    }
+
+    // Step 1: Query User Accounts (/me/accounts) to find Page Access Tokens
+    const pageTokensMap: Record<string, string> = { [pageId]: pageSpecificToken };
     const accountsUrl = `https://graph.facebook.com/v19.0/me/accounts?access_token=${encodeURIComponent(accessToken)}`;
     const accountsRes = await fetch(accountsUrl);
     if (accountsRes.ok) {
@@ -103,14 +116,11 @@ export default async function handler(req: Request) {
           pageTokensMap[p.id] = p.access_token;
         }
       }
-    } else {
-      const errData = await accountsRes.json().catch(() => ({}));
-      diagnosticLogs.push(`User Accounts query: ${errData.error?.message || accountsRes.statusText}`);
     }
 
-    // Step 2: Direct Form ID query using available page token or fallback user token
+    // Step 2: Direct Form ID query using available page token or fallback token
     if (formId) {
-      const activeToken = pageTokensMap[pageId] || accessToken;
+      const activeToken = pageTokensMap[pageId] || pageSpecificToken || accessToken;
       const directLeads = await fetchLeadsForForm(formId, activeToken);
       if (directLeads.length > 0) {
         leadsToProcess.push(...directLeads);
@@ -121,7 +131,7 @@ export default async function handler(req: Request) {
     if (leadsToProcess.length === 0) {
       const pageTargets = Array.from(new Set([pageId, '1212784378585087', ...Object.keys(pageTokensMap)])).filter(Boolean);
       for (const target of pageTargets) {
-        const pToken = pageTokensMap[target] || accessToken;
+        const pToken = pageTokensMap[target] || pageSpecificToken || accessToken;
         const forms = await fetchFormsForTarget(target, pToken);
         for (const f of forms) {
           const fLeads = await fetchLeadsForForm(f.id, pToken, f.name);
