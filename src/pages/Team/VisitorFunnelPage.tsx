@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { collection, onSnapshot, query, orderBy, deleteDoc, doc } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, deleteDoc, doc, setDoc } from 'firebase/firestore';
 import { db, auth } from '../../lib/firebase';
 import { type VisitorSession } from '../../lib/visitorTracking';
 import { tokens } from '../../lib/tokens';
