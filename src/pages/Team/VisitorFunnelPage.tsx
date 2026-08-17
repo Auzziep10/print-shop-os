@@ -27,7 +27,14 @@ import {
   Mail,
   Phone,
   PhoneCall,
-  Sparkles
+  Sparkles,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  Filter,
+  Package,
+  Zap,
+  Building
 } from 'lucide-react';
 
 const FUNNEL_STAGES = [
@@ -77,6 +84,12 @@ export function VisitorFunnelPage() {
   const [selectedLead, setSelectedLead] = useState<MetaLead | null>(null);
   const [leadSearchQuery, setLeadSearchQuery] = useState('');
   const [leadSmsFilter, setLeadSmsFilter] = useState<'All' | 'Text Sent' | 'Uncontacted'>('All');
+
+  // Meta Lead Sorting & Form Answer Filters State
+  const [leadSortBy, setLeadSortBy] = useState<'date_desc' | 'date_asc' | 'name_asc' | 'name_desc' | 'size_desc' | 'urgency_asc'>('date_desc');
+  const [leadSizeFilter, setLeadSizeFilter] = useState<string>('All');
+  const [leadUrgencyFilter, setLeadUrgencyFilter] = useState<string>('All');
+  const [leadTypeFilter, setLeadTypeFilter] = useState<string>('All');
 
   // Interactive SMS Composer Modal State
   const [smsModalLead, setSmsModalLead] = useState<MetaLead | null>(null);
@@ -367,22 +380,121 @@ export function VisitorFunnelPage() {
     });
   }, [sessions, timeRange, statusFilter, searchQuery]);
 
-  // Meta Leads Filtering
+  // Helper to extract specific form question answers from lead.rawFields
+  const getLeadAnswer = (lead: MetaLead, fieldKey: 'size' | 'urgency' | 'type'): string => {
+    if (!lead.rawFields) return '';
+    try {
+      const parsed = JSON.parse(lead.rawFields);
+      for (const key of Object.keys(parsed)) {
+        const lowerKey = key.toLowerCase();
+        const val = String(parsed[key] || '').trim();
+        if (!val) continue;
+
+        if (fieldKey === 'size' && (lowerKey.includes('size') || lowerKey.includes('quantity') || lowerKey.includes('piece') || lowerKey.includes('how_many'))) {
+          return val;
+        }
+        if (fieldKey === 'urgency' && (lowerKey.includes('when') || lowerKey.includes('timeline') || lowerKey.includes('urgency') || lowerKey.includes('next_order'))) {
+          return val;
+        }
+        if (fieldKey === 'type' && (lowerKey.includes('describe') || lowerKey.includes('business') || lowerKey.includes('type') || lowerKey.includes('who'))) {
+          return val;
+        }
+      }
+    } catch (e) {}
+    return '';
+  };
+
+  // Auto-discover unique form filter choices from captured leads
+  const availableFormFilterOptions = useMemo(() => {
+    const sizes = new Set<string>();
+    const urgencies = new Set<string>();
+    const types = new Set<string>();
+
+    metaLeads.forEach((lead) => {
+      const sizeVal = getLeadAnswer(lead, 'size');
+      if (sizeVal) sizes.add(sizeVal);
+
+      const urgencyVal = getLeadAnswer(lead, 'urgency');
+      if (urgencyVal) urgencies.add(urgencyVal);
+
+      const typeVal = getLeadAnswer(lead, 'type');
+      if (typeVal) types.add(typeVal);
+    });
+
+    return {
+      sizes: Array.from(sizes).sort(),
+      urgencies: Array.from(urgencies).sort(),
+      types: Array.from(types).sort()
+    };
+  }, [metaLeads]);
+
+  // Meta Leads Filtering & Sorting
   const filteredMetaLeads = useMemo(() => {
-    return metaLeads.filter((lead) => {
+    let list = metaLeads.filter((lead) => {
       if (leadSmsFilter === 'Text Sent' && lead.smsStatus !== 'sent') return false;
       if (leadSmsFilter === 'Uncontacted' && lead.smsStatus === 'sent') return false;
+
+      // Filter by Form Answers
+      if (leadSizeFilter !== 'All') {
+        const sizeVal = getLeadAnswer(lead, 'size');
+        if (sizeVal !== leadSizeFilter) return false;
+      }
+
+      if (leadUrgencyFilter !== 'All') {
+        const urgencyVal = getLeadAnswer(lead, 'urgency');
+        if (urgencyVal !== leadUrgencyFilter) return false;
+      }
+
+      if (leadTypeFilter !== 'All') {
+        const typeVal = getLeadAnswer(lead, 'type');
+        if (typeVal !== leadTypeFilter) return false;
+      }
+
+      // Search Query
       if (leadSearchQuery.trim()) {
         const q = leadSearchQuery.toLowerCase();
         const matchesName = lead.name?.toLowerCase().includes(q);
         const matchesEmail = lead.email?.toLowerCase().includes(q);
         const matchesPhone = lead.phone?.toLowerCase().includes(q);
         const matchesAd = lead.adName?.toLowerCase().includes(q);
-        if (!matchesName && !matchesEmail && !matchesPhone && !matchesAd) return false;
+        const matchesRaw = lead.rawFields?.toLowerCase().includes(q);
+        if (!matchesName && !matchesEmail && !matchesPhone && !matchesAd && !matchesRaw) return false;
       }
+
       return true;
     });
-  }, [metaLeads, leadSmsFilter, leadSearchQuery]);
+
+    // Multi-Criteria Sorting
+    list.sort((a, b) => {
+      if (leadSortBy === 'date_desc') {
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      }
+      if (leadSortBy === 'date_asc') {
+        return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      }
+      if (leadSortBy === 'name_asc') {
+        return (a.name || '').localeCompare(b.name || '');
+      }
+      if (leadSortBy === 'name_desc') {
+        return (b.name || '').localeCompare(a.name || '');
+      }
+      if (leadSortBy === 'size_desc') {
+        const numA = parseInt((getLeadAnswer(a, 'size').match(/\d+/) || ['0'])[0], 10);
+        const numB = parseInt((getLeadAnswer(b, 'size').match(/\d+/) || ['0'])[0], 10);
+        return numB - numA;
+      }
+      if (leadSortBy === 'urgency_asc') {
+        const urgA = getLeadAnswer(a, 'urgency').toLowerCase();
+        const urgB = getLeadAnswer(b, 'urgency').toLowerCase();
+        const rankA = urgA.includes('asap') ? 1 : urgA.includes('week') ? 2 : 3;
+        const rankB = urgB.includes('asap') ? 1 : urgB.includes('week') ? 2 : 3;
+        return rankA - rankB;
+      }
+      return 0;
+    });
+
+    return list;
+  }, [metaLeads, leadSmsFilter, leadSearchQuery, leadSortBy, leadSizeFilter, leadUrgencyFilter, leadTypeFilter]);
 
   // Web Visitor Funnel Metrics
   const totalVisitors = filteredSessions.length;
@@ -851,7 +963,7 @@ export function VisitorFunnelPage() {
           {/* Meta Leads Table Container */}
           <div className="bg-white border border-brand-border rounded-xl shadow-xs overflow-hidden">
             {/* Header Controls & Manual Sync Button */}
-            <div className="p-4 sm:p-5 border-b border-brand-border flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+            <div className="p-4 sm:p-5 border-b border-slate-200 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
               <div className="flex items-center gap-3">
                 <h2 className="text-base font-serif font-semibold text-brand-primary">Meta Form Leads</h2>
                 <span className="text-xs font-medium px-2.5 py-0.5 bg-slate-100 text-brand-secondary rounded-full border border-slate-200">
@@ -865,7 +977,7 @@ export function VisitorFunnelPage() {
                   <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-muted" />
                   <input
                     type="text"
-                    placeholder="Search name, phone, email..."
+                    placeholder="Search name, phone, email, answers..."
                     value={leadSearchQuery}
                     onChange={(e) => setLeadSearchQuery(e.target.value)}
                     className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-brand-border rounded-lg text-xs text-brand-primary focus:outline-none focus:border-brand-primary transition-colors"
@@ -912,6 +1024,105 @@ export function VisitorFunnelPage() {
               </div>
             </div>
 
+            {/* Form Answer Sorting & Filtering Toolbar */}
+            <div className="px-4 py-3 bg-slate-50/90 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs">
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5 text-[11px]">
+                  <Filter size={13} className="text-blue-600" />
+                  Sort & Filter Form Answers:
+                </span>
+
+                {/* Sort By Dropdown */}
+                <div className="flex items-center gap-1.5 bg-white border border-slate-300 rounded-lg px-2.5 py-1 shadow-2xs">
+                  <ArrowUpDown size={13} className="text-slate-500" />
+                  <span className="font-semibold text-slate-700 text-[11px]">Sort:</span>
+                  <select
+                    value={leadSortBy}
+                    onChange={(e) => setLeadSortBy(e.target.value as any)}
+                    className="bg-transparent text-xs font-bold text-slate-900 focus:outline-none cursor-pointer"
+                  >
+                    <option value="date_desc">🕒 Date Captured (Newest First)</option>
+                    <option value="date_asc">⏳ Date Captured (Oldest First)</option>
+                    <option value="size_desc">📦 Typical Order Size (Largest First)</option>
+                    <option value="urgency_asc">⚡ Order Urgency (ASAP First)</option>
+                    <option value="name_asc">👤 Lead Name (A - Z)</option>
+                    <option value="name_desc">👤 Lead Name (Z - A)</option>
+                  </select>
+                </div>
+
+                {/* Filter by Order Size Answer */}
+                {availableFormFilterOptions.sizes.length > 0 && (
+                  <div className="flex items-center gap-1.5 bg-white border border-slate-300 rounded-lg px-2.5 py-1 shadow-2xs">
+                    <Package size={13} className="text-indigo-600" />
+                    <span className="font-semibold text-slate-700 text-[11px]">Order Size:</span>
+                    <select
+                      value={leadSizeFilter}
+                      onChange={(e) => setLeadSizeFilter(e.target.value)}
+                      className="bg-transparent text-xs font-bold text-slate-900 focus:outline-none cursor-pointer"
+                    >
+                      <option value="All">All Sizes</option>
+                      {availableFormFilterOptions.sizes.map((s) => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Filter by Urgency Answer */}
+                {availableFormFilterOptions.urgencies.length > 0 && (
+                  <div className="flex items-center gap-1.5 bg-white border border-slate-300 rounded-lg px-2.5 py-1 shadow-2xs">
+                    <Zap size={13} className="text-amber-600" />
+                    <span className="font-semibold text-slate-700 text-[11px]">Timeline:</span>
+                    <select
+                      value={leadUrgencyFilter}
+                      onChange={(e) => setLeadUrgencyFilter(e.target.value)}
+                      className="bg-transparent text-xs font-bold text-slate-900 focus:outline-none cursor-pointer"
+                    >
+                      <option value="All">All Timelines</option>
+                      {availableFormFilterOptions.urgencies.map((u) => (
+                        <option key={u} value={u}>{u}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Filter by Category/Type Answer */}
+                {availableFormFilterOptions.types.length > 0 && (
+                  <div className="flex items-center gap-1.5 bg-white border border-slate-300 rounded-lg px-2.5 py-1 shadow-2xs">
+                    <Building size={13} className="text-blue-600" />
+                    <span className="font-semibold text-slate-700 text-[11px]">Category:</span>
+                    <select
+                      value={leadTypeFilter}
+                      onChange={(e) => setLeadTypeFilter(e.target.value)}
+                      className="bg-transparent text-xs font-bold text-slate-900 focus:outline-none cursor-pointer"
+                    >
+                      <option value="All">All Categories</option>
+                      {availableFormFilterOptions.types.map((t) => (
+                        <option key={t} value={t}>{t}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+
+              {/* Reset Active Filters Button */}
+              {(leadSizeFilter !== 'All' || leadUrgencyFilter !== 'All' || leadTypeFilter !== 'All' || leadSearchQuery || leadSmsFilter !== 'All' || leadSortBy !== 'date_desc') && (
+                <button
+                  onClick={() => {
+                    setLeadSizeFilter('All');
+                    setLeadUrgencyFilter('All');
+                    setLeadTypeFilter('All');
+                    setLeadSearchQuery('');
+                    setLeadSmsFilter('All');
+                    setLeadSortBy('date_desc');
+                  }}
+                  className="text-xs font-semibold text-rose-600 hover:text-rose-800 hover:underline cursor-pointer"
+                >
+                  Reset All Filters
+                </button>
+              )}
+            </div>
+
             {/* Table Content */}
             {loadingLeads ? (
               <div className="p-12 text-center text-brand-muted text-sm font-serif">
@@ -943,10 +1154,37 @@ export function VisitorFunnelPage() {
                         className="hover:bg-slate-50/80 transition-colors cursor-pointer"
                         onClick={() => setSelectedLead(lead)}
                       >
-                        {/* Name */}
+                        {/* Name & Form Answer Badges */}
                         <td className="py-3.5 px-4 font-medium text-slate-900">
                           <div className="text-sm font-bold text-slate-900">{lead.name}</div>
-                          <div className="text-xs text-slate-600 font-mono mt-0.5">ID: {lead.leadId.substring(0, 12)}...</div>
+                          
+                          {/* Key Form Answer Pills */}
+                          <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                            {getLeadAnswer(lead, 'size') && (
+                              <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 text-[10px] font-bold rounded-md border border-indigo-200 inline-flex items-center gap-1">
+                                <Package size={10} />
+                                {getLeadAnswer(lead, 'size')}
+                              </span>
+                            )}
+
+                            {getLeadAnswer(lead, 'urgency') && (
+                              <span className={`px-2 py-0.5 text-[10px] font-bold rounded-md border inline-flex items-center gap-1 ${
+                                getLeadAnswer(lead, 'urgency').toLowerCase().includes('asap')
+                                  ? 'bg-amber-50 text-amber-800 border-amber-300 font-bold'
+                                  : 'bg-slate-100 text-slate-700 border-slate-200'
+                              }`}>
+                                <Zap size={10} />
+                                {getLeadAnswer(lead, 'urgency')}
+                              </span>
+                            )}
+
+                            {getLeadAnswer(lead, 'type') && (
+                              <span className="px-2 py-0.5 bg-blue-50 text-blue-800 text-[10px] font-medium rounded-md border border-blue-200">
+                                {getLeadAnswer(lead, 'type')}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[11px] text-slate-500 font-mono mt-1">ID: {lead.leadId.substring(0, 10)}...</div>
                         </td>
 
                         {/* Phone & Email */}
