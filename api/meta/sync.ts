@@ -58,36 +58,39 @@ export default async function handler(req: Request) {
       }
     }
 
-    // Strategy B: If Strategy A returned no leads / error, treat formId or pageId as a Page ID (/v19.0/{id}/leadgen_forms)
+    // Strategy B: Auto-discover leadgen forms for 'me' (Page token context) or pageId
     if (leadsToProcess.length === 0) {
-      const pageTargetId = pageId || formId || 'me';
-      const formsUrl = `https://graph.facebook.com/v19.0/${pageTargetId}/leadgen_forms?access_token=${encodeURIComponent(accessToken)}`;
-      const formsRes = await fetch(formsUrl);
+      const targets = [pageId, 'me'].filter(Boolean);
+      for (const targetId of targets) {
+        if (leadsToProcess.length > 0) break;
+        const formsUrl = `https://graph.facebook.com/v19.0/${targetId}/leadgen_forms?access_token=${encodeURIComponent(accessToken)}`;
+        const formsRes = await fetch(formsUrl);
 
-      if (formsRes.ok) {
-        const formsData = await formsRes.json();
-        const formsList = formsData.data || [];
+        if (formsRes.ok) {
+          const formsData = await formsRes.json();
+          const formsList = formsData.data || [];
 
-        for (const f of formsList) {
-          const fLeadsUrl = `https://graph.facebook.com/v19.0/${f.id}/leads?access_token=${encodeURIComponent(accessToken)}&limit=50`;
-          const fLeadsRes = await fetch(fLeadsUrl);
-          if (fLeadsRes.ok) {
-            const fLeadsData = await fLeadsRes.json();
-            const fLeads = fLeadsData.data || [];
-            fLeads.forEach((item: any) => {
-              item._formName = f.name;
-              item._formId = f.id;
-            });
-            leadsToProcess.push(...fLeads);
+          for (const f of formsList) {
+            const fLeadsUrl = `https://graph.facebook.com/v19.0/${f.id}/leads?access_token=${encodeURIComponent(accessToken)}&limit=50`;
+            const fLeadsRes = await fetch(fLeadsUrl);
+            if (fLeadsRes.ok) {
+              const fLeadsData = await fLeadsRes.json();
+              const fLeads = fLeadsData.data || [];
+              fLeads.forEach((item: any) => {
+                item._formName = f.name;
+                item._formId = f.id;
+              });
+              leadsToProcess.push(...fLeads);
+            }
           }
         }
       }
     }
 
-    // Strategy C: If still no leads and we had a specific error from Meta, report friendly instructions
+    // Strategy C: Report clean error if no leads found and we had an issue
     if (leadsToProcess.length === 0 && lastErrorMsg) {
       return new Response(JSON.stringify({
-        error: `Meta Graph API error: ${lastErrorMsg}. Please ensure your Page Access Token was generated for the Page that owns this form, and has 'leads_retrieval' permission.`
+        error: `Meta Graph API error: ${lastErrorMsg}. Please check that your Page Access Token was generated for INKTHEORY.studio and has 'leads_retrieval' permission.`
       }), { status: 400 });
     }
 
