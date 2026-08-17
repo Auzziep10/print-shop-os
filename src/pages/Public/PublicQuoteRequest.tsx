@@ -3602,9 +3602,7 @@ export function PublicQuoteRequest() {
                               const backMockup = getGarmentMockupImage(item.product, item.color, 'back', catalogSettings, selectedThemeCategory, item.slot);
                               
                               const primarySrc = cardPhoto || frontMockup;
-                              const hoverSrc = (cardHoverPhoto && cardHoverPhoto !== primarySrc)
-                                ? cardHoverPhoto
-                                : (backMockup && backMockup !== frontMockup && backMockup !== primarySrc ? backMockup : null);
+                              const hoverSrc = cardHoverPhoto || (cardPhoto ? null : (backMockup !== frontMockup ? backMockup : null));
 
                               return (
                                 <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
@@ -3623,7 +3621,7 @@ export function PublicQuoteRequest() {
                                     <img
                                       src={hoverSrc}
                                       className={`absolute inset-0 opacity-0 group-hover:opacity-100 group-hover:scale-[1.03] transition-all duration-300 ease-out pointer-events-none ${
-                                        hoverSrc === cardHoverPhoto
+                                        cardHoverPhoto
                                           ? 'w-full h-full object-cover'
                                           : 'max-h-full max-w-full object-contain mix-blend-multiply p-3'
                                       }`}
@@ -3763,9 +3761,7 @@ export function PublicQuoteRequest() {
                               const backMockup = getGarmentMockupImage(item, defaultColor, 'back', catalogSettings, selectedBasicsCategory, slot);
 
                               const primarySrc = cardPhoto || frontMockup;
-                              const hoverSrc = (cardHoverPhoto && cardHoverPhoto !== primarySrc)
-                                ? cardHoverPhoto
-                                : (backMockup && backMockup !== frontMockup && backMockup !== primarySrc ? backMockup : null);
+                              const hoverSrc = cardHoverPhoto || (cardPhoto ? null : (backMockup !== frontMockup ? backMockup : null));
 
                               return (
                                 <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
@@ -3784,7 +3780,7 @@ export function PublicQuoteRequest() {
                                     <img
                                       src={hoverSrc}
                                       className={`absolute inset-0 opacity-0 group-hover:opacity-100 group-hover:scale-[1.03] transition-all duration-300 ease-out pointer-events-none ${
-                                        hoverSrc === cardHoverPhoto
+                                        cardHoverPhoto
                                           ? 'w-full h-full object-cover'
                                           : 'max-h-full max-w-full object-contain mix-blend-multiply'
                                       }`}
@@ -4000,9 +3996,7 @@ export function PublicQuoteRequest() {
                                      const backMockup = getGarmentMockupImage(item, colorKey, 'back', catalogSettings);
 
                                      const primarySrc = cardPhoto || frontMockup;
-                                     const hoverSrc = (cardHoverPhoto && cardHoverPhoto !== primarySrc)
-                                       ? cardHoverPhoto
-                                       : (backMockup && backMockup !== frontMockup && backMockup !== primarySrc ? backMockup : null);
+                                     const hoverSrc = cardHoverPhoto || (cardPhoto ? null : (backMockup !== frontMockup ? backMockup : null));
 
                                      return (
                                        <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
@@ -4021,7 +4015,7 @@ export function PublicQuoteRequest() {
                                            <img
                                              src={hoverSrc}
                                              className={`absolute inset-0 opacity-0 group-hover:opacity-100 group-hover:scale-[1.03] transition-all duration-300 ease-out pointer-events-none ${
-                                               hoverSrc === cardHoverPhoto
+                                               cardHoverPhoto
                                                  ? 'w-full h-full object-cover'
                                                  : 'max-h-full max-w-full object-contain mix-blend-multiply p-3'
                                              }`}
@@ -5732,9 +5726,7 @@ export function PublicQuoteRequest() {
                       const backMockup = getGarmentMockupImage(prod, colorKey, 'back', catalogSettings);
 
                       const primarySrc = cardPhoto || frontMockup;
-                      const hoverSrc = (cardHoverPhoto && cardHoverPhoto !== primarySrc)
-                        ? cardHoverPhoto
-                        : (backMockup && backMockup !== frontMockup && backMockup !== primarySrc ? backMockup : null);
+                      const hoverSrc = cardHoverPhoto || (cardPhoto ? null : (backMockup !== frontMockup ? backMockup : null));
 
                       const weightAndFabric = getGarmentWeightAndFabric(prod);
                       const customName = getCustomGarmentName(prod, catalogSettings);
@@ -5799,7 +5791,7 @@ export function PublicQuoteRequest() {
                                 <img
                                   src={hoverSrc}
                                   className={`absolute inset-0 opacity-0 group-hover:opacity-100 group-hover:scale-[1.03] transition-all duration-300 ease-out pointer-events-none ${
-                                    hoverSrc === cardHoverPhoto
+                                    cardHoverPhoto
                                       ? 'w-full h-full object-cover'
                                       : 'max-h-full max-w-full object-contain mix-blend-multiply'
                                   }`}
