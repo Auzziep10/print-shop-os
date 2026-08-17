@@ -54,15 +54,20 @@ export default async function handler(req: Request) {
     // Format 'to' to be an array of strings in E.164 format if it is a single string
     const toArray = Array.isArray(to) ? to : [to];
 
+    let finalContent = content;
+    const mediaItemStr = typeof mediaUrl === 'string' ? mediaUrl : (mediaUrl as any)?.url;
+    if (mediaItemStr && !finalContent.includes(mediaItemStr)) {
+      finalContent = `${finalContent.trim()}\n\n${mediaItemStr.trim()}`;
+    }
+
     const openPhonePayload: Record<string, any> = {
-      content,
+      content: finalContent,
       from: fromNumber,
       to: toArray
     };
 
     if (mediaUrl) {
       const mediaItemObj = typeof mediaUrl === 'string' ? { url: mediaUrl } : mediaUrl;
-      const mediaItemStr = typeof mediaUrl === 'string' ? mediaUrl : (mediaUrl as any)?.url;
 
       openPhonePayload.media = [mediaItemObj];
       openPhonePayload.attachments = [mediaItemObj];

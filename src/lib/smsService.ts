@@ -226,6 +226,11 @@ export async function sendMetaLeadSMS(
     content = content.replace(/{adName}/g, lead.adName || 'our ad');
     content = content.replace(/{email}/g, lead.email || '');
 
+    // Ensure GIF/media URL is included in content so OpenPhone sends it and iMessage/Android renders the GIF box
+    if (finalMediaUrl && !content.includes(finalMediaUrl)) {
+      content = `${content.trim()}\n\n${finalMediaUrl.trim()}`;
+    }
+
     const currentUser = auth.currentUser;
     if (!currentUser) {
       return { success: false, error: 'You must be logged in to send SMS.' };
