@@ -672,6 +672,24 @@ export function StorefrontCatalogTab() {
   const [activeRackCategory, setActiveRackCategory] = useState('Athleisure');
   const [activeBasicsCategory, setActiveBasicsCategory] = useState('T-Shirts');
 
+  // Helper to find all Rack Collection assignments for a given product style
+  const getGarmentRackAssignments = (style: string) => {
+    const sKey = style.toLowerCase().trim();
+    const matches: { category: string; slot: string }[] = [];
+    if (racks) {
+      Object.entries(racks).forEach(([cat, slotsObj]) => {
+        if (slotsObj && typeof slotsObj === 'object') {
+          Object.entries(slotsObj).forEach(([slot, itemStyle]) => {
+            if (typeof itemStyle === 'string' && itemStyle.toLowerCase().trim() === sKey) {
+              matches.push({ category: cat, slot });
+            }
+          });
+        }
+      });
+    }
+    return matches;
+  };
+
   // Product selector modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeSelectTarget, setActiveSelectTarget] = useState<{
@@ -2685,7 +2703,26 @@ export function StorefrontCatalogTab() {
                       const styleKey = p.style.toLowerCase();
                       const customTag = garmentTypeTags[styleKey];
                       const detectedTag = detectGarmentTypeTag(p, garmentTypeTags);
-                      
+                      const rackAssignments = getGarmentRackAssignments(p.style);
+                      const primaryAssignment = rackAssignments[0];
+
+                      // Custom price & name across rack assignments
+                      const customPriceVal = (() => {
+                        for (const a of rackAssignments) {
+                          const val = customPrices.racks?.[a.category]?.[a.slot];
+                          if (val !== undefined) return val;
+                        }
+                        return undefined;
+                      })();
+
+                      const customNameVal = (() => {
+                        for (const a of rackAssignments) {
+                          const name = customNames.racks?.[a.category]?.[a.slot];
+                          if (name) return name;
+                        }
+                        return '';
+                      })();
+
                       return (
                         <div key={p.style} className="border border-brand-border rounded-2xl p-5 bg-white flex flex-col justify-between gap-4 shadow-2xs hover:shadow-xs transition-all">
                           <div className="space-y-3">
@@ -2693,36 +2730,161 @@ export function StorefrontCatalogTab() {
                               <span className="text-[10px] font-extrabold uppercase tracking-widest bg-neutral-100 text-neutral-600 px-2 py-0.5 rounded">
                                 {p.style}
                               </span>
-                              {customTag ? (
-                                <span className="text-[9px] font-extrabold uppercase text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">
-                                  Custom Tagged
-                                </span>
+                              <div className="flex items-center gap-1">
+                                {customTag ? (
+                                  <span className="text-[9px] font-extrabold uppercase text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">
+                                    Custom Tagged
+                                  </span>
+                                ) : (
+                                  <span className="text-[9px] font-extrabold uppercase text-neutral-400 bg-neutral-50 border border-neutral-200 px-1.5 py-0.5 rounded">
+                                    Auto Tagged
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Rack Collections Assignment Badges */}
+                            <div className="bg-neutral-50 border border-neutral-200/80 rounded-xl p-2.5 space-y-1.5">
+                              <span className="text-[9px] font-extrabold uppercase tracking-wider text-neutral-400 block">
+                                Rack Collections Assignment
+                              </span>
+                              {rackAssignments.length > 0 ? (
+                                <div className="flex flex-wrap gap-1.5">
+                                  {rackAssignments.map((a, aIdx) => (
+                                    <span
+                                      key={aIdx}
+                                      className="text-[10px] font-extrabold text-brand-primary bg-white border border-brand-border px-2 py-0.5 rounded-md shadow-3xs flex items-center gap-1"
+                                    >
+                                      <span className="text-neutral-400">{a.category}:</span>
+                                      <span>{a.slot}</span>
+                                    </span>
+                                  ))}
+                                </div>
                               ) : (
-                                <span className="text-[9px] font-extrabold uppercase text-neutral-400 bg-neutral-50 border border-neutral-200 px-1.5 py-0.5 rounded">
-                                  Auto Tagged
-                                </span>
+                                <p className="text-[10px] text-neutral-400 italic">Not assigned to any rack collection slot</p>
                               )}
                             </div>
 
-                            <div className="w-full h-36 bg-neutral-50 border border-brand-border/60 rounded-xl flex items-center justify-center p-2 relative overflow-hidden bg-checkerboard">
+                            {/* Interactive Mockup Preview with Upload / Remove Overlay */}
+                            <div className="w-full h-36 bg-white border border-brand-border/60 rounded-xl flex items-center justify-center p-2 relative overflow-hidden bg-checkerboard group/mockup cursor-pointer">
                               <img
-                                src={getGarmentImage(p)}
+                                src={getGarmentImage(p, primaryAssignment ? defaultColors.racks?.[primaryAssignment.category]?.[primaryAssignment.slot] : undefined, primaryAssignment ? 'racks' : undefined, primaryAssignment?.category, primaryAssignment?.slot)}
                                 alt={p.title}
                                 className="max-w-full max-h-full object-contain mix-blend-multiply"
                               />
+                              {primaryAssignment && (
+                                uploadingSlotKey === `racks_${primaryAssignment.category}_${primaryAssignment.slot}` ? (
+                                  <div className="absolute inset-0 bg-black/55 flex items-center justify-center rounded-xl">
+                                    <Loader2 size={16} className="animate-spin text-white" />
+                                  </div>
+                                ) : (
+                                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover/mockup:opacity-100 flex items-center justify-center gap-2 transition-opacity rounded-xl">
+                                    <label className="p-2 hover:bg-neutral-800 rounded-lg transition-colors cursor-pointer text-white flex items-center gap-1.5 text-xs font-bold" title="Upload custom mockup">
+                                      <input 
+                                        type="file" 
+                                        className="hidden" 
+                                        accept="image/*" 
+                                        onChange={(e) => handleMockupUpload(e, 'racks', primaryAssignment.category, primaryAssignment.slot)} 
+                                      />
+                                      <Edit2 size={14} />
+                                      <span>Change Mockup</span>
+                                    </label>
+                                    {customMockups?.racks?.[primaryAssignment.category]?.[primaryAssignment.slot] && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleRemoveMockup('racks', primaryAssignment.category, primaryAssignment.slot)}
+                                        className="p-2 hover:bg-neutral-800 text-white rounded-lg transition-colors"
+                                        title="Remove mockup override"
+                                      >
+                                        <Trash2 size={14} className="hover:text-red-400" />
+                                      </button>
+                                    )}
+                                  </div>
+                                )
+                              )}
                             </div>
 
                             <div>
                               <h4 className="text-sm font-bold text-brand-primary leading-snug">
                                 {p.brand} {p.style}
                               </h4>
-                              <p className="text-xs text-brand-secondary mt-1 font-medium truncate" title={p.title}>
-                                {p.title}
+                              <p className="text-xs text-brand-secondary mt-1 font-medium truncate" title={customNameVal || p.title}>
+                                {customNameVal || p.title}
                               </p>
-                              <span className="text-xs text-brand-primary font-bold block mt-1">
-                                Base Price: ${p.price.toFixed(2)}
-                              </span>
+                              <div className="flex items-center gap-2 mt-2">
+                                <span className="text-xs text-brand-primary font-bold">
+                                  ${(customPriceVal !== undefined ? customPriceVal : p.price).toFixed(2)}
+                                </span>
+                                {customPriceVal !== undefined && (
+                                  <span className="text-[9px] font-extrabold uppercase text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">Custom Price</span>
+                                )}
+                              </div>
                             </div>
+
+                            {/* Garment Price ($) Input */}
+                            <div>
+                              <label className="text-[9px] font-extrabold uppercase tracking-wider text-neutral-400 block mb-1">
+                                Garment Price ($)
+                              </label>
+                              <div className="relative">
+                                <span className="absolute left-3 top-1.5 text-xs text-neutral-400 font-bold">$</span>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  value={customPriceVal !== undefined ? customPriceVal : ''}
+                                  placeholder={`Default catalog: $${p.price.toFixed(2)}`}
+                                  onChange={(e) => {
+                                    const val = e.target.value === '' ? undefined : parseFloat(e.target.value);
+                                    setCustomPrices(prev => {
+                                      const racksMap = { ...(prev.racks || {}) };
+                                      rackAssignments.forEach(a => {
+                                        const catMap = { ...(racksMap[a.category] || {}) };
+                                        if (val === undefined || isNaN(val)) {
+                                          delete catMap[a.slot];
+                                        } else {
+                                          catMap[a.slot] = val;
+                                        }
+                                        racksMap[a.category] = catMap;
+                                      });
+                                      return { ...prev, racks: racksMap };
+                                    });
+                                  }}
+                                  className="w-full bg-white border border-brand-border rounded-xl pl-7 pr-3 py-1.5 text-xs font-bold text-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary transition-all placeholder:text-neutral-400 placeholder:font-normal"
+                                />
+                              </div>
+                            </div>
+
+                            {/* Custom Display Name Input */}
+                            <div>
+                              <label className="text-[9px] font-extrabold uppercase tracking-wider text-neutral-400 block mb-1">
+                                Custom Display Name
+                              </label>
+                              <input
+                                type="text"
+                                value={customNameVal}
+                                placeholder={p.title}
+                                onChange={(e) => {
+                                  const newName = e.target.value;
+                                  setCustomNames(prev => {
+                                    const racksMap = { ...(prev.racks || {}) };
+                                    rackAssignments.forEach(a => {
+                                      const catMap = { ...(racksMap[a.category] || {}) };
+                                      catMap[a.slot] = newName;
+                                      racksMap[a.category] = catMap;
+                                    });
+                                    return { ...prev, racks: racksMap };
+                                  });
+                                }}
+                                className="w-full bg-white border border-brand-border rounded-xl px-3 py-1.5 text-xs text-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary transition-all placeholder:text-neutral-400 placeholder:italic"
+                              />
+                            </div>
+
+                            {/* Storefront Card Photos (Primary & Secondary Hover) */}
+                            {renderCardPhotoControl(p.style)}
+
+                            {/* Garment Fit Selector */}
+                            {renderFitControl(p.style)}
                           </div>
 
                           <div className="space-y-3 pt-3 border-t border-neutral-100">
@@ -2778,9 +2940,24 @@ export function StorefrontCatalogTab() {
                                 title="Manage custom mockups, tagless collar, and available storefront colors"
                               >
                                 <ImageIcon size={12} />
-                                <span>Colors ({getFilteredProductColors(p, allowedColors).length}{(allowedColors[p.style.toLowerCase()] !== undefined && getFilteredProductColors(p, allowedColors).length < (p.colors?.length || 0)) ? `/${p.colors?.length || 0}` : ''})</span>
+                                <span>Colors ({getFilteredProductColors(p, allowedColors).length})</span>
                               </button>
                             </div>
+
+                            {/* Set Logo Placement Button */}
+                            {primaryAssignment && (
+                              <button
+                                type="button"
+                                onClick={() => setPlacementTarget({ mode: 'racks', category: primaryAssignment.category, slot: primaryAssignment.slot })}
+                                className="w-full py-2 bg-white border border-brand-border text-brand-primary rounded-xl text-xs font-bold transition-all shadow-2xs hover:bg-neutral-50 flex items-center justify-center gap-1.5"
+                              >
+                                <Crosshair size={13} />
+                                Set Logo Placement
+                                {logoPlacements.racks?.[primaryAssignment.category]?.[primaryAssignment.slot] && (
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" title="Placement configured" />
+                                )}
+                              </button>
+                            )}
                           </div>
                         </div>
                       );
