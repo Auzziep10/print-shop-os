@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { collection, onSnapshot, query, orderBy, deleteDoc, doc, setDoc, getDoc } from 'firebase/firestore';
-import { db, auth } from '../../lib/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, auth, storage } from '../../lib/firebase';
 import { type VisitorSession } from '../../lib/visitorTracking';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
@@ -32,7 +33,8 @@ import {
   Filter,
   Package,
   Zap,
-  Building
+  Building,
+  Upload
 } from 'lucide-react';
 
 const FUNNEL_STAGES = [
@@ -103,6 +105,48 @@ export function VisitorFunnelPage() {
   const [autoSendSms, setAutoSendSms] = useState(false);
   const [loadingDefaultSmsSettings, setLoadingDefaultSmsSettings] = useState(false);
   const [savingDefaultSmsSettings, setSavingDefaultSmsSettings] = useState(false);
+
+  // GIF File Upload States & Handlers
+  const [uploadingDefaultGif, setUploadingDefaultGif] = useState(false);
+  const [uploadingComposerGif, setUploadingComposerGif] = useState(false);
+
+  const handleUploadDefaultGif = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingDefaultGif(true);
+    try {
+      const storageRef = ref(storage, `meta_lead_gifs/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '')}`);
+      await uploadBytes(storageRef, file);
+      const url = await getDownloadURL(storageRef);
+      setDefaultSmsMediaUrl(url);
+    } catch (err: any) {
+      console.error('Error uploading GIF:', err);
+      alert(`Failed to upload GIF: ${err.message || 'Unknown error'}`);
+    } finally {
+      setUploadingDefaultGif(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleUploadComposerGif = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingComposerGif(true);
+    try {
+      const storageRef = ref(storage, `meta_lead_gifs/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '')}`);
+      await uploadBytes(storageRef, file);
+      const url = await getDownloadURL(storageRef);
+      setSmsMediaUrl(url);
+    } catch (err: any) {
+      console.error('Error uploading GIF:', err);
+      alert(`Failed to upload GIF: ${err.message || 'Unknown error'}`);
+    } finally {
+      setUploadingComposerGif(false);
+      e.target.value = '';
+    }
+  };
 
   // Subscribe to Visitor Sessions
   useEffect(() => {
@@ -1713,9 +1757,30 @@ export function VisitorFunnelPage() {
                     className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-mono text-brand-primary focus:outline-none focus:border-brand-primary"
                   />
 
-                  {/* Preset GIF Buttons */}
-                  <div className="flex items-center gap-2 pt-1">
-                    <span className="text-[10px] text-brand-muted font-medium">Quick GIFs:</span>
+                  {/* Preset GIF Buttons & File Upload */}
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <label className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[11px] font-bold border border-indigo-700 shadow-2xs cursor-pointer inline-flex items-center gap-1.5 transition-colors">
+                      {uploadingComposerGif ? (
+                        <>
+                          <Loader2 size={13} className="animate-spin" />
+                          Uploading GIF...
+                        </>
+                      ) : (
+                        <>
+                          <Upload size={13} />
+                          Upload GIF File
+                        </>
+                      )}
+                      <input
+                        type="file"
+                        accept="image/gif,image/png,image/jpeg,image/webp"
+                        onChange={handleUploadComposerGif}
+                        disabled={uploadingComposerGif}
+                        className="hidden"
+                      />
+                    </label>
+
+                    <span className="text-[10px] text-slate-500 font-medium">or choose:</span>
                     <button
                       type="button"
                       onClick={() => setSmsMediaUrl('https://images.squarespace-cdn.com/content/v1/640b79f64c676766ebf04df5/1678500000000-sample/tutorial.gif')}
@@ -1935,9 +2000,30 @@ export function VisitorFunnelPage() {
                       className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-mono text-slate-900 focus:outline-none focus:border-brand-primary"
                     />
 
-                    {/* Presets */}
-                    <div className="flex items-center gap-2 pt-1">
-                      <span className="text-[10px] text-slate-500 font-medium">Quick GIFs:</span>
+                    {/* Presets & File Upload */}
+                    <div className="flex flex-wrap items-center gap-2 pt-1">
+                      <label className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[11px] font-bold border border-indigo-700 shadow-2xs cursor-pointer inline-flex items-center gap-1.5 transition-colors">
+                        {uploadingDefaultGif ? (
+                          <>
+                            <Loader2 size={13} className="animate-spin" />
+                            Uploading GIF...
+                          </>
+                        ) : (
+                          <>
+                            <Upload size={13} />
+                            Upload GIF File
+                          </>
+                        )}
+                        <input
+                          type="file"
+                          accept="image/gif,image/png,image/jpeg,image/webp"
+                          onChange={handleUploadDefaultGif}
+                          disabled={uploadingDefaultGif}
+                          className="hidden"
+                        />
+                      </label>
+
+                      <span className="text-[10px] text-slate-500 font-medium">or choose:</span>
                       <button
                         type="button"
                         onClick={() => setDefaultSmsMediaUrl('https://images.squarespace-cdn.com/content/v1/640b79f64c676766ebf04df5/1678500000000-sample/tutorial.gif')}
