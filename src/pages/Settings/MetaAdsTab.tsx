@@ -138,6 +138,35 @@ export function MetaAdsTab() {
         </p>
       </div>
 
+      {/* Option B Vercel Env Var Recommendation Banner */}
+      <div className="p-5 bg-gradient-to-r from-slate-900 to-slate-800 text-white rounded-xl shadow-md border border-slate-700 space-y-3">
+        <div className="flex items-center gap-2 text-emerald-400 font-bold text-sm">
+          <Key size={18} />
+          <span>Option B: Vercel Environment Variables (Maximum Security)</span>
+        </div>
+        <p className="text-xs text-slate-300">
+          For maximum bank-grade security, you can store your API keys directly inside your <strong>Vercel Project Dashboard</strong> (under <em>Settings &gt; Environment Variables</em>). The backend will automatically detect these values without exposing tokens to the browser.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-mono pt-1">
+          <div className="bg-slate-950/80 p-2.5 rounded border border-slate-700/60 flex items-center justify-between">
+            <span className="text-slate-300">META_ACCESS_TOKEN</span>
+            <span className="text-[10px] text-slate-500 font-sans">Meta Access Token</span>
+          </div>
+          <div className="bg-slate-950/80 p-2.5 rounded border border-slate-700/60 flex items-center justify-between">
+            <span className="text-slate-300">META_FORM_ID</span>
+            <span className="text-[10px] text-slate-500 font-sans">Instant Form ID</span>
+          </div>
+          <div className="bg-slate-950/80 p-2.5 rounded border border-slate-700/60 flex items-center justify-between">
+            <span className="text-slate-300">META_VERIFY_TOKEN</span>
+            <span className="text-[10px] text-slate-500 font-sans">Webhook Verify Token</span>
+          </div>
+          <div className="bg-slate-950/80 p-2.5 rounded border border-slate-700/60 flex items-center justify-between">
+            <span className="text-slate-300">META_SMS_TEMPLATE</span>
+            <span className="text-[10px] text-slate-500 font-sans">Custom SMS Template</span>
+          </div>
+        </div>
+      </div>
+
       {/* Save Status Banner */}
       {saveStatus && (
         <div className={`p-4 rounded-xl border flex items-start gap-3 animate-in slide-in-from-top-2 duration-300 ${

@@ -11,7 +11,9 @@ export default async function handler(req: Request) {
     const token = url.searchParams.get('hub.verify_token');
     const challenge = url.searchParams.get('hub.challenge');
 
-    if (mode === 'subscribe') {
+    const expectedVerifyToken = process.env.META_VERIFY_TOKEN || 'print_shop_meta_webhook_secret';
+
+    if (mode === 'subscribe' && (!token || token === expectedVerifyToken)) {
       // Return challenge string to verify endpoint with Meta
       return new Response(challenge || '', {
         status: 200,
@@ -38,21 +40,23 @@ export default async function handler(req: Request) {
               const createdTime = change.value?.created_time;
 
               if (leadgenId) {
-                // Fetch settings for Meta Access Token from Firestore
-                const projectId = 'print-shop-os-f8092';
-                const settingsUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/settings/meta`;
-                const settingsRes = await fetch(settingsUrl);
+                // 1. Check Vercel environment variables first (Option B)
+                let accessToken = process.env.META_ACCESS_TOKEN || '';
+                let autoSendSms = process.env.AUTO_SEND_SMS === 'true';
+                let smsTemplate = process.env.META_SMS_TEMPLATE || '';
 
-                let accessToken = '';
-                let autoSendSms = false;
-                let smsTemplate = '';
+                if (!accessToken) {
+                  const projectId = 'print-shop-os-f8092';
+                  const settingsUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/settings/meta`;
+                  const settingsRes = await fetch(settingsUrl);
 
-                if (settingsRes.ok) {
-                  const docData = await settingsRes.json();
-                  const fields = docData.fields || {};
-                  accessToken = fields.accessToken?.stringValue || '';
-                  autoSendSms = fields.autoSendSms?.booleanValue || false;
-                  smsTemplate = fields.smsTemplate?.stringValue || '';
+                  if (settingsRes.ok) {
+                    const docData = await settingsRes.json();
+                    const fields = docData.fields || {};
+                    accessToken = fields.accessToken?.stringValue || '';
+                    if (!autoSendSms) autoSendSms = fields.autoSendSms?.booleanValue || false;
+                    if (!smsTemplate) smsTemplate = fields.smsTemplate?.stringValue || '';
+                  }
                 }
 
                 let leadName = 'Meta Lead';

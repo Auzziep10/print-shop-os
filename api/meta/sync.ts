@@ -14,29 +14,33 @@ export default async function handler(req: Request) {
     }
     const idToken = authHeader.substring(7);
 
-    // 1. Fetch settings from Firestore
-    const projectId = 'print-shop-os-f8092';
-    const settingsUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/settings/meta`;
+    // 1. Check Vercel Environment Variables first (Option B - Maximum Security)
+    let accessToken = process.env.META_ACCESS_TOKEN || '';
+    let formId = process.env.META_FORM_ID || '';
 
-    const settingsRes = await fetch(settingsUrl, {
-      headers: { 'Authorization': `Bearer ${idToken}` }
-    });
+    // If environment variables are not set in Vercel, fallback to Firestore settings
+    if (!accessToken || !formId) {
+      const projectId = 'print-shop-os-f8092';
+      const settingsUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/settings/meta`;
 
-    if (!settingsRes.ok) {
-      return new Response(JSON.stringify({ error: 'Failed to load Meta Ads settings. Please configure access token in Settings.' }), { status: 400 });
+      const settingsRes = await fetch(settingsUrl, {
+        headers: { 'Authorization': `Bearer ${idToken}` }
+      });
+
+      if (settingsRes.ok) {
+        const settingsDoc = await settingsRes.json();
+        const fields = settingsDoc.fields || {};
+        if (!accessToken) accessToken = fields.accessToken?.stringValue || '';
+        if (!formId) formId = fields.formId?.stringValue || '';
+      }
     }
 
-    const settingsDoc = await settingsRes.json();
-    const fields = settingsDoc.fields || {};
-    const accessToken = fields.accessToken?.stringValue || '';
-    const formId = fields.formId?.stringValue || '';
-
     if (!accessToken) {
-      return new Response(JSON.stringify({ error: 'Meta Access Token is missing. Please add it in Settings > Meta Lead Ads Integration.' }), { status: 400 });
+      return new Response(JSON.stringify({ error: 'Meta Access Token is missing. Please set META_ACCESS_TOKEN in Vercel Environment Variables or in Settings > Meta Lead Ads Integration.' }), { status: 400 });
     }
 
     if (!formId) {
-      return new Response(JSON.stringify({ error: 'Meta Lead Form ID is missing. Please add it in Settings > Meta Lead Ads Integration.' }), { status: 400 });
+      return new Response(JSON.stringify({ error: 'Meta Lead Form ID is missing. Please set META_FORM_ID in Vercel Environment Variables or in Settings > Meta Lead Ads Integration.' }), { status: 400 });
     }
 
     // 2. Fetch leads from Meta Graph API
