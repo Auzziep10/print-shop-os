@@ -1143,67 +1143,139 @@ export function VisitorFunnelPage() {
 
       {/* Meta Lead Details Modal */}
       {selectedLead && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-[200] animate-in fade-in duration-200">
-          <div className="bg-white border border-brand-border rounded-2xl p-6 max-w-xl w-full max-h-[85vh] flex flex-col shadow-xl">
-            <div className="flex items-start justify-between pb-4 border-b border-brand-border">
+        <div className="fixed inset-0 bg-black/65 backdrop-blur-xs flex items-center justify-center p-4 z-[200] animate-in fade-in duration-200">
+          <div className="bg-white border border-brand-border rounded-2xl p-6 max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex items-start justify-between pb-4 border-b border-slate-200">
               <div>
-                <h3 className="text-lg font-serif font-semibold text-brand-primary">{selectedLead.name}</h3>
-                <p className="text-xs font-mono text-brand-muted mt-0.5">Meta Lead ID: {selectedLead.leadId}</p>
+                <h3 className="text-xl font-serif font-bold text-slate-900">{selectedLead.name}</h3>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-xs font-mono font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                    Lead ID: {selectedLead.leadId}
+                  </span>
+                  {selectedLead.smsStatus === 'sent' && (
+                    <span className="text-[11px] font-semibold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
+                      <CheckCircle2 size={12} /> SMS Contacted
+                    </span>
+                  )}
+                </div>
               </div>
 
               <button
                 onClick={() => setSelectedLead(null)}
-                className="p-1.5 hover:bg-slate-100 rounded-lg text-brand-secondary transition-colors"
+                className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-slate-900 transition-colors cursor-pointer"
               >
-                <X size={18} />
+                <X size={20} />
               </button>
             </div>
 
-            <div className="space-y-4 my-4 flex-1 overflow-y-auto">
-              <div className="grid grid-cols-2 gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs">
+            {/* Modal Content Scroll Area */}
+            <div className="space-y-5 my-4 flex-1 overflow-y-auto pr-1">
+              {/* Lead Contact Info Card */}
+              <div className="grid grid-cols-2 gap-4 p-4 bg-slate-100/80 rounded-xl border border-slate-300 text-xs">
                 <div>
-                  <span className="text-brand-muted block">Phone Number:</span>
-                  <span className="font-semibold text-brand-primary font-mono">{selectedLead.phone || 'N/A'}</span>
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-600 block mb-1">Phone Number</span>
+                  {selectedLead.phone ? (
+                    <a
+                      href={`tel:${selectedLead.phone}`}
+                      onClick={(e) => handleCallLead(selectedLead, e)}
+                      className="font-bold text-emerald-700 hover:text-emerald-900 text-sm font-mono hover:underline inline-flex items-center gap-1.5"
+                    >
+                      <PhoneCall size={14} className="text-emerald-600" />
+                      {selectedLead.phone}
+                    </a>
+                  ) : (
+                    <span className="text-slate-500 italic">No Phone</span>
+                  )}
                 </div>
+
                 <div>
-                  <span className="text-brand-muted block">Email:</span>
-                  <span className="font-medium text-brand-primary">{selectedLead.email || 'N/A'}</span>
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-600 block mb-1">Email Address</span>
+                  {selectedLead.email ? (
+                    <a
+                      href={`mailto:${selectedLead.email}`}
+                      className="font-bold text-slate-900 text-xs hover:underline inline-flex items-center gap-1.5"
+                    >
+                      <Mail size={14} className="text-slate-500" />
+                      {selectedLead.email}
+                    </a>
+                  ) : (
+                    <span className="text-slate-500 italic">No Email</span>
+                  )}
                 </div>
+
                 <div>
-                  <span className="text-brand-muted block">Ad Name:</span>
-                  <span className="font-medium text-brand-primary">{selectedLead.adName || 'Meta Ad'}</span>
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-600 block mb-1">Ad Campaign</span>
+                  <span className="font-bold text-slate-900 text-xs block">{selectedLead.adName || 'Meta Ad'}</span>
+                  <span className="text-[11px] text-slate-600 font-medium">{selectedLead.formName || 'Instant Form'}</span>
                 </div>
+
                 <div>
-                  <span className="text-brand-muted block">Submitted Date:</span>
-                  <span className="font-medium text-brand-primary">{new Date(selectedLead.createdAt).toLocaleString()}</span>
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-600 block mb-1">Submitted Date</span>
+                  <span className="font-bold text-slate-900 text-xs block">{new Date(selectedLead.createdAt).toLocaleDateString()}</span>
+                  <span className="text-[11px] text-slate-600 font-medium">{new Date(selectedLead.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                 </div>
               </div>
 
+              {/* Last SMS History Card (if sent) */}
               {selectedLead.lastMessage && (
-                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs">
-                  <span className="font-semibold text-emerald-800 block mb-1">Last SMS Sent (Quo):</span>
-                  <p className="text-emerald-700 italic">"{selectedLead.lastMessage}"</p>
-                  <span className="text-[10px] text-emerald-600 block mt-1">Sent on {selectedLead.smsSentAt ? new Date(selectedLead.smsSentAt).toLocaleString() : 'N/A'}</span>
+                <div className="p-4 bg-emerald-50/90 border border-emerald-300 rounded-xl text-xs space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-emerald-900 text-xs flex items-center gap-1.5">
+                      <CheckCircle2 size={14} className="text-emerald-600" />
+                      Last SMS Sent via Quo
+                    </span>
+                    <span className="text-[11px] text-emerald-700 font-medium">
+                      {selectedLead.smsSentAt ? new Date(selectedLead.smsSentAt).toLocaleString() : ''}
+                    </span>
+                  </div>
+                  <p className="text-emerald-950 font-sans text-xs pt-1 leading-relaxed bg-white/60 p-2.5 rounded-lg border border-emerald-200/80 whitespace-pre-wrap">
+                    "{selectedLead.lastMessage}"
+                  </p>
                 </div>
               )}
 
+              {/* Form Answers & Questionnaire Card */}
               {selectedLead.rawFields && (
-                <div>
-                  <h4 className="text-xs font-semibold uppercase tracking-wider text-brand-muted mb-2">Raw Form Submitted Fields</h4>
-                  <pre className="p-3 bg-slate-900 text-slate-100 rounded-xl text-[11px] font-mono whitespace-pre-wrap overflow-x-auto">
-                    {JSON.stringify(JSON.parse(selectedLead.rawFields || '{}'), null, 2)}
-                  </pre>
+                <div className="space-y-2">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
+                    <Sparkles size={14} className="text-blue-600" />
+                    Submitted Form Answers
+                  </h4>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {Object.entries(JSON.parse(selectedLead.rawFields || '{}')).map(([key, val]) => {
+                      // Pretty-print field keys
+                      const label = key
+                        .replace(/_/g, ' ')
+                        .replace(/\?/g, '')
+                        .replace(/\b\w/g, (l) => l.toUpperCase());
+
+                      return (
+                        <div key={key} className="p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                          <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block mb-0.5">
+                            {label}
+                          </span>
+                          <span className="text-xs font-semibold text-slate-950 block break-words">
+                            {String(val)}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </div>
 
-            <div className="pt-4 border-t border-brand-border flex justify-between items-center">
+            {/* Modal Actions Footer */}
+            <div className="pt-4 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3">
               <button
                 onClick={(e) => handleDeleteLead(selectedLead.id, e)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-lg border border-rose-200 transition-colors"
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-rose-700 hover:text-rose-900 bg-rose-50 hover:bg-rose-100 rounded-xl border border-rose-200 transition-colors cursor-pointer"
+                title="Delete lead record"
               >
                 <Trash2 size={14} />
-                Delete Lead Record
+                Delete Lead
               </button>
 
               <div className="flex items-center gap-2">
@@ -1211,7 +1283,7 @@ export function VisitorFunnelPage() {
                   variant="filled"
                   onClick={(e) => handleCallLead(selectedLead, e)}
                   disabled={!selectedLead.phone}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-9 px-4 text-xs"
                 >
                   <PhoneCall size={14} className="mr-1.5" />
                   Call Lead
@@ -1225,11 +1297,17 @@ export function VisitorFunnelPage() {
                     handleOpenSmsModal(l, e);
                   }}
                   disabled={!selectedLead.phone}
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold h-9 px-4 text-xs"
                 >
                   <Send size={14} className="mr-1.5" />
-                  Customize & Send SMS / GIF
+                  Send SMS & GIF
                 </PillButton>
-                <PillButton variant="outline" onClick={() => setSelectedLead(null)}>
+
+                <PillButton
+                  variant="outline"
+                  onClick={() => setSelectedLead(null)}
+                  className="border-slate-300 text-slate-700 hover:bg-slate-100 font-semibold h-9 px-4 text-xs"
+                >
                   Close
                 </PillButton>
               </div>
