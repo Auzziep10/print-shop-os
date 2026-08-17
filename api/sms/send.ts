@@ -78,8 +78,8 @@ export default async function handler(req: Request) {
 
       openPhonePayload.media = [mediaItemObj];
       openPhonePayload.attachments = [mediaItemObj];
-      openPhonePayload.mediaUrls = [mediaItemStr];
-      openPhonePayload.mediaUrl = mediaItemStr;
+      openPhonePayload.mediaUrls = [rawMediaStr];
+      openPhonePayload.mediaUrl = rawMediaStr;
     } else if (Array.isArray(media) && media.length > 0) {
       openPhonePayload.media = media;
       openPhonePayload.attachments = media;
