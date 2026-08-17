@@ -208,10 +208,18 @@ export async function sendMetaLeadSMS(
     }
 
     let content = customMessage || '';
-    if (!content) {
+    let finalMediaUrl = mediaUrl;
+
+    if (!content || finalMediaUrl === undefined) {
       const metaSnap = await getDoc(doc(db, 'settings', 'meta'));
       if (metaSnap.exists()) {
-        content = metaSnap.data().smsTemplate || '';
+        const data = metaSnap.data();
+        if (!content) {
+          content = data.smsTemplate || '';
+        }
+        if (finalMediaUrl === undefined) {
+          finalMediaUrl = data.smsMediaUrl || '';
+        }
       }
       if (!content) {
         content = 'Hi {leadName}, thank you for inquiring via our Meta ad! How can we help with your custom order?';
@@ -238,7 +246,7 @@ export async function sendMetaLeadSMS(
       body: JSON.stringify({
         to: normalizedPhone,
         content,
-        mediaUrl: mediaUrl || undefined
+        mediaUrl: finalMediaUrl || undefined
       })
     });
 

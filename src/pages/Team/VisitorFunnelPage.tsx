@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { collection, onSnapshot, query, orderBy, deleteDoc, doc, setDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, deleteDoc, doc, setDoc, getDoc } from 'firebase/firestore';
 import { db, auth } from '../../lib/firebase';
 import { type VisitorSession } from '../../lib/visitorTracking';
 import { tokens } from '../../lib/tokens';
@@ -26,7 +26,9 @@ import {
   AlertCircle,
   Mail,
   Phone,
-  PhoneCall
+  PhoneCall,
+  Settings,
+  Sparkles
 } from 'lucide-react';
 
 const FUNNEL_STAGES = [
@@ -83,6 +85,14 @@ export function VisitorFunnelPage() {
   const [smsMessage, setSmsMessage] = useState('');
   const [smsMediaUrl, setSmsMediaUrl] = useState('');
   const [sendingModalSms, setSendingModalSms] = useState(false);
+
+  // Global Default Lead SMS & GIF Settings Modal State
+  const [showDefaultSmsModal, setShowDefaultSmsModal] = useState(false);
+  const [defaultSmsMessage, setDefaultSmsMessage] = useState('');
+  const [defaultSmsMediaUrl, setDefaultSmsMediaUrl] = useState('');
+  const [autoSendSms, setAutoSendSms] = useState(false);
+  const [loadingDefaultSmsSettings, setLoadingDefaultSmsSettings] = useState(false);
+  const [savingDefaultSmsSettings, setSavingDefaultSmsSettings] = useState(false);
 
   // Subscribe to Visitor Sessions
   useEffect(() => {
@@ -273,6 +283,56 @@ export function VisitorFunnelPage() {
     }
 
     window.location.href = `tel:${cleanPhone}`;
+  };
+
+  // Fetch & Open Default SMS & GIF Settings Modal
+  const handleOpenDefaultSmsModal = async () => {
+    setShowDefaultSmsModal(true);
+    setLoadingDefaultSmsSettings(true);
+    try {
+      const metaSnap = await getDoc(doc(db, 'settings', 'meta'));
+      const defaultText = `Left you a VM!\n\nYou can get started with just a few clicks at www.inktheory.studio by clicking the START button.\n\nIn the meantime, I'm here if you have any questions or need help getting started!\n\n✌️ Jason (not ai or bot)\nINKTHEORY Customer Service`;
+      const defaultGif = `https://images.squarespace-cdn.com/content/v1/640b79f64c676766ebf04df5/1678500000000-sample/tutorial.gif`;
+
+      if (metaSnap.exists()) {
+        const data = metaSnap.data();
+        setDefaultSmsMessage(data.smsTemplate || defaultText);
+        setDefaultSmsMediaUrl(data.smsMediaUrl !== undefined ? data.smsMediaUrl : defaultGif);
+        setAutoSendSms(data.autoSendSms ?? false);
+      } else {
+        setDefaultSmsMessage(defaultText);
+        setDefaultSmsMediaUrl(defaultGif);
+        setAutoSendSms(false);
+      }
+    } catch (err) {
+      console.error('Error fetching default SMS settings:', err);
+    } finally {
+      setLoadingDefaultSmsSettings(false);
+    }
+  };
+
+  // Save Default SMS & GIF Settings to Firestore
+  const handleSaveDefaultSmsSettings = async () => {
+    setSavingDefaultSmsSettings(true);
+    try {
+      await setDoc(
+        doc(db, 'settings', 'meta'),
+        {
+          smsTemplate: defaultSmsMessage.trim(),
+          smsMediaUrl: defaultSmsMediaUrl.trim(),
+          autoSendSms,
+          updatedAt: new Date().toISOString()
+        },
+        { merge: true }
+      );
+
+      alert('Default Lead SMS & GIF Template saved successfully! All new leads will receive this automated text & GIF.');
+      setShowDefaultSmsModal(false);
+    } catch (err: any) {
+      alert(`Failed to save settings: ${err.message || 'Unknown error'}`);
+    } finally {
+      setSavingDefaultSmsSettings(false);
+    }
   };
 
   // Web Visitor Filtering
@@ -819,6 +879,17 @@ export function VisitorFunnelPage() {
                   value={leadSmsFilter}
                   onChange={(val) => setLeadSmsFilter(val as any)}
                 />
+
+                {/* Default Template Settings Button */}
+                <PillButton
+                  variant="outline"
+                  onClick={handleOpenDefaultSmsModal}
+                  className="shrink-0 h-9 bg-slate-50 hover:bg-slate-100 border-slate-300 text-slate-800 font-bold"
+                  title="Configure default automated text & GIF for incoming leads"
+                >
+                  <MessageSquare size={14} className="mr-1.5 text-blue-600" />
+                  Default Lead Text & GIF Settings
+                </PillButton>
 
                 {/* Manual Sync Button */}
                 <PillButton
@@ -1435,6 +1506,242 @@ export function VisitorFunnelPage() {
                   <>
                     <Send size={16} className="mr-2" />
                     Send Text & GIF via Quo Now
+                  </>
+                )}
+              </PillButton>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Default Lead SMS & GIF Settings Dialog Modal */}
+      {showDefaultSmsModal && (
+        <div className="fixed inset-0 bg-black/65 backdrop-blur-xs flex items-center justify-center p-4 z-[230] animate-in fade-in duration-200">
+          <div className="bg-white border border-brand-border rounded-2xl p-6 max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex items-start justify-between pb-4 border-b border-brand-border">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-indigo-50 border border-indigo-200 rounded-xl text-indigo-600">
+                  <Sparkles size={22} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-serif font-semibold text-brand-primary">
+                    Default Lead SMS & GIF Template Settings
+                  </h3>
+                  <p className="text-xs text-brand-muted mt-0.5">
+                    Configure the default message & GIF sent automatically to new Meta Leads or used in quick responses.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setShowDefaultSmsModal(false)}
+                className="p-1.5 hover:bg-slate-100 rounded-lg text-brand-secondary transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Loading Indicator */}
+            {loadingDefaultSmsSettings ? (
+              <div className="py-16 text-center text-brand-muted text-sm font-serif flex flex-col items-center justify-center">
+                <Loader2 size={24} className="animate-spin mb-2 text-indigo-600" />
+                Loading default template settings...
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 my-4 flex-1 overflow-y-auto pr-1">
+                {/* Left Column: Form Controls */}
+                <div className="lg:col-span-7 space-y-4">
+                  {/* 1. Default Message Textarea */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                        Default Text Message Content
+                      </label>
+                      <span className="text-[11px] font-mono text-slate-500">
+                        {defaultSmsMessage.length} chars
+                      </span>
+                    </div>
+                    <textarea
+                      rows={6}
+                      value={defaultSmsMessage}
+                      onChange={(e) => setDefaultSmsMessage(e.target.value)}
+                      placeholder="Type the default message sent to new leads..."
+                      className="w-full p-3 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 font-sans leading-relaxed focus:outline-none focus:border-brand-primary focus:bg-white transition-colors"
+                    />
+
+                    {/* Insert Tags */}
+                    <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                      <span className="text-[10px] text-slate-500 font-semibold">Available tags:</span>
+                      <button
+                        type="button"
+                        onClick={() => setDefaultSmsMessage((prev) => prev + ' {leadName}')}
+                        className="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[10px] font-mono border border-slate-300 cursor-pointer"
+                      >
+                        + {"{leadName}"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDefaultSmsMessage((prev) => prev + ' {adName}')}
+                        className="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[10px] font-mono border border-slate-300 cursor-pointer"
+                      >
+                        + {"{adName}"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDefaultSmsMessage((prev) => prev + ' www.inktheory.studio')}
+                        className="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[10px] font-mono border border-slate-300 cursor-pointer"
+                      >
+                        + website link
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 2. Default GIF Attachment URL */}
+                  <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-300 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                        <Share2 size={14} className="text-blue-600" />
+                        Default Attached GIF or Image URL (MMS)
+                      </label>
+                      {defaultSmsMediaUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setDefaultSmsMediaUrl('')}
+                          className="text-[11px] text-rose-600 hover:underline cursor-pointer"
+                        >
+                          Remove GIF
+                        </button>
+                      )}
+                    </div>
+                    <input
+                      type="url"
+                      value={defaultSmsMediaUrl}
+                      onChange={(e) => setDefaultSmsMediaUrl(e.target.value)}
+                      placeholder="https://example.com/tutorial.gif"
+                      className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-mono text-slate-900 focus:outline-none focus:border-brand-primary"
+                    />
+
+                    {/* Presets */}
+                    <div className="flex items-center gap-2 pt-1">
+                      <span className="text-[10px] text-slate-500 font-medium">Quick GIFs:</span>
+                      <button
+                        type="button"
+                        onClick={() => setDefaultSmsMediaUrl('https://images.squarespace-cdn.com/content/v1/640b79f64c676766ebf04df5/1678500000000-sample/tutorial.gif')}
+                        className="px-2 py-1 bg-white hover:bg-slate-100 text-slate-800 rounded text-[11px] border border-slate-300 shadow-2xs cursor-pointer font-medium"
+                      >
+                        🎬 Tutorial Start GIF
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDefaultSmsMediaUrl('')}
+                        className="px-2 py-1 bg-white hover:bg-slate-100 text-slate-500 rounded text-[11px] border border-slate-300 cursor-pointer"
+                      >
+                        🚫 No GIF
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 3. Auto-Send Toggle Switch */}
+                  <div className="p-3.5 bg-indigo-50/60 rounded-xl border border-indigo-200 flex items-center justify-between">
+                    <div>
+                      <span className="text-xs font-bold text-indigo-950 block">Instant Auto-Send to New Leads</span>
+                      <p className="text-[11px] text-indigo-800/80 mt-0.5">Automatically dispatch this text & GIF via Quo immediately when a new lead is captured from Meta Ads.</p>
+                    </div>
+
+                    <label className="relative inline-flex items-center cursor-pointer ml-3 shrink-0">
+                      <input
+                        type="checkbox"
+                        className="sr-only peer"
+                        checked={autoSendSms}
+                        onChange={(e) => setAutoSendSms(e.target.checked)}
+                      />
+                      <div className="w-10 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Right Column: Live iMessage Smartphone Preview */}
+                <div className="lg:col-span-5 flex flex-col">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-800 mb-2">
+                    Live Default Message Preview
+                  </label>
+
+                  <div className="flex-1 bg-slate-950 p-4 rounded-3xl border border-slate-800 flex flex-col justify-between shadow-inner min-h-[380px]">
+                    <div className="flex items-center justify-between pb-3 border-b border-slate-800 text-[11px] text-slate-400">
+                      <span className="font-mono">+1 (555) 019-2831</span>
+                      <span className="text-emerald-400 font-semibold flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                        Quo Auto-SMS
+                      </span>
+                    </div>
+
+                    <div className="py-4 space-y-3 flex flex-col items-end">
+                      {defaultSmsMediaUrl ? (
+                        <div className="rounded-2xl overflow-hidden shadow-md max-w-[260px] border border-slate-700 bg-slate-900 relative">
+                          <img
+                            src={defaultSmsMediaUrl}
+                            alt="Attached GIF preview"
+                            className="w-full h-auto max-h-48 object-cover"
+                            onError={(e) => {
+                              (e.target as HTMLElement).style.display = 'none';
+                            }}
+                          />
+                          <div className="absolute bottom-2 left-2 px-2 py-0.5 bg-black/70 backdrop-blur-xs text-white text-[9px] font-mono rounded">
+                            Default GIF Attached
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-[10px] text-slate-500 italic text-center w-full py-2">
+                          (No default GIF attached)
+                        </div>
+                      )}
+
+                      {defaultSmsMessage.trim() ? (
+                        defaultSmsMessage.split('\n\n').map((paragraph, pIdx) => (
+                          <div
+                            key={pIdx}
+                            className="bg-blue-600 text-white rounded-2xl px-4 py-2.5 text-xs max-w-[260px] leading-relaxed shadow-sm font-sans whitespace-pre-wrap rounded-br-xs"
+                          >
+                            {paragraph.replace(/{leadName}/g, 'Alex')}
+                          </div>
+                        ))
+                      ) : (
+                        <div className="bg-slate-800 text-slate-400 rounded-2xl px-4 py-2.5 text-xs max-w-[260px] italic">
+                          Type a default message above...
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-800 text-[10px] text-slate-500 text-right">
+                      Delivered via Quo OpenPhone API
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Modal Footer Actions */}
+            <div className="pt-4 border-t border-brand-border flex items-center justify-between">
+              <PillButton variant="outline" onClick={() => setShowDefaultSmsModal(false)}>
+                Cancel
+              </PillButton>
+
+              <PillButton
+                variant="filled"
+                onClick={handleSaveDefaultSmsSettings}
+                disabled={savingDefaultSmsSettings || loadingDefaultSmsSettings}
+                className="bg-indigo-600 hover:bg-indigo-700 h-10 px-6 text-sm text-white font-bold"
+              >
+                {savingDefaultSmsSettings ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin mr-2" />
+                    Saving Template...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles size={16} className="mr-2" />
+                    Save & Apply Default Lead Template
                   </>
                 )}
               </PillButton>
