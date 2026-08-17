@@ -17,6 +17,7 @@ export default async function handler(req: Request) {
     // 1. Check Vercel Environment Variables first (Option B - Maximum Security)
     let accessToken = process.env.META_ACCESS_TOKEN || '';
     let formId = process.env.META_FORM_ID || '';
+    let pageId = process.env.META_PAGE_ID || '';
 
     // If environment variables are not set in Vercel, fallback to Firestore settings
     if (!accessToken || !formId) {
@@ -32,6 +33,7 @@ export default async function handler(req: Request) {
         const fields = settingsDoc.fields || {};
         if (!accessToken) accessToken = fields.accessToken?.stringValue || '';
         if (!formId) formId = fields.formId?.stringValue || '';
+        if (!pageId) pageId = fields.pageId?.stringValue || '';
       }
     }
 
@@ -39,27 +41,60 @@ export default async function handler(req: Request) {
       return new Response(JSON.stringify({ error: 'Meta Access Token is missing. Please set META_ACCESS_TOKEN in Vercel Environment Variables or in Settings > Meta Lead Ads Integration.' }), { status: 400 });
     }
 
-    if (!formId) {
-      return new Response(JSON.stringify({ error: 'Meta Lead Form ID is missing. Please set META_FORM_ID in Vercel Environment Variables or in Settings > Meta Lead Ads Integration.' }), { status: 400 });
+    const projectId = 'print-shop-os-f8092';
+    let leadsToProcess: any[] = [];
+    let lastErrorMsg = '';
+
+    // Strategy A: Direct Lead Form Query (/v19.0/{formId}/leads)
+    if (formId) {
+      const directUrl = `https://graph.facebook.com/v19.0/${formId}/leads?access_token=${encodeURIComponent(accessToken)}&limit=50`;
+      const directRes = await fetch(directUrl);
+      if (directRes.ok) {
+        const directData = await directRes.json();
+        leadsToProcess = directData.data || [];
+      } else {
+        const errData = await directRes.json().catch(() => ({}));
+        lastErrorMsg = errData.error?.message || directRes.statusText;
+      }
     }
 
-    // 2. Fetch leads from Meta Graph API
-    const metaGraphUrl = `https://graph.facebook.com/v19.0/${formId}/leads?access_token=${encodeURIComponent(accessToken)}&limit=50`;
-    const metaRes = await fetch(metaGraphUrl);
+    // Strategy B: If Strategy A returned no leads / error, treat formId or pageId as a Page ID (/v19.0/{id}/leadgen_forms)
+    if (leadsToProcess.length === 0) {
+      const pageTargetId = pageId || formId || 'me';
+      const formsUrl = `https://graph.facebook.com/v19.0/${pageTargetId}/leadgen_forms?access_token=${encodeURIComponent(accessToken)}`;
+      const formsRes = await fetch(formsUrl);
 
-    if (!metaRes.ok) {
-      const errData = await metaRes.json().catch(() => ({}));
+      if (formsRes.ok) {
+        const formsData = await formsRes.json();
+        const formsList = formsData.data || [];
+
+        for (const f of formsList) {
+          const fLeadsUrl = `https://graph.facebook.com/v19.0/${f.id}/leads?access_token=${encodeURIComponent(accessToken)}&limit=50`;
+          const fLeadsRes = await fetch(fLeadsUrl);
+          if (fLeadsRes.ok) {
+            const fLeadsData = await fLeadsRes.json();
+            const fLeads = fLeadsData.data || [];
+            fLeads.forEach((item: any) => {
+              item._formName = f.name;
+              item._formId = f.id;
+            });
+            leadsToProcess.push(...fLeads);
+          }
+        }
+      }
+    }
+
+    // Strategy C: If still no leads and we had a specific error from Meta, report friendly instructions
+    if (leadsToProcess.length === 0 && lastErrorMsg) {
       return new Response(JSON.stringify({
-        error: `Meta Graph API error: ${errData.error?.message || metaRes.statusText}`
-      }), { status: metaRes.status });
+        error: `Meta Graph API error: ${lastErrorMsg}. Please ensure your Page Access Token was generated for the Page that owns this form, and has 'leads_retrieval' permission.`
+      }), { status: 400 });
     }
 
-    const metaData = await metaRes.json();
-    const leads = metaData.data || [];
     let syncedCount = 0;
 
     // 3. Upsert leads to Firestore meta_leads collection
-    for (const lead of leads) {
+    for (const lead of leadsToProcess) {
       const leadId = lead.id;
       const createdTime = lead.created_time;
       let name = 'Meta Lead';
@@ -87,12 +122,12 @@ export default async function handler(req: Request) {
       const firestorePayload = {
         fields: {
           leadId: { stringValue: leadId },
-          formId: { stringValue: formId },
+          formId: { stringValue: lead._formId || formId || '' },
           name: { stringValue: name },
           phone: { stringValue: phone },
           email: { stringValue: email },
           adName: { stringValue: 'Meta Lead Ad' },
-          formName: { stringValue: 'Lead Form' },
+          formName: { stringValue: lead._formName || 'Lead Form' },
           smsStatus: { stringValue: 'not_sent' },
           createdAt: { stringValue: createdTime || new Date().toISOString() },
           rawFields: { stringValue: JSON.stringify(fieldDetails) }
