@@ -55,9 +55,16 @@ export default async function handler(req: Request) {
     const toArray = Array.isArray(to) ? to : [to];
 
     let finalContent = content;
-    const mediaItemStr = typeof mediaUrl === 'string' ? mediaUrl : (mediaUrl as any)?.url;
-    if (mediaItemStr && !finalContent.includes(mediaItemStr)) {
-      finalContent = `${finalContent.trim()}\n\n${mediaItemStr.trim()}`;
+    let rawMediaStr = typeof mediaUrl === 'string' ? mediaUrl : (mediaUrl as any)?.url;
+    if (rawMediaStr) {
+      let cleanMediaUrl = rawMediaStr;
+      if (rawMediaStr.includes('firebasestorage.googleapis.com') || rawMediaStr.includes('?')) {
+        const origin = req.headers.get('origin') || 'https://inktheory.studio';
+        cleanMediaUrl = `${origin}/api/gif/render.gif?url=${encodeURIComponent(rawMediaStr)}`;
+      }
+      if (!finalContent.includes(cleanMediaUrl) && !finalContent.includes(rawMediaStr)) {
+        finalContent = `${finalContent.trim()}\n\n${cleanMediaUrl.trim()}`;
+      }
     }
 
     const openPhonePayload: Record<string, any> = {
