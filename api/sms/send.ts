@@ -43,9 +43,9 @@ export default async function handler(req: Request) {
       }), { status: 400 });
     }
 
-    // 2. Parse the request body for SMS parameters
+    // 2. Parse the request body for SMS & MMS parameters
     const body = await req.json();
-    const { to, content } = body;
+    const { to, content, mediaUrl, media } = body;
 
     if (!to || !content) {
       return new Response(JSON.stringify({ error: 'Missing required parameters: to and content' }), { status: 400 });
@@ -54,6 +54,18 @@ export default async function handler(req: Request) {
     // Format 'to' to be an array of strings in E.164 format if it is a single string
     const toArray = Array.isArray(to) ? to : [to];
 
+    const openPhonePayload: Record<string, any> = {
+      content,
+      from: fromNumber,
+      to: toArray
+    };
+
+    if (mediaUrl) {
+      openPhonePayload.media = [{ url: mediaUrl }];
+    } else if (Array.isArray(media) && media.length > 0) {
+      openPhonePayload.media = media;
+    }
+
     // 3. Send the request to OpenPhone/QUO API
     const openPhoneRes = await fetch('https://api.openphone.com/v1/messages', {
       method: 'POST',
@@ -61,11 +73,7 @@ export default async function handler(req: Request) {
         'Content-Type': 'application/json',
         'Authorization': apiKey
       },
-      body: JSON.stringify({
-        content,
-        from: fromNumber,
-        to: toArray
-      })
+      body: JSON.stringify(openPhonePayload)
     });
 
     const openPhoneData = await openPhoneRes.json().catch(() => ({}));

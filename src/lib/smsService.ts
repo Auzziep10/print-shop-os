@@ -195,7 +195,11 @@ export async function sendCustomerWelcomeSMS(customerId: string) {
   }
 }
 
-export async function sendMetaLeadSMS(lead: { leadId?: string; id?: string; phone: string; name?: string; email?: string; adName?: string }, customMessage?: string): Promise<{ success: boolean; error?: string }> {
+export async function sendMetaLeadSMS(
+  lead: { leadId?: string; id?: string; phone: string; name?: string; email?: string; adName?: string },
+  customMessage?: string,
+  mediaUrl?: string
+): Promise<{ success: boolean; error?: string }> {
   try {
     const rawPhone = lead.phone || '';
     const normalizedPhone = normalizePhoneNumber(rawPhone);
@@ -233,7 +237,8 @@ export async function sendMetaLeadSMS(lead: { leadId?: string; id?: string; phon
       },
       body: JSON.stringify({
         to: normalizedPhone,
-        content
+        content,
+        mediaUrl: mediaUrl || undefined
       })
     });
 
@@ -255,7 +260,8 @@ export async function sendMetaLeadSMS(lead: { leadId?: string; id?: string; phon
       await updateDoc(doc(db, 'meta_leads', targetId), {
         smsStatus: 'sent',
         smsSentAt: new Date().toISOString(),
-        lastMessage: content
+        lastMessage: content,
+        lastMediaUrl: mediaUrl || null
       }).catch(() => {});
     }
 

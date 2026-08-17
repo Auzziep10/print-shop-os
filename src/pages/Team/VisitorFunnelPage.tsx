@@ -72,10 +72,16 @@ export function VisitorFunnelPage() {
   const [loadingLeads, setLoadingLeads] = useState(true);
   const [syncingLeads, setSyncingLeads] = useState(false);
   const [syncStatusMsg, setSyncStatusMsg] = useState<{ success: boolean; message: string } | null>(null);
-  const [sendingSmsId, setSendingSmsId] = useState<string | null>(null);
   const [selectedLead, setSelectedLead] = useState<MetaLead | null>(null);
   const [leadSearchQuery, setLeadSearchQuery] = useState('');
   const [leadSmsFilter, setLeadSmsFilter] = useState<'All' | 'Text Sent' | 'Uncontacted'>('All');
+
+  // Interactive SMS Composer Modal State
+  const [smsModalLead, setSmsModalLead] = useState<MetaLead | null>(null);
+  const [smsTemplateType, setSmsTemplateType] = useState<'voicemail' | 'welcome' | 'custom'>('voicemail');
+  const [smsMessage, setSmsMessage] = useState('');
+  const [smsMediaUrl, setSmsMediaUrl] = useState('');
+  const [sendingModalSms, setSendingModalSms] = useState(false);
 
   // Subscribe to Visitor Sessions
   useEffect(() => {
@@ -194,26 +200,55 @@ export function VisitorFunnelPage() {
     }
   };
 
-  // Manual Send SMS via Quo API Call
-  const handleSendLeadSMS = async (lead: MetaLead, e?: React.MouseEvent) => {
+  // Open Interactive SMS Composer Modal
+  const handleOpenSmsModal = (lead: MetaLead, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     if (!lead.phone) {
-      alert('This lead does not have a phone number attached.');
+      alert('This lead does not have a valid phone number attached.');
       return;
     }
+    setSmsModalLead(lead);
+    applySmsTemplate('voicemail', lead);
+  };
 
-    setSendingSmsId(lead.id);
+  // Apply Quick Template Presets
+  const applySmsTemplate = (type: 'voicemail' | 'welcome' | 'custom', lead?: MetaLead | null) => {
+    const targetLead = lead || smsModalLead;
+    setSmsTemplateType(type);
+    const firstName = targetLead?.name ? targetLead.name.split(' ')[0] : 'there';
+
+    if (type === 'voicemail') {
+      setSmsMessage(
+        `Left you a VM!\n\nYou can get started with just a few clicks at www.inktheory.studio by clicking the START button.\n\nIn the meantime, I'm here if you have any questions or need help getting started!\n\n✌️ Jason (not ai or bot)\nINKTHEORY Customer Service`
+      );
+      setSmsMediaUrl('https://images.squarespace-cdn.com/content/v1/640b79f64c676766ebf04df5/1678500000000-sample/tutorial.gif');
+    } else if (type === 'welcome') {
+      setSmsMessage(
+        `Hi ${firstName}, thank you for inquiring via our Meta ad! How can we help with your custom print order?\n\nYou can calculate instant pricing and start building at www.inktheory.studio!`
+      );
+      setSmsMediaUrl('');
+    } else {
+      setSmsMessage('');
+      setSmsMediaUrl('');
+    }
+  };
+
+  // Dispatch Custom SMS & GIF via Quo
+  const handleSendCustomModalSms = async () => {
+    if (!smsModalLead || !smsModalLead.phone) return;
+    setSendingModalSms(true);
     try {
-      const res = await sendMetaLeadSMS(lead);
+      const res = await sendMetaLeadSMS(smsModalLead, smsMessage, smsMediaUrl);
       if (res.success) {
-        alert(`SMS text sent successfully to ${lead.name} (${lead.phone}) via Quo!`);
+        alert(`SMS & GIF sent successfully to ${smsModalLead.name} (${smsModalLead.phone}) via Quo!`);
+        setSmsModalLead(null);
       } else {
         alert(`Failed to send SMS via Quo: ${res.error}`);
       }
     } catch (err: any) {
       alert(`Error sending text: ${err.message || 'Unknown error'}`);
     } finally {
-      setSendingSmsId(null);
+      setSendingModalSms(false);
     }
   };
 
@@ -870,8 +905,8 @@ export function VisitorFunnelPage() {
                         <td className="py-3.5 px-4 text-right">
                           <div className="inline-flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                             <button
-                              onClick={(e) => handleSendLeadSMS(lead, e)}
-                              disabled={sendingSmsId === lead.id || !lead.phone}
+                              onClick={(e) => handleOpenSmsModal(lead, e)}
+                              disabled={sendingModalSms || !lead.phone}
                               className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shadow-2xs ${
                                 lead.smsStatus === 'sent'
                                   ? 'bg-slate-100 text-brand-primary hover:bg-slate-200 border border-slate-200'
@@ -883,7 +918,7 @@ export function VisitorFunnelPage() {
                               ) : (
                                 <Send size={13} />
                               )}
-                              {lead.smsStatus === 'sent' ? 'Resend SMS' : 'Send SMS via Quo'}
+                              {lead.smsStatus === 'sent' ? 'Resend SMS & GIF' : 'Send SMS & GIF via Quo'}
                             </button>
 
                             <button
@@ -1059,20 +1094,295 @@ export function VisitorFunnelPage() {
               <div className="flex items-center gap-2">
                 <PillButton
                   variant="filled"
-                  onClick={(e) => handleSendLeadSMS(selectedLead, e)}
-                  disabled={sendingSmsId === selectedLead.id || !selectedLead.phone}
+                  onClick={(e) => {
+                    const l = selectedLead;
+                    setSelectedLead(null);
+                    handleOpenSmsModal(l, e);
+                  }}
+                  disabled={!selectedLead.phone}
                 >
-                  {sendingSmsId === selectedLead.id ? (
-                    <Loader2 size={14} className="animate-spin mr-1.5" />
-                  ) : (
-                    <Send size={14} className="mr-1.5" />
-                  )}
-                  Send SMS via Quo
+                  <Send size={14} className="mr-1.5" />
+                  Customize & Send SMS / GIF
                 </PillButton>
                 <PillButton variant="outline" onClick={() => setSelectedLead(null)}>
                   Close
                 </PillButton>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Interactive SMS & GIF Customizer Modal */}
+      {smsModalLead && (
+        <div className="fixed inset-0 bg-black/65 backdrop-blur-xs flex items-center justify-center p-4 z-[220] animate-in fade-in duration-200">
+          <div className="bg-white border border-brand-border rounded-2xl p-6 max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex items-start justify-between pb-4 border-b border-brand-border">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-blue-50 border border-blue-200 rounded-xl text-blue-600">
+                  <MessageSquare size={22} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-serif font-semibold text-brand-primary">
+                    Compose SMS & GIF for {smsModalLead.name}
+                  </h3>
+                  <p className="text-xs font-mono text-brand-muted mt-0.5">
+                    Sending to <span className="text-brand-primary font-bold">{smsModalLead.phone}</span> via Quo SMS/MMS
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setSmsModalLead(null)}
+                className="p-1.5 hover:bg-slate-100 rounded-lg text-brand-secondary transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Grid Body: Form Controls (Left) vs Live Mobile iMessage Preview (Right) */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 my-4 flex-1 overflow-y-auto pr-1">
+              {/* Left Column: Preset Templates & Customizer */}
+              <div className="lg:col-span-7 space-y-4">
+                {/* 1. Quick Template Selector */}
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-brand-muted mb-2">
+                    1. Select Template Preset
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => applySmsTemplate('voicemail')}
+                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                        smsTemplateType === 'voicemail'
+                          ? 'bg-blue-50/80 border-blue-500 text-blue-900 shadow-xs ring-1 ring-blue-500'
+                          : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                      }`}
+                    >
+                      <div className="text-xs font-bold flex items-center gap-1.5">
+                        🎙️ Voicemail + GIF
+                      </div>
+                      <div className="text-[10px] text-slate-500 mt-1 line-clamp-2">
+                        Left VM + start guide GIF + Jason signature
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => applySmsTemplate('welcome')}
+                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                        smsTemplateType === 'welcome'
+                          ? 'bg-blue-50/80 border-blue-500 text-blue-900 shadow-xs ring-1 ring-blue-500'
+                          : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                      }`}
+                    >
+                      <div className="text-xs font-bold flex items-center gap-1.5">
+                        ⚡ Welcome Lead
+                      </div>
+                      <div className="text-[10px] text-slate-500 mt-1 line-clamp-2">
+                        Greeting + link to quote builder
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => applySmsTemplate('custom')}
+                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                        smsTemplateType === 'custom'
+                          ? 'bg-blue-50/80 border-blue-500 text-blue-900 shadow-xs ring-1 ring-blue-500'
+                          : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                      }`}
+                    >
+                      <div className="text-xs font-bold flex items-center gap-1.5">
+                        ✍️ Custom Message
+                      </div>
+                      <div className="text-[10px] text-slate-500 mt-1 line-clamp-2">
+                        Type a custom text & media URL from scratch
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
+                {/* 2. Message Body Textarea */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-semibold uppercase tracking-wider text-brand-muted">
+                      2. Edit Text Message Content
+                    </label>
+                    <span className="text-[11px] font-mono text-brand-muted">
+                      {smsMessage.length} chars
+                    </span>
+                  </div>
+                  <textarea
+                    rows={6}
+                    value={smsMessage}
+                    onChange={(e) => setSmsMessage(e.target.value)}
+                    placeholder="Type your SMS message here..."
+                    className="w-full p-3 bg-slate-50 border border-brand-border rounded-xl text-xs text-brand-primary font-sans leading-relaxed focus:outline-none focus:border-brand-primary focus:bg-white transition-colors"
+                  />
+
+                  {/* Insert Variable Helper Tags */}
+                  <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                    <span className="text-[10px] text-brand-muted font-semibold">Insert tags:</span>
+                    <button
+                      type="button"
+                      onClick={() => setSmsMessage((prev) => prev + ' {leadName}')}
+                      className="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[10px] font-mono border border-slate-200 cursor-pointer"
+                    >
+                      + {"{leadName}"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSmsMessage((prev) => prev + ' {adName}')}
+                      className="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[10px] font-mono border border-slate-200 cursor-pointer"
+                    >
+                      + {"{adName}"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSmsMessage((prev) => prev + ' www.inktheory.studio')}
+                      className="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[10px] font-mono border border-slate-200 cursor-pointer"
+                    >
+                      + website link
+                    </button>
+                  </div>
+                </div>
+
+                {/* 3. GIF / MMS Media Attachment */}
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-semibold text-brand-primary flex items-center gap-1.5">
+                      <Share2 size={14} className="text-blue-600" />
+                      3. Attach GIF or Image (MMS)
+                    </label>
+                    {smsMediaUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setSmsMediaUrl('')}
+                        className="text-[11px] text-rose-600 hover:underline cursor-pointer"
+                      >
+                        Remove GIF
+                      </button>
+                    )}
+                  </div>
+                  <input
+                    type="url"
+                    value={smsMediaUrl}
+                    onChange={(e) => setSmsMediaUrl(e.target.value)}
+                    placeholder="https://example.com/your-gif.gif"
+                    className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-mono text-brand-primary focus:outline-none focus:border-brand-primary"
+                  />
+
+                  {/* Preset GIF Buttons */}
+                  <div className="flex items-center gap-2 pt-1">
+                    <span className="text-[10px] text-brand-muted font-medium">Quick GIFs:</span>
+                    <button
+                      type="button"
+                      onClick={() => setSmsMediaUrl('https://images.squarespace-cdn.com/content/v1/640b79f64c676766ebf04df5/1678500000000-sample/tutorial.gif')}
+                      className="px-2 py-1 bg-white hover:bg-slate-100 text-slate-700 rounded text-[11px] border border-slate-200 shadow-2xs cursor-pointer"
+                    >
+                      🎬 Tutorial Start GIF
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSmsMediaUrl('')}
+                      className="px-2 py-1 bg-white hover:bg-slate-100 text-slate-500 rounded text-[11px] border border-slate-200 cursor-pointer"
+                    >
+                      🚫 No GIF
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column: Live Smartphone Messages Preview (Matching User Screenshot) */}
+              <div className="lg:col-span-5 flex flex-col">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-brand-muted mb-2">
+                  Live Quo Messages Preview
+                </label>
+
+                <div className="flex-1 bg-slate-950 p-4 rounded-3xl border border-slate-800 flex flex-col justify-between shadow-inner min-h-[380px]">
+                  {/* Phone Header Bar */}
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-800 text-[11px] text-slate-400">
+                    <span className="font-mono">{smsModalLead.phone}</span>
+                    <span className="text-emerald-400 font-semibold flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      Quo iMessage
+                    </span>
+                  </div>
+
+                  {/* Message Bubble Stack */}
+                  <div className="py-4 space-y-3 flex flex-col items-end">
+                    {/* Media GIF Container */}
+                    {smsMediaUrl ? (
+                      <div className="rounded-2xl overflow-hidden shadow-md max-w-[260px] border border-slate-700 bg-slate-900 relative group">
+                        <img
+                          src={smsMediaUrl}
+                          alt="Attached GIF preview"
+                          className="w-full h-auto max-h-48 object-cover"
+                          onError={(e) => {
+                            (e.target as HTMLElement).style.display = 'none';
+                          }}
+                        />
+                        <div className="absolute bottom-2 left-2 px-2 py-0.5 bg-black/70 backdrop-blur-xs text-white text-[9px] font-mono rounded">
+                          GIF Attached
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-[10px] text-slate-500 italic text-center w-full py-2">
+                        (No GIF attached)
+                      </div>
+                    )}
+
+                    {/* Blue Text Bubbles */}
+                    {smsMessage.trim() ? (
+                      smsMessage.split('\n\n').map((paragraph, pIdx) => (
+                        <div
+                          key={pIdx}
+                          className="bg-blue-600 text-white rounded-2xl px-4 py-2.5 text-xs max-w-[260px] leading-relaxed shadow-sm font-sans whitespace-pre-wrap rounded-br-xs"
+                        >
+                          {paragraph}
+                        </div>
+                      ))
+                    ) : (
+                      <div className="bg-slate-800 text-slate-400 rounded-2xl px-4 py-2.5 text-xs max-w-[260px] italic">
+                        Type a message above...
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Footer status */}
+                  <div className="pt-2 border-t border-slate-800 text-[10px] text-slate-500 text-right">
+                    Delivered via Quo OpenPhone API
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="pt-4 border-t border-brand-border flex items-center justify-between">
+              <PillButton variant="outline" onClick={() => setSmsModalLead(null)}>
+                Cancel
+              </PillButton>
+
+              <PillButton
+                variant="filled"
+                onClick={handleSendCustomModalSms}
+                disabled={sendingModalSms || !smsMessage.trim()}
+                className="bg-blue-600 hover:bg-blue-700 h-10 px-6 text-sm"
+              >
+                {sendingModalSms ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin mr-2" />
+                    Sending Text & GIF...
+                  </>
+                ) : (
+                  <>
+                    <Send size={16} className="mr-2" />
+                    Send Text & GIF via Quo Now
+                  </>
+                )}
+              </PillButton>
             </div>
           </div>
         </div>
