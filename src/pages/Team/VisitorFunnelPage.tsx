@@ -7,6 +7,7 @@ import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { sendMetaLeadSMS } from '../../lib/smsService';
+import { getPhoneLocationAndTz } from '../../lib/areaCodeLookup';
 import { 
   Users, 
   TrendingUp, 
@@ -34,7 +35,9 @@ import {
   Package,
   Zap,
   Building,
-  Upload
+  Upload,
+  MapPin,
+  UserPlus
 } from 'lucide-react';
 
 const FUNNEL_STAGES = [
@@ -105,6 +108,73 @@ export function VisitorFunnelPage() {
   const [autoSendSms, setAutoSendSms] = useState(false);
   const [loadingDefaultSmsSettings, setLoadingDefaultSmsSettings] = useState(false);
   const [savingDefaultSmsSettings, setSavingDefaultSmsSettings] = useState(false);
+
+  // Manual Add Lead Dialog State & Handler
+  const [showAddLeadModal, setShowAddLeadModal] = useState(false);
+  const [newLeadName, setNewLeadName] = useState('');
+  const [newLeadPhone, setNewLeadPhone] = useState('');
+  const [newLeadEmail, setNewLeadEmail] = useState('');
+  const [newLeadCompany, setNewLeadCompany] = useState('');
+  const [newLeadAdName, setNewLeadAdName] = useState('Manual Entry / Inbound Call');
+  const [newLeadOrderSize, setNewLeadOrderSize] = useState('25-99 pieces');
+  const [newLeadUrgency, setNewLeadUrgency] = useState('asap');
+  const [newLeadType, setNewLeadType] = useState('business/brand');
+  const [savingNewLead, setSavingNewLead] = useState(false);
+
+  const handleAddLeadSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newLeadName.trim() || !newLeadPhone.trim()) {
+      alert('Please provide at least a Lead Name and Phone Number.');
+      return;
+    }
+
+    setSavingNewLead(true);
+    try {
+      const timestamp = Date.now();
+      const customLeadId = `MANUAL_${timestamp}`;
+      const docId = `lead_${timestamp}`;
+
+      const rawFieldsObj = {
+        full_name: newLeadName.trim(),
+        phone_number: newLeadPhone.trim(),
+        email: newLeadEmail.trim(),
+        company_name: newLeadCompany.trim() || 'N/A',
+        what_best_describes_you: newLeadType,
+        about_what_size_is_your_typical_order: newLeadOrderSize,
+        when_do_you_need_your_next_order: newLeadUrgency
+      };
+
+      const newLeadData = {
+        id: docId,
+        leadId: customLeadId,
+        name: newLeadName.trim(),
+        phone: newLeadPhone.trim(),
+        email: newLeadEmail.trim(),
+        adName: newLeadAdName.trim(),
+        formName: 'Manual Entry Form',
+        createdAt: new Date().toISOString(),
+        smsStatus: 'uncontacted',
+        rawFields: JSON.stringify(rawFieldsObj)
+      };
+
+      await setDoc(doc(db, 'meta_leads', docId), newLeadData);
+
+      setSyncStatusMsg({
+        success: true,
+        message: `Successfully created new lead record for ${newLeadName.trim()} (${newLeadPhone.trim()})!`
+      });
+      setShowAddLeadModal(false);
+      setNewLeadName('');
+      setNewLeadPhone('');
+      setNewLeadEmail('');
+      setNewLeadCompany('');
+    } catch (err: any) {
+      console.error('Error adding lead:', err);
+      alert(`Failed to add lead: ${err.message || 'Unknown error'}`);
+    } finally {
+      setSavingNewLead(false);
+    }
+  };
 
   // GIF File Upload States & Handlers
   const [uploadingDefaultGif, setUploadingDefaultGif] = useState(false);
@@ -1083,6 +1153,17 @@ export function VisitorFunnelPage() {
                   Default Lead Text & GIF Settings
                 </PillButton>
 
+                {/* Manual Lead Creation Button */}
+                <PillButton
+                  variant="filled"
+                  onClick={() => setShowAddLeadModal(true)}
+                  className="shrink-0 h-9 bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+                  title="Manually record a new lead from phone calls or walk-ins"
+                >
+                  <UserPlus size={14} className="mr-1.5" />
+                  Add Lead Manually
+                </PillButton>
+
                 {/* Manual Sync Button */}
                 <PillButton
                   variant="filled"
@@ -1268,18 +1349,31 @@ export function VisitorFunnelPage() {
                           <div className="text-[11px] text-slate-400 font-mono mt-1">ID: {lead.leadId.substring(0, 10)}...</div>
                         </td>
 
-                        {/* Phone & Email */}
+                        {/* Phone, Location & Email */}
                         <td className="py-3.5 px-4">
                           {lead.phone ? (
-                            <a
-                              href={`tel:${lead.phone}`}
-                              onClick={(e) => handleCallLead(lead, e)}
-                              className="inline-flex items-center gap-1.5 text-emerald-700 hover:text-emerald-900 font-bold font-mono hover:underline group text-xs"
-                              title="Click to Call via OpenPhone / System Dialer"
-                            >
-                              <PhoneCall size={13} className="text-emerald-600 group-hover:scale-110 transition-transform" />
-                              {lead.phone}
-                            </a>
+                            <div>
+                              <a
+                                href={`tel:${lead.phone}`}
+                                onClick={(e) => handleCallLead(lead, e)}
+                                className="inline-flex items-center gap-1.5 text-emerald-700 hover:text-emerald-900 font-bold font-mono hover:underline group text-xs"
+                                title="Click to Call via OpenPhone / System Dialer"
+                              >
+                                <PhoneCall size={13} className="text-emerald-600 group-hover:scale-110 transition-transform" />
+                                {lead.phone}
+                              </a>
+
+                              {/* State, Time Zone & Local Time Info */}
+                              {getPhoneLocationAndTz(lead.phone) && (
+                                <div className="flex items-center gap-1 text-[11px] font-semibold text-slate-600 mt-0.5">
+                                  <MapPin size={11} className="text-rose-500 shrink-0" />
+                                  <span>{getPhoneLocationAndTz(lead.phone)?.state} ({getPhoneLocationAndTz(lead.phone)?.stateAbbr}) · {getPhoneLocationAndTz(lead.phone)?.tzAbbr}</span>
+                                  {getPhoneLocationAndTz(lead.phone)?.localTimeStr && (
+                                    <span className="text-[10px] text-slate-500 font-mono font-normal">({getPhoneLocationAndTz(lead.phone)?.localTimeStr})</span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           ) : (
                             <div className="flex items-center gap-1 text-slate-500 italic font-sans text-xs">
                               <Phone size={12} />
@@ -1507,16 +1601,24 @@ export function VisitorFunnelPage() {
               {/* Lead Contact Info Card */}
               <div className="grid grid-cols-2 gap-4 p-4 bg-slate-100/80 rounded-xl border border-slate-300 text-xs">
                 <div>
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-600 block mb-1">Phone Number</span>
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-600 block mb-1">Phone & Location</span>
                   {selectedLead.phone ? (
-                    <a
-                      href={`tel:${selectedLead.phone}`}
-                      onClick={(e) => handleCallLead(selectedLead, e)}
-                      className="font-bold text-emerald-700 hover:text-emerald-900 text-sm font-mono hover:underline inline-flex items-center gap-1.5"
-                    >
-                      <PhoneCall size={14} className="text-emerald-600" />
-                      {selectedLead.phone}
-                    </a>
+                    <div>
+                      <a
+                        href={`tel:${selectedLead.phone}`}
+                        onClick={(e) => handleCallLead(selectedLead, e)}
+                        className="font-bold text-emerald-700 hover:text-emerald-900 text-sm font-mono hover:underline inline-flex items-center gap-1.5"
+                      >
+                        <PhoneCall size={14} className="text-emerald-600" />
+                        {selectedLead.phone}
+                      </a>
+                      {getPhoneLocationAndTz(selectedLead.phone) && (
+                        <span className="text-xs font-semibold text-slate-700 block mt-0.5 flex items-center gap-1">
+                          <MapPin size={12} className="text-rose-500" />
+                          {getPhoneLocationAndTz(selectedLead.phone)?.state} ({getPhoneLocationAndTz(selectedLead.phone)?.tzName} - {getPhoneLocationAndTz(selectedLead.phone)?.tzAbbr})
+                        </span>
+                      )}
+                    </div>
                   ) : (
                     <span className="text-slate-500 italic">No Phone</span>
                   )}
@@ -2198,6 +2300,187 @@ export function VisitorFunnelPage() {
                 )}
               </PillButton>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Manual Add Lead Dialog Modal */}
+      {showAddLeadModal && (
+        <div className="fixed inset-0 bg-black/65 backdrop-blur-xs flex items-center justify-center p-4 z-[230] animate-in fade-in duration-200">
+          <div className="bg-white border border-brand-border rounded-2xl p-6 max-w-xl w-full flex flex-col shadow-2xl overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex items-start justify-between pb-4 border-b border-brand-border">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-600">
+                  <UserPlus size={22} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-serif font-bold text-slate-900">
+                    Manually Add Lead Record
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Record an inbound call, phone inquiry, or walk-in lead to trigger SMS & phone follow-ups.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setShowAddLeadModal(false)}
+                className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-500 transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleAddLeadSubmit} className="space-y-4 my-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-800 mb-1">
+                    Lead Name <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newLeadName}
+                    onChange={(e) => setNewLeadName(e.target.value)}
+                    placeholder="e.g. Jason Smith"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:border-brand-primary"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-800 mb-1">
+                    Phone Number <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="tel"
+                    required
+                    value={newLeadPhone}
+                    onChange={(e) => setNewLeadPhone(e.target.value)}
+                    placeholder="+1 (555) 000-0000"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:border-brand-primary"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-800 mb-1">
+                    Email Address
+                  </label>
+                  <input
+                    type="email"
+                    value={newLeadEmail}
+                    onChange={(e) => setNewLeadEmail(e.target.value)}
+                    placeholder="jason@example.com"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:border-brand-primary"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-800 mb-1">
+                    Company / Brand Name
+                  </label>
+                  <input
+                    type="text"
+                    value={newLeadCompany}
+                    onChange={(e) => setNewLeadCompany(e.target.value)}
+                    placeholder="e.g. InkTheory Apparel"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:border-brand-primary"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-800 mb-1">
+                    Typical Order Size
+                  </label>
+                  <select
+                    value={newLeadOrderSize}
+                    onChange={(e) => setNewLeadOrderSize(e.target.value)}
+                    className="w-full px-2.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-none cursor-pointer"
+                  >
+                    <option value="1-24 pieces">1-24 pieces</option>
+                    <option value="25-99 pieces">25-99 pieces</option>
+                    <option value="100-249 pieces">100-249 pieces</option>
+                    <option value="250+ pieces">250+ pieces</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-800 mb-1">
+                    Order Timeline
+                  </label>
+                  <select
+                    value={newLeadUrgency}
+                    onChange={(e) => setNewLeadUrgency(e.target.value)}
+                    className="w-full px-2.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-none cursor-pointer"
+                  >
+                    <option value="asap">ASAP (Urgent)</option>
+                    <option value="within_14_days">Within 2 Weeks</option>
+                    <option value="within_30_days">Within 30 Days</option>
+                    <option value="just_browsing">Just Browsing</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-800 mb-1">
+                    Category / Type
+                  </label>
+                  <select
+                    value={newLeadType}
+                    onChange={(e) => setNewLeadType(e.target.value)}
+                    className="w-full px-2.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-none cursor-pointer"
+                  >
+                    <option value="business/brand">Business / Brand</option>
+                    <option value="creator/apparel_brand">Creator / Apparel</option>
+                    <option value="event/organization">Event / Non-profit</option>
+                    <option value="personal">Personal / One-off</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-800 mb-1">
+                  Source / Ad Campaign Tag
+                </label>
+                <input
+                  type="text"
+                  value={newLeadAdName}
+                  onChange={(e) => setNewLeadAdName(e.target.value)}
+                  placeholder="e.g. Phone Inquiry / Walk-In / Referral"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:border-brand-primary"
+                />
+              </div>
+
+              {/* Modal Actions */}
+              <div className="pt-4 border-t border-brand-border flex items-center justify-between">
+                <PillButton type="button" variant="outline" onClick={() => setShowAddLeadModal(false)}>
+                  Cancel
+                </PillButton>
+
+                <PillButton
+                  type="submit"
+                  variant="filled"
+                  disabled={savingNewLead || !newLeadName.trim() || !newLeadPhone.trim()}
+                  className="bg-emerald-600 hover:bg-emerald-700 h-10 px-6 text-sm text-white font-bold"
+                >
+                  {savingNewLead ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin mr-2" />
+                      Creating Lead...
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus size={16} className="mr-2" />
+                      Save & Add Lead Record
+                    </>
+                  )}
+                </PillButton>
+              </div>
+            </form>
           </div>
         </div>
       )}
