@@ -1113,76 +1113,82 @@ export function VisitorFunnelPage() {
 
           {/* Meta Leads Table Container */}
           <div className="bg-white border border-brand-border rounded-xl shadow-xs overflow-hidden">
-            {/* Header Controls & Manual Sync Button */}
-            <div className="p-4 sm:p-5 border-b border-slate-200 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+            {/* Header Tier 1: Title & Action Buttons Bar */}
+            <div className="p-4 sm:p-5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <h2 className="text-base font-serif font-semibold text-brand-primary">Meta Form Leads</h2>
-                <span className="text-xs font-medium px-2.5 py-0.5 bg-slate-100 text-brand-secondary rounded-full border border-slate-200">
+                <h2 className="text-lg font-serif font-bold text-slate-900">Meta Form Leads</h2>
+                <span className="text-xs font-semibold px-2.5 py-0.5 bg-slate-100 text-slate-700 rounded-full border border-slate-200">
                   {filteredMetaLeads.length} leads
                 </span>
               </div>
 
-              <div className="flex flex-wrap items-center gap-3">
-                {/* Search Bar */}
-                <div className="relative flex-1 sm:w-64">
-                  <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-muted" />
-                  <input
-                    type="text"
-                    placeholder="Search name, phone, email, answers..."
-                    value={leadSearchQuery}
-                    onChange={(e) => setLeadSearchQuery(e.target.value)}
-                    className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-brand-border rounded-lg text-xs text-brand-primary focus:outline-none focus:border-brand-primary transition-colors"
-                  />
-                </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {/* 1. Add Lead Manually Button */}
+                <button
+                  onClick={() => setShowAddLeadModal(true)}
+                  className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl border border-emerald-700 shadow-2xs transition-all cursor-pointer inline-flex items-center gap-1.5 h-9"
+                  title="Manually record a new lead from phone calls or walk-ins"
+                >
+                  <UserPlus size={14} />
+                  Add Lead Manually
+                </button>
 
-                {/* SMS Filter */}
+                {/* 2. Sync Meta Leads Button */}
+                <button
+                  onClick={handleSyncMetaLeads}
+                  disabled={syncingLeads}
+                  className="px-3.5 py-2 bg-slate-900 hover:bg-black text-white font-bold text-xs rounded-xl shadow-2xs transition-all cursor-pointer inline-flex items-center gap-1.5 h-9 disabled:opacity-50"
+                  title="Sync recent lead submissions from Meta Instant Forms"
+                >
+                  {syncingLeads ? (
+                    <>
+                      <Loader2 className="animate-spin" size={14} />
+                      Syncing...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw size={14} />
+                      Sync Meta Leads
+                    </>
+                  )}
+                </button>
+
+                {/* 3. Default SMS & GIF Template Settings Button */}
+                <button
+                  onClick={handleOpenDefaultSmsModal}
+                  className="px-3 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-300 text-slate-800 font-bold text-xs rounded-xl transition-all cursor-pointer inline-flex items-center gap-1.5 h-9"
+                  title="Configure default automated text & GIF for incoming leads"
+                >
+                  <MessageSquare size={14} className="text-blue-600" />
+                  Default Text & GIF Settings
+                </button>
+              </div>
+            </div>
+
+            {/* Header Tier 2: Search Bar & Contact Status Segment */}
+            <div className="px-4 py-3 bg-slate-50/50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
+              {/* Search Bar */}
+              <div className="relative flex-1 min-w-[240px] max-w-md">
+                <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search name, phone, email, answers..."
+                  value={leadSearchQuery}
+                  onChange={(e) => setLeadSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:border-brand-primary shadow-2xs transition-colors"
+                />
+              </div>
+
+              {/* SMS Contact Status Segmented Filter */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-slate-600 uppercase tracking-wider text-[11px]">
+                  Contact Status:
+                </span>
                 <SegmentedControl
                   options={['All', 'Text Sent', 'Uncontacted']}
                   value={leadSmsFilter}
                   onChange={(val) => setLeadSmsFilter(val as any)}
                 />
-
-                {/* Default Template Settings Button */}
-                <PillButton
-                  variant="outline"
-                  onClick={handleOpenDefaultSmsModal}
-                  className="shrink-0 h-9 bg-slate-50 hover:bg-slate-100 border-slate-300 text-slate-800 font-bold"
-                  title="Configure default automated text & GIF for incoming leads"
-                >
-                  <MessageSquare size={14} className="mr-1.5 text-blue-600" />
-                  Default Lead Text & GIF Settings
-                </PillButton>
-
-                {/* Manual Lead Creation Button */}
-                <PillButton
-                  variant="filled"
-                  onClick={() => setShowAddLeadModal(true)}
-                  className="shrink-0 h-9 bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
-                  title="Manually record a new lead from phone calls or walk-ins"
-                >
-                  <UserPlus size={14} className="mr-1.5" />
-                  Add Lead Manually
-                </PillButton>
-
-                {/* Manual Sync Button */}
-                <PillButton
-                  variant="filled"
-                  onClick={handleSyncMetaLeads}
-                  disabled={syncingLeads}
-                  className="shrink-0 h-9"
-                >
-                  {syncingLeads ? (
-                    <>
-                      <Loader2 className="animate-spin mr-1.5" size={14} />
-                      Syncing...
-                    </>
-                  ) : (
-                    <>
-                      <RefreshCw size={14} className="mr-1.5" />
-                      Sync Meta Leads
-                    </>
-                  )}
-                </PillButton>
               </div>
             </div>
 
