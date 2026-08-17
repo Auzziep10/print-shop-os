@@ -67,16 +67,27 @@ export default async function handler(req: Request) {
 
     // Helper to fetch forms for a given target ID (Page ID or 'me')
     const fetchFormsForTarget = async (targetId: string, token: string) => {
-      const url = `https://graph.facebook.com/v19.0/${targetId}/leadgen_forms?access_token=${encodeURIComponent(token)}`;
-      const res = await fetch(url);
+      // 1. Try standard leadgen_forms endpoint
+      let url = `https://graph.facebook.com/v19.0/${targetId}/leadgen_forms?access_token=${encodeURIComponent(token)}`;
+      let res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
         const forms = data.data || [];
         diagnosticLogs.push(`Target ${targetId}: ${forms.length} forms found`);
         return forms;
+      }
+
+      // 2. Try fields expansion endpoint (?fields=leadgen_forms)
+      url = `https://graph.facebook.com/v19.0/${targetId}?fields=leadgen_forms{id,name}&access_token=${encodeURIComponent(token)}`;
+      res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        const forms = data.leadgen_forms?.data || [];
+        diagnosticLogs.push(`Target ${targetId} via fields: ${forms.length} forms found`);
+        return forms;
       } else {
         const errData = await res.json().catch(() => ({}));
-        diagnosticLogs.push(`Target ${targetId} forms error: ${errData.error?.message || res.statusText}`);
+        diagnosticLogs.push(`Target ${targetId} error: ${errData.error?.message || res.statusText}`);
         return [];
       }
     };
@@ -183,7 +194,7 @@ export default async function handler(req: Request) {
       syncedCount,
       message: syncedCount > 0 
         ? `Successfully synced ${syncedCount} leads from Meta!` 
-        : `Sync complete. Status: ${diagSummary || 'No lead submissions returned from Meta.'}`
+        : `Sync status: ${diagSummary || 'No lead submissions returned.'}`
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }
