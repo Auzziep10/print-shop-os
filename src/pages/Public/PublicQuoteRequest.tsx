@@ -3737,7 +3737,6 @@ export function PublicQuoteRequest() {
                     const defaultColor = catalogSettings.defaultColors?.basics?.[selectedBasicsCategory]?.[slot] ||
                                          catalogSettings.defaultColors?.basics?.[selectedBasicsCategory?.replace(/s$/i, '')]?.[slot] ||
                                          item.colors[0];
-                    const previewImg = getGarmentMockupImage(item, defaultColor, 'front', catalogSettings, selectedBasicsCategory, slot);
 
                     return (
                       <div
@@ -3927,9 +3926,6 @@ export function PublicQuoteRequest() {
                             const colors = getFilteredProductColors(item, catalogSettings.allowedColors);
                             const configuredDefaultColor = resolveProductDefaultColor(item, catalogSettings, colors);
                             const colorKey = selectedGarmentTypeColor && colors.includes(selectedGarmentTypeColor) ? selectedGarmentTypeColor : configuredDefaultColor;
-                            // Optional storefront card photo — display only
-                            const previewImg = catalogSettings.cardImages?.[item.style?.toLowerCase()]
-                              || getGarmentMockupImage(item, colorKey, 'front', catalogSettings);
                             const weightAndFabric = getGarmentWeightAndFabric(item);
                             const customName = (() => {
                               if (catalogSettings.customNames?.racks) {
