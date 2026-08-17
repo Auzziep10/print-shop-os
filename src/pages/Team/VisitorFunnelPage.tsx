@@ -913,7 +913,7 @@ export function VisitorFunnelPage() {
                                   : 'bg-brand-primary text-white hover:bg-black'
                               } disabled:opacity-50 disabled:cursor-not-allowed`}
                             >
-                              {sendingSmsId === lead.id ? (
+                              {sendingModalSms && smsModalLead?.id === lead.id ? (
                                 <Loader2 size={14} className="animate-spin" />
                               ) : (
                                 <Send size={13} />
