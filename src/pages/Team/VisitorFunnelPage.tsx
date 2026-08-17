@@ -265,6 +265,35 @@ export function VisitorFunnelPage() {
     }
   };
 
+  // 1-Click Send Default SMS & GIF to Lead
+  const [sendingLeadId, setSendingLeadId] = useState<string | null>(null);
+
+  const handleSendDefaultLeadSms = async (lead: MetaLead, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (!lead.phone) {
+      alert('This lead does not have a valid phone number.');
+      return;
+    }
+
+    setSendingLeadId(lead.id);
+    try {
+      const res = await sendMetaLeadSMS(lead);
+      if (res.success) {
+        setSyncStatusMsg({
+          success: true,
+          message: `✨ Default text message & GIF successfully sent via Quo to ${lead.name} (${lead.phone})!`
+        });
+      } else {
+        alert(`Failed to send default SMS: ${res.error || 'Unknown error'}`);
+      }
+    } catch (err: any) {
+      console.error('Error sending default SMS:', err);
+      alert(`Failed to send default SMS: ${err.message || 'Unknown error'}`);
+    } finally {
+      setSendingLeadId(null);
+    }
+  };
+
   // Open Interactive SMS Composer Modal
   const handleOpenSmsModal = (lead: MetaLead, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -1299,21 +1328,35 @@ export function VisitorFunnelPage() {
                               Call
                             </button>
 
+                            {/* 1-Click Send Default Text & GIF Button */}
+                            <button
+                              onClick={(e) => handleSendDefaultLeadSms(lead, e)}
+                              disabled={sendingLeadId === lead.id || !lead.phone}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition-all shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shrink-0"
+                              title="Send saved default text message & GIF via Quo instantly with 1-click"
+                            >
+                              {sendingLeadId === lead.id ? (
+                                <>
+                                  <Loader2 size={13} className="animate-spin" />
+                                  Sending...
+                                </>
+                              ) : (
+                                <>
+                                  <Sparkles size={13} />
+                                  Send Default Text & GIF
+                                </>
+                              )}
+                            </button>
+
+                            {/* Customize Text & GIF */}
                             <button
                               onClick={(e) => handleOpenSmsModal(lead, e)}
                               disabled={sendingModalSms || !lead.phone}
-                              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shadow-2xs ${
-                                lead.smsStatus === 'sent'
-                                  ? 'bg-slate-100 text-brand-primary hover:bg-slate-200 border border-slate-200'
-                                  : 'bg-brand-primary text-white hover:bg-black'
-                              } disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer`}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-white hover:bg-black transition-all shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shrink-0"
+                              title="Customize message before sending"
                             >
-                              {sendingModalSms && smsModalLead?.id === lead.id ? (
-                                <Loader2 size={14} className="animate-spin" />
-                              ) : (
-                                <Send size={13} />
-                              )}
-                              {lead.smsStatus === 'sent' ? 'Resend Text & GIF' : 'Text & GIF'}
+                              <Send size={13} />
+                              Customize
                             </button>
 
                             <button
