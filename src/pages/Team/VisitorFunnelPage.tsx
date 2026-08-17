@@ -27,7 +27,6 @@ import {
   Mail,
   Phone,
   PhoneCall,
-  Settings,
   Sparkles
 } from 'lucide-react';
 
