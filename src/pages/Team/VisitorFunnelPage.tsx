@@ -857,7 +857,7 @@ export function VisitorFunnelPage() {
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="bg-slate-50/80 border-b border-brand-border text-[11px] font-semibold text-brand-muted uppercase tracking-wider">
+                    <tr className="bg-slate-100 border-b-2 border-slate-200 text-xs font-bold text-slate-700 uppercase tracking-wider">
                       <th className="py-3 px-4">Lead Contact</th>
                       <th className="py-3 px-4">Phone & Email</th>
                       <th className="py-3 px-4">Ad / Form Name</th>
@@ -866,53 +866,53 @@ export function VisitorFunnelPage() {
                       <th className="py-3 px-4 text-right">Manual Action</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-brand-border text-xs">
+                  <tbody className="divide-y divide-slate-200 text-xs">
                     {filteredMetaLeads.map((lead) => (
                       <tr 
                         key={lead.id} 
-                        className="hover:bg-slate-50/70 transition-colors cursor-pointer"
+                        className="hover:bg-slate-50/80 transition-colors cursor-pointer"
                         onClick={() => setSelectedLead(lead)}
                       >
                         {/* Name */}
-                        <td className="py-3.5 px-4 font-medium text-brand-primary">
-                          <div className="text-sm font-semibold">{lead.name}</div>
-                          <div className="text-[11px] text-brand-muted font-mono">ID: {lead.leadId.substring(0, 10)}...</div>
+                        <td className="py-3.5 px-4 font-medium text-slate-900">
+                          <div className="text-sm font-bold text-slate-900">{lead.name}</div>
+                          <div className="text-xs text-slate-600 font-mono mt-0.5">ID: {lead.leadId.substring(0, 12)}...</div>
                         </td>
 
                         {/* Phone & Email */}
-                        <td className="py-3.5 px-4 text-brand-secondary">
+                        <td className="py-3.5 px-4">
                           {lead.phone ? (
                             <a
                               href={`tel:${lead.phone}`}
                               onClick={(e) => handleCallLead(lead, e)}
-                              className="inline-flex items-center gap-1.5 text-emerald-700 hover:text-emerald-800 font-semibold font-mono hover:underline group"
+                              className="inline-flex items-center gap-1.5 text-emerald-700 hover:text-emerald-900 font-bold font-mono hover:underline group text-xs"
                               title="Click to Call via OpenPhone / System Dialer"
                             >
                               <PhoneCall size={13} className="text-emerald-600 group-hover:scale-110 transition-transform" />
                               {lead.phone}
                             </a>
                           ) : (
-                            <div className="flex items-center gap-1 text-brand-muted italic font-sans">
+                            <div className="flex items-center gap-1 text-slate-500 italic font-sans text-xs">
                               <Phone size={12} />
                               No Phone
                             </div>
                           )}
-                          <div className="flex items-center gap-1 text-[11px] text-brand-muted mt-0.5 truncate max-w-[200px]">
-                            <Mail size={12} className="shrink-0" />
+                          <div className="flex items-center gap-1 text-xs text-slate-700 font-medium mt-1 truncate max-w-[220px]">
+                            <Mail size={13} className="shrink-0 text-slate-500" />
                             {lead.email || 'No email'}
                           </div>
                         </td>
 
                         {/* Ad & Form */}
                         <td className="py-3.5 px-4">
-                          <span className="font-semibold text-brand-primary block">{lead.adName || 'Meta Ad'}</span>
-                          <span className="text-[11px] text-brand-muted">{lead.formName || 'Lead Form'}</span>
+                          <span className="font-bold text-slate-900 block text-xs">{lead.adName || 'Meta Ad'}</span>
+                          <span className="text-xs text-slate-600 font-medium block mt-0.5">{lead.formName || 'Lead Form'}</span>
                         </td>
 
                         {/* Timestamp */}
-                        <td className="py-3.5 px-4 text-brand-secondary">
-                          <div>{formatTimeAgo(lead.createdAt)}</div>
-                          <div className="text-[11px] text-brand-muted mt-0.5">
+                        <td className="py-3.5 px-4">
+                          <div className="font-bold text-slate-900 text-xs">{formatTimeAgo(lead.createdAt)}</div>
+                          <div className="text-xs text-slate-600 font-medium mt-0.5">
                             {new Date(lead.createdAt).toLocaleDateString()} {new Date(lead.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </div>
                         </td>
