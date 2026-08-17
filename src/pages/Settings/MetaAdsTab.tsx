@@ -75,7 +75,7 @@ export function MetaAdsTab() {
     } catch (err: any) {
       console.error("Error saving Meta settings:", err);
       setSaveStatus({ success: false, message: `Failed to save settings: ${err.message || 'Unknown error'}` });
-    } font-sans finally {
+    } finally {
       setSaving(false);
     }
   };
