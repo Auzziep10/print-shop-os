@@ -2446,11 +2446,7 @@ export function GarmentCustomizerModal({
                 );
               })()}
 
-              {activeTab !== 'tag' && (
-                <p className="hidden md:block text-[8px] font-semibold text-neutral-400 leading-snug px-0.5 select-none">
-                  * Standard print dimensions are applied from the image unless specified in Optional Width.
-                </p>
-              )}
+
             </div>
             {/* Measuring wrapper: the artboard is sized in px from the real
                 available space, so it always fills the window height. */}
