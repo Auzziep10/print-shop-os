@@ -66,7 +66,7 @@ export interface MetaLead {
   email: string;
   adName?: string;
   formName?: string;
-  smsStatus?: 'not_sent' | 'sent' | 'failed';
+  smsStatus?: 'not_sent' | 'sent' | 'failed' | 'uncontacted';
   leadStatus?: 'good' | 'bad' | 'voicemail' | 'uncontacted' | 'called';
   callStatus?: string;
   callFeedback?: 'good' | 'neutral' | 'voicemail' | 'bad' | 'uncontacted';
@@ -97,7 +97,7 @@ export function VisitorFunnelPage() {
   const [syncStatusMsg, setSyncStatusMsg] = useState<{ success: boolean; message: string } | null>(null);
   const [selectedLead, setSelectedLead] = useState<MetaLead | null>(null);
   const [leadSearchQuery, setLeadSearchQuery] = useState('');
-  const [leadSmsFilter, setLeadSmsFilter] = useState<'All' | 'Text Sent' | 'Uncontacted'>('All');
+  const [leadSmsFilter, setLeadSmsFilter] = useState<string>('All');
   const [copiedTextKey, setCopiedTextKey] = useState<string | null>(null);
 
   // Meta Lead Sorting & Form Answer Filters State
@@ -697,12 +697,9 @@ export function VisitorFunnelPage() {
     };
   }, [metaLeads]);
 
-  // Meta Leads Filtering & Sorting
-  const filteredMetaLeads = useMemo(() => {
-    let list = metaLeads.filter((lead) => {
-      if (leadSmsFilter === 'Text Sent' && lead.smsStatus !== 'sent') return false;
-      if (leadSmsFilter === 'Uncontacted' && lead.smsStatus === 'sent') return false;
-
+  // Meta Leads Base Filtering by Search & Form Answers (base scope for metrics cards)
+  const metaLeadsMatchingSearchAndFilters = useMemo(() => {
+    return metaLeads.filter((lead) => {
       // Filter by Form Answers
       if (leadSizeFilter !== 'All') {
         const sizeVal = getLeadAnswer(lead, 'size');
@@ -729,6 +726,25 @@ export function VisitorFunnelPage() {
         const matchesRaw = lead.rawFields?.toLowerCase().includes(q);
         if (!matchesName && !matchesEmail && !matchesPhone && !matchesAd && !matchesRaw) return false;
       }
+
+      return true;
+    });
+  }, [metaLeads, leadSearchQuery, leadSizeFilter, leadUrgencyFilter, leadTypeFilter]);
+
+  // Meta Leads Table Filtering (applies SMS & Call status filter & sorting)
+  const filteredMetaLeads = useMemo(() => {
+    let list = metaLeadsMatchingSearchAndFilters.filter((lead) => {
+      if (leadSmsFilter === 'Text Sent' && lead.smsStatus !== 'sent') return false;
+      if (leadSmsFilter.startsWith('Interested') && lead.callFeedback !== 'good' && lead.smsFeedback !== 'good') return false;
+      if (leadSmsFilter.startsWith('Follow Up') && lead.callFeedback !== 'neutral' && lead.callFeedback !== 'voicemail' && lead.callStatus !== 'called') return false;
+      if (leadSmsFilter.startsWith('Unqualified') && lead.callFeedback !== 'bad' && lead.smsFeedback !== 'bad') return false;
+      if (leadSmsFilter === 'Failed' && lead.smsStatus !== 'failed') return false;
+      if (leadSmsFilter === 'Uncontacted' && (
+        lead.smsStatus === 'sent' || 
+        lead.smsStatus === 'failed' || 
+        (lead.callFeedback && lead.callFeedback !== 'uncontacted') ||
+        (lead.smsFeedback && lead.smsFeedback !== 'uncontacted')
+      )) return false;
 
       return true;
     });
@@ -783,7 +799,7 @@ export function VisitorFunnelPage() {
     });
 
     return list;
-  }, [metaLeads, leadSmsFilter, leadSearchQuery, leadSortBy, leadSizeFilter, leadUrgencyFilter, leadTypeFilter]);
+  }, [metaLeadsMatchingSearchAndFilters, leadSmsFilter, leadSortBy]);
 
   // Web Visitor Funnel Metrics
   const totalVisitors = filteredSessions.length;
@@ -791,10 +807,35 @@ export function VisitorFunnelPage() {
   const convertedAccountCount = useMemo(() => filteredSessions.filter((s) => s.convertedAccount).length, [filteredSessions]);
   const overallConversionRate = totalVisitors > 0 ? ((convertedQuoteCount / totalVisitors) * 100).toFixed(1) : '0.0';
 
-  // Meta Lead Metrics
-  const totalMetaLeads = metaLeads.length;
-  const sentSmsCount = useMemo(() => metaLeads.filter((l) => l.smsStatus === 'sent').length, [metaLeads]);
-  const uncontactedCount = totalMetaLeads - sentSmsCount;
+  // Meta Lead Metrics Breakdown across SMS & Call Statuses & Thumbs Feedback
+  const totalMetaLeads = metaLeadsMatchingSearchAndFilters.length;
+  const sentSmsCount = useMemo(
+    () => metaLeadsMatchingSearchAndFilters.filter((l) => l.smsStatus === 'sent').length,
+    [metaLeadsMatchingSearchAndFilters]
+  );
+  const interestedCount = useMemo(
+    () => metaLeadsMatchingSearchAndFilters.filter((l) => l.callFeedback === 'good' || l.smsFeedback === 'good').length,
+    [metaLeadsMatchingSearchAndFilters]
+  );
+  const followUpVmCount = useMemo(
+    () => metaLeadsMatchingSearchAndFilters.filter((l) => l.callFeedback === 'neutral' || l.callFeedback === 'voicemail' || l.callStatus === 'called').length,
+    [metaLeadsMatchingSearchAndFilters]
+  );
+  const unqualifiedCount = useMemo(
+    () => metaLeadsMatchingSearchAndFilters.filter((l) => l.callFeedback === 'bad' || l.smsFeedback === 'bad').length,
+    [metaLeadsMatchingSearchAndFilters]
+  );
+  const failedSmsCount = useMemo(
+    () => metaLeadsMatchingSearchAndFilters.filter((l) => l.smsStatus === 'failed').length,
+    [metaLeadsMatchingSearchAndFilters]
+  );
+  const uncontactedCount = useMemo(
+    () => metaLeadsMatchingSearchAndFilters.filter((l) => 
+      (!l.smsStatus || l.smsStatus === 'not_sent' || l.smsStatus === 'uncontacted') && 
+      (!l.callFeedback || l.callFeedback === 'uncontacted')
+    ).length,
+    [metaLeadsMatchingSearchAndFilters]
+  );
 
   // Funnel stage counts
   const stageCounts = useMemo(() => {
@@ -1215,37 +1256,143 @@ export function VisitorFunnelPage() {
           )}
 
           {/* Top Meta Leads Stat Summary Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="p-5 bg-white border border-brand-border rounded-xl shadow-xs">
-              <div className="flex items-center justify-between text-brand-secondary mb-3">
-                <span className="text-xs font-semibold uppercase tracking-wider">Total Meta Ad Leads</span>
-                <Share2 size={18} className="text-blue-600" />
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            {/* Card 1: Total Meta Ad Leads */}
+            <div
+              onClick={() => setLeadSmsFilter('All')}
+              className={`p-4 bg-white border rounded-xl shadow-xs cursor-pointer transition-all ${
+                leadSmsFilter === 'All'
+                  ? 'border-blue-500 ring-2 ring-blue-500/20 bg-blue-50/10'
+                  : 'border-brand-border hover:border-blue-300'
+              }`}
+            >
+              <div className="flex items-center justify-between text-brand-secondary mb-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700">Total Leads</span>
+                <Share2 size={16} className="text-blue-600 shrink-0" />
               </div>
-              <div className="text-3xl font-serif text-brand-primary font-bold">{totalMetaLeads}</div>
-              <p className="text-xs text-brand-muted mt-1">Leads captured from Meta Instant Forms</p>
+              <div className="text-2xl font-serif text-brand-primary font-bold">{totalMetaLeads}</div>
+              <p className="text-[11px] text-brand-muted mt-1 truncate">Captured leads</p>
             </div>
 
-            <div className="p-5 bg-white border border-brand-border rounded-xl shadow-xs">
-              <div className="flex items-center justify-between text-brand-secondary mb-3">
-                <span className="text-xs font-semibold uppercase tracking-wider">SMS Text Sent (Quo)</span>
-                <MessageSquare size={18} className="text-emerald-600" />
+            {/* Card 2: SMS Text Sent (Quo) */}
+            <div
+              onClick={() => setLeadSmsFilter('Text Sent')}
+              className={`p-4 bg-white border rounded-xl shadow-xs cursor-pointer transition-all ${
+                leadSmsFilter === 'Text Sent'
+                  ? 'border-emerald-500 ring-2 ring-emerald-500/20 bg-emerald-50/10'
+                  : 'border-brand-border hover:border-emerald-300'
+              }`}
+            >
+              <div className="flex items-center justify-between text-brand-secondary mb-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700">SMS Sent (Quo)</span>
+                <MessageSquare size={16} className="text-emerald-600 shrink-0" />
               </div>
-              <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-serif text-brand-primary font-bold">{sentSmsCount}</span>
-                <span className="text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-2xl font-serif text-brand-primary font-bold">{sentSmsCount}</span>
+                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 border border-emerald-200 px-1.5 py-0.5 rounded-full">
                   {totalMetaLeads > 0 ? Math.round((sentSmsCount / totalMetaLeads) * 100) : 0}%
                 </span>
               </div>
-              <p className="text-xs text-brand-muted mt-1">Contacted leads via Quo SMS</p>
+              <p className="text-[11px] text-brand-muted mt-1 truncate">Contacted via SMS</p>
             </div>
 
-            <div className="p-5 bg-white border border-brand-border rounded-xl shadow-xs">
-              <div className="flex items-center justify-between text-brand-secondary mb-3">
-                <span className="text-xs font-semibold uppercase tracking-wider">Uncontacted Leads</span>
-                <Users size={18} className="text-amber-600" />
+            {/* Card 3: Interested / Thumbs Up 👍 */}
+            <div
+              onClick={() => setLeadSmsFilter('Interested')}
+              className={`p-4 bg-white border rounded-xl shadow-xs cursor-pointer transition-all ${
+                leadSmsFilter.startsWith('Interested')
+                  ? 'border-indigo-500 ring-2 ring-indigo-500/20 bg-indigo-50/10'
+                  : 'border-brand-border hover:border-indigo-300'
+              }`}
+            >
+              <div className="flex items-center justify-between text-brand-secondary mb-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700">Interested 👍</span>
+                <ThumbsUp size={16} className="text-indigo-600 shrink-0" />
               </div>
-              <div className="text-3xl font-serif text-brand-primary font-bold">{uncontactedCount}</div>
-              <p className="text-xs text-brand-muted mt-1">Awaiting SMS outreach</p>
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-2xl font-serif text-brand-primary font-bold">{interestedCount}</span>
+                <span className="text-[10px] font-bold text-indigo-700 bg-indigo-100 border border-indigo-200 px-1.5 py-0.5 rounded-full">
+                  {totalMetaLeads > 0 ? Math.round((interestedCount / totalMetaLeads) * 100) : 0}%
+                </span>
+              </div>
+              <div className="text-[11px] text-brand-muted mt-1 flex items-center justify-between gap-1">
+                <span className="truncate">Call/Text 👍 reply</span>
+                {unqualifiedCount > 0 && (
+                  <span className="text-[10px] font-semibold text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200 shrink-0" title={`${unqualifiedCount} unqualified leads (Thumbs Down)`}>
+                    👎 {unqualifiedCount}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Card 4: Follow Up / Voicemail 📟 */}
+            <div
+              onClick={() => setLeadSmsFilter('Follow Up / VM')}
+              className={`p-4 bg-white border rounded-xl shadow-xs cursor-pointer transition-all ${
+                leadSmsFilter.startsWith('Follow Up')
+                  ? 'border-amber-500 ring-2 ring-amber-500/20 bg-amber-50/10'
+                  : 'border-brand-border hover:border-amber-300'
+              }`}
+            >
+              <div className="flex items-center justify-between text-brand-secondary mb-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700">Follow Up / VM</span>
+                <Voicemail size={16} className="text-amber-600 shrink-0" />
+              </div>
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-2xl font-serif text-brand-primary font-bold">{followUpVmCount}</span>
+                <span className="text-[10px] font-bold text-amber-800 bg-amber-100 border border-amber-200 px-1.5 py-0.5 rounded-full">
+                  {totalMetaLeads > 0 ? Math.round((followUpVmCount / totalMetaLeads) * 100) : 0}%
+                </span>
+              </div>
+              <p className="text-[11px] text-brand-muted mt-1 truncate">VM left or follow up</p>
+            </div>
+
+            {/* Card 5: SMS Failed ⚠️ */}
+            <div
+              onClick={() => setLeadSmsFilter('Failed')}
+              className={`p-4 bg-white border rounded-xl shadow-xs cursor-pointer transition-all ${
+                leadSmsFilter === 'Failed'
+                  ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/10'
+                  : 'border-brand-border hover:border-rose-300'
+              }`}
+            >
+              <div className="flex items-center justify-between text-brand-secondary mb-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700">SMS Failed</span>
+                <AlertCircle size={16} className="text-rose-600 shrink-0" />
+              </div>
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-2xl font-serif text-brand-primary font-bold">{failedSmsCount}</span>
+                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${
+                  failedSmsCount > 0
+                    ? 'text-rose-700 bg-rose-100 border-rose-200'
+                    : 'text-slate-600 bg-slate-100 border-slate-200'
+                }`}>
+                  {totalMetaLeads > 0 ? Math.round((failedSmsCount / totalMetaLeads) * 100) : 0}%
+                </span>
+              </div>
+              <p className="text-[11px] text-brand-muted mt-1 truncate">Delivery errors</p>
+            </div>
+
+            {/* Card 6: Uncontacted Leads */}
+            <div
+              onClick={() => setLeadSmsFilter('Uncontacted')}
+              className={`p-4 bg-white border rounded-xl shadow-xs cursor-pointer transition-all ${
+                leadSmsFilter === 'Uncontacted'
+                  ? 'border-slate-500 ring-2 ring-slate-500/20 bg-slate-50'
+                  : 'border-brand-border hover:border-slate-300'
+              }`}
+            >
+              <div className="flex items-center justify-between text-brand-secondary mb-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700">Uncontacted</span>
+                <Users size={16} className="text-slate-600 shrink-0" />
+              </div>
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-2xl font-serif text-brand-primary font-bold">{uncontactedCount}</span>
+                <span className="text-[10px] font-bold text-slate-700 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded-full">
+                  {totalMetaLeads > 0 ? Math.round((uncontactedCount / totalMetaLeads) * 100) : 0}%
+                </span>
+              </div>
+              <p className="text-[11px] text-brand-muted mt-1 truncate">Awaiting outreach</p>
             </div>
           </div>
 
@@ -1317,13 +1464,13 @@ export function VisitorFunnelPage() {
                 />
               </div>
 
-              {/* SMS Contact Status Segmented Filter */}
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-slate-600 uppercase tracking-wider text-[11px]">
+              {/* SMS & Call Contact Status Segmented Filter */}
+              <div className="flex items-center gap-2 overflow-x-auto py-0.5 max-w-full">
+                <span className="text-xs font-bold text-slate-600 uppercase tracking-wider text-[11px] shrink-0">
                   Contact Status:
                 </span>
                 <SegmentedControl
-                  options={['All', 'Text Sent', 'Uncontacted']}
+                  options={['All', 'Text Sent', 'Interested 👍', 'Follow Up / VM', 'Unqualified 👎', 'Failed', 'Uncontacted']}
                   value={leadSmsFilter}
                   onChange={(val) => setLeadSmsFilter(val as any)}
                 />
