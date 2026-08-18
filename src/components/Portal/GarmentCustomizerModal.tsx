@@ -3670,19 +3670,50 @@ export function GarmentCustomizerModal({
                 />
               </div>
 
-              {/* Rotation Slider */}
-              <div className="flex flex-col gap-1">
+              {/* Rotation Controls: Presets & Typable Degree Input */}
+              <div className="flex flex-col gap-2.5">
                 <div className="flex justify-between items-center text-xs">
                   <span className="text-neutral-500 font-semibold">Rotation</span>
-                  <span className="font-bold text-neutral-800">{rotation}°</span>
+                  <div className="flex items-center gap-1 bg-neutral-50 border border-neutral-200 focus-within:border-black focus-within:bg-white rounded-lg px-2 py-0.5 transition-all">
+                    <input
+                      type="number"
+                      value={rotation}
+                      onChange={(e) => setRotation(Number(e.target.value))}
+                      className="w-12 bg-transparent text-right text-xs font-bold text-neutral-900 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    />
+                    <span className="text-xs font-bold text-neutral-400 select-none">°</span>
+                  </div>
                 </div>
+
+                {/* Preset Rotation Selection Pills */}
+                <div className="flex flex-wrap gap-1">
+                  {[-180, -90, -45, 0, 45, 90, 180].map((deg) => {
+                    const isSelected = rotation === deg;
+                    return (
+                      <button
+                        key={deg}
+                        type="button"
+                        onClick={() => setRotation(deg)}
+                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                          isSelected
+                            ? 'bg-neutral-950 text-white shadow-xs'
+                            : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200 hover:text-neutral-900'
+                        }`}
+                      >
+                        {deg > 0 ? `+${deg}°` : `${deg}°`}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Fine-Tuning Slider */}
                 <input
                   type="range"
                   min="-180"
                   max="180"
                   value={rotation}
                   onChange={(e) => setRotation(Number(e.target.value))}
-                  className="w-full h-1.5 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-black"
+                  className="w-full h-1.5 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-black mt-0.5"
                 />
               </div>
             </div>
