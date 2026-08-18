@@ -3132,10 +3132,10 @@ export function GarmentCustomizerModal({
                   </div>
                 )}
 
-                {/* Recolor Logo — sits beneath Asset Vault */}
+                {/* Edit Logo Color — sits beneath Asset Vault */}
                 {selectedLogo && isImageFile(selectedLogo.name) && (
                   <div className="flex flex-col gap-2 pt-3 border-t border-neutral-100 animate-in fade-in duration-300">
-                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Recolor Logo</label>
+                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Edit Logo Color</label>
                     <div className="flex items-center gap-2">
                       <div className="relative w-9 h-9 shrink-0 group rounded-xl overflow-hidden border border-neutral-300 shadow-inner">
                         <input
@@ -3154,7 +3154,7 @@ export function GarmentCustomizerModal({
                         className="flex-1 py-2.5 px-3 bg-zinc-900 text-white hover:bg-zinc-800 rounded-xl font-bold text-[10px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
                       >
                         {isRecoloring ? <Loader2 className="animate-spin" size={11} /> : <Palette size={11} />}
-                        <span>Recolor &amp; Apply</span>
+                        <span>Apply</span>
                       </button>
                     </div>
                   </div>
