@@ -739,7 +739,7 @@ export function PublicQuoteRequest() {
     password: ''
   });
   const [showPassword, setShowPassword] = useState(false);
-  const [budgetTier, setBudgetTier] = useState('Retail Standard');
+  const [budgetTier] = useState('Retail Standard');
   const [inHandsDate, setInHandsDate] = useState('');
   const [notes, setNotes] = useState('');
 
@@ -5330,18 +5330,7 @@ export function PublicQuoteRequest() {
                       placeholder="(555) 123-4567" 
                     />
                   </div>
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-bold text-neutral-700">Budget Tier</label>
-                    <select
-                      value={budgetTier}
-                      onChange={e => setBudgetTier(e.target.value)}
-                      className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-2.5 text-xs font-bold focus:outline-none"
-                    >
-                      <option value="Promo / Bulk">Promo / Event Bulk (Economy)</option>
-                      <option value="Retail Standard">Retail Standard (Premium Blanks)</option>
-                      <option value="Cut & Sew">Custom Cut & Sew (Luxury)</option>
-                    </select>
-                  </div>
+
                   <div className="flex flex-col gap-1.5">
                     <label className="text-xs font-bold text-neutral-700">Target In-Hands Date</label>
                     <input 
