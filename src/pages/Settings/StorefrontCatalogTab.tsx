@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { doc, getDocFromServer, setDoc, updateDoc, deleteDoc, query, where, getDocs, collection, onSnapshot, deleteField } from 'firebase/firestore';
+import { doc, setDoc, updateDoc, deleteDoc, query, where, getDocs, collection, onSnapshot, deleteField } from 'firebase/firestore';
 import { db, storage } from '../../lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Loader2, Save, Search, Check, Info, Crosshair, X, Trash2, Plus, Edit2, ImageIcon, ArrowLeft, ArrowRight, Eye, EyeOff, Scissors, Upload } from 'lucide-react';
