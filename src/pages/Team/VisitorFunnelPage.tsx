@@ -65,6 +65,8 @@ export interface MetaLead {
   smsStatus?: 'not_sent' | 'sent' | 'failed';
   leadStatus?: 'good' | 'bad' | 'voicemail' | 'uncontacted' | 'called';
   callStatus?: string;
+  callFeedback?: 'good' | 'voicemail' | 'bad' | 'uncontacted';
+  smsFeedback?: 'good' | 'bad' | 'uncontacted';
   smsSentAt?: string;
   createdAt: string;
   rawFields?: string;
@@ -265,6 +267,8 @@ export function VisitorFunnelPage() {
             smsStatus: data.smsStatus || 'not_sent',
             leadStatus: data.leadStatus || (data.callStatus === 'voicemail' ? 'voicemail' : data.callStatus || 'uncontacted'),
             callStatus: data.callStatus,
+            callFeedback: data.callFeedback || data.leadStatus || (data.callStatus === 'voicemail' ? 'voicemail' : data.callStatus || 'uncontacted'),
+            smsFeedback: data.smsFeedback || 'uncontacted',
             smsSentAt: data.smsSentAt,
             createdAt: data.createdAt || new Date().toISOString(),
             rawFields: data.rawFields,
@@ -461,18 +465,33 @@ export function VisitorFunnelPage() {
     }, 1000);
   };
 
-  // Update Lead Feedback Status (Thumbs Up, VM, Thumbs Down)
-  const handleSetLeadStatus = async (leadId: string, status: string, e?: React.MouseEvent) => {
+  // Update Call Feedback Status (Thumbs Up, VM, Thumbs Down for Call)
+  const handleSetCallFeedback = async (leadId: string, status: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     try {
       const docRef = doc(db, 'meta_leads', leadId);
       await setDoc(docRef, {
-        leadStatus: status,
+        callFeedback: status,
         callStatus: status,
+        leadStatus: status,
         updatedAt: new Date().toISOString()
       }, { merge: true });
     } catch (err) {
-      console.error('Error updating lead status:', err);
+      console.error('Error updating call feedback:', err);
+    }
+  };
+
+  // Update SMS Feedback Status (Thumbs Up, Thumbs Down for Text / Send Default)
+  const handleSetSmsFeedback = async (leadId: string, status: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    try {
+      const docRef = doc(db, 'meta_leads', leadId);
+      await setDoc(docRef, {
+        smsFeedback: status,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+    } catch (err) {
+      console.error('Error updating SMS feedback:', err);
     }
   };
 
@@ -1447,27 +1466,41 @@ export function VisitorFunnelPage() {
                         {/* SMS & Lead Status Badges */}
                         <td className="py-3.5 px-4">
                           <div className="flex flex-col gap-1 items-start">
-                            {/* Lead Feedback Status Badge */}
-                            {lead.leadStatus === 'good' && (
+                            {/* Call Feedback Status Badge */}
+                            {lead.callFeedback === 'good' && (
                               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
                                 <ThumbsUp size={11} />
-                                Good Lead
+                                Call: Interested
                               </span>
                             )}
-                            {lead.leadStatus === 'voicemail' && (
+                            {lead.callFeedback === 'voicemail' && (
                               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
                                 <Voicemail size={11} />
-                                Voicemail Left
+                                Call: Voicemail Left
                               </span>
                             )}
-                            {lead.leadStatus === 'bad' && (
+                            {lead.callFeedback === 'bad' && (
                               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800 border border-rose-300">
                                 <ThumbsDown size={11} />
-                                Not Interested
+                                Call: Unqualified
                               </span>
                             )}
 
-                            {/* Quo SMS Status Badge */}
+                            {/* SMS Feedback Status Badge */}
+                            {lead.smsFeedback === 'good' && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-300">
+                                <ThumbsUp size={11} />
+                                Text: Good Reply
+                              </span>
+                            )}
+                            {lead.smsFeedback === 'bad' && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800 border border-rose-300">
+                                <ThumbsDown size={11} />
+                                Text: Bad Reply
+                              </span>
+                            )}
+
+                            {/* Quo Delivery Status Badge */}
                             {lead.smsStatus === 'sent' ? (
                               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                                 <CheckCircle2 size={11} />
@@ -1478,7 +1511,7 @@ export function VisitorFunnelPage() {
                                 <AlertCircle size={11} />
                                 Failed
                               </span>
-                            ) : (!lead.leadStatus || lead.leadStatus === 'uncontacted') ? (
+                            ) : (!lead.callFeedback && !lead.smsFeedback) ? (
                               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200">
                                 Uncontacted
                               </span>
@@ -1486,104 +1519,134 @@ export function VisitorFunnelPage() {
                           </div>
                         </td>
 
-                        {/* Manual Action Buttons (Call, Send Default + Sub Buttons under them; Customize & Delete to the right) */}
-                        <td className="py-3.5 px-4 text-right">
-                          <div className="flex items-start justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
-                            {/* Call & Send Default + Sub-Buttons Column */}
-                            <div className="flex flex-col items-center gap-1.5">
-                              <div className="inline-flex items-center gap-1.5">
-                                <button
-                                  onClick={(e) => handleCallLead(lead, e)}
-                                  disabled={!lead.phone}
-                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-all shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer h-8"
-                                  title={`Call ${lead.name} (${lead.phone})`}
-                                >
-                                  <PhoneCall size={13} />
-                                  Call
-                                </button>
+                        {/* Manual Action Buttons (Call Column, Send Default Column, Customize Column, Delete) */}
+                        <td className="py-3.5 px-4 text-right shrink-0">
+                          <div className="inline-flex items-start justify-end gap-3 shrink-0" onClick={(e) => e.stopPropagation()}>
+                            
+                            {/* COLUMN 1: CALL BUTTON & CALL FEEDBACK */}
+                            <div className="flex flex-col items-center gap-1.5 shrink-0">
+                              <button
+                                onClick={(e) => handleCallLead(lead, e)}
+                                disabled={!lead.phone}
+                                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-all shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer h-8 whitespace-nowrap"
+                                title={`Call ${lead.name} (${lead.phone})`}
+                              >
+                                <PhoneCall size={13} />
+                                Call
+                              </button>
 
-                                {/* 1-Click Send Default Button */}
+                              {/* Call Feedback Sub-Buttons (Thumbs Up, VM, Thumbs Down) */}
+                              <div className="inline-flex items-center justify-center gap-1 shrink-0 w-full">
                                 <button
-                                  onClick={(e) => handleSendDefaultLeadSms(lead, e)}
-                                  disabled={sendingLeadId === lead.id || !lead.phone}
-                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition-all shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shrink-0 h-8"
-                                  title="Send saved default text message & GIF via Quo instantly with 1-click"
-                                >
-                                  {sendingLeadId === lead.id ? (
-                                    <>
-                                      <Loader2 size={13} className="animate-spin" />
-                                      Sending...
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Sparkles size={13} />
-                                      Send Default
-                                    </>
-                                  )}
-                                </button>
-                              </div>
-
-                              {/* Sub-Buttons (Placed directly underneath Call & Send Default) */}
-                              <div className="inline-flex items-center justify-center gap-1.5 w-full">
-                                <button
-                                  onClick={(e) => handleSetLeadStatus(lead.id, lead.leadStatus === 'good' ? 'uncontacted' : 'good', e)}
-                                  className={`inline-flex items-center justify-center p-1.5 rounded-md text-xs font-bold border transition-all cursor-pointer ${
-                                    lead.leadStatus === 'good'
+                                  onClick={(e) => handleSetCallFeedback(lead.id, lead.callFeedback === 'good' ? 'uncontacted' : 'good', e)}
+                                  className={`inline-flex items-center justify-center p-1 rounded-md text-xs font-bold border transition-all cursor-pointer ${
+                                    lead.callFeedback === 'good'
                                       ? 'bg-emerald-600 text-white border-emerald-700 shadow-2xs ring-2 ring-emerald-400/30'
                                       : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300'
                                   }`}
-                                  title="Mark as Good Lead / Interested (Thumbs Up)"
+                                  title="Call Outcome: Thumbs Up (Interested / Good Call)"
                                 >
-                                  <ThumbsUp size={13} />
+                                  <ThumbsUp size={12} />
                                 </button>
 
                                 <button
-                                  onClick={(e) => handleSetLeadStatus(lead.id, lead.leadStatus === 'voicemail' ? 'uncontacted' : 'voicemail', e)}
-                                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold border transition-all cursor-pointer ${
-                                    lead.leadStatus === 'voicemail'
+                                  onClick={(e) => handleSetCallFeedback(lead.id, lead.callFeedback === 'voicemail' ? 'uncontacted' : 'voicemail', e)}
+                                  className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-bold border transition-all cursor-pointer ${
+                                    lead.callFeedback === 'voicemail'
                                       ? 'bg-amber-600 text-white border-amber-700 shadow-2xs ring-2 ring-amber-400/30'
                                       : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300'
                                   }`}
-                                  title="Mark as Voicemail Left (VM)"
+                                  title="Call Outcome: Voicemail Left (VM)"
                                 >
-                                  <Voicemail size={12} />
+                                  <Voicemail size={11} />
                                   <span>VM</span>
                                 </button>
 
                                 <button
-                                  onClick={(e) => handleSetLeadStatus(lead.id, lead.leadStatus === 'bad' ? 'uncontacted' : 'bad', e)}
-                                  className={`inline-flex items-center justify-center p-1.5 rounded-md text-xs font-bold border transition-all cursor-pointer ${
-                                    lead.leadStatus === 'bad'
+                                  onClick={(e) => handleSetCallFeedback(lead.id, lead.callFeedback === 'bad' ? 'uncontacted' : 'bad', e)}
+                                  className={`inline-flex items-center justify-center p-1 rounded-md text-xs font-bold border transition-all cursor-pointer ${
+                                    lead.callFeedback === 'bad'
                                       ? 'bg-rose-600 text-white border-rose-700 shadow-2xs ring-2 ring-rose-400/30'
                                       : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-300'
                                   }`}
-                                  title="Mark as Not Interested / Unqualified (Thumbs Down)"
+                                  title="Call Outcome: Thumbs Down (Unqualified / Bad Call)"
                                 >
-                                  <ThumbsDown size={13} />
+                                  <ThumbsDown size={12} />
                                 </button>
                               </div>
                             </div>
 
-                            {/* Customize Text & GIF + Delete Button */}
-                            <div className="inline-flex items-center gap-1.5">
+                            {/* COLUMN 2: SEND DEFAULT BUTTON & SMS FEEDBACK */}
+                            <div className="flex flex-col items-center gap-1.5 shrink-0">
+                              <button
+                                onClick={(e) => handleSendDefaultLeadSms(lead, e)}
+                                disabled={sendingLeadId === lead.id || !lead.phone}
+                                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition-all shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shrink-0 h-8 whitespace-nowrap"
+                                title="Send saved default text message & GIF via Quo instantly with 1-click"
+                              >
+                                {sendingLeadId === lead.id ? (
+                                  <>
+                                    <Loader2 size={13} className="animate-spin" />
+                                    Sending...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Sparkles size={13} />
+                                    Send Default
+                                  </>
+                                )}
+                              </button>
+
+                              {/* SMS Feedback Sub-Buttons (Thumbs Up, Thumbs Down) */}
+                              <div className="inline-flex items-center justify-center gap-1 shrink-0 w-full">
+                                <button
+                                  onClick={(e) => handleSetSmsFeedback(lead.id, lead.smsFeedback === 'good' ? 'uncontacted' : 'good', e)}
+                                  className={`inline-flex items-center justify-center px-2 py-1 rounded-md text-xs font-bold border transition-all cursor-pointer ${
+                                    lead.smsFeedback === 'good'
+                                      ? 'bg-emerald-600 text-white border-emerald-700 shadow-2xs ring-2 ring-emerald-400/30'
+                                      : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300'
+                                  }`}
+                                  title="SMS Feedback: Thumbs Up (Good Text Response)"
+                                >
+                                  <ThumbsUp size={12} />
+                                </button>
+
+                                <button
+                                  onClick={(e) => handleSetSmsFeedback(lead.id, lead.smsFeedback === 'bad' ? 'uncontacted' : 'bad', e)}
+                                  className={`inline-flex items-center justify-center px-2 py-1 rounded-md text-xs font-bold border transition-all cursor-pointer ${
+                                    lead.smsFeedback === 'bad'
+                                      ? 'bg-rose-600 text-white border-rose-700 shadow-2xs ring-2 ring-rose-400/30'
+                                      : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-300'
+                                  }`}
+                                  title="SMS Feedback: Thumbs Down (Bad Text Response)"
+                                >
+                                  <ThumbsDown size={12} />
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* COLUMN 3: CUSTOMIZE BUTTON */}
+                            <div className="flex flex-col items-center gap-1.5 shrink-0">
                               <button
                                 onClick={(e) => handleOpenSmsModal(lead, e)}
                                 disabled={sendingModalSms || !lead.phone}
-                                className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-white hover:bg-black transition-all shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shrink-0 h-8"
+                                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-white hover:bg-black transition-all shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shrink-0 h-8 whitespace-nowrap"
                                 title="Customize message before sending"
                               >
                                 <Send size={13} />
                                 Customize
                               </button>
-
-                              <button
-                                onClick={(e) => handleDeleteLead(lead.id, e)}
-                                className="p-1.5 text-slate-400 hover:text-rose-600 transition-colors rounded"
-                                title="Delete lead record"
-                              >
-                                <Trash2 size={14} />
-                              </button>
                             </div>
+
+                            {/* COLUMN 4: DELETE BUTTON */}
+                            <button
+                              onClick={(e) => handleDeleteLead(lead.id, e)}
+                              className="p-1.5 text-slate-400 hover:text-rose-600 transition-colors rounded shrink-0 self-start mt-0.5"
+                              title="Delete lead record"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+
                           </div>
                         </td>
                       </tr>
