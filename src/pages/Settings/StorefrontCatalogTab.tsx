@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { doc, getDocFromServer, setDoc, updateDoc, deleteDoc, query, where, getDocs, collection } from 'firebase/firestore';
+import { doc, getDocFromServer, setDoc, updateDoc, deleteDoc, query, where, getDocs, collection, onSnapshot, deleteField } from 'firebase/firestore';
 import { db, storage } from '../../lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Loader2, Save, Search, Check, Info, Crosshair, X, Trash2, Plus, Edit2, ImageIcon, ArrowLeft, ArrowRight, Eye, EyeOff, Scissors, Upload } from 'lucide-react';
@@ -727,12 +727,10 @@ export function StorefrontCatalogTab() {
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
-    const fetchCatalogSettings = async () => {
-      try {
-        const docRef = doc(db, 'settings', 'storefront-catalog');
-        // Read from the SERVER, never the offline cache — a stale/empty cache
-        // would render defaults that could then be saved over the real catalog
-        const docSnap = await getDocFromServer(docRef);
+    const docRef = doc(db, 'settings', 'storefront-catalog');
+    const unsubscribe = onSnapshot(
+      docRef,
+      (docSnap) => {
         if (docSnap.exists()) {
           const data = docSnap.data();
           if (data.racks) setRacks(data.racks);
@@ -799,27 +797,40 @@ export function StorefrontCatalogTab() {
           }
         }
         setLoadFailed(false);
-        catalogLoadedRef.current = true; // writes are now safe
-      } catch (err) {
-        console.error("Error fetching storefront catalog settings:", err);
-        // Saving now would overwrite the real catalog with empty defaults
+        catalogLoadedRef.current = true; // writes are safe
+        setLoading(false);
+      },
+      (err) => {
+        console.error("Error listening to storefront catalog settings:", err);
         setLoadFailed(true);
         catalogLoadedRef.current = false;
-      } finally {
         setLoading(false);
       }
-    };
-    fetchCatalogSettings();
+    );
+
+    return () => unsubscribe();
   }, []);
 
   const persistColorSettings = async (
     nextAllowed?: Record<string, string[]>,
     nextMockups?: Record<string, Record<string, any>>,
     nextNeckTag?: Record<string, boolean>,
-    nextCustomColors?: Record<string, string[]>
+    nextCustomColors?: Record<string, string[]>,
+    styleKey?: string
   ) => {
     if (!assertCatalogLoaded('save color settings')) return;
     try {
+      if (styleKey) {
+        const payload: Record<string, any> = {};
+        if (nextAllowed && nextAllowed[styleKey] !== undefined) payload[`allowedColors.${styleKey}`] = nextAllowed[styleKey];
+        if (nextMockups && nextMockups[styleKey] !== undefined) payload[`colorMockups.${styleKey}`] = nextMockups[styleKey];
+        if (nextNeckTag && nextNeckTag[styleKey] !== undefined) payload[`removeNeckTag.${styleKey}`] = nextNeckTag[styleKey];
+        if (nextCustomColors && nextCustomColors[styleKey] !== undefined) payload[`customColors.${styleKey}`] = nextCustomColors[styleKey];
+        if (Object.keys(payload).length > 0) {
+          await writeCatalog(payload);
+          return;
+        }
+      }
       await writeCatalog({
         allowedColors: nextAllowed ?? allowedColors,
         colorMockups: nextMockups ?? colorMockups,
@@ -918,10 +929,8 @@ export function StorefrontCatalogTab() {
         }
       };
 
-      // Write ONLY what changed, merged. Writing the whole doc without
-      // merge here previously DELETED colorMockups, allowedColors,
-      // garmentTypeTags, removeNeckTag, cardImages and garmentFits.
-      await writeCatalog({ customMockups: updatedMockups });
+      // Write ONLY what changed using dot notation.
+      await writeCatalog({ [`customMockups.${mode}.${category}.${slot}`]: downloadUrl });
 
       setCustomMockups(updatedMockups);
       alert("Mockup uploaded and saved successfully!");
@@ -944,10 +953,8 @@ export function StorefrontCatalogTab() {
         delete updatedMockups[mode][category][slot];
       }
 
-      // Write ONLY what changed, merged. Writing the whole doc without
-      // merge here previously DELETED colorMockups, allowedColors,
-      // garmentTypeTags, removeNeckTag, cardImages and garmentFits.
-      await writeCatalog({ customMockups: updatedMockups });
+      // Write ONLY what changed using dot notation deleteField.
+      await writeCatalog({ [`customMockups.${mode}.${category}.${slot}`]: deleteField() });
 
       setCustomMockups(updatedMockups);
       alert("Mockup override removed successfully!");
@@ -997,9 +1004,9 @@ export function StorefrontCatalogTab() {
     setIsModalOpen(false);
     setActiveSelectTarget(null);
 
-    // Auto-persist slot garment replacement to Firestore
+    // Auto-persist slot garment replacement to Firestore using dot notation
     try {
-      await writeCatalog({ racks: nextRacks, basics: nextBasics });
+      await writeCatalog({ [`${mode}.${category}.${slot}`]: style });
     } catch (err) {
       console.error("Error auto-persisting replaced garment slot to Firestore:", err);
     }
@@ -1301,10 +1308,14 @@ export function StorefrontCatalogTab() {
   };
 
   // Storefront card photo (display only — never used for mockups/pricing)
-  const persistCardImages = async (next: Record<string, string>) => {
+  const persistCardImages = async (next: Record<string, string>, styleKey?: string, isDelete?: boolean) => {
     if (!assertCatalogLoaded('save the card photo')) return;
     setCardImages(next);
     try {
+      if (styleKey) {
+        await writeCatalog({ [`cardImages.${styleKey}`]: isDelete ? deleteField() : next[styleKey] });
+        return;
+      }
       await writeCatalog({ cardImages: next });
     } catch (err) {
       console.error('Error saving storefront card photo:', err);
@@ -1312,10 +1323,14 @@ export function StorefrontCatalogTab() {
     }
   };
 
-  const persistCardHoverImages = async (next: Record<string, string>) => {
+  const persistCardHoverImages = async (next: Record<string, string>, styleKey?: string, isDelete?: boolean) => {
     if (!assertCatalogLoaded('save the secondary card photo')) return;
     setCardHoverImages(next);
     try {
+      if (styleKey) {
+        await writeCatalog({ [`cardHoverImages.${styleKey}`]: isDelete ? deleteField() : next[styleKey] });
+        return;
+      }
       await writeCatalog({ cardHoverImages: next });
     } catch (err) {
       console.error('Error saving storefront secondary card photo:', err);
@@ -1332,7 +1347,7 @@ export function StorefrontCatalogTab() {
       const storageRef = ref(storage, `storefront_card_images/${styleKey}/${Date.now()}_${file.name}`);
       await uploadBytes(storageRef, file);
       const url = await getDownloadURL(storageRef);
-      await persistCardImages({ ...cardImages, [styleKey]: url });
+      await persistCardImages({ ...cardImages, [styleKey]: url }, styleKey);
     } catch (err) {
       console.error('Card photo upload failed:', err);
       alert('Upload failed. Please try again.');
@@ -1351,7 +1366,7 @@ export function StorefrontCatalogTab() {
       const storageRef = ref(storage, `storefront_card_hover_images/${styleKey}/${Date.now()}_${file.name}`);
       await uploadBytes(storageRef, file);
       const url = await getDownloadURL(storageRef);
-      await persistCardHoverImages({ ...cardHoverImages, [styleKey]: url });
+      await persistCardHoverImages({ ...cardHoverImages, [styleKey]: url }, styleKey);
     } catch (err) {
       console.error('Secondary card photo upload failed:', err);
       alert('Upload failed. Please try again.');
@@ -1399,7 +1414,7 @@ export function StorefrontCatalogTab() {
                   onClick={() => {
                     const next = { ...cardImages };
                     delete next[styleKey];
-                    persistCardImages(next);
+                    persistCardImages(next, styleKey, true);
                   }}
                   className="p-1.5 text-neutral-400 hover:text-red-600 transition-colors cursor-pointer"
                   title="Remove primary photo"
@@ -1435,7 +1450,7 @@ export function StorefrontCatalogTab() {
                   onClick={() => {
                     const next = { ...cardHoverImages };
                     delete next[styleKey];
-                    persistCardHoverImages(next);
+                    persistCardHoverImages(next, styleKey, true);
                   }}
                   className="p-1.5 text-neutral-400 hover:text-red-600 transition-colors cursor-pointer"
                   title="Remove secondary photo"
@@ -1454,10 +1469,14 @@ export function StorefrontCatalogTab() {
   };
 
   // Garment fit shown on the storefront cards (Fitted · Standard · Loose)
-  const persistGarmentFits = async (next: Record<string, string>) => {
+  const persistGarmentFits = async (next: Record<string, string>, styleKey?: string) => {
     if (!assertCatalogLoaded('save the fit')) return;
     setGarmentFits(next);
     try {
+      if (styleKey) {
+        await writeCatalog({ [`garmentFits.${styleKey}`]: next[styleKey] });
+        return;
+      }
       await writeCatalog({ garmentFits: next });
     } catch (err) {
       console.error('Error saving garment fit:', err);
@@ -1478,7 +1497,7 @@ export function StorefrontCatalogTab() {
             <button
               key={fit}
               type="button"
-              onClick={() => persistGarmentFits({ ...garmentFits, [styleKey]: fit })}
+              onClick={() => persistGarmentFits({ ...garmentFits, [styleKey]: fit }, styleKey)}
               className={`py-1.5 rounded-xl border text-[10px] font-bold transition-colors cursor-pointer ${
                 current === fit
                   ? 'bg-brand-primary text-white border-brand-primary'
@@ -1543,7 +1562,14 @@ export function StorefrontCatalogTab() {
     setPlacementTarget(null);
 
     try {
-      await writeCatalog({ logoPlacements: cleanPlacements });
+      const cleanBox = pruneUndefinedDeep(box);
+      const payload: Record<string, any> = {
+        [`logoPlacements.${mode}.${category}.${slot}`]: cleanBox,
+      };
+      if (styleForSlot) {
+        payload[`logoPlacements.byStyle.${String(styleForSlot).toUpperCase()}`] = cleanBox;
+      }
+      await writeCatalog(payload);
     } catch (err) {
       console.error("Error auto-persisting logo placement to Firestore:", err);
       alert('Failed to save placement boxes — please try again. (See console for details.)');
@@ -1579,7 +1605,13 @@ export function StorefrontCatalogTab() {
     setPlacementTarget(null);
 
     try {
-      await writeCatalog({ logoPlacements: cleanPlacements });
+      const payload: Record<string, any> = {
+        [`logoPlacements.${mode}.${category}.${slot}`]: deleteField(),
+      };
+      if (styleForSlot) {
+        payload[`logoPlacements.byStyle.${String(styleForSlot).toUpperCase()}`] = deleteField();
+      }
+      await writeCatalog(payload);
     } catch (err) {
       console.error("Error auto-persisting cleared placement to Firestore:", err);
       alert('Failed to clear placement boxes — please try again. (See console for details.)');
@@ -3356,38 +3388,46 @@ export function StorefrontCatalogTab() {
               backUrl = await getDownloadURL(storageRef);
             }
 
+            const updatedCustomList = Array.from(new Set([...extraCustomColors, trimmed]));
             const updatedCustom = {
               ...customColors,
-              [modalStyleKey]: Array.from(new Set([...extraCustomColors, trimmed]))
+              [modalStyleKey]: updatedCustomList
             };
             setCustomColors(updatedCustom);
 
+            const updatedAllowedList = Array.from(new Set([...currentAllowed, trimmed]));
             const updatedAllowed = {
               ...allowedColors,
-              [modalStyleKey]: Array.from(new Set([...currentAllowed, trimmed]))
+              [modalStyleKey]: updatedAllowedList
             };
             setAllowedColors(updatedAllowed);
 
+            let styleMockupEntry: any = null;
             let updatedMockups = colorMockups;
             if (frontUrl || backUrl) {
+              styleMockupEntry = {
+                ...(frontUrl ? { front: frontUrl } : {}),
+                ...(backUrl ? { back: backUrl } : {})
+              };
               updatedMockups = {
                 ...colorMockups,
                 [modalStyleKey]: {
                   ...(colorMockups[modalStyleKey] || {}),
-                  [trimmed]: {
-                    ...(frontUrl ? { front: frontUrl } : {}),
-                    ...(backUrl ? { back: backUrl } : {})
-                  }
+                  [trimmed]: styleMockupEntry
                 }
               };
               setColorMockups(updatedMockups);
             }
 
-            await writeCatalog({
-              customColors: updatedCustom,
-              allowedColors: updatedAllowed,
-              colorMockups: updatedMockups
-            });
+            const payload: Record<string, any> = {
+              [`customColors.${modalStyleKey}`]: updatedCustomList,
+              [`allowedColors.${modalStyleKey}`]: updatedAllowedList,
+            };
+            if (styleMockupEntry) {
+              payload[`colorMockups.${modalStyleKey}.${trimmed}`] = styleMockupEntry;
+            }
+
+            await writeCatalog(payload);
 
             setIsAddingCustomColor(false);
             setNewColorName('');
@@ -3691,15 +3731,10 @@ export function StorefrontCatalogTab() {
                                       const updatedAllowed = { ...allowedColors, [modalStyleKey]: nextAllowed };
                                       setAllowedColors(updatedAllowed);
 
-                                      const updatedMockups = { ...(colorMockups[modalStyleKey] || {}) };
-                                      delete updatedMockups[color];
-                                      const allUpdatedMockups = { ...colorMockups, [modalStyleKey]: updatedMockups };
-                                      setColorMockups(allUpdatedMockups);
-
                                       await writeCatalog({
-                                        customColors: updatedCustomColors,
-                                        allowedColors: updatedAllowed,
-                                        colorMockups: allUpdatedMockups
+                                        [`customColors.${modalStyleKey}`]: nextCustom,
+                                        [`allowedColors.${modalStyleKey}`]: nextAllowed,
+                                        [`colorMockups.${modalStyleKey}.${color}`]: deleteField()
                                       });
                                     }}
                                     className="p-1 text-neutral-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors cursor-pointer"
