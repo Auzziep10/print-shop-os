@@ -986,23 +986,23 @@ export function VisitorFunnelPage() {
             <div className="bg-white border border-brand-border rounded-xl p-6 shadow-xs flex flex-col justify-between">
               <div>
                 <div className="mb-4">
-                  <h2 className="text-base font-serif font-semibold text-brand-primary">Top Drop-off Locations</h2>
-                  <p className="text-xs text-brand-muted mt-0.5">Where un-converted visitors left off</p>
+                  <h2 className="text-base font-serif font-bold text-slate-900">Top Drop-off Locations</h2>
+                  <p className="text-xs text-slate-600 font-medium mt-0.5">Where un-converted visitors left off</p>
                 </div>
 
                 {dropoffLocations.length === 0 ? (
-                  <p className="text-xs text-brand-muted italic py-6">No exit data recorded yet.</p>
+                  <p className="text-xs text-slate-500 italic py-6">No exit data recorded yet.</p>
                 ) : (
                   <div className="space-y-3">
                     {dropoffLocations.map((item, i) => (
                       <div key={i} className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs">
-                        <div className="flex items-center justify-between font-semibold text-brand-primary">
+                        <div className="flex items-center justify-between font-bold text-slate-900">
                           <span className="truncate pr-2">{item.stepName}</span>
-                          <span className="px-2 py-0.5 bg-rose-50 text-rose-700 rounded-full text-[11px] font-mono border border-rose-200">
+                          <span className="px-2 py-0.5 bg-rose-100 text-rose-800 rounded-full text-[11px] font-bold font-mono border border-rose-300">
                             {item.count} left here
                           </span>
                         </div>
-                        <div className="text-[11px] text-brand-muted font-mono truncate mt-1">
+                        <div className="text-[11px] text-slate-600 font-semibold font-mono truncate mt-1">
                           {item.path}
                         </div>
                       </div>
@@ -1017,21 +1017,21 @@ export function VisitorFunnelPage() {
           <div className="bg-white border border-brand-border rounded-xl shadow-xs overflow-hidden">
             <div className="p-4 sm:p-5 border-b border-brand-border flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
               <div className="flex items-center gap-3">
-                <h2 className="text-base font-serif font-semibold text-brand-primary">Unique Visitor Logs</h2>
-                <span className="text-xs font-medium px-2.5 py-0.5 bg-slate-100 text-brand-secondary rounded-full border border-slate-200">
+                <h2 className="text-base font-serif font-bold text-slate-900">Unique Visitor Logs</h2>
+                <span className="text-xs font-bold px-2.5 py-0.5 bg-slate-100 text-slate-800 rounded-full border border-slate-200">
                   {filteredSessions.length} sessions
                 </span>
               </div>
 
               <div className="flex flex-wrap items-center gap-3">
                 <div className="relative flex-1 sm:w-64">
-                  <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-muted" />
+                  <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
                     type="text"
                     placeholder="Search visitor ID, email..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-brand-border rounded-lg text-xs text-brand-primary focus:outline-none focus:border-brand-primary transition-colors"
+                    className="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-medium text-slate-900 focus:outline-none focus:border-brand-primary transition-colors"
                   />
                 </div>
 
@@ -1044,20 +1044,20 @@ export function VisitorFunnelPage() {
             </div>
 
             {loadingSessions ? (
-              <div className="p-12 text-center text-brand-muted text-sm font-serif">
+              <div className="p-12 text-center text-slate-600 text-sm font-serif">
                 Loading visitor analytics...
               </div>
             ) : filteredSessions.length === 0 ? (
-              <div className="p-12 text-center text-brand-secondary">
-                <Users size={32} className="mx-auto mb-3 text-brand-muted stroke-1" />
-                <p className="font-medium text-sm">No visitor sessions match the current filters.</p>
-                <p className="text-xs text-brand-muted mt-1">Try expanding the date range or clearing search queries.</p>
+              <div className="p-12 text-center text-slate-600">
+                <Users size={32} className="mx-auto mb-3 text-slate-400 stroke-1" />
+                <p className="font-bold text-sm text-slate-800">No visitor sessions match the current filters.</p>
+                <p className="text-xs text-slate-500 mt-1">Try expanding the date range or clearing search queries.</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="bg-slate-50/80 border-b border-brand-border text-[11px] font-semibold text-brand-muted uppercase tracking-wider">
+                    <tr className="bg-slate-100 border-b-2 border-slate-200 text-xs font-bold text-slate-700 uppercase tracking-wider">
                       <th className="py-3 px-4">Visitor & Device</th>
                       <th className="py-3 px-4">First / Last Active</th>
                       <th className="py-3 px-4">Exit Page / Last Reached</th>
@@ -1066,21 +1066,21 @@ export function VisitorFunnelPage() {
                       <th className="py-3 px-4 text-right">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-brand-border text-xs">
+                  <tbody className="divide-y divide-slate-200 text-xs">
                     {filteredSessions.map((session) => (
                       <tr 
                         key={session.visitorId} 
-                        className="hover:bg-slate-50/70 transition-colors cursor-pointer"
+                        className="hover:bg-slate-50/80 transition-colors cursor-pointer"
                         onClick={() => setSelectedVisitor(session)}
                       >
                         <td className="py-3.5 px-4">
                           <div className="flex items-center gap-2.5">
                             {renderDeviceIcon(session.deviceType)}
                             <div>
-                              <div className="font-mono font-medium text-brand-primary text-[12px]">
+                              <div className="font-mono font-bold text-slate-900 text-[12px]">
                                 {session.visitorId}
                               </div>
-                              <div className="text-[11px] text-brand-muted flex items-center gap-1 mt-0.5">
+                              <div className="text-[11px] text-slate-600 font-medium flex items-center gap-1 mt-0.5">
                                 <span>{session.deviceType}</span>
                                 <span>·</span>
                                 <span>{session.browser || 'Web'}</span>
@@ -1089,59 +1089,59 @@ export function VisitorFunnelPage() {
                           </div>
                         </td>
 
-                        <td className="py-3.5 px-4 text-brand-secondary">
+                        <td className="py-3.5 px-4 text-slate-900">
                           <div>
-                            <span className="font-medium text-brand-primary">{formatTimeAgo(session.lastSeen)}</span>
+                            <span className="font-bold text-slate-900">{formatTimeAgo(session.lastSeen)}</span>
                           </div>
-                          <div className="text-[11px] text-brand-muted mt-0.5">
+                          <div className="text-[11px] text-slate-600 font-medium mt-0.5">
                             First seen {new Date(session.firstSeen || session.lastSeen).toLocaleDateString()}
                           </div>
                         </td>
 
                         <td className="py-3.5 px-4">
                           <div className="flex flex-col">
-                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium w-fit ${
+                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold w-fit ${
                               session.furthestStep >= 5 
-                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
+                                ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' 
                                 : session.furthestStep >= 2
-                                ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                                : 'bg-slate-100 text-slate-700 border border-slate-200'
+                                ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                                : 'bg-slate-100 text-slate-800 border border-slate-300'
                             }`}>
                               <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
                               {session.lastStepName || session.furthestStepName || `Step ${session.furthestStep}`}
                             </span>
-                            <span className="text-[11px] font-mono text-brand-muted mt-1 truncate max-w-[200px]">
+                            <span className="text-[11px] font-mono font-semibold text-slate-600 mt-1 truncate max-w-[200px]">
                               {session.currentPath || session.landingPage || '/start2'}
                             </span>
                           </div>
                         </td>
 
-                        <td className="py-3.5 px-4 text-brand-primary font-medium">
+                        <td className="py-3.5 px-4 text-slate-900 font-bold">
                           {session.userEmail ? (
                             <div>
-                              <div>{session.userEmail}</div>
+                              <div className="text-slate-900 font-bold">{session.userEmail}</div>
                               {session.userName && (
-                                <div className="text-[11px] text-brand-muted font-normal">{session.userName}</div>
+                                <div className="text-[11px] text-slate-600 font-semibold">{session.userName}</div>
                               )}
                             </div>
                           ) : (
-                            <span className="text-brand-muted font-normal italic">Anonymous Visitor</span>
+                            <span className="text-slate-500 font-medium italic">Anonymous Visitor</span>
                           )}
                         </td>
 
                         <td className="py-3.5 px-4">
                           {session.convertedQuote ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
                               <CheckCircle2 size={12} />
                               Quote Submitted
                             </span>
                           ) : session.convertedAccount ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-100 text-indigo-800">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-300">
                               <UserCheck size={12} />
                               Account Created
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-600">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-300">
                               In Progress / Exited
                             </span>
                           )}
@@ -1154,7 +1154,7 @@ export function VisitorFunnelPage() {
                                 e.stopPropagation();
                                 setSelectedVisitor(session);
                               }}
-                              className="inline-flex items-center gap-1 text-xs font-medium text-brand-primary hover:text-black hover:underline"
+                              className="inline-flex items-center gap-1 text-xs font-bold text-slate-900 hover:text-indigo-600 hover:underline"
                             >
                               Timeline
                               <ChevronRight size={14} />
