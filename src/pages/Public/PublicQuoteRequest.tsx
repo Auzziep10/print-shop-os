@@ -4101,42 +4101,23 @@ export function PublicQuoteRequest() {
               </div>
             )}
 
-            {/* Floating Design Selections Action Button on Step 1 */}
-            <div className="fixed bottom-6 right-6 sm:bottom-8 sm:right-8 z-40 animate-in fade-in slide-in-from-bottom-4 duration-300">
-              <PillButton 
-                variant="filled" 
-                onClick={() => {
-                  if (flowMode === 'racks') {
-                    const selectedCount = rackItems.filter(i => i.selected).length;
-                    if (selectedCount === 0) {
-                      alert("Please select at least one garment for your collection to proceed.");
-                      return;
-                    }
-                    setStep(2);
-                  } else if (flowMode === 'types') {
-                    if (selectedGarmentTypeItems.length === 0) {
-                      alert("Please select at least one garment for your collection to proceed.");
-                      return;
-                    }
-                    setStep(2);
-                  } else if (flowMode === 'basics') {
-                    if (!selectedBasicsItem) {
-                      alert("Please select a basic garment to proceed.");
-                      return;
-                    }
-                    setStep(2);
-                  } else {
-                    setStep(2);
-                  }
-                }} 
-                className="gap-2 px-6 py-3.5 text-xs sm:text-sm font-bold shadow-2xl hover:scale-105 active:scale-95 transition-all bg-neutral-950 text-white border border-neutral-800 ring-4 ring-black/10 cursor-pointer"
-              >
-                Design Selections
-                {flowMode === 'racks' && ` (${rackItems.filter(i => i.selected).length} Selected)`}
-                {flowMode === 'types' && ` (${selectedGarmentTypeItems.length} Selected)`}
-                <ArrowRight size={16} />
-              </PillButton>
-            </div>
+            {/* Floating Design Selections Action Button on Step 1 (Only visible when at least 1 item is selected) */}
+            {((flowMode === 'racks' && rackItems.some(i => i.selected)) ||
+              (flowMode === 'types' && selectedGarmentTypeItems.length > 0) ||
+              (flowMode === 'basics' && Boolean(selectedBasicsItem))) && (
+              <div className="fixed bottom-6 right-6 sm:bottom-8 sm:right-8 z-40 animate-in fade-in slide-in-from-bottom-4 duration-300">
+                <PillButton 
+                  variant="filled" 
+                  onClick={() => setStep(2)} 
+                  className="gap-2 px-6 py-3.5 text-xs sm:text-sm font-bold shadow-2xl hover:scale-105 active:scale-95 transition-all bg-neutral-950 text-white border border-neutral-800 ring-4 ring-black/10 cursor-pointer"
+                >
+                  Design Selections
+                  {flowMode === 'racks' && ` (${rackItems.filter(i => i.selected).length} Selected)`}
+                  {flowMode === 'types' && ` (${selectedGarmentTypeItems.length} Selected)`}
+                  <ArrowRight size={16} />
+                </PillButton>
+              </div>
+            )}
           </div>
         )}
 
