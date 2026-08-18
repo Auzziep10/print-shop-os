@@ -2207,7 +2207,7 @@ export function PortalCreateOrder() {
                                       className="flex items-center gap-1.5 bg-black hover:bg-neutral-800 text-white px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all shadow-xs w-fit cursor-pointer select-none"
                                     >
                                       <Sparkles size={11} className="text-emerald-400" />
-                                      <span>{item.customized ? "Adjust Saved Mockup" : "Customize Placements & Artwork"}</span>
+                                      <span>{item.customized ? "Adjust Saved Mockup" : "Edit Design Here"}</span>
                                     </button>
                                   </div>
                                 );

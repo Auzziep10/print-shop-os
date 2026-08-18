@@ -5142,7 +5142,7 @@ export function PublicQuoteRequest() {
                                 className="flex items-center gap-1.5 bg-neutral-900 hover:bg-black text-white px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all shadow-3xs w-fit cursor-pointer select-none mt-0.5"
                               >
                                 <Sparkles size={11} className="text-emerald-400" />
-                                <span>Customize Placements & Artwork</span>
+                                <span>Edit Design Here</span>
                               </button>
                             </div>
                           );
