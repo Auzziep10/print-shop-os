@@ -675,13 +675,25 @@ export const sortGarmentsByTypeOrder = (
   garmentTypeOrders?: Record<string, string[]>
 ): any[] => {
   if (!products || products.length === 0) return [];
-  const orderList = garmentTypeOrders?.[garmentTypeId];
-  if (!orderList || orderList.length === 0) return products;
 
-  return [...products].sort((a, b) => {
+  // Deterministically sort base list by brand + style so baseline order is stable across renders & refreshes
+  const sortedBase = [...products].sort((a, b) => {
+    const brandA = (a.brand || '').toLowerCase();
+    const brandB = (b.brand || '').toLowerCase();
+    if (brandA !== brandB) return brandA.localeCompare(brandB);
+    const styleA = (a.style || '').toLowerCase();
+    const styleB = (b.style || '').toLowerCase();
+    return styleA.localeCompare(styleB);
+  });
+
+  const orderList = garmentTypeOrders?.[garmentTypeId];
+  if (!orderList || orderList.length === 0) return sortedBase;
+
+  const lowerOrder = orderList.map(s => String(s).toLowerCase().trim());
+
+  return sortedBase.sort((a, b) => {
     const styleA = (a.style || '').toLowerCase().trim();
     const styleB = (b.style || '').toLowerCase().trim();
-    const lowerOrder = orderList.map(s => String(s).toLowerCase().trim());
     const idxA = lowerOrder.indexOf(styleA);
     const idxB = lowerOrder.indexOf(styleB);
     if (idxA !== -1 && idxB !== -1) return idxA - idxB;

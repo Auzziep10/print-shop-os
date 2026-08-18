@@ -1697,6 +1697,7 @@ export function StorefrontCatalogTab() {
     }
 
     return Array.from(stylesSet)
+      .sort((a, b) => a.localeCompare(b))
       .map(style => getProductDetails(style))
       .filter(Boolean) as any[];
   }, [racks, hiddenCollections, allCatalogProducts]);
@@ -2744,7 +2745,7 @@ export function StorefrontCatalogTab() {
             const rawItems = storefrontCuratedProducts.filter(p => detectGarmentTypeTag(p, garmentTypeTags) === activeGarmentType);
             const items = sortGarmentsByTypeOrder(rawItems, activeGarmentType, garmentTypeOrders);
 
-            const handleMoveGarment = (style: string, direction: 'left' | 'right') => {
+            const handleMoveGarment = async (style: string, direction: 'left' | 'right') => {
               const currentStyles = items.map(p => p.style);
               const idx = currentStyles.findIndex(s => s === style);
               if (idx === -1) return;
@@ -2756,10 +2757,13 @@ export function StorefrontCatalogTab() {
               nextStyles[idx] = nextStyles[targetIdx];
               nextStyles[targetIdx] = temp;
 
-              setGarmentTypeOrders(prev => ({
-                ...prev,
+              const updatedOrders = {
+                ...garmentTypeOrders,
                 [activeGarmentType]: nextStyles
-              }));
+              };
+
+              setGarmentTypeOrders(updatedOrders);
+              await writeCatalog({ garmentTypeOrders: updatedOrders });
             };
 
             return (
@@ -2774,12 +2778,11 @@ export function StorefrontCatalogTab() {
                   {garmentTypeOrders[activeGarmentType] && garmentTypeOrders[activeGarmentType].length > 0 && (
                     <button
                       type="button"
-                      onClick={() => {
-                        setGarmentTypeOrders(prev => {
-                          const next = { ...prev };
-                          delete next[activeGarmentType];
-                          return next;
-                        });
+                      onClick={async () => {
+                        const next = { ...garmentTypeOrders };
+                        delete next[activeGarmentType];
+                        setGarmentTypeOrders(next);
+                        await writeCatalog({ garmentTypeOrders: next });
                       }}
                       className="text-xs font-bold text-neutral-500 hover:text-neutral-900 bg-neutral-100 hover:bg-neutral-200 px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
                       title="Reset custom ordering for this garment category to default"
