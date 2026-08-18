@@ -3005,34 +3005,6 @@ export function GarmentCustomizerModal({
             </div>
           )}
 
-          {/* Recolor Logo — sits with the color controls */}
-          {selectedLogo && isImageFile(selectedLogo.name) && (
-            <div className="flex flex-col gap-2 border-b border-neutral-100 pb-6 animate-in fade-in duration-300">
-              <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Recolor Logo</label>
-              <div className="flex items-center gap-2">
-                <div className="relative w-9 h-9 shrink-0 group rounded-xl overflow-hidden border border-neutral-300 shadow-inner">
-                  <input
-                    type="color"
-                    value={recolorColor}
-                    onChange={(e) => setRecolorColor(e.target.value)}
-                    className="absolute -inset-4 opacity-0 w-20 h-20 cursor-pointer z-10"
-                    title="Pick a color"
-                  />
-                  <div className="absolute inset-0 pointer-events-none" style={{ backgroundColor: recolorColor }} />
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleRecolorAsset(selectedLogo, recolorColor)}
-                  disabled={isRecoloring}
-                  className="flex-1 py-2.5 px-3 bg-zinc-900 text-white hover:bg-zinc-800 rounded-xl font-bold text-[10px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
-                >
-                  {isRecoloring ? <Loader2 className="animate-spin" size={11} /> : <Palette size={11} />}
-                  <span>Recolor &amp; Apply</span>
-                </button>
-              </div>
-            </div>
-          )}
-
           {/* Logo / Text Mode Tabs */}
           <div className="flex flex-col gap-4 border-t border-neutral-100 pt-6">
             <div className="flex flex-wrap bg-neutral-100 p-1 rounded-xl gap-1">
@@ -3164,7 +3136,33 @@ export function GarmentCustomizerModal({
                   </div>
                 )}
 
-
+                {/* Recolor Logo — sits beneath Asset Vault */}
+                {selectedLogo && isImageFile(selectedLogo.name) && (
+                  <div className="flex flex-col gap-2 pt-3 border-t border-neutral-100 animate-in fade-in duration-300">
+                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Recolor Logo</label>
+                    <div className="flex items-center gap-2">
+                      <div className="relative w-9 h-9 shrink-0 group rounded-xl overflow-hidden border border-neutral-300 shadow-inner">
+                        <input
+                          type="color"
+                          value={recolorColor}
+                          onChange={(e) => setRecolorColor(e.target.value)}
+                          className="absolute -inset-4 opacity-0 w-20 h-20 cursor-pointer z-10"
+                          title="Pick a color"
+                        />
+                        <div className="absolute inset-0 pointer-events-none" style={{ backgroundColor: recolorColor }} />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRecolorAsset(selectedLogo, recolorColor)}
+                        disabled={isRecoloring}
+                        className="flex-1 py-2.5 px-3 bg-zinc-900 text-white hover:bg-zinc-800 rounded-xl font-bold text-[10px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                      >
+                        {isRecoloring ? <Loader2 className="animate-spin" size={11} /> : <Palette size={11} />}
+                        <span>Recolor &amp; Apply</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

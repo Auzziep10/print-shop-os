@@ -48,20 +48,32 @@ export const getFilteredProductColors = (
     const cleanCandNoCvc = cleanCand.replace(/cvc$/i, '');
     const cleanCandBase = cleanCand.replace(/^(bc|nl|dt)|cvc$/gi, '');
 
+    // Pass 1: Exact string match (prevents BC6110GD matching BC6110 or 6110)
+    matchingKey = allowedMapKeys.find(k => {
+      const cleanK = k.toLowerCase().trim().replace(/[\s-]/g, '');
+      return cleanK === cleanCand;
+    });
+    if (matchingKey) break;
+
+    // Pass 2: Exact match after prefix / suffix normalization
     matchingKey = allowedMapKeys.find(k => {
       const cleanK = k.toLowerCase().trim().replace(/[\s-]/g, '');
       const cleanKNoPrefix = cleanK.replace(/^(bc|nl|dt)/i, '');
       const cleanKNoCvc = cleanK.replace(/cvc$/i, '');
       const cleanKBase = cleanK.replace(/^(bc|nl|dt)|cvc$/gi, '');
 
-      return cleanK === cleanCand ||
-             cleanKNoPrefix === cleanCandNoPrefix ||
+      return cleanKNoPrefix === cleanCandNoPrefix ||
              cleanKNoCvc === cleanCandNoCvc ||
-             cleanKBase === cleanCandBase ||
-             (cleanCand.length >= 3 && cleanK.includes(cleanCand)) ||
+             cleanKBase === cleanCandBase;
+    });
+    if (matchingKey) break;
+
+    // Pass 3: Fallback substring match (only if candidate/key are closely related)
+    matchingKey = allowedMapKeys.find(k => {
+      const cleanK = k.toLowerCase().trim().replace(/[\s-]/g, '');
+      return (cleanCand.length >= 3 && cleanK.includes(cleanCand)) ||
              (cleanK.length >= 3 && cleanCand.includes(cleanK));
     });
-
     if (matchingKey) break;
   }
 
