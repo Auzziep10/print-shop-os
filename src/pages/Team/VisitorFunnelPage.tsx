@@ -1422,7 +1422,7 @@ export function VisitorFunnelPage() {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse min-w-[1250px]">
+                <table className="w-full text-left border-collapse min-w-[1450px]">
                   <thead>
                     <tr className="bg-slate-100 border-b-2 border-slate-200 text-xs font-bold text-slate-700 uppercase tracking-wider">
                       <th className="py-3 px-4">Lead Contact</th>
@@ -1561,6 +1561,76 @@ export function VisitorFunnelPage() {
                           )}
                         </td>
 
+                        {/* Timestamp (Captured Date) */}
+                        <td className="py-3.5 px-4 whitespace-nowrap">
+                          <div className="font-bold text-slate-900 text-xs">{formatTimeAgo(lead.createdAt)}</div>
+                          <div className="text-[11px] text-slate-600 font-medium mt-0.5">
+                            {new Date(lead.createdAt).toLocaleDateString()} {new Date(lead.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </div>
+                        </td>
+
+                        {/* SMS & Lead Status Badges */}
+                        <td className="py-3.5 px-4">
+                          <div className="flex flex-col gap-1 items-start">
+                            {/* Call Feedback Status Badge */}
+                            {lead.callFeedback === 'good' && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 whitespace-nowrap">
+                                <ThumbsUp size={11} />
+                                Call: Interested
+                              </span>
+                            )}
+                            {lead.callFeedback === 'neutral' && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-300 whitespace-nowrap">
+                                <ThumbsUp size={11} className="-rotate-90 text-amber-700" />
+                                Call: Follow Up / Neutral
+                              </span>
+                            )}
+                            {lead.callFeedback === 'voicemail' && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-300 whitespace-nowrap">
+                                <Voicemail size={11} />
+                                Call: Voicemail Left
+                              </span>
+                            )}
+                            {lead.callFeedback === 'bad' && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800 border border-rose-300 whitespace-nowrap">
+                                <ThumbsDown size={11} />
+                                Call: Unqualified
+                              </span>
+                            )}
+
+                            {/* SMS Feedback Status Badge */}
+                            {lead.smsFeedback === 'good' && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-300 whitespace-nowrap">
+                                <ThumbsUp size={11} />
+                                Text: Good Reply
+                              </span>
+                            )}
+                            {lead.smsFeedback === 'bad' && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800 border border-rose-300 whitespace-nowrap">
+                                <ThumbsDown size={11} />
+                                Text: Bad Reply
+                              </span>
+                            )}
+
+                            {/* Quo Delivery Status Badge */}
+                            {lead.smsStatus === 'sent' ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 whitespace-nowrap">
+                                <CheckCircle2 size={11} />
+                                Text Sent via Quo
+                              </span>
+                            ) : lead.smsStatus === 'failed' ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200 whitespace-nowrap" title={lead.lastError}>
+                                <AlertCircle size={11} />
+                                Failed
+                              </span>
+                            ) : (!lead.callFeedback && !lead.smsFeedback) ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200 whitespace-nowrap">
+                                Uncontacted
+                              </span>
+                            ) : null}
+                          </div>
+                        </td>
+
                         {/* Manual Action Buttons (Call Column, Send Default Column, Customize Column, Delete) */}
                         <td className="py-3.5 px-4 text-left shrink-0">
                           <div className="inline-flex items-start justify-start gap-3 shrink-0" onClick={(e) => e.stopPropagation()}>
@@ -1621,7 +1691,7 @@ export function VisitorFunnelPage() {
                                   className={`inline-flex items-center justify-center p-1 rounded-md text-xs font-bold border transition-all cursor-pointer ${
                                     lead.callFeedback === 'bad'
                                       ? 'bg-rose-600 text-white border-rose-700 shadow-2xs ring-2 ring-rose-400/30'
-                                      : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300'
+                                      : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-300'
                                   }`}
                                   title="Call Outcome: Thumbs Down (Unqualified / Bad Call)"
                                 >
