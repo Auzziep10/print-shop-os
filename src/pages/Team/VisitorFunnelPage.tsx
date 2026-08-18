@@ -40,7 +40,9 @@ import {
   UserPlus,
   ThumbsUp,
   ThumbsDown,
-  Voicemail
+  Voicemail,
+  Copy,
+  Check
 } from 'lucide-react';
 
 const FUNNEL_STAGES = [
@@ -96,6 +98,7 @@ export function VisitorFunnelPage() {
   const [selectedLead, setSelectedLead] = useState<MetaLead | null>(null);
   const [leadSearchQuery, setLeadSearchQuery] = useState('');
   const [leadSmsFilter, setLeadSmsFilter] = useState<'All' | 'Text Sent' | 'Uncontacted'>('All');
+  const [copiedTextKey, setCopiedTextKey] = useState<string | null>(null);
 
   // Meta Lead Sorting & Form Answer Filters State
   const [leadSortBy, setLeadSortBy] = useState<'date_desc' | 'date_asc' | 'name_asc' | 'name_desc' | 'size_desc' | 'urgency_asc'>('date_desc');
@@ -512,6 +515,17 @@ export function VisitorFunnelPage() {
     } catch (err) {
       console.error('Error updating SMS sent status:', err);
     }
+  };
+
+  // Helper to copy text (phone or email) to clipboard
+  const handleCopyText = (text: string, idKey: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    setCopiedTextKey(idKey);
+    setTimeout(() => {
+      setCopiedTextKey(null);
+    }, 1500);
   };
 
   // Fetch & Open Default SMS & GIF Settings Modal
@@ -1475,19 +1489,33 @@ export function VisitorFunnelPage() {
                           )}
                         </td>
 
-                        {/* Phone, Location & Email */}
+                        {/* Phone, Location & Email with Copy Buttons */}
                         <td className="py-3.5 px-4">
                           {lead.phone ? (
                             <div>
-                              <a
-                                href={`tel:${lead.phone}`}
-                                onClick={(e) => handleCallLead(lead, e)}
-                                className="inline-flex items-center gap-1.5 text-emerald-700 hover:text-emerald-900 font-bold font-mono hover:underline group text-xs"
-                                title="Click to Call via OpenPhone / System Dialer"
-                              >
-                                <PhoneCall size={13} className="text-emerald-600 group-hover:scale-110 transition-transform" />
-                                {lead.phone}
-                              </a>
+                              <div className="flex items-center gap-1.5">
+                                <a
+                                  href={`tel:${lead.phone}`}
+                                  onClick={(e) => handleCallLead(lead, e)}
+                                  className="inline-flex items-center gap-1.5 text-emerald-700 hover:text-emerald-900 font-bold font-mono hover:underline group text-xs"
+                                  title="Click to Call via OpenPhone / System Dialer"
+                                >
+                                  <PhoneCall size={13} className="text-emerald-600 group-hover:scale-110 transition-transform" />
+                                  {lead.phone}
+                                </a>
+
+                                <button
+                                  onClick={(e) => handleCopyText(lead.phone, `phone-${lead.id}`, e)}
+                                  className="p-1 text-slate-400 hover:text-slate-700 transition-colors rounded hover:bg-slate-100 cursor-pointer"
+                                  title={`Copy phone number (${lead.phone}) to clipboard`}
+                                >
+                                  {copiedTextKey === `phone-${lead.id}` ? (
+                                    <Check size={12} className="text-emerald-600 font-bold" />
+                                  ) : (
+                                    <Copy size={12} />
+                                  )}
+                                </button>
+                              </div>
 
                               {/* State, Time Zone & Local Time Info */}
                               {getPhoneLocationAndTz(lead.phone) && (
@@ -1506,10 +1534,32 @@ export function VisitorFunnelPage() {
                               No Phone
                             </div>
                           )}
-                          <div className="flex items-center gap-1 text-xs text-slate-700 font-medium mt-1 truncate max-w-[220px]">
-                            <Mail size={13} className="shrink-0 text-slate-500" />
-                            {lead.email || 'No email'}
-                          </div>
+
+                          {lead.email ? (
+                            <div className="flex items-center gap-1.5 mt-1">
+                              <div className="flex items-center gap-1 text-xs text-slate-700 font-medium truncate max-w-[200px]">
+                                <Mail size={13} className="shrink-0 text-slate-500" />
+                                <span className="truncate">{lead.email}</span>
+                              </div>
+
+                              <button
+                                onClick={(e) => handleCopyText(lead.email, `email-${lead.id}`, e)}
+                                className="p-1 text-slate-400 hover:text-slate-700 transition-colors rounded hover:bg-slate-100 cursor-pointer shrink-0"
+                                title={`Copy email address (${lead.email}) to clipboard`}
+                              >
+                                {copiedTextKey === `email-${lead.id}` ? (
+                                  <Check size={12} className="text-emerald-600 font-bold" />
+                                ) : (
+                                  <Copy size={12} />
+                                )}
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1 text-xs text-slate-400 italic mt-1">
+                              <Mail size={13} className="shrink-0 text-slate-400" />
+                              No email
+                            </div>
+                          )}
                         </td>
 
                         {/* Ad & Form */}
