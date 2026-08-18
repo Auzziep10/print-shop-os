@@ -69,7 +69,7 @@ export interface MetaLead {
   smsStatus?: 'not_sent' | 'sent' | 'failed';
   leadStatus?: 'good' | 'bad' | 'voicemail' | 'uncontacted' | 'called';
   callStatus?: string;
-  callFeedback?: 'good' | 'voicemail' | 'bad' | 'uncontacted';
+  callFeedback?: 'good' | 'neutral' | 'voicemail' | 'bad' | 'uncontacted';
   smsFeedback?: 'good' | 'bad' | 'uncontacted';
   smsSentAt?: string;
   createdAt: string;
@@ -1586,6 +1586,12 @@ export function VisitorFunnelPage() {
                                 Call: Interested
                               </span>
                             )}
+                            {lead.callFeedback === 'neutral' && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-300 whitespace-nowrap">
+                                <ThumbsUp size={11} className="-rotate-90 text-amber-700" />
+                                Call: Follow Up / Neutral
+                              </span>
+                            )}
                             {lead.callFeedback === 'voicemail' && (
                               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-300 whitespace-nowrap">
                                 <Voicemail size={11} />
@@ -1648,7 +1654,7 @@ export function VisitorFunnelPage() {
                                 Call
                               </button>
 
-                              {/* Call Feedback Sub-Buttons (Thumbs Up, VM, Thumbs Down) */}
+                              {/* Call Feedback Sub-Buttons (Thumbs Up, Sideways Thumb, VM, Thumbs Down) */}
                               <div className="inline-flex items-center justify-center gap-1 shrink-0 w-full">
                                 <button
                                   onClick={(e) => handleSetCallFeedback(lead.id, lead.callFeedback === 'good' ? 'uncontacted' : 'good', e)}
@@ -1660,6 +1666,18 @@ export function VisitorFunnelPage() {
                                   title="Call Outcome: Thumbs Up (Interested / Good Call)"
                                 >
                                   <ThumbsUp size={12} />
+                                </button>
+
+                                <button
+                                  onClick={(e) => handleSetCallFeedback(lead.id, lead.callFeedback === 'neutral' ? 'uncontacted' : 'neutral', e)}
+                                  className={`inline-flex items-center justify-center p-1 rounded-md text-xs font-bold border transition-all cursor-pointer ${
+                                    lead.callFeedback === 'neutral'
+                                      ? 'bg-amber-500 text-white border-amber-600 shadow-2xs ring-2 ring-amber-400/30'
+                                      : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300'
+                                  }`}
+                                  title="Call Outcome: Sideways Thumb (Neutral / Follow Up Needed)"
+                                >
+                                  <ThumbsUp size={12} className="-rotate-90" />
                                 </button>
 
                                 <button
