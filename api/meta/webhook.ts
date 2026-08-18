@@ -93,27 +93,50 @@ export default async function handler(req: Request) {
                 // Write lead doc to Firestore meta_leads collection via REST API
                 const docId = leadgenId;
                 const leadDocUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/meta_leads/${docId}`;
+                const existingRes = await fetch(leadDocUrl);
 
-                const firestorePayload = {
-                  fields: {
-                    leadId: { stringValue: leadgenId },
-                    formId: { stringValue: formId || '' },
-                    name: { stringValue: leadName },
-                    phone: { stringValue: phone },
-                    email: { stringValue: email },
-                    adName: { stringValue: adName },
-                    formName: { stringValue: formName },
-                    smsStatus: { stringValue: 'not_sent' },
-                    createdAt: { stringValue: createdTime ? new Date(createdTime * 1000).toISOString() : new Date().toISOString() },
-                    rawFields: { stringValue: JSON.stringify(fieldDetails) }
-                  }
-                };
+                if (existingRes.ok) {
+                  // Existing lead: update form fields only via updateMask so team feedback is preserved
+                  const updateMaskUrl = `${leadDocUrl}?updateMask.fieldPaths=name&updateMask.fieldPaths=phone&updateMask.fieldPaths=email&updateMask.fieldPaths=adName&updateMask.fieldPaths=formName&updateMask.fieldPaths=rawFields`;
+                  const patchPayload = {
+                    fields: {
+                      name: { stringValue: leadName },
+                      phone: { stringValue: phone },
+                      email: { stringValue: email },
+                      adName: { stringValue: adName },
+                      formName: { stringValue: formName },
+                      rawFields: { stringValue: JSON.stringify(fieldDetails) }
+                    }
+                  };
 
-                await fetch(leadDocUrl, {
-                  method: 'PATCH',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify(firestorePayload)
-                });
+                  await fetch(updateMaskUrl, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(patchPayload)
+                  });
+                } else {
+                  // New lead: create with default smsStatus: 'not_sent'
+                  const firestorePayload = {
+                    fields: {
+                      leadId: { stringValue: leadgenId },
+                      formId: { stringValue: formId || '' },
+                      name: { stringValue: leadName },
+                      phone: { stringValue: phone },
+                      email: { stringValue: email },
+                      adName: { stringValue: adName },
+                      formName: { stringValue: formName },
+                      smsStatus: { stringValue: 'not_sent' },
+                      createdAt: { stringValue: createdTime ? new Date(createdTime * 1000).toISOString() : new Date().toISOString() },
+                      rawFields: { stringValue: JSON.stringify(fieldDetails) }
+                    }
+                  };
+
+                  await fetch(leadDocUrl, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(firestorePayload)
+                  });
+                }
               }
             }
           }

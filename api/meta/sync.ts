@@ -168,31 +168,64 @@ export default async function handler(req: Request) {
       }
 
       const leadDocUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/meta_leads/${leadId}`;
-      const firestorePayload = {
-        fields: {
-          leadId: { stringValue: leadId },
-          formId: { stringValue: lead._formId || formId || '' },
-          name: { stringValue: name },
-          phone: { stringValue: phone },
-          email: { stringValue: email },
-          adName: { stringValue: 'Meta Lead Ad' },
-          formName: { stringValue: lead._formName || 'Lead Form' },
-          smsStatus: { stringValue: 'not_sent' },
-          createdAt: { stringValue: createdTime || new Date().toISOString() },
-          rawFields: { stringValue: JSON.stringify(fieldDetails) }
-        }
-      };
-
-      const saveRes = await fetch(leadDocUrl, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${idToken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(firestorePayload)
+      
+      // Check if document already exists to avoid overwriting team feedback / SMS statuses
+      const existingRes = await fetch(leadDocUrl, {
+        headers: { 'Authorization': `Bearer ${idToken}` }
       });
 
-      if (saveRes.ok) syncedCount++;
+      if (existingRes.ok) {
+        // Document exists! Update ONLY form metadata fields via updateMask so smsStatus, callFeedback, smsFeedback remain untouched
+        const updateMaskUrl = `${leadDocUrl}?updateMask.fieldPaths=name&updateMask.fieldPaths=phone&updateMask.fieldPaths=email&updateMask.fieldPaths=adName&updateMask.fieldPaths=formName&updateMask.fieldPaths=rawFields`;
+        const patchPayload = {
+          fields: {
+            name: { stringValue: name },
+            phone: { stringValue: phone },
+            email: { stringValue: email },
+            adName: { stringValue: 'Meta Lead Ad' },
+            formName: { stringValue: lead._formName || 'Lead Form' },
+            rawFields: { stringValue: JSON.stringify(fieldDetails) }
+          }
+        };
+
+        const saveRes = await fetch(updateMaskUrl, {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${idToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(patchPayload)
+        });
+
+        if (saveRes.ok) syncedCount++;
+      } else {
+        // Brand new lead document! Create with default initial smsStatus: 'not_sent'
+        const firestorePayload = {
+          fields: {
+            leadId: { stringValue: leadId },
+            formId: { stringValue: lead._formId || formId || '' },
+            name: { stringValue: name },
+            phone: { stringValue: phone },
+            email: { stringValue: email },
+            adName: { stringValue: 'Meta Lead Ad' },
+            formName: { stringValue: lead._formName || 'Lead Form' },
+            smsStatus: { stringValue: 'not_sent' },
+            createdAt: { stringValue: createdTime || new Date().toISOString() },
+            rawFields: { stringValue: JSON.stringify(fieldDetails) }
+          }
+        };
+
+        const saveRes = await fetch(leadDocUrl, {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${idToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(firestorePayload)
+        });
+
+        if (saveRes.ok) syncedCount++;
+      }
     }
 
     const diagSummary = diagnosticLogs.join(' | ');
