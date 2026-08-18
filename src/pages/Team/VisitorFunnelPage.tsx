@@ -1429,7 +1429,7 @@ export function VisitorFunnelPage() {
                       <th className="py-2.5 px-2.5 max-w-[130px]">Business Name</th>
                       <th className="py-2.5 px-2.5 max-w-[180px]">Phone & Email</th>
                       <th className="py-2.5 px-2.5 max-w-[110px]">Captured Date</th>
-                      <th className="py-2.5 px-2.5">SMS Status (Quo)</th>
+                      <th className="py-2.5 px-2 max-w-[110px]">SMS Status</th>
                       <th className="py-2.5 px-2.5 text-left">Manual Action</th>
                     </tr>
                   </thead>
@@ -1477,7 +1477,7 @@ export function VisitorFunnelPage() {
                         </td>
 
                         {/* Business / Company Name */}
-                        <td className="py-3 px-2.5 font-medium max-w-[130px]">
+                        <td className="py-3 px-2 font-medium max-w-[120px]">
                           {getLeadBusinessName(lead) ? (
                             <div className="flex items-center gap-1.5 font-bold text-slate-900 text-xs">
                               <Building size={13} className="text-indigo-600 shrink-0" />
@@ -1489,7 +1489,7 @@ export function VisitorFunnelPage() {
                         </td>
 
                         {/* Phone, Location & Email with Copy Buttons */}
-                        <td className="py-3 px-2.5 max-w-[180px]">
+                        <td className="py-3 px-2 max-w-[170px]">
                           {lead.phone ? (
                             <div>
                               <div className="flex items-center gap-1">
@@ -1533,7 +1533,7 @@ export function VisitorFunnelPage() {
 
                           {lead.email ? (
                             <div className="flex items-center gap-1 mt-0.5">
-                              <div className="flex items-center gap-1 text-xs text-slate-700 font-medium truncate max-w-[140px]">
+                              <div className="flex items-center gap-1 text-xs text-slate-700 font-medium truncate max-w-[130px]">
                                 <Mail size={12} className="shrink-0 text-slate-500" />
                                 <span className="truncate">{lead.email}</span>
                               </div>
@@ -1559,7 +1559,7 @@ export function VisitorFunnelPage() {
                         </td>
 
                         {/* Timestamp (Captured Date) */}
-                        <td className="py-3 px-2.5 whitespace-nowrap max-w-[110px]">
+                        <td className="py-3 px-2 whitespace-nowrap max-w-[100px]">
                           <div className="font-bold text-slate-900 text-xs">{formatTimeAgo(lead.createdAt)}</div>
                           <div className="text-[10px] text-slate-600 font-medium mt-0.5">
                             {new Date(lead.createdAt).toLocaleDateString()}
@@ -1567,61 +1567,61 @@ export function VisitorFunnelPage() {
                         </td>
 
                         {/* SMS & Lead Status Badges */}
-                        <td className="py-3 px-2.5">
-                          <div className="flex flex-col gap-1 items-start">
+                        <td className="py-3 px-2 max-w-[110px]">
+                          <div className="flex flex-col gap-0.5 items-start">
                             {/* Call Feedback Status Badge */}
                             {lead.callFeedback === 'good' && (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 whitespace-nowrap">
-                                <ThumbsUp size={11} />
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 whitespace-nowrap">
+                                <ThumbsUp size={10} />
                                 Call: Interested
                               </span>
                             )}
                             {lead.callFeedback === 'neutral' && (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-300 whitespace-nowrap">
-                                <ThumbsUp size={11} className="-rotate-90 text-amber-700" />
-                                Call: Follow Up / Neutral
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300 whitespace-nowrap">
+                                <ThumbsUp size={10} className="-rotate-90 text-amber-700" />
+                                Call: Follow Up
                               </span>
                             )}
                             {lead.callFeedback === 'voicemail' && (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-300 whitespace-nowrap">
-                                <Voicemail size={11} />
-                                Call: Voicemail Left
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300 whitespace-nowrap">
+                                <Voicemail size={10} />
+                                Call: VM Left
                               </span>
                             )}
                             {lead.callFeedback === 'bad' && (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800 border border-rose-300 whitespace-nowrap">
-                                <ThumbsDown size={11} />
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-300 whitespace-nowrap">
+                                <ThumbsDown size={10} />
                                 Call: Unqualified
                               </span>
                             )}
 
                             {/* SMS Feedback Status Badge */}
                             {lead.smsFeedback === 'good' && (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-300 whitespace-nowrap">
-                                <ThumbsUp size={11} />
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-300 whitespace-nowrap">
+                                <ThumbsUp size={10} />
                                 Text: Good Reply
                               </span>
                             )}
                             {lead.smsFeedback === 'bad' && (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800 border border-rose-300 whitespace-nowrap">
-                                <ThumbsDown size={11} />
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-300 whitespace-nowrap">
+                                <ThumbsDown size={10} />
                                 Text: Bad Reply
                               </span>
                             )}
 
                             {/* Quo Delivery Status Badge */}
                             {lead.smsStatus === 'sent' ? (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 whitespace-nowrap">
-                                <CheckCircle2 size={11} />
-                                Text Sent via Quo
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 whitespace-nowrap">
+                                <CheckCircle2 size={10} />
+                                Sent (Quo)
                               </span>
                             ) : lead.smsStatus === 'failed' ? (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200 whitespace-nowrap" title={lead.lastError}>
-                                <AlertCircle size={11} />
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-50 text-rose-700 border border-rose-200 whitespace-nowrap" title={lead.lastError}>
+                                <AlertCircle size={10} />
                                 Failed
                               </span>
                             ) : (!lead.callFeedback && !lead.smsFeedback) ? (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200 whitespace-nowrap">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-700 border border-slate-200 whitespace-nowrap">
                                 Uncontacted
                               </span>
                             ) : null}
