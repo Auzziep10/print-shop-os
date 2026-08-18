@@ -7,7 +7,7 @@ import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
 import catalogBackup from '../../data/catalog-backup.json';
-import { getOrderedKeys, GARMENT_TYPES, detectGarmentTypeTag, getFilteredProductColors, getFrameContentBounds, type GarmentTypeId } from '../../lib/garmentUtils';
+import { getOrderedKeys, GARMENT_TYPES, detectGarmentTypeTag, getFilteredProductColors, getFrameContentBounds, sortGarmentsByTypeOrder, type GarmentTypeId } from '../../lib/garmentUtils';
 import { ImportGarmentModal } from '../../components/shared/ImportGarmentModal';
 
 interface SanMarProduct {
@@ -622,6 +622,7 @@ export function StorefrontCatalogTab() {
   const [colorMockups, setColorMockups] = useState<Record<string, Record<string, any>>>({});
   const [allowedColors, setAllowedColors] = useState<Record<string, string[]>>({});
   const [customColors, setCustomColors] = useState<Record<string, string[]>>({});
+  const [garmentTypeOrders, setGarmentTypeOrders] = useState<Record<string, string[]>>({});
   const [isAddingCustomColor, setIsAddingCustomColor] = useState(false);
   const [newColorName, setNewColorName] = useState('');
   const [newColorFrontFile, setNewColorFrontFile] = useState<File | null>(null);
@@ -740,6 +741,7 @@ export function StorefrontCatalogTab() {
           if (data.colorMockups) setColorMockups(data.colorMockups);
           if (data.allowedColors) setAllowedColors(data.allowedColors);
           if (data.customColors) setCustomColors(data.customColors);
+          if (data.garmentTypeOrders) setGarmentTypeOrders(data.garmentTypeOrders);
           if (data.customNames) {
             setCustomNames(data.customNames);
           } else {
@@ -893,6 +895,7 @@ export function StorefrontCatalogTab() {
         colorMockups,
         allowedColors,
         customColors,
+        garmentTypeOrders,
         showPublicPlacementGuides,
         cardImages,
         cardHoverImages,
@@ -2738,7 +2741,26 @@ export function StorefrontCatalogTab() {
           {/* Products Grid for Active Garment Type */}
           {(() => {
             const activeTypeConfig = GARMENT_TYPES.find(gt => gt.id === activeGarmentType)!;
-            const items = storefrontCuratedProducts.filter(p => detectGarmentTypeTag(p, garmentTypeTags) === activeGarmentType);
+            const rawItems = storefrontCuratedProducts.filter(p => detectGarmentTypeTag(p, garmentTypeTags) === activeGarmentType);
+            const items = sortGarmentsByTypeOrder(rawItems, activeGarmentType, garmentTypeOrders);
+
+            const handleMoveGarment = (style: string, direction: 'left' | 'right') => {
+              const currentStyles = items.map(p => p.style);
+              const idx = currentStyles.findIndex(s => s === style);
+              if (idx === -1) return;
+              const targetIdx = direction === 'left' ? idx - 1 : idx + 1;
+              if (targetIdx < 0 || targetIdx >= currentStyles.length) return;
+
+              const nextStyles = [...currentStyles];
+              const temp = nextStyles[idx];
+              nextStyles[idx] = nextStyles[targetIdx];
+              nextStyles[targetIdx] = temp;
+
+              setGarmentTypeOrders(prev => ({
+                ...prev,
+                [activeGarmentType]: nextStyles
+              }));
+            };
 
             return (
               <div className="space-y-4">
@@ -2749,6 +2771,22 @@ export function StorefrontCatalogTab() {
                     </h3>
                     <p className="text-xs text-brand-secondary">{activeTypeConfig.description}</p>
                   </div>
+                  {garmentTypeOrders[activeGarmentType] && garmentTypeOrders[activeGarmentType].length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setGarmentTypeOrders(prev => {
+                          const next = { ...prev };
+                          delete next[activeGarmentType];
+                          return next;
+                        });
+                      }}
+                      className="text-xs font-bold text-neutral-500 hover:text-neutral-900 bg-neutral-100 hover:bg-neutral-200 px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+                      title="Reset custom ordering for this garment category to default"
+                    >
+                      Reset Order
+                    </button>
+                  )}
                 </div>
 
                 {items.length === 0 ? (
@@ -2758,7 +2796,7 @@ export function StorefrontCatalogTab() {
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {items.map(p => {
+                    {items.map((p, idx) => {
                       const styleKey = p.style.toLowerCase();
                       const customTag = garmentTypeTags[styleKey];
                       const detectedTag = detectGarmentTypeTag(p, garmentTypeTags);
@@ -2786,10 +2824,36 @@ export function StorefrontCatalogTab() {
                         <div key={p.style} className="border border-brand-border rounded-2xl p-5 bg-white flex flex-col justify-between gap-4 shadow-2xs hover:shadow-xs transition-all">
                           <div className="space-y-3">
                             <div className="flex items-center justify-between gap-2">
-                              <span className="text-[10px] font-extrabold uppercase tracking-widest bg-neutral-100 text-neutral-600 px-2 py-0.5 rounded">
-                                {p.style}
-                              </span>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] font-extrabold uppercase tracking-widest bg-neutral-100 text-neutral-600 px-2 py-0.5 rounded">
+                                  {p.style}
+                                </span>
+                                <span className="text-[9px] font-mono font-bold text-neutral-500 bg-neutral-50 px-1.5 py-0.5 rounded border border-neutral-200" title="Storefront display priority index">
+                                  #{idx + 1}
+                                </span>
+                              </div>
                               <div className="flex items-center gap-1">
+                                <div className="flex items-center border border-neutral-200 rounded-lg overflow-hidden bg-neutral-50 shrink-0">
+                                  <button
+                                    type="button"
+                                    disabled={idx === 0}
+                                    onClick={() => handleMoveGarment(p.style, 'left')}
+                                    className="p-1 text-neutral-500 hover:text-brand-primary hover:bg-neutral-200 disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer disabled:cursor-not-allowed transition-colors"
+                                    title="Move garment left (higher priority on public storefront)"
+                                  >
+                                    <ArrowLeft size={13} />
+                                  </button>
+                                  <div className="w-[1px] h-3 bg-neutral-200" />
+                                  <button
+                                    type="button"
+                                    disabled={idx === items.length - 1}
+                                    onClick={() => handleMoveGarment(p.style, 'right')}
+                                    className="p-1 text-neutral-500 hover:text-brand-primary hover:bg-neutral-200 disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer disabled:cursor-not-allowed transition-colors"
+                                    title="Move garment right (lower priority on public storefront)"
+                                  >
+                                    <ArrowRight size={13} />
+                                  </button>
+                                </div>
                                 {customTag ? (
                                   <span className="text-[9px] font-extrabold uppercase text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">
                                     Custom Tagged
@@ -2916,7 +2980,13 @@ export function StorefrontCatalogTab() {
                             {/* Interactive Mockup Preview with Upload / Remove Overlay */}
                             <div className="w-full h-36 bg-white border border-brand-border/60 rounded-xl flex items-center justify-center p-2 relative overflow-hidden bg-checkerboard group/mockup cursor-pointer">
                               <img
-                                src={getGarmentImage(p, primaryAssignment ? defaultColors.racks?.[primaryAssignment.category]?.[primaryAssignment.slot] : undefined, primaryAssignment ? 'racks' : undefined, primaryAssignment?.category, primaryAssignment?.slot)}
+                                src={getGarmentImage(
+                                  p,
+                                  (primaryAssignment && defaultColors.racks?.[primaryAssignment.category]?.[primaryAssignment.slot]) || defaultColors.byStyle?.[p.style.toUpperCase()],
+                                  primaryAssignment ? 'racks' : undefined,
+                                  primaryAssignment?.category,
+                                  primaryAssignment?.slot
+                                )}
                                 alt={p.title}
                                 className="max-w-full max-h-full object-contain mix-blend-multiply"
                               />
@@ -2968,6 +3038,45 @@ export function StorefrontCatalogTab() {
                                 )}
                               </div>
                             </div>
+
+                            {/* Default Display Color Selector */}
+                            {(() => {
+                              const colorList = getFilteredProductColors(p, allowedColors, customColors);
+                              if (!colorList || colorList.length === 0) return null;
+
+                              const currentDefaultColor = (primaryAssignment && defaultColors.racks?.[primaryAssignment.category]?.[primaryAssignment.slot])
+                                || defaultColors.byStyle?.[p.style.toUpperCase()]
+                                || colorList[0];
+
+                              return (
+                                <div>
+                                  <label className="text-[9px] font-extrabold uppercase tracking-wider text-neutral-400 block mb-1">
+                                    Default Display Color
+                                  </label>
+                                  <select
+                                    value={currentDefaultColor}
+                                    onChange={(e) => {
+                                      const newColor = e.target.value;
+                                      setDefaultColors(prev => {
+                                        const racks = { ...(prev.racks || {}) };
+                                        rackAssignments.forEach(a => {
+                                          const catMap = { ...(racks[a.category] || {}) };
+                                          catMap[a.slot] = newColor;
+                                          racks[a.category] = catMap;
+                                        });
+                                        const byStyle = { ...(prev.byStyle || {}), [p.style.toUpperCase()]: newColor };
+                                        return { ...prev, racks, byStyle };
+                                      });
+                                    }}
+                                    className="w-full bg-white border border-brand-border rounded-xl px-3 py-1.5 text-xs font-bold text-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary transition-all cursor-pointer"
+                                  >
+                                    {colorList.map((col: string) => (
+                                      <option key={col} value={col}>{col}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                              );
+                            })()}
 
                             {/* Garment Price ($) Input */}
                             <div>

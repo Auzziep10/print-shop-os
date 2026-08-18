@@ -30,7 +30,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { PillButton } from '../../components/ui/PillButton';
 import { trackVisitorEvent } from '../../lib/visitorTracking';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
-import { getGarmentWeightAndFabric, getOrderedKeys, GARMENT_TYPES, detectGarmentTypeTag, getFilteredProductColors, resolveGarmentPlacementData, detectPrintSizeFromPlacement, type GarmentTypeId } from '../../lib/garmentUtils';
+import { getGarmentWeightAndFabric, getOrderedKeys, GARMENT_TYPES, detectGarmentTypeTag, getFilteredProductColors, resolveGarmentPlacementData, detectPrintSizeFromPlacement, sortGarmentsByTypeOrder, type GarmentTypeId } from '../../lib/garmentUtils';
 import { validateDiscountCode, discountAmountFor, formatDiscountLabel, type AppliedDiscount } from '../../lib/discountUtils';
 import { getImageContentInfo } from '../../lib/garmentUtils';
 import { GarmentCustomizerModal } from '../../components/Portal/GarmentCustomizerModal';
@@ -567,12 +567,14 @@ export function PublicQuoteRequest() {
     racksOrder?: Record<string, string[]>;
     allowedColors?: Record<string, string[]>;
     customColors?: Record<string, string[]>;
+    garmentTypeOrders?: Record<string, string[]>;
   }>({
     racks: DEFAULT_RACKS,
     basics: DEFAULT_BASICS,
     garmentTypeTags: {},
     removeNeckTag: {},
     colorMockups: {},
+    garmentTypeOrders: {},
     customMockups: { racks: {}, basics: {} },
     customNames: { racks: {}, basics: {} },
     customSpecs: { racks: {}, basics: {} },
@@ -1167,7 +1169,8 @@ export function PublicQuoteRequest() {
             logoPlacements: cData.logoPlacements || { racks: {}, basics: {} },
             racksOrder: cData.racksOrder || {},
             allowedColors: cData.allowedColors || {},
-            customColors: cData.customColors || {}
+            customColors: cData.customColors || {},
+            garmentTypeOrders: cData.garmentTypeOrders || {}
           });
         }
       } catch (err) {
@@ -1365,6 +1368,14 @@ export function PublicQuoteRequest() {
             }
           }
         }
+      }
+    }
+
+    if (settings?.defaultColors?.byStyle) {
+      const byStyleMap = settings.defaultColors.byStyle;
+      const matchKey = Object.keys(byStyleMap).find(k => k.toLowerCase().trim() === targetStyle);
+      if (matchKey && byStyleMap[matchKey] && availableColors.includes(byStyleMap[matchKey])) {
+        return byStyleMap[matchKey];
       }
     }
 
@@ -3911,7 +3922,8 @@ export function PublicQuoteRequest() {
 
                 {/* Garment Grid matching selected Garment Type */}
                 {(() => {
-                  const matching = curatedStorefrontProducts.filter(p => detectGarmentTypeTag(p, catalogSettings.garmentTypeTags) === selectedGarmentType);
+                  const rawMatching = curatedStorefrontProducts.filter(p => detectGarmentTypeTag(p, catalogSettings.garmentTypeTags) === selectedGarmentType);
+                  const matching = sortGarmentsByTypeOrder(rawMatching, selectedGarmentType, catalogSettings.garmentTypeOrders);
 
                   return (
                     <div className="space-y-4 pt-4 border-t border-neutral-200/50">
@@ -5681,7 +5693,8 @@ export function PublicQuoteRequest() {
 
       {/* GARMENT STYLE PICKER MODAL */}
       {garmentPickerType && (() => {
-        const matchingProducts = curatedStorefrontProducts.filter(p => detectGarmentTypeTag(p, catalogSettings.garmentTypeTags) === garmentPickerType);
+        const rawMatching = curatedStorefrontProducts.filter(p => detectGarmentTypeTag(p, catalogSettings.garmentTypeTags) === garmentPickerType);
+        const matchingProducts = sortGarmentsByTypeOrder(rawMatching, garmentPickerType, catalogSettings.garmentTypeOrders);
         const typeLabel = GARMENT_TYPES.find(gt => gt.id === garmentPickerType)?.label || garmentPickerType;
 
         return (

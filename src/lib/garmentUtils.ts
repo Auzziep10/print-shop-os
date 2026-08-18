@@ -668,3 +668,26 @@ export const detectPrintSizeFromPlacement = (
 
   return sawBox ? 'Large' : null;
 };
+
+export const sortGarmentsByTypeOrder = (
+  products: any[],
+  garmentTypeId: string,
+  garmentTypeOrders?: Record<string, string[]>
+): any[] => {
+  if (!products || products.length === 0) return [];
+  const orderList = garmentTypeOrders?.[garmentTypeId];
+  if (!orderList || orderList.length === 0) return products;
+
+  return [...products].sort((a, b) => {
+    const styleA = (a.style || '').toLowerCase().trim();
+    const styleB = (b.style || '').toLowerCase().trim();
+    const lowerOrder = orderList.map(s => String(s).toLowerCase().trim());
+    const idxA = lowerOrder.indexOf(styleA);
+    const idxB = lowerOrder.indexOf(styleB);
+    if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+    if (idxA !== -1) return -1;
+    if (idxB !== -1) return 1;
+    return 0;
+  });
+};
+
