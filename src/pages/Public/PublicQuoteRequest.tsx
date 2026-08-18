@@ -13,7 +13,6 @@ import {
   Phone,
   ChevronLeft,
   X,
-  UserPlus,
   Plus,
   Eye,
   EyeOff,
@@ -2651,6 +2650,9 @@ export function PublicQuoteRequest() {
       setSubmittingStepIndex(2);
       setSubmittingStep('Generating customer portal workspace for your company...');
 
+      const existingCustSnap = await getDoc(doc(db, 'customers', customerId));
+      const isNewCust = !existingCustSnap.exists();
+
       const customerPayload = JSON.parse(JSON.stringify({
         id: customerId,
         company: companyName,
@@ -2660,6 +2662,7 @@ export function PublicQuoteRequest() {
         phone: customerInfo.phone || '-',
         website: customerInfo.website || '',
         type: 'Web Lead',
+        hasUnreadCreation: isNewCust || existingCustSnap.data()?.hasUnreadCreation || false,
         createdAt: new Date().toISOString()
       }));
 
@@ -2731,7 +2734,6 @@ export function PublicQuoteRequest() {
 
       const totalUnits = cartTotalUnits;
       const finalTotalPrice = dtfSettings?.storefrontAutoQuotingEnabled ? grandTotal : cartSubtotal;
-      const averageEstimatedPricePerUnit = totalUnits > 0 ? (finalTotalPrice / totalUnits) : 0;
       const displayCompany = customerInfo.companyName?.trim() || customerInfo.contactName?.trim() || storefrontSettings?.logoText || 'Custom';
       const garmentSummary = cart.map(item => getCustomGarmentName(item.product, catalogSettings)).filter(Boolean).join(', ');
       const rawTitle = garmentSummary 
@@ -2744,6 +2746,8 @@ export function PublicQuoteRequest() {
         portalId: portalId,
         customerId: customerId,
         title: orderTitle,
+        isWebLead: true,
+        hasUnreadWebLead: true,
         statusIndex: isPayNow ? 3 : 0, 
         status: isPayNow ? 'In Production' : 'Submitted',
         paymentStatus: isPayNow ? 'pending' : 'unpaid',
@@ -5236,31 +5240,7 @@ export function PublicQuoteRequest() {
               </div>
             </div>
 
-            {/* Client Registration Notice */}
-            {dtfSettings?.storefrontAutoQuotingEnabled ? (
-              <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200/80 rounded-3xl p-5 flex gap-4 items-start text-xs text-neutral-700 leading-relaxed shadow-xs max-w-4xl">
-                <div className="bg-emerald-500/10 p-2.5 rounded-xl text-emerald-700 shrink-0">
-                  <Sparkles size={20} />
-                </div>
-                <div className="space-y-1">
-                  <span className="font-extrabold text-neutral-900 block text-sm flex items-center gap-2">
-                    Instant Auto-Quoting & Direct Checkout Enabled
-                    <span className="bg-emerald-100 text-emerald-800 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">Live Pricing</span>
-                  </span>
-                  <p>Your pricing has been calculated instantly based on your artwork placements and quantities. Enter your delivery address below to calculate shipping and tax, then pay securely to place your order directly into production!</p>
-                </div>
-              </div>
-            ) : (
-              <div className="bg-white/40 backdrop-blur-xl border border-zinc-200/40 rounded-3xl p-5 flex gap-4 items-start text-xs text-neutral-600 leading-relaxed shadow-xs max-w-4xl">
-                <div className="bg-neutral-100 p-2 rounded-xl text-neutral-900 shrink-0">
-                  <UserPlus size={18} />
-                </div>
-                <div className="space-y-1">
-                  <span className="font-extrabold text-neutral-855 block text-sm">Quote Request & Client Registration</span>
-                  <p>Submit your design selections as a quote request. No payment is required today. This will register you as a new client and automatically prepare your portal account, where you can log in with Google to monitor project status and view custom pricing quotes once completed by our design team.</p>
-                </div>
-              </div>
-            )}
+
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
               
