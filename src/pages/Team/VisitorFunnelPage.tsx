@@ -1422,15 +1422,15 @@ export function VisitorFunnelPage() {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse min-w-[1450px]">
+                <table className="w-full text-left border-collapse min-w-[1100px]">
                   <thead>
                     <tr className="bg-slate-100 border-b-2 border-slate-200 text-xs font-bold text-slate-700 uppercase tracking-wider">
-                      <th className="py-3 px-4">Lead Contact</th>
-                      <th className="py-3 px-4">Business Name</th>
-                      <th className="py-3 px-4">Phone & Email</th>
-                      <th className="py-3 px-4">Captured Date</th>
-                      <th className="py-3 px-4">SMS Status (Quo)</th>
-                      <th className="py-3 px-4 text-left">Manual Action</th>
+                      <th className="py-2.5 px-2.5">Lead Contact</th>
+                      <th className="py-2.5 px-2.5 max-w-[130px]">Business Name</th>
+                      <th className="py-2.5 px-2.5 max-w-[180px]">Phone & Email</th>
+                      <th className="py-2.5 px-2.5 max-w-[110px]">Captured Date</th>
+                      <th className="py-2.5 px-2.5">SMS Status (Quo)</th>
+                      <th className="py-2.5 px-2.5 text-left">Manual Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 text-xs">
@@ -1441,7 +1441,7 @@ export function VisitorFunnelPage() {
                         onClick={() => setSelectedLead(lead)}
                       >
                         {/* Name & Form Answer Badges */}
-                        <td className="py-3.5 px-4 font-medium text-slate-900">
+                        <td className="py-3 px-2.5 font-medium text-slate-900">
                           <div className="text-sm font-bold text-slate-900">{lead.name}</div>
                           
                           {/* Key Form Answer Pills (Stacked vertically in consistent 1-2-3 order) */}
@@ -1477,11 +1477,11 @@ export function VisitorFunnelPage() {
                         </td>
 
                         {/* Business / Company Name */}
-                        <td className="py-3.5 px-4 font-medium">
+                        <td className="py-3 px-2.5 font-medium max-w-[130px]">
                           {getLeadBusinessName(lead) ? (
                             <div className="flex items-center gap-1.5 font-bold text-slate-900 text-xs">
                               <Building size={13} className="text-indigo-600 shrink-0" />
-                              <span>{getLeadBusinessName(lead)}</span>
+                              <span className="truncate">{getLeadBusinessName(lead)}</span>
                             </div>
                           ) : (
                             <span className="text-slate-400 text-xs italic">—</span>
@@ -1489,41 +1489,38 @@ export function VisitorFunnelPage() {
                         </td>
 
                         {/* Phone, Location & Email with Copy Buttons */}
-                        <td className="py-3.5 px-4">
+                        <td className="py-3 px-2.5 max-w-[180px]">
                           {lead.phone ? (
                             <div>
-                              <div className="flex items-center gap-1.5">
+                              <div className="flex items-center gap-1">
                                 <a
                                   href={`tel:${lead.phone}`}
                                   onClick={(e) => handleCallLead(lead, e)}
-                                  className="inline-flex items-center gap-1.5 text-emerald-700 hover:text-emerald-900 font-bold font-mono hover:underline group text-xs"
+                                  className="inline-flex items-center gap-1 text-emerald-700 hover:text-emerald-900 font-bold font-mono hover:underline group text-xs whitespace-nowrap"
                                   title="Click to Call via OpenPhone / System Dialer"
                                 >
-                                  <PhoneCall size={13} className="text-emerald-600 group-hover:scale-110 transition-transform" />
+                                  <PhoneCall size={12} className="text-emerald-600 group-hover:scale-110 transition-transform shrink-0" />
                                   {lead.phone}
                                 </a>
 
                                 <button
                                   onClick={(e) => handleCopyText(lead.phone, `phone-${lead.id}`, e)}
-                                  className="p-1 text-slate-400 hover:text-slate-700 transition-colors rounded hover:bg-slate-100 cursor-pointer"
+                                  className="p-0.5 text-slate-400 hover:text-slate-700 transition-colors rounded hover:bg-slate-100 cursor-pointer shrink-0"
                                   title={`Copy phone number (${lead.phone}) to clipboard`}
                                 >
                                   {copiedTextKey === `phone-${lead.id}` ? (
-                                    <Check size={12} className="text-emerald-600 font-bold" />
+                                    <Check size={11} className="text-emerald-600 font-bold" />
                                   ) : (
-                                    <Copy size={12} />
+                                    <Copy size={11} />
                                   )}
                                 </button>
                               </div>
 
                               {/* State, Time Zone & Local Time Info */}
                               {getPhoneLocationAndTz(lead.phone) && (
-                                <div className="flex items-center gap-1 text-[11px] font-semibold text-slate-600 mt-0.5">
-                                  <MapPin size={11} className="text-rose-500 shrink-0" />
-                                  <span>{getPhoneLocationAndTz(lead.phone)?.state} ({getPhoneLocationAndTz(lead.phone)?.stateAbbr}) · {getPhoneLocationAndTz(lead.phone)?.tzAbbr}</span>
-                                  {getPhoneLocationAndTz(lead.phone)?.localTimeStr && (
-                                    <span className="text-[10px] text-slate-500 font-mono font-normal">({getPhoneLocationAndTz(lead.phone)?.localTimeStr})</span>
-                                  )}
+                                <div className="flex items-center gap-1 text-[10px] font-semibold text-slate-600 mt-0.5 truncate">
+                                  <MapPin size={10} className="text-rose-500 shrink-0" />
+                                  <span className="truncate">{getPhoneLocationAndTz(lead.phone)?.stateAbbr} · {getPhoneLocationAndTz(lead.phone)?.tzAbbr} ({getPhoneLocationAndTz(lead.phone)?.localTimeStr})</span>
                                 </div>
                               )}
                             </div>
@@ -1535,42 +1532,42 @@ export function VisitorFunnelPage() {
                           )}
 
                           {lead.email ? (
-                            <div className="flex items-center gap-1.5 mt-1">
-                              <div className="flex items-center gap-1 text-xs text-slate-700 font-medium truncate max-w-[200px]">
-                                <Mail size={13} className="shrink-0 text-slate-500" />
+                            <div className="flex items-center gap-1 mt-0.5">
+                              <div className="flex items-center gap-1 text-xs text-slate-700 font-medium truncate max-w-[140px]">
+                                <Mail size={12} className="shrink-0 text-slate-500" />
                                 <span className="truncate">{lead.email}</span>
                               </div>
 
                               <button
                                 onClick={(e) => handleCopyText(lead.email, `email-${lead.id}`, e)}
-                                className="p-1 text-slate-400 hover:text-slate-700 transition-colors rounded hover:bg-slate-100 cursor-pointer shrink-0"
+                                className="p-0.5 text-slate-400 hover:text-slate-700 transition-colors rounded hover:bg-slate-100 cursor-pointer shrink-0"
                                 title={`Copy email address (${lead.email}) to clipboard`}
                               >
                                 {copiedTextKey === `email-${lead.id}` ? (
-                                  <Check size={12} className="text-emerald-600 font-bold" />
+                                  <Check size={11} className="text-emerald-600 font-bold" />
                                 ) : (
-                                  <Copy size={12} />
+                                  <Copy size={11} />
                                 )}
                               </button>
                             </div>
                           ) : (
-                            <div className="flex items-center gap-1 text-xs text-slate-400 italic mt-1">
-                              <Mail size={13} className="shrink-0 text-slate-400" />
+                            <div className="flex items-center gap-1 text-xs text-slate-400 italic mt-0.5">
+                              <Mail size={12} className="shrink-0 text-slate-400" />
                               No email
                             </div>
                           )}
                         </td>
 
                         {/* Timestamp (Captured Date) */}
-                        <td className="py-3.5 px-4 whitespace-nowrap">
+                        <td className="py-3 px-2.5 whitespace-nowrap max-w-[110px]">
                           <div className="font-bold text-slate-900 text-xs">{formatTimeAgo(lead.createdAt)}</div>
-                          <div className="text-[11px] text-slate-600 font-medium mt-0.5">
-                            {new Date(lead.createdAt).toLocaleDateString()} {new Date(lead.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          <div className="text-[10px] text-slate-600 font-medium mt-0.5">
+                            {new Date(lead.createdAt).toLocaleDateString()}
                           </div>
                         </td>
 
                         {/* SMS & Lead Status Badges */}
-                        <td className="py-3.5 px-4">
+                        <td className="py-3 px-2.5">
                           <div className="flex flex-col gap-1 items-start">
                             {/* Call Feedback Status Badge */}
                             {lead.callFeedback === 'good' && (
@@ -1632,7 +1629,7 @@ export function VisitorFunnelPage() {
                         </td>
 
                         {/* Manual Action Buttons (Call Column, Send Default Column, Customize Column, Delete) */}
-                        <td className="py-3.5 px-4 text-left shrink-0">
+                        <td className="py-3 px-2.5 text-left shrink-0">
                           <div className="inline-flex items-start justify-start gap-3 shrink-0" onClick={(e) => e.stopPropagation()}>
                             
                             {/* COLUMN 1: CALL BUTTON & CALL FEEDBACK */}
