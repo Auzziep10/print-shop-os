@@ -1422,7 +1422,7 @@ export function VisitorFunnelPage() {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse min-w-[1300px]">
+                <table className="w-full text-left border-collapse min-w-[1550px]">
                   <thead>
                     <tr className="bg-slate-100 border-b-2 border-slate-200 text-xs font-bold text-slate-700 uppercase tracking-wider">
                       <th className="py-3 px-4">Lead Contact</th>
@@ -1431,7 +1431,7 @@ export function VisitorFunnelPage() {
                       <th className="py-3 px-4">Ad / Form Name</th>
                       <th className="py-3 px-4">Captured Date</th>
                       <th className="py-3 px-4">SMS Status (Quo)</th>
-                      <th className="py-3 px-6 text-right">Manual Action</th>
+                      <th className="py-3 px-6 text-right min-w-[440px]">Manual Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 text-xs">
@@ -1633,7 +1633,7 @@ export function VisitorFunnelPage() {
                         </td>
 
                         {/* Manual Action Buttons (Call Column, Send Default Column, Customize Column, Delete) */}
-                        <td className="py-3.5 px-6 text-right shrink-0">
+                        <td className="py-3.5 px-6 text-right shrink-0 min-w-[440px]">
                           <div className="inline-flex items-start justify-end gap-3 shrink-0" onClick={(e) => e.stopPropagation()}>
                             
                             {/* COLUMN 1: CALL BUTTON & CALL FEEDBACK */}
