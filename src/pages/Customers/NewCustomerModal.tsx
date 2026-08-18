@@ -67,6 +67,7 @@ export function NewCustomerModal({ isOpen, onClose, onSuccess }: NewCustomerModa
 
       const docRef = await addDoc(collection(db, 'customers'), {
         ...formData,
+        hasUnreadCreation: true,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
-import { Search, Filter, Plus, FileDown, MoreHorizontal, Building2, User, Trash2 } from 'lucide-react';
+import { Search, Filter, Plus, FileDown, MoreHorizontal, Building2, User, Trash2, UserPlus } from 'lucide-react';
 
 import { useEffect, useMemo } from 'react';
 
@@ -91,6 +91,7 @@ export function CustomersList() {
         croppedLogo: liveData.croppedLogo !== undefined ? liveData.croppedLogo : null,
         isOnline: liveData.isOnline || false,
         lastActiveAt: liveData.lastActiveAt || null,
+        hasUnreadCreation: liveData.hasUnreadCreation || false,
       };
     }).filter(c => c.company.toLowerCase().includes(search.toLowerCase()) || 
                    c.contact.toLowerCase().includes(search.toLowerCase()) ||
@@ -209,6 +210,11 @@ export function CustomersList() {
                     )}
                     {isOnline(customer) && (
                       <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.7)] shrink-0 animate-pulse" title="Online now" />
+                    )}
+                    {customer.hasUnreadCreation && (
+                      <span className="bg-purple-100 border border-purple-300 text-purple-900 text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider shrink-0 flex items-center gap-1 animate-pulse" title="New Customer Created">
+                        <UserPlus size={10} className="text-purple-600" /> NEW
+                      </span>
                     )}
                   </div>
                 </div>

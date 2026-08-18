@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { tokens } from '../../lib/tokens';
 import { PillButton } from '../../components/ui/PillButton';
-import { Search, Filter, Plus, FileDown, MoreHorizontal, Loader2, Check, FileBox, RefreshCw } from 'lucide-react';
+import { Search, Filter, Plus, FileDown, MoreHorizontal, Loader2, Check, FileBox, RefreshCw, Globe } from 'lucide-react';
 import { StatusBadge, type StatusType } from '../../components/ui/StatusBadge';
 import { useOrders } from '../../hooks/useOrders';
 import { doc, updateDoc, collection, getDocs } from 'firebase/firestore';
@@ -284,6 +284,11 @@ export function OrdersList() {
                     {order.hasUnreadCustomerUpdate && (
                       <span className="bg-amber-100 border border-amber-300 text-amber-900 text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider shrink-0 flex items-center gap-1 animate-pulse" title="Customer resubmitted new size quantities">
                         <RefreshCw size={10} className="text-amber-600" /> Updated Qty
+                      </span>
+                    )}
+                    {order.hasUnreadWebLead && (
+                      <span className="bg-blue-100 border border-blue-300 text-blue-900 text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider shrink-0 flex items-center gap-1 animate-pulse" title="New Web Lead Order">
+                        <Globe size={10} className="text-blue-600" /> New Web Lead
                       </span>
                     )}
                   </div>

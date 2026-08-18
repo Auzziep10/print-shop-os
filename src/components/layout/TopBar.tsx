@@ -1,4 +1,4 @@
-import { Search, Bell, LogOut, Menu, Check, Rocket, RefreshCw } from 'lucide-react';
+import { Search, Bell, LogOut, Menu, Check, Rocket, RefreshCw, UserPlus, Globe } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useOrders } from '../../hooks/useOrders';
 import { useState, useEffect, useRef } from 'react';
@@ -18,19 +18,21 @@ export function TopBar({ onOpenSidebar }: TopBarProps) {
   const [showNotifications, setShowNotifications] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [unreadSupportCustomers, setUnreadSupportCustomers] = useState<any[]>([]);
+  const [unreadNewCustomers, setUnreadNewCustomers] = useState<any[]>([]);
   const notificationRef = useRef<HTMLDivElement>(null);
 
   const unreadPayments = orders.filter(o => o.paymentStatus === 'paid' && o.paymentRead === false);
   const unreadResubmittedQuotes = orders.filter(o => o.hasUnreadCustomerUpdate === true);
-  const totalUnreadCount = unreadPayments.length + unreadSupportCustomers.length + unreadResubmittedQuotes.length;
+  const unreadWebLeadOrders = orders.filter(o => o.hasUnreadWebLead === true);
+  const totalUnreadCount = unreadPayments.length + unreadSupportCustomers.length + unreadResubmittedQuotes.length + unreadWebLeadOrders.length + unreadNewCustomers.length;
 
   useEffect(() => {
-    const q = query(
+    const qSupport = query(
       collection(db, 'customers'),
       where('hasUnreadSupport', '==', true)
     );
 
-    const unsub = onSnapshot(q, (snapshot) => {
+    const unsubSupport = onSnapshot(qSupport, (snapshot) => {
       const customers = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
@@ -40,7 +42,25 @@ export function TopBar({ onOpenSidebar }: TopBarProps) {
       console.error("Error fetching unread support customers in TopBar:", err);
     });
 
-    return () => unsub();
+    const qNewCust = query(
+      collection(db, 'customers'),
+      where('hasUnreadCreation', '==', true)
+    );
+
+    const unsubNewCust = onSnapshot(qNewCust, (snapshot) => {
+      const customers = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setUnreadNewCustomers(customers);
+    }, (err) => {
+      console.error("Error fetching unread new customers in TopBar:", err);
+    });
+
+    return () => {
+      unsubSupport();
+      unsubNewCust();
+    };
   }, []);
 
   useEffect(() => {
@@ -166,6 +186,64 @@ export function TopBar({ onOpenSidebar }: TopBarProps) {
                         </p>
                         <p className="text-[9px] text-neutral-500 mt-1">
                           {order.totalGarments || order.quoteResubmittedGarments || 0} Garments • Order #{order.portalId || order.id.substring(0,8)}
+                        </p>
+                      </div>
+                    ))}
+
+                    {/* Web Lead Orders */}
+                    {unreadWebLeadOrders.map(order => (
+                      <div 
+                        key={order.id} 
+                        className="p-3 hover:bg-blue-50/60 transition-colors cursor-pointer" 
+                        onClick={async () => {
+                          setShowNotifications(false);
+                          try {
+                            await updateDoc(doc(db, 'orders', order.id), { hasUnreadWebLead: false });
+                          } catch (err) {
+                            console.error(err);
+                          }
+                          navigate(`/orders/${order.id}`);
+                        }}
+                      >
+                        <p className="text-[11px] font-bold text-blue-950 mb-1 flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 bg-blue-500 rounded-full shrink-0 animate-pulse" />
+                          <Globe size={12} className="text-blue-600 shrink-0" />
+                          <span>New Web Lead Order</span>
+                        </p>
+                        <p className="text-[11px] text-neutral-800 line-clamp-1 font-semibold">
+                          {order.title || `Order #${order.portalId || order.id.substring(0,8)}`}
+                        </p>
+                        <p className="text-[9px] text-neutral-500 mt-1">
+                          From {order.contactDetails?.name || 'Web Client'} • Order #{order.portalId || order.id.substring(0,8)}
+                        </p>
+                      </div>
+                    ))}
+
+                    {/* New Customer Creations */}
+                    {unreadNewCustomers.map(customer => (
+                      <div 
+                        key={customer.id} 
+                        className="p-3 hover:bg-purple-50/60 transition-colors cursor-pointer" 
+                        onClick={async () => {
+                          setShowNotifications(false);
+                          try {
+                            await updateDoc(doc(db, 'customers', customer.id), { hasUnreadCreation: false });
+                          } catch (err) {
+                            console.error(err);
+                          }
+                          navigate(`/customers/${customer.id}`);
+                        }}
+                      >
+                        <p className="text-[11px] font-bold text-purple-950 mb-1 flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 bg-purple-500 rounded-full shrink-0 animate-pulse" />
+                          <UserPlus size={12} className="text-purple-600 shrink-0" />
+                          <span>New Customer Created</span>
+                        </p>
+                        <p className="text-[11px] text-neutral-800 line-clamp-1 font-semibold">
+                          {customer.company || customer.contactName || customer.name || 'New Client'}
+                        </p>
+                        <p className="text-[9px] text-neutral-500 mt-1">
+                          {customer.email || 'No email provided'} • {customer.type || 'Web Lead'}
                         </p>
                       </div>
                     ))}

@@ -5449,49 +5449,6 @@ export function PublicQuoteRequest() {
                         <span className="text-neutral-800 font-bold">${cartSubtotal.toFixed(2)}</span>
                       </div>
                       <div className="py-2.5">
-                        {appliedDiscount ? (
-                          <div className="flex justify-between items-center">
-                            <span className="text-emerald-700 font-semibold flex items-center gap-1.5">
-                              Discount
-                              <span className="font-mono text-[9px] font-bold bg-emerald-50 border border-emerald-200 text-emerald-800 px-1.5 py-0.5 rounded tracking-widest">
-                                {appliedDiscount.code}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => { setAppliedDiscount(null); setDiscountError(''); }}
-                                className="text-neutral-400 hover:text-red-600 text-[10px] font-bold cursor-pointer"
-                                title="Remove code"
-                              >
-                                ✕
-                              </button>
-                            </span>
-                            <span className="text-emerald-700 font-bold">−${discountAmount.toFixed(2)}</span>
-                          </div>
-                        ) : (
-                          <div>
-                            <div className="flex gap-1.5">
-                              <input
-                                type="text"
-                                value={discountInput}
-                                onChange={(e) => { setDiscountInput(e.target.value.toUpperCase()); setDiscountError(''); }}
-                                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyDiscountCode(); } }}
-                                placeholder="Discount code"
-                                className="flex-1 min-w-0 bg-neutral-50 border border-neutral-200 rounded-lg px-2.5 py-1.5 text-[10px] font-bold tracking-widest uppercase placeholder:normal-case placeholder:font-medium placeholder:tracking-normal focus:outline-none focus:border-neutral-400"
-                              />
-                              <button
-                                type="button"
-                                onClick={applyDiscountCode}
-                                disabled={isApplyingDiscount || !discountInput.trim()}
-                                className="shrink-0 bg-neutral-900 hover:bg-black text-white px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                              >
-                                {isApplyingDiscount ? '…' : 'Apply'}
-                              </button>
-                            </div>
-                            {discountError && <p className="text-[9px] text-red-600 font-semibold mt-1">{discountError}</p>}
-                          </div>
-                        )}
-                      </div>
-                      <div className="py-2.5">
                         <div className="flex justify-between items-center">
                           <span className="text-neutral-500 font-semibold flex items-center gap-1.5">
                             {shippingRates.length > 0 ? 'Shipping Method' : 'Est. Ground Shipping'}
@@ -5543,6 +5500,49 @@ export function PublicQuoteRequest() {
                         <span className="text-neutral-800 font-bold flex items-center gap-1">
                           {isCalculatingTax ? <Loader2 className="animate-spin text-neutral-400" size={12} /> : `$${taxAmount.toFixed(2)}`}
                         </span>
+                      </div>
+                      <div className="py-2.5">
+                        {appliedDiscount ? (
+                          <div className="flex justify-between items-center">
+                            <span className="text-emerald-700 font-semibold flex items-center gap-1.5">
+                              Discount
+                              <span className="font-mono text-[9px] font-bold bg-emerald-50 border border-emerald-200 text-emerald-800 px-1.5 py-0.5 rounded tracking-widest">
+                                {appliedDiscount.code}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => { setAppliedDiscount(null); setDiscountError(''); }}
+                                className="text-neutral-400 hover:text-red-600 text-[10px] font-bold cursor-pointer"
+                                title="Remove code"
+                              >
+                                ✕
+                              </button>
+                            </span>
+                            <span className="text-emerald-700 font-bold">−${discountAmount.toFixed(2)}</span>
+                          </div>
+                        ) : (
+                          <div>
+                            <div className="flex gap-1.5">
+                              <input
+                                type="text"
+                                value={discountInput}
+                                onChange={(e) => { setDiscountInput(e.target.value.toUpperCase()); setDiscountError(''); }}
+                                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyDiscountCode(); } }}
+                                placeholder="Discount code"
+                                className="flex-1 min-w-0 bg-neutral-50 border border-neutral-200 rounded-lg px-2.5 py-1.5 text-[10px] font-bold tracking-widest uppercase placeholder:normal-case placeholder:font-medium placeholder:tracking-normal focus:outline-none focus:border-neutral-400"
+                              />
+                              <button
+                                type="button"
+                                onClick={applyDiscountCode}
+                                disabled={isApplyingDiscount || !discountInput.trim()}
+                                className="shrink-0 bg-neutral-900 hover:bg-black text-white px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                              >
+                                {isApplyingDiscount ? '…' : 'Apply'}
+                              </button>
+                            </div>
+                            {discountError && <p className="text-[9px] text-red-600 font-semibold mt-1">{discountError}</p>}
+                          </div>
+                        )}
                       </div>
                       <div className="py-3.5 flex justify-between border-t border-neutral-200 text-base font-extrabold text-neutral-900 mt-2">
                         <span>Grand Total</span>

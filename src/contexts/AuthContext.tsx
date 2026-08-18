@@ -243,6 +243,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                   email: userEmail,
                   phone: '-',
                   type: 'Web Lead',
+                  hasUnreadCreation: true,
                   createdAt: new Date().toISOString()
                 }, { merge: true });
               }

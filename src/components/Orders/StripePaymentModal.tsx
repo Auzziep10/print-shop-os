@@ -765,6 +765,31 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
                 <span className="font-bold text-neutral-800">{formattedSubtotal}</span>
               </div>
 
+              <div className="flex justify-between items-center text-xs font-semibold text-neutral-500 uppercase tracking-wider">
+                <span>Shipping & Handling</span>
+                <span className="font-bold text-neutral-800">
+                  {currentShippingAmount > 0 ? formattedShipping : 'Free'}
+                </span>
+              </div>
+
+              <div className="flex justify-between items-center text-xs font-semibold text-neutral-500 uppercase tracking-wider">
+                <span>Estimated Sales Tax</span>
+                <span className="font-bold text-neutral-800">
+                  {isCustomerTaxExempt ? (
+                    <span className="text-[10px] text-purple-650 font-bold bg-purple-50 px-2 py-0.5 rounded-md border border-purple-100/50">Waived (Exempt)</span>
+                  ) : isCalculatingTax ? (
+                    <span className="text-[10px] text-neutral-400 italic font-medium animate-pulse">Calculating...</span>
+                  ) : (
+                    finalTaxAmount > 0 ? formattedTax : '$0.00'
+                  )}
+                </span>
+              </div>
+              {taxError && (
+                <div className="text-[10px] text-red-500 font-bold text-right mt-1 p-2 bg-red-50 rounded-lg border border-red-100/50">
+                  ⚠️ Tax API Error: {taxError}
+                </div>
+              )}
+
               {appliedDiscount ? (
                 <div className="flex justify-between items-center text-xs font-semibold uppercase tracking-wider">
                   <span className="text-emerald-700 flex items-center gap-1.5 normal-case">
@@ -808,31 +833,6 @@ export function StripePaymentModal({ order, onClose, onSuccess }: { order: any, 
                     </button>
                   </div>
                   {discountError && <p className="text-[9px] text-red-600 font-semibold mt-1">{discountError}</p>}
-                </div>
-              )}
-
-              <div className="flex justify-between items-center text-xs font-semibold text-neutral-500 uppercase tracking-wider">
-                <span>Shipping & Handling</span>
-                <span className="font-bold text-neutral-800">
-                  {currentShippingAmount > 0 ? formattedShipping : 'Free'}
-                </span>
-              </div>
-
-              <div className="flex justify-between items-center text-xs font-semibold text-neutral-500 uppercase tracking-wider">
-                <span>Estimated Sales Tax</span>
-                <span className="font-bold text-neutral-800">
-                  {isCustomerTaxExempt ? (
-                    <span className="text-[10px] text-purple-650 font-bold bg-purple-50 px-2 py-0.5 rounded-md border border-purple-100/50">Waived (Exempt)</span>
-                  ) : isCalculatingTax ? (
-                    <span className="text-[10px] text-neutral-400 italic font-medium animate-pulse">Calculating...</span>
-                  ) : (
-                    finalTaxAmount > 0 ? formattedTax : '$0.00'
-                  )}
-                </span>
-              </div>
-              {taxError && (
-                <div className="text-[10px] text-red-500 font-bold text-right mt-1 p-2 bg-red-50 rounded-lg border border-red-100/50">
-                  ⚠️ Tax API Error: {taxError}
                 </div>
               )}
 

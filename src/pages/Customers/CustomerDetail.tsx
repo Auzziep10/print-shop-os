@@ -836,6 +836,12 @@ export function CustomerDetail() {
           setSampleItems(data.sampleItems || []);
           setAssets(data.assets || []);
           
+          if (data.hasUnreadCreation) {
+            updateDoc(doc(db, 'customers', id), { hasUnreadCreation: false }).catch(err => {
+              console.error("Error clearing customer unread creation flag:", err);
+            });
+          }
+          
           if (data.logo) setLiveLogo(data.logo);
           if (data.croppedLogo) setLiveCroppedLogo(data.croppedLogo);
           

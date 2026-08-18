@@ -1309,6 +1309,14 @@ export function OrderDetail() {
   const order = orders.find(o => o.id === id);
 
   useEffect(() => {
+    if (id && order?.hasUnreadWebLead) {
+      updateDoc(doc(db, 'orders', id), { hasUnreadWebLead: false }).catch(err => {
+        console.error("Error clearing web lead unread flag:", err);
+      });
+    }
+  }, [id, order?.hasUnreadWebLead]);
+
+  useEffect(() => {
     if (order && isInvoiceEditorOpen) {
       const loadDefaults = async () => {
         let custSettings: any = {};
