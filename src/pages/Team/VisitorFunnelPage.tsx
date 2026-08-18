@@ -1416,8 +1416,9 @@ export function VisitorFunnelPage() {
                         <td className="py-3.5 px-4 font-medium text-slate-900">
                           <div className="text-sm font-bold text-slate-900">{lead.name}</div>
                           
-                          {/* Key Form Answer Pills */}
-                          <div className="flex flex-wrap items-center gap-1 mt-1">
+                          {/* Key Form Answer Pills (Stacked vertically in consistent 1-2-3 order) */}
+                          <div className="flex flex-col items-start gap-1 mt-1.5">
+                            {/* 1. Quantity / Size */}
                             {getLeadAnswer(lead, 'size') && (
                               <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 text-[10px] font-bold rounded-full border border-indigo-200 inline-flex items-center gap-1 shadow-2xs">
                                 <Package size={10} className="text-indigo-500" />
@@ -1425,6 +1426,7 @@ export function VisitorFunnelPage() {
                               </span>
                             )}
 
+                            {/* 2. Urgency / Timeline */}
                             {getLeadAnswer(lead, 'urgency') && (
                               <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full border inline-flex items-center gap-1 shadow-2xs ${
                                 getLeadAnswer(lead, 'urgency').toLowerCase().includes('asap')
@@ -1436,6 +1438,7 @@ export function VisitorFunnelPage() {
                               </span>
                             )}
 
+                            {/* 3. Category / Business Type */}
                             {getLeadAnswer(lead, 'type') && (
                               <span className="px-2 py-0.5 bg-slate-100 text-slate-700 text-[10px] font-medium rounded-full border border-slate-200 shadow-2xs">
                                 {formatBadgeText(getLeadAnswer(lead, 'type'))}
