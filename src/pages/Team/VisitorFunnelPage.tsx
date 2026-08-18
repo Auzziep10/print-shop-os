@@ -445,14 +445,20 @@ export function VisitorFunnelPage() {
       console.error('Error logging call status:', err);
     }
 
-    // 1. Try launching OpenPhone / Quo desktop app via custom deep link
-    const openPhoneScheme = `openphone://dial?number=${encodeURIComponent(cleanPhone)}&action=call`;
-    window.location.href = openPhoneScheme;
+    // 1. Try launching OpenPhone / Quo desktop app on Mac & Windows
+    const openPhoneScheme = `openphone://call?phone=${encodeURIComponent(cleanPhone)}`;
+    const a = document.createElement('a');
+    a.href = openPhoneScheme;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
 
-    // 2. Fallback to system tel: handler
+    // 2. Fallback to system tel: handler only if OpenPhone app didn't take focus
     setTimeout(() => {
-      window.location.href = `tel:${cleanPhone}`;
-    }, 400);
+      if (document.hasFocus()) {
+        window.location.href = `tel:${cleanPhone}`;
+      }
+    }, 1200);
   };
 
   // Update Lead Feedback Status (Thumbs Up, VM, Thumbs Down)
