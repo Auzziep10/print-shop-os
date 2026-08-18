@@ -43,18 +43,13 @@ import {
   Voicemail
 } from 'lucide-react';
 
-export interface FunnelStep {
-  step: number;
-  label: string;
-  short: string;
-}
-
-export const FUNNEL_STEPS: FunnelStep[] = [
-  { step: 1, label: 'Landed on /start', short: 'Landing' },
-  { step: 2, label: 'Garment Selected', short: 'Garment' },
-  { step: 3, label: 'Artwork Uploaded', short: 'Artwork' },
-  { step: 4, label: 'Quote Generated', short: 'Quote Gen' },
-  { step: 5, label: 'Quote Submitted', short: 'Submitted' },
+const FUNNEL_STAGES = [
+  { step: 0, label: 'Landing Page (/start2)', short: '/start2 Landing' },
+  { step: 1, label: 'Garment & Category Select', short: 'Selection' },
+  { step: 2, label: 'Upload Artwork / Logo', short: 'Upload Logo' },
+  { step: 3, label: 'Placement & Proofing', short: 'Proofing' },
+  { step: 4, label: 'Sizing & Quantities', short: 'Quantities' },
+  { step: 5, label: 'Submitted Quote Request', short: 'Quote Submitted' },
   { step: 6, label: 'Account Created', short: 'Account Created' },
 ];
 
