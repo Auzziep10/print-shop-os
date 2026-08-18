@@ -3041,7 +3041,11 @@ export function StorefrontCatalogTab() {
 
                             {/* Default Display Color Selector */}
                             {(() => {
-                              const colorList = getFilteredProductColors(p, allowedColors, customColors);
+                              const baseColors = p.colors || [];
+                              const extraCustom = customColors[styleKey] || [];
+                              const allItemColors = Array.from(new Set([...baseColors, ...extraCustom]));
+                              const filteredAllowed = getFilteredProductColors(p, allowedColors, customColors);
+                              const colorList = filteredAllowed.length > 0 ? filteredAllowed : allItemColors;
                               if (!colorList || colorList.length === 0) return null;
 
                               const currentDefaultColor = (primaryAssignment && defaultColors.racks?.[primaryAssignment.category]?.[primaryAssignment.slot])
