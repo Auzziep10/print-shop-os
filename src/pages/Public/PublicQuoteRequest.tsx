@@ -2734,6 +2734,7 @@ export function PublicQuoteRequest() {
 
       const totalUnits = cartTotalUnits;
       const finalTotalPrice = dtfSettings?.storefrontAutoQuotingEnabled ? grandTotal : cartSubtotal;
+      const averageEstimatedPricePerUnit = totalUnits > 0 ? (finalTotalPrice / totalUnits) : 0;
       const displayCompany = customerInfo.companyName?.trim() || customerInfo.contactName?.trim() || storefrontSettings?.logoText || 'Custom';
       const garmentSummary = cart.map(item => getCustomGarmentName(item.product, catalogSettings)).filter(Boolean).join(', ');
       const rawTitle = garmentSummary 
