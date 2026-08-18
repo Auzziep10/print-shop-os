@@ -453,12 +453,12 @@ export function VisitorFunnelPage() {
     a.click();
     document.body.removeChild(a);
 
-    // 2. Fallback to system tel: handler only if OpenPhone app didn't take focus
+    // 2. Fallback to OpenPhone / Quo Web dialer if desktop app isn't taking focus (prevents macOS FaceTime)
     setTimeout(() => {
       if (document.hasFocus()) {
-        window.location.href = `tel:${cleanPhone}`;
+        window.open(`https://app.openphone.com/call?phone=${encodeURIComponent(cleanPhone)}`, '_blank');
       }
-    }, 1200);
+    }, 1000);
   };
 
   // Update Lead Feedback Status (Thumbs Up, VM, Thumbs Down)
