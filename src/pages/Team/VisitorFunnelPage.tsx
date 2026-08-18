@@ -946,48 +946,48 @@ export function VisitorFunnelPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="p-5 bg-white border border-brand-border rounded-xl shadow-xs">
               <div className="flex items-center justify-between text-brand-secondary mb-3">
-                <span className="text-xs font-semibold uppercase tracking-wider">Total Unique Visitors</span>
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-800">Total Unique Visitors</span>
                 <Users size={18} className="text-blue-600" />
               </div>
-              <div className="text-3xl font-serif text-brand-primary font-bold">{totalVisitors}</div>
-              <p className="text-xs text-brand-muted mt-1">Unique visitor IDs in timeframe</p>
+              <div className="text-3xl font-serif text-slate-900 font-bold">{totalVisitors}</div>
+              <p className="text-xs text-slate-600 font-semibold mt-1">Unique visitor IDs in timeframe</p>
             </div>
 
             <div className="p-5 bg-white border border-brand-border rounded-xl shadow-xs">
               <div className="flex items-center justify-between text-brand-secondary mb-3">
-                <span className="text-xs font-semibold uppercase tracking-wider">Converted Quotes</span>
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-800">Converted Quotes</span>
                 <CheckCircle2 size={18} className="text-emerald-600" />
               </div>
               <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-serif text-brand-primary font-bold">{convertedQuoteCount}</span>
-                <span className="text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+                <span className="text-3xl font-serif text-slate-900 font-bold">{convertedQuoteCount}</span>
+                <span className="text-xs font-bold text-emerald-800 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-full">
                   {totalVisitors > 0 ? ((convertedQuoteCount / totalVisitors) * 100).toFixed(1) : 0}%
                 </span>
               </div>
-              <p className="text-xs text-brand-muted mt-1">Visitors who submitted a quote</p>
+              <p className="text-xs text-slate-600 font-semibold mt-1">Visitors who submitted a quote</p>
             </div>
 
             <div className="p-5 bg-white border border-brand-border rounded-xl shadow-xs">
               <div className="flex items-center justify-between text-brand-secondary mb-3">
-                <span className="text-xs font-semibold uppercase tracking-wider">Accounts Created</span>
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-800">Accounts Created</span>
                 <UserCheck size={18} className="text-indigo-600" />
               </div>
               <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-serif text-brand-primary font-bold">{convertedAccountCount}</span>
-                <span className="text-xs font-medium text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
+                <span className="text-3xl font-serif text-slate-900 font-bold">{convertedAccountCount}</span>
+                <span className="text-xs font-bold text-indigo-800 bg-indigo-100 border border-indigo-300 px-2 py-0.5 rounded-full">
                   {totalVisitors > 0 ? ((convertedAccountCount / totalVisitors) * 100).toFixed(1) : 0}%
                 </span>
               </div>
-              <p className="text-xs text-brand-muted mt-1">Visitors who registered an account</p>
+              <p className="text-xs text-slate-600 font-semibold mt-1">Visitors who registered an account</p>
             </div>
 
             <div className="p-5 bg-white border border-brand-border rounded-xl shadow-xs">
               <div className="flex items-center justify-between text-brand-secondary mb-3">
-                <span className="text-xs font-semibold uppercase tracking-wider">Funnel Conversion Rate</span>
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-800">Funnel Conversion Rate</span>
                 <TrendingUp size={18} className="text-amber-600" />
               </div>
-              <div className="text-3xl font-serif text-brand-primary font-bold">{overallConversionRate}%</div>
-              <p className="text-xs text-brand-muted mt-1">Landing visitors reaching checkout/quote</p>
+              <div className="text-3xl font-serif text-slate-900 font-bold">{overallConversionRate}%</div>
+              <p className="text-xs text-slate-600 font-semibold mt-1">Landing visitors reaching checkout/quote</p>
             </div>
           </div>
 
@@ -1263,15 +1263,15 @@ export function VisitorFunnelPage() {
               className={`p-4 bg-white border rounded-xl shadow-xs cursor-pointer transition-all ${
                 leadSmsFilter === 'All'
                   ? 'border-blue-500 ring-2 ring-blue-500/20 bg-blue-50/10'
-                  : 'border-brand-border hover:border-blue-300'
+                  : 'border-slate-200 hover:border-blue-300'
               }`}
             >
-              <div className="flex items-center justify-between text-brand-secondary mb-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700">Total Leads</span>
+              <div className="flex items-center justify-between text-slate-700 mb-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-800">Total Leads</span>
                 <Share2 size={16} className="text-blue-600 shrink-0" />
               </div>
-              <div className="text-2xl font-serif text-brand-primary font-bold">{totalMetaLeads}</div>
-              <p className="text-[11px] text-brand-muted mt-1 truncate">Captured leads</p>
+              <div className="text-2xl font-serif text-slate-900 font-bold">{totalMetaLeads}</div>
+              <p className="text-[11px] text-slate-600 font-semibold mt-1 truncate">Captured leads</p>
             </div>
 
             {/* Card 2: SMS Text Sent (Quo) */}
@@ -1280,20 +1280,20 @@ export function VisitorFunnelPage() {
               className={`p-4 bg-white border rounded-xl shadow-xs cursor-pointer transition-all ${
                 leadSmsFilter === 'Text Sent'
                   ? 'border-emerald-500 ring-2 ring-emerald-500/20 bg-emerald-50/10'
-                  : 'border-brand-border hover:border-emerald-300'
+                  : 'border-slate-200 hover:border-emerald-300'
               }`}
             >
-              <div className="flex items-center justify-between text-brand-secondary mb-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700">SMS Sent (Quo)</span>
+              <div className="flex items-center justify-between text-slate-700 mb-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-800">SMS Sent (Quo)</span>
                 <MessageSquare size={16} className="text-emerald-600 shrink-0" />
               </div>
               <div className="flex items-baseline gap-1.5">
-                <span className="text-2xl font-serif text-brand-primary font-bold">{sentSmsCount}</span>
-                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 border border-emerald-200 px-1.5 py-0.5 rounded-full">
+                <span className="text-2xl font-serif text-slate-900 font-bold">{sentSmsCount}</span>
+                <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 border border-emerald-300 px-1.5 py-0.5 rounded-full">
                   {totalMetaLeads > 0 ? Math.round((sentSmsCount / totalMetaLeads) * 100) : 0}%
                 </span>
               </div>
-              <p className="text-[11px] text-brand-muted mt-1 truncate">Contacted via SMS</p>
+              <p className="text-[11px] text-slate-600 font-semibold mt-1 truncate">Contacted via SMS</p>
             </div>
 
             {/* Card 3: Interested / Thumbs Up 👍 */}
@@ -1302,23 +1302,23 @@ export function VisitorFunnelPage() {
               className={`p-4 bg-white border rounded-xl shadow-xs cursor-pointer transition-all ${
                 leadSmsFilter.startsWith('Interested')
                   ? 'border-indigo-500 ring-2 ring-indigo-500/20 bg-indigo-50/10'
-                  : 'border-brand-border hover:border-indigo-300'
+                  : 'border-slate-200 hover:border-indigo-300'
               }`}
             >
-              <div className="flex items-center justify-between text-brand-secondary mb-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700">Interested 👍</span>
+              <div className="flex items-center justify-between text-slate-700 mb-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-800">Interested 👍</span>
                 <ThumbsUp size={16} className="text-indigo-600 shrink-0" />
               </div>
               <div className="flex items-baseline gap-1.5">
-                <span className="text-2xl font-serif text-brand-primary font-bold">{interestedCount}</span>
-                <span className="text-[10px] font-bold text-indigo-700 bg-indigo-100 border border-indigo-200 px-1.5 py-0.5 rounded-full">
+                <span className="text-2xl font-serif text-slate-900 font-bold">{interestedCount}</span>
+                <span className="text-[10px] font-bold text-indigo-800 bg-indigo-100 border border-indigo-300 px-1.5 py-0.5 rounded-full">
                   {totalMetaLeads > 0 ? Math.round((interestedCount / totalMetaLeads) * 100) : 0}%
                 </span>
               </div>
-              <div className="text-[11px] text-brand-muted mt-1 flex items-center justify-between gap-1">
+              <div className="text-[11px] text-slate-600 font-semibold mt-1 flex items-center justify-between gap-1">
                 <span className="truncate">Call/Text 👍 reply</span>
                 {unqualifiedCount > 0 && (
-                  <span className="text-[10px] font-semibold text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200 shrink-0" title={`${unqualifiedCount} unqualified leads (Thumbs Down)`}>
+                  <span className="text-[10px] font-bold text-rose-800 bg-rose-100 px-1.5 py-0.5 rounded border border-rose-300 shrink-0" title={`${unqualifiedCount} unqualified leads (Thumbs Down)`}>
                     👎 {unqualifiedCount}
                   </span>
                 )}
@@ -1331,20 +1331,20 @@ export function VisitorFunnelPage() {
               className={`p-4 bg-white border rounded-xl shadow-xs cursor-pointer transition-all ${
                 leadSmsFilter.startsWith('Follow Up')
                   ? 'border-amber-500 ring-2 ring-amber-500/20 bg-amber-50/10'
-                  : 'border-brand-border hover:border-amber-300'
+                  : 'border-slate-200 hover:border-amber-300'
               }`}
             >
-              <div className="flex items-center justify-between text-brand-secondary mb-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700">Follow Up / VM</span>
+              <div className="flex items-center justify-between text-slate-700 mb-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-800">Follow Up / VM</span>
                 <Voicemail size={16} className="text-amber-600 shrink-0" />
               </div>
               <div className="flex items-baseline gap-1.5">
-                <span className="text-2xl font-serif text-brand-primary font-bold">{followUpVmCount}</span>
-                <span className="text-[10px] font-bold text-amber-800 bg-amber-100 border border-amber-200 px-1.5 py-0.5 rounded-full">
+                <span className="text-2xl font-serif text-slate-900 font-bold">{followUpVmCount}</span>
+                <span className="text-[10px] font-bold text-amber-900 bg-amber-100 border border-amber-300 px-1.5 py-0.5 rounded-full">
                   {totalMetaLeads > 0 ? Math.round((followUpVmCount / totalMetaLeads) * 100) : 0}%
                 </span>
               </div>
-              <p className="text-[11px] text-brand-muted mt-1 truncate">VM left or follow up</p>
+              <p className="text-[11px] text-slate-600 font-semibold mt-1 truncate">VM left or follow up</p>
             </div>
 
             {/* Card 5: SMS Failed ⚠️ */}
@@ -1353,24 +1353,24 @@ export function VisitorFunnelPage() {
               className={`p-4 bg-white border rounded-xl shadow-xs cursor-pointer transition-all ${
                 leadSmsFilter === 'Failed'
                   ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/10'
-                  : 'border-brand-border hover:border-rose-300'
+                  : 'border-slate-200 hover:border-rose-300'
               }`}
             >
-              <div className="flex items-center justify-between text-brand-secondary mb-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700">SMS Failed</span>
+              <div className="flex items-center justify-between text-slate-700 mb-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-800">SMS Failed</span>
                 <AlertCircle size={16} className="text-rose-600 shrink-0" />
               </div>
               <div className="flex items-baseline gap-1.5">
-                <span className="text-2xl font-serif text-brand-primary font-bold">{failedSmsCount}</span>
+                <span className="text-2xl font-serif text-slate-900 font-bold">{failedSmsCount}</span>
                 <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${
                   failedSmsCount > 0
-                    ? 'text-rose-700 bg-rose-100 border-rose-200'
-                    : 'text-slate-600 bg-slate-100 border-slate-200'
+                    ? 'text-rose-800 bg-rose-100 border-rose-300'
+                    : 'text-slate-700 bg-slate-100 border-slate-300'
                 }`}>
                   {totalMetaLeads > 0 ? Math.round((failedSmsCount / totalMetaLeads) * 100) : 0}%
                 </span>
               </div>
-              <p className="text-[11px] text-brand-muted mt-1 truncate">Delivery errors</p>
+              <p className="text-[11px] text-slate-600 font-semibold mt-1 truncate">Delivery errors</p>
             </div>
 
             {/* Card 6: Uncontacted Leads */}
@@ -1378,21 +1378,21 @@ export function VisitorFunnelPage() {
               onClick={() => setLeadSmsFilter('Uncontacted')}
               className={`p-4 bg-white border rounded-xl shadow-xs cursor-pointer transition-all ${
                 leadSmsFilter === 'Uncontacted'
-                  ? 'border-slate-500 ring-2 ring-slate-500/20 bg-slate-50'
-                  : 'border-brand-border hover:border-slate-300'
+                  ? 'border-slate-500 ring-2 ring-slate-500/20 bg-slate-100'
+                  : 'border-slate-200 hover:border-slate-300'
               }`}
             >
-              <div className="flex items-center justify-between text-brand-secondary mb-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700">Uncontacted</span>
+              <div className="flex items-center justify-between text-slate-700 mb-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-800">Uncontacted</span>
                 <Users size={16} className="text-slate-600 shrink-0" />
               </div>
               <div className="flex items-baseline gap-1.5">
-                <span className="text-2xl font-serif text-brand-primary font-bold">{uncontactedCount}</span>
-                <span className="text-[10px] font-bold text-slate-700 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded-full">
+                <span className="text-2xl font-serif text-slate-900 font-bold">{uncontactedCount}</span>
+                <span className="text-[10px] font-bold text-slate-800 bg-slate-100 border border-slate-300 px-1.5 py-0.5 rounded-full">
                   {totalMetaLeads > 0 ? Math.round((uncontactedCount / totalMetaLeads) * 100) : 0}%
                 </span>
               </div>
-              <p className="text-[11px] text-brand-muted mt-1 truncate">Awaiting outreach</p>
+              <p className="text-[11px] text-slate-600 font-semibold mt-1 truncate">Awaiting outreach</p>
             </div>
           </div>
 
