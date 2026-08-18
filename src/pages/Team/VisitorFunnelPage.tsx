@@ -499,6 +499,21 @@ export function VisitorFunnelPage() {
     }
   };
 
+  // Update SMS Delivery Status manually (Sent / Not Sent toggle)
+  const handleSetSmsSentStatus = async (leadId: string, status: 'sent' | 'not_sent', e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    try {
+      const docRef = doc(db, 'meta_leads', leadId);
+      await setDoc(docRef, {
+        smsStatus: status,
+        smsSentAt: status === 'sent' ? new Date().toISOString() : null,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+    } catch (err) {
+      console.error('Error updating SMS sent status:', err);
+    }
+  };
+
   // Fetch & Open Default SMS & GIF Settings Modal
   const handleOpenDefaultSmsModal = async () => {
     setShowDefaultSmsModal(true);
@@ -1393,7 +1408,7 @@ export function VisitorFunnelPage() {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
+                <table className="w-full text-left border-collapse min-w-[1300px]">
                   <thead>
                     <tr className="bg-slate-100 border-b-2 border-slate-200 text-xs font-bold text-slate-700 uppercase tracking-wider">
                       <th className="py-3 px-4">Lead Contact</th>
@@ -1402,7 +1417,7 @@ export function VisitorFunnelPage() {
                       <th className="py-3 px-4">Ad / Form Name</th>
                       <th className="py-3 px-4">Captured Date</th>
                       <th className="py-3 px-4">SMS Status (Quo)</th>
-                      <th className="py-3 px-4 text-right">Manual Action</th>
+                      <th className="py-3 px-6 text-right">Manual Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 text-xs">
@@ -1568,7 +1583,7 @@ export function VisitorFunnelPage() {
                         </td>
 
                         {/* Manual Action Buttons (Call Column, Send Default Column, Customize Column, Delete) */}
-                        <td className="py-3.5 px-4 text-right shrink-0">
+                        <td className="py-3.5 px-6 text-right shrink-0">
                           <div className="inline-flex items-start justify-end gap-3 shrink-0" onClick={(e) => e.stopPropagation()}>
                             
                             {/* COLUMN 1: CALL BUTTON & CALL FEEDBACK */}
@@ -1645,11 +1660,11 @@ export function VisitorFunnelPage() {
                                 )}
                               </button>
 
-                              {/* SMS Feedback Sub-Buttons (Thumbs Up, Thumbs Down) */}
+                              {/* SMS Feedback Sub-Buttons (Thumbs Up, Sent, Thumbs Down) */}
                               <div className="inline-flex items-center justify-center gap-1 shrink-0 w-full">
                                 <button
                                   onClick={(e) => handleSetSmsFeedback(lead.id, lead.smsFeedback === 'good' ? 'uncontacted' : 'good', e)}
-                                  className={`inline-flex items-center justify-center px-2 py-1 rounded-md text-xs font-bold border transition-all cursor-pointer ${
+                                  className={`inline-flex items-center justify-center p-1 rounded-md text-xs font-bold border transition-all cursor-pointer ${
                                     lead.smsFeedback === 'good'
                                       ? 'bg-emerald-600 text-white border-emerald-700 shadow-2xs ring-2 ring-emerald-400/30'
                                       : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300'
@@ -1660,8 +1675,21 @@ export function VisitorFunnelPage() {
                                 </button>
 
                                 <button
+                                  onClick={(e) => handleSetSmsSentStatus(lead.id, lead.smsStatus === 'sent' ? 'not_sent' : 'sent', e)}
+                                  className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-bold border transition-all cursor-pointer ${
+                                    lead.smsStatus === 'sent'
+                                      ? 'bg-indigo-600 text-white border-indigo-700 shadow-2xs ring-2 ring-indigo-400/30'
+                                      : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-300'
+                                  }`}
+                                  title="Mark SMS Status: Sent (Text Sent)"
+                                >
+                                  <MessageSquare size={11} />
+                                  <span>Sent</span>
+                                </button>
+
+                                <button
                                   onClick={(e) => handleSetSmsFeedback(lead.id, lead.smsFeedback === 'bad' ? 'uncontacted' : 'bad', e)}
-                                  className={`inline-flex items-center justify-center px-2 py-1 rounded-md text-xs font-bold border transition-all cursor-pointer ${
+                                  className={`inline-flex items-center justify-center p-1 rounded-md text-xs font-bold border transition-all cursor-pointer ${
                                     lead.smsFeedback === 'bad'
                                       ? 'bg-rose-600 text-white border-rose-700 shadow-2xs ring-2 ring-rose-400/30'
                                       : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-300'
