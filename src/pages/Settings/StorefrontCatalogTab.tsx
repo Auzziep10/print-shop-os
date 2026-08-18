@@ -2409,14 +2409,14 @@ export function StorefrontCatalogTab() {
                           type="button"
                           onClick={() => setActiveColorModalItem(p)}
                           className={`flex-1 py-2 px-3 border rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 ${
-                            (allowedColors[p.style.toLowerCase()] !== undefined && getFilteredProductColors(p, allowedColors).length < (p.colors?.length || 0))
+                            (allowedColors[p.style.toLowerCase()] !== undefined && getFilteredProductColors(p, allowedColors, customColors).length < getFilteredProductColors(p, null, customColors).length)
                               ? 'bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100'
                               : 'bg-white border-brand-border text-brand-primary hover:bg-neutral-50'
                           }`}
                           title="Manage custom mockups, tagless collar, and available storefront colors"
                         >
                           <ImageIcon size={12} />
-                          <span>Colors ({getFilteredProductColors(p, allowedColors).length}{(allowedColors[p.style.toLowerCase()] !== undefined && getFilteredProductColors(p, allowedColors).length < (p.colors?.length || 0)) ? `/${p.colors?.length || 0}` : ''})</span>
+                          <span>Colors ({getFilteredProductColors(p, allowedColors, customColors).length}{(allowedColors[p.style.toLowerCase()] !== undefined && getFilteredProductColors(p, allowedColors, customColors).length < getFilteredProductColors(p, null, customColors).length) ? `/${getFilteredProductColors(p, null, customColors).length}` : ''})</span>
                         </button>
                       </div>
                     )}
@@ -3197,14 +3197,14 @@ export function StorefrontCatalogTab() {
                                 type="button"
                                 onClick={() => setActiveColorModalItem(p)}
                                 className={`flex-1 py-1.5 px-3 border rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 ${
-                                  (allowedColors[p.style.toLowerCase()] !== undefined && getFilteredProductColors(p, allowedColors).length < (p.colors?.length || 0))
+                                  (allowedColors[p.style.toLowerCase()] !== undefined && getFilteredProductColors(p, allowedColors, customColors).length < getFilteredProductColors(p, null, customColors).length)
                                     ? 'bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100'
                                     : 'bg-white border-brand-border text-brand-primary hover:bg-neutral-50'
                                 }`}
                                 title="Manage custom mockups, tagless collar, and available storefront colors"
                               >
                                 <ImageIcon size={12} />
-                                <span>Colors ({getFilteredProductColors(p, allowedColors).length})</span>
+                                <span>Colors ({getFilteredProductColors(p, allowedColors, customColors).length}{(allowedColors[p.style.toLowerCase()] !== undefined && getFilteredProductColors(p, allowedColors, customColors).length < getFilteredProductColors(p, null, customColors).length) ? `/${getFilteredProductColors(p, null, customColors).length}` : ''})</span>
                               </button>
                             </div>
 
