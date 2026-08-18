@@ -101,7 +101,7 @@ export function VisitorFunnelPage() {
   const [copiedTextKey, setCopiedTextKey] = useState<string | null>(null);
 
   // Meta Lead Sorting & Form Answer Filters State
-  const [leadSortBy, setLeadSortBy] = useState<'date_desc' | 'date_asc' | 'name_asc' | 'name_desc' | 'size_desc' | 'urgency_asc'>('date_desc');
+  const [leadSortBy, setLeadSortBy] = useState<'date_desc' | 'date_asc' | 'name_asc' | 'name_desc' | 'size_desc' | 'urgency_asc' | 'tz_east_west' | 'tz_west_east'>('date_desc');
   const [leadSizeFilter, setLeadSizeFilter] = useState<string>('All');
   const [leadUrgencyFilter, setLeadUrgencyFilter] = useState<string>('All');
   const [leadTypeFilter, setLeadTypeFilter] = useState<string>('All');
@@ -734,7 +734,27 @@ export function VisitorFunnelPage() {
     });
 
     // Multi-Criteria Sorting
+    const getTzRank = (lead: MetaLead): number => {
+      if (!lead.phone) return 99;
+      const loc = getPhoneLocationAndTz(lead.phone);
+      if (!loc || !loc.tzAbbr) return 90;
+      const tz = loc.tzAbbr.toUpperCase();
+      if (tz === 'ET' || tz === 'EST' || tz === 'EDT') return 1;
+      if (tz === 'CT' || tz === 'CST' || tz === 'CDT') return 2;
+      if (tz === 'MT' || tz === 'MST' || tz === 'MDT') return 3;
+      if (tz === 'PT' || tz === 'PST' || tz === 'PDT') return 4;
+      if (tz === 'AKT' || tz === 'AKST' || tz === 'AKDT') return 5;
+      if (tz === 'HST' || tz === 'HAST') return 6;
+      return 80;
+    };
+
     list.sort((a, b) => {
+      if (leadSortBy === 'tz_east_west') {
+        return getTzRank(a) - getTzRank(b);
+      }
+      if (leadSortBy === 'tz_west_east') {
+        return getTzRank(b) - getTzRank(a);
+      }
       if (leadSortBy === 'date_desc') {
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       }
@@ -1329,6 +1349,8 @@ export function VisitorFunnelPage() {
                   >
                     <option value="date_desc">🕒 Date Captured (Newest First)</option>
                     <option value="date_asc">⏳ Date Captured (Oldest First)</option>
+                    <option value="tz_east_west">🌐 Time Zone (East to West: ET → CT → MT → PT)</option>
+                    <option value="tz_west_east">🌐 Time Zone (West to East: PT → MT → CT → ET)</option>
                     <option value="size_desc">📦 Typical Order Size (Largest First)</option>
                     <option value="urgency_asc">⚡ Order Urgency (ASAP First)</option>
                     <option value="name_asc">👤 Lead Name (A - Z)</option>
