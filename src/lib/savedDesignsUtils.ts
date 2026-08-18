@@ -1,4 +1,4 @@
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { db } from './firebase';
 
 export interface SavedDesignItem {
@@ -66,9 +66,9 @@ export async function saveDesignToLibrary(
       updatedList = [newDesignItem, ...currentSavedDesigns.filter(d => d.id !== newDesignItem.id)];
     }
 
-    await updateDoc(docRef, {
+    await setDoc(docRef, {
       savedDesigns: updatedList
-    });
+    }, { merge: true });
 
     return newDesignItem;
   } catch (err) {

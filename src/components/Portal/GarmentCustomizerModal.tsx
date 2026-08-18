@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '../../lib/firebase';
-import { X, Loader2, Check, FileText, Sparkles, RefreshCw, Type, Image as ImageIcon, Sliders, Trash2, Bold, Italic, Search, Shirt, Plus, Palette, Eye } from 'lucide-react';
+import { db, storage, auth } from '../../lib/firebase';
+import { X, Loader2, Check, FileText, Sparkles, RefreshCw, Type, Image as ImageIcon, Sliders, Trash2, Bold, Italic, Search, Shirt, Plus, Palette, Eye, UserPlus } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
 import { generateRotatedGarment } from '../../lib/geminiService';
 import { getSwatchColor } from '../shared/GarmentBrowser';
 import sanmarCatalogJson from '../../data/sanmar-catalog.json';
@@ -181,6 +182,77 @@ export function GarmentCustomizerModal({
   const [isSaveToLibraryOpen, setIsSaveToLibraryOpen] = useState(false);
   const [libraryDesignName, setLibraryDesignName] = useState('');
   const [isSavingToLibrary, setIsSavingToLibrary] = useState(false);
+
+  // Auth state for guest account creation prompt
+  let authContext: any = null;
+  try {
+    authContext = useAuth();
+  } catch (e) {
+    // Fallback if rendered outside AuthProvider
+  }
+
+  const currentUser = authContext?.user || auth.currentUser;
+  const currentCustId = (authContext?.userData?.customerId) || (customerId && customerId !== 'PUBLIC_VISITOR' ? customerId : null);
+  const isAuthenticated = Boolean(currentUser && (currentCustId || authContext?.userData?.id || currentUser?.uid));
+
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
+
+  const handleGoogleAuthAndSave = async () => {
+    if (!authContext?.signInWithGoogle) {
+      setAuthError('Google sign-in is not available right now.');
+      return;
+    }
+    setIsAuthenticating(true);
+    setAuthError('');
+    try {
+      const cred = await authContext.signInWithGoogle();
+      const loggedUser = cred.user;
+      const effectiveCustId = authContext?.userData?.customerId || loggedUser?.uid || `cust-${Date.now()}`;
+      setIsAuthenticating(false);
+      await handleSave(libraryDesignName, effectiveCustId);
+    } catch (err: any) {
+      console.error("Google Auth error:", err);
+      setAuthError(err.message || 'Google sign-in failed.');
+      setIsAuthenticating(false);
+    }
+  };
+
+  const handleEmailAuthAndSave = async () => {
+    if (!authEmail.trim() || !authPassword.trim()) {
+      setAuthError('Please enter an email address and password.');
+      return;
+    }
+    if (authPassword.length < 6) {
+      setAuthError('Password must be at least 6 characters.');
+      return;
+    }
+    setIsAuthenticating(true);
+    setAuthError('');
+    try {
+      let loggedUser: any = null;
+      try {
+        const cred = await authContext.signUpWithEmail(authEmail.trim(), authPassword);
+        loggedUser = cred.user;
+      } catch (signUpErr: any) {
+        if (signUpErr.code === 'auth/email-already-in-use') {
+          const cred = await authContext.signInWithEmail(authEmail.trim(), authPassword);
+          loggedUser = cred.user;
+        } else {
+          throw signUpErr;
+        }
+      }
+      const effectiveCustId = authContext?.userData?.customerId || loggedUser?.uid || `cust-${Date.now()}`;
+      setIsAuthenticating(false);
+      await handleSave(libraryDesignName, effectiveCustId);
+    } catch (err: any) {
+      console.error("Email Auth error:", err);
+      setAuthError(err.message || 'Account creation or sign-in failed.');
+      setIsAuthenticating(false);
+    }
+  };
 
   const [recolorColor, setRecolorColor] = useState('#000000');
 
@@ -1982,7 +2054,7 @@ export function GarmentCustomizerModal({
     }
   };
 
-  const handleSave = async (saveToLibraryName?: string) => {
+  const handleSave = async (saveToLibraryName?: string, overrideCustomerId?: string) => {
     if (isSaving || isSavingToLibrary) return;
     if (saveToLibraryName) {
       setIsSavingToLibrary(true);
@@ -2299,8 +2371,9 @@ export function GarmentCustomizerModal({
         tagSizeSpelledOut: tagSize.spelledOut || false
       };
 
-      if (saveToLibraryName && saveToLibraryName.trim() && customerId !== 'PUBLIC_VISITOR') {
-        await saveDesignToLibrary(customerId || 'CUS-001', saveToLibraryName.trim(), finalCustomizedGarment);
+      const activeCustId = overrideCustomerId || (authContext?.userData?.customerId) || (currentUser?.uid) || (customerId && customerId !== 'PUBLIC_VISITOR' ? customerId : null);
+      if (saveToLibraryName && saveToLibraryName.trim() && activeCustId && activeCustId !== 'PUBLIC_VISITOR') {
+        await saveDesignToLibrary(activeCustId, saveToLibraryName.trim(), finalCustomizedGarment);
         alert(`Successfully saved "${saveToLibraryName.trim()}" to your Saved Designs library!`);
       }
 
@@ -3850,7 +3923,7 @@ export function GarmentCustomizerModal({
         </div>
       </div>
 
-      {/* Save to Saved Designs Naming Dialog Overlay */}
+      {/* Save to Saved Designs Naming & Account Prompt Dialog Overlay */}
       {isSaveToLibraryOpen && (
         <div 
           className="fixed inset-0 z-[150] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto"
@@ -3868,57 +3941,150 @@ export function GarmentCustomizerModal({
               <button
                 type="button"
                 onClick={() => setIsSaveToLibraryOpen(false)}
-                className="p-1 rounded-full hover:bg-neutral-100 text-neutral-400"
+                className="p-1 rounded-full hover:bg-neutral-100 text-neutral-400 cursor-pointer"
               >
                 <X size={18} />
               </button>
             </div>
 
-            <p className="text-xs text-neutral-500">
-              Save this customized garment design to your personal library so you can re-order it anytime with 1 click.
-            </p>
+            {!isAuthenticated ? (
+              /* Account Creation / Sign-In Prompt for Guest Visitors */
+              <div className="space-y-4">
+                <div className="bg-amber-50/80 border border-amber-200/80 rounded-2xl p-4 flex gap-3 items-start text-xs text-amber-900">
+                  <div className="bg-amber-500/10 p-2 rounded-xl text-amber-600 shrink-0 mt-0.5">
+                    <UserPlus size={18} />
+                  </div>
+                  <div className="space-y-1">
+                    <span className="font-extrabold text-amber-950 block text-xs">Account Required to Save Mocks</span>
+                    <p className="text-[11px] leading-relaxed text-amber-800">
+                      Create a free account or sign in to save customized garment designs to your personal library and re-order anytime with 1 click.
+                    </p>
+                  </div>
+                </div>
 
-            <div>
-              <label className="text-[10px] font-extrabold uppercase tracking-wider text-neutral-400 block mb-1">
-                Design Name / Label *
-              </label>
-              <input
-                type="text"
-                value={libraryDesignName}
-                onChange={e => setLibraryDesignName(e.target.value)}
-                placeholder="e.g. Summer Staff Hoodie 2026"
-                className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-neutral-900 focus:outline-none focus:ring-1 focus:ring-black"
-                autoFocus
-              />
-            </div>
+                <div>
+                  <label className="text-[10px] font-extrabold uppercase tracking-wider text-neutral-400 block mb-1">
+                    Design Name / Label *
+                  </label>
+                  <input
+                    type="text"
+                    value={libraryDesignName}
+                    onChange={e => setLibraryDesignName(e.target.value)}
+                    placeholder="e.g. Summer Staff Hoodie 2026"
+                    className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-neutral-900 focus:outline-none focus:ring-1 focus:ring-black"
+                  />
+                </div>
 
-            <div className="flex justify-end gap-2 pt-2 border-t border-neutral-100">
-              <button
-                type="button"
-                onClick={() => setIsSaveToLibraryOpen(false)}
-                className="px-4 py-2 text-xs font-bold text-neutral-600 bg-neutral-100 hover:bg-neutral-200 rounded-xl"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={isSavingToLibrary || !libraryDesignName.trim()}
-                onClick={() => handleSave(libraryDesignName)}
-                className="px-5 py-2 text-xs font-bold text-white bg-black hover:bg-neutral-800 rounded-xl flex items-center gap-1.5 disabled:opacity-50"
-              >
-                {isSavingToLibrary ? (
-                  <>
-                    <Loader2 size={13} className="animate-spin" />
-                    <span>Saving...</span>
-                  </>
-                ) : (
-                  <>
-                    <Check size={13} />
-                    <span>Save to Library</span>
-                  </>
-                )}
-              </button>
-            </div>
+                <button
+                  type="button"
+                  disabled={isAuthenticating || isSavingToLibrary || !libraryDesignName.trim()}
+                  onClick={handleGoogleAuthAndSave}
+                  className="w-full bg-white border border-neutral-300 hover:bg-neutral-50 text-neutral-800 px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                  </svg>
+                  <span>{isAuthenticating || isSavingToLibrary ? "Connecting & Saving..." : "Continue with Google & Save"}</span>
+                </button>
+
+                <div className="relative flex py-1 items-center">
+                  <div className="flex-grow border-t border-neutral-200"></div>
+                  <span className="flex-shrink mx-3 text-[9px] font-bold text-neutral-400 uppercase tracking-widest">or create account with email</span>
+                  <div className="flex-grow border-t border-neutral-200"></div>
+                </div>
+
+                <div className="space-y-2">
+                  <input
+                    type="email"
+                    value={authEmail}
+                    onChange={e => { setAuthEmail(e.target.value); setAuthError(''); }}
+                    placeholder="Your Email Address"
+                    className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3.5 py-2 text-xs font-medium text-neutral-900 focus:outline-none focus:ring-1 focus:ring-black"
+                  />
+                  <input
+                    type="password"
+                    value={authPassword}
+                    onChange={e => { setAuthPassword(e.target.value); setAuthError(''); }}
+                    placeholder="Password (min. 6 characters)"
+                    className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3.5 py-2 text-xs font-medium text-neutral-900 focus:outline-none focus:ring-1 focus:ring-black"
+                  />
+                  {authError && (
+                    <p className="text-[10px] text-red-600 font-bold">{authError}</p>
+                  )}
+                  <button
+                    type="button"
+                    disabled={isAuthenticating || isSavingToLibrary || !authEmail.trim() || !authPassword.trim() || !libraryDesignName.trim()}
+                    onClick={handleEmailAuthAndSave}
+                    className="w-full bg-neutral-900 hover:bg-black text-white px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-40"
+                  >
+                    {isAuthenticating || isSavingToLibrary ? <Loader2 size={13} className="animate-spin" /> : <UserPlus size={13} />}
+                    <span>Create Account & Save to Library</span>
+                  </button>
+                </div>
+
+                <div className="flex justify-end pt-2 border-t border-neutral-100">
+                  <button
+                    type="button"
+                    onClick={() => setIsSaveToLibraryOpen(false)}
+                    className="px-4 py-2 text-xs font-bold text-neutral-600 bg-neutral-100 hover:bg-neutral-200 rounded-xl cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* Standard Authenticated User Dialog */
+              <div className="space-y-4">
+                <p className="text-xs text-neutral-500">
+                  Save this customized garment design to your personal library so you can re-order it anytime with 1 click.
+                </p>
+
+                <div>
+                  <label className="text-[10px] font-extrabold uppercase tracking-wider text-neutral-400 block mb-1">
+                    Design Name / Label *
+                  </label>
+                  <input
+                    type="text"
+                    value={libraryDesignName}
+                    onChange={e => setLibraryDesignName(e.target.value)}
+                    placeholder="e.g. Summer Staff Hoodie 2026"
+                    className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-neutral-900 focus:outline-none focus:ring-1 focus:ring-black"
+                    autoFocus
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2 border-t border-neutral-100">
+                  <button
+                    type="button"
+                    onClick={() => setIsSaveToLibraryOpen(false)}
+                    className="px-4 py-2 text-xs font-bold text-neutral-600 bg-neutral-100 hover:bg-neutral-200 rounded-xl cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isSavingToLibrary || !libraryDesignName.trim()}
+                    onClick={() => handleSave(libraryDesignName)}
+                    className="px-5 py-2 text-xs font-bold text-white bg-black hover:bg-neutral-800 rounded-xl flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                  >
+                    {isSavingToLibrary ? (
+                      <>
+                        <Loader2 size={13} className="animate-spin" />
+                        <span>Saving...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Check size={13} />
+                        <span>Save to Library</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
