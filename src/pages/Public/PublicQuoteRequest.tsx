@@ -1053,13 +1053,14 @@ export function PublicQuoteRequest() {
 
   // Autofill user details when authenticated
   useEffect(() => {
-    if (user || userData) {
+    const loggedInEmail = user?.email || userData?.email;
+    if (loggedInEmail) {
       setCustomerInfo(prev => ({
         ...prev,
-        contactName: prev.contactName || userData?.name || user?.displayName || '',
-        emailAddress: prev.emailAddress || user?.email || userData?.email || '',
-        companyName: prev.companyName || userData?.companyName || '',
-        phone: prev.phone || userData?.phone || ''
+        emailAddress: loggedInEmail,
+        contactName: userData?.name || user?.displayName || prev.contactName || '',
+        companyName: userData?.companyName || prev.companyName || '',
+        phone: userData?.phone || prev.phone || ''
       }));
       // Company/phone usually live on the linked customer record, not the user doc
       const custId = (userData as any)?.customerId;
@@ -1069,9 +1070,10 @@ export function PublicQuoteRequest() {
           const c: any = snap.data();
           setCustomerInfo(prev => ({
             ...prev,
-            companyName: prev.companyName || c.company || c.name || '',
-            phone: prev.phone || c.phone || c.contactPhone || '',
-            contactName: prev.contactName || c.contactName || ''
+            emailAddress: loggedInEmail,
+            companyName: c.company || c.name || prev.companyName || '',
+            phone: c.phone || c.contactPhone || prev.phone || '',
+            contactName: c.contactName || prev.contactName || ''
           }));
         }).catch(() => { /* prefill is best-effort */ });
       }
@@ -5269,9 +5271,10 @@ export function PublicQuoteRequest() {
                     <input 
                       type="email" 
                       required
-                      value={customerInfo.emailAddress} 
+                      value={user ? (user.email || userData?.email || customerInfo.emailAddress) : customerInfo.emailAddress} 
                       onChange={e => setCustomerInfo({...customerInfo, emailAddress: e.target.value})} 
-                      className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-2.5 text-xs font-bold focus:outline-none focus:border-neutral-400" 
+                      disabled={Boolean(user)}
+                      className={`w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-2.5 text-xs font-bold focus:outline-none focus:border-neutral-400 ${user ? 'opacity-70 cursor-not-allowed select-none' : ''}`} 
                       placeholder="jane@company.com" 
                     />
                   </div>
