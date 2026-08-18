@@ -1422,13 +1422,12 @@ export function VisitorFunnelPage() {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse min-w-[1400px]">
+                <table className="w-full text-left border-collapse min-w-[1250px]">
                   <thead>
                     <tr className="bg-slate-100 border-b-2 border-slate-200 text-xs font-bold text-slate-700 uppercase tracking-wider">
                       <th className="py-3 px-4">Lead Contact</th>
                       <th className="py-3 px-4">Business Name</th>
                       <th className="py-3 px-4">Phone & Email</th>
-                      <th className="py-3 px-4">Ad / Form Name</th>
                       <th className="py-3 px-4">Captured Date</th>
                       <th className="py-3 px-4">SMS Status (Quo)</th>
                       <th className="py-3 px-4 text-left">Manual Action</th>
@@ -1562,83 +1561,7 @@ export function VisitorFunnelPage() {
                           )}
                         </td>
 
-                        {/* Ad & Form */}
-                        <td className="py-3.5 px-4">
-                          <span className="font-bold text-slate-900 block text-xs">{lead.adName || 'Meta Ad'}</span>
-                          <span className="text-xs text-slate-600 font-medium block mt-0.5">{lead.formName || 'Lead Form'}</span>
-                        </td>
-
-                        {/* Timestamp */}
-                        <td className="py-3.5 px-4">
-                          <div className="font-bold text-slate-900 text-xs">{formatTimeAgo(lead.createdAt)}</div>
-                          <div className="text-xs text-slate-600 font-medium mt-0.5">
-                            {new Date(lead.createdAt).toLocaleDateString()} {new Date(lead.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </div>
-                        </td>
-
-                        {/* SMS & Lead Status Badges */}
-                        <td className="py-3.5 px-4">
-                          <div className="flex flex-col gap-1 items-start">
-                            {/* Call Feedback Status Badge */}
-                            {lead.callFeedback === 'good' && (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 whitespace-nowrap">
-                                <ThumbsUp size={11} />
-                                Call: Interested
-                              </span>
-                            )}
-                            {lead.callFeedback === 'neutral' && (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-300 whitespace-nowrap">
-                                <ThumbsUp size={11} className="-rotate-90 text-amber-700" />
-                                Call: Follow Up / Neutral
-                              </span>
-                            )}
-                            {lead.callFeedback === 'voicemail' && (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-300 whitespace-nowrap">
-                                <Voicemail size={11} />
-                                Call: Voicemail Left
-                              </span>
-                            )}
-                            {lead.callFeedback === 'bad' && (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800 border border-rose-300 whitespace-nowrap">
-                                <ThumbsDown size={11} />
-                                Call: Unqualified
-                              </span>
-                            )}
-
-                            {/* SMS Feedback Status Badge */}
-                            {lead.smsFeedback === 'good' && (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-300 whitespace-nowrap">
-                                <ThumbsUp size={11} />
-                                Text: Good Reply
-                              </span>
-                            )}
-                            {lead.smsFeedback === 'bad' && (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800 border border-rose-300 whitespace-nowrap">
-                                <ThumbsDown size={11} />
-                                Text: Bad Reply
-                              </span>
-                            )}
-
-                            {/* Quo Delivery Status Badge */}
-                            {lead.smsStatus === 'sent' ? (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 whitespace-nowrap">
-                                <CheckCircle2 size={11} />
-                                Text Sent via Quo
-                              </span>
-                            ) : lead.smsStatus === 'failed' ? (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200 whitespace-nowrap" title={lead.lastError}>
-                                <AlertCircle size={11} />
-                                Failed
-                              </span>
-                            ) : (!lead.callFeedback && !lead.smsFeedback) ? (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200 whitespace-nowrap">
-                                Uncontacted
-                              </span>
-                            ) : null}
-                          </div>
-                        </td>
-
-                        {/* Manual Action Buttons (Call Column, SMS Column [Send Default + Customize], Delete) */}
+                        {/* Manual Action Buttons (Call Column, Send Default Column, Customize Column, Delete) */}
                         <td className="py-3.5 px-4 text-left shrink-0">
                           <div className="inline-flex items-start justify-start gap-3 shrink-0" onClick={(e) => e.stopPropagation()}>
                             
@@ -1698,7 +1621,7 @@ export function VisitorFunnelPage() {
                                   className={`inline-flex items-center justify-center p-1 rounded-md text-xs font-bold border transition-all cursor-pointer ${
                                     lead.callFeedback === 'bad'
                                       ? 'bg-rose-600 text-white border-rose-700 shadow-2xs ring-2 ring-rose-400/30'
-                                      : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-300'
+                                      : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300'
                                   }`}
                                   title="Call Outcome: Thumbs Down (Unqualified / Bad Call)"
                                 >
@@ -1707,38 +1630,26 @@ export function VisitorFunnelPage() {
                               </div>
                             </div>
 
-                            {/* COLUMN 2: TEXT ACTIONS (SEND DEFAULT & CUSTOMIZE SIDE-BY-SIDE + SMS FEEDBACK) */}
+                            {/* COLUMN 2: SEND DEFAULT BUTTON & SMS FEEDBACK */}
                             <div className="flex flex-col items-center gap-1.5 shrink-0">
-                              <div className="flex items-center gap-1.5">
-                                <button
-                                  onClick={(e) => handleSendDefaultLeadSms(lead, e)}
-                                  disabled={sendingLeadId === lead.id || !lead.phone}
-                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition-all shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shrink-0 h-8 whitespace-nowrap"
-                                  title="Send saved default text message & GIF via Quo instantly with 1-click"
-                                >
-                                  {sendingLeadId === lead.id ? (
-                                    <>
-                                      <Loader2 size={13} className="animate-spin" />
-                                      Sending...
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Sparkles size={13} />
-                                      Send Default
-                                    </>
-                                  )}
-                                </button>
-
-                                <button
-                                  onClick={(e) => handleOpenSmsModal(lead, e)}
-                                  disabled={sendingModalSms || !lead.phone}
-                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-white hover:bg-black transition-all shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shrink-0 h-8 whitespace-nowrap"
-                                  title="Customize message before sending"
-                                >
-                                  <Send size={13} />
-                                  Customize
-                                </button>
-                              </div>
+                              <button
+                                onClick={(e) => handleSendDefaultLeadSms(lead, e)}
+                                disabled={sendingLeadId === lead.id || !lead.phone}
+                                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition-all shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shrink-0 h-8 whitespace-nowrap"
+                                title="Send saved default text message & GIF via Quo instantly with 1-click"
+                              >
+                                {sendingLeadId === lead.id ? (
+                                  <>
+                                    <Loader2 size={13} className="animate-spin" />
+                                    Sending...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Sparkles size={13} />
+                                    Send Default
+                                  </>
+                                )}
+                              </button>
 
                               {/* SMS Feedback Sub-Buttons (Thumbs Up, Sent, Thumbs Down) */}
                               <div className="inline-flex items-center justify-center gap-1 shrink-0 w-full">
@@ -1781,7 +1692,20 @@ export function VisitorFunnelPage() {
                               </div>
                             </div>
 
-                            {/* COLUMN 3: DELETE BUTTON */}
+                            {/* COLUMN 3: CUSTOMIZE BUTTON */}
+                            <div className="flex flex-col items-center gap-1.5 shrink-0">
+                              <button
+                                onClick={(e) => handleOpenSmsModal(lead, e)}
+                                disabled={sendingModalSms || !lead.phone}
+                                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-white hover:bg-black transition-all shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shrink-0 h-8 whitespace-nowrap"
+                                title="Customize message before sending"
+                              >
+                                <Send size={13} />
+                                Customize
+                              </button>
+                            </div>
+
+                            {/* COLUMN 4: DELETE BUTTON */}
                             <button
                               onClick={(e) => handleDeleteLead(lead.id, e)}
                               className="p-1.5 text-slate-400 hover:text-rose-600 transition-colors rounded shrink-0 self-start mt-0.5"
