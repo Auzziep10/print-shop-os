@@ -1516,19 +1516,19 @@ export function VisitorFunnelPage() {
                           <div className="flex flex-col gap-1 items-start">
                             {/* Call Feedback Status Badge */}
                             {lead.callFeedback === 'good' && (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 whitespace-nowrap">
                                 <ThumbsUp size={11} />
                                 Call: Interested
                               </span>
                             )}
                             {lead.callFeedback === 'voicemail' && (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-300 whitespace-nowrap">
                                 <Voicemail size={11} />
                                 Call: Voicemail Left
                               </span>
                             )}
                             {lead.callFeedback === 'bad' && (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800 border border-rose-300">
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800 border border-rose-300 whitespace-nowrap">
                                 <ThumbsDown size={11} />
                                 Call: Unqualified
                               </span>
@@ -1536,13 +1536,13 @@ export function VisitorFunnelPage() {
 
                             {/* SMS Feedback Status Badge */}
                             {lead.smsFeedback === 'good' && (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-300">
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-300 whitespace-nowrap">
                                 <ThumbsUp size={11} />
                                 Text: Good Reply
                               </span>
                             )}
                             {lead.smsFeedback === 'bad' && (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800 border border-rose-300">
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800 border border-rose-300 whitespace-nowrap">
                                 <ThumbsDown size={11} />
                                 Text: Bad Reply
                               </span>
@@ -1550,17 +1550,17 @@ export function VisitorFunnelPage() {
 
                             {/* Quo Delivery Status Badge */}
                             {lead.smsStatus === 'sent' ? (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 whitespace-nowrap">
                                 <CheckCircle2 size={11} />
                                 Text Sent via Quo
                               </span>
                             ) : lead.smsStatus === 'failed' ? (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200" title={lead.lastError}>
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200 whitespace-nowrap" title={lead.lastError}>
                                 <AlertCircle size={11} />
                                 Failed
                               </span>
                             ) : (!lead.callFeedback && !lead.smsFeedback) ? (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200">
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200 whitespace-nowrap">
                                 Uncontacted
                               </span>
                             ) : null}
