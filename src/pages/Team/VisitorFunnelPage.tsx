@@ -1422,16 +1422,16 @@ export function VisitorFunnelPage() {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse min-w-[1250px]">
+                <table className="w-full text-left border-collapse min-w-[1400px]">
                   <thead>
                     <tr className="bg-slate-100 border-b-2 border-slate-200 text-xs font-bold text-slate-700 uppercase tracking-wider">
-                      <th className="py-3 px-3">Lead Contact</th>
-                      <th className="py-3 px-3">Business Name</th>
-                      <th className="py-3 px-3">Phone & Email</th>
-                      <th className="py-3 px-3">Ad / Form Name</th>
-                      <th className="py-3 px-3">Captured Date</th>
-                      <th className="py-3 px-3">SMS Status (Quo)</th>
-                      <th className="py-3 px-3 text-left">Manual Action</th>
+                      <th className="py-3 px-4">Lead Contact</th>
+                      <th className="py-3 px-4">Business Name</th>
+                      <th className="py-3 px-4">Phone & Email</th>
+                      <th className="py-3 px-4">Ad / Form Name</th>
+                      <th className="py-3 px-4">Captured Date</th>
+                      <th className="py-3 px-4">SMS Status (Quo)</th>
+                      <th className="py-3 px-4 text-left">Manual Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 text-xs">
@@ -1638,9 +1638,9 @@ export function VisitorFunnelPage() {
                           </div>
                         </td>
 
-                        {/* Manual Action Buttons (Call Column, Send Default Column, Customize Column, Delete) */}
-                        <td className="py-3.5 px-3 text-left shrink-0">
-                          <div className="inline-flex items-start justify-start gap-2.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                        {/* Manual Action Buttons (Call Column, SMS Column [Send Default + Customize], Delete) */}
+                        <td className="py-3.5 px-4 text-left shrink-0">
+                          <div className="inline-flex items-start justify-start gap-3 shrink-0" onClick={(e) => e.stopPropagation()}>
                             
                             {/* COLUMN 1: CALL BUTTON & CALL FEEDBACK */}
                             <div className="flex flex-col items-center gap-1.5 shrink-0">
@@ -1707,26 +1707,38 @@ export function VisitorFunnelPage() {
                               </div>
                             </div>
 
-                            {/* COLUMN 2: SEND DEFAULT BUTTON & SMS FEEDBACK */}
+                            {/* COLUMN 2: TEXT ACTIONS (SEND DEFAULT & CUSTOMIZE SIDE-BY-SIDE + SMS FEEDBACK) */}
                             <div className="flex flex-col items-center gap-1.5 shrink-0">
-                              <button
-                                onClick={(e) => handleSendDefaultLeadSms(lead, e)}
-                                disabled={sendingLeadId === lead.id || !lead.phone}
-                                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition-all shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shrink-0 h-8 whitespace-nowrap"
-                                title="Send saved default text message & GIF via Quo instantly with 1-click"
-                              >
-                                {sendingLeadId === lead.id ? (
-                                  <>
-                                    <Loader2 size={13} className="animate-spin" />
-                                    Sending...
-                                  </>
-                                ) : (
-                                  <>
-                                    <Sparkles size={13} />
-                                    Send Default
-                                  </>
-                                )}
-                              </button>
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  onClick={(e) => handleSendDefaultLeadSms(lead, e)}
+                                  disabled={sendingLeadId === lead.id || !lead.phone}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition-all shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shrink-0 h-8 whitespace-nowrap"
+                                  title="Send saved default text message & GIF via Quo instantly with 1-click"
+                                >
+                                  {sendingLeadId === lead.id ? (
+                                    <>
+                                      <Loader2 size={13} className="animate-spin" />
+                                      Sending...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Sparkles size={13} />
+                                      Send Default
+                                    </>
+                                  )}
+                                </button>
+
+                                <button
+                                  onClick={(e) => handleOpenSmsModal(lead, e)}
+                                  disabled={sendingModalSms || !lead.phone}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-white hover:bg-black transition-all shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shrink-0 h-8 whitespace-nowrap"
+                                  title="Customize message before sending"
+                                >
+                                  <Send size={13} />
+                                  Customize
+                                </button>
+                              </div>
 
                               {/* SMS Feedback Sub-Buttons (Thumbs Up, Sent, Thumbs Down) */}
                               <div className="inline-flex items-center justify-center gap-1 shrink-0 w-full">
@@ -1769,20 +1781,7 @@ export function VisitorFunnelPage() {
                               </div>
                             </div>
 
-                            {/* COLUMN 3: CUSTOMIZE BUTTON */}
-                            <div className="flex flex-col items-center gap-1.5 shrink-0">
-                              <button
-                                onClick={(e) => handleOpenSmsModal(lead, e)}
-                                disabled={sendingModalSms || !lead.phone}
-                                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-white hover:bg-black transition-all shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shrink-0 h-8 whitespace-nowrap"
-                                title="Customize message before sending"
-                              >
-                                <Send size={13} />
-                                Customize
-                              </button>
-                            </div>
-
-                            {/* COLUMN 4: DELETE BUTTON */}
+                            {/* COLUMN 3: DELETE BUTTON */}
                             <button
                               onClick={(e) => handleDeleteLead(lead.id, e)}
                               className="p-1.5 text-slate-400 hover:text-rose-600 transition-colors rounded shrink-0 self-start mt-0.5"
