@@ -58,6 +58,8 @@ export interface MetaLead {
   leadId: string;
   formId?: string;
   name: string;
+  companyName?: string;
+  businessName?: string;
   phone: string;
   email: string;
   adName?: string;
@@ -260,6 +262,8 @@ export function VisitorFunnelPage() {
             leadId: data.leadId || docSnap.id,
             formId: data.formId,
             name: data.name || 'Meta Lead',
+            companyName: data.companyName || data.company_name || data.company,
+            businessName: data.businessName || data.business_name,
             phone: data.phone || '',
             email: data.email || '',
             adName: data.adName || 'Meta Ad',
@@ -586,6 +590,34 @@ export function VisitorFunnelPage() {
       .replace(/\s+/g, ' ')
       .trim()
       .replace(/\b\w/g, (c) => c.toUpperCase());
+  };
+
+  // Helper to extract Business / Company Name from lead fields or rawFields
+  const getLeadBusinessName = (lead: MetaLead): string => {
+    if (lead.companyName) return lead.companyName;
+    if (lead.businessName) return lead.businessName;
+    if (!lead.rawFields) return '';
+    try {
+      const parsed = JSON.parse(lead.rawFields);
+      for (const key of Object.keys(parsed)) {
+        const lowerKey = key.toLowerCase();
+        const val = String(parsed[key] || '').trim();
+        if (!val) continue;
+
+        if (
+          lowerKey.includes('business_name') ||
+          lowerKey.includes('company_name') ||
+          lowerKey.includes('business') ||
+          lowerKey.includes('company') ||
+          lowerKey.includes('brand_name') ||
+          lowerKey.includes('organization') ||
+          lowerKey.includes('store')
+        ) {
+          return val;
+        }
+      }
+    } catch (e) {}
+    return '';
   };
 
   // Helper to extract specific form question answers from lead.rawFields
@@ -1365,6 +1397,7 @@ export function VisitorFunnelPage() {
                   <thead>
                     <tr className="bg-slate-100 border-b-2 border-slate-200 text-xs font-bold text-slate-700 uppercase tracking-wider">
                       <th className="py-3 px-4">Lead Contact</th>
+                      <th className="py-3 px-4">Business Name</th>
                       <th className="py-3 px-4">Phone & Email</th>
                       <th className="py-3 px-4">Ad / Form Name</th>
                       <th className="py-3 px-4">Captured Date</th>
@@ -1410,6 +1443,18 @@ export function VisitorFunnelPage() {
                             )}
                           </div>
                           <div className="text-[11px] text-slate-400 font-mono mt-1">ID: {lead.leadId.substring(0, 10)}...</div>
+                        </td>
+
+                        {/* Business / Company Name */}
+                        <td className="py-3.5 px-4 font-medium">
+                          {getLeadBusinessName(lead) ? (
+                            <div className="flex items-center gap-1.5 font-bold text-slate-900 text-xs">
+                              <Building size={13} className="text-indigo-600 shrink-0" />
+                              <span>{getLeadBusinessName(lead)}</span>
+                            </div>
+                          ) : (
+                            <span className="text-slate-400 text-xs italic">—</span>
+                          )}
                         </td>
 
                         {/* Phone, Location & Email */}
