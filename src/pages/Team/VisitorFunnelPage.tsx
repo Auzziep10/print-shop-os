@@ -1447,10 +1447,10 @@ export function VisitorFunnelPage() {
                 <table className="w-full text-left border-collapse min-w-[1100px]">
                   <thead>
                     <tr className="bg-slate-100 border-b-2 border-slate-200 text-xs font-bold text-slate-700 uppercase tracking-wider">
-                      <th className="py-2.5 px-2.5">Lead Contact</th>
-                      <th className="py-2.5 px-2.5 max-w-[130px]">Business Name</th>
-                      <th className="py-2.5 px-2.5 max-w-[180px]">Phone & Email</th>
-                      <th className="py-2.5 px-2.5 max-w-[110px]">Captured Date</th>
+                      <th className="py-2.5 px-2 max-w-[140px]">Lead Contact</th>
+                      <th className="py-2.5 px-2 max-w-[120px]">Business Name</th>
+                      <th className="py-2.5 px-2.5 max-w-[220px]">Phone & Email</th>
+                      <th className="py-2.5 px-2 max-w-[100px]">Captured Date</th>
                       <th className="py-2.5 px-2 max-w-[110px]">SMS Status</th>
                       <th className="py-2.5 px-2.5 text-left">Manual Action</th>
                     </tr>
@@ -1463,8 +1463,8 @@ export function VisitorFunnelPage() {
                         onClick={() => setSelectedLead(lead)}
                       >
                         {/* Name & Form Answer Badges */}
-                        <td className="py-3 px-2.5 font-medium text-slate-900">
-                          <div className="text-sm font-bold text-slate-900">{lead.name}</div>
+                        <td className="py-3 px-2 font-medium text-slate-900 max-w-[140px]">
+                          <div className="text-sm font-bold text-slate-900 truncate">{lead.name}</div>
                           
                           {/* Key Form Answer Pills (Stacked vertically in consistent 1-2-3 order) */}
                           <div className="flex flex-col items-start gap-1 mt-1.5">
@@ -1511,7 +1511,7 @@ export function VisitorFunnelPage() {
                         </td>
 
                         {/* Phone, Location & Email with Copy Buttons */}
-                        <td className="py-3 px-2 max-w-[170px]">
+                        <td className="py-3 px-2.5 max-w-[220px]">
                           {lead.phone ? (
                             <div>
                               <div className="flex items-center gap-1">
@@ -1555,7 +1555,7 @@ export function VisitorFunnelPage() {
 
                           {lead.email ? (
                             <div className="flex items-center gap-1 mt-0.5">
-                              <div className="flex items-center gap-1 text-xs text-slate-700 font-medium truncate max-w-[130px]">
+                              <div className="flex items-center gap-1 text-xs text-slate-700 font-medium truncate max-w-[180px]">
                                 <Mail size={12} className="shrink-0 text-slate-500" />
                                 <span className="truncate">{lead.email}</span>
                               </div>
