@@ -1486,42 +1486,86 @@ export function VisitorFunnelPage() {
                           </div>
                         </td>
 
-                        {/* Manual Action Buttons (Call, Send Default, Customize + Thumbs Up / VM / Thumbs Down) */}
+                        {/* Manual Action Buttons (Call, Send Default + Sub Buttons under them; Customize & Delete to the right) */}
                         <td className="py-3.5 px-4 text-right">
-                          <div className="flex flex-col items-end gap-2" onClick={(e) => e.stopPropagation()}>
-                            {/* Top Row: Call, Send Default, Customize, Delete */}
+                          <div className="flex items-start justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+                            {/* Call & Send Default + Sub-Buttons Column */}
+                            <div className="flex flex-col items-center gap-1.5">
+                              <div className="inline-flex items-center gap-1.5">
+                                <button
+                                  onClick={(e) => handleCallLead(lead, e)}
+                                  disabled={!lead.phone}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-all shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer h-8"
+                                  title={`Call ${lead.name} (${lead.phone})`}
+                                >
+                                  <PhoneCall size={13} />
+                                  Call
+                                </button>
+
+                                {/* 1-Click Send Default Button */}
+                                <button
+                                  onClick={(e) => handleSendDefaultLeadSms(lead, e)}
+                                  disabled={sendingLeadId === lead.id || !lead.phone}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition-all shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shrink-0 h-8"
+                                  title="Send saved default text message & GIF via Quo instantly with 1-click"
+                                >
+                                  {sendingLeadId === lead.id ? (
+                                    <>
+                                      <Loader2 size={13} className="animate-spin" />
+                                      Sending...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Sparkles size={13} />
+                                      Send Default
+                                    </>
+                                  )}
+                                </button>
+                              </div>
+
+                              {/* Sub-Buttons (Placed directly underneath Call & Send Default) */}
+                              <div className="inline-flex items-center justify-center gap-1.5 w-full">
+                                <button
+                                  onClick={(e) => handleSetLeadStatus(lead.id, lead.leadStatus === 'good' ? 'uncontacted' : 'good', e)}
+                                  className={`inline-flex items-center justify-center p-1.5 rounded-md text-xs font-bold border transition-all cursor-pointer ${
+                                    lead.leadStatus === 'good'
+                                      ? 'bg-emerald-600 text-white border-emerald-700 shadow-2xs ring-2 ring-emerald-400/30'
+                                      : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300'
+                                  }`}
+                                  title="Mark as Good Lead / Interested (Thumbs Up)"
+                                >
+                                  <ThumbsUp size={13} />
+                                </button>
+
+                                <button
+                                  onClick={(e) => handleSetLeadStatus(lead.id, lead.leadStatus === 'voicemail' ? 'uncontacted' : 'voicemail', e)}
+                                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold border transition-all cursor-pointer ${
+                                    lead.leadStatus === 'voicemail'
+                                      ? 'bg-amber-600 text-white border-amber-700 shadow-2xs ring-2 ring-amber-400/30'
+                                      : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300'
+                                  }`}
+                                  title="Mark as Voicemail Left (VM)"
+                                >
+                                  <Voicemail size={12} />
+                                  <span>VM</span>
+                                </button>
+
+                                <button
+                                  onClick={(e) => handleSetLeadStatus(lead.id, lead.leadStatus === 'bad' ? 'uncontacted' : 'bad', e)}
+                                  className={`inline-flex items-center justify-center p-1.5 rounded-md text-xs font-bold border transition-all cursor-pointer ${
+                                    lead.leadStatus === 'bad'
+                                      ? 'bg-rose-600 text-white border-rose-700 shadow-2xs ring-2 ring-rose-400/30'
+                                      : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-300'
+                                  }`}
+                                  title="Mark as Not Interested / Unqualified (Thumbs Down)"
+                                >
+                                  <ThumbsDown size={13} />
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Customize Text & GIF + Delete Button */}
                             <div className="inline-flex items-center gap-1.5">
-                              <button
-                                onClick={(e) => handleCallLead(lead, e)}
-                                disabled={!lead.phone}
-                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-all shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer h-8"
-                                title={`Call ${lead.name} (${lead.phone})`}
-                              >
-                                <PhoneCall size={13} />
-                                Call
-                              </button>
-
-                              {/* 1-Click Send Default Button */}
-                              <button
-                                onClick={(e) => handleSendDefaultLeadSms(lead, e)}
-                                disabled={sendingLeadId === lead.id || !lead.phone}
-                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition-all shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shrink-0 h-8"
-                                title="Send saved default text message & GIF via Quo instantly with 1-click"
-                              >
-                                {sendingLeadId === lead.id ? (
-                                  <>
-                                    <Loader2 size={13} className="animate-spin" />
-                                    Sending...
-                                  </>
-                                ) : (
-                                  <>
-                                    <Sparkles size={13} />
-                                    Send Default
-                                  </>
-                                )}
-                              </button>
-
-                              {/* Customize Text & GIF */}
                               <button
                                 onClick={(e) => handleOpenSmsModal(lead, e)}
                                 disabled={sendingModalSms || !lead.phone}
@@ -1538,46 +1582,6 @@ export function VisitorFunnelPage() {
                                 title="Delete lead record"
                               >
                                 <Trash2 size={14} />
-                              </button>
-                            </div>
-
-                            {/* Secondary Row (Under Call & Send Default): Thumbs Up, VM (Voicemail Left), Thumbs Down */}
-                            <div className="inline-flex items-center gap-1.5 pr-8">
-                              <button
-                                onClick={(e) => handleSetLeadStatus(lead.id, lead.leadStatus === 'good' ? 'uncontacted' : 'good', e)}
-                                className={`inline-flex items-center justify-center p-1.5 rounded-md text-xs font-bold border transition-all cursor-pointer ${
-                                  lead.leadStatus === 'good'
-                                    ? 'bg-emerald-600 text-white border-emerald-700 shadow-2xs ring-2 ring-emerald-400/30'
-                                    : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300'
-                                }`}
-                                title="Mark as Good Lead / Interested (Thumbs Up)"
-                              >
-                                <ThumbsUp size={13} />
-                              </button>
-
-                              <button
-                                onClick={(e) => handleSetLeadStatus(lead.id, lead.leadStatus === 'voicemail' ? 'uncontacted' : 'voicemail', e)}
-                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold border transition-all cursor-pointer ${
-                                  lead.leadStatus === 'voicemail'
-                                    ? 'bg-amber-600 text-white border-amber-700 shadow-2xs ring-2 ring-amber-400/30'
-                                    : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300'
-                                }`}
-                                title="Mark as Voicemail Left (VM)"
-                              >
-                                <Voicemail size={12} />
-                                <span>VM</span>
-                              </button>
-
-                              <button
-                                onClick={(e) => handleSetLeadStatus(lead.id, lead.leadStatus === 'bad' ? 'uncontacted' : 'bad', e)}
-                                className={`inline-flex items-center justify-center p-1.5 rounded-md text-xs font-bold border transition-all cursor-pointer ${
-                                  lead.leadStatus === 'bad'
-                                    ? 'bg-rose-600 text-white border-rose-700 shadow-2xs ring-2 ring-rose-400/30'
-                                    : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-300'
-                                }`}
-                                title="Mark as Not Interested / Unqualified (Thumbs Down)"
-                              >
-                                <ThumbsDown size={13} />
                               </button>
                             </div>
                           </div>
