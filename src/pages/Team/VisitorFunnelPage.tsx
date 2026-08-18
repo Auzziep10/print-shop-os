@@ -37,16 +37,24 @@ import {
   Building,
   Upload,
   MapPin,
-  UserPlus
+  UserPlus,
+  ThumbsUp,
+  ThumbsDown,
+  Voicemail
 } from 'lucide-react';
 
-const FUNNEL_STAGES = [
-  { step: 0, label: 'Landing Page (/start2)', short: '/start2 Landing' },
-  { step: 1, label: 'Garment & Category Select', short: 'Selection' },
-  { step: 2, label: 'Upload Artwork / Logo', short: 'Upload Logo' },
-  { step: 3, label: 'Placement & Proofing', short: 'Proofing' },
-  { step: 4, label: 'Sizing & Quantities', short: 'Quantities' },
-  { step: 5, label: 'Submitted Quote Request', short: 'Quote Submitted' },
+export interface FunnelStep {
+  step: number;
+  label: string;
+  short: string;
+}
+
+export const FUNNEL_STEPS: FunnelStep[] = [
+  { step: 1, label: 'Landed on /start', short: 'Landing' },
+  { step: 2, label: 'Garment Selected', short: 'Garment' },
+  { step: 3, label: 'Artwork Uploaded', short: 'Artwork' },
+  { step: 4, label: 'Quote Generated', short: 'Quote Gen' },
+  { step: 5, label: 'Quote Submitted', short: 'Submitted' },
   { step: 6, label: 'Account Created', short: 'Account Created' },
 ];
 
@@ -60,6 +68,8 @@ export interface MetaLead {
   adName?: string;
   formName?: string;
   smsStatus?: 'not_sent' | 'sent' | 'failed';
+  leadStatus?: 'good' | 'bad' | 'voicemail' | 'uncontacted' | 'called';
+  callStatus?: string;
   smsSentAt?: string;
   createdAt: string;
   rawFields?: string;
@@ -258,6 +268,8 @@ export function VisitorFunnelPage() {
             adName: data.adName || 'Meta Ad',
             formName: data.formName || 'Lead Form',
             smsStatus: data.smsStatus || 'not_sent',
+            leadStatus: data.leadStatus || (data.callStatus === 'voicemail' ? 'voicemail' : data.callStatus || 'uncontacted'),
+            callStatus: data.callStatus,
             smsSentAt: data.smsSentAt,
             createdAt: data.createdAt || new Date().toISOString(),
             rawFields: data.rawFields,
@@ -446,6 +458,21 @@ export function VisitorFunnelPage() {
     setTimeout(() => {
       window.location.href = `tel:${cleanPhone}`;
     }, 400);
+  };
+
+  // Update Lead Feedback Status (Thumbs Up, VM, Thumbs Down)
+  const handleSetLeadStatus = async (leadId: string, status: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    try {
+      const docRef = doc(db, 'meta_leads', leadId);
+      await setDoc(docRef, {
+        leadStatus: status,
+        callStatus: status,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+    } catch (err) {
+      console.error('Error updating lead status:', err);
+    }
   };
 
   // Fetch & Open Default SMS & GIF Settings Modal
@@ -1416,76 +1443,142 @@ export function VisitorFunnelPage() {
                           </div>
                         </td>
 
-                        {/* SMS Status Badge */}
+                        {/* SMS & Lead Status Badges */}
                         <td className="py-3.5 px-4">
-                          {lead.smsStatus === 'sent' ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                              <CheckCircle2 size={12} />
-                              Text Sent via Quo
-                            </span>
-                          ) : lead.smsStatus === 'failed' ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-rose-100 text-rose-800 border border-rose-200" title={lead.lastError}>
-                              <AlertCircle size={12} />
-                              Failed
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200">
-                              Uncontacted
-                            </span>
-                          )}
+                          <div className="flex flex-col gap-1 items-start">
+                            {/* Lead Feedback Status Badge */}
+                            {lead.leadStatus === 'good' && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                <ThumbsUp size={11} />
+                                Good Lead
+                              </span>
+                            )}
+                            {lead.leadStatus === 'voicemail' && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                                <Voicemail size={11} />
+                                Voicemail Left
+                              </span>
+                            )}
+                            {lead.leadStatus === 'bad' && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800 border border-rose-300">
+                                <ThumbsDown size={11} />
+                                Not Interested
+                              </span>
+                            )}
+
+                            {/* Quo SMS Status Badge */}
+                            {lead.smsStatus === 'sent' ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                <CheckCircle2 size={11} />
+                                Text Sent via Quo
+                              </span>
+                            ) : lead.smsStatus === 'failed' ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200" title={lead.lastError}>
+                                <AlertCircle size={11} />
+                                Failed
+                              </span>
+                            ) : (!lead.leadStatus || lead.leadStatus === 'uncontacted') ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200">
+                                Uncontacted
+                              </span>
+                            ) : null}
+                          </div>
                         </td>
 
-                        {/* Manual Action Buttons (Call, Send Default, Customize) */}
+                        {/* Manual Action Buttons (Call, Send Default, Customize + Thumbs Up / VM / Thumbs Down) */}
                         <td className="py-3.5 px-4 text-right">
-                          <div className="inline-flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-                            <button
-                              onClick={(e) => handleCallLead(lead, e)}
-                              disabled={!lead.phone}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-all shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer h-8"
-                              title={`Call ${lead.name} (${lead.phone})`}
-                            >
-                              <PhoneCall size={13} />
-                              Call
-                            </button>
+                          <div className="flex flex-col items-end gap-2" onClick={(e) => e.stopPropagation()}>
+                            {/* Top Row: Call, Send Default, Customize, Delete */}
+                            <div className="inline-flex items-center gap-1.5">
+                              <button
+                                onClick={(e) => handleCallLead(lead, e)}
+                                disabled={!lead.phone}
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-all shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer h-8"
+                                title={`Call ${lead.name} (${lead.phone})`}
+                              >
+                                <PhoneCall size={13} />
+                                Call
+                              </button>
 
-                            {/* 1-Click Send Default Button */}
-                            <button
-                              onClick={(e) => handleSendDefaultLeadSms(lead, e)}
-                              disabled={sendingLeadId === lead.id || !lead.phone}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition-all shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shrink-0 h-8"
-                              title="Send saved default text message & GIF via Quo instantly with 1-click"
-                            >
-                              {sendingLeadId === lead.id ? (
-                                <>
-                                  <Loader2 size={13} className="animate-spin" />
-                                  Sending...
-                                </>
-                              ) : (
-                                <>
-                                  <Sparkles size={13} />
-                                  Send Default
-                                </>
-                              )}
-                            </button>
+                              {/* 1-Click Send Default Button */}
+                              <button
+                                onClick={(e) => handleSendDefaultLeadSms(lead, e)}
+                                disabled={sendingLeadId === lead.id || !lead.phone}
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition-all shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shrink-0 h-8"
+                                title="Send saved default text message & GIF via Quo instantly with 1-click"
+                              >
+                                {sendingLeadId === lead.id ? (
+                                  <>
+                                    <Loader2 size={13} className="animate-spin" />
+                                    Sending...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Sparkles size={13} />
+                                    Send Default
+                                  </>
+                                )}
+                              </button>
 
-                            {/* Customize Text & GIF */}
-                            <button
-                              onClick={(e) => handleOpenSmsModal(lead, e)}
-                              disabled={sendingModalSms || !lead.phone}
-                              className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-white hover:bg-black transition-all shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shrink-0 h-8"
-                              title="Customize message before sending"
-                            >
-                              <Send size={13} />
-                              Customize
-                            </button>
+                              {/* Customize Text & GIF */}
+                              <button
+                                onClick={(e) => handleOpenSmsModal(lead, e)}
+                                disabled={sendingModalSms || !lead.phone}
+                                className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-white hover:bg-black transition-all shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shrink-0 h-8"
+                                title="Customize message before sending"
+                              >
+                                <Send size={13} />
+                                Customize
+                              </button>
 
-                            <button
-                              onClick={(e) => handleDeleteLead(lead.id, e)}
-                              className="p-1.5 text-slate-400 hover:text-rose-600 transition-colors rounded"
-                              title="Delete lead record"
-                            >
-                              <Trash2 size={14} />
-                            </button>
+                              <button
+                                onClick={(e) => handleDeleteLead(lead.id, e)}
+                                className="p-1.5 text-slate-400 hover:text-rose-600 transition-colors rounded"
+                                title="Delete lead record"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+
+                            {/* Secondary Row (Under Call & Send Default): Thumbs Up, VM (Voicemail Left), Thumbs Down */}
+                            <div className="inline-flex items-center gap-1.5 pr-8">
+                              <button
+                                onClick={(e) => handleSetLeadStatus(lead.id, lead.leadStatus === 'good' ? 'uncontacted' : 'good', e)}
+                                className={`inline-flex items-center justify-center p-1.5 rounded-md text-xs font-bold border transition-all cursor-pointer ${
+                                  lead.leadStatus === 'good'
+                                    ? 'bg-emerald-600 text-white border-emerald-700 shadow-2xs ring-2 ring-emerald-400/30'
+                                    : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300'
+                                }`}
+                                title="Mark as Good Lead / Interested (Thumbs Up)"
+                              >
+                                <ThumbsUp size={13} />
+                              </button>
+
+                              <button
+                                onClick={(e) => handleSetLeadStatus(lead.id, lead.leadStatus === 'voicemail' ? 'uncontacted' : 'voicemail', e)}
+                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold border transition-all cursor-pointer ${
+                                  lead.leadStatus === 'voicemail'
+                                    ? 'bg-amber-600 text-white border-amber-700 shadow-2xs ring-2 ring-amber-400/30'
+                                    : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300'
+                                }`}
+                                title="Mark as Voicemail Left (VM)"
+                              >
+                                <Voicemail size={12} />
+                                <span>VM</span>
+                              </button>
+
+                              <button
+                                onClick={(e) => handleSetLeadStatus(lead.id, lead.leadStatus === 'bad' ? 'uncontacted' : 'bad', e)}
+                                className={`inline-flex items-center justify-center p-1.5 rounded-md text-xs font-bold border transition-all cursor-pointer ${
+                                  lead.leadStatus === 'bad'
+                                    ? 'bg-rose-600 text-white border-rose-700 shadow-2xs ring-2 ring-rose-400/30'
+                                    : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-300'
+                                }`}
+                                title="Mark as Not Interested / Unqualified (Thumbs Down)"
+                              >
+                                <ThumbsDown size={13} />
+                              </button>
+                            </div>
                           </div>
                         </td>
                       </tr>
