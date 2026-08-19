@@ -247,6 +247,8 @@ export function PortalCreateOrder() {
   const [garmentTypeTags, setGarmentTypeTags] = useState<Record<string, string>>({});
   const [globalCustomMockups, setGlobalCustomMockups] = useState<any>({ racks: {}, basics: {} });
   const [globalRacksOrder, setGlobalRacksOrder] = useState<any>({});
+  const [customCatalogItems, setCustomCatalogItems] = useState<any[]>([]);
+  const [catalogBasics, setCatalogBasics] = useState<any>({});
   const [isSavedDesignsModalOpen, setIsSavedDesignsModalOpen] = useState(false);
   const [savedDesignsList, setSavedDesignsList] = useState<any[]>([]);
   const [isLoadingSavedDesigns, setIsLoadingSavedDesigns] = useState(false);
@@ -546,6 +548,9 @@ export function PortalCreateOrder() {
   }, [location.search]);
 
   const getGarmentImage = (item: any) => {
+    if (item.customImage) return item.customImage;
+    if (item.mockup_image) return item.mockup_image;
+
     // 1. Direct slot lookup if available
     if (item.mode && item.category && item.slot && globalCustomMockups?.[item.mode]?.[item.category]?.[item.slot]) {
       return globalCustomMockups[item.mode][item.category][item.slot];
@@ -652,12 +657,97 @@ export function PortalCreateOrder() {
       });
     }
 
+    if (catalogBasics) {
+      Object.values(catalogBasics).forEach(bCat => {
+        if (bCat && typeof bCat === 'object') {
+          Object.values(bCat).forEach(val => {
+            if (val && typeof val === 'string' && val.trim()) {
+              stylesSet.add(val.trim().toLowerCase());
+            }
+          });
+        }
+      });
+    }
+
+    if (customCatalogItems) {
+      customCatalogItems.forEach(item => {
+        if (item.style) stylesSet.add(item.style.trim().toLowerCase());
+      });
+    }
+
+    const catalogMap = new Map<string, any>();
+    sanmarCatalog.forEach(p => catalogMap.set(p.style.toLowerCase(), p));
+    customCatalogItems.forEach(p => catalogMap.set(p.style.toLowerCase(), p));
+
     return Array.from(stylesSet).map(styleId => {
-      const prod = sanmarCatalog.find(p => p.style.toLowerCase() === styleId.toLowerCase());
+      const prod = catalogMap.get(styleId.toLowerCase());
       if (!prod) return null;
-      return prod;
+
+      let customName = prod.customName || '';
+      let customImage = '';
+      let customPrice = prod.price;
+      let customSpec = prod.customSpecs || null;
+
+      // 1. Search in racks custom settings
+      if (customerRacks) {
+        for (const cat of Object.keys(customerRacks)) {
+          const catObj = customerRacks[cat];
+          if (catObj && typeof catObj === 'object') {
+            for (const sKey of Object.keys(catObj)) {
+              if (catObj[sKey]?.toLowerCase() === styleId.toLowerCase()) {
+                if (!customName && customNames.racks?.[cat]?.[sKey]) {
+                  customName = customNames.racks[cat][sKey];
+                }
+                if (!customImage && globalCustomMockups?.racks?.[cat]?.[sKey]) {
+                  customImage = globalCustomMockups.racks[cat][sKey];
+                }
+                if (customPrices.racks?.[cat]?.[sKey] !== undefined && customPrices.racks[cat][sKey] !== null) {
+                  customPrice = customPrices.racks[cat][sKey];
+                }
+                if (!customSpec && customSpecs?.racks?.[cat]?.[sKey]) {
+                  customSpec = customSpecs.racks[cat][sKey];
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // 2. Search in basics custom settings if not found
+      if (catalogBasics && customNames.basics) {
+        for (const bCat of Object.keys(customNames.basics)) {
+          const slots = customNames.basics[bCat];
+          const styles = catalogBasics[bCat];
+          if (slots && styles) {
+            for (const tierKey of Object.keys(slots)) {
+              if (styles[tierKey]?.toLowerCase() === styleId.toLowerCase()) {
+                if (!customName && slots[tierKey]?.trim()) {
+                  customName = slots[tierKey].trim();
+                }
+                if (!customImage && globalCustomMockups?.basics?.[bCat]?.[tierKey]) {
+                  customImage = globalCustomMockups.basics[bCat][tierKey];
+                }
+                if (customPrices.basics?.[bCat]?.[tierKey] !== undefined && customPrices.basics[bCat][tierKey] !== null) {
+                  customPrice = customPrices.basics[bCat][tierKey];
+                }
+                if (!customSpec && customSpecs?.basics?.[bCat]?.[tierKey]) {
+                  customSpec = customSpecs.basics[bCat][tierKey];
+                }
+              }
+            }
+          }
+        }
+      }
+
+      return {
+        ...prod,
+        customName: customName || prod.customName || prod.title,
+        customImage: customImage || prod.customImage || prod.image || prod.mockup_image,
+        price: (customPrice !== undefined && customPrice !== null && !isNaN(customPrice)) ? customPrice : prod.price,
+        customSpecs: customSpec || prod.customSpecs
+      };
     }).filter(Boolean) as any[];
-  }, [customerRacks, hiddenCollections]);
+  }, [customerRacks, hiddenCollections, customNames, customPrices, customSpecs, globalCustomMockups, customCatalogItems, catalogBasics]);
 
   useEffect(() => {
     if (isInitialLoadDone) return;
@@ -938,9 +1028,11 @@ export function PortalCreateOrder() {
             }
             if (globalData.customNames) {
               globalCustomNames = globalData.customNames;
+              setCustomNames(globalData.customNames);
             }
             if (globalData.customSpecs) {
               globalCustomSpecs = globalData.customSpecs;
+              setCustomSpecs(globalData.customSpecs);
             }
             if (globalData.defaultColors) {
               globalDefaultColors = globalData.defaultColors;
@@ -954,12 +1046,18 @@ export function PortalCreateOrder() {
             if (globalData.customMockups) {
               setGlobalCustomMockups(globalData.customMockups);
             }
-             if (globalData.racksOrder) {
-               setGlobalRacksOrder(globalData.racksOrder);
-             }
-             if (globalData.garmentTypeTags) {
-               setGarmentTypeTags(globalData.garmentTypeTags);
-             }
+            if (globalData.racksOrder) {
+              setGlobalRacksOrder(globalData.racksOrder);
+            }
+            if (globalData.garmentTypeTags) {
+              setGarmentTypeTags(globalData.garmentTypeTags);
+            }
+            if (globalData.customCatalogItems) {
+              setCustomCatalogItems(globalData.customCatalogItems);
+            }
+            if (globalData.basics) {
+              setCatalogBasics(globalData.basics);
+            }
           }
         } catch (globalErr) {
           console.error("Error fetching global catalog settings:", globalErr);

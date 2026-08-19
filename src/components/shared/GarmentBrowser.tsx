@@ -221,6 +221,9 @@ export function GarmentBrowser({ isOpen, onClose, onSelect, allowedStyleCodes, h
   const [allowedColors, setAllowedColors] = useState<Record<string, string[]>>({});
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
+  const [customNames, setCustomNames] = useState<any>({ racks: {}, basics: {} });
+  const [customPrices, setCustomPrices] = useState<any>({ racks: {}, basics: {} });
+
   // Fetch custom imported products and garment tags from Firestore
   useEffect(() => {
     if (!isOpen) return;
@@ -233,6 +236,8 @@ export function GarmentBrowser({ isOpen, onClose, onSelect, allowedStyleCodes, h
           if (data.customCatalogItems) setCustomProducts(data.customCatalogItems);
           if (data.garmentTypeTags) setGarmentTypeTags(data.garmentTypeTags);
           if (data.allowedColors) setAllowedColors(data.allowedColors);
+          if (data.customNames) setCustomNames(data.customNames);
+          if (data.customPrices) setCustomPrices(data.customPrices);
         }
       } catch (err) {
         console.error("Error loading catalog settings in GarmentBrowser:", err);
@@ -245,8 +250,47 @@ export function GarmentBrowser({ isOpen, onClose, onSelect, allowedStyleCodes, h
     const map = new Map<string, any>();
     sanmarCatalog.forEach(p => map.set(p.style.toLowerCase(), p));
     customProducts.forEach(p => map.set(p.style.toLowerCase(), p));
-    return Array.from(map.values()) as SanMarProduct[];
-  }, [customProducts]);
+
+    return Array.from(map.values()).map((p: any) => {
+      let customTitle = p.customName || '';
+      let customPrice = p.price;
+      const styleId = p.style.toLowerCase();
+
+      if (customNames.racks) {
+        for (const cat of Object.keys(customNames.racks)) {
+          const slots = customNames.racks[cat];
+          if (slots) {
+            for (const sKey of Object.keys(slots)) {
+              if (!customTitle && slots[sKey]?.trim()) {
+                if (sKey.toLowerCase() === styleId) {
+                  customTitle = slots[sKey].trim();
+                }
+              }
+            }
+          }
+        }
+      }
+
+      if (customPrices.racks) {
+        for (const cat of Object.keys(customPrices.racks)) {
+          const slots = customPrices.racks[cat];
+          if (slots) {
+            for (const sKey of Object.keys(slots)) {
+              if (sKey.toLowerCase() === styleId && slots[sKey] !== undefined && slots[sKey] !== null) {
+                customPrice = slots[sKey];
+              }
+            }
+          }
+        }
+      }
+
+      return {
+        ...p,
+        title: customTitle || p.title || p.style,
+        price: (customPrice !== undefined && customPrice !== null && !isNaN(customPrice)) ? customPrice : p.price,
+      };
+    }) as SanMarProduct[];
+  }, [customProducts, customNames, customPrices]);
 
   // Reset visibleCount when queries or filters change
   useEffect(() => {
