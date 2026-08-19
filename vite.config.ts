@@ -1,11 +1,17 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import legacy from '@vitejs/plugin-legacy'
 import tailwindcss from '@tailwindcss/vite'
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
     react(), 
+    legacy({
+      targets: ['defaults', 'safari >= 13', 'ios >= 13', 'chrome >= 64', 'firefox >= 67', 'edge >= 79'],
+      renderLegacyChunks: true,
+      modernPolyfills: true,
+    }),
     tailwindcss(),
     {
       name: 'api-sanmar-proxy',

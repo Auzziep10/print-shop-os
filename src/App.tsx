@@ -123,7 +123,7 @@ function App() {
           <Route path="/start2" element={<Navigate to="/" replace />} />
           <Route path="/login" element={<Login />} />
           <Route path="/waiting" element={<WaitingRoom />} />
-          <Route path="/start" element={<PublicQuoteRequest />} />}
+          <Route path="/start" element={<PublicQuoteRequest />} />
           <Route path="/sms-opt-in" element={<SmsConsent />} />
           {/* Brand Shop — public merch storefront */}
           <Route path="/shop" element={<ShopPage />} />
