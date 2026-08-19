@@ -2194,14 +2194,29 @@ export function VisitorFunnelPage() {
                   <span className="text-xs font-bold uppercase tracking-wider text-slate-600 block mb-1">Phone & Location</span>
                   {selectedLead.phone ? (
                     <div>
-                      <a
-                        href={`tel:${selectedLead.phone}`}
-                        onClick={(e) => handleCallLead(selectedLead, e)}
-                        className="font-bold text-emerald-700 hover:text-emerald-900 text-sm font-mono hover:underline inline-flex items-center gap-1.5"
-                      >
-                        <PhoneCall size={14} className="text-emerald-600" />
-                        {selectedLead.phone}
-                      </a>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <a
+                          href={`tel:${selectedLead.phone}`}
+                          onClick={(e) => handleCallLead(selectedLead, e)}
+                          className="font-bold text-emerald-700 hover:text-emerald-900 text-sm font-mono hover:underline inline-flex items-center gap-1.5"
+                        >
+                          <PhoneCall size={14} className="text-emerald-600" />
+                          {selectedLead.phone}
+                        </a>
+                        <button
+                          onClick={(e) => handleCopyText(selectedLead.phone, `modal-phone-${selectedLead.id}`, e)}
+                          className="p-1 text-slate-400 hover:text-slate-700 transition-colors rounded hover:bg-slate-200/60 cursor-pointer inline-flex items-center gap-1"
+                          title={`Copy phone number (${selectedLead.phone}) to clipboard`}
+                        >
+                          {copiedTextKey === `modal-phone-${selectedLead.id}` ? (
+                            <span className="inline-flex items-center gap-1 text-[11px] text-emerald-600 font-bold">
+                              <Check size={12} className="text-emerald-600" /> Copied
+                            </span>
+                          ) : (
+                            <Copy size={13} />
+                          )}
+                        </button>
+                      </div>
                       {getPhoneLocationAndTz(selectedLead.phone) && (
                         <span className="text-xs font-semibold text-slate-700 block mt-0.5 flex items-center gap-1">
                           <MapPin size={12} className="text-rose-500" />
@@ -2217,13 +2232,28 @@ export function VisitorFunnelPage() {
                 <div>
                   <span className="text-xs font-bold uppercase tracking-wider text-slate-600 block mb-1">Email Address</span>
                   {selectedLead.email ? (
-                    <a
-                      href={`mailto:${selectedLead.email}`}
-                      className="font-bold text-slate-900 text-xs hover:underline inline-flex items-center gap-1.5"
-                    >
-                      <Mail size={14} className="text-slate-500" />
-                      {selectedLead.email}
-                    </a>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <a
+                        href={`mailto:${selectedLead.email}`}
+                        className="font-bold text-slate-900 text-xs hover:underline inline-flex items-center gap-1.5"
+                      >
+                        <Mail size={14} className="text-slate-500" />
+                        {selectedLead.email}
+                      </a>
+                      <button
+                        onClick={(e) => handleCopyText(selectedLead.email, `modal-email-${selectedLead.id}`, e)}
+                        className="p-1 text-slate-400 hover:text-slate-700 transition-colors rounded hover:bg-slate-200/60 cursor-pointer inline-flex items-center gap-1"
+                        title={`Copy email address (${selectedLead.email}) to clipboard`}
+                      >
+                        {copiedTextKey === `modal-email-${selectedLead.id}` ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] text-emerald-600 font-bold">
+                            <Check size={12} className="text-emerald-600" /> Copied
+                          </span>
+                        ) : (
+                          <Copy size={13} />
+                        )}
+                      </button>
+                    </div>
                   ) : (
                     <span className="text-slate-500 italic">No Email</span>
                   )}
