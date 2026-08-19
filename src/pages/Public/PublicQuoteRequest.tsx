@@ -17,7 +17,8 @@ import {
   Eye,
   EyeOff,
   Sparkles,
-  Scissors
+  Scissors,
+  PackagePlus
 } from 'lucide-react';
 import { db, storage, auth } from '../../lib/firebase';
 import { doc, getDoc, setDoc, getDocs, collection, query, where } from 'firebase/firestore';
@@ -564,7 +565,7 @@ export function PublicQuoteRequest() {
     customMockups?: Record<string, any>;
     racksOrder?: Record<string, string[]>;
     allowedColors?: Record<string, string[]>;
-    customColors?: Record<string, string[]>;
+    customColors?: Record<string, Record<string, string>>;
     garmentTypeOrders?: Record<string, string[]>;
   }>({
     racks: DEFAULT_RACKS,
@@ -582,8 +583,14 @@ export function PublicQuoteRequest() {
     logoPlacements: { racks: {}, basics: {} },
     racksOrder: {},
     allowedColors: {},
-    customColors: {}
   });
+
+  // Custom Blank Request Modal State
+  const [showCustomBlankModal, setShowCustomBlankModal] = useState(false);
+  const [customBlankBrandStyle, setCustomBlankBrandStyle] = useState('');
+  const [customBlankColor, setCustomBlankColor] = useState('');
+  const [customBlankNotes, setCustomBlankNotes] = useState('');
+  const [customBlankGarmentType, setCustomBlankGarmentType] = useState('T-Shirt');
 
   const [cart, setCart] = useState<any[]>([]);
 
@@ -1444,6 +1451,76 @@ export function PublicQuoteRequest() {
       setSelectedBasicsColor(defaultColor);
     }
   }, [selectedBasicsItem, selectedBasicsCategory, catalogSettings]);
+
+  const handleConfirmCustomBlankRequest = () => {
+    if (!customBlankBrandStyle.trim()) return;
+
+    const requestedTitle = customBlankBrandStyle.trim();
+    const colorToUse = customBlankColor.trim() || 'Custom Requested Color';
+
+    const customProduct: any = {
+      style: requestedTitle,
+      brand: 'Custom Blank Request',
+      title: requestedTitle,
+      description: customBlankNotes || 'Custom blank style requested by customer',
+      category: customBlankGarmentType || 'Custom',
+      images: {},
+      colors: [colorToUse],
+      price: 0,
+      isCustomBlankRequest: true,
+      requestedNotes: customBlankNotes,
+      customGarmentType: customBlankGarmentType
+    };
+
+    const newItem = {
+      id: `custom-blank-${Date.now()}`,
+      product: customProduct,
+      color: colorToUse,
+      garmentType: selectedGarmentType,
+      isCustomBlankRequest: true,
+      requestedBrandStyle: requestedTitle,
+      requestedColor: colorToUse,
+      requestedNotes: customBlankNotes
+    };
+
+    setSelectedGarmentTypeItems(prev => [...prev, newItem]);
+    setShowCustomBlankModal(false);
+    setCustomBlankBrandStyle('');
+    setCustomBlankColor('');
+    setCustomBlankNotes('');
+  };
+
+  const renderCustomBlankCard = (garmentTypeLabel?: string) => (
+    <div
+      key="custom-blank-request-card"
+      onClick={() => {
+        setCustomBlankGarmentType(garmentTypeLabel || 'Garment');
+        setShowCustomBlankModal(true);
+      }}
+      className="group bg-gradient-to-b from-neutral-50/90 via-white to-indigo-50/20 hover:from-indigo-50/50 hover:to-white flex flex-col justify-between cursor-pointer transition-all relative w-full border-2 border-dashed border-neutral-300 hover:border-black rounded-2xl p-5 min-h-[320px] text-center shadow-2xs hover:shadow-lg duration-300"
+    >
+      <div className="w-full flex-1 flex flex-col items-center justify-center py-4">
+        <div className="w-14 h-14 rounded-2xl bg-white border border-neutral-200 shadow-sm flex items-center justify-center text-neutral-800 group-hover:bg-black group-hover:text-white group-hover:border-black transition-all duration-300 mb-3.5 group-hover:scale-110">
+          <PackagePlus size={26} />
+        </div>
+        <span className="text-[10px] font-extrabold uppercase tracking-widest text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 rounded-full mb-2">
+          Custom Sourcing
+        </span>
+        <h4 className="font-serif font-bold text-neutral-900 text-base leading-snug">
+          Request a Specific Blank
+        </h4>
+        <p className="text-xs text-neutral-500 font-medium leading-relaxed mt-2 max-w-[210px]">
+          Need a brand or style not listed? (e.g. Comfort Colors 1717, Bella+Canvas 3001, Shaka Wear)
+        </p>
+      </div>
+      <div className="w-full pt-3 border-t border-neutral-200/70 flex items-center justify-center">
+        <span className="text-xs font-bold text-neutral-900 group-hover:text-indigo-600 inline-flex items-center gap-1.5 transition-colors">
+          <Plus size={14} className="stroke-[2.5]" />
+          Request Blank & Mockup
+        </span>
+      </div>
+    </div>
+  );
 
   const handleSaveStorefrontSettings = async () => {
     setIsSavingSettings(true);
@@ -4084,6 +4161,7 @@ export function PublicQuoteRequest() {
                               </div>
                             );
                           })}
+                          {renderCustomBlankCard(GARMENT_TYPES.find(gt => gt.id === selectedGarmentType)?.label)}
                         </div>
                       )}
 
@@ -6356,6 +6434,115 @@ export function PublicQuoteRequest() {
                   <p className="text-[10px] text-neutral-500">Attaching quote request to start production timeline</p>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showCustomBlankModal && (
+        <div className="fixed inset-0 z-[999] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl border border-neutral-200 shadow-2xl max-w-lg w-full p-6 space-y-5 overflow-hidden">
+            {/* Header */}
+            <div className="flex items-start justify-between pb-3 border-b border-neutral-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-600 shrink-0">
+                  <PackagePlus size={20} />
+                </div>
+                <div>
+                  <h3 className="font-serif font-bold text-neutral-900 text-lg">Request a Specific Blank</h3>
+                  <p className="text-xs font-medium text-neutral-500">Need a brand or style not listed in our catalog?</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCustomBlankModal(false)}
+                className="p-1.5 rounded-full hover:bg-neutral-100 text-neutral-400 hover:text-neutral-800 transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Form Fields */}
+            <div className="space-y-4 text-xs font-sans">
+              <div>
+                <label className="block text-[11px] font-extrabold uppercase tracking-wider text-neutral-500 mb-1">
+                  Garment Category
+                </label>
+                <input
+                  type="text"
+                  value={customBlankGarmentType}
+                  onChange={(e) => setCustomBlankGarmentType(e.target.value)}
+                  placeholder="e.g. T-Shirt, Hoodie, Hat, Fleece..."
+                  className="w-full text-xs font-semibold text-neutral-900 bg-neutral-50 border border-neutral-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-black"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-extrabold uppercase tracking-wider text-neutral-500 mb-1">
+                  Requested Brand & Style Number <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={customBlankBrandStyle}
+                  onChange={(e) => setCustomBlankBrandStyle(e.target.value)}
+                  placeholder="e.g. Comfort Colors 1717, Bella Canvas 3001, Shaka Wear..."
+                  className="w-full text-xs font-semibold text-neutral-900 bg-neutral-50 border border-neutral-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-black"
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-extrabold uppercase tracking-wider text-neutral-500 mb-1">
+                  Preferred Color(s)
+                </label>
+                <input
+                  type="text"
+                  value={customBlankColor}
+                  onChange={(e) => setCustomBlankColor(e.target.value)}
+                  placeholder="e.g. Pepper / Washed Black, Vintage White..."
+                  className="w-full text-xs font-semibold text-neutral-900 bg-neutral-50 border border-neutral-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-black"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-extrabold uppercase tracking-wider text-neutral-500 mb-1">
+                  Quantity & Special Request Notes
+                </label>
+                <textarea
+                  value={customBlankNotes}
+                  onChange={(e) => setCustomBlankNotes(e.target.value)}
+                  placeholder="Specify estimated quantities, fit notes, wash details, or special sourcing requirements..."
+                  rows={3}
+                  className="w-full text-xs text-neutral-900 bg-neutral-50 border border-neutral-200 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-black resize-none"
+                />
+              </div>
+
+              <div className="p-3 bg-amber-50 border border-amber-200/80 rounded-2xl flex items-start gap-2.5 text-[11px] text-amber-900 leading-relaxed font-medium">
+                <Sparkles size={16} className="text-amber-600 shrink-0 mt-0.5" />
+                <span>
+                  <strong>How backend mocking works:</strong> Our team will source this exact blank, prepare digital artwork proofs on your requested garment, and upload the mock & quote details on the backend!
+                </span>
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="pt-3 border-t border-neutral-100 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowCustomBlankModal(false)}
+                className="px-4 py-2.5 text-xs font-bold text-neutral-600 hover:text-neutral-900 bg-neutral-100 hover:bg-neutral-200/70 rounded-full transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmCustomBlankRequest}
+                disabled={!customBlankBrandStyle.trim()}
+                className="px-5 py-2.5 text-xs font-bold text-white bg-black hover:bg-neutral-800 disabled:opacity-40 disabled:cursor-not-allowed rounded-full transition-all shadow-md cursor-pointer inline-flex items-center gap-1.5"
+              >
+                <Plus size={14} className="stroke-[2.5]" />
+                Add Custom Blank Request
+              </button>
             </div>
           </div>
         </div>
