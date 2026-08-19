@@ -43,7 +43,9 @@ import {
   ThumbsDown,
   Voicemail,
   Copy,
-  Check
+  Check,
+  NotebookPen,
+  User
 } from 'lucide-react';
 
 const FUNNEL_STAGES = [
@@ -55,6 +57,13 @@ const FUNNEL_STAGES = [
   { step: 5, label: 'Submitted Quote Request', short: 'Quote Submitted' },
   { step: 6, label: 'Account Created', short: 'Account Created' },
 ];
+
+export interface LeadNote {
+  id: string;
+  text: string;
+  createdAt: string;
+  createdBy: string;
+}
 
 export interface MetaLead {
   id: string;
@@ -77,6 +86,7 @@ export interface MetaLead {
   rawFields?: string;
   lastMessage?: string;
   lastError?: string;
+  notes?: LeadNote[];
 }
 
 export function VisitorFunnelPage() {
@@ -121,6 +131,60 @@ export function VisitorFunnelPage() {
   const [leadSearchQuery, setLeadSearchQuery] = useState('');
   const [leadSmsFilter, setLeadSmsFilter] = useState<string>('All');
   const [copiedTextKey, setCopiedTextKey] = useState<string | null>(null);
+
+  // Lead Notes State & Handlers
+  const [newNoteText, setNewNoteText] = useState('');
+  const [isSavingNote, setIsSavingNote] = useState(false);
+
+  const handleAddLeadNote = async (leadId: string) => {
+    if (!newNoteText.trim() || !selectedLead) return;
+    setIsSavingNote(true);
+
+    try {
+      const author = auth.currentUser?.displayName 
+        || (auth.currentUser?.email ? auth.currentUser.email.split('@')[0] : 'Team Member');
+
+      const noteObj: LeadNote = {
+        id: Date.now().toString(),
+        text: newNoteText.trim(),
+        createdAt: new Date().toISOString(),
+        createdBy: author,
+      };
+
+      const existingNotes = selectedLead.notes || [];
+      const updatedNotes = [noteObj, ...existingNotes];
+
+      const leadRef = doc(db, 'meta_ad_leads', leadId);
+      await setDoc(leadRef, { notes: updatedNotes }, { merge: true });
+
+      // Update local state
+      setSelectedLead(prev => prev ? { ...prev, notes: updatedNotes } : null);
+      setMetaLeads(prev => prev.map(l => l.id === leadId ? { ...l, notes: updatedNotes } : l));
+      setNewNoteText('');
+    } catch (err) {
+      console.error('Failed to save lead note:', err);
+      alert('Failed to save note. Please try again.');
+    } finally {
+      setIsSavingNote(false);
+    }
+  };
+
+  const handleDeleteLeadNote = async (leadId: string, noteId: string) => {
+    if (!selectedLead) return;
+    if (!confirm('Are you sure you want to delete this note?')) return;
+
+    try {
+      const updatedNotes = (selectedLead.notes || []).filter(n => n.id !== noteId);
+      const leadRef = doc(db, 'meta_ad_leads', leadId);
+      await setDoc(leadRef, { notes: updatedNotes }, { merge: true });
+
+      setSelectedLead(prev => prev ? { ...prev, notes: updatedNotes } : null);
+      setMetaLeads(prev => prev.map(l => l.id === leadId ? { ...l, notes: updatedNotes } : l));
+    } catch (err) {
+      console.error('Failed to delete note:', err);
+      alert('Failed to delete note.');
+    }
+  };
 
   // Meta Lead Sorting & Form Answer Filters State
   const [leadSortBy, setLeadSortBy] = useState<'date_desc' | 'date_asc' | 'name_asc' | 'name_desc' | 'size_desc' | 'urgency_asc' | 'tz_east_west' | 'tz_west_east'>('date_desc');
@@ -1678,6 +1742,14 @@ export function VisitorFunnelPage() {
                                 {formatBadgeText(getLeadAnswer(lead, 'type'))}
                               </span>
                             )}
+
+                            {/* 4. Notes Count Badge */}
+                            {lead.notes && lead.notes.length > 0 && (
+                              <span className="px-2 py-0.5 bg-amber-50 text-amber-900 text-[10px] font-bold rounded-full border border-amber-300 inline-flex items-center gap-1 shadow-2xs whitespace-nowrap">
+                                <NotebookPen size={10} className="text-amber-600" />
+                                {lead.notes.length} {lead.notes.length === 1 ? 'Note' : 'Notes'}
+                              </span>
+                            )}
                           </div>
                           <div className="text-[11px] text-slate-400 font-mono mt-1">ID: {lead.leadId.substring(0, 10)}...</div>
                         </td>
@@ -2218,6 +2290,84 @@ export function VisitorFunnelPage() {
                   </div>
                 </div>
               )}
+
+              {/* Internal Lead Notes Section */}
+              <div className="space-y-3 pt-3 border-t border-slate-200">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
+                    <NotebookPen size={14} className="text-amber-600" />
+                    Internal Notes
+                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-amber-100/90 text-amber-900 border border-amber-300 font-bold">
+                      {selectedLead.notes?.length || 0}
+                    </span>
+                  </h4>
+                </div>
+
+                {/* New Note Textarea Box */}
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+                  <textarea
+                    value={newNoteText}
+                    onChange={(e) => setNewNoteText(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                        e.preventDefault();
+                        handleAddLeadNote(selectedLead.id);
+                      }
+                    }}
+                    placeholder="Type internal note (e.g. Called lead, interested in 50 hoodies for September)..."
+                    rows={2}
+                    className="w-full text-xs text-slate-900 bg-white border border-slate-200 rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 resize-none font-sans"
+                  />
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-slate-400 font-medium">Press Ctrl+Enter to save note</span>
+                    <PillButton
+                      variant="filled"
+                      onClick={() => handleAddLeadNote(selectedLead.id)}
+                      disabled={!newNoteText.trim() || isSavingNote}
+                      className="bg-amber-600 hover:bg-amber-700 text-white font-bold h-7 px-3 text-[11px]"
+                    >
+                      {isSavingNote ? <Loader2 size={12} className="animate-spin mr-1" /> : <Send size={12} className="mr-1" />}
+                      Add Note
+                    </PillButton>
+                  </div>
+                </div>
+
+                {/* Timestamped Notes Timeline List */}
+                {selectedLead.notes && selectedLead.notes.length > 0 ? (
+                  <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+                    {selectedLead.notes.map((note) => (
+                      <div key={note.id} className="p-3 bg-amber-50/70 border border-amber-200/90 rounded-xl text-xs space-y-1 group relative">
+                        <div className="flex items-center justify-between text-[11px]">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-bold text-amber-950 flex items-center gap-1">
+                              <User size={12} className="text-amber-700" />
+                              {note.createdBy}
+                            </span>
+                            <span className="text-amber-700/60">•</span>
+                            <span className="text-amber-800/80 font-medium">
+                              {new Date(note.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })} at {new Date(note.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => handleDeleteLeadNote(selectedLead.id, note.id)}
+                            className="text-amber-700/50 hover:text-rose-600 opacity-0 group-hover:opacity-100 transition-opacity p-0.5 cursor-pointer"
+                            title="Delete note"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                        <p className="text-slate-900 text-xs leading-relaxed font-sans whitespace-pre-wrap pt-0.5">
+                          {note.text}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-400 italic bg-slate-50/60 border border-slate-200/60 rounded-xl p-3 text-center">
+                    No internal notes logged yet.
+                  </p>
+                )}
+              </div>
             </div>
 
             {/* Modal Actions Footer */}
