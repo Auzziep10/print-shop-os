@@ -4147,7 +4147,7 @@ export function PublicQuoteRequest() {
               {/* Designer Tabs Header - Underline Garment Type Style */}
               <div className="flex flex-wrap items-center justify-center gap-6 sm:gap-8 md:gap-10 py-3 border-b border-neutral-200/60 font-sans">
                 {[
-                  { id: 'upload', label: 'UPLOAD IMAGE' },
+                  { id: 'upload', label: 'ASSET VAULT' },
                   { id: 'text', label: 'ADD CUSTOM TEXT' },
                   { id: 'clipart', label: 'CLIP ART' }
                 ].map(tab => {
@@ -4202,7 +4202,7 @@ export function PublicQuoteRequest() {
                     ) : (
                       <label className="border-2 border-dashed border-neutral-200 hover:border-neutral-400 rounded-xl p-8 flex flex-col items-center justify-center gap-2 bg-white/40 hover:bg-white transition-all cursor-pointer group text-center">
                         <Upload size={24} className="text-neutral-400 group-hover:text-neutral-900 transition-colors" />
-                        <span className="text-xs font-bold text-neutral-700 group-hover:text-neutral-900">Select Artwork File</span>
+                        <span className="text-xs font-bold text-neutral-700 group-hover:text-neutral-900">Upload Image</span>
                         <span className="text-[10px] text-neutral-400">PNG, JPG, WEBP, SVG, GIF up to 20MB — transparent PNG recommended</span>
                         <input type="file" accept=".png,.jpg,.jpeg,.jfif,.webp,.gif,.svg,.avif,.bmp,image/png,image/jpeg,image/webp,image/gif,image/svg+xml,image/avif,image/bmp" onChange={handleLogoUpload} className="hidden" />
                       </label>
