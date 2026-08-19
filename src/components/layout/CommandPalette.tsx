@@ -44,7 +44,8 @@ const PAGES = [
   { name: 'Mobile Inventory Scan', path: '/inventory/scan', category: 'Pages' },
   { name: 'Team Members', path: '/team', category: 'Pages' },
   { name: 'Team Meetings', path: '/team/meetings', category: 'Pages' },
-  { name: 'Visitor Funnel', path: '/team/analytics', category: 'Pages' },
+  { name: 'CRM — Web Visitors Funnel', path: '/crm?tab=visitors', category: 'Pages' },
+  { name: 'CRM — Meta Ad Leads', path: '/crm?tab=leads', category: 'Pages' },
   { name: 'Settings', path: '/settings', category: 'Pages' },
   { name: 'Signatures & Profiles', path: '/settings?tab=signatures', category: 'Pages' },
   { name: 'Public Quote Request', path: '/start', category: 'Pages' }

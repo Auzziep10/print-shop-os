@@ -134,7 +134,7 @@ export function MetaAdsTab() {
           Meta Ads & Lead Capture Integration
         </h2>
         <p className={tokens.typography.bodyMuted}>
-          Connect your Facebook/Instagram Lead Ads to automatically capture leads, display them on the Visitor Funnel page, and text leads using Quo.
+          Connect your Facebook/Instagram Lead Ads to automatically capture leads, display them on the CRM page, and text leads using Quo.
         </p>
       </div>
 

@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { collection, onSnapshot, query, orderBy, deleteDoc, doc, setDoc, getDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, auth, storage } from '../../lib/firebase';
@@ -79,8 +80,29 @@ export interface MetaLead {
 }
 
 export function VisitorFunnelPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab') || searchParams.get('view');
+  
+  const initialViewMode = (tabParam === 'leads' || tabParam === 'meta' || tabParam === 'meta_leads') 
+    ? 'Meta Lead Ads' 
+    : 'Web Visitors';
+
   // Navigation View Switcher: Web Funnel vs Meta Ads Leads
-  const [activeViewMode, setActiveViewMode] = useState<'Web Visitors' | 'Meta Lead Ads'>('Web Visitors');
+  const [activeViewMode, setActiveViewMode] = useState<'Web Visitors' | 'Meta Lead Ads'>(initialViewMode);
+
+  useEffect(() => {
+    const currentTab = searchParams.get('tab') || searchParams.get('view');
+    if (currentTab === 'leads' || currentTab === 'meta' || currentTab === 'meta_leads') {
+      setActiveViewMode('Meta Lead Ads');
+    } else if (currentTab === 'visitors' || currentTab === 'web' || currentTab === 'web_visitors') {
+      setActiveViewMode('Web Visitors');
+    }
+  }, [searchParams]);
+
+  const handleViewModeChange = (mode: 'Web Visitors' | 'Meta Lead Ads') => {
+    setActiveViewMode(mode);
+    setSearchParams({ tab: mode === 'Meta Lead Ads' ? 'leads' : 'visitors' });
+  };
 
   // Web Visitor State
   const [sessions, setSessions] = useState<VisitorSession[]>([]);
@@ -903,7 +925,7 @@ export function VisitorFunnelPage() {
         {/* View Mode Switcher: Web Visitors vs Meta Lead Ads */}
         <div className="flex items-center gap-3 bg-neutral-100 p-1 rounded-xl border border-neutral-200 shrink-0">
           <button
-            onClick={() => setActiveViewMode('Web Visitors')}
+            onClick={() => handleViewModeChange('Web Visitors')}
             className={`px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
               activeViewMode === 'Web Visitors'
                 ? 'bg-white shadow-xs text-brand-primary'
@@ -915,7 +937,7 @@ export function VisitorFunnelPage() {
           </button>
 
           <button
-            onClick={() => setActiveViewMode('Meta Lead Ads')}
+            onClick={() => handleViewModeChange('Meta Lead Ads')}
             className={`px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
               activeViewMode === 'Meta Lead Ads'
                 ? 'bg-white shadow-xs text-brand-primary'

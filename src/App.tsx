@@ -239,6 +239,11 @@ function App() {
               <Inventory />
             </PermissionGuard>
           } />
+          <Route path="crm" element={
+            <PermissionGuard permission="manageTeam">
+              <VisitorFunnelPage />
+            </PermissionGuard>
+          } />
           <Route path="team" element={
             <PermissionGuard permission="manageTeam">
               <Team />
@@ -249,11 +254,7 @@ function App() {
               <TeamMeetingsPage />
             </PermissionGuard>
           } />
-          <Route path="team/analytics" element={
-            <PermissionGuard permission="manageTeam">
-              <VisitorFunnelPage />
-            </PermissionGuard>
-          } />
+          <Route path="team/analytics" element={<Navigate to="/crm?tab=visitors" replace />} />
           <Route path="signatures" element={<Navigate to="/settings?tab=signatures" replace />} />
             <Route path="reports" element={<Navigate to="/orders?tab=reports" replace />} />
             <Route path="settings" element={
