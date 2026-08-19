@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { ArrowLeft, ArrowRight, PackagePlus, X, Trash2, ChevronDown, RotateCcw, Calendar, Loader2, Sparkles, Save, User, Copy, Upload, ShoppingCart, Users, Info, Plus, ExternalLink, Zap } from 'lucide-react';
+import { ArrowLeft, PackagePlus, X, Trash2, ChevronDown, RotateCcw, Calendar, Loader2, Sparkles, Save, User, Copy, Upload, ShoppingCart, Users, Info, Plus, ExternalLink, Zap } from 'lucide-react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { db, storage } from '../../lib/firebase';
-import { doc, getDoc, collection, query, where, getDocs, setDoc, onSnapshot, deleteDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs, setDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useAuth } from '../../contexts/AuthContext';
 import { GarmentCustomizerModal } from '../../components/Portal/GarmentCustomizerModal';
@@ -261,7 +261,7 @@ export function PortalCreateOrder() {
   const [customBlankNotes, setCustomBlankNotes] = useState('');
   const [customBlankGarmentType, setCustomBlankGarmentType] = useState('T-Shirt');
 
-  // Saved Carts Local Storage Fallback Helpers
+  // Saved Carts Local Storage Fallback Helper
   const getLocalSavedCarts = (cId: string): any[] => {
     try {
       const raw = localStorage.getItem(`wovn_saved_carts_${cId}`);
@@ -280,52 +280,6 @@ export function PortalCreateOrder() {
       console.error("Error saving cart to local storage:", e);
     }
   };
-
-  const removeLocalSavedCart = (cId: string, cartId: string) => {
-    try {
-      const existing = getLocalSavedCarts(cId);
-      const updated = existing.filter((c: any) => c.id !== cartId);
-      localStorage.setItem(`wovn_saved_carts_${cId}`, JSON.stringify(updated));
-    } catch (e) {
-      console.error("Error deleting local saved cart:", e);
-    }
-  };
-
-  // Saved Carts States & Realtime Listener
-  const [savedCartsList, setSavedCartsList] = useState<any[]>([]);
-  const [isLoadingSavedCarts, setIsLoadingSavedCarts] = useState(false);
-
-  useEffect(() => {
-    if (!customerId) return;
-    setIsLoadingSavedCarts(true);
-
-    const localCarts = getLocalSavedCarts(customerId);
-    setSavedCartsList(localCarts);
-    setIsLoadingSavedCarts(false);
-
-    const q = query(
-      collection(db, 'saved_carts'),
-      where('customerId', '==', customerId)
-    );
-    const unsub = onSnapshot(q, (snap) => {
-      const remoteCarts: any[] = [];
-      snap.forEach(docSnap => {
-        remoteCarts.push({ id: docSnap.id, ...docSnap.data() });
-      });
-
-      const local = getLocalSavedCarts(customerId);
-      const combinedMap = new Map<string, any>();
-      local.forEach(c => combinedMap.set(c.id, c));
-      remoteCarts.forEach(c => combinedMap.set(c.id, c));
-
-      const combined = Array.from(combinedMap.values());
-      combined.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
-      setSavedCartsList(combined);
-    }, (err) => {
-      console.warn("Firestore saved_carts listener error (using local storage fallback):", err);
-    });
-    return () => unsub();
-  }, [customerId]);
 
   // Auto-quoting settings & cart summary calculation
   const [dtfSettings, setDtfSettings] = useState<{ costs: any; ladder: any; autoQuotingEnabled: boolean } | null>(null);
@@ -1123,7 +1077,6 @@ export function PortalCreateOrder() {
 
       // 1. Save to local storage fallback first
       saveLocalSavedCart(customerId, cleanPayload);
-      setSavedCartsList(prev => [cleanPayload, ...prev.filter(c => c.id !== cartId)]);
 
       // 2. Sync to Firestore (non-blocking if security rules or network restrict direct write)
       try {
@@ -2066,17 +2019,6 @@ export function PortalCreateOrder() {
           </button>
           <button
             type="button"
-            onClick={() => setActiveLibraryTab('saved_carts')}
-            className={`text-sm font-bold pb-1.5 border-b-2 whitespace-nowrap transition-all cursor-pointer ${
-              activeLibraryTab === 'saved_carts' || activeLibraryTab === 'saved'
-                ? 'text-black border-black' 
-                : 'text-neutral-400 border-transparent hover:text-black hover:border-black'
-            }`}
-          >
-            Saved Carts ({savedCartsList.length})
-          </button>
-          <button
-            type="button"
             onClick={() => setActiveLibraryTab('types')}
             className={`text-sm font-bold pb-1.5 border-b-2 whitespace-nowrap transition-all cursor-pointer ${
               activeLibraryTab === 'types' 
@@ -2332,116 +2274,6 @@ export function PortalCreateOrder() {
                       >
                         <Plus size={13} strokeWidth={2.5} />
                         <span>Add to Order</span>
-                      </button>
-                    </div>
-                  </div>
-                );
-              })
-            )
-          )}
-
-          {(activeLibraryTab === 'saved_carts' || activeLibraryTab === 'saved') && (
-            isLoadingSavedCarts ? (
-              <div className="col-span-full flex items-center justify-center p-12">
-                <Loader2 className="animate-spin text-neutral-400" size={28} />
-              </div>
-            ) : savedCartsList.length === 0 ? (
-              <div className="col-span-full flex flex-col items-center justify-center p-12 text-center text-neutral-500 bg-neutral-50/50 border border-neutral-200 border-dashed rounded-3xl min-h-[220px] w-full">
-                <ShoppingCart size={36} className="mb-3 text-indigo-400" />
-                <p className="font-bold text-base text-neutral-800">No saved carts yet.</p>
-                <p className="text-xs text-neutral-400 mt-1 max-w-md">
-                  Add garments to your cart, click <strong>"Save Cart"</strong> inside your cart drawer, and access your saved configurations here for instant 1-click re-ordering anytime!
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setActiveLibraryTab('types')}
-                  className="mt-4 px-5 py-2.5 bg-black hover:bg-neutral-800 text-white font-bold text-xs rounded-full transition-all shadow-sm cursor-pointer"
-                >
-                  + Start New Order
-                </button>
-              </div>
-            ) : (
-              savedCartsList.map((savedCart: any) => {
-                const itemsCount = savedCart.items?.length || 0;
-                const totalUnits = (savedCart.items || []).reduce((acc: number, item: any) => {
-                  const qValues: any[] = Object.values(item.quantities || item.sizes || {});
-                  const qSum = qValues.reduce((a: number, b: any) => a + (parseInt(b, 10) || 0), 0);
-                  return acc + (qSum > 0 ? qSum : 1);
-                }, 0);
-                const formattedDate = savedCart.createdAt ? new Date(savedCart.createdAt).toLocaleDateString(undefined, {
-                  month: 'short',
-                  day: 'numeric',
-                  year: 'numeric'
-                }) : 'Recent';
-
-                return (
-                  <div
-                    key={savedCart.id}
-                    className="col-span-1 bg-white border border-neutral-200 hover:border-black rounded-2xl p-5 shadow-2xs hover:shadow-md transition-all duration-200 flex flex-col justify-between gap-4 group relative"
-                  >
-                    {/* Top row */}
-                    <div>
-                      <div className="flex items-start justify-between gap-2 mb-2">
-                        <span className="text-[10px] font-extrabold uppercase tracking-widest text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 rounded-full">
-                          Saved Cart
-                        </span>
-                        <button
-                          type="button"
-                          onClick={async (e) => {
-                            e.stopPropagation();
-                            if (!confirm(`Delete saved cart "${savedCart.name}"?`)) return;
-                            if (customerId) removeLocalSavedCart(customerId, savedCart.id);
-                            setSavedCartsList(prev => prev.filter(c => c.id !== savedCart.id));
-                            try {
-                              await deleteDoc(doc(db, 'saved_carts', savedCart.id));
-                            } catch (err) {
-                              console.warn("Firestore delete saved_carts warning:", err);
-                            }
-                          }}
-                          className="p-1 rounded-full hover:bg-rose-50 text-neutral-400 hover:text-rose-600 transition-colors cursor-pointer"
-                          title="Delete saved cart"
-                        >
-                          <Trash2 size={15} />
-                        </button>
-                      </div>
-
-                      <h4 className="font-bold text-neutral-900 text-base leading-tight group-hover:text-black">
-                        {savedCart.name}
-                      </h4>
-                      <p className="text-[11px] font-medium text-neutral-400 mt-1">
-                        Saved on {formattedDate} • by {savedCart.createdBy || 'Customer'}
-                      </p>
-                    </div>
-
-                    {/* Garments Preview Thumbnails */}
-                    <div className="flex items-center gap-2 overflow-x-auto py-2">
-                      {(savedCart.items || []).slice(0, 4).map((cItem: any, idx: number) => (
-                        <div key={idx} className="w-12 h-12 rounded-xl bg-neutral-50 border border-neutral-200 p-1 flex items-center justify-center shrink-0" title={cItem.style}>
-                          <img src={cItem.image || 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200'} alt="" className="max-w-full max-h-full object-contain mix-blend-multiply" />
-                        </div>
-                      ))}
-                      {(savedCart.items?.length || 0) > 4 && (
-                        <span className="text-[10px] font-bold text-neutral-500 bg-neutral-100 rounded-lg px-2 py-1">
-                          +{(savedCart.items.length - 4)} more
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Stats & Load Action */}
-                    <div className="pt-3 border-t border-neutral-100 flex items-center justify-between gap-2 mt-auto">
-                      <span className="text-xs font-semibold text-neutral-600">
-                        {itemsCount} {itemsCount === 1 ? 'Garment' : 'Garments'} ({totalUnits} pcs)
-                      </span>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setOrderItems(savedCart.items || []);
-                          setIsCartOpen(true);
-                        }}
-                        className="bg-black hover:bg-neutral-800 text-white font-bold text-xs px-4 py-2 rounded-xl transition-all shadow-xs cursor-pointer inline-flex items-center gap-1.5"
-                      >
-                        Load Cart <ArrowRight size={13} />
                       </button>
                     </div>
                   </div>

@@ -37,6 +37,7 @@ const PortalCreateOrder = safeLazy(() => import('./pages/Portal/PortalCreateOrde
 const PortalRequestQuote = safeLazy(() => import('./pages/Portal/PortalRequestQuote').then(m => ({ default: m.PortalRequestQuote })));
 const PortalAssetVault = safeLazy(() => import('./pages/Portal/PortalAssetVault').then(m => ({ default: m.PortalAssetVault })));
 const PortalRoster = safeLazy(() => import('./pages/Portal/PortalRoster').then(m => ({ default: m.PortalRoster })));
+const PortalSavedCarts = safeLazy(() => import('./pages/Portal/PortalSavedCarts').then(m => ({ default: m.PortalSavedCarts })));
 const SeedData = safeLazy(() => import('./pages/Seed').then(m => ({ default: m.SeedData })));
 const Settings = safeLazy(() => import('./pages/Settings/Settings').then(m => ({ default: m.Settings })));
 const WaitingRoom = safeLazy(() => import('./pages/Auth/WaitingRoom').then(m => ({ default: m.WaitingRoom })));
@@ -186,8 +187,10 @@ function App() {
             <Route path="quote" element={<PortalRequestQuote />} />
             <Route path="vault" element={<PortalAssetVault />} />
             <Route path="roster" element={<PortalRoster />} />
+            <Route path="saved-carts" element={<PortalSavedCarts />} />
             <Route path=":customerId" element={<PortalOrders />} />
             <Route path=":customerId/create" element={<PortalCreateOrder />} />
+            <Route path=":customerId/saved-carts" element={<PortalSavedCarts />} />
             <Route path=":customerId/quote" element={<PortalRequestQuote />} />
             <Route path=":customerId/vault" element={<PortalAssetVault />} />
             <Route path=":customerId/roster" element={<PortalRoster />} />

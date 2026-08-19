@@ -633,9 +633,9 @@ export function PortalLayout() {
  
           <button 
             data-tour="saved-carts-tab"
-            onClick={() => navigate(customerId ? `/portal/${customerId}/create?tab=saved` : '/portal/create?tab=saved')}
+            onClick={() => navigate(customerId ? `/portal/${customerId}/saved-carts` : '/portal/saved-carts')}
             className={`text-[13px] font-semibold tracking-wide pb-0.5 border-b-2 transition-all ${
-              location.pathname.endsWith('/create') && (new URLSearchParams(location.search).get('tab') === 'saved' || new URLSearchParams(location.search).get('tab') === 'saved_carts')
+              location.pathname.includes('/saved-carts')
                 ? 'text-black border-black'
                 : 'text-gray-400 border-transparent hover:text-black hover:border-black'
             }`}
