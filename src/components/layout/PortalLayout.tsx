@@ -7,6 +7,7 @@ import { PortalTourOverlay } from '../Portal/PortalTourOverlay';
 import { db, storage } from '../../lib/firebase';
 import { doc, updateDoc, onSnapshot, collection, addDoc, query, orderBy } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { AddressAutocompleteInput } from '../ui/AddressAutocompleteInput';
 
 export function PortalLayout() {
   const { customerId } = useParams();
@@ -932,10 +933,15 @@ export function PortalLayout() {
                 
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[10px] uppercase font-bold text-neutral-500 pl-1">Street Address</label>
-                  <input 
-                    type="text"
+                  <AddressAutocompleteInput
                     value={editStreet}
-                    onChange={(e) => setEditStreet(e.target.value)}
+                    onChange={(val) => setEditStreet(val)}
+                    onAddressSelect={(parsed) => {
+                      setEditStreet(parsed.street);
+                      if (parsed.city) setEditCity(parsed.city);
+                      if (parsed.state) setEditState(parsed.state);
+                      if (parsed.zip) setEditZip(parsed.zip);
+                    }}
                     placeholder="e.g. 123 Main St"
                     className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-2.5 text-xs font-medium text-neutral-900 focus:outline-none focus:border-neutral-400 focus:bg-white transition-all"
                   />
@@ -1031,10 +1037,15 @@ export function PortalLayout() {
               <div className="flex flex-col gap-3 mt-2">
                 <div className="flex flex-col gap-1">
                   <label className="text-[9px] uppercase font-bold text-neutral-500 pl-1">Street Address</label>
-                  <input 
-                    type="text"
+                  <AddressAutocompleteInput
                     value={promptStreet}
-                    onChange={(e) => setPromptStreet(e.target.value)}
+                    onChange={(val) => setPromptStreet(val)}
+                    onAddressSelect={(parsed) => {
+                      setPromptStreet(parsed.street);
+                      if (parsed.city) setPromptCity(parsed.city);
+                      if (parsed.state) setPromptState(parsed.state);
+                      if (parsed.zip) setPromptZip(parsed.zip);
+                    }}
                     placeholder="e.g. 123 Main St"
                     className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-2.5 text-xs font-medium text-neutral-900 focus:outline-none focus:border-neutral-400 focus:bg-white transition-all font-bold"
                   />

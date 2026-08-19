@@ -10,6 +10,7 @@ import { doc, getDoc, setDoc, addDoc, collection, query, where, getDocs, updateD
 import Cropper from 'react-easy-crop';
 import { getCroppedImg } from '../../lib/cropUtils';
 import { ShoppingBag } from 'lucide-react';
+import { AddressAutocompleteInput } from '../../components/ui/AddressAutocompleteInput';
 import { ShopifyImportModal } from '../../components/Orders/ShopifyImportModal';
 import { PortalOrders } from '../Portal/PortalOrders';
 import { useOrders } from '../../hooks/useOrders';
@@ -2142,13 +2143,27 @@ export function CustomerDetail() {
                     <input className="w-full bg-brand-bg border border-brand-border/60 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-brand-primary/30 transition-colors placeholder:text-brand-secondary/40 font-medium" value={editCompanyForm.location} onChange={e => setEditCompanyForm({...editCompanyForm, location: e.target.value})} placeholder="e.g. Petaluma, CA" />
                  </div>
 
-                 <div className="col-span-2 mt-2 pt-4 border-t border-brand-border/60">
+                  <div className="col-span-2 mt-2 pt-4 border-t border-brand-border/60">
                     <h3 className="font-serif text-xl text-brand-primary mb-4">Shipping Information</h3>
-                 </div>
-                 <div className="col-span-2 flex flex-col gap-1">
-                    <label className="text-xs font-bold text-brand-secondary uppercase tracking-widest">Street Address</label>
-                    <input className="w-full bg-brand-bg border border-brand-border/60 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-brand-primary/30 transition-colors placeholder:text-brand-secondary/40 font-medium" value={editCompanyForm.shippingStreet} onChange={e => setEditCompanyForm({...editCompanyForm, shippingStreet: e.target.value})} placeholder="123 Main St" />
-                 </div>
+                  </div>
+                  <div className="col-span-2 flex flex-col gap-1">
+                     <label className="text-xs font-bold text-brand-secondary uppercase tracking-widest">Street Address</label>
+                     <AddressAutocompleteInput 
+                       value={editCompanyForm.shippingStreet} 
+                       onChange={val => setEditCompanyForm(prev => ({...prev, shippingStreet: val}))} 
+                       onAddressSelect={(parsed) => {
+                         setEditCompanyForm(prev => ({
+                           ...prev,
+                           shippingStreet: parsed.street,
+                           shippingCity: parsed.city || prev.shippingCity,
+                           shippingState: parsed.state || prev.shippingState,
+                           shippingZip: parsed.zip || prev.shippingZip
+                         }));
+                       }}
+                       placeholder="123 Main St" 
+                       className="w-full bg-brand-bg border border-brand-border/60 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-brand-primary/30 transition-colors placeholder:text-brand-secondary/40 font-medium"
+                     />
+                  </div>
                  <div className="flex flex-col gap-1">
                     <label className="text-xs font-bold text-brand-secondary uppercase tracking-widest">City</label>
                     <input className="w-full bg-brand-bg border border-brand-border/60 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-brand-primary/30 transition-colors placeholder:text-brand-secondary/40 font-medium" value={editCompanyForm.shippingCity} onChange={e => setEditCompanyForm({...editCompanyForm, shippingCity: e.target.value})} placeholder="City" />
