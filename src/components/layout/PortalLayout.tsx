@@ -329,8 +329,12 @@ export function PortalLayout() {
     return () => unsub();
   }, [customerId]);
 
+  const isProfileModalInitializedRef = useRef(false);
+  const isAddressPromptInitializedRef = useRef(false);
+
   useEffect(() => {
-    if (customer) {
+    if (isProfileModalOpen && customer && !isProfileModalInitializedRef.current) {
+      isProfileModalInitializedRef.current = true;
       setEditContactName(customer.contactName || '');
       setEditCompany(customer.company || customer.name || '');
       setEditEmail(customer.email || '');
@@ -344,14 +348,26 @@ export function PortalLayout() {
       setLogoFile(null);
       setLogoPreviewUrl('');
       setShouldDeleteLogo(false);
+    }
 
-      // Populate address prompt states
+    if (!isProfileModalOpen) {
+      isProfileModalInitializedRef.current = false;
+    }
+  }, [customer, isProfileModalOpen]);
+
+  useEffect(() => {
+    if (isAddressPromptOpen && customer && !isAddressPromptInitializedRef.current) {
+      isAddressPromptInitializedRef.current = true;
       setPromptStreet(customer.shippingStreet || '');
       setPromptCity(customer.shippingCity || '');
       setPromptState(customer.shippingState || '');
       setPromptZip(customer.shippingZip || '');
     }
-  }, [customer, isProfileModalOpen]);
+
+    if (!isAddressPromptOpen) {
+      isAddressPromptInitializedRef.current = false;
+    }
+  }, [customer, isAddressPromptOpen]);
 
   // Effect to trigger shipping address complete pop-up
   useEffect(() => {
