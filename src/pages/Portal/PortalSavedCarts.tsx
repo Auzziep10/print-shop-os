@@ -186,24 +186,21 @@ export function PortalSavedCarts() {
                 >
                   {/* Top row */}
                   <div>
-                    <div className="flex items-start justify-between gap-2 mb-3">
-                      <span className="text-[10px] font-extrabold uppercase tracking-widest text-indigo-700 bg-indigo-50 border border-indigo-200/80 px-3 py-1 rounded-full">
-                        SAVED CART
-                      </span>
+                    <div className="flex items-start justify-between gap-2 mb-1">
+                      <h3 className="font-serif font-bold text-neutral-900 text-xl leading-tight group-hover:text-black pr-2">
+                        {savedCart.name}
+                      </h3>
                       <button
                         type="button"
                         onClick={() => handleDeleteCart(savedCart)}
-                        className="p-1.5 rounded-full hover:bg-rose-50 text-neutral-400 hover:text-rose-600 transition-colors cursor-pointer"
+                        className="p-1.5 rounded-full hover:bg-rose-50 text-neutral-400 hover:text-rose-600 transition-colors cursor-pointer shrink-0 -mr-1 -mt-1"
                         title="Delete saved cart"
                       >
                         <Trash2 size={16} />
                       </button>
                     </div>
 
-                    <h3 className="font-serif font-bold text-neutral-900 text-xl leading-tight group-hover:text-black">
-                      {savedCart.name}
-                    </h3>
-                    <p className="text-xs font-medium text-neutral-400 mt-1">
+                    <p className="text-xs font-medium text-neutral-400">
                       Saved on {formattedDate} • by {savedCart.createdBy || 'Customer'}
                     </p>
                   </div>
