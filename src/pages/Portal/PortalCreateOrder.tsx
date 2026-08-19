@@ -249,6 +249,7 @@ export function PortalCreateOrder() {
   const [globalRacksOrder, setGlobalRacksOrder] = useState<any>({});
   const [customCatalogItems, setCustomCatalogItems] = useState<any[]>([]);
   const [catalogBasics, setCatalogBasics] = useState<any>({});
+  const [colorMockups, setColorMockups] = useState<Record<string, Record<string, any>>>({});
   const [isSavedDesignsModalOpen, setIsSavedDesignsModalOpen] = useState(false);
   const [savedDesignsList, setSavedDesignsList] = useState<any[]>([]);
   const [isLoadingSavedDesigns, setIsLoadingSavedDesigns] = useState(false);
@@ -547,18 +548,93 @@ export function PortalCreateOrder() {
     }
   }, [location.search]);
 
-  const getGarmentImage = (item: any) => {
+  const resolveColorMockup = (itemObj: any, chosenColor?: string, side: 'front' | 'back' | 'sleeve' = 'front'): string | null => {
+    if (!colorMockups || Object.keys(colorMockups).length === 0) return null;
+    const stylesToTry = Array.from(new Set([
+      itemObj?.style,
+      itemObj?.itemNum,
+      itemObj?.id,
+      itemObj?.slot,
+      itemObj?.title
+    ].filter(Boolean) as string[])).map(s => s.toLowerCase().trim());
+
+    for (const styleKey of stylesToTry) {
+      const cleanCand = styleKey.replace(/[\s-]/g, '');
+      const cleanCandNoPrefix = cleanCand.replace(/^(bc|nl|dt)/i, '');
+      const cleanCandNoCvc = cleanCand.replace(/cvc$/i, '');
+      const cleanCandBase = cleanCand.replace(/^(bc|nl|dt)|cvc$/gi, '');
+
+      const matchingStyleKey = Object.keys(colorMockups).find(k => {
+        const cleanK = k.toLowerCase().trim().replace(/[\s-]/g, '');
+        const cleanKNoPrefix = cleanK.replace(/^(bc|nl|dt)/i, '');
+        const cleanKNoCvc = cleanK.replace(/cvc$/i, '');
+        const cleanKBase = cleanK.replace(/^(bc|nl|dt)|cvc$/gi, '');
+
+        return cleanK === cleanCand ||
+               cleanKNoPrefix === cleanCandNoPrefix ||
+               cleanKNoCvc === cleanCandNoCvc ||
+               cleanKBase === cleanCandBase ||
+               (cleanCand.length >= 3 && cleanK.includes(cleanCand)) ||
+               (cleanK.length >= 3 && cleanCand.includes(cleanK));
+      });
+
+      if (!matchingStyleKey) continue;
+      const styleMap: Record<string, any> = colorMockups[matchingStyleKey];
+      if (!styleMap) continue;
+
+      if (chosenColor) {
+        const cKey = chosenColor.toLowerCase().trim();
+        const matchingColorKey = Object.keys(styleMap).find(k => {
+          const cleanK = k.toLowerCase().trim();
+          return cleanK === cKey || cleanK.replace(/[\s-]/g, '') === cKey.replace(/[\s-]/g, '');
+        });
+
+        if (matchingColorKey && styleMap[matchingColorKey]) {
+          const customColorImg = styleMap[matchingColorKey];
+          if (typeof customColorImg === 'string' && customColorImg.trim()) return customColorImg.trim();
+          if (typeof customColorImg === 'object' && customColorImg) {
+            const sImg = (customColorImg as any)[side] || (customColorImg as any).front || (customColorImg as any).back;
+            if (typeof sImg === 'string' && sImg.trim()) return sImg.trim();
+          }
+        }
+      }
+
+      // Fallback: check first available color in styleMap if exact color not matched or not provided
+      for (const firstVal of Object.values(styleMap)) {
+        if (firstVal) {
+          if (typeof firstVal === 'string' && firstVal.trim()) return firstVal.trim();
+          if (typeof firstVal === 'object' && firstVal) {
+            const sImg = (firstVal as any)[side] || (firstVal as any).front || (firstVal as any).back;
+            if (typeof sImg === 'string' && sImg.trim()) return sImg.trim();
+          }
+        }
+      }
+    }
+
+    return null;
+  };
+
+  const getGarmentImage = (item: any, chosenColor?: string) => {
+    if (!item) return 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=200&h=200';
+
+    const colorToUse = chosenColor || item.defaultColor || item.selectedColor || item.colors?.[0];
+
+    // 1. Color-specific custom mockup from colorMockups
+    const colorMockupImg = resolveColorMockup(item, colorToUse, 'front');
+    if (colorMockupImg) return colorMockupImg;
+
+    // 2. Direct item customImage / mockup_image
     if (item.customImage) return item.customImage;
     if (item.mockup_image) return item.mockup_image;
 
-    // 1. Direct slot lookup if available
+    // 3. Direct slot lookup if available
     if (item.mode && item.category && item.slot && globalCustomMockups?.[item.mode]?.[item.category]?.[item.slot]) {
       return globalCustomMockups[item.mode][item.category][item.slot];
     }
 
     const styleKey = (item?.style || item?.itemNum || '').toLowerCase();
 
-    // 2. Search globalCustomMockups for any rack slot assigned to this garment style
+    // 4. Search globalCustomMockups for any rack slot assigned to this garment style
     if (styleKey && customerRacks) {
       for (const cat of Object.keys(customerRacks)) {
         const catObj = customerRacks[cat];
@@ -572,13 +648,13 @@ export function PortalCreateOrder() {
       }
     }
 
-    // 3. Fall back to standard catalog image set
+    // 5. Fall back to standard catalog image set
     if (item.images) {
-      const chosenColor = (item.defaultColor && item.images[item.defaultColor])
-        ? item.defaultColor
+      const chosen = (colorToUse && item.images[colorToUse])
+        ? colorToUse
         : (item.colors?.[0] || Object.keys(item.images)[0]);
-      if (chosenColor && item.images[chosenColor]) {
-        const val = item.images[chosenColor];
+      if (chosen && item.images[chosen]) {
+        const val = item.images[chosen];
         if (typeof val === 'string') return val;
         return val.front || val.swatch || val.back || '';
       }
@@ -739,15 +815,17 @@ export function PortalCreateOrder() {
         }
       }
 
+      const colorMockupImg = resolveColorMockup(prod, prod.defaultColor || prod.colors?.[0]);
+
       return {
         ...prod,
         customName: customName || prod.customName || prod.title,
-        customImage: customImage || prod.customImage || prod.image || prod.mockup_image,
+        customImage: colorMockupImg || customImage || prod.customImage || prod.image || prod.mockup_image,
         price: (customPrice !== undefined && customPrice !== null && !isNaN(customPrice)) ? customPrice : prod.price,
         customSpecs: customSpec || prod.customSpecs
       };
     }).filter(Boolean) as any[];
-  }, [customerRacks, hiddenCollections, customNames, customPrices, customSpecs, globalCustomMockups, customCatalogItems, catalogBasics]);
+  }, [customerRacks, hiddenCollections, customNames, customPrices, customSpecs, globalCustomMockups, colorMockups, customCatalogItems, catalogBasics]);
 
   useEffect(() => {
     if (isInitialLoadDone) return;
@@ -1057,6 +1135,9 @@ export function PortalCreateOrder() {
             }
             if (globalData.basics) {
               setCatalogBasics(globalData.basics);
+            }
+            if (globalData.colorMockups) {
+              setColorMockups(globalData.colorMockups);
             }
           }
         } catch (globalErr) {
@@ -1892,7 +1973,7 @@ export function PortalCreateOrder() {
                 const itemNum = item.style;
                 const colors = item.colors || ['Custom Color'];
                 const sizes = parseSizesFromItem(item, item.style || '');
-                const image = getGarmentImage(item);
+                const image = getGarmentImage(item, item.defaultColor);
                 const price = parseFloat(item.price || 0);
 
                 return renderGarmentCard(item, style, gender, itemNum, colors, sizes, image, price, item.id || idx);
@@ -2104,7 +2185,7 @@ export function PortalCreateOrder() {
                 const itemNum = item.style;
                 const colors = item.colors || ['Custom Color'];
                 const sizes = parseSizesFromItem(item, item.style || '');
-                const image = getGarmentImage(item);
+                const image = getGarmentImage(item, item.defaultColor);
                 const price = parseFloat(item.price || 0);
 
                 return renderGarmentCard(item, style, gender, itemNum, colors, sizes, image, price, item.id || idx);
