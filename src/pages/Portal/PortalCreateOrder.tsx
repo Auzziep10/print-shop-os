@@ -242,7 +242,7 @@ export function PortalCreateOrder() {
   const [hiddenCollections, setHiddenCollections] = useState<Record<string, boolean>>({});
   const [defaultColors, setDefaultColors] = useState<any>({ racks: {}, basics: {} });
   const [activeRackCategory, setActiveRackCategory] = useState('Athleisure');
-  const [activeLibraryTab, setActiveLibraryTab] = useState('rack');
+  const [activeLibraryTab, setActiveLibraryTab] = useState('types');
   const [activeGarmentType, setActiveGarmentType] = useState<GarmentTypeId>('t-shirt');
   const [garmentTypeTags, setGarmentTypeTags] = useState<Record<string, string>>({});
   const [globalCustomMockups, setGlobalCustomMockups] = useState<any>({ racks: {}, basics: {} });
