@@ -46,7 +46,7 @@ import {
 } from 'lucide-react';
 
 const FUNNEL_STAGES = [
-  { step: 0, label: 'Landing Page (/start2)', short: '/start2 Landing' },
+  { step: 0, label: 'Landing Page (/)', short: '/ Landing' },
   { step: 1, label: 'Garment & Category Select', short: 'Selection' },
   { step: 2, label: 'Upload Artwork / Logo', short: 'Upload Logo' },
   { step: 3, label: 'Placement & Proofing', short: 'Proofing' },
@@ -851,7 +851,7 @@ export function VisitorFunnelPage() {
     const map: Record<string, { stepName: string; path: string; lastEvent: string; count: number }> = {};
     filteredSessions.forEach((s) => {
       const stepName = s.lastStepName || s.furthestStepName || `Step ${s.furthestStep || 0}`;
-      const path = s.currentPath || s.landingPage || '/start2';
+      const path = s.currentPath || s.landingPage || '/';
       const lastEvent = s.lastEventName || 'Visited page';
       const key = `${stepName}__${path}`;
 
@@ -895,7 +895,7 @@ export function VisitorFunnelPage() {
           <div>
             <h1 className={tokens.typography.h1}>Public Visitor & Lead Funnel</h1>
             <p className={tokens.typography.bodyMuted + " mt-1"}>
-              Track real-time visitors from <code className="px-1.5 py-0.5 bg-slate-100 rounded text-brand-primary font-mono text-xs">/start2</code> and capture Meta Lead Ad submissions to text leads via Quo.
+              Track real-time visitors from <code className="px-1.5 py-0.5 bg-slate-100 rounded text-brand-primary font-mono text-xs">/</code> and capture Meta Lead Ad submissions to text leads via Quo.
             </p>
           </div>
         </div>
@@ -1172,7 +1172,7 @@ export function VisitorFunnelPage() {
                               {session.lastStepName || session.furthestStepName || `Step ${session.furthestStep}`}
                             </span>
                             <span className="text-[11px] font-mono font-semibold text-slate-600 mt-1 truncate max-w-[200px]">
-                              {session.currentPath || session.landingPage || '/start2'}
+                              {session.currentPath || session.landingPage || '/'}
                             </span>
                           </div>
                         </td>

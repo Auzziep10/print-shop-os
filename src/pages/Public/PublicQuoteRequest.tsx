@@ -3362,7 +3362,7 @@ export function PublicQuoteRequest() {
                   if (step > 1) {
                     setStep(step - 1);
                   } else {
-                    navigate('/start2');
+                    navigate('/');
                   }
                 }}
                 className="flex items-center gap-2 cursor-pointer group"
@@ -3375,7 +3375,7 @@ export function PublicQuoteRequest() {
                     if (step > 1) {
                       setStep(step - 1);
                     } else {
-                      navigate('/start2');
+                      navigate('/');
                     }
                   }}
                   className="p-1 -ml-1.5 rounded-full text-zinc-400 group-hover:text-zinc-950 group-hover:bg-zinc-100 transition-colors cursor-pointer"
@@ -3717,7 +3717,7 @@ export function PublicQuoteRequest() {
                 <div className="flex items-center justify-between border-b border-neutral-200/60 pb-5 gap-4">
                   <div className="flex items-center gap-3">
                     <button
-                      onClick={() => navigate('/start2')}
+                      onClick={() => navigate('/')}
                       className="p-2 border border-neutral-200 hover:border-neutral-450 text-neutral-500 hover:text-neutral-900 bg-neutral-50 rounded-xl transition-all shadow-3xs cursor-pointer"
                     >
                       <ChevronLeft size={16} />

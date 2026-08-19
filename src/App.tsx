@@ -119,12 +119,11 @@ function App() {
       }>
         <Routes>
           {/* Public Routes */}
-          <Route path="/" element={<Navigate to="/start2" replace />} />
+          <Route path="/" element={<ImmersiveLandingPage />} />
+          <Route path="/start2" element={<Navigate to="/" replace />} />
           <Route path="/login" element={<Login />} />
           <Route path="/waiting" element={<WaitingRoom />} />
-          <Route path="/start" element={<PublicQuoteRequest />} />
-          {/* Immersive landing prototype — new direction exploration */}
-          <Route path="/start2" element={<ImmersiveLandingPage />} />
+          <Route path="/start" element={<PublicQuoteRequest />} />}
           <Route path="/sms-opt-in" element={<SmsConsent />} />
           {/* Brand Shop — public merch storefront */}
           <Route path="/shop" element={<ShopPage />} />

@@ -89,7 +89,7 @@ export function detectBrowser(): string {
 }
 
 const STEP_NAMES: Record<number, string> = {
-  0: 'Landing (/start2)',
+  0: 'Landing (/)',
   1: 'Category & Garment Selection',
   2: 'Upload Artwork / Logo',
   3: 'Placement & Proof Configurator',
@@ -118,7 +118,7 @@ export async function trackVisitorEvent(
     const sessionId = getOrCreateSessionId();
     const path = options?.path || window.location.pathname + window.location.search;
     const nowIso = new Date().toISOString();
-    const step = options?.step ?? (path.includes('/start2') ? 0 : path.includes('/start') ? 1 : 0);
+    const step = options?.step ?? (path === '/' || path.includes('/start2') ? 0 : path.includes('/start') ? 1 : 0);
     const stepName = options?.stepName || STEP_NAMES[step] || `Step ${step}`;
 
     const newEvent: FunnelEvent = {

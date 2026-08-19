@@ -93,7 +93,7 @@ export function ImmersiveLandingPage() {
   }, []);
 
   useEffect(() => {
-    trackVisitorEvent('Visited /start2 Landing Page', { step: 0, stepName: 'Landing (/start2)' });
+    trackVisitorEvent('Visited Landing Page', { step: 0, stepName: 'Landing (/)' });
   }, []);
 
   useEffect(() => {

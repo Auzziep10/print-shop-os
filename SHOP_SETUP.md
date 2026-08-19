@@ -25,7 +25,7 @@ match blocks inside `match /databases/{database}/documents { ... }`, then Publis
 ```
 
 The store also reads `settings/brandShop`. If your existing rules already allow
-public reads on the `settings` collection (the /start2 landing page reads
+public reads on the `settings` collection (the landing page reads
 `settings/storefront` publicly), nothing more is needed. Otherwise add:
 
 ```
@@ -57,5 +57,5 @@ Note: Vercel Hobby allows 12 serverless functions; this repo is now at exactly
 - `src/pages/Shop/` — ShopPage, ShopSuccess, useCart, shopTypes, shop.css
 - `src/pages/Settings/ShopManagerTab.tsx` — Settings → Brand Shop (Products / Storefront / Orders)
 - `api/stripe/shop-checkout.ts` — Stripe Checkout create + verify (one function)
-- "Shop" link in the /start2 nav
+- "Shop" link in the landing page nav
 - Firestore: `shop_products`, `shop_orders` collections + `settings/brandShop` doc

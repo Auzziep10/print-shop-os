@@ -1,9 +1,9 @@
 {
   "redirects": [
     {
-      "source": "/",
-      "destination": "/start2",
-      "permanent": false
+      "source": "/start2",
+      "destination": "/",
+      "permanent": true
     }
   ],
   "rewrites": [
