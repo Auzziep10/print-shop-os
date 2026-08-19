@@ -1603,12 +1603,27 @@ export function VisitorFunnelPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 text-xs">
-                    {filteredMetaLeads.map((lead) => (
-                      <tr 
-                        key={lead.id} 
-                        className="hover:bg-slate-50/80 transition-colors cursor-pointer"
-                        onClick={() => setSelectedLead(lead)}
-                      >
+                    {filteredMetaLeads.map((lead) => {
+                      const isReachedOut = Boolean(
+                        (lead.smsStatus === 'sent') ||
+                        lead.smsSentAt ||
+                        (lead.callFeedback && lead.callFeedback !== 'uncontacted') ||
+                        (lead.smsFeedback && lead.smsFeedback !== 'uncontacted') ||
+                        (lead.leadStatus && lead.leadStatus !== 'uncontacted') ||
+                        (lead.callStatus && lead.callStatus !== 'uncontacted') ||
+                        lead.lastMessage
+                      );
+
+                      return (
+                        <tr 
+                          key={lead.id} 
+                          className={`transition-all cursor-pointer ${
+                            isReachedOut
+                              ? 'bg-slate-100/60 opacity-60 hover:opacity-100 hover:bg-slate-100'
+                              : 'bg-white hover:bg-slate-50/90'
+                          }`}
+                          onClick={() => setSelectedLead(lead)}
+                        >
                         {/* Name & Form Answer Badges */}
                         <td className="py-3 px-2 font-medium text-slate-900 max-w-[140px]">
                           <div className="text-sm font-bold text-slate-900 truncate">{lead.name}</div>
@@ -1953,7 +1968,8 @@ export function VisitorFunnelPage() {
                           </div>
                         </td>
                       </tr>
-                    ))}
+                    );
+                  })}
                   </tbody>
                 </table>
               </div>
