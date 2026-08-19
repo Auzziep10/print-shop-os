@@ -181,10 +181,10 @@ export function Sidebar({ onClose }: SidebarProps) {
   const navItems = [
     ...(hasPermission('viewDashboard') ? [{ label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' }] : []),
     ...(hasPermission('manageOrders') ? [{ label: 'Orders/Quotes', icon: Layers, path: '/orders' }] : []),
-    ...(hasPermission('manageTeam') ? [{ label: 'CRM', icon: TrendingUp, path: '/crm' }] : []),
     ...(hasPermission('manageCustomers') ? [{ label: 'Customers', icon: Users, path: '/customers' }] : []),
     ...(hasPermission('manageInventory') ? [{ label: 'Inventory', icon: Package, path: '/inventory' }] : []),
     ...(hasPermission('manageTeam') ? [{ label: 'Team', icon: UsersRound, path: '/team' }] : []),
+    ...(hasPermission('manageTeam') ? [{ label: 'CRM', icon: TrendingUp, path: '/crm' }] : []),
   ];
 
   return (
