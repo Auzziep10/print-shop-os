@@ -507,24 +507,22 @@ export function PortalCreateOrder() {
         setCustomBlankGarmentType(garmentTypeLabel || 'Garment');
         setShowCustomBlankModal(true);
       }}
-      className="group bg-gradient-to-b from-neutral-50/90 via-white to-indigo-50/20 hover:from-indigo-50/50 hover:to-white flex flex-col justify-between cursor-pointer transition-all relative w-full border-2 border-dashed border-neutral-300 hover:border-black rounded-2xl p-5 min-h-[320px] text-center shadow-2xs hover:shadow-lg duration-300"
+      className="group bg-white border border-dashed border-neutral-300 hover:border-neutral-900 rounded-none p-3.5 flex flex-col justify-between cursor-pointer transition-all duration-300 relative text-left min-h-[340px] hover:shadow-xs"
     >
-      <div className="w-full flex-1 flex flex-col items-center justify-center py-4">
-        <div className="w-14 h-14 rounded-2xl bg-white border border-neutral-200 shadow-sm flex items-center justify-center text-neutral-800 group-hover:bg-black group-hover:text-white group-hover:border-black transition-all duration-300 mb-3.5 group-hover:scale-110">
-          <PackagePlus size={26} />
+      <div className="w-full aspect-[4/4.2] bg-neutral-50/60 border border-neutral-100 flex flex-col items-center justify-center p-4 text-center mb-3 group-hover:bg-neutral-100/60 transition-colors">
+        <div className="w-12 h-12 rounded-xl bg-white border border-neutral-200 shadow-3xs flex items-center justify-center text-neutral-800 group-hover:bg-black group-hover:text-white group-hover:border-black transition-all duration-300 mb-3 group-hover:scale-105">
+          <PackagePlus size={22} strokeWidth={2} />
         </div>
-        <span className="text-[10px] font-extrabold uppercase tracking-widest text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 rounded-full mb-2">
-          Custom Sourcing
-        </span>
-        <h4 className="font-serif font-bold text-neutral-900 text-base leading-snug">
+        <h4 className="font-serif font-bold text-neutral-900 text-base leading-tight mb-1.5">
           Request a Specific Blank
         </h4>
-        <p className="text-xs text-neutral-500 font-medium leading-relaxed mt-2 max-w-[210px]">
+        <p className="text-[11.5px] text-neutral-500 font-medium font-inter leading-relaxed max-w-[210px]">
           Need a brand or style not listed? (e.g. Comfort Colors 1717, Bella+Canvas 3001, Shaka Wear)
         </p>
       </div>
-      <div className="w-full pt-3 border-t border-neutral-200/70 flex items-center justify-center">
-        <span className="text-xs font-bold text-neutral-900 group-hover:text-indigo-600 inline-flex items-center gap-1.5 transition-colors">
+
+      <div className="flex items-center justify-between pt-2 border-t border-neutral-100 mt-auto">
+        <span className="text-xs font-bold text-neutral-800 group-hover:text-black inline-flex items-center gap-1.5 transition-colors">
           <Plus size={14} className="stroke-[2.5]" />
           Request Blank & Mockup
         </span>
