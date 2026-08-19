@@ -55,6 +55,22 @@ export function AddressAutocompleteInput({
   const containerRef = useRef<HTMLDivElement>(null);
   const debounceTimerRef = useRef<any>(null);
 
+  // Auto-inject Google Maps SDK if API key is supplied in env
+  useEffect(() => {
+    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
+    if (!apiKey || (window as any).google?.maps?.places) return;
+
+    const existingScript = document.getElementById('google-maps-places-sdk');
+    if (existingScript) return;
+
+    const script = document.createElement('script');
+    script.id = 'google-maps-places-sdk';
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
+    script.async = true;
+    script.defer = true;
+    document.head.appendChild(script);
+  }, []);
+
   // Close dropdown on click outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
