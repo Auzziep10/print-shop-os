@@ -261,6 +261,36 @@ export function PortalCreateOrder() {
   const [customBlankNotes, setCustomBlankNotes] = useState('');
   const [customBlankGarmentType, setCustomBlankGarmentType] = useState('T-Shirt');
 
+  // Saved Carts Local Storage Fallback Helpers
+  const getLocalSavedCarts = (cId: string): any[] => {
+    try {
+      const raw = localStorage.getItem(`wovn_saved_carts_${cId}`);
+      return raw ? JSON.parse(raw) : [];
+    } catch (e) {
+      return [];
+    }
+  };
+
+  const saveLocalSavedCart = (cId: string, cartObj: any) => {
+    try {
+      const existing = getLocalSavedCarts(cId);
+      const updated = [cartObj, ...existing.filter((c: any) => c.id !== cartObj.id)];
+      localStorage.setItem(`wovn_saved_carts_${cId}`, JSON.stringify(updated));
+    } catch (e) {
+      console.error("Error saving cart to local storage:", e);
+    }
+  };
+
+  const removeLocalSavedCart = (cId: string, cartId: string) => {
+    try {
+      const existing = getLocalSavedCarts(cId);
+      const updated = existing.filter((c: any) => c.id !== cartId);
+      localStorage.setItem(`wovn_saved_carts_${cId}`, JSON.stringify(updated));
+    } catch (e) {
+      console.error("Error deleting local saved cart:", e);
+    }
+  };
+
   // Saved Carts States & Realtime Listener
   const [savedCartsList, setSavedCartsList] = useState<any[]>([]);
   const [isLoadingSavedCarts, setIsLoadingSavedCarts] = useState(false);
@@ -268,21 +298,31 @@ export function PortalCreateOrder() {
   useEffect(() => {
     if (!customerId) return;
     setIsLoadingSavedCarts(true);
+
+    const localCarts = getLocalSavedCarts(customerId);
+    setSavedCartsList(localCarts);
+    setIsLoadingSavedCarts(false);
+
     const q = query(
       collection(db, 'saved_carts'),
       where('customerId', '==', customerId)
     );
     const unsub = onSnapshot(q, (snap) => {
-      const carts: any[] = [];
+      const remoteCarts: any[] = [];
       snap.forEach(docSnap => {
-        carts.push({ id: docSnap.id, ...docSnap.data() });
+        remoteCarts.push({ id: docSnap.id, ...docSnap.data() });
       });
-      carts.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
-      setSavedCartsList(carts);
-      setIsLoadingSavedCarts(false);
+
+      const local = getLocalSavedCarts(customerId);
+      const combinedMap = new Map<string, any>();
+      local.forEach(c => combinedMap.set(c.id, c));
+      remoteCarts.forEach(c => combinedMap.set(c.id, c));
+
+      const combined = Array.from(combinedMap.values());
+      combined.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+      setSavedCartsList(combined);
     }, (err) => {
-      console.error("Error fetching saved carts:", err);
-      setIsLoadingSavedCarts(false);
+      console.warn("Firestore saved_carts listener error (using local storage fallback):", err);
     });
     return () => unsub();
   }, [customerId]);
@@ -1071,7 +1111,7 @@ export function PortalCreateOrder() {
     setIsSavingCart(true);
     try {
       const cartId = `cart-${Date.now()}`;
-      const payload = {
+      const rawPayload = {
         id: cartId,
         customerId,
         name: savedCartName.trim(),
@@ -1079,14 +1119,27 @@ export function PortalCreateOrder() {
         items: orderItems,
         createdBy: userData?.name || user?.displayName || user?.email?.split('@')[0] || 'Customer'
       };
-      await setDoc(doc(db, 'saved_carts', cartId), payload);
+
+      // Strip out any non-serializable properties (e.g. undefined fields, functions, or circular structures)
+      const cleanPayload = JSON.parse(JSON.stringify(rawPayload));
+
+      // 1. Save to local storage fallback first
+      saveLocalSavedCart(customerId, cleanPayload);
+      setSavedCartsList(prev => [cleanPayload, ...prev.filter(c => c.id !== cartId)]);
+
+      // 2. Sync to Firestore (non-blocking if security rules or network restrict direct write)
+      try {
+        await setDoc(doc(db, 'saved_carts', cartId), cleanPayload);
+      } catch (fsErr: any) {
+        console.warn("Firestore saved_carts sync warning:", fsErr);
+      }
       
       setShowSaveCartModal(false);
       setSavedCartName('');
       alert("Cart saved successfully!");
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to save cart:", err);
-      alert("Failed to save cart. Please try again.");
+      alert(`Failed to save cart: ${err?.message || 'Please try again.'}`);
     } finally {
       setIsSavingCart(false);
     }
@@ -2339,11 +2392,12 @@ export function PortalCreateOrder() {
                           onClick={async (e) => {
                             e.stopPropagation();
                             if (!confirm(`Delete saved cart "${savedCart.name}"?`)) return;
+                            if (customerId) removeLocalSavedCart(customerId, savedCart.id);
+                            setSavedCartsList(prev => prev.filter(c => c.id !== savedCart.id));
                             try {
                               await deleteDoc(doc(db, 'saved_carts', savedCart.id));
-                              setSavedCartsList(prev => prev.filter(c => c.id !== savedCart.id));
                             } catch (err) {
-                              console.error(err);
+                              console.warn("Firestore delete saved_carts warning:", err);
                             }
                           }}
                           className="p-1 rounded-full hover:bg-rose-50 text-neutral-400 hover:text-rose-600 transition-colors cursor-pointer"
