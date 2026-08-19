@@ -592,6 +592,15 @@ export function PublicQuoteRequest() {
   const [customBlankNotes, setCustomBlankNotes] = useState('');
   const [customBlankGarmentType, setCustomBlankGarmentType] = useState('T-Shirt');
 
+  // Custom Blank Auth & Direct Portal Submission Modal State (Step 2)
+  const [showCustomBlankAuthModal, setShowCustomBlankAuthModal] = useState(false);
+  const [customBlankContactName, setCustomBlankContactName] = useState('');
+  const [customBlankCompany, setCustomBlankCompany] = useState('');
+  const [customBlankEmail, setCustomBlankEmail] = useState('');
+  const [customBlankPhone, setCustomBlankPhone] = useState('');
+  const [customBlankPassword, setCustomBlankPassword] = useState('');
+  const [isSubmittingCustomBlankAuth, setIsSubmittingCustomBlankAuth] = useState(false);
+
   const [cart, setCart] = useState<any[]>([]);
 
   const [customer, setCustomer] = useState<any>(null);
@@ -1454,40 +1463,157 @@ export function PublicQuoteRequest() {
 
   const handleConfirmCustomBlankRequest = () => {
     if (!customBlankBrandStyle.trim()) return;
-
-    const requestedTitle = customBlankBrandStyle.trim();
-    const colorToUse = customBlankColor.trim() || 'Custom Requested Color';
-
-    const customProduct: any = {
-      style: requestedTitle,
-      brand: 'Custom Blank Request',
-      title: requestedTitle,
-      description: customBlankNotes || 'Custom blank style requested by customer',
-      category: customBlankGarmentType || 'Custom',
-      images: {},
-      colors: [colorToUse],
-      price: 0,
-      isCustomBlankRequest: true,
-      requestedNotes: customBlankNotes,
-      customGarmentType: customBlankGarmentType
-    };
-
-    const newItem = {
-      id: `custom-blank-${Date.now()}`,
-      product: customProduct,
-      color: colorToUse,
-      garmentType: selectedGarmentType,
-      isCustomBlankRequest: true,
-      requestedBrandStyle: requestedTitle,
-      requestedColor: colorToUse,
-      requestedNotes: customBlankNotes
-    };
-
-    setSelectedGarmentTypeItems(prev => [...prev, newItem]);
     setShowCustomBlankModal(false);
-    setCustomBlankBrandStyle('');
-    setCustomBlankColor('');
-    setCustomBlankNotes('');
+    setShowCustomBlankAuthModal(true);
+  };
+
+  const handleFinalSubmitCustomBlankRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!customBlankBrandStyle.trim()) {
+      alert("Please specify the requested brand & style number.");
+      return;
+    }
+    if (!customBlankContactName.trim() || !customBlankEmail.trim() || !customBlankPassword) {
+      alert("Please fill in your name, email, and password.");
+      return;
+    }
+    if (customBlankPassword.length < 6) {
+      alert("Password must be at least 6 characters.");
+      return;
+    }
+
+    setIsSubmittingCustomBlankAuth(true);
+
+    try {
+      const cleanEmail = customBlankEmail.toLowerCase().trim();
+      let uid = '';
+
+      // 1. Authenticate or Create Account with Firebase Auth
+      try {
+        const userCred = await createUserWithEmailAndPassword(auth, cleanEmail, customBlankPassword);
+        uid = userCred.user.uid;
+      } catch (authErr: any) {
+        if (authErr.code === 'auth/email-already-in-use') {
+          try {
+            const userCred = await signInWithEmailAndPassword(auth, cleanEmail, customBlankPassword);
+            uid = userCred.user.uid;
+          } catch (loginErr: any) {
+            alert("An account with this email already exists, but the password entered was incorrect.");
+            setIsSubmittingCustomBlankAuth(false);
+            return;
+          }
+        } else {
+          alert(`Could not create account: ${authErr.message || 'Please check details and try again.'}`);
+          setIsSubmittingCustomBlankAuth(false);
+          return;
+        }
+      }
+
+      // 2. Provision Customer document in Firestore
+      const companyName = customBlankCompany.trim() || customBlankContactName.trim();
+      const customerPayload = {
+        id: uid,
+        company: companyName,
+        name: companyName,
+        contactName: customBlankContactName.trim(),
+        email: cleanEmail,
+        phone: customBlankPhone.trim() || '-',
+        type: 'Web Lead (Custom Blank Request)',
+        createdAt: new Date().toISOString()
+      };
+      await setDoc(doc(db, 'customers', uid), JSON.parse(JSON.stringify(customerPayload)), { merge: true });
+
+      // 3. Provision User Profile document in Firestore
+      const userPayload = {
+        uid: uid,
+        email: cleanEmail,
+        name: customBlankContactName.trim(),
+        role: 'customer',
+        customerId: uid,
+        createdAt: new Date().toISOString()
+      };
+      await setDoc(doc(db, 'users', uid), JSON.parse(JSON.stringify(userPayload)), { merge: true });
+
+      // 4. Build Custom Blank Request item payload
+      const colorToUse = customBlankColor.trim() || 'Custom Requested Color';
+      const customItem = {
+        instanceId: Math.random().toString(36).substring(7),
+        style: customBlankBrandStyle.trim(),
+        brand: 'Custom Blank Request',
+        itemNum: 'CUSTOM-SOURCING',
+        price: 0,
+        image: 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?auto=format&fit=crop&q=80&w=300&h=300',
+        colors: [colorToUse],
+        selectedColor: colorToUse,
+        quantities: { 'M': 1 },
+        customized: false,
+        isCustomBlankRequest: true,
+        requestedBrandStyle: customBlankBrandStyle.trim(),
+        requestedColor: colorToUse,
+        requestedNotes: customBlankNotes.trim(),
+        customGarmentType: customBlankGarmentType
+      };
+
+      // 5. Save Saved Cart & Local Storage fallback
+      const cartId = `cart-${Date.now()}`;
+      const cartPayload = {
+        id: cartId,
+        customerId: uid,
+        name: `Custom Request: ${customBlankBrandStyle.trim()}`,
+        createdAt: new Date().toISOString(),
+        items: [customItem],
+        createdBy: customBlankContactName.trim()
+      };
+
+      try {
+        await setDoc(doc(db, 'saved_carts', cartId), JSON.parse(JSON.stringify(cartPayload)));
+      } catch (e) {
+        console.warn("Firestore saved_carts sync warning:", e);
+      }
+      localStorage.setItem(`wovn_saved_carts_${uid}`, JSON.stringify([cartPayload]));
+      localStorage.setItem(`wovn_reorder_cart_${uid}`, JSON.stringify([customItem]));
+
+      // 6. Save Order / Quote Request to Firestore
+      const orderId = `WOVN-Q-${Math.floor(1000 + Math.random() * 9000)}`;
+      const orderPayload = {
+        id: orderId,
+        orderNumber: orderId,
+        customerId: uid,
+        company: companyName,
+        contactName: customBlankContactName.trim(),
+        email: cleanEmail,
+        phone: customBlankPhone.trim() || '',
+        items: [customItem],
+        status: 'Quote Requested',
+        createdAt: new Date().toISOString(),
+        total: 0,
+        notes: `Custom Blank Request: ${customBlankBrandStyle.trim()} (${customBlankGarmentType}). Color: ${colorToUse}. Notes: ${customBlankNotes.trim()}`
+      };
+
+      try {
+        await setDoc(doc(db, 'orders', orderId), JSON.parse(JSON.stringify(orderPayload)));
+      } catch (e) {
+        console.warn("Firestore orders sync warning:", e);
+      }
+
+      // 7. Reset form & Navigate directly to Customer Portal
+      setShowCustomBlankAuthModal(false);
+      setCustomBlankBrandStyle('');
+      setCustomBlankColor('');
+      setCustomBlankNotes('');
+      setCustomBlankContactName('');
+      setCustomBlankCompany('');
+      setCustomBlankEmail('');
+      setCustomBlankPhone('');
+      setCustomBlankPassword('');
+      setIsSubmittingCustomBlankAuth(false);
+
+      navigate(`/portal/${uid}/create?openCart=true`);
+    } catch (err: any) {
+      console.error("Failed to submit custom blank request:", err);
+      alert(`Submission error: ${err?.message || 'Please try again.'}`);
+      setIsSubmittingCustomBlankAuth(false);
+    }
   };
 
   const renderCustomBlankCard = (garmentTypeLabel?: string) => (
@@ -6540,10 +6666,175 @@ export function PublicQuoteRequest() {
                 disabled={!customBlankBrandStyle.trim()}
                 className="px-5 py-2.5 text-xs font-bold text-white bg-black hover:bg-neutral-800 disabled:opacity-40 disabled:cursor-not-allowed rounded-full transition-all shadow-md cursor-pointer inline-flex items-center gap-1.5"
               >
-                <Plus size={14} className="stroke-[2.5]" />
-                Add Custom Blank Request
+                <span>Continue to Account Setup</span>
+                <ArrowRight size={14} />
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Blank Request Account Creation Modal (Step 2) */}
+      {showCustomBlankAuthModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[100] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-[2.5rem] border border-neutral-200 shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="p-6 sm:p-7 border-b border-neutral-100 flex items-start justify-between bg-neutral-50/50">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-indigo-50 border border-indigo-200/80 flex items-center justify-center text-indigo-600 shadow-3xs shrink-0">
+                  <PackagePlus size={22} />
+                </div>
+                <div>
+                  <span className="text-[10px] font-extrabold uppercase tracking-widest text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 rounded-full inline-block mb-1">
+                    STEP 2 OF 2 • CREATE ACCOUNT
+                  </span>
+                  <h3 className="font-serif font-bold text-xl text-neutral-900 leading-tight">
+                    Create Your Customer Account
+                  </h3>
+                  <p className="text-xs text-neutral-500 font-medium mt-0.5">
+                    Set up your portal to submit your blank request & receive digital mockup proofs.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCustomBlankAuthModal(false)}
+                className="w-8 h-8 rounded-full border border-neutral-200 hover:border-black flex items-center justify-center text-neutral-500 hover:text-black transition-colors cursor-pointer shrink-0"
+              >
+                <X size={15} />
+              </button>
+            </div>
+
+            {/* Request Summary Card */}
+            <div className="px-6 pt-5 pb-1">
+              <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-3.5 flex flex-col gap-1 text-xs">
+                <div className="flex items-center justify-between text-neutral-400 font-bold uppercase tracking-wider text-[10px]">
+                  <span>REQUESTED GARMENT</span>
+                  <span className="text-indigo-600 font-extrabold">{customBlankGarmentType}</span>
+                </div>
+                <div className="font-bold text-neutral-900 text-sm">
+                  {customBlankBrandStyle}
+                </div>
+                {customBlankColor && (
+                  <div className="text-neutral-600 font-medium text-[11.5px]">
+                    Color: <span className="font-semibold text-neutral-800">{customBlankColor}</span>
+                  </div>
+                )}
+                {customBlankNotes && (
+                  <div className="text-neutral-500 font-normal text-[11px] truncate mt-0.5">
+                    Notes: {customBlankNotes}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Account Form */}
+            <form onSubmit={handleFinalSubmitCustomBlankRequest} className="p-6 sm:p-7 pt-4 flex flex-col gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-[10px] font-extrabold uppercase tracking-wider text-neutral-500 mb-1">
+                    Contact Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={customBlankContactName}
+                    onChange={(e) => setCustomBlankContactName(e.target.value)}
+                    placeholder="e.g. Alex Morgan"
+                    className="w-full text-xs font-semibold text-neutral-900 bg-neutral-50 border border-neutral-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-black"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-extrabold uppercase tracking-wider text-neutral-500 mb-1">
+                    Company / Brand Name
+                  </label>
+                  <input
+                    type="text"
+                    value={customBlankCompany}
+                    onChange={(e) => setCustomBlankCompany(e.target.value)}
+                    placeholder="e.g. Acme Apparel"
+                    className="w-full text-xs font-semibold text-neutral-900 bg-neutral-50 border border-neutral-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-black"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-[10px] font-extrabold uppercase tracking-wider text-neutral-500 mb-1">
+                    Email Address *
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={customBlankEmail}
+                    onChange={(e) => setCustomBlankEmail(e.target.value)}
+                    placeholder="alex@example.com"
+                    className="w-full text-xs font-semibold text-neutral-900 bg-neutral-50 border border-neutral-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-black"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-extrabold uppercase tracking-wider text-neutral-500 mb-1">
+                    Phone Number
+                  </label>
+                  <input
+                    type="tel"
+                    value={customBlankPhone}
+                    onChange={(e) => setCustomBlankPhone(e.target.value)}
+                    placeholder="(555) 000-0000"
+                    className="w-full text-xs font-semibold text-neutral-900 bg-neutral-50 border border-neutral-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-black"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-extrabold uppercase tracking-wider text-neutral-500 mb-1">
+                  Create Password * (Min 6 characters)
+                </label>
+                <input
+                  type="password"
+                  required
+                  minLength={6}
+                  value={customBlankPassword}
+                  onChange={(e) => setCustomBlankPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full text-xs font-semibold text-neutral-900 bg-neutral-50 border border-neutral-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-black"
+                />
+              </div>
+
+              {/* Actions */}
+              <div className="pt-3 border-t border-neutral-100 flex items-center justify-between gap-3 mt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCustomBlankAuthModal(false);
+                    setShowCustomBlankModal(true);
+                  }}
+                  className="px-4 py-2.5 text-xs font-bold text-neutral-600 hover:text-neutral-900 transition-colors cursor-pointer"
+                >
+                  ← Back to Request
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={isSubmittingCustomBlankAuth || !customBlankContactName.trim() || !customBlankEmail.trim() || !customBlankPassword}
+                  className="px-6 py-3 text-xs font-bold text-white bg-black hover:bg-neutral-800 disabled:opacity-40 disabled:cursor-not-allowed rounded-full transition-all shadow-md cursor-pointer inline-flex items-center gap-2"
+                >
+                  {isSubmittingCustomBlankAuth ? (
+                    <>
+                      <Loader2 size={15} className="animate-spin" />
+                      <span>Creating Portal Workspace...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Submit Request & Go to Portal</span>
+                      <ArrowRight size={15} />
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
