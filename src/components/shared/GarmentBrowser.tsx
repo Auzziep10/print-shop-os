@@ -23,6 +23,29 @@ interface SanMarProduct {
 
 const sanmarCatalog = sanmarCatalogJson as SanMarProduct[];
 
+const cleanGarmentTitle = (title: string, styleId?: string): string => {
+  if (!title) return 'Custom Garment';
+
+  let cleaned = title
+    .replace(/®/g, '')
+    .replace(/™/g, '')
+    .replace(/\b(BELLA\+CANVAS|BELLA \+ CANVAS|District|Sport-Tek|Stanley\/Stella|Port & Company|Port and Company|Anvil|Gildan|Next Level|CornerStone|Mercer|Ogio|Jerzees|Hanes|Fruit of the Loom|Carhartt|Nike|Adidas|Champion|Comfort Colors|Rabbit Skins|LAT|Alternative)\b/gi, '')
+    .trim();
+
+  cleaned = cleaned.replace(/^[\s\-\.–—•:]+/, '').trim();
+
+  if (styleId) {
+    const escapedStyle = styleId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const styleRegex = new RegExp(`[\\.\\s\\-–—•]*${escapedStyle}[\\s\\.]*`, 'gi');
+    cleaned = cleaned.replace(styleRegex, '').trim();
+  }
+
+  cleaned = cleaned.replace(/[\.\s\-–—•]*\b[A-Z0-9]{3,10}\b[\.\s]*$/gi, '').trim();
+  cleaned = cleaned.replace(/^[\s\-\.–—•:]+/, '').replace(/[\s\-\.–—•:]+$/, '').trim();
+
+  return cleaned || title;
+};
+
 interface GarmentBrowserProps {
   isOpen: boolean;
   onClose: () => void;
@@ -286,7 +309,7 @@ export function GarmentBrowser({ isOpen, onClose, onSelect, allowedStyleCodes, h
 
       return {
         ...p,
-        title: customTitle || p.title || p.style,
+        title: customTitle || cleanGarmentTitle(p.title || '', p.style) || p.style,
         price: (customPrice !== undefined && customPrice !== null && !isNaN(customPrice)) ? customPrice : p.price,
       };
     }) as SanMarProduct[];

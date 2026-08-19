@@ -548,6 +548,29 @@ export function PortalCreateOrder() {
     }
   }, [location.search]);
 
+  const cleanGarmentTitle = (title: string, styleId?: string): string => {
+    if (!title) return 'Custom Garment';
+
+    let cleaned = title
+      .replace(/®/g, '')
+      .replace(/™/g, '')
+      .replace(/\b(BELLA\+CANVAS|BELLA \+ CANVAS|District|Sport-Tek|Stanley\/Stella|Port & Company|Port and Company|Anvil|Gildan|Next Level|CornerStone|Mercer|Ogio|Jerzees|Hanes|Fruit of the Loom|Carhartt|Nike|Adidas|Champion|Comfort Colors|Rabbit Skins|LAT|Alternative)\b/gi, '')
+      .trim();
+
+    cleaned = cleaned.replace(/^[\s\-\.–—•:]+/, '').trim();
+
+    if (styleId) {
+      const escapedStyle = styleId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const styleRegex = new RegExp(`[\\.\\s\\-–—•]*${escapedStyle}[\\s\\.]*`, 'gi');
+      cleaned = cleaned.replace(styleRegex, '').trim();
+    }
+
+    cleaned = cleaned.replace(/[\.\s\-–—•]*\b[A-Z0-9]{3,10}\b[\.\s]*$/gi, '').trim();
+    cleaned = cleaned.replace(/^[\s\-\.–—•:]+/, '').replace(/[\s\-\.–—•:]+$/, '').trim();
+
+    return cleaned || title;
+  };
+
   const resolveColorMockup = (itemObj: any, chosenColor?: string, side: 'front' | 'back' | 'sleeve' = 'front'): string | null => {
     if (!colorMockups || Object.keys(colorMockups).length === 0) return null;
     const stylesToTry = Array.from(new Set([
@@ -733,18 +756,6 @@ export function PortalCreateOrder() {
       });
     }
 
-    if (catalogBasics) {
-      Object.values(catalogBasics).forEach(bCat => {
-        if (bCat && typeof bCat === 'object') {
-          Object.values(bCat).forEach(val => {
-            if (val && typeof val === 'string' && val.trim()) {
-              stylesSet.add(val.trim().toLowerCase());
-            }
-          });
-        }
-      });
-    }
-
     if (customCatalogItems) {
       customCatalogItems.forEach(item => {
         if (item.style) stylesSet.add(item.style.trim().toLowerCase());
@@ -819,7 +830,7 @@ export function PortalCreateOrder() {
 
       return {
         ...prod,
-        customName: customName || prod.customName || prod.title,
+        customName: customName || prod.customName || cleanGarmentTitle(prod.title || '', prod.style),
         customImage: colorMockupImg || customImage || prod.customImage || prod.image || prod.mockup_image,
         price: (customPrice !== undefined && customPrice !== null && !isNaN(customPrice)) ? customPrice : prod.price,
         customSpecs: customSpec || prod.customSpecs
@@ -1968,7 +1979,7 @@ export function PortalCreateOrder() {
               </div>
             ) : (
               activeRackItems.map((item: any, idx: number) => {
-                const style = item.customName || item.title || item.style || 'Custom Garment';
+                const style = item.customName || cleanGarmentTitle(item.title || '', item.style) || item.style || 'Custom Garment';
                 const gender = item.gender || 'Unisex';
                 const itemNum = item.style;
                 const colors = item.colors || ['Custom Color'];
@@ -2180,7 +2191,7 @@ export function PortalCreateOrder() {
                 );
               }
               return matching.map((item: any, idx: number) => {
-                const style = item.customName || item.title || item.style || 'Custom Garment';
+                const style = item.customName || cleanGarmentTitle(item.title || '', item.style) || item.style || 'Custom Garment';
                 const gender = item.gender || 'Unisex';
                 const itemNum = item.style;
                 const colors = item.colors || ['Custom Color'];
