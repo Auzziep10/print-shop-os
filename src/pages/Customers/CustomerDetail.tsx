@@ -2294,12 +2294,24 @@ export function CustomerDetail() {
                        <h3 className="text-sm font-bold text-brand-primary flex items-center gap-2">
                          Customer Auto-Quoting & Pricing Overrides
                          <span className={`text-[9px] px-2 py-0.5 rounded-full font-extrabold uppercase tracking-wider ${
-                           customPricing.enabled 
-                             ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' 
-                             : 'bg-neutral-100 text-neutral-600 border border-neutral-250'
-                         }`}>
-                           {customPricing.enabled ? 'Custom Pricing Active' : 'Inheriting Shop Defaults'}
-                         </span>
+                            customPricing.enabled || (customPricing.autoQuotingEnabled && customPricing.autoQuotingEnabled !== 'inherit')
+                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' 
+                              : 'bg-neutral-100 text-neutral-600 border border-neutral-250'
+                          }`}>
+                            {(() => {
+                              const hasAutoQuote = customPricing.autoQuotingEnabled && customPricing.autoQuotingEnabled !== 'inherit';
+                              const hasCustomPricing = !!customPricing.enabled;
+                              if (hasCustomPricing && hasAutoQuote) {
+                                return customPricing.autoQuotingEnabled === 'disabled'
+                                  ? 'Custom Pricing Active • Manual Review'
+                                  : 'Custom Pricing Active • Auto-Quote ON';
+                              }
+                              if (hasCustomPricing) return 'Custom Pricing Active';
+                              if (customPricing.autoQuotingEnabled === 'enabled') return 'Auto-Quoting Forced ON';
+                              if (customPricing.autoQuotingEnabled === 'disabled') return 'Manual Review Required';
+                              return 'Inheriting Shop Defaults';
+                            })()}
+                          </span>
                        </h3>
                        <p className="text-[11px] text-brand-secondary mt-0.5">
                          Override global shop auto-quoting behavior and custom price ladder anchors specifically for this customer.
